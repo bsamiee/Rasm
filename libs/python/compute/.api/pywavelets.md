@@ -93,7 +93,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- One DWT family spans dimensionality by axis rank and depth by `level`; `idwt`/`waverec*` are exact inverses, so perfect reconstruction (`waverec(wavedec(x)) ≈ x`) is the verification invariant, and each transform records wavelet, level, mode, axis, and coefficient shapes as a signal receipt — never a hand-iterated filter cascade.
+- One DWT family spans dimensionality by axis rank and depth by `level`; `idwt`/`waverec*` are exact inverses, and the signal owner returns the provider coefficient collection beside its reconstruction.
 - `mode` (signal-extension policy) and `wavelet` (filter bank, resolved by name through `wavelist`/`families`) are transform parameters, never a separate padded-then-transform path or hardcoded coefficient array.
 - Decimated `dwt`, undecimated `swt`, additive `mra` (components SUM to input, `sum(mra(x)) ≈ x`, inverted by `imra*`), and per-axis-independent `fswavedecn` (returning a `FswavedecnResult` inverted only by `fswaverecn`) are decomposition rows on one surface, never parallel transform engines.
 - `cwt` returns scale-frequency coefficients (`method='conv'|'fft'`) with `scale2frequency`/`frequency2scale`/`central_frequency` owning the scale↔frequency map; `threshold`/`threshold_firm` denoise detail coefficients between decomposition and reconstruction.
@@ -102,7 +102,7 @@
 [STACKING]:
 - `scipy`(`.api/scipy.md`): `scipy.signal` owns Fourier/short-time-Fourier spectral analysis and FIR/IIR filtering; the signal owner pairs `scipy.signal.spectrogram` (stationary spectrum) with `pywt.cwt` (time-scale) over a shared `sampling_period`/`fs` so the frequency axes align.
 - `jax`(`.api/jax.md`)/`optax`(`.api/optax.md`): a wavelet-domain regularized inverse ravels the `wavedecn` coefficients to one 1D vector, optimizes under an L1/sparsity penalty through the JAX/optax owner, then `unravel_coeffs`+`waverecn` reconstructs the spatial field — the packing helpers own the flat↔nested map, never a hand-built index.
-- `arviz`(`.api/arviz.md`): a wavelet-denoised posterior trace applies `threshold`/`threshold_firm` to `wavedec` detail coefficients, the reconstructed trace returning to `arviz` diagnostics with the threshold captured beside wavelet/level/mode in the receipt.
+- `arviz`(`.api/arviz.md`): a wavelet-denoised posterior trace applies `threshold`/`threshold_firm` to `wavedec` detail coefficients before the reconstructed trace returns to `arviz` diagnostics.
 - within-lib: the `compute` signal owner folds `dwt`/`wavedec`, `swt`, `cwt`, and the `Wavelet` catalogue into one denoise pass, thresholding between `wavedec` and `waverec` beside `scipy.signal`.
 
 [LOCAL_ADMISSION]:

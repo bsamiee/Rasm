@@ -1,8 +1,8 @@
 # [APPHOST_SUPPORT_BUNDLES]
 
-Support capture owns the runtime spine's bounded diagnostic evidence surface: one `SupportTrigger` union admits every cause, and one fold freezes the window, gathers ordered artifact rows, redacts before write, caps with receipts, and lands one zip. Capture law owns the trigger vocabulary, artifact roster and contributed ports, dump custody, policy values, archive manifest, and host-local outcomes. Each bundle is process-local evidence; HLC stamps correlate cross-process incidents.
+Support capture owns the runtime spine's bounded diagnostic evidence surface: one `SupportTrigger` union admits every cause, and one fold freezes the window, gathers ordered artifact rows, redacts before write, caps, and lands one zip. Capture law owns the trigger vocabulary, artifact roster and contributed ports, dump custody, policy values, archive manifest, and host-local outcomes. Each bundle is process-local evidence; HLC stamps correlate cross-process incidents.
 
-Settled composition: `SupportContributorPort` arrives from Runtime/ports#PORT_SURFACE; `ContentHash.Of`/`.Hex`, `Dimension`, `Masked`, `Cell`, `Transition`, `MonotonicTimeline`, `Op`, and `InstrumentTally`/`InstrumentReading`/`ReadingCell` arrive from the kernel; `FaultCell` and `IsolatedFault` from Rasm/Domain/hooks#HOOK_RAIL; `RedactedText`/`DataClassification` from Observability/telemetry#REDACTION_TAXONOMY; `LatencySpine`/`LatencyCheckpoint` from Observability/telemetry#LATENCY_PLANE; `AppHostMeasure`/`InstrumentSet` from Observability/instruments; `ClockPolicy`/`ScheduleEntry`/`DeadlineClass`/`DeadlineReceipt` from Runtime/time; `WatchdogEnrollment` from Runtime/profiles#BOOT_SURFACE; `AdversarialProbe.Drift`/`ChaosDrift`/`ChaosObservation` from Runtime/determinism; `PerfMapLease` from Observability/benchmarks#CAPTURE_SEAM, which is where the profiled-window symbol lease declares and where all three of its consumers live.
+Settled composition: `SupportContributorPort` arrives from Runtime/ports#PORT_SURFACE; `ContentHash.Of`/`.Hex`, `Dimension`, `Masked`, `Cell`, `Transition`, `MonotonicTimeline`, `Op`, and `InstrumentTally`/`InstrumentReading`/`ReadingCell` arrive from the kernel; `FaultCell` and `IsolatedFault` from Rasm/Domain/hooks#HOOK_RAIL; `RedactedText`/`DataClassification` from Observability/telemetry#REDACTION_TAXONOMY; `LatencySpine`/`LatencyCheckpoint` from Observability/telemetry#LATENCY_PLANE; `AppHostMeasure`/`InstrumentSet` from Observability/instruments; `ClockPolicy`/`ScheduleEntry`/`DeadlineClass`/`DeadlineOutcome` from Runtime/time and `GaugedSpan<DeadlineClass>` from the kernel; `PhaseCommit` from Runtime/lifecycle#PHASE_FAMILY; `AppHostMeasure.RedactionTags` and `InstrumentSet` from Observability/instruments; `WatchdogEnrollment` from Runtime/profiles#BOOT_SURFACE; `AdversarialProbe.Drift`/`ChaosDrift`/`ChaosObservation` from Runtime/determinism; `PerfMapLease` from Observability/benchmarks#CAPTURE_SEAM, which is where the profiled-window symbol lease declares and where all three of its consumers live.
 
 ## [01]-[INDEX]
 
@@ -10,15 +10,15 @@ Settled composition: `SupportContributorPort` arrives from Runtime/ports#PORT_SU
 - [03]-[ARTIFACT_ROSTER]: Contributor factory rows, the contributed-port seam, the one masking ledger, and the event-trace pump.
 - [04]-[DUMP_CUSTODY]: Image source with its custody column, completeness policy, and the ClrMD triage fold.
 - [05]-[CAPTURE_PIPELINE]: Window freeze, coalesce gate, ordered fan-in, cleanup fold, and the bundle cap.
-- [06]-[MANIFEST_RECEIPT]: Zip assembly, native receipt seal, retention sweep, and process law.
+- [06]-[BUNDLE_SEAL]: Zip assembly, the settled outcome family, retention sweep, and process law.
 
 ## [02]-[TRIGGER_UNION]
 
 - Owner: `SupportTriggerKind` `[SmartEnum<string>]` carries the six cause keys and dump completeness; `SupportTrigger` `[Union]` has four interior payload cases over the universal correlation and window columns; `TriggerFacts` is the named projection every downstream fold reads.
 - Cases: `Requested` covers local and admitted-control requests through its `Origin`; `FaultTransition` carries the runtime's native `FaultSource`; `HealthThreshold` carries the crossed `DegradationLevel`; `Timed` covers heartbeat and scheduled causes through the same `Origin` column.
-- Entry: `trigger.Facts()` returns `TriggerFacts` — correlation, kind, rendered reason, and window override in one named value the capture fold, the manifest mapper, and the coalesce receipt all read.
+- Entry: `trigger.Facts()` returns `TriggerFacts` — correlation, kind, rendered reason, and window override in one named value the capture fold, the manifest mapper, and the coalesce outcome all read.
 - Law: the kind vocabulary outranks the case split. Two causes sharing a payload shape share one case and name their origin as a column, while all six keys survive as `SupportTriggerKind` rows because lifecycle, scheduling, coalescing, and the archive manifest read those distinctions.
-- Auto: `FaultTransition` carries the same native fault fact from `Runtime/lifecycle#FAULT_SPINE` for live faults and boot-marker probes alike, so capture and phase transition derive from one value; `Facts` preserves that value on the manifest while `Reason` remains the short operator label; `Timed` renders the schedule key beside the deadline lane and outcome and never serializes the live work closure.
+- Auto: `FaultTransition` carries the same native fault fact from `Runtime/lifecycle#FAULT_SPINE` for live faults and boot-marker probes alike, so capture and phase transition derive from one value; `Facts` preserves that value on the manifest while `Reason` remains the short operator label; `Timed` renders the schedule key beside the gauged lane and its `DeadlineOutcome` and never serializes the live work closure.
 - Packages: Rasm.Contracts, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core
 - Growth: one capture cause is one `SupportTriggerKind` row and, where its payload differs from every standing case, one `SupportTrigger` case whose `Facts` arm the generated `Switch` demands; a new fault cause extends the one `FaultSource` union the `FaultTransition` payload carries; a completeness retune is one `Dump` column value; zero new surface.
 - Boundary: the abstract root seals ingress; fault, health, and schedule causes carry typed evidence whole, while the short reason renders once inside total `Facts` dispatch. Durable crash recovery and support capture read the same native fault fact, never a peer protobuf or local mirror. The live `ScheduleEntry.Work` closure stays process-local; only its key and the deadline lane/outcome enter the reason. Watchdog dump completeness remains enrollment-owned.
@@ -63,7 +63,7 @@ public abstract partial record SupportTrigger {
         : SupportTrigger(Correlation, WindowOverride);
     public sealed record HealthThreshold(CorrelationId Correlation, DegradationLevel Level, Option<Duration> WindowOverride = default)
         : SupportTrigger(Correlation, WindowOverride);
-    public sealed record Timed(CorrelationId Correlation, SupportTriggerKind Origin, ScheduleEntry Entry, DeadlineReceipt Deadline, Option<Duration> WindowOverride = default)
+    public sealed record Timed(CorrelationId Correlation, SupportTriggerKind Origin, ScheduleEntry Entry, GaugedSpan<DeadlineClass> Span, Option<Duration> WindowOverride = default)
         : SupportTrigger(Correlation, WindowOverride);
 }
 
@@ -85,7 +85,7 @@ public static class SupportTriggerOps {
             healthThreshold: static row => new TriggerFacts(row.Correlation, SupportTriggerKind.HealthThreshold, row.Level.Key, row.WindowOverride),
             timed:           static row => new TriggerFacts(
                                  row.Correlation, row.Origin,
-                                 $"{row.Entry.Key}:{row.Deadline.Class.Key}:{row.Deadline.Outcome.Key}",
+                                 $"{row.Entry.Key}:{row.Span.Lane.Key}:{DeadlineOutcome.Of(row.Span).Key}",
                                  row.WindowOverride));
     }
 }
@@ -94,14 +94,14 @@ public static class SupportTriggerOps {
 ## [03]-[ARTIFACT_ROSTER]
 
 - Owner: `SupportArtifact` the contributor factory row; `CaptureWindow` the per-capture context every producer reads; `ArtifactPayload` the produced bytes beside their masking tally; `MaskTally` the redaction monoid and `MaskLedger` the ONE masking owner every redacted column writes through; `TraceSession` the event-trace pump's own acquisition; the contributed-row carrier is `Runtime/ports#PORT_SURFACE` `SupportContributorPort`, which this owner folds and never re-declares.
-- Cases: seven standing rows — effective config, signal readings, phase receipts, health reading, hook faults, determinism drift, the event trace — beside the two dump rows `[04]` mints; each is a factory over composition-supplied ports and none opens a capture window of its own.
+- Cases: seven standing rows — effective config, signal readings, phase commits, health reading, hook faults, determinism drift, the event trace — beside the two dump rows `[04]` mints; each is a factory over composition-supplied ports and none opens a capture window of its own.
 - Entry: each `SupportArtifact.<Row>(…)` returns the factory row; `Runtime/ports#PORT_SURFACE` `SupportContributorPort` carries a package's rows inward; `SupportArtifact.Folded(own, contributed)` is the ONE roster projection the runtime binds; `MaskLedger.Mask(object?)` returns the masked text and records its verdict, `MaskLedger.Tally` reads the accumulated count.
 - Law: redaction verdicts are kernel `Masked` cases and the tally is their MONOID fold. Three `ref int` counters threaded through every producer are the deleted form — they let two producers disagree on what counts and made a length-preserving redactor report zero over a fully masked bundle — so one ledger owns the verdict, one tally owns the count, and a producer that writes a byte cannot skip either.
 - Auto: `IncidentBuffers.Flush` replays both held scopes into the frozen window before contributor fan-in and counts the scopes it drained; the `DeadlineClass.SupportWindow` row bounds the capture run on the cancel spine; the hook rail's parked subscriber faults drain here rather than through a second retention plane, because `FaultCell` is the bounded custody the rail already keeps and a capture is exactly when a late panel gets read; the determinism campaign's placement fold runs as a contributor, so a pulled bundle carries the drift evidence naming any strategy that swallowed an injection.
-- Receipt: per-artifact written bytes, truncated bytes, redaction counts, and each written member's content key land as `SupportManifest.Entry` rows.
+- Output: per-artifact written bytes, truncated bytes, redaction counts, and each written member's content key land as `SupportManifest.Entry` rows.
 - Packages: Rasm (kernel `Dimension`, `Masked`, `InstrumentTally`/`InstrumentReading`/`ReadingCell`, `FaultCell`), Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `SupportArtifact` factory row lands a new contributor and one inward `SupportContributorPort` lands a whole package's set, which the one `Folded` projection already reads; zero new surface.
-- Boundary: classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their tally and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; `SupportArtifact.Cleanup` is the optional custody row the `[05]` fan folds before bundle sealing; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the ledger so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value`, carrying no unredacted secret — the framework drives that callback itself, which is why the ledger's accumulation seat is one cell inside the owner rather than a `Writer` bind no callback can reach; the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a FORKED pump whose window is the fork's own timeout, so the decode blocks on nothing the capture cannot cancel and a detached `Task.Delay` continuation whose faults nothing observes and whose stop races the dispose is the deleted form, with the admitted `Dimension` supplying both `circularBufferMB` and the artifact estimate so runtime buffering and bundle accounting cannot drift; decode faults map to `SupportFault.DecodeFaulted` and land `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has no reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` tool boundary; native-symbol leasing is `Observability/benchmarks#CAPTURE_SEAM` `PerfMapLease`, whose three consumers all live on that page — this owner opens no lease and a declaration here is a symbol seam beside a fan that never brackets a profiled window; the `SignalReadings` row is the capture's MEASUREMENT evidence and reads the kernel `InstrumentTally` alone — a bundle is pulled exactly when the exporter, collector, or store is what failed, so the read plane that answers it composes no exporter and no store, the tally's own lifetime and arming stay the composition root's, and a tally refusal rides the standing contributor recovery arm as a named zero-byte entry rather than a second fault path; contributed ports carry rows and never reach the freeze, redact, or cap law, so a benchmark session lends its event-trace row without opening a second capture window.
+- Boundary: classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their tally and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; `SupportArtifact.Cleanup` is the optional custody row the `[05]` fan folds before bundle sealing; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the ledger so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value`, carrying no unredacted secret — the framework drives that callback itself, which is why the ledger's accumulation seat is one cell inside the owner rather than a `Writer` bind no callback can reach; the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a FORKED pump whose window is the fork's own timeout, so the decode blocks on nothing the capture cannot cancel and a detached `Task.Delay` continuation whose faults nothing observes and whose stop races the dispose is the deleted form, with the admitted `Dimension` supplying both `circularBufferMB` and the artifact estimate so runtime buffering and bundle accounting cannot drift; decode faults map to `SupportFault.DecodeFaulted` and land the bundle partial rather than aborting it; the `.gcdump` heap graph has no reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` tool boundary; native-symbol leasing is `Observability/benchmarks#CAPTURE_SEAM` `PerfMapLease`, whose three consumers all live on that page — this owner opens no lease and a declaration here is a symbol seam beside a fan that never brackets a profiled window; the `SignalReadings` row is the capture's MEASUREMENT evidence and reads the kernel `InstrumentTally` alone — a bundle is pulled exactly when the exporter, collector, or store is what failed, so the read plane that answers it composes no exporter and no store, the tally's own lifetime and arming stay the composition root's, and a tally refusal rides the standing contributor recovery arm as a named zero-byte entry rather than a second fault path; contributed ports carry rows and never reach the freeze, redact, or cap law, so a benchmark session lends its event-trace row without opening a second capture window.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -176,9 +176,9 @@ public sealed record SupportArtifact(
     static string Tagged(ReadingCell cell, MaskLedger ledger) =>
         string.Concat(toSeq(cell.Tags).Map(tag => $" {tag.Key}={ledger.Mask(tag.Value)}"));
 
-    public static SupportArtifact PhaseReceipts(
-        Func<Interval, Seq<PhaseReceipt>> window, JsonTypeInfo<ImmutableArray<PhaseReceipt>> contract) => new(
-        Name: "phase-receipts",
+    public static SupportArtifact PhaseCommits(
+        Func<Interval, Seq<PhaseCommit>> window, JsonTypeInfo<ImmutableArray<PhaseCommit>> contract) => new(
+        Name: "phase-commits",
         Classification: DataClassification.Operational,
         EstimatedBytes: 32 << 10,
         Produce: capture => IO.lift(() => Serialized([.. window(capture.Frozen)], contract)));
@@ -401,14 +401,14 @@ public static class DumpArtifacts {
 ## [05]-[CAPTURE_PIPELINE]
 
 - Owner: `SupportFault` `[Union]` the fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Support`; `Code` derive SEALED); `SupportPolicy` the config-bound value row; `SupportRuntime` the bound capture context; `EntryState` `[Union]` the written-or-empty manifest state; `ArtifactRow` the interior row a producer yields; `SupportCapture` the window-freeze, coalesce, ordered fan-in, cleanup, and cap fold.
-- Entry: `SupportCapture.Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportReceipt>` — `IO` carries the freeze-fan-redact-cap-bundle effect and the fold opens, marks, and releases its OWN latency ledger.
+- Entry: `SupportCapture.Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportOutcome>` — `IO` carries the freeze-fan-redact-cap-bundle effect and the fold opens, marks, and releases its OWN latency ledger.
 - Law: the capture fold IS the operation, so it opens its own ledger where the drain conductor and the outbound hop RECEIVE one. That is the discriminant: a fold running inside a caller's operation takes the context that caller already opened, while a fold triggered by a fault commit, a watchdog miss, or a control verb has no ambient operation to take one from — which is why the ledger is a per-call factory column rather than a `SupportRuntime` field a pooled context outlives.
 - Law: every `Cleanup` delegate runs EXACTLY once. Folding runs OUTSIDE the compare-and-swap and the settled roster commits through `Cell.Commit`, where a fold inside the CAS body re-ran every release on each contended retry (E-A35).
 - Auto: the coalesce gate seats through `Cell.Seat`, so the winner reads `Committed` and every arriving trigger reads `Ceded` with the live correlation on the transition rather than probing the cell a second time; `IncidentBuffers.Flush` replays both held scopes into the frozen window before contributor fan-in and its own scope-count write rides its rail without gating the capture, because an incident bundle is the evidence of the failure being assembled; the artifact cut falls in ONE place, so the manifest's byte count, the content key's preimage, and the zip member are three reads of one projection.
-- Receipt: `SupportReceipt` — exported, coalesced, or evicted; the exported case carries the manifest, the bundle path, its total bytes, and the monotonic elapsed span.
+- Output: `SupportOutcome` — exported, coalesced, or evicted; the exported case carries the manifest, the bundle path, its total bytes, and the monotonic elapsed span, and `Assemble` writes one `AppHostMeasure.RedactionTags` point per masked entry off that manifest through the runtime's own `Signals`.
 - Packages: Rasm (kernel `ContentHash`, `Cell`, `Transition`, `MonotonicTimeline`, `Op`), Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one policy value retunes caps or retention; one fault is one `SupportFault` case; one entry state is one `EntryState` case every consumer's `Switch` breaks on; zero new surface.
-- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to host-local `SupportReceipt.Coalesced` and never opens a second window, and only the capture that seated the gate clears it; classification resolves redaction at row registration, so no unredacted classified byte reaches assembly; every contributor and cleanup runs under one recovery arm and faults become zero-byte entries; `Assemble` brackets fan and cleanup before sealing; every written row's content key covers the capped, already-redacted bytes in its zip member; empty rows cannot carry keys by `EntryState` construction; elapsed rides `MonotonicTimeline`; the successful exported case seals directly onto the same-process receipt fan through `SuiteContracts.Host`.
+- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to host-local `SupportOutcome.Coalesced` and never opens a second window, and only the capture that seated the gate clears it; classification resolves redaction at row registration, so no unredacted classified byte reaches assembly; every contributor and cleanup runs under one recovery arm and faults become zero-byte entries; `Assemble` brackets fan and cleanup before sealing; every written row's content key covers the capped, already-redacted bytes in its zip member; empty rows cannot carry keys by `EntryState` construction; elapsed rides `MonotonicTimeline`; the exported case is the value `Capture` returns and the phase bracket `Lifecycle.Captured` resumes on, and it crosses no seam beyond the caller.
 
 ```csharp
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -478,8 +478,7 @@ public sealed record SupportRuntime(
     IncidentBuffers Buffer,
     InstrumentSet Signals,
     Func<(ILatencyContext Context, CheckpointToken Phase)> Latency,
-    Func<Interval, Seq<PhaseReceipt>> Phases,
-    ReceiptSinkPort Sink,
+    Func<Interval, Seq<PhaseCommit>> Phases,
     Option<WatchdogEnrollment> Watchdog,
     JsonTypeInfo<SupportManifest> ManifestContract,
     Seq<SupportArtifact> Contributors,
@@ -489,18 +488,18 @@ public sealed record SupportRuntime(
 public static class SupportCapture {
     static readonly Op CaptureWork = Op.Of(nameof(Capture));
 
-    public static IO<SupportReceipt> Capture(SupportRuntime runtime, SupportTrigger trigger) =>
+    public static IO<SupportOutcome> Capture(SupportRuntime runtime, SupportTrigger trigger) =>
         trigger.Facts() switch {
             var facts => IO.lift(() => Cell.Seat(runtime.Active, () => facts.Correlation)).Bracket(
                 Use: seat => seat is Transition<Option<CorrelationId>>.Committed
                     ? Ledgered(runtime, facts)
-                    : IO.pure<SupportReceipt>(new SupportReceipt.Coalesced(
+                    : IO.pure<SupportOutcome>(new SupportOutcome.Coalesced(
                         seat.Current.IfNone(facts.Correlation), facts.Kind)),
-                Catch: static error => IO.fail<SupportReceipt>(error),
+                Catch: static error => IO.fail<SupportOutcome>(error),
                 Fin: seat => IO.lift(() => Cleared(runtime.Active, seat))),
         };
 
-    static IO<SupportReceipt> Ledgered(SupportRuntime runtime, TriggerFacts facts) =>
+    static IO<SupportOutcome> Ledgered(SupportRuntime runtime, TriggerFacts facts) =>
         IO.lift(runtime.Latency).Bracket(
             Use: opened => Assemble(runtime, facts, opened.Context, opened.Phase),
             Fin: static opened => IO.lift(() => (fun(opened.Context.Dispose)(), unit).Item2));
@@ -508,7 +507,7 @@ public static class SupportCapture {
     static Unit Cleared(Atom<Option<CorrelationId>> gate, Transition<Option<CorrelationId>> seat) =>
         seat is Transition<Option<CorrelationId>>.Committed ? ignore(Cell.Take(gate)) : unit;
 
-    static IO<SupportReceipt> Assemble(
+    static IO<SupportOutcome> Assemble(
         SupportRuntime runtime, TriggerFacts facts, ILatencyContext latency, CheckpointToken phase) =>
         from at in IO.lift(() => runtime.Clocks.Now)
         from opened in Stamped(runtime)
@@ -524,13 +523,12 @@ public static class SupportCapture {
             Fin: _ => IO.lift(() => Released(runtime.Contributors, cleanup)))
         let rows = Capped(produced + cleanup.Value, runtime.Policy)
         from exported in SupportLedger.Bundle(runtime, BundleMap.Manifest(facts, window, rows, runtime), rows, opened)
-        from _sent in runtime.Sink.Send(
-            exported.Manifest.Correlation,
-            TenantContext.Current,
-            TelemetrySource.AppHost,
-            ReceiptKind.Support.Key,
-            JsonSerializer.SerializeToElement(exported, SuiteContracts.Host))
-        select (SupportReceipt)exported;
+        from _masked in IO.lift(() => toSeq(exported.Manifest.Entries)
+            .Filter(static entry => entry.Redactions > 0)
+            .TraverseM(entry => runtime.Signals.Write(AppHostMeasure.RedactionTags.Row, entry.Redactions,
+                InstrumentSet.Tags((AppHostSlot.Class, entry.Classification.Key)))).As())
+            .Bind(static written => written.Match(Succ: static _ => IO.pure(unit), Fail: IO.fail<Unit>))
+        select (SupportOutcome)exported;
 
     static DumpPolicy Completeness(SupportRuntime runtime, SupportTriggerKind kind) =>
         (kind.Dump | runtime.Watchdog.Map(static held => held.Policy)).IfNone(DumpPolicy.Snapshot);
@@ -604,7 +602,7 @@ Every row names its `SupportArtifact` factory, so table and fence carry one rost
 | :-----: | :---------------- | :---------------- | :------------------------------------------------------------------- |
 |  [01]   | effective-config  | `EffectiveConfig` | redacted configuration debug view                                    |
 |  [02]   | signal-readings   | `SignalReadings`  | kernel `InstrumentTally` rows, backend-free                          |
-|  [03]   | phase-receipts    | `PhaseReceipts`   | lifecycle receipts the runtime's window supplier returns             |
+|  [03]   | phase-commits     | `PhaseCommits`    | lifecycle commits the runtime's window supplier returns              |
 |  [04]   | health-reading    | `HealthReading`   | the degradation cell's own coherent reading                          |
 |  [05]   | hook-faults       | `HookFaults`      | the rail's `FaultCell` parked rows beside its shed and lost counters |
 |  [06]   | determinism-drift | `DriftProbe`      | `AdversarialProbe.Drift` over the recorded chaos chain               |
@@ -612,16 +610,15 @@ Every row names its `SupportArtifact` factory, so table and fence carry one rost
 |  [08]   | dump-triage       | `DumpAnalysis`    | ClrMD `DumpTriage.Walk` rows over the capture's own `DumpSource`     |
 |  [09]   | event-trace       | `EventTrace`      | EventPipe session decoded through TraceEvent `EventPipeEventSource`  |
 
-## [06]-[MANIFEST_RECEIPT]
+## [06]-[BUNDLE_SEAL]
 
-- Owner: `SupportManifest` is the archive manifest; `SupportReceipt` `[Union]` is the native outcome family; `BundleMap` projects produced rows into the manifest; `SupportLedger` owns zip assembly and retention.
+- Owner: `SupportManifest` is the archive manifest; `SupportOutcome` `[Union]` is the native outcome family; `BundleMap` projects produced rows into the manifest; `SupportLedger` owns zip assembly and retention.
 - Cases: `Exported`, `Coalesced`, `Evicted`.
 - Entry: `BundleMap.Manifest(TriggerFacts, CaptureWindow, Seq<ArtifactRow>, SupportRuntime)` projects the archive manifest; `SupportLedger.Bundle(...)` writes the zip and `Sweep` owns retention eviction.
-- Auto: `Sweep` registers as one retention schedule row; every successful bundle write sends the native `SupportReceipt.Exported` through `SuiteContracts.Host` and the existing `ReceiptSinkPort` under `ReceiptKind.Support`; coalesced and evicted cases stay host-local.
-- Receipt: `SupportReceipt` is the host-local outcome family; `Exported` is the typed same-process receipt the instrument fan consumes.
+- Auto: `Sweep` registers as one retention schedule row; every case stays host-local — `Exported` is what `Capture` returns, `Coalesced` what a mid-capture trigger folds to, `Evicted` what `Sweep` returns.
 - Packages: Rasm.Contracts, Thinktecture.Runtime.Extensions, Generator.Equals, NodaTime, LanguageExt.Core, BCL inbox
-- Growth: an archive column extends `SupportManifest`; one outcome extends `SupportReceipt` and breaks every consumer arm; zero mirror surface.
-- Boundary: `Bundle` and `Evict` are the named `System.IO` capsules. Each entry's archive `ContentKey` stays lowercase kernel text over the final written bytes. The `Exported` receipt carries the archive path for local custody and crosses no peer boundary. Native `FaultSource` facts and generated `FaultObservation` members serialize through the one `SuiteContracts.Host` graph, whose protobuf converter gives embedded fault messages canonical ProtoJSON without reflecting over them. Retention folds count and bytes in one state and reads file size before deletion.
+- Growth: an archive column extends `SupportManifest`; one outcome extends `SupportOutcome` and breaks every consumer arm; zero mirror surface.
+- Boundary: `Bundle` and `Evict` are the named `System.IO` capsules. Each entry's archive `ContentKey` stays lowercase kernel text over the final written bytes. The `Exported` case carries the archive path for local custody and crosses no peer boundary. Native `FaultSource` facts and generated `FaultObservation` members serialize through the one `SuiteContracts.Host` graph, whose protobuf converter gives embedded fault messages canonical ProtoJSON without reflecting over them. Retention folds count and bytes in one state and reads file size before deletion.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -649,11 +646,11 @@ public sealed partial record SupportManifest(
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SupportReceipt {
-    private SupportReceipt() { }
-    public sealed record Exported(SupportManifest Manifest, string BundlePath, long TotalBytes, Duration Elapsed) : SupportReceipt;
-    public sealed record Coalesced(CorrelationId Active, SupportTriggerKind FoldedKind) : SupportReceipt;
-    public sealed record Evicted(int Bundles, long Bytes, Instant At) : SupportReceipt;
+public abstract partial record SupportOutcome {
+    private SupportOutcome() { }
+    public sealed record Exported(SupportManifest Manifest, string BundlePath, long TotalBytes, Duration Elapsed) : SupportOutcome;
+    public sealed record Coalesced(CorrelationId Active, SupportTriggerKind FoldedKind) : SupportOutcome;
+    public sealed record Evicted(int Bundles, long Bytes, Instant At) : SupportOutcome;
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
@@ -685,14 +682,14 @@ internal static class BundleMap {
 public static class SupportLedger {
     static readonly Op BundleWork = Op.Of(nameof(Bundle));
 
-    public static IO<SupportReceipt> Sweep(SupportRuntime runtime) =>
+    public static IO<SupportOutcome> Sweep(SupportRuntime runtime) =>
         IO.lift(() => runtime.Clocks.Now).Map(at => Swept(runtime, at));
 
-    internal static IO<SupportReceipt.Exported> Bundle(
+    internal static IO<SupportOutcome.Exported> Bundle(
         SupportRuntime runtime, SupportManifest manifest, Seq<ArtifactRow> rows, MonotonicStamp opened) =>
         from path in IO.lift(() => Written(runtime, manifest, rows))
         from elapsed in Spanned(runtime.Clocks, opened)
-        select new SupportReceipt.Exported(
+        select new SupportOutcome.Exported(
             manifest, path, new FileInfo(path).Length, Duration.FromTimeSpan(elapsed));
 
     static IO<TimeSpan> Spanned(ClockPolicy clocks, MonotonicStamp opened) =>
@@ -715,7 +712,7 @@ public static class SupportLedger {
         return path;
     }
 
-    static SupportReceipt Swept(SupportRuntime runtime, Instant at) =>
+    static SupportOutcome Swept(SupportRuntime runtime, Instant at) =>
         toSeq(new DirectoryInfo(runtime.StorageRoot).EnumerateFiles("*.zip")
                 .OrderByDescending(static file => file.CreationTimeUtc))
             .Map(static (file, rank) => (File: file, Rank: rank))
@@ -724,7 +721,7 @@ public static class SupportLedger {
             .Fold((Bundles: 0, Bytes: 0L), static (swept, row) =>
                 (swept.Bundles + 1, swept.Bytes + Released(row.File)))
         switch {
-            var swept => new SupportReceipt.Evicted(swept.Bundles, swept.Bytes, at),
+            var swept => new SupportOutcome.Evicted(swept.Bundles, swept.Bytes, at),
         };
 
     static long Released(FileInfo file) {
@@ -739,7 +736,6 @@ public static class SupportLedger {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

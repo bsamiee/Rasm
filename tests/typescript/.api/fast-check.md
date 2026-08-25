@@ -102,9 +102,9 @@ declare function constant<T>(value: T): Arbitrary<T>
 declare function constantFrom<TArgs extends unknown[]>(...values: TArgs): Arbitrary<TArgs[number]>
 ```
 
-## [04]-[RUN_CONFIG_AND_RECEIPT]
+## [04]-[RUN_CONFIG_AND_DETAILS]
 
-`Parameters<T>` is the run policy; `RunDetails<T>` is the verified receipt `check` returns and `assert` embeds on throw. Replay a failure with `{ seed, path }` — both ride the receipt.
+`Parameters<T>` is the run policy; `RunDetails<T>` is the run record `check` returns and `assert` embeds on throw. Replay a failure with `{ seed, path }` — both ride `RunDetails`.
 
 ```ts
 interface Parameters<T = void> {

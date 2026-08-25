@@ -24,10 +24,6 @@
 - `MeshKind` at `Objects/materials` is the ONE crossing of host `MeshType` — `Document/tables`' type law names it and every signature re-types.
 - Host mirrors carry their concept's qualifier (`LightFalloff` against kernel `Falloff`) — an unqualified mirror collides on import.
 - `Sun.Vector` points sun-toward-scene and `Sun.North` bears counter-clockwise off `+X` — a consumer skipping `SunDerivation` reads an inverted sun.
-- Sealed-commit facts cross with NO operation identity — this plane holds no origin slot, so a dot minted here collides across two hosts.
-- `CommitSink.Sealing` rides `DocumentCommit.Sealed`'s own `project` slot — a tap beside it publishes a record the seal then discards.
-- `Observation.Commit` admits `Delivery.Inline` alone — a deferred arm returns success before any subscriber saw the fact it may refuse.
-- Mutation-timing `*Slot`s conform `IFactSlot<TBody, TKind>`, build-timing slots `Built<TSlot>` — mixed timings stamp evidence no commit made.
 - REQUEST families carry `ResourceId`, `ResourceIndex`, and `DocumentPath` on every column, foreclosing the boundary sentinel at construction.
 - ONE `MonotonicTimeline` per session mints at the `Plugin/lifecycle` load root — a second timeline forks elapsed truth across gates.
 - `Plugin/lifecycle`'s `OnLoad` holds the in-package LOAD ROOT; a process seat no `ShellMount` row and no load-root fold reaches is owner-less.
@@ -46,16 +42,13 @@
 - `ObjectSignal` carries ENABLEMENT alone — every other two-row host axis takes its own `[SmartEnum<bool>]` carrying the host value it contributes.
 - `PrintPen` is the ONE host plot weight, ingress and egress at `Document/layers` — an off-ladder width snaps to its ISO 128-24 rung.
 - Host begin/end windows belong to their opener; compose `Custody.Settled`/`Release` so close faults aggregate with body failures.
-- Reads own their receipt — the member selecting a host route mints the witness recording it, never a posture flag beside a chosen overload.
+- Reads own their witness — the member selecting a host route mints the witness recording it, never a posture flag beside a chosen overload.
 - Capability sets name their `CapabilityLaw` corner table or state that the host documents no implication — `ScentForm` bars the empty corner.
 - Persistence reads and mutations stay TWO families, `PresetQuery` against `PresetOperation` — a merge pays an `InvalidInput` arm per refusal.
 - `CPlaneGrid.Read`/`CPlanePalette.Read` are the ONE host `ConstructionPlane` projection — no page re-folds the visibility bits or grid inks.
 - `Rig` projects capability onto fault rails, not `[Mapper]`; `Admits`, runtime threading, and `Fin<T>` stay outside Mapperly.
-- Evidence regimes stay plural by timing and row-independence — `Document/facts.md` states the discriminant once and every owner's card points there.
-- `FactStream` binds mutation folders inside a `DocumentCommit` envelope — a rail sealing no commit and stamping no undo serial carries its receipt.
 - `FieldOverride<T>` at `Document/geometry` owns GATED fields alone — an ungated field spells absence `Option<T>`, `Clear` writing `Set(default)`.
 - Factory families collapse to one member per host RETURN CURRENCY — `bool` against `WriteFileResult` is an axis, and a shorter mint a shell.
-- `Slot` names a fact-stream axis (`IFactSlot<TBody, TKind>`) alone — a provider-id, event-bind, or child-slot vocabulary takes its own word.
 - `IArchiveCodec` at `Persistence/userdata` roots the archive codec as an INTERFACE — `TypedUserData<TSelf>` derives the host `UserData` base.
 - Host `{Owner}State` crosses AS the host type — `GetCurrentState` mints a detached instance per call, a branch mirror REFUSING under a `ref` verb.
 - `SettingStore` names the store here — `Settings` spells none, and `SettingsBridge` and `ArchiveReach` carry bridge and reach concepts instead.
@@ -68,7 +61,7 @@
 
 ## [03]-[COLLAPSE]
 
-- `RhinoInstrumentPartition` and `RhinoInstruments` stay separate — declared projection data against contributed meter rows; the fold erases both.
+- `RhinoInstruments.Rows` is the boundary's ONE instrument declaration — app-root observe taps write its rows off hook facts; a second table forks.
 - Host astronomy statics and `SunProblem.Ephemeris` stay two-formed — what the HOST believes against what a peer reproduces is the discriminant.
 - `QuartetFace.UsesBold`/`UsesItalic` stay a bool PAIR — all four corners are legal and both ride `Font.FromQuartetProperties` as its argument shape.
 - Read products a write payload reconstructs EMBED it — `DecalSnapshot` and `MaterialRefSnapshot` carry their seeds; a restatement forks authority.

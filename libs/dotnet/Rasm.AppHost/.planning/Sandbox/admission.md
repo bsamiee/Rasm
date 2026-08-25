@@ -61,9 +61,9 @@ public sealed partial class PluginArtifact {
 
 ## [03]-[SUPPLY_CHAIN_GATE]
 
-- Owner: `SupplyChainFault` `[Union]` the fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.SupplyChain`); `SupplyChainReceipt` the admit-evidence record implementing the kernel `IValidityEvidence` fold over its two clocks; `TrustPolicy` the per-subject expected-signer and version-contract policy; `TrustAnchor` `[Union]` naming the two anchors a composition may seat; `SupplyChainGate` the static admit surface, with the nested `Runtime` binding the `SigstoreVerifier` that anchor selects, the policy resolver, the Velopack staging directory the update rail downloads into, the host contract version, and the one `ClockPolicy`.
+- Owner: `SupplyChainFault` `[Union]` the fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.SupplyChain`); `SupplyChainAdmission` the admitted subject implementing the kernel `IValidityEvidence` fold over its two clocks; `TrustPolicy` the per-subject expected-signer and version-contract policy; `TrustAnchor` `[Union]` naming the two anchors a composition may seat; `SupplyChainGate` the static admit surface, with the nested `Runtime` binding the `SigstoreVerifier` that anchor selects, the policy resolver, the Velopack staging directory the update rail downloads into, the host contract version, and the one `ClockPolicy`.
 - Cases: `SupplyChainFault` = BundleMissing | BundleUnreadable | SignatureRejected | ProvenanceUnbound | VersionIncompatible | TrustRootUnavailable | AttestationMissing — one case per admit-rejection cause; `TrustAnchor` = `PinnedCase(FileInfo)` | `TufCase(Uri, TufTrustRootProviderOptions)` — the offline pin and the TUF repository, one provider each.
-- Entry: `Runtime.Of(TrustAnchor anchor, Func<AdmissionSubject, TrustPolicy> policyOf, DirectoryInfo staging, string hostContractVersion, ClockPolicy clocks)` returns `Fin<Runtime>` — the composition-time admit of the trust anchor itself, switching the anchor case onto `FileTrustRootProvider` or `TufTrustRootProvider` and binding the one verifier over it; `Admit(Runtime gate, AdmissionSubject subject, CancellationToken token)` returns `IO<Validation<Error, SupplyChainReceipt>>` — one total dispatch projecting the subject's digest bytes, cosign bundle, version pair, and `TrustPolicy` row, reading the admitted material once, verifying signature and SLSA provenance offline against the pinned root through `SigstoreVerifier.TryVerifyDigestAsync`, and deciding the version contract with `VersionRange.Satisfies`; `Best(TrustPolicy policy, Option<NuGetVersion> installed, Seq<NuGetVersion> candidates)` returns `Validation<Error, NuGetVersion>` — the candidate-ranking entry the sandbox module fold binds inside `SolverHostRuntime.Resolve` at `Runtime/modules#MODULE_LEDGER`, which ranks a manifest's in-range candidates through it before the resolved artifact is presented as `AdmissionSubject.Plugin`.
+- Entry: `Runtime.Of(TrustAnchor anchor, Func<AdmissionSubject, TrustPolicy> policyOf, DirectoryInfo staging, string hostContractVersion, ClockPolicy clocks)` returns `Fin<Runtime>` — the composition-time admit of the trust anchor itself, switching the anchor case onto `FileTrustRootProvider` or `TufTrustRootProvider` and binding the one verifier over it; `Admit(Runtime gate, AdmissionSubject subject, CancellationToken token)` returns `IO<Validation<Error, SupplyChainAdmission>>` — one total dispatch projecting the subject's digest bytes, cosign bundle, version pair, and `TrustPolicy` row, reading the admitted material once, verifying signature and SLSA provenance offline against the pinned root through `SigstoreVerifier.TryVerifyDigestAsync`, and deciding the version contract with `VersionRange.Satisfies`; `Best(TrustPolicy policy, Option<NuGetVersion> installed, Seq<NuGetVersion> candidates)` returns `Validation<Error, NuGetVersion>` — the candidate-ranking entry the sandbox module fold binds inside `SolverHostRuntime.Resolve` at `Runtime/modules#MODULE_LEDGER`, which ranks a manifest's in-range candidates through it before the resolved artifact is presented as `AdmissionSubject.Plugin`.
 - Law: the signature leg and the version leg accumulate applicatively, so a subject both forged AND out-of-contract reports both faults in one pass; this is the folder's model applicative and the shape `Sandbox/solver#PLUGIN_CONTRACT` copies.
 - Law: `TrustRootUnavailable` has a producing arm at the COMPOSITION seam, where the fact lives — binding the verifier is what reads the pinned root, so an absent or unreadable anchor refuses at construction rather than at the first admit, and a case declared for a cause no arm raises is the deleted form. NAMED LOSS: the fault no longer reaches the per-admit `Validation` — a host whose anchor is gone never composes a gate to admit through. `TufCase` seats its repository at that same instant and resolves the root itself on first verify, because a fetch inside a composition fold is a network round trip at boot; its hermetic form carries `TufTrustRootProviderOptions.CustomTrustedRoot`, which resolves without leaving the node.
 - Law: `Admit` runs BEFORE any stage or load commits — `UpdateRail.Stage` branches on the admit `Validation` minting `RolledBack` on a fault, and `SandboxRows.Load` never materializes an isolation vehicle for a rejected artifact.
@@ -74,7 +74,7 @@ public sealed partial class PluginArtifact {
 - Law: the version leg parses through `NuGetVersion.TryParse` and decides with `VersionRange.Satisfies` — the real SemVer-2.0 contract check `System.Version` cannot express — over the range's PINNED projection, since a floating band and a pinned candidate otherwise compare on two grammars; a parse failure on either boundary fails closed as `VersionIncompatible`, and a boundary parse never crosses as a null-forgiven local.
 - Law: the version pair INVERTS per subject — a release checks its version against the channel's admitted range, a plugin parses its declared `ContractRange` through the floating-aware overload and checks the host's version against it — which is why the contract rides the probe rather than the policy. One `Satisfies` law, projected per subject case.
 - Law: the content key is `ContentHash.Of` over the material BOTH arms read — the plugin's component in hand, the release's staged package off the staging directory — so no arm substitutes its verify digest for the identity.
-- Receipt: `SupplyChainReceipt` — subject key, verified signer SAN, in-toto predicate type, admitted version string, the kernel content key, the earliest attested `VerifiedTimestamp` instant, and the admitting `Instant`. Signer and provenance columns are AUDIT evidence an operator reads: no grant arm treats a signer as a privileged artifact source today, so the receipt states the identity rather than asserting a privilege nothing grants. Evidence rides the consumer's own correlation (`UpdateReceipt` for a release, `SandboxReceipt` for a plugin), never a parallel admit instrument.
+- Output: `SupplyChainAdmission` — subject key, verified signer SAN, in-toto predicate type, admitted version string, the kernel content key, the earliest attested `VerifiedTimestamp` instant, and the admitting `Instant`.
 - Packages: Sigstore, NuGet.Versioning, Rasm (kernel `ContentHash`/`IValidityEvidence`/`ValidityClaim`/`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one verify threshold is one `VerificationPolicy` column; one subject's expected signer is one `TrustPolicy` row; a new trust anchor — an embedded `InMemoryTrustRootProvider` root, say — is one `TrustAnchor` case and one arm on the `Of` switch; a managed-key (non-Fulcio) feed is the `VerificationPolicy.PublicKey` column; a new attestation predicate is one policy column, never an `Attestation` record variant; zero new surface.
 - Boundary: the gate is the suite's only supply-chain admit owner — a `System.Version`-based semver check, a hand-split `lower-upper` range string, a hand-rolled `Verify` delegate over pinned publisher keys, a throwing `Parse` inside the admission fold, an unsigned-release install, a trust-on-first-use path, a post-load signature check, and a network-bound verify on an air-gapped node are deleted forms, and both the self-update release and a downloaded plugin artifact verify through this one `Admit`; `vpk`-side build-time notarization is distinct — the build signs and this gate proves what the host downloaded; the anchor is a `TrustAnchor` case the composition seats and `Runtime.Of` switches, never a prose alternative beside a hardcoded provider — `TufCase` is admitted only on a connected node and its root fetch rides the `Wire/outbound` `Polly.Core` pipeline, `PinnedCase` pins the offline root for a hermetic air-gapped gate, and the provider each case mints is owned for the composition's life, so the trust-root fetch is the only outbound leg, it happens once, and the verify itself is offline; the version leg admits only the version, range, and comparer surface — package-graph resolution and framework compatibility stay out of scope, and the contract is one `VersionRange.Satisfies` membership test; candidate ranking is `Best` and lives HERE rather than at each resolver, because a feed resolver and a registry resolver each picking their own newest are two policies for one contract — its consumer is the `SolverHostRuntime.Resolve` closure the sandbox module fold binds at `Runtime/modules#MODULE_LEDGER`, which ranks its in-range candidates through `Best` before presenting `AdmissionSubject.Plugin`, and the release arm's ranking is Velopack's own `CheckForUpdatesAsync`, an SDK-internal selection this gate cannot narrow and therefore names as the one declared divergence rather than claiming a policy it does not own; the admitting instant is `ClockPolicy.Now` and never an ambient `DateTimeOffset.UtcNow`.
@@ -114,7 +114,7 @@ public abstract partial record TrustAnchor {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct SupplyChainReceipt(
+public readonly record struct SupplyChainAdmission(
     string Subject, string Signer, string Provenance, string Version, string ContentKey, Instant At, Option<Instant> Attested = default) : IValidityEvidence {
     [JsonIgnore]
     public bool IsValid => ValidityClaim.All(
@@ -147,7 +147,7 @@ public static class SupplyChainGate {
                 .Bind(static admitted => admitted);
     }
 
-    public static IO<Validation<Error, SupplyChainReceipt>> Admit(Runtime gate, AdmissionSubject subject, CancellationToken token) =>
+    public static IO<Validation<Error, SupplyChainAdmission>> Admit(Runtime gate, AdmissionSubject subject, CancellationToken token) =>
         Project(gate, subject).Match(
             Succ: probe =>
                 from identity in ContentKey(gate, subject, token)
@@ -157,11 +157,11 @@ public static class SupplyChainGate {
                         probe.Digest, HashAlgorithmType.Sha256, bundle, probe.Policy.Verification, token)).Result)),
                     Fail: _ => IO.pure(Option<VerificationResult>.None))
                 select (loaded.ToValidation(), Signature(verified, probe.Subject), Version(probe.Contract, probe.Candidate, probe.Subject))
-                    .Apply((_bundle, signer, version) => new SupplyChainReceipt(
+                    .Apply((_bundle, signer, version) => new SupplyChainAdmission(
                         probe.Subject, signer.Signer.SubjectAlternativeName, signer.Provenance, version.ToNormalizedString(),
                         identity, gate.Clocks.Now, Attested(verified)))
                     .As(),
-            Fail: fault => IO.pure<Validation<Error, SupplyChainReceipt>>(Fail(fault)));
+            Fail: fault => IO.pure<Validation<Error, SupplyChainAdmission>>(Fail(fault)));
 
     static IO<Fin<SigstoreBundle>> Bundle(Probe probe, CancellationToken token) =>
         IO.liftAsync(async () => (await Op.Of().Catch(
@@ -250,12 +250,12 @@ config:
 ---
 flowchart TD
     accTitle: Supply-chain admission gate
-    accDescr: Release staging and sandbox plugin loads entering one admission gate, with hosted solvers reaching it through the sandbox load, whose failure arm never stages or loads and whose success arm seals a supply-chain receipt.
+    accDescr: Release staging and sandbox plugin loads entering one admission gate, with hosted solvers reaching it through the sandbox load, whose failure arm never stages or loads and whose success arm returns the admitted subject.
     Release[UpdateRail.Stage] -->|AdmissionSubject.Release| Admit[SupplyChainGate.Admit]
     Solver[SolverHost.Register] --> Plugin[SandboxRows.Load]
     Plugin -->|AdmissionSubject.Plugin| Admit
     Admit -->|Validation.Fail| Closed[fail-closed: never stages, never loads]
-    Admit -->|Validation.Succ| Proven[SupplyChainReceipt]
+    Admit -->|Validation.Succ| Proven[SupplyChainAdmission]
 ```
 
 ## [04]-[RESEARCH]

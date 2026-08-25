@@ -13,13 +13,13 @@ internal static class SessionGens {
     public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-spec", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractGeneration: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
     public static readonly LiveHost Host = new(Pid: 4242, StartedAtUnixMs: 1_765_432_000_000, Endpoint: Endpoint, Fingerprint: Fingerprint);
     public static readonly Handshake Ours = new(ContractGeneration: 1, SenderVersion: "supervisor", Capabilities: [], Fingerprint: null, Endpoint: null);
-    public static readonly Handshake Peer = new(ContractGeneration: 1, SenderVersion: "shell", Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")], Fingerprint: Fingerprint, Endpoint: Endpoint);
+    public static readonly Handshake Peer = new(ContractGeneration: 1, SenderVersion: "shell", Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Detail: "2.25.25")], Fingerprint: Fingerprint, Endpoint: Endpoint);
     public static readonly CargoManifest Manifest = new(SessionId: Sid, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [], BuiltAgainst: Fingerprint, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]);
-    public static readonly CargoReceipt Cargo = new(ContentHash: "xx64:abc", SwapMs: 100.0, Scenarios: [], Capabilities: [new CapabilityEntry(Key: "gh2.dataflow", Outcome: PhaseStatus.Unsupported, Receipt: "0b render-only")]);
+    public static readonly LoadedCargo Cargo = new(ContentHash: "xx64:abc", SwapMs: 100.0, Scenarios: [], Capabilities: [new CapabilityEntry(Key: "gh2.dataflow", Outcome: PhaseStatus.Unsupported, Detail: "0b render-only")]);
     public static readonly SessionState.Ready Ready = new(Host: Host, Peer: Peer);
-    public static readonly SessionState.Running Running = new(Host: Host, Cargo: Cargo, Done: Seq(value: Receipt(name: "blocks.baseline", status: PhaseStatus.Ok)), Remaining: Seq(value: Entry(name: "blocks.next")));
+    public static readonly SessionState.Running Running = new(Host: Host, Cargo: Cargo, Done: Seq(value: Outcome(name: "blocks.baseline", status: PhaseStatus.Ok)), Remaining: Seq(value: Entry(name: "blocks.next")));
     public static readonly SessionState.Quitting Quitting = new(Host: Host, Rung: SessionPhase.QuitAe, RungStartedMs: 1_765_432_100_000);
-    public static readonly SessionState.Faulted Faulted = new(Fault: new BridgeFault.BusyHeld(HolderPid: 777, AgeSeconds: 12.0), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>());
+    public static readonly SessionState.Faulted Faulted = new(Fault: new BridgeFault.BusyHeld(HolderPid: 777, AgeSeconds: 12.0), At: SessionPhase.Connect, Done: Seq<ScenarioOutcome>());
 
     public static SessionState[] NonTerminal => [
         new SessionState.Idle(Bundle: Bundle),
@@ -42,7 +42,7 @@ internal static class SessionGens {
     public static BridgeEvent.PhaseCase Phase(long sequence, SessionPhase phase, PhaseStatus status, BridgeFault? fault = null) =>
         new(Phase: phase, Status: status, DurationMs: 5.0, Fault: fault) { Stamp = Stamp(sequence: sequence) };
 
-    public static ScenarioReceipt Receipt(string name, PhaseStatus status, BridgeFault? fault = null) =>
+    public static ScenarioOutcome Outcome(string name, PhaseStatus status, BridgeFault? fault = null) =>
         new(Scenario: name, Status: status, DurationMs: 1.0, Fault: fault);
 
     public static EventStamp Stamp(long sequence, string? scenario = null) =>
@@ -199,17 +199,17 @@ public sealed class FoldLaws {
     }
 
     [Fact]
-    public void AllSkippedFoldsOkAtTheRootWhileReceiptsReadSkipped() {
+    public void AllSkippedFoldsOkAtTheRootWhileOutcomesReadSkipped() {
         SessionEnvelope envelope = SessionGens.Fold(final: SessionGens.Running with {
-            Done = Seq(a: SessionGens.Receipt(name: "a", status: PhaseStatus.Skipped), b: SessionGens.Receipt(name: "b", status: PhaseStatus.Skipped)),
+            Done = Seq(a: SessionGens.Outcome(name: "a", status: PhaseStatus.Skipped), b: SessionGens.Outcome(name: "b", status: PhaseStatus.Skipped)),
             Remaining = Seq<ScenarioEntry>(),
         });
         Assert.Same(expected: PhaseStatus.Ok, actual: envelope.Status);
-        Assert.All(collection: envelope.Scenarios, action: static receipt => Assert.Same(expected: PhaseStatus.Skipped, actual: receipt.Status));
+        Assert.All(collection: envelope.Scenarios, action: static outcome => Assert.Same(expected: PhaseStatus.Skipped, actual: outcome.Status));
     }
 
     [Fact]
-    public void RemainingScenariosFoldSkippedIntoTheReceipts() {
+    public void RemainingScenariosFoldSkippedIntoTheOutcomes() {
         SessionEnvelope envelope = SessionGens.Fold(final: SessionGens.Running);
         Assert.Equal(expected: 2, actual: envelope.Scenarios.Length);
         Assert.Equal(expected: "blocks.next", actual: envelope.Scenarios[1].Scenario);
@@ -232,7 +232,7 @@ public sealed class FoldLaws {
     public void FirstFailingPhaseWinsInWireOrder() {
         BridgeFault loadFault = new BridgeFault.NugetLockDrift(Detail: "NU1004 Rasm.Bridge.Contract");
         SessionEnvelope envelope = SessionGens.Fold(
-            final: SessionGens.Running with { Done = Seq<ScenarioReceipt>(), Remaining = Seq<ScenarioEntry>() },
+            final: SessionGens.Running with { Done = Seq<ScenarioOutcome>(), Remaining = Seq<ScenarioEntry>() },
             stream: Seq<BridgeEvent>(
                 a: SessionGens.Phase(sequence: 3, phase: SessionPhase.Execute, status: PhaseStatus.Failed, fault: new BridgeFault.ExecuteDeadline(Scenario: "late", ElapsedMs: 1.0)),
                 b: SessionGens.Phase(sequence: 1, phase: SessionPhase.Connect, status: PhaseStatus.Ok),
@@ -244,7 +244,7 @@ public sealed class FoldLaws {
     [Fact]
     public void FirstFailureTruncatesAtTheWireCap() {
         SessionEnvelope envelope = SessionGens.Fold(final: new SessionState.Faulted(
-            Fault: new BridgeFault.LaunchFailed(Detail: new string(c: 'x', count: 512)), At: SessionPhase.Launch, Done: Seq<ScenarioReceipt>()));
+            Fault: new BridgeFault.LaunchFailed(Detail: new string(c: 'x', count: 512)), At: SessionPhase.Launch, Done: Seq<ScenarioOutcome>()));
         Assert.Equal(expected: 256, actual: envelope.FirstFailure.Length);
     }
 
@@ -254,10 +254,10 @@ public sealed class FoldLaws {
             collection: PhaseStatus.Items.SelectMany(collectionSelector: static _ => PhaseStatus.Items, resultSelector: static (left, right) => (left, right)),
             action: static pair => Assert.Same(
                 expected: SessionGens.Fold(
-                    final: SessionGens.Running with { Done = Seq<ScenarioReceipt>(), Remaining = Seq<ScenarioEntry>() },
+                    final: SessionGens.Running with { Done = Seq<ScenarioOutcome>(), Remaining = Seq<ScenarioEntry>() },
                     stream: Seq<BridgeEvent>(a: SessionGens.Phase(sequence: 1, phase: SessionPhase.Load, status: pair.left), b: SessionGens.Phase(sequence: 2, phase: SessionPhase.Execute, status: pair.right))).Status,
                 actual: SessionGens.Fold(
-                    final: SessionGens.Running with { Done = Seq<ScenarioReceipt>(), Remaining = Seq<ScenarioEntry>() },
+                    final: SessionGens.Running with { Done = Seq<ScenarioOutcome>(), Remaining = Seq<ScenarioEntry>() },
                     stream: Seq<BridgeEvent>(a: SessionGens.Phase(sequence: 1, phase: SessionPhase.Load, status: pair.right), b: SessionGens.Phase(sequence: 2, phase: SessionPhase.Execute, status: pair.left))).Status));
 
     [Fact]
@@ -307,13 +307,13 @@ public sealed class FoldLaws {
     public void ExitCodeTaxonomyPassesThrough() {
         Assert.All(
             collection: ((BridgeFault Fault, PhaseStatus Status, int Exit)[])[
-                (new BridgeFault.CapabilityAbsent(Capability: "gh2.dataflow", ProbeReceipt: "0b"), PhaseStatus.Unsupported, 3),
+                (new BridgeFault.CapabilityAbsent(Capability: "gh2.dataflow", Detail: "0b"), PhaseStatus.Unsupported, 3),
                 (new BridgeFault.BusyHeld(HolderPid: 777, AgeSeconds: 1.0), PhaseStatus.Busy, 5),
                 (new BridgeFault.ExecuteDeadline(Scenario: "a", ElapsedMs: 1.0), PhaseStatus.Timeout, 5),
                 (new BridgeFault.LaunchFailed(Detail: "gone"), PhaseStatus.Failed, 1),
             ],
             action: static row => {
-                SessionEnvelope envelope = SessionGens.Fold(final: new SessionState.Faulted(Fault: row.Fault, At: SessionPhase.Launch, Done: Seq<ScenarioReceipt>()));
+                SessionEnvelope envelope = SessionGens.Fold(final: new SessionState.Faulted(Fault: row.Fault, At: SessionPhase.Launch, Done: Seq<ScenarioOutcome>()));
                 Assert.Same(expected: row.Status, actual: envelope.Status);
                 Assert.Equal(expected: row.Exit, actual: envelope.Status.ExitCode);
             });
@@ -406,7 +406,7 @@ public sealed class ReferenceLifecycleLaws {
         SessionFold.Run(
             runId: SessionGens.Sid.ToString(format: "n"),
             verb: new SupervisorVerb.Verify(Selection: new ScenarioSelection.AllCase(), ClosureManifest: "closure.json", EvidenceMode: mode),
-            final: SessionGens.Running with { Done = Seq(value: SessionGens.Receipt(name: Scenario, status: PhaseStatus.Ok)), Remaining = Seq<ScenarioEntry>() },
+            final: SessionGens.Running with { Done = Seq(value: SessionGens.Outcome(name: Scenario, status: PhaseStatus.Ok)), Remaining = Seq<ScenarioEntry>() },
             stream: stream,
             spoolTail: default,
             reportDir: Directory.CreateTempSubdirectory(prefix: "rbx-report-").FullName,

@@ -1,6 +1,6 @@
 # [APPUI_COLLAB_PRESENCE]
 
-Everything a co-edit session broadcasts and nothing it persists. `CollabWire` frames each local `LoroDoc` delta with its W3C carrier and hands it to a bounded `Channel<CollabFrame>` whose lane row carries its own back-pressure posture, so a durable delta waits for capacity and an awareness frame sheds oldest-first; the inbound leg imports one frame or a reconnect burst, seals a `CollabSyncReceipt` on the ORIGINATING correlation, and re-drives a merge whose dependency span has not arrived. `Presence` owns text carets, awareness identity, and viewport state as three TTL-expiring channels, and `PresenceOverlay` projects the viewport channel onto per-plane marks under an ungated follow lease. Every foreign callback on this page collapses through the ONE `Diagnostics/devloop#HOST_SINK` `HostSink`. The merge authority, the addressing vocabulary, and the `CollabFault` family are `Collab/sync.md`; the historical rails are `Collab/compare.md`. Nothing declared here reaches durable truth.
+Everything a co-edit session broadcasts and nothing it persists. `CollabWire` frames each local `LoroDoc` delta with its W3C carrier and hands it to a bounded `Channel<CollabFrame>` whose lane row carries its own back-pressure posture, so a durable delta waits for capacity and an awareness frame sheds oldest-first; the inbound leg imports one frame or a reconnect burst, returns the `MergeVerdict`, publishes `AppUiFact.CollabSync`, and re-drives a merge whose dependency span has not arrived. `Presence` owns text carets, awareness identity, and viewport state as three TTL-expiring channels, and `PresenceOverlay` projects the viewport channel onto per-plane marks under an ungated follow lease. Every foreign callback on this page collapses through the ONE `Diagnostics/devloop#HOST_SINK` `HostSink`. The merge authority, the addressing vocabulary, and the `CollabFault` family are `Collab/sync.md`; the historical rails are `Collab/compare.md`. Nothing declared here reaches durable truth.
 
 ## [01]-[INDEX]
 
@@ -10,11 +10,10 @@ Everything a co-edit session broadcasts and nothing it persists. `CollabWire` fr
 
 ## [02]-[LIVE_WIRE]
 
-- Owner: `CollabWire` the in-session sync path and the pre-commit/JSON forensics owner; `TransportLane` `[SmartEnum<string>]` the two back-pressure postures as channel policy; `CollabTransport` the bounded `Channel<CollabFrame>` per lane; `CollabWireContext` the W3C carrier value, `CollabFrame` the carrier-plus-delta frame, and `CollabCarrier` the frame's own getter/setter bodies over the AppHost propagation spine; `MergeVerdict` the import answer; `CollabSyncReceipt` the merge receipt whose wire columns project that verdict; `CollabEcho<TRow,TKey>` the producer end of the optimistic-overlay acknowledgment vocabulary; `CollabSnapshot` the content-keyed cold-start accelerator; `CollabPoints` the hook-point ids every parked callback fault is attributed under.
+- Owner: `CollabWire` the in-session sync path and the pre-commit/JSON forensics owner; `TransportLane` `[SmartEnum<string>]` the two back-pressure postures as channel policy; `CollabTransport` the bounded `Channel<CollabFrame>` per lane; `CollabWireContext` the W3C carrier value, `CollabFrame` the carrier-plus-delta frame, and `CollabCarrier` the frame's own getter/setter bodies over the AppHost propagation spine; `MergeVerdict` the import answer; `CollabEcho<TRow,TKey>` the producer end of the optimistic-overlay acknowledgment vocabulary; `CollabSnapshot` the content-keyed cold-start accelerator; `CollabPoints` the hook-point ids every parked callback fault is attributed under.
 - Cases: `TransportLane` = collab | presence — the durable lane waits for capacity because the AppHost outbox redelivers what the fan could not take, the ephemeral lane drops oldest because an awareness frame a slow subscriber missed is lost by design; `MergeVerdict` = Applied | Pending, the pending case carrying the per-peer `CounterSpan` map the import status answered.
-- Entry: `public IDisposable Broadcast(CollabTransport transport)` — subscribes each local op-log delta, frames it with the injected W3C carrier, and seats the `CollabFrame` in the lane's channel through a non-blocking `TryWrite`; `public IAsyncEnumerable<CollabFrame> Drain(CancellationToken)` on `CollabTransport` — the consumer-cadence read every transport binding takes; `public IO<CollabSyncReceipt> Merge(params CollabFrame[] frames)` — extracts the lead frame's ORIGINATING correlation and tenant, imports one framed delta through `ImportWith` or a reconnect burst through `ImportBatch` arity-discriminated by input shape, and seals the receipt on both originating values; `public IO<CollabSyncReceipt> Merged(RedrivePolicy redrive, params CollabFrame[] frames)` — the re-driving twin a live subscriber composes; `public IDisposable TapPreCommit(Func<PreCommitFact, IO<Unit>> sink)` — the pre-commit forensics tap producing the dev-loop `PreCommitFact`; `public Fin<string> ExportJson(VersionVector from, VersionVector to)` — the readable op-window export.
-- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the lane channel and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; each outbound delta frames through the W3C setter so `traceparent`, `tracestate`, baggage, and promoted `TenantContext.TenantSlot` metadata ride beside the delta, and merge retains the extracted correlation and tenant on `CollabSyncReceipt`; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans and the pending spans so a delta whose dependency is missing surfaces the peers it waits on rather than a bare count; `SubscribePreCommit` surfaces each pending commit as a `PreCommitFact` for the dev-loop evidence stream and `ExportJsonUpdates` renders any version window as readable JSON, so a merge dispute reads as an inspectable operation log without a second collab surface; the live delta rides the AppHost bus/topics law — the `Rasm.AppHost/Wire/topics#TOPIC_FABRIC` `Topic.Collab` row carries framed deltas as opaque `DomainEvent` payload rows under the `Durable` durability arm, while presence frames ride the `Topic.Presence` row under the `Ephemeral` arm, and the two `TransportLane` rows carry exactly those two postures as channel policy this side of the seam.
-- Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, the merge verdict, originating correlation, and originating tenant — its `Applied` and `Pending` columns are PROJECTIONS of the verdict, sealed through the `Diagnostics/evidence#RECEIPT_UNION` `EvidenceMap.ToEvidence(receipt)` seam onto the `EvidenceReceipt.CollabSync` case without replacing either carrier value; `TelemetryRow` contributes the merge, delta, byte, and pending instruments through the AppHost `TelemetryContributorPort`, every write fan-fed off this receipt's message envelope; the pre-commit fact projects onto `EvidenceReceipt.PreCommit` via the composition-bound dev-loop tap (`DevLoop.CollabPreCommit` binding `TapPreCommit`), never a second receipt union.
+- Entry: `public IDisposable Broadcast(CollabTransport transport)` — subscribes each local op-log delta, frames it with the injected W3C carrier, and seats the `CollabFrame` in the lane's channel through a non-blocking `TryWrite`; `public IAsyncEnumerable<CollabFrame> Drain(CancellationToken)` on `CollabTransport` — the consumer-cadence read every transport binding takes; `public IO<MergeVerdict> Merge(params CollabFrame[] frames)` — imports one framed delta through `ImportWith` or a reconnect burst through `ImportBatch`, writes the settled instruments, publishes the AppUi sync fact, and returns the verdict; `public IO<MergeVerdict> Merged(RedrivePolicy redrive, params CollabFrame[] frames)` — the re-driving twin a live subscriber composes; `public IDisposable TapPreCommit(Func<PreCommitFact, IO<Unit>> sink)` — the pre-commit forensics tap producing the dev-loop `PreCommitFact`; `public Fin<string> ExportJson(VersionVector from, VersionVector to)` — the readable op-window export.
+- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the lane channel and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; each outbound delta frames through the W3C setter so `traceparent`, `tracestate`, baggage, and promoted `TenantContext.TenantSlot` metadata ride beside the delta, while the inbound transport continues that context before calling merge; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans and the pending spans so a delta whose dependency is missing surfaces the peers it waits on rather than a bare count; `SubscribePreCommit` surfaces each pending commit as a `PreCommitFact` for the dev-loop event stream and `ExportJsonUpdates` renders any version window as readable JSON, so a merge dispute reads as an inspectable operation log without a second collab surface; the live delta rides the AppHost bus/topics law — the `Rasm.AppHost/Wire/topics#TOPIC_FABRIC` `Topic.Collab` row carries framed deltas as opaque `DomainEvent` payload rows under the `Durable` durability arm, while presence frames ride the `Topic.Presence` row under the `Ephemeral` arm, and the two `TransportLane` rows carry exactly those two postures as channel policy this side of the seam.
 - Packages: LoroCs, Rasm (project — `FaultCell`, `HookId`, `RedrivePolicy`, `Redrive`, `InstrumentSpec`, `ContentHash`), Rasm.AppHost (project, seam types), BCL inbox (`System.Threading.Channels`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: one sync instrument is one `InstrumentSpec` row on `CollabWire`; a new wire-context field is one carrier key the spine already writes; a new back-pressure posture is one `TransportLane` row carrying its capacity and full mode; a new transport for these frames is one `Topic` row at its AppHost owner, never a second carrier here; a new forensics verb is one member on this owner; a new optimistically-overlaid plane is one `CollabEcho` decoder binding, never a second acknowledgment shape; zero new surface.
 - Boundary:
@@ -22,13 +21,13 @@ Everything a co-edit session broadcasts and nothing it persists. `CollabWire` fr
   - The producer/consumer seam is a BOUNDED CHANNEL, never a callback that runs a subscriber's projection: `SubscribeLocalUpdate` fires on the engine's own Rust callback thread, so a projection invoked there holds the publish frame open for its whole duration and a slow fan back-pressures the document itself. `TryWrite` seats the frame and returns, the consumer drains `ReadAllAsync` at its own cadence, and the lane's `BoundedChannelFullMode` IS the durability posture as a value — a prose note beside a topic name that no code reads is the form this replaces.
   - Shedding is COUNTED, never silent: the ephemeral lane binds the channel's own `itemDropped` observer, so an awareness frame evicted at capacity parks on the fault cell as an attributed number rather than vanishing, and a `TryWrite` refusal on the waiting lane means the channel is COMPLETE — a distinct fact from a full one, which is why the two arms carry different details.
   - Propagation MECHANICS belong to AppHost `TraceContext` and the frame's CARRIER BODIES belong here: the spine's `Inject<TCarrier>`/`Extract<TCarrier>`/`Continue<TCarrier>` take any getter/setter delegate pair, and a domain carrier's concrete pair seats beside its consuming egress leg — the seating the NATS carrier takes at its egress owner, while the CloudEvents pair seats at `Rasm/Domain/event#ENVELOPE_MINT` because one kernel owner holds that whole attribute space — so `CollabCarrier` binds the pair over `CollabWireContext` here, and a collab adapter row inside `telemetry.md` is the rejected form. `CollabCarrier` is taken DIRECTLY: a delegate column whose only binding is a static declared on the same page is a forwarding shell, and the session fallback correlation the closure existed to capture rides the extract call's own argument.
-  - The inbound leg is the ADOPTING one: a collab frame is an intra-estate carrier whose tenancy this estate already admitted, so `Continue` names `TenantAdoption.Adopted` and the extracted entry SEATS into the kernel slot rather than clearing — a refusing row here would tag every remote merge with a tenant the metric fold, the receipt, and every RLS predicate answer root for. Page-local propagators, a `traceparent` parse, or the false claim that `CommitWith(CommitOptions)` carries W3C context is the deleted form.
-  - A pending merge is TRANSIENT and RE-DRIVES, never a terminal refusal: the pending spans name the peers whose deltas have not arrived, the same bytes re-import idempotently once one does, and `CollabFault.EpochMismatch` carries the `Retriability.Transient` column the kernel executor reads — so `Merged` is `Redrive.Run` over the declared `RedrivePolicy` and the exhausted bound abandons with the spans still named. The receipt seals on EVERY pass, so a pended merge is evidence rather than a hole in the timeline.
-  - The verdict is the ANSWER and the two wire columns are its projections: `Applied` reads the case and `Pending` reads the span count, so the boolean and the count cannot disagree and the stored bool that merely re-stated `Pending == 0` has no seat. The frozen `EvidenceReceipt.CollabSync` shape and its TypeScript face are unchanged — the derivation lives on the source side of the projection seam.
+  - The inbound leg is the ADOPTING one: a collab frame is an intra-estate carrier whose tenancy this estate already admitted, so `Continue` names `TenantAdoption.Adopted` and the extracted entry SEATS into the kernel slot rather than clearing — a refusing row here would tag every remote merge with a tenant the metric fold and every RLS predicate answer root for. Page-local propagators, a `traceparent` parse, or the false claim that `CommitWith(CommitOptions)` carries W3C context is the deleted form.
+  - A pending merge is TRANSIENT and RE-DRIVES, never a terminal refusal: the pending spans name the peers whose deltas have not arrived, the same bytes re-import idempotently once one does, and `CollabFault.EpochMismatch` carries the `Retriability.Transient` column the kernel executor reads — so `Merged` is `Redrive.Run` over the declared `RedrivePolicy` and the exhausted bound abandons with the spans still named. Each pass publishes the actual verdict before the redrive decision.
+  - The verdict is the ANSWER; `AppUiFact.CollabSync` derives its applied flag and pending count from that same value, so the boolean and count cannot disagree.
   - Pre-commit tapping OBSERVES — the `ChangeModifier` on `PreCommitCallbackPayload` is left untouched, so forensics never rewrites a pending commit's message or timestamp; `ExportJsonUpdates` is a READ producing cross-implementation JSON for debugging, never a durable wire — the durable stream stays the `EditIntent` union.
   - `CollabSnapshot` is the ONLY surviving durable Loro artifact: the `Export(Snapshot)` blob crosses the Persistence blob lane as a content-keyed cold-start ACCELERATOR — its key composes the kernel `ContentHash.Of` one-hasher entry, it is derivable, deletable, and verified reconstructible from the op-log alone, and it is NEVER system-of-record; the cold-load acceptance holds with the blob deleted. `ExportShallowSnapshot(Frontiers)` is the gc-trimmed variant under the same charter.
   - Corrupt imported streams fold to `CollabFault.DecodeCorrupt` and a cross-epoch import folds to `CollabFault.EpochMismatch` through the one `CollabDoc.Lift` fold at the merge boundary.
-  - Optimistic acknowledgment has ONE producer and it lives HERE, at the authority that owns both evidence shapes: an `EventTriggerKind.Import` diff carries converged VALUES and projects onto `OverlayEcho.Converged`, while a `CollabSyncReceipt` carries the merge VERDICT and joins the outstanding `OverlayTicket` onto `Acked` or `Refused` through the verdict's own total `Switch`; a consumer folding a pending row against a timer, an assumed success, or a `Local`/`Checkout` diff is the deleted form — a local diff is this session's own echo whose ticket the receipt settles, and a checkout diff is a historical read state that owes the live state nothing.
+  - Optimistic acknowledgment has ONE producer and it lives HERE, at the authority that owns both values: an `EventTriggerKind.Import` diff carries converged VALUES and projects onto `OverlayEcho.Converged`, while the returned `MergeVerdict` joins the outstanding `OverlayTicket` onto `Acked` or `Refused` through its total `Switch`; a consumer folding a pending row against a timer, an assumed success, or a `Local`/`Checkout` diff is the deleted form — a local diff is this session's own echo and a checkout diff is a historical read state that owes the live state nothing.
   - Every foreign callback on this page is ONE `HostSink` collapse under its own `CollabPoints` id: the payload projection composes into the fault route before its single `Run`, so a refused handoff parks on the composition-minted kernel `FaultCell` as a counted, point-attributed number. Six hand `Func<Error, IO<Unit>>` columns and six re-spelled `@catch`-then-`Run` bodies delete onto it.
 
 ```csharp
@@ -82,18 +81,6 @@ public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, lon
         new(key.Value, ContentHash.Of(blob.Span), blob.Length, blob);
 }
 
-public readonly record struct CollabSyncReceipt(
-    string Key,
-    int Deltas,
-    long Bytes,
-    MergeVerdict Verdict,
-    Instant At,
-    CorrelationId Correlation,
-    Option<TenantContext> Tenant) {
-    public bool Applied => Verdict is MergeVerdict.Applied;
-    public int Pending => Verdict.Spans.Count;
-}
-
 public sealed record CollabWireContext(Map<string, string> Carrier) {
     public static readonly CollabWireContext Empty = new(Map<string, string>.Empty);
 
@@ -125,15 +112,6 @@ public static class CollabCarrier {
                 static (cell, key, value) => cell[key] = value))
             .Map(static entry => (entry.Key, entry.Value))));
 
-    public static (CorrelationId Correlation, Option<TenantContext> Tenant) Extract(CollabWireContext carrier, CorrelationId local) =>
-        TraceContext.Extract(carrier, Read).Baggage switch {
-            var baggage => (
-                Optional(baggage.GetBaggage(CorrelationId.Slot))
-                    .Bind(static text => Guid.TryParse(text, out Guid id) ? Some(CorrelationId.Create(id)) : None)
-                    .IfNone(local),
-                TenantAdoption.Adopted.Adopt(baggage)),
-        };
-
     public static IDisposable Continue(ActivitySource source, CollabFrame frame, string name) =>
         TraceContext.Continue(source, frame.Context, Read, name, TenantAdoption.Adopted, ActivityKind.Consumer);
 
@@ -143,10 +121,9 @@ public static class CollabCarrier {
 public sealed record CollabWire(
     CollabDoc Document,
     SessionEpoch Epoch,
-    IClock Clock,
-    CorrelationId Correlation,
-    Option<TenantContext> Tenant,
-    Func<CollabSyncReceipt, IO<Unit>> Publish,
+    InstrumentSet Signals,
+    HookRail<AppUiPoint, AppUiFact, TelemetrySource> Rail,
+    Op Key,
     HostSink Sink) {
 
     public static readonly InstrumentSpec Applied = InstrumentSpec.Create(
@@ -172,41 +149,46 @@ public sealed record CollabWire(
         Document.Doc.SubscribeLocalUpdate(new LocalSink(Sink,
             delta => IO.lift(() => transport.Publish(new CollabFrame(CollabCarrier.Inject(), delta)))));
 
-    public IO<CollabSyncReceipt> Merge(params CollabFrame[] frames) =>
-        (from receipt in FinT.lift<IO, CollabSyncReceipt>(
-                             Imported(frames, [.. frames.AsIterable().Map(static frame => frame.Delta.ToArray())]))
-         from published in FinT.liftIO<IO, Unit>(Publish(receipt))
-         select receipt).runFin.As().Bind(static result => result.Match(
-            Succ: IO.pure, Fail: IO.fail<CollabSyncReceipt>));
+    public IO<MergeVerdict> Merge(params CollabFrame[] frames) {
+        byte[][] deltas = [.. frames.AsIterable().Map(static frame => frame.Delta.ToArray())];
+        long bytes = deltas.AsIterable().Fold(0L, static (sum, delta) => sum + delta.Length);
+        var tags = InstrumentSet.Tags((AppUiTelemetry.DocSlot, Document.Key.Value));
+        return (from verdict in FinT.lift<IO, MergeVerdict>(Imported(deltas))
+                from merge in FinT.lift<IO, Unit>(Signals.Write(
+                    verdict is MergeVerdict.Applied ? Applied : Rejected, 1d, tags))
+                from delta in FinT.lift<IO, Unit>(Signals.Write(Deltas, deltas.Length, tags))
+                from size in FinT.lift<IO, Unit>(Signals.Write(Size, bytes, tags))
+                from pending in FinT.lift<IO, Unit>(Signals.Level(Pending, verdict.Spans.Count, Some(Document.Key.Value)))
+                from fired in FinT.lift<IO, AppUiFact>(Rail.Fire(
+                    at: AppUiPoint.CollabSync,
+                    fact: new AppUiFact.CollabSync(
+                        Document.Key.Value,
+                        (uint)deltas.Length,
+                        (ulong)bytes,
+                        (uint)verdict.Spans.Count,
+                        verdict is MergeVerdict.Applied),
+                    key: Key))
+                select verdict).runFin.As().Bind(static result => result.Match(
+                    Succ: IO.pure,
+                    Fail: IO.fail<MergeVerdict>));
+    }
 
-    public IO<CollabSyncReceipt> Merged(RedrivePolicy redrive, params CollabFrame[] frames) =>
-        Redrive.Run(redrive, Merge(frames).Bind(receipt => receipt.Verdict.Switch(
-            applied: _ => IO.pure(receipt),
-            pending: row => IO.fail<CollabSyncReceipt>(
+    public IO<MergeVerdict> Merged(RedrivePolicy redrive, params CollabFrame[] frames) =>
+        Redrive.Run(redrive, Merge(frames).Bind(verdict => verdict.Switch(
+            applied: _ => IO.pure(verdict),
+            pending: row => IO.fail<MergeVerdict>(
                 new CollabFault.EpochMismatch(new KernelFault.InvalidValue(
-                    "collaboration epoch", $"{receipt.Key} has {row.Spans.Count} outstanding span(s)"))))));
+                    "collaboration epoch", $"{Document.Key.Value} has {row.Spans.Count} outstanding span(s)"))))));
 
-    private Fin<CollabSyncReceipt> Imported(CollabFrame[] frames, byte[][] deltas) => deltas switch {
-        [] => Fin.Fail<CollabSyncReceipt>(new CollabFault.Detached("live merge requires at least one framed delta")),
+    private Fin<MergeVerdict> Imported(byte[][] deltas) => deltas switch {
+        [] => Fin.Fail<MergeVerdict>(new CollabFault.Detached("live merge requires at least one framed delta")),
         [var single] => CollabDoc.Lift(() => Document.Doc.ImportWith(single, Epoch.Epoch.ToString("N")))
-            .Map(status => Sealed(frames, deltas, status)),
-        _ => CollabDoc.Lift(() => Document.Doc.ImportBatch(deltas)).Map(status => Sealed(frames, deltas, status)),
+            .Map(MergeVerdict.Of),
+        _ => CollabDoc.Lift(() => Document.Doc.ImportBatch(deltas)).Map(MergeVerdict.Of),
     };
 
-    private CollabSyncReceipt Sealed(CollabFrame[] frames, byte[][] deltas, ImportStatus status) =>
-        (frames is [var lead, ..] ? CollabCarrier.Extract(lead.Context, Correlation) : (Correlation, Tenant)) switch {
-            var origin => new CollabSyncReceipt(
-                Document.Key.Value,
-                deltas.Length,
-                deltas.AsIterable().Fold(0L, static (sum, delta) => sum + delta.Length),
-                MergeVerdict.Of(status),
-                Clock.GetCurrentInstant(),
-                origin.Correlation,
-                origin.Tenant),
-        };
-
     public IDisposable TapPreCommit(Func<PreCommitFact, IO<Unit>> sink) =>
-        Document.Doc.SubscribePreCommit(new PreCommitSink(Document.Key, Correlation, Sink, sink));
+        Document.Doc.SubscribePreCommit(new PreCommitSink(Document.Key, Sink, sink));
 
     public Fin<string> ExportJson(VersionVector from, VersionVector to) =>
         CollabDoc.Lift(() => Document.Doc.ExportJsonUpdates(from, to));
@@ -223,12 +205,12 @@ public sealed record CollabWire(
         public void OnLocalUpdate(byte[] update) => ignore(Sink.Collapse(Body(update)));
     }
 
-    private sealed record PreCommitSink(DocumentKey Document, CorrelationId Correlation, HostSink Sink, Func<PreCommitFact, IO<Unit>> Body) : PreCommitCallback {
+    private sealed record PreCommitSink(DocumentKey Document, HostSink Sink, Func<PreCommitFact, IO<Unit>> Body) : PreCommitCallback {
         public void OnPreCommit(PreCommitCallbackPayload payload) =>
             ignore(Custody.Bracket(() => {
                 ChangeMeta meta = payload.ChangeMeta;
                 return Fin.Succ(Sink.Collapse(Body(new PreCommitFact(
-                    Document.Value, meta.Lamport, meta.Timestamp, Optional(meta.Message), meta.Len, payload.Origin, Correlation))));
+                    Document.Value, meta.Lamport, Optional(meta.Message), meta.Len, payload.Origin))));
             }, payload));
     }
 }
@@ -245,15 +227,15 @@ public sealed record CollabEcho<TRow, TKey>(
                 .Map(static row => (OverlayEcho<TRow, TKey>)new OverlayEcho<TRow, TKey>.Converged(row.Key, row.Value))
             : Seq<OverlayEcho<TRow, TKey>>();
 
-    public OverlayEcho<TRow, TKey> Sealed(OverlayTicket<TKey> ticket, CollabSyncReceipt receipt) =>
-        receipt.Verdict.Switch(
+    public OverlayEcho<TRow, TKey> Reconcile(OverlayTicket<TKey> ticket, MergeVerdict verdict) =>
+        verdict.Switch(
             applied: _ => (OverlayEcho<TRow, TKey>)new OverlayEcho<TRow, TKey>.Acked(ticket.Key, ticket.Revision),
             pending: row => new OverlayEcho<TRow, TKey>.Refused(ticket.Key, ticket.Revision,
                 new CollabFault.EpochMismatch(new KernelFault.InvalidValue(
-                    "collaboration epoch", $"{receipt.Key} has {row.Spans.Count} pending span(s) at merge"))));
+                    "collaboration epoch", $"{Document.Key.Value} has {row.Spans.Count} pending span(s) at merge"))));
 
-    public Unit Settled(OverlayLedger<TRow, TKey> ledger, OverlayTicket<TKey> ticket, CollabSyncReceipt receipt) =>
-        ledger.Reconcile(Sealed(ticket, receipt));
+    public Unit Settled(OverlayLedger<TRow, TKey> ledger, OverlayTicket<TKey> ticket, MergeVerdict verdict) =>
+        ledger.Reconcile(Reconcile(ticket, verdict));
 
     public Fin<Subscription> Bind(OverlayLedger<TRow, TKey> ledger) => Document.Changes(new EchoSink(this, ledger, Sink));
 
@@ -276,15 +258,15 @@ config:
 ---
 flowchart LR
     accTitle: In-session delta transport and merge
-    accDescr: Local deltas frame with the W3C carrier, seat in a bounded lane channel whose row carries its back-pressure posture, and reach the AppHost transport; inbound frames merge under a redrive policy, seal a receipt carrying the merge verdict, and drive the optimistic overlay echo.
+    accDescr: Local deltas frame with the W3C carrier, seat in a bounded lane channel whose row carries its back-pressure posture, and reach the AppHost transport; inbound frames merge under a redrive policy, return the merge verdict, publish the AppUi sync fact, and drive the optimistic overlay echo.
     CollabDoc -->|SubscribeLocalUpdate| CollabWire
     CollabWire -->|"CollabFrame: W3C carrier + delta"| Lane["CollabTransport: Channel.CreateBounded"]
     Lane -->|"TransportLane row: Wait / DropOldest"| Transport["AppHost Wire/topics Topic.Collab · Topic.Presence"]
     Transport -->|ReadAllAsync drain| Merged["CollabWire.Merged: Redrive.Run"]
     Merged -->|ImportWith / ImportBatch| CollabDoc
     Merged --> Verdict[MergeVerdict]
-    Verdict --> Receipt["CollabSyncReceipt: Applied / Pending projected"]
-    Receipt --> Echo["CollabEcho.Sealed -> OverlayEcho"]
+    Verdict --> Fact["AppUiFact.CollabSync"]
+    Verdict --> Echo["CollabEcho.Reconcile -> OverlayEcho"]
     CollabWire -->|SubscribePreCommit / ExportJsonUpdates| Forensics["dev-loop evidence + REPL"]
     CollabWire -->|Export Snapshot| CollabSnapshot
     CollabSnapshot -->|ContentHash.Of key| Blob["Persistence blob lane (derivable accelerator)"]
@@ -292,7 +274,7 @@ flowchart LR
 
 ## [03]-[PRESENCE]
 
-- Owner: `Presence` the caret, identity, and spatial-state owner holding three channel handles; `PresenceKind` `[SmartEnum<string>]` the CHANNEL axis every ingress dispatch reads; `CollabCursor` the position that survives concurrent edits; `PresenceDelta` the remote-application receipt.
+- Owner: `Presence` the caret, identity, and spatial-state owner holding three channel handles; `PresenceKind` `[SmartEnum<string>]` the CHANNEL axis every ingress dispatch reads; `CollabCursor` the position that survives concurrent edits; `PresenceDelta` the remote-application result.
 - Cases: `PresenceKind` = cursor | awareness | viewport under the locked kind literals — `cursor` is the TTL-expiring caret/selection channel through `EphemeralStore`, `awareness` is the per-peer user/color identity through `Awareness`, and `viewport` carries camera, selection, section, presenter playhead, and review-location state through its own `EphemeralStore`; every mode has an owned transport and lifecycle path on this one owner.
 - Entry: `public static Presence Open(CollabDoc document, ulong peer, long timeoutMs)` — mints all three channel handles under one TTL; `public Fin<CollabCursor> Anchor(CollabHandle handle, uint position, PosType source, Side side)` — anchors a stable cursor through the addressed kind's own `Anchored` row column, which converts the editor's declared index space via `ConvertPos(position, source, PosType.Unicode)` BEFORE `GetCursor` so a caret after a supplementary-plane character resolves identically in the editor and in loro; `public Fin<PresenceDelta> ApplyRemote(PresenceKind kind, ReadOnlyMemory<byte> update)` — applies a remote peer's presence bytes onto the kind-selected channel; `public Fin<byte[]> Identity(LoroVal state)` and `PublishViewport` encode the identity and spatial channels for transport.
 - Auto: a remote caret/selection publishes through `EphemeralStore` (TTL-expiring) and never enters durable truth, so a stale caret evicts on `RemoveOutdated` rather than persisting; the cursor anchors through `GetCursor(pos, Side)` so it survives concurrent edits, and the rendered caret reads back through `Locate` — `GetCursorPos(cursor)` returning the `PosQueryResult` whose `Current` is the `AbsolutePosition` record carrying the post-merge position, a gc'd anchor (`CannotFindRelativePosition`) folding to `None` rather than a throw; `Awareness` carries the per-peer user/color identity on its own channel and `Roster` sweeps it before reading; the viewport store carries structured spatial values without overloading cursor keys, and the tour presenter-follow arm (`Collab/tour.md`) rides this channel keyed by publishing peer, so the presenter a follower samples is the one the durable register admitted; all three channels encode to `byte[]` on the separate ephemeral topic, so presence and data never mix.
@@ -394,14 +376,14 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
 - Owner: `PresencePlane` `[SmartEnum<string>]` the co-edited SURFACE axis whose rows carry their own overlay projection; `PeerTint` the replica-stable per-peer colour; `PeerLocation` the decoded per-peer slot; `PresenceMark` `[Union]` the overlay row family; `PresenceOverlay` the publish-and-project owner over the viewport channel; `PresenceFollow` the ad-hoc follow lease; `PresenceSignals` the join subscription and the container-scoped activity feed.
 - Cases: `PresencePlane` = text | graph | viewport under the locked plane literals, each row carrying the mark its plane renders; `PresenceMark` = Caret | Halo | Frustum — the remote text caret at its post-merge position, the remote node-selection halo over element keys, and the remote viewport frustum from the peer's own camera.
 - Entry: `public Fin<byte[]> Publish(PresencePlane plane, Option<Viewpoint> view, Option<CollabCursor> caret)` — the local peer's ONE structured slot on its own peer-keyed viewport hop; `public Fin<Seq<PresenceMark>> Marks(PresencePlane plane)` — the post-sweep projection of every live REMOTE peer onto the plane's own mark row, the ONE read a plane surface binds; `public Fin<Subscription> Joined(Func<ulong, IO<Unit>> arrived)` on `PresenceSignals` — the join signal off the document store's own first-commit-from-peer subscription; `public Fin<Subscription> Scoped(CollabAddress address, Func<DiffEvent, IO<Unit>> changed)` — the container-scoped activity feed; `public Transition<Option<FollowLease>> Follow(ulong peer)` / `Release()` and `public Unit Intercept(CommandRow intent)` on `PresenceFollow`.
-- Auto: presence becomes VISIBLE without becoming authority — the overlay reads the three landed channels and mints nothing durable, so a caret, a halo, and a frustum all expire with their peer's TTL; the caret transports the loro `Cursor`'s OWN encoded bytes and re-anchors on the receiving replica through `GetCursorPos`, so a remote caret sits at its post-merge position rather than at an index the receiver's document never held, and a garbage-collected anchor renders nothing instead of a caret at the wrong glyph; the halo and the frustum both read the peer's published `Viewpoint`, so one portable receipt carries camera, section, and selection and presence mints no second camera or selection shape; the tint is a pure function of the peer identity through the kernel one-hasher onto the qualitative colormap, so every replica paints peer N identically and a join never repaints the board; follow is ad-hoc and UNGATED because presence is display by settled ruling, and the lease breaks on any local viewport intent rather than on a camera-delta threshold; the join signal rides `SubscribeFirstCommitFromPeer`, so a peer becomes visible on its first durable act rather than on a polled roster diff, and a scoped activity feed rides `Subscribe(ContainerId, Subscriber)` against a resolved `CollabAddress`, so a per-issue or per-cell feed is a SUBSCRIPTION over that level and client-side filtering of the root feed is the deleted form.
+- Auto: presence becomes VISIBLE without becoming authority — the overlay reads the three landed channels and mints nothing durable, so a caret, a halo, and a frustum all expire with their peer's TTL; the caret transports the loro `Cursor`'s OWN encoded bytes and re-anchors on the receiving replica through `GetCursorPos`, so a remote caret sits at its post-merge position rather than at an index the receiver's document never held, and a garbage-collected anchor renders nothing instead of a caret at the wrong glyph; the halo and the frustum both read the peer's published `Viewpoint`, so one portable view value carries camera, section, and selection and presence mints no second camera or selection shape; the tint is a pure function of the peer identity through the kernel one-hasher onto the qualitative colormap, so every replica paints peer N identically and a join never repaints the board; follow is ad-hoc and UNGATED because presence is display by settled ruling, and the lease breaks on any local viewport intent rather than on a camera-delta threshold; the join signal rides `SubscribeFirstCommitFromPeer`, so a peer becomes visible on its first durable act rather than on a polled roster diff, and a scoped activity feed rides `Subscribe(ContainerId, Subscriber)` against a resolved `CollabAddress`, so a per-issue or per-cell feed is a SUBSCRIPTION over that level and client-side filtering of the root feed is the deleted form.
 - Packages: LoroCs, Rasm (project — `ContentHash`, `Lane`, `Cell`/`Transition`, `Custody`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new co-edited plane is one `PresencePlane` row carrying its mark projection; a new overlay shape is one `PresenceMark` case with its row arm; a new published field is one `CollabColumn` row inside the structured slot; zero new surface, zero new channel.
 - Boundary:
   - Every mark PROJECTS the landed channels and none is stored — a presence value written durably, a follow state persisted, or a roster flag kept beside the channel are the three deleted forms; the slot is PEER-QUALIFIED under its own key prefix on the viewport channel exactly as the review tour's playhead is, so two publishing peers occupy two slots and last-write-wins across peers is structurally unreachable.
   - The local peer's own slot is excluded from the projection, because rendering a caret at the user's own cursor duplicates the one the editor already draws; liveness is the channel's own answer through its own sweep, so `Marks` sweeps before it reads and a lapsed peer contributes no mark.
   - The mark shape is the PLANE ROW's answer, so a structural ladder over the decoded slot — whose default arm would swallow a newly admitted plane — is the rejected form. `Marks` is the ONE read every plane surface binds: the text editor, the graph canvas, and the viewport each ask this owner for their own plane's marks rather than each decoding the slot themselves.
-  - Serialization crosses the package's ONE options owner — `Diagnostics/evidence#RECEIPT_UNION` `EvidenceOps.Wire`, the composition-seated merged suite — so no member here takes a `JsonSerializerOptions` parameter. A codec knob threaded through four signatures is a value the codec owner already holds, and threading it let one publisher encode under a different resolver than the reader that decodes it.
+  - Serialization crosses the package's ONE options owner — `Diagnostics/evidence#EVIDENCE_UNION` `EvidenceOps.Wire`, the composition-seated merged suite — so no member here takes a `JsonSerializerOptions` parameter. A codec knob threaded through four signatures is a value the codec owner already holds, and threading it let one publisher encode under a different resolver than the reader that decodes it.
   - The tint quantizes at the ONE colour edge the package already declares: `Theme/tokens#COLORMAP_CATALOG` `Colormap.Sample` admits through the tokens page's perceptual edge and answers the host carrier, so this owner composes that sampler and performs no colour arithmetic of its own. The unit projection folds the digest by its own width through the kernel `ContentHash.Half` lane row, so the projection carries no modulus and no consumer spells the shift.
   - Follow is display and NEVER authority: it takes no capability read, grants nothing, and a follow arm gated on a role would be asserting that watching a published camera is a privilege the ruling already denies. The lease TRANSITION is the answer — a follow that lost the seat to a concurrent request and a follow that landed are different facts, and a swap whose verdict is discarded reports success to both. The follow banner materializes as one `Shell/controls#CONTROL_INTENT` `ControlIntent.Banner`, so the persistent who-am-I-following condition takes the banner family every persistent condition takes.
   - The break is on the INTENT, never on a camera delta: a followed camera moves the local camera on every frame, so a positional threshold cannot separate the user's own nudge from the target's travel and would either break on the target's motion or never break at all.

@@ -9,7 +9,7 @@ Every owner is instance-owned and composition-entered — evidence cell, meter, 
 - [02]-[CAPSULE]: `KernelDomain`, `TraceCarrier`, `SpanEdge`, `SpanBand` — the sub-domain roster, the causal-edge vocabulary, and the span band that conforms to `IHookSpan`.
 - [03]-[COST]: `Outcome`, `OpCost`, `CostMark` — the settled-verdict row and the per-operation billing capture, declared ahead of the tap that meters them.
 - [04]-[TAP]: `FaultObservation`, `PointFacet`, `KernelPoint`, `SignalFact`, `SignalRail`, `KernelInstrument`, `TelemetrySink` — structured fault projection, hook roster, fact vocabulary, emission rail, instruments, and the ONE emission entry.
-- [05]-[CONTRIBUTE]: `ArmKey`, `ArmRequest`, `InstrumentArm`, `ReceiptFan`, `ClassifiedValue`, `Sensitivity`, `TelemetryContributorPort` — the one projection dispatch and the one downward contribution fact.
+- [05]-[CONTRIBUTE]: `ClassifiedValue`, `Sensitivity`, `TelemetryContributorPort` — the sensitivity vocabulary and the one downward contribution fact a stratum hands a composing root.
 
 ## [02]-[CAPSULE]
 
@@ -21,7 +21,7 @@ Every owner is instance-owned and composition-entered — evidence cell, meter, 
 - Law: every capture funnels through `Op.Catch` on both rail shapes, so a throwing body inside a bracket parks as a typed refusal with its cancellation identity intact rather than escaping past the `using` that owns the span.
 - Law: `DistributedContextPropagator.CreateW3CPropagator()` is the ONE grammar and budget owner for the carrier. `TraceBaggage` is constructed only from its extracted members, the carrier exposes no arbitrary header dictionary, and event producers project its admitted wire value rather than re-parsing or re-formatting baggage locally.
 - Exemption: `Dispose` sweeps the frozen source set with a statement loop — the table is disposed once at composition teardown and every source is disposed even though the sweep carries no rail.
-- Receipt: a failing rail lands `SetStatus(ActivityStatusCode.Error, message)` — the typed verdict, never a boolean error tag — and stamps the generated `FaultId` as the `rasm.fault.code`/`rasm.fault.case` pair a trace query groups on, behind `IsAllDataRequested` so an unsampled span pays the status alone; `HasListeners` gates every bracket, so an unlistened span costs one null test, and an expected `Fault` never fabricates an exception event to carry a tag.
+- Law: a failing rail lands `SetStatus(ActivityStatusCode.Error, message)` — the typed verdict, never a boolean error tag — and stamps the generated `FaultId` as the `rasm.fault.code`/`rasm.fault.case` pair a trace query groups on, behind `IsAllDataRequested` so an unsampled span pays the status alone; `HasListeners` gates every bracket, so an unlistened span costs one null test, and an expected `Fault` never fabricates an exception event to carry a tag.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`, `System.Diagnostics` including `DistributedContextPropagator`, `System.Threading`).
 - Growth: a new sub-domain is one `KernelDomain` row, span source and point prefix deriving; a package trace plane is one `TraceScope` row admitted when the composition mints its band; a new bracket coordinate is one `SpanEdge` column every bracket already threads.
 - Boundary: edge shape follows producer arity, and `SpanEdge` is where that choice lands — a batch relaying N durable rows descends from no single producer, so a parent edge to any one of them fabricates a causal chain the batch never had while the link set states exactly what caused it; a single-producer hop is the inverse, an ingress adopting one carrier through `Under` continuing the producing trace id where a link roots an orphan trace no query joins to its cause. Kind rides that same carriage because a remote-parented bracket declaring the internal default misreports the topology every backend derives from the kind column. Edges ride the START call because the sampler votes once at creation, and a producer whose span was unlistened carries the absent carrier; absence never fabricates trace context or baggage.
@@ -214,7 +214,7 @@ public sealed class SpanBand : IDisposable, IHookSpan {
 - Entry: `Outcome.Of(bool)` is the ONE widening from a settled verdict to its dimension value, so the vocabulary lives at one owner and grows there.
 - Law: one capture per operation runtime — the operation marks before its body fold, the admission gate sits inside the marked window so admission cost charges to the operation that demanded it, and BOTH exits charge: the success leg records `Outcome.Succeeded`, the fail leg `Outcome.Failed` and publishes the fault fact, so cost and failure evidence never diverge and the outcome dimension keeps the two populations separable on one series.
 - Law: allocation delta is thread-local evidence, valid because the synchronous runtime runs the marked window on one thread; a thread-hopping lane keeps elapsed truth and reads the delta as an allocation floor, never a total.
-- Receipt: `OpCost` registers `IValidityEvidence`, so the fact reaches the one acceptance oracle like every kernel receipt.
+- Law: `OpCost` registers `IValidityEvidence`, so the fact reaches the one acceptance oracle like every kernel result.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Diagnostics`).
 - Growth: a third settled verdict is one `Outcome` row and a widening the `Of` bridge no longer spans, which is the loud break that row is worth.
 - Boundary: the fabric never wraps a second timer or a sampling profiler — profile capture is the app stratum's, this row the per-op scalar truth.
@@ -264,7 +264,7 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 ## [04]-[TAP]
 
 - Owner: `FaultObservation` is the bounded structured projection of an `Error`, carrying the generated `FaultId` WHOLE so code and case token stay one member with one authority; `PointFacet` closes what a signal fact IS; `KernelPoint` is the kernel's own `IHookRoster` realization over the sub-domain and facet coordinates; `SignalFact`'s abstract `At` projects each case's own stored ROSTER ROW, so identity moves `with`-safe and no fact carries a spelling; `SignalRail` is the emission capsule over `Domain/hooks`'s one mechanism; `KernelInstrument` is the kernel's own instrument roster, each row CARRYING its declaration; `TelemetrySink` is the composition capsule an app stratum threads.
-- Cases: `ReceiptCase`, `FaultCase`, and `CostCase`, one per `PointFacet` row; each factory resolves its seat through `KernelPoint.Of(domain, facet)` and none renders an id.
+- Cases: `FaultCase` and `CostCase`, one per `PointFacet` row; each factory resolves its seat through `KernelPoint.Of(domain, facet)` and none renders an id. A produced result is no hook fact — it returns on the rail, and its validity is the `IValidityEvidence` fold its caller reads.
 - Entry: `FaultObservation.Of(error)` projects the generated `FaultId` — transported code beside local case token — typed recovery, and bounded exact cause stamps without rendering `Message`; `KernelPoint.Of(domain, facet)` is the ONE seat mint, `SignalRail.Of` mounts the rail over the composition's evidence cell, `Publish` is the unary fire, and `TelemetrySink.Tap` is the ONE emission entry.
 - Auto: the tap is TWO total projections and ONE fold. `Charged` answers the rows a case bills and their measurements, `Stamped` answers the dimensions it carries, and the gate, the tag mint, and the write fold run once for every case — the prior form spelled gate, mint, and write three times, so a fourth case meant a fourth body rather than two rows.
 - Auto: `KernelInstrument` rows carry their own `InstrumentSpec` and `Rows` derives from `Items`, so the const-name roster and the hand-listed sequence that mirrored it are one declaration; construction proves the row's name against its key, because a mirror that cannot derive states its invariant at both owners and moves as one.
@@ -275,7 +275,7 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 - Law: fault observation traverses aggregate MEMBERSHIP and causal `Inner` separately under one fixed ceiling; each retained cause carries the generated `FaultId` or the exact exception `Type` and `HResult`, and `Truncated` states when more evidence existed. Message text, category, owner, and a wire discriminant never enter the projection.
 - Law: `KernelInstrument` owns the whole `rasm.fault.*` key family and each key states where it may be read — `OwnerSlot` and `PostureSlot` are the bounded pair the kernel counter mounts, `CodeSlot` an owner-specific opt-in metric dimension, `CaseSlot` a span tag and log field alone. A metric mounting the case token buys code-cardinality series for a spelling the code already keys, and a lowering copying it forks one identity into two a peer then joins on; an emitter prefixing its own estate segment onto a fault axis forks one estate-wide dimension into a per-package pair no board can group, which is the fork this one roster forecloses. The posture VALUE is `Domain/rails`'s `Retriability.Key`, so the key and the word it carries each have one owner.
 - Exemption: the write fold is a statement seam because a `TagList` cannot cross a lambda; the listener gate precedes it, so a process with no exporter and no armed tally pays the key render, the boxed columns, and the tag fold on no operation.
-- Receipt: fact payloads are evidence, never live resources — `ReceiptCase` carries the receipt value, `FaultCase` the already-lowered `Error` (both the substrate `Fault` union and the band-relative geometry faults arrive as `Error`, so one case serves both), and no case retains geometry, leases, or handles; both fault families land in ONE dimension-discriminated counter, never two.
+- Law: fact payloads are evidence, never live resources — `FaultCase` carries the already-lowered `Error` (both the substrate `Fault` union and the band-relative geometry faults arrive as `Error`, so one case serves both) and `CostCase` the settled `OpCost`; no case retains geometry, leases, or handles, and both fault families land in ONE dimension-discriminated counter, never two.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Collections.Frozen`, `System.Collections.Immutable`, `System.Diagnostics`, `System.Diagnostics.Metrics`, `System.Threading`).
 - Growth: a new fact kind is one `PointFacet` row, one `SignalFact` case, and one arm in each of the two projections, both broken loudly by the generated `Switch` while the roster grows a seat per sub-domain unedited; a new kernel instrument is one `KernelInstrument` row and one entry in `Charged`.
 - Boundary: `SignalFact` holds evidence over live resources, so a fact retains no geometry, lease, or handle and a subscriber reading one holds nothing the emitter must keep alive. `TelemetrySink` is composition-entered: an app stratum mints one per composition and threads it, and a kernel page never constructs, caches, or reaches an ambient sink. Quiet-path cost is structural — a subscriber-empty point folds an empty veto sequence and iterates an empty tap sequence, so a publish costs one keyed lookup and allocates nothing past its rail.
@@ -299,7 +299,6 @@ namespace Rasm.Domain;
 public sealed partial class PointFacet {
     public static readonly PointFacet Cost = new("cost");
     public static readonly PointFacet Fault = new("fault");
-    public static readonly PointFacet Receipt = new("receipt");
 }
 
 [SmartEnum<string>]
@@ -328,11 +327,6 @@ public sealed partial class KernelInstrument {
         "rasm.kernel.op.items",
         InstrumentSpec.Create("rasm.kernel.op.items", InstrumentKind.Distribution, MeasureForm.Whole, "{item}",
             "Kernel operation item count.", Seq(OpSlot, DomainSlot, OutcomeSlot), Some(Buckets.GraphCounts), None, None));
-
-    public static readonly KernelInstrument Receipts = new(
-        "rasm.kernel.op.receipts",
-        InstrumentSpec.Create("rasm.kernel.op.receipts", InstrumentKind.Count, MeasureForm.Whole, "{receipt}",
-            "Kernel receipt stream by acceptance verdict.", Seq(OpSlot, OutcomeSlot), None, None, None));
 
     public static readonly KernelInstrument Faults = new(
         "rasm.kernel.fault.count",
@@ -427,12 +421,8 @@ public abstract partial record SignalFact {
 
     public abstract KernelPoint At { get; }
 
-    public sealed record ReceiptCase(KernelPoint Point, Op Key, IValidityEvidence Receipt) : SignalFact { public override KernelPoint At => Point; }
     public sealed record FaultCase(KernelPoint Point, Op Key, Error Fault) : SignalFact { public override KernelPoint At => Point; }
     public sealed record CostCase(KernelPoint Point, OpCost Cost) : SignalFact { public override KernelPoint At => Point; }
-
-    public static SignalFact Receipt(KernelDomain domain, Op key, IValidityEvidence receipt) =>
-        new ReceiptCase(Point: KernelPoint.Of(domain: domain, facet: PointFacet.Receipt), Key: key, Receipt: receipt);
 
     public static SignalFact Fault(KernelDomain domain, Op key, Error fault) =>
         new FaultCase(Point: KernelPoint.Of(domain: domain, facet: PointFacet.Fault), Key: key, Fault: fault);
@@ -491,7 +481,6 @@ public sealed class TelemetrySink {
     }
 
     private static Seq<(InstrumentSpec Row, double Value)> Charged(SignalFact fact) => fact.Switch(
-        receiptCase: static _ => Seq((KernelInstrument.Receipts.Row, 1d)),
         faultCase: static _ => Seq((KernelInstrument.Faults.Row, 1d)),
         costCase: static row => Seq(
             (KernelInstrument.Duration.Row, row.Cost.Elapsed.TotalSeconds),
@@ -500,9 +489,6 @@ public sealed class TelemetrySink {
 
     private static TagList Stamped(SignalFact fact) => fact.Switch(
         state: TenantContext.Current,
-        receiptCase: static (tenant, row) => InstrumentSet.Tags(tenant,
-            (KernelInstrument.OpSlot, (object?)row.Key.ToString()),
-            (KernelInstrument.OutcomeSlot, Outcome.Of(row.Receipt.IsValid).Key)),
         faultCase: static (tenant, row) => InstrumentSet.Tags(tenant,
             (KernelInstrument.OwnerSlot, row.Fault.Owner.Map(static owner => owner.Key).Match<object?>(Some: static owner => owner, None: static () => null)),
             (KernelInstrument.PostureSlot, Redrive.Posture(row.Fault).Key)),
@@ -516,40 +502,22 @@ public sealed class TelemetrySink {
 
 ## [05]-[CONTRIBUTE]
 
-- Owner: `IReceiptKind<TSelf>` is the receipt-kind roster floor a folder realizes (rows carrying `Key` and their own `Write`), so a kind→arm table is `toSeq(TKind.Items).Map(row => ReceiptFan.Arm(row.Key, row.Write))` and never a hand dictionary; `ArmKey` is the ONE projection discriminant closing both dispatch regimes; `ArmRequest` is the request a fan projects, carrying the wire envelope always and the typed fact where producer and consumer share a process; `InstrumentArm` is the one arm shape; `ReceiptFan` owns the one merged table; `ClassifiedValue` carries a sensitivity annotation as text; `TelemetryContributorPort` is the ONE downward contribution fact a stratum hands a composing root.
-- Cases: two arm keys — a fact TYPE for the in-process dispatch, a kind NAME for the wire dispatch — one discriminant the request itself recovers.
-- Entry: `Arm<TFact>(arm)` and `Arm(kind, arm)` register a typed and a wire row respectively, each erasing its cast ONCE at registration so the stored slot can never hold a delegate the dispatch miscasts; `Of` merges every contributed table; `Project<TFact>(kind, payload, fact)` and `Project(kind, payload)` are the ONE dispatch over one private request; NAMED LOSS: the fan's table is runtime-type keyed and the request slot is erased INSIDE the fan — the price of one table over every fact type a stratum contributes — and the public surface carries no `object`; `Roster` freezes the port's whole declaration by name and `Admit` proves its pack against that roster, so a mounting root folds every contributor before it mints a meter.
-- Auto: the typed key resolves first and the wire key is its own fallthrough off the SAME request, so a partially typed table loses no projection, a kind mapped in both tables writes once, and one fact reaches one arm. In-process projection therefore costs one delegate call instead of a serialize-and-reparse round trip, while a cross-process subscriber holds only the envelope and projects it alone.
-- Law: `Of` refuses a duplicate key on the RAIL and names every collided one, so a collision lands as a typed refusal rather than an untyped `ArgumentException` escaping a composition root.
+- Owner: `ClassifiedValue` carries a sensitivity annotation as text; `Sensitivity` is the kernel's own sensitivity roster; `TelemetryContributorPort` is the ONE downward contribution fact a stratum hands a composing root — its instrument roster, published handles, trace planes, classifications, and board.
+- Entry: `Kernel(version)` mints the kernel's own port; `Roster` freezes the port's whole declaration by name and `Admit` proves its pack against that roster, so a mounting root folds every contributor before it mints a meter.
+- Law: a producer measures at its own site — `InstrumentSet.Write`/`Level`/`Bind` against the rows this port declared, `SpanBand.Traced` for the bracket, `RasmEventEnvelope.Publish` for a durable fact — so no projection table, kind roster, or fan stands between a result and the instrument that observes it.
 - Law: `Roster` names WHICH declaration collided — a refusal that states only that some name repeats leaves a mounting root to diff two rosters by hand.
-- Law: unmapped kinds stay receipt-only by declaration and succeed silently, while a MOUNTED arm's refusal is a defect that rides outward, so the two absences stay distinguishable at the subscribing seam.
 - Law: the port names its scope with the branch's own `TelemetrySource` row rather than a bare string, so a contributor cannot fork the package census the fault-band registry and the causal frame already key on; the schema pin is read, never passed, so no contributor can break the one coordinate tracer, meter, and logger bump together on.
-- Receipt: `InstrumentArm` returns the write rail, so a refusal survives the fan instead of dying at the delegate boundary.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Text.Json`).
-- Growth: a new projected kind is one arm-table row in the contributing folder; a contributor's whole board and reliability policy is one `Board` value on its own port, its whole span custody one `Planes` roster on that same port, and a newly annotated sensitivity one `ClassifiedValue` row on its `Classifications` column.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a contributor's whole board and reliability policy is one `Board` value on its own port, its whole span custody one `Planes` roster on that same port, and a newly annotated sensitivity one `ClassifiedValue` row on its `Classifications` column.
 - Boundary: `Instruments` and `Published` split by WHO MOUNTS — the root binds handles for the first and a contributor owning its own meter lifetime declares the second, `Declared` is the union every naming gate, view predicate, and pack admission reads, and a row on neither roster exports a stream no gate can refuse. `Planes` carries the contributor's own `TraceScope` roster VERBATIM, because trace and meter scopes are distinct grammars neither derives from. `Classifications` carries sensitivity VALUES as `(taxonomy, value)` text, so no compliance type enters this assembly and a redaction root binding a redactor per rostered row has a set to PROVE its contributors against instead of a coincidence it discovers at egress.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using System.Text.Json;
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-[Union]
-public abstract partial record ArmKey {
-    private ArmKey() { }
-
-    public sealed record Fact(Type Value) : ArmKey;
-    public sealed record Kind(string Value) : ArmKey;
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct ArmRequest(string Kind, JsonElement Payload) {
-    internal Option<object> Fact { get; init; }
-}
-
 public readonly record struct ClassifiedValue(string Taxonomy, string Value);
 
 [SmartEnum<string>]
@@ -562,49 +530,6 @@ public sealed partial class Sensitivity {
     public static readonly Sensitivity AccountIdentity = new(key: "personal");
     public ClassifiedValue Value => new(Taxonomy: Taxonomy, Value: Key);
     public static Seq<ClassifiedValue> Values => toSeq(Items).Map(static row => row.Value);
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-public interface IReceiptKind<TSelf> where TSelf : IReceiptKind<TSelf> {
-    static abstract IReadOnlyList<TSelf> Items { get; }
-    string Key { get; }
-    Fin<Unit> Write(InstrumentSet set, JsonElement payload);
-}
-
-public delegate Fin<Unit> InstrumentArm(InstrumentSet set, ArmRequest request);
-
-public sealed record ReceiptFan(InstrumentSet Set, HashMap<ArmKey, InstrumentArm> Arms) {
-    public static Fin<ReceiptFan> Of(InstrumentSet set, params ReadOnlySpan<HashMap<ArmKey, InstrumentArm>> tables) {
-        Seq<(ArmKey Key, InstrumentArm Arm)> rows = toSeq(tables.ToArray())
-            .Bind(static table => toSeq(table).Map(static pair => (Key: pair.Key, Arm: pair.Value))).Strict();
-        Seq<ArmKey> collided = rows.Collisions(static row => row.Key);
-        return collided.IsEmpty
-            ? Fin.Succ(new ReceiptFan(Set: set, Arms: rows.ToHashMap(static row => row.Key, static row => row.Arm)))
-            : Fin.Fail<ReceiptFan>(new KernelFault.InvalidValue(
-                Label: string.Join(", ", collided.Map(static key => key.ToString())),
-                Requirement: "one arm per projection key across every contributed table"));
-    }
-
-    public static (ArmKey Key, InstrumentArm Arm) Arm<TFact>(Func<InstrumentSet, TFact, Fin<Unit>> arm)
-        where TFact : notnull =>
-        (new ArmKey.Fact(typeof(TFact)),
-         (set, request) => request.Fact.Match(
-             Some: fact => arm(set, (TFact)fact),
-             None: () => Fin.Succ(unit)));
-
-    public static (ArmKey Key, InstrumentArm Arm) Arm(string kind, Func<InstrumentSet, JsonElement, Fin<Unit>> arm) =>
-        (new ArmKey.Kind(kind), (set, request) => arm(set, request.Payload));
-
-    public Fin<Unit> Project<TFact>(string kind, JsonElement payload, TFact fact) where TFact : notnull =>
-        Project(new ArmRequest(Kind: kind, Payload: payload) { Fact = Some<object>(fact) });
-    public Fin<Unit> Project(string kind, JsonElement payload) =>
-        Project(new ArmRequest(Kind: kind, Payload: payload));
-    private Fin<Unit> Project(ArmRequest request) =>
-        request.Fact.Bind(fact => Arms.Find(new ArmKey.Fact(fact.GetType())))
-            .Match(
-                Some: arm => arm(Set, request),
-                None: () => Arms.Find(new ArmKey.Kind(request.Kind))
-                    .Match(Some: arm => arm(Set, request), None: static () => Fin.Succ(unit)));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -637,7 +562,6 @@ public sealed record TelemetryContributorPort(
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

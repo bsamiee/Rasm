@@ -1,8 +1,8 @@
 # [RASM_HEALING_REPAIR]
 
-`Heal.Repair` folds the closed `HealOp` algebra over one `MeshEdit` arena and publishes a healed `MeshSpace` with its typed receipt chain. Repair stays total over its input class — a non-manifold, boundaried, or odd-Euler mesh heals rather than failing — and mints no content hash.
+`Heal.Repair` folds the closed `HealOp` algebra over one `MeshEdit` arena and publishes a healed `MeshSpace` with its typed step chain. Repair stays total over its input class — a non-manifold, boundaried, or odd-Euler mesh heals rather than failing — and mints no content hash.
 
-Rebuilds compose the un-gated Genus-tolerant `TopologyReceipt` projection as the before/after topology witness; every failure lowers onto the `GeometryFault` union, `UnrepairableMesh` carrying the residual defect count — the arena's surviving non-manifold edges, or the shell count a severed boolean returns to a session that admits one arena. Every band the kernels read is a `ToleranceLane` derived off the arena's own bound `Context` (`MeshEdit.Tolerance`), so no scalar tolerance rides `RepairPolicy` and no kernel takes a context parameter beside its arena.
+Rebuilds compose the un-gated Genus-tolerant `Topology` projection as the before/after topology witness; every failure lowers onto the `GeometryFault` union, `UnrepairableMesh` carrying the residual defect count — the arena's surviving non-manifold edges, or the shell count a severed boolean returns to a session that admits one arena. Every band the kernels read is a `ToleranceLane` derived off the arena's own bound `Context` (`MeshEdit.Tolerance`), so no scalar tolerance rides `RepairPolicy` and no kernel takes a context parameter beside its arena.
 
 ## [01]-[INDEX]
 
@@ -10,16 +10,16 @@ Rebuilds compose the un-gated Genus-tolerant `TopologyReceipt` projection as the
 
 ## [02]-[HEALING]
 
-- Owner: `HealOp` is the closed repair algebra `Heal.Repair` folds; `HealStage` mints the one heal-modality vocabulary and, through its `Receipt` column, the one typed receipt per stage; `Cut` is the per-face retile row whose two cases carry the two plane carriages a constrained retile admits; `RepairPolicy` carries lanes and one budget alone, `HealPlan` admitting its shape at `Of`.
+- Owner: `HealOp` is the closed repair algebra `Heal.Repair` folds; `HealStage` mints the one heal-modality vocabulary and, through its `Step` column, the one typed step per stage; `Cut` is the per-face retile row whose two cases carry the two plane carriages a constrained retile admits; `RepairPolicy` carries lanes and one budget alone, `HealPlan` admitting its shape at `Of`.
 - Entry: `Heal.Repair` is the one entrypoint over every modality, discriminating on `HealPlan`.
 - Auto: every author-kernel is a pure-managed arena fold composing the `Predicate` exact-sign floor and the `Axis.DominantOf` plane admission, reading its bands off `edit.Tolerance` under the lanes the plan policy names.
-- Law: `HealStage.Receipt` is the ONE stage-to-receipt table and each row stamps itself onto `RebuildReceipt.Stage`, so a mispaired stage is unrepresentable and the inverse table a reader used to check by eye is gone; the mint rides `Fin`, so the boolean arm's missing arrangement evidence and the split's missing incidence carry lower typed instead of fabricating an empty receipt or re-measuring the arena.
+- Law: `HealStage.Step` is the ONE stage-to-step table and each row stamps itself onto `HealStep.Stage`, so a mispaired stage is unrepresentable and no inverse table re-answers it; the mint rides `Fin`, so the boolean arm's missing arrangement census and the split's missing incidence lower typed instead of fabricating an empty step or re-measuring the arena.
 - Law: `HealStage.RebuildsTopology` and `HealStage.Collects` are two INDEPENDENT axes with no legal-corner law — the first selects the re-anchor contribution, the second the terminal debris sweep — so they stay a bool pair rather than one capability set, and every corner is admissible.
 - Law: the retile's arena maps key on EXACT `Point3d` equality, never a rounded lattice: `Tessellation.Triangles` hands back coordinates that are bit-identical readbacks of the soup corners and of `Implicit.Round()`, so equality is the ordinal. Sub-ulp near-misses therefore mint a distinct vertex, which is the sliver the terminal weld/degenerate sweep collects — the quantum is zero and the debris is scheduled, never rounded away.
 - Exemption: `Incidence`, the `Recut` patch table, and the retile's arena maps are mutable `Dictionary`/`HashSet` inside a single-writer span kernel and stay so — each is built, mutated, and dropped inside one fold with no reader past it.
-- Receipt: `HealSession` carries one typed `RebuildReceipt` per applied op; `before[n] = after[n-1]` threads the status pair so N ops cost N+1 projections, and the affected-entity seed reads the arena dirty bitsets admission clears. `Incidence` rides forward as arena-interior scratch spared a recomputation inside a mutation-free run, and the split's carried fold IS the residual `ManifoldReceipt` records — one authority, so the gate and the receipt cannot report two numbers.
+- Law: `HealSession` carries one typed `HealStep` per applied op; `before[n] = after[n-1]` threads the status pair so N ops cost N+1 projections, and the affected-entity seed reads the arena dirty bitsets admission clears. `Incidence` rides forward as arena-interior scratch spared a recomputation inside a mutation-free run, and the split's carried fold IS the residual `HealStep.Manifold` records — one authority, so the gate and the step cannot report two numbers.
 - Packages: `Rasm.Meshing`, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Spatial`, QuikGraph, Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new modality is one `HealStage` row, one `HealOp` case, and one typed `RebuildReceipt` case; a new band is one `ToleranceLane` column on `RepairPolicy` at `Of`; a new spatial or exact primitive routes its owning sibling as a consumer-contract row.
+- Growth: a new modality is one `HealStage` row, one `HealOp` case, and one typed `HealStep` case; a new band is one `ToleranceLane` column on `RepairPolicy` at `Of`; a new spatial or exact primitive routes its owning sibling as a consumer-contract row.
 - Boundary: crossing, CDT, and boolean classification stay `Intersection`/`Tessellation`/`Arrangement` property, point proximity the `Spatial` neighbor lane. `RepairPolicy.Retile` names the constrained CDT stage, never remeshing; a composed sibling fault propagates unwrapped, and a collapse or re-mesh preserves every load-bearing feature.
 
 ```csharp
@@ -52,34 +52,34 @@ namespace Rasm.Processing;
 public sealed partial class HealStage {
     public static readonly HealStage Weld = new("weld", rebuildsTopology: true, collects: true,
         mint: Some<Func<HealOp>>(static () => new HealOp.DuplicateWeld()),
-        receipt: static seed => Fin.Succ<RebuildReceipt>(new RebuildReceipt.WeldReceipt(
+        step: static seed => Fin.Succ<HealStep>(new HealStep.Weld(
             HealStage.Weld, seed.Context.For(seed.Policy.Arena.Weld), seed.Before, seed.After, seed.Vertices)));
     public static readonly HealStage Degenerate = new("degenerate", rebuildsTopology: true, collects: true,
         mint: Some<Func<HealOp>>(static () => new HealOp.DegenerateCollapse()),
-        receipt: static seed => Fin.Succ<RebuildReceipt>(new RebuildReceipt.DegenerateReceipt(
+        step: static seed => Fin.Succ<HealStep>(new HealStep.Degenerate(
             HealStage.Degenerate, seed.Context.For(seed.Policy.Sliver), seed.Before, seed.After, seed.Faces)));
     public static readonly HealStage Gap = new("gap", rebuildsTopology: true, collects: false,
         mint: Some<Func<HealOp>>(static () => new HealOp.GapClose()),
-        receipt: static seed => Fin.Succ<RebuildReceipt>(new RebuildReceipt.GapReceipt(
+        step: static seed => Fin.Succ<HealStep>(new HealStep.Gap(
             HealStage.Gap, seed.Context.For(seed.Policy.Gap), seed.Before, seed.After, seed.Faces, seed.Vertices)));
     public static readonly HealStage Manifold = new("manifold", rebuildsTopology: true, collects: false,
         mint: Some<Func<HealOp>>(static () => new HealOp.ManifoldRepair()),
-        receipt: static seed => seed.Carry.ToFin(seed.Key.InvalidResult()).Map(settled =>
-            (RebuildReceipt)new RebuildReceipt.ManifoldReceipt(
+        step: static seed => seed.Carry.ToFin(seed.Key.InvalidResult()).Map(settled =>
+            (HealStep)new HealStep.Manifold(
                 HealStage.Manifold, seed.Policy.MaxManifoldPasses, settled.NonManifold().Count,
                 seed.Before, seed.After, seed.Faces, seed.Vertices)));
     public static readonly HealStage Orient = new("orient", rebuildsTopology: false, collects: false,
         mint: Some<Func<HealOp>>(static () => new HealOp.OrientNormals()),
-        receipt: static seed => Fin.Succ<RebuildReceipt>(new RebuildReceipt.OrientReceipt(
+        step: static seed => Fin.Succ<HealStep>(new HealStep.Orient(
             HealStage.Orient, seed.Before, seed.After, seed.Faces)));
     public static readonly HealStage SelfIntersect = new("self-intersect", rebuildsTopology: true, collects: false,
         mint: Some<Func<HealOp>>(static () => new HealOp.SelfIntersectResolve()),
-        receipt: static seed => Fin.Succ<RebuildReceipt>(new RebuildReceipt.SelfIntersectReceipt(
+        step: static seed => Fin.Succ<HealStep>(new HealStep.SelfIntersect(
             HealStage.SelfIntersect, seed.Before, seed.After, seed.Faces, seed.Vertices)));
     public static readonly HealStage Boolean = new("boolean", rebuildsTopology: true, collects: false, mint: None,
-        receipt: static seed => seed.Merge.ToFin(seed.Key.InvalidResult()).Map(merge =>
-            (RebuildReceipt)new RebuildReceipt.MergeReceipt(
-                HealStage.Boolean, merge.Op, merge.Receipt, seed.Before, seed.After,
+        step: static seed => seed.Merge.ToFin(seed.Key.InvalidResult()).Map(merge =>
+            (HealStep)new HealStep.Merge(
+                HealStage.Boolean, merge.Op, merge.Census, seed.Before, seed.After,
                 seed.ExtentFaces, seed.ExtentVertices)));
 
     public bool RebuildsTopology { get; }
@@ -87,7 +87,7 @@ public sealed partial class HealStage {
     public Option<Func<HealOp>> Mint { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Fin<RebuildReceipt> Receipt(ReceiptSeed seed);
+    internal partial Fin<HealStep> Step(StepSeed seed);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -139,10 +139,10 @@ public sealed record HealPlan(MeshSpace Input, Seq<HealOp> Ops, RepairPolicy Pol
     }
 }
 
-internal readonly record struct HealStep(MeshEdit Edit, Option<(BooleanOp Op, BooleanReceipt Receipt)> Merge, Option<Incidence> Carry) {
-    public static HealStep Same(MeshEdit edit) => new(edit, None, None);
+internal readonly record struct HealEdit(MeshEdit Edit, Option<(BooleanOp Op, BooleanCensus Census)> Merge, Option<Incidence> Carry) {
+    public static HealEdit Same(MeshEdit edit) => new(edit, None, None);
 
-    public static HealStep Carrying(MeshEdit edit, Incidence current) => new(edit, None, Some(current));
+    public static HealEdit Carrying(MeshEdit edit, Incidence current) => new(edit, None, Some(current));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -168,10 +168,10 @@ public abstract partial record HealOp {
             selfIntersectResolve: static _ => HealStage.SelfIntersect,
             boolean:              static _ => HealStage.Boolean);
 
-    internal Fin<HealStep> Apply(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key, Option<Incidence> carry) =>
+    internal Fin<HealEdit> Apply(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key, Option<Incidence> carry) =>
         Switch(
             state: (Edit: edit, Current: current, Policy: policy, Key: key, Carry: carry),
-            duplicateWeld:        static (s, _) => Fin.Succ(HealStep.Same(Kernels.WeldDuplicates(s.Edit))),
+            duplicateWeld:        static (s, _) => Fin.Succ(HealEdit.Same(Kernels.WeldDuplicates(s.Edit))),
             degenerateCollapse:   static (s, _) => Heal.Collapse(s.Edit, s.Policy),
             gapClose:             static (s, _) => Heal.Close(s.Edit, s.Policy, s.Key, s.Carry),
             manifoldRepair:       static (s, _) => Heal.Split(s.Edit, s.Policy, s.Carry),
@@ -235,19 +235,19 @@ public static class Heal {
         try {
             return Status(plan.Input, context, op).Bind(first =>
                 plan.Ops.Fold(
-                    Fin.Succ((Space: plan.Input, Status: first, Receipts: Seq<RebuildReceipt>(), Carry: Option<Incidence>.None)),
+                    Fin.Succ((Space: plan.Input, Status: first, Steps: Seq<HealStep>(), Carry: Option<Incidence>.None)),
                     (acc, heal) => acc.Bind(state =>
-                        from step in heal.Apply(live, state.Space, plan.Policy, op, state.Carry)
-                        from space in Publish(step)
+                        from edit in heal.Apply(live, state.Space, plan.Policy, op, state.Carry)
+                        from space in Publish(edit)
                         from after in Status(space, context, op)
-                        from receipt in heal.Stage.Receipt(ReceiptSeed.Of(plan.Policy, state.Status, after, live, step, op))
-                        select (Space: space, Status: after, Receipts: state.Receipts.Add(receipt), step.Carry)))
-                .Map(state => new HealSession(Input: plan.Input, Healed: state.Space, Receipts: state.Receipts)));
+                        from step in heal.Stage.Step(StepSeed.Of(plan.Policy, state.Status, after, live, edit, op))
+                        select (Space: space, Status: after, Steps: state.Steps.Add(step), edit.Carry)))
+                .Map(state => new HealSession(Input: plan.Input, Healed: state.Space, Steps: state.Steps)));
         }
         finally { live.Dispose(); }
 
-        Fin<MeshSpace> Publish(HealStep step) {
-            if (!ReferenceEquals(step.Edit, live)) { live.Dispose(); live = step.Edit; }
+        Fin<MeshSpace> Publish(HealEdit edit) {
+            if (!ReferenceEquals(edit.Edit, live)) { live.Dispose(); live = edit.Edit; }
             return live.ToSpace(op);
         }
     }
@@ -258,7 +258,7 @@ public static class Heal {
             .Map(ManifoldStatus.Of);
 
     // --- [DEGENERATE_COLLAPSE]
-    internal static Fin<HealStep> Collapse(MeshEdit edit, RepairPolicy policy) {
+    internal static Fin<HealEdit> Collapse(MeshEdit edit, RepairPolicy policy) {
         double areaFloor = edit.Tolerance.For(policy.Sliver).Value;
         FaceKeySet seen = new();
         for (int f = 0; f < edit.FaceCount; f++) {
@@ -270,7 +270,7 @@ public static class Heal {
             if (Predicate.Orient2D(pa, pb, pc, axis) == Sign.Zero
                 || 0.5 * Vector3d.CrossProduct(pb - pa, pc - pa).Length < areaFloor) { edit.KillFace(f); }
         }
-        return Fin.Succ(HealStep.Same(edit));
+        return Fin.Succ(HealEdit.Same(edit));
 
         static (int, int, int) Sorted(int a, int b, int c) {
             (int lo, int hi) = (int.Min(a, int.Min(b, c)), int.Max(a, int.Max(b, c)));
@@ -279,10 +279,10 @@ public static class Heal {
     }
 
     // --- [GAP_CLOSE]
-    internal static Fin<HealStep> Close(MeshEdit edit, RepairPolicy policy, Op key, Option<Incidence> carry) {
+    internal static Fin<HealEdit> Close(MeshEdit edit, RepairPolicy policy, Op key, Option<Incidence> carry) {
         Incidence incidence = carry.IfNone(() => Incidence.Of(edit));
         Arr<(int Tail, int Head, int Face)> rim = incidence.Boundary(edit);
-        if (rim.Count < 2) return Fin.Succ(HealStep.Carrying(edit, incidence));
+        if (rim.Count < 2) return Fin.Succ(HealEdit.Carrying(edit, incidence));
         double span = edit.Tolerance.For(policy.Gap).Value;
         Point3d[] heads = [.. rim.Map(h => edit.Position(h.Head))];
         return NeighborIndex.Of(new NeighborSource.StaticCase(toSeq(rim.Map(h => edit.Position(h.Tail)))), key)
@@ -290,7 +290,7 @@ public static class Heal {
             .Map(graph => Bridge(edit, rim, graph.Ids, span, incidence));
     }
 
-    static HealStep Bridge(MeshEdit edit, Arr<(int Tail, int Head, int Face)> rim, int[][] candidates, double span, Incidence incidence) {
+    static HealEdit Bridge(MeshEdit edit, Arr<(int Tail, int Head, int Face)> rim, int[][] candidates, double span, Incidence incidence) {
         List<(int I, int J, double Gap)> pairs = new();
         for (int i = 0; i < rim.Count; i++) {
             foreach (int j in candidates[i]) {
@@ -309,11 +309,11 @@ public static class Heal {
             if (b != c) edit.AddFace(b, d, c);
             used.Add(i); used.Add(j);
         }
-        return used.Count == 0 ? HealStep.Carrying(edit, incidence) : HealStep.Same(edit);
+        return used.Count == 0 ? HealEdit.Carrying(edit, incidence) : HealEdit.Same(edit);
     }
 
     // --- [MANIFOLD_REPAIR]
-    internal static Fin<HealStep> Split(MeshEdit edit, RepairPolicy policy, Option<Incidence> carry) {
+    internal static Fin<HealEdit> Split(MeshEdit edit, RepairPolicy policy, Option<Incidence> carry) {
         Dimension passes = policy.MaxManifoldPasses;
         Atom<(Option<int> Found, Incidence Last)> cell = Atom(value: (Found: Option<int>.None, Last: carry.IfNone(() => Incidence.Of(edit))));
         Transition<(Option<int> Found, Incidence Last)> driven = Cell.Converge(
@@ -325,12 +325,12 @@ public static class Heal {
             budget: passes,
             declined: new GeometryFault.UnrepairableMesh(HealStage.Manifold, Some(passes), cell.Value.Last.NonManifold().Count));
         (Option<int> found, Incidence last) = driven.Current;
-        if (found == Some(0)) return Fin.Succ(HealStep.Carrying(edit, last));
+        if (found == Some(0)) return Fin.Succ(HealEdit.Carrying(edit, last));
         Incidence settled = Incidence.Of(edit);
         int remaining = settled.NonManifold().Count;
         return remaining == 0
-            ? Fin.Succ(HealStep.Carrying(edit, settled))
-            : Fin.Fail<HealStep>(new GeometryFault.UnrepairableMesh(HealStage.Manifold, Some(passes), remaining));
+            ? Fin.Succ(HealEdit.Carrying(edit, settled))
+            : Fin.Fail<HealEdit>(new GeometryFault.UnrepairableMesh(HealStage.Manifold, Some(passes), remaining));
 
         static (Option<int> Found, Incidence Last) SplitPass(MeshEdit edit, Incidence incidence) {
             Arr<((int U, int V) Edge, List<int> Fans)> rows = incidence.NonManifold();
@@ -349,7 +349,7 @@ public static class Heal {
     }
 
     // --- [ORIENT_NORMALS]
-    internal static Fin<HealStep> Orient(MeshEdit edit, Option<Incidence> carry) {
+    internal static Fin<HealEdit> Orient(MeshEdit edit, Option<Incidence> carry) {
         Incidence incidence = carry.IfNone(() => Incidence.Of(edit));
         AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> dual = incidence.Dual(edit);
         Dictionary<int, int> shell = new(edit.FaceCount);
@@ -368,7 +368,7 @@ public static class Heal {
             };
             walk.Compute(seed);
         }
-        return Fin.Succ(HealStep.Carrying(edit, incidence));
+        return Fin.Succ(HealEdit.Carrying(edit, incidence));
 
         static bool SameTraversal((int A, int B, int C) f, (int A, int B, int C) g, (int U, int V) edge) =>
             Directed(f, edge) == Directed(g, edge);
@@ -378,16 +378,16 @@ public static class Heal {
     }
 
     // --- [SELF_INTERSECT_RESOLVE]
-    internal static Fin<HealStep> Resolve(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key) =>
+    internal static Fin<HealEdit> Resolve(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key) =>
         Intersection.Apply(new IntersectOp.SelfMesh(current, policy.Intersect), key)
             .Bind(result => result is IntersectResult.Chains hit
                 ? Fin.Succ(hit.Lattice)
                 : Fin.Fail<CrossLattice>(key.InvalidResult()))
             .Bind(lattice => lattice.Segments.Length == 0 && lattice.Coplanar.Length == 0
-                ? Fin.Succ(HealStep.Same(edit))
+                ? Fin.Succ(HealEdit.Same(edit))
                 : Recut(edit, current, lattice, policy, key));
 
-    static Fin<HealStep> Recut(MeshEdit edit, MeshSpace current, CrossLattice lattice, RepairPolicy policy, Op key) {
+    static Fin<HealEdit> Recut(MeshEdit edit, MeshSpace current, CrossLattice lattice, RepairPolicy policy, Op key) {
         using MeshEdit soup = MeshEdit.Of(current, policy.Arena);
         using MemoryOwner<int> arenaFace = MemoryOwner<int>.Allocate(soup.FaceCount, AllocationMode.Clear);
         for (int f = 0, live = 0; f < edit.FaceCount; f++) {
@@ -402,12 +402,12 @@ public static class Heal {
             if (a == b) continue;
             Note(patches, fa, new Cut.Coplanar(a, b, cu, cv)); Note(patches, fb, new Cut.Coplanar(a, b, cu, cv));
         }
-        if (patches.Count == 0) return Fin.Succ(HealStep.Same(edit));
+        if (patches.Count == 0) return Fin.Succ(HealEdit.Same(edit));
         Dictionary<Point3d, int> minted = new();
         return toSeq(patches.OrderBy(static patch => patch.Key)).Strict()
             .TraverseM(patch => Subdivide(edit, soup, lattice, arenaFace.Memory.Span[patch.Key], patch.Key, patch.Value, minted, policy, key))
             .As()
-            .Map(_ => HealStep.Same(edit));
+            .Map(_ => HealEdit.Same(edit));
 
         static void Note(Dictionary<int, List<Cut>> patches, int face, Cut row) =>
             (patches.TryGetValue(face, out List<Cut>? rows) ? rows : patches[face] = []).Add(row);
@@ -469,14 +469,14 @@ public static class Heal {
     }
 
     // --- [BOOLEAN]
-    internal static Fin<HealStep> Merge(HealOp.Boolean op, MeshSpace current, RepairPolicy policy, Op key) =>
+    internal static Fin<HealEdit> Merge(HealOp.Boolean op, MeshSpace current, RepairPolicy policy, Op key) =>
         Arrangement.Apply(new ArrangementOp.MeshBoolean(Seq(current, op.Tool), op.Op, policy.Arrangement), key)
             .Bind(result => result switch {
                 ArrangementResult.Boolean { Shells: [MeshSpace solid] } merged =>
-                    Fin.Succ(new HealStep(MeshEdit.Of(solid, policy.Arena), Some((op.Op, merged.Receipt)), None)),
+                    Fin.Succ(new HealEdit(MeshEdit.Of(solid, policy.Arena), Some((op.Op, merged.Census)), None)),
                 ArrangementResult.Boolean severed =>
-                    Fin.Fail<HealStep>(new GeometryFault.UnrepairableMesh(HealStage.Boolean, Option<Dimension>.None, severed.Shells.Count)),
-                _ => Fin.Fail<HealStep>(key.InvalidResult()),
+                    Fin.Fail<HealEdit>(new GeometryFault.UnrepairableMesh(HealStage.Boolean, Option<Dimension>.None, severed.Shells.Count)),
+                _ => Fin.Fail<HealEdit>(key.InvalidResult()),
             });
 }
 ```
@@ -491,7 +491,7 @@ config:
 ---
 flowchart LR
     accTitle: Mesh heal operation fold
-    accDescr: A heal plan entering the mesh-edit arena where each repair operation draws on exact predicates, intersection, tessellation, boolean arrangement, proximity, and face-dual traversal, the frozen space projecting manifold status into a rebuild receipt and the healed space into naming identity, with the unrepairable arm leaving as a geometry fault.
+    accDescr: A heal plan entering the mesh-edit arena where each repair operation draws on exact predicates, intersection, tessellation, boolean arrangement, proximity, and face-dual traversal, the frozen space projecting manifold status into a heal step and the healed space into naming identity, with the unrepairable arm leaving as a geometry fault.
     HealPlan -->|MeshEdit.Of + ArenaPolicy| MeshEdit
     MeshEdit -->|Heal.Repair fold| HealOp
     HealOp -->|Orient2D exact signs| Predicate
@@ -502,7 +502,7 @@ flowchart LR
     HealOp -->|face-dual BFS| QuikGraph
     MeshEdit -->|ToSpace per op| MeshSpace
     MeshSpace -->|Genus-tolerant Project| ManifoldStatus
-    ManifoldStatus -->|RebuildReceipt.Of| HealSession
+    ManifoldStatus -->|HealStage.Step| HealSession
     HealSession -->|healed MeshSpace| NamingHash
     HealOp -.->|UnrepairableMesh| GeometryFault
 ```
@@ -514,7 +514,7 @@ One owner per axis; capability is a case, row, or column.
 | [INDEX] | [AXIS_CONCERN]   | [OWNER]         | [RAIL]                                             | [CASES] |
 | :-----: | :--------------- | :-------------- | :------------------------------------------------- | :-----: |
 |  [01]   | Healing rail     | `Heal`/`HealOp` | `Heal.Repair(HealPlan, Op?) → Fin<HealSession>`    |    7    |
-|  [02]   | Heal modality    | `HealStage`     | `stage.Receipt(ReceiptSeed) → Fin<RebuildReceipt>` |    7    |
+|  [02]   | Heal modality    | `HealStage`     | `stage.Step(StepSeed) → Fin<HealStep>`    |    7    |
 |  [03]   | Retile row       | `Cut`           | interior (plane carriage)                          |    2    |
 |  [04]   | Policy row       | `RepairPolicy`  | `RepairPolicy.Of → Fin<RepairPolicy>`              |    —    |
 |  [05]   | Request carrier  | `HealPlan`      | `HealPlan.Of → Fin<HealPlan>`                      |    —    |
@@ -524,7 +524,6 @@ One owner per axis; capability is a case, row, or column.
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

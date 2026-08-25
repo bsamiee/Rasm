@@ -119,7 +119,7 @@ declare namespace CacheLane {
 - Owner: `CacheLane.memo` — the ONE memo entry whose modality is the input shape: a bare effect caches whole (`Effect.cached`, or `cachedWithTTL` when a cadence rides the call), a unary function memoizes per-argument (`Effect.cachedFunction` under the caller's own key equivalence); and `CacheLane.dedup(options)` — the request-cache Layer that turns fiber-tree request graphs into deduplicated batched loads. Keyed single-flight rides `Cache.make` at the package surface directly — a rename-forward alias adds no domain value and is refused here.
 - Packages: `effect` (`Cache`, `Cache.ConsumerCache.cacheStats`, `Cache.makeCacheStats`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Equivalence`, `Request.makeCache`, `Layer.setRequestCache`, `Metric.incrementBy`, `Metric.set`, `Ref.getAndSet`, `Schedule.spaced`, `Duration`); `@rasm/core` (`Convention` — the cache instrument and name rows).
 - Entry: a read surface with stampede exposure mints `Cache.make` once at construction and yields `cache.get(key)` thereafter; a pure recompute memoizes through `memo`; the projection and retrieval read paths compose `dedup` at the root so their `RequestResolver`-batched loads share one cache per request graph — the resolver machinery is the SQL tier's, the cache Layer is this row.
-- Receipt: cache entries remain correctness-neutral values, and `CacheLane.census(name, cache)` is the economics projection — one scoped probe folding the substrate's own `cacheStats` snapshot onto the `cacheHits`/`cacheMisses` sums and the `cacheEntries` occupancy level, each tagged by the caller's cache name, so the `board#PACKS` `lake` hit-share tile reads a series a producer genuinely mints and residency reads beside it.
+- Output: cache entries remain correctness-neutral values, and `CacheLane.census(name, cache)` is the economics projection — one scoped probe folding the substrate's own `cacheStats` snapshot onto the `cacheHits`/`cacheMisses` sums and the `cacheEntries` occupancy level, each tagged by the caller's cache name, so the `board#PACKS` `lake` hit-share tile reads a series a producer genuinely mints and residency reads beside it.
 - Growth: a new cached surface is one mint with its own spec beside one `census` registration; a per-key TTL posture is the spec's `timeToLive` fold over the exit, never a second cache kind.
 - Law: concurrent same-key lookups COLLAPSE to one execution — the single-flight guarantee is the constructor's, so no consumer wraps a semaphore around a cache; a hand-rolled in-flight map beside this row is the named reinvention.
 - Law: capacity is a hard bound and eviction is the cache's own policy — an unbounded memo over unbounded keys is unspellable because `capacity` is a required field of the spec; `memo` over a function is bounded by its argument space and admits only where that space is provably small.
@@ -297,7 +297,6 @@ export { CacheLane, OriginKey }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

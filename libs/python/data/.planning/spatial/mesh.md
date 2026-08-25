@@ -2,7 +2,7 @@
 
 Mesh-file exchange owner over a `MeshBackend` axis with the point-cloud interchange row and the produced-archive sink: `MeshExchange` admits one file once and folds mesh-file identity, cell-block topology, unit posture, named array arities, the FE time-series rail, and preview/format export onto one `MeshOp` union over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — `CloudExchange` is the LAS/LAZ/COPC row over `laspy` alone, and `ProductKind` is the peer axis over the produced byte payloads a geometry analysis hands down for durable landing. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, the geometry `pdal` filter-graph stays geometry-owned, and the product sink lands bytes a producer already minted rather than authoring any of them.
 
-Every payload keys by runtime `ContentIdentity` over the canonical `float64` point buffer, and the named-array egress rides the shared `tabular/columnar#SCAN` `QueryReceipt.railed` Arrow rail — the same `(table, QueryReceipt)` pair every sibling Arrow producer returns. Source admission loads the provider engine exactly once and every op reads that one open, so no leg re-opens the file it was handed. Foreign facts a format may omit — a `.3dm` object name, a `Trimesh` unit hint, a LAS CRS VLR — cross as `Posture`, so declared, defaulted-from-a-named-source, and absent stay three states rather than one empty string. Network-bearing COPC reads route through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop elected by the source row rather than by which entrypoint a caller picked — the same retry/span/lift triplet the sibling spatial pages delegate to the runtime resilience owner.
+Every payload keys by runtime `ContentIdentity` over the canonical `float64` point buffer, and named arrays egress as arity-banded Arrow tables. Source admission loads the provider engine exactly once and every op reads that one open, so no leg re-opens the file it was handed. Foreign facts a format may omit — a `.3dm` object name, a `Trimesh` unit hint, a LAS CRS VLR — cross as `Posture`, so declared, defaulted-from-a-named-source, and absent stay three states rather than one empty string. Network-bearing COPC reads route through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop elected by the source row rather than by which entrypoint a caller picked — the same retry/span/lift triplet the sibling spatial pages delegate to the runtime resilience owner.
 
 ## [01]-[INDEX]
 
@@ -13,12 +13,12 @@ Every payload keys by runtime `ContentIdentity` over the canonical `float64` poi
 ## [02]-[MESH]
 
 - Owner: `MeshExchange` holds the admitted triple — elected backend, source ref, loaded engine — and each `_Backend` row pairs the loader, the hierarchy `walk`, the exporter, the unit posture, the optional frame-stream reader, the per-engine fault set the `boundary` narrows `catch=` to, and the extension set, so engine variation collapses to one row, never a parallel per-engine builder family or a per-engine `match` arm in `run`.
-- Entry: one `run(op)` discriminates `MeshOp` — `read | arrays | timeseries | export(fmt) | preview` — onto one closed `MeshProduct`, both directions on one surface. Per-leg sibling entrypoints each re-run `row.load(ref)`, so a caller reading a payload and then its arrays pays two whole-file provider loads over one file, and a sibling `write` entry forks the span, the receipt, and the backend election three ways.
+- Entry: one `run(op)` discriminates `MeshOp` — `read | arrays | timeseries | export(fmt) | preview` — onto one closed `MeshProduct`, both directions on one surface. Per-leg sibling entrypoints each re-run `row.load(ref)`, so a caller reading a payload and then its arrays pays two whole-file provider loads over one file, and a sibling `write` entry forks the span and backend election.
 - Auto: `MeshBackend.of` resolves the case off the source extension through `_EXT.try_find` and REFUSES an unrecognized suffix by name. Defaulting `.get(suffix, "meshio")` elects the FE reader for every unknown extension, which then dies inside its codec naming the file rather than whichever routing decision mis-sent it.
 - Walk: `_rhino3dm_walk` publishes one node per object carrying layer path, object name, object id, and the composed instance transform, expanding every `InstanceReference` through its definition under a cycle-pinned branch set. Flattening `model.Objects` into one comprehension concatenates a single buffer instead, dropping every block-instanced mesh whole and erasing all four facts from the meshes it keeps; `meshio` and `trimesh` publish one whole-file node because neither carries an object graph past the load.
 - Units: each row answers `units` as a `Posture` — `rhino3dm` DEFAULTED from `ModelUnitSystem` because a document declaring no unit still reports `Millimeters`, `trimesh` DECLARED where `Trimesh.units` is non-null and ABSENT where it is not, `meshio` ABSENT because that package carries no unit surface at all. Both `mesh.units or "m"` and a meshio row spelling `lambda _: "m"` publish a measurement no producer took.
-- Receipt: `MeshReceipt` (the geometry/topology proof) and `QueryReceipt` (the columnar table proof) are two typed receipts disjoint by evidence axis, never one rail straddling both. `MeshColumns` bands the columnar egress by ARITY — `point` over the vertex-aligned columns, `cell.<block>` over each block's own cell census — and proves each band's widths at construction, because `pa.table` admits one length across every column handed it and one table spanning both arities raises `ArrowInvalid` on every mesh carrying cell data. `MeshFrame` and `MeshPayload` carry the node ROWS and `MeshReceipt` the node CENSUS, and a posture-carried fact OMITS its receipt key when absent rather than publishing an empty string a board reads as a declaration.
-- Growth: a new surface format is one extension string on the `trimesh` row; a new FE format already routes through `meshio.extension_to_filetypes`; a new engine is one `MeshBackend` case plus one `_Backend` row; a new leg is one `MeshOp` case, one `run` arm, and one `MeshProduct` case; a new named array kind is one more dict the row `walk` folds, surfacing as one more egress column and receipt arity with no frame edit; zero per-format `read_*`/`write_*` family; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.MESH` in this module's one `RAISES` table, which every section anchors on.
+- Law: `MeshColumns` bands the columnar egress by ARITY — `point` over the vertex-aligned columns, `cell.<block>` over each block's own cell census — and proves each band's widths at construction, because `pa.table` admits one length across every column handed it and one table spanning both arities raises `ArrowInvalid` on every mesh carrying cell data. `MeshPayload` carries topology, array censuses, nodes, units, and the canonical point-buffer `ContentKey` directly.
+- Growth: a new surface format is one extension string on the `trimesh` row; a new FE format already routes through `meshio.extension_to_filetypes`; a new engine is one `MeshBackend` case plus one `_Backend` row; a new leg is one `MeshOp` case, one `run` arm, and one `MeshProduct` case; a new named array kind is one more dict the row `walk` folds, surfacing as one more egress column and arity band with no frame edit; zero per-format `read_*`/`write_*` family; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.MESH` in this module's one `RAISES` table, which every section anchors on.
 - Boundary: no geometry kernel, no bridge lifecycle, no NURBS/Brep/SubD construction — the `rhino3dm` row reads `File3dm` meshes and instance references only, the offline 3dm reader per the geometry-flow law. Frame streaming is XDMF's alone, so a surface row carrying no frame reader refuses the leg by name instead of dying inside a codec it never opened.
 
 ```python
@@ -32,18 +32,15 @@ import numpy as np
 import pyarrow as pa
 import rhino3dm
 import trimesh
-from expression import Error, Nothing, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
-from rasm.data.tabular.columnar import QueryReceipt
 from rasm.data.tabular.interop import DataLeg
 from rasm.runtime.faults import TERMINAL, TRANSIENT, Disposition, FaultRow, Posture, RuntimeRail, async_boundary, rostered, scoped, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.mesh")
@@ -99,11 +96,6 @@ type Engine = meshio.Mesh | trimesh.Trimesh | rhino3dm.File3dm
 type Arrays = Mapping[str, np.ndarray]
 type Blocks = Mapping[str, Arrays]
 type Frames = Iterator[RuntimeRail[tuple[float, "MeshColumns"]]]
-
-
-def _posted(key: str, posture: Posture[str]) -> dict[str, object]:
-    sourced = posture.source.map(lambda origin: {f"{key}_source": origin}).default_value({})
-    return posture.option().map(lambda value: {key: value} | sourced).default_value({})
 
 
 class _Node(Struct, frozen=True):
@@ -301,18 +293,18 @@ def _pathed(layers: Map[int, str], attrs: "rhino3dm.ObjectAttributes") -> Postur
     return Posture.of_option(layers.try_find(attrs.LayerIndex))
 
 
-def _xdmf_frames(engine: str, ref: ResourceRef) -> Frames:
+def _xdmf_frames(ref: ResourceRef) -> Frames:
     reader = meshio.xdmf.TimeSeriesReader(str(ref.path))
     reader.read_points_cells()
-    return _framed(engine, str(ref.path), reader)
+    return _framed(reader)
 
 
-def _framed(engine: str, source: str, reader: "meshio.xdmf.TimeSeriesReader") -> Frames:
+def _framed(reader: "meshio.xdmf.TimeSeriesReader") -> Frames:
     with reader:
         for step in range(reader.num_steps):
             time, point_data, cell_data = reader.read_data(step)
             points = {name: np.asarray(array) for name, array in point_data.items()}
-            yield MeshColumns.of(engine, f"{source}#{step}", points, _blocked(cell_data), Nothing).map(lambda held: (float(time), held))
+            yield MeshColumns.of(points, _blocked(cell_data), Nothing).map(lambda held: (float(time), held))
 
 
 class _Backend(Struct, frozen=True):
@@ -320,7 +312,7 @@ class _Backend(Struct, frozen=True):
     walk: Callable[[Engine], Block[_Piece]]
     export: Callable[[Engine, ResourceRef, str], None]
     units: Callable[[Engine], Posture[str]]
-    frames: Option[Callable[[str, ResourceRef], Frames]]
+    frames: Option[Callable[[ResourceRef], Frames]]
     fault: type[Exception] | tuple[type[Exception], ...]
     exts: frozenset[str]
 
@@ -433,21 +425,21 @@ def _columns(arrays: Arrays) -> pa.Table:
 
 
 class MeshColumns(Struct, frozen=True):
-    bands: Map[str, tuple[pa.Table, QueryReceipt]]
+    bands: Map[str, pa.Table]
 
     @staticmethod
-    def of(engine: str, source: str, points: Arrays, cells: Blocks, rows: Option[int]) -> "RuntimeRail[MeshColumns]":
-        celled = Block.of_seq(cells.items()).map(lambda row: _banded(engine, source, f"cell.{row[0]}", row[1], Nothing))
-        banded = Block.singleton(_banded(engine, source, _POINT_BAND, points, rows)).append(celled)
+    def of(points: Arrays, cells: Blocks, rows: Option[int]) -> "RuntimeRail[MeshColumns]":
+        def admit(band: str, arrays: Arrays, expected: Option[int]) -> "RuntimeRail[tuple[str, pa.Table]]":
+            census = frozenset(len(array) for array in arrays.values()) | frozenset(expected.to_list())
+            return (
+                Error(MESH_ARITY.raised(band, ",".join(str(width) for width in sorted(census))))
+                if len(census) > 1
+                else Ok((band, _columns(arrays)))
+            )
+
+        celled = Block.of_seq(cells.items()).map(lambda row: admit(f"cell.{row[0]}", row[1], Nothing))
+        banded = Block.singleton(admit(_POINT_BAND, points, rows)).append(celled)
         return traversed(banded, by=Disposition.ACCUMULATE).map(lambda pairs: MeshColumns(Map.of_seq(pairs)))
-
-
-def _banded(engine: str, source: str, band: str, arrays: Arrays, rows: Option[int]) -> RuntimeRail[tuple[str, tuple[pa.Table, QueryReceipt]]]:
-    census = frozenset(len(array) for array in arrays.values()) | frozenset(rows.to_list())
-    if len(census) > 1:
-        return Error(MESH_ARITY.raised(band, ",".join(str(width) for width in sorted(census))))
-    table = _columns(arrays)
-    return QueryReceipt.railed(engine, source, table).map(lambda receipt: (band, (table, receipt)))
 
 
 @tagged_union(frozen=True)
@@ -479,41 +471,6 @@ def _format(op: MeshOp) -> Option[str]:
             return Nothing
 
 
-class MeshReceipt(Struct, frozen=True):
-    backend: str
-    content_key: ContentKey
-    point_count: int
-    cell_blocks: tuple[str, ...]
-    point_arrays: int
-    cell_arrays: int
-    field_arrays: int
-    node_count: int
-    units: Posture[str]
-
-    def contribute(self) -> Iterator[Receipt]:
-        Metrics.record({"rasm.mesh.points": float(self.point_count)}, domain="mesh", kind=self.backend)
-        yield Receipt.of(
-            "mesh",
-            (
-                "emitted",
-                self.content_key.hex,
-                {
-                    "domain": "mesh",
-                    "kind": self.backend,
-                    "key": self.content_key.hex,
-                    "backend": self.backend,
-                    "points": self.point_count,
-                    "blocks": ",".join(self.cell_blocks),
-                    "point_arrays": self.point_arrays,
-                    "cell_arrays": self.cell_arrays,
-                    "field_arrays": self.field_arrays,
-                    "nodes": self.node_count,
-                }
-                | _posted("units", self.units),
-            ),
-        )
-
-
 class MeshPayload(Struct, frozen=True):
     backend: MeshBackend
     content_key: ContentKey
@@ -538,20 +495,6 @@ class MeshPayload(Struct, frozen=True):
             frame.nodes,
             units,
         )
-
-    def contribute(self) -> Iterator[Receipt]:
-        return MeshReceipt(
-            self.backend.tag,
-            self.content_key,
-            self.point_count,
-            self.cell_blocks,
-            self.point_arrays,
-            self.cell_arrays,
-            self.field_arrays,
-            len(self.nodes),
-            self.units,
-        ).contribute()
-
 
 class MeshExchange(Struct, frozen=True):
     backend: MeshBackend
@@ -594,8 +537,7 @@ class MeshExchange(Struct, frozen=True):
         row = self.backend.row
         match row.frames:
             case Option(tag="some", some=open_frames):
-                tag, ref = self.backend.tag, self.ref
-                opened = await async_boundary(MESH_FRAMES, lambda: on_thread(lambda: open_frames(tag, ref)), catch=row.fault)
+                opened = await async_boundary(MESH_FRAMES, lambda: on_thread(lambda: open_frames(self.ref)), catch=row.fault)
                 return opened.map(lambda frames: MeshProduct(frames=frames))
             case _:
                 return Error(MESH_UNSTREAMED.raised(self.backend.tag))
@@ -607,9 +549,9 @@ class MeshExchange(Struct, frozen=True):
     def _columned(self) -> RuntimeRail[MeshProduct]:
         extract = self.backend.row.extract(self.engine)
         return _frame(extract).bind(
-            lambda frame: MeshColumns.of(
-                self.backend.tag, frame.points.hex, extract.point_data, extract.cell_data, Some(extract.point_count)
-            ).map(lambda columns: MeshProduct(columns=columns))
+            lambda frame: MeshColumns.of(extract.point_data, extract.cell_data, Some(frame.point_count)).map(
+                lambda columns: MeshProduct(columns=columns)
+            )
         )
 
     def _written(self, out: ResourceRef, fmt: str) -> RuntimeRail[MeshProduct]:
@@ -619,15 +561,15 @@ class MeshExchange(Struct, frozen=True):
 
 ## [03]-[POINTCLOUD]
 
-- Owner: `CloudExchange` — the LAS/LAZ/COPC row over `laspy` alone. One `Selection` threads the `decompression_selection` mask identically through `laspy.read` and `CopcReader.open`, fixed once at admission, so a cloud subset skips fields it never reads — one optional carrier, never a parallel selective-read method. This owner carries the point-format id and CRS posture directly, never a second `PointFormat` struct duplicating what the receipt names.
+- Owner: `CloudExchange` — the LAS/LAZ/COPC row over `laspy` alone. One `Selection` threads the `decompression_selection` mask identically through `laspy.read` and `CopcReader.open`, fixed once at admission, so a cloud subset skips fields it never reads — one optional carrier, never a parallel selective-read method. `PointCloud` and `PointRecordTable` carry the point-format id and CRS posture directly.
 - Entry: one `run(op)` discriminates `CloudOp` — `read | subset | to_arrow | write` — onto one closed `CloudProduct`. Per-leg sibling statics each re-derive the source discriminant and the CRS projection, and the whole-file ones run the `laspy` decode ON the event loop while only the subset leg hops the band; one entry puts every leg behind the same `THREAD_BAND`-bounded hop.
 - Source: `CloudSource` is the closed remote/local/handle axis admitted ONCE at the head, and its `_SOURCE` row elects the span kind, the retry class, and the `http_num_threads` value together. Election reads the ref's own declared `scheme` column, never a `path.startswith(("http://", "https://"))` test — that test spells one discriminant per call site and classifies nothing at all for the file OBJECT `CopcReader.open` also admits.
 - Reach: `laspy.read` takes a path or a stream and no url, so the whole-file legs refuse a remote source BY NAME while the subset leg admits all three cases — each projection cites the surface its provider declares rather than sharing one address every leg pretends to serve.
-- CRS: `LasHeader.parse_crs` answers `None` for a file carrying no CRS VLR AND for a file whose VLR it cannot understand, so `str(... or "")` fuses both with a subset that carried none forward. Absence rides `Posture` from the single read site and the receipt omits the fact key rather than publishing an empty CRS a consumer reprojects against.
+- CRS: `LasHeader.parse_crs` answers `None` for a file carrying no CRS VLR AND for a file whose VLR it cannot understand, so `str(... or "")` fuses both with a subset that carried none forward. Absence rides `Posture` from the single read site rather than publishing an empty CRS a consumer reprojects against.
 - Boundary: no geometry kernel registration, no scan-to-BIM compute, no `pdal` filter-graph, no host coupling — host-free file exchange feeding the geometry companion at the wire; the point records cross as one content-keyed `PointRecordTable` through the shared `_column` builder, never a `laspy`- or `pdal`-specific object and never a re-spelled column fold.
 
 ```python
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import BinaryIO, Final, Literal, assert_never
 
 import laspy
@@ -643,8 +585,6 @@ from upath import UPath
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import Posture, RuntimeRail, async_boundary
 from rasm.runtime.lanes import on_thread
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
 from rasm.runtime.roots import ResourceRef, origin
 
@@ -761,25 +701,6 @@ def _to_arrow(record: Record) -> pa.Table:
     return pa.table({name: _column(array) for name, array in columns.items()})
 
 
-def _pointcloud_receipt(content_key: ContentKey, point_count: int, point_format: int, crs: Posture[str]) -> Iterator[Receipt]:
-    Metrics.record({"rasm.pointcloud.points": float(point_count)}, domain="pointcloud", kind=str(point_format))
-    yield Receipt.of(
-        "pointcloud",
-        (
-            "emitted",
-            content_key.hex,
-            {
-                "domain": "pointcloud",
-                "kind": str(point_format),
-                "key": content_key.hex,
-                "points": point_count,
-                "format": point_format,
-            }
-            | _posted("crs", crs),
-        ),
-    )
-
-
 class PointRecordTable(Struct, frozen=True):
     table: pa.Table
     point_count: int
@@ -794,19 +715,11 @@ class PointRecordTable(Struct, frozen=True):
             lambda key: cls(table=_to_arrow(record), point_count=len(coords), point_format=int(record.point_format.id), crs=crs, content_key=key)
         )
 
-    def contribute(self) -> Iterator[Receipt]:
-        return _pointcloud_receipt(self.content_key, self.point_count, self.point_format, self.crs)
-
-
 class PointCloud(Struct, frozen=True):
     content_key: ContentKey
     point_count: int
     point_format: int
     crs: Posture[str]
-
-    def contribute(self) -> Iterator[Receipt]:
-        return _pointcloud_receipt(self.content_key, self.point_count, self.point_format, self.crs)
-
 
 @tagged_union(frozen=True)
 class CloudOp:
@@ -913,15 +826,14 @@ def _landed(data: "laspy.LasData", out: ResourceRef, mode: WriteMode) -> Runtime
 
 ## [04]-[PRODUCT]
 
-- Owner: `ProductKind` — the produced-archive peer axis beside `MeshBackend`, each member carrying its own `_PRODUCT` row (suffix, media type, receipt subject) so the sink is a row per product and never a `write_bcf`/`write_costs`/`write_diff` family. This is the sink `geometry/ifc/analysis` and `geometry/ifc/costing` both defer their durable `.bcfzip`, cost-spreadsheet, and diff-export writes to: a producer hands the bytes it already minted, and this owner lands them content-keyed with the suffix its row declares.
+- Owner: `ProductKind` — the produced-archive peer axis beside `MeshBackend`, each member carrying its own `_PRODUCT` row (suffix and identity subject) so the sink is a row per product and never a `write_bcf`/`write_costs`/`write_diff` family. This is the sink `geometry/ifc/analysis` and `geometry/ifc/costing` both defer their durable `.bcfzip`, cost-spreadsheet, and diff-export writes to: a producer hands the bytes it already minted, and this owner lands them content-keyed with the suffix its row declares.
 - Cases: `BCF_ARCHIVE` is the BCF 3.0 zip a `BcfXml` document serializes, `COST_TABLE` the cost spreadsheet an IFC quantity fold renders, `DIFF_REPORT` the change export a model comparison emits. Each is a byte payload with a declared container, never a live document handle, because this tier holds no BCF, spreadsheet, or diff engine and a handle crossing here would drag one.
 - Entry: one `archived` fold over the `(kind, payload, out)` triple — the suffix the row declares is PROVEN against the destination rather than appended, so a caller writing a BCF payload to a `.xlsx` path refuses by name instead of landing a mislabelled archive downstream readers sniff wrong.
-- Receipt: one `ProductReceipt` keyed by `ContentIdentity` over the landed bytes, sharing the `mesh` partition its sibling receipts write so an archive and the model it describes prune on one predicate. It records NO measure: byte volume on the object plane is `tabular/egress#EGRESS`'s instrument, and a second series over the same bytes would double whatever an egress leg already metered.
+- Output: `archived` returns the `ContentKey` minted over the landed bytes.
 - Growth: a new product is one `ProductKind` member with its `_PRODUCT` row; a new container for an existing product is one suffix change on that row; zero new surface and no per-product entrypoint.
 - Boundary: byte landing and identity only — no BCF authoring, no spreadsheet rendering, no model diffing, and no IFC read of any kind. The producing geometry planes own every payload; a `ProductKind` row whose bytes this tier would have to author is the rejected shape.
 
 ```python
-from collections.abc import Iterator
 from enum import StrEnum
 from typing import Final
 
@@ -931,14 +843,11 @@ from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
-
 
 
 class _Product(Struct, frozen=True, gc=False):
     suffix: str
-    media: str
     subject: str
 
 
@@ -953,48 +862,21 @@ class ProductKind(StrEnum):
 
 
 _PRODUCT: Final[Map[ProductKind, _Product]] = Map.of_seq([
-    (ProductKind.BCF_ARCHIVE, _Product(".bcfzip", "application/octet-stream", "bcf")),
-    (ProductKind.COST_TABLE, _Product(".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "cost")),
-    (ProductKind.DIFF_REPORT, _Product(".json", "application/json", "diff")),
+    (ProductKind.BCF_ARCHIVE, _Product(".bcfzip", "bcf")),
+    (ProductKind.COST_TABLE, _Product(".xlsx", "cost")),
+    (ProductKind.DIFF_REPORT, _Product(".json", "diff")),
 ])
 
 
-class ProductReceipt(Struct, frozen=True):
-    kind: ProductKind
-    path: str
-    media: str
-    byte_length: int
-    content_key: ContentKey
-
-    def contribute(self) -> Iterator[Receipt]:
-        yield Receipt.of(
-            "product",
-            (
-                "emitted",
-                self.kind.row.subject,
-                {
-                    "domain": "mesh",
-                    "kind": self.kind.value,
-                    "key": self.content_key.hex,
-                    "media": self.media,
-                    "bytes": self.byte_length,
-                    "path": self.path,
-                },
-            ),
-        )
-
-
-def archived(kind: ProductKind, payload: bytes, out: ResourceRef) -> RuntimeRail[ProductReceipt]:
+def archived(kind: ProductKind, payload: bytes, out: ResourceRef) -> RuntimeRail[ContentKey]:
     row = kind.row
     if out.path.suffix.lower() != row.suffix:
         named = out.path.suffix.lower() or "none"
         return Error(PRODUCT_SUFFIX.raised(row.subject, row.suffix, named))
 
-    def run() -> RuntimeRail[ProductReceipt]:
+    def run() -> RuntimeRail[ContentKey]:
         out.path.write_bytes(payload)
-        return ContentIdentity.of(f"product.{row.subject}", payload).map(
-            lambda key: ProductReceipt(kind=kind, path=str(out.path), media=row.media, byte_length=len(payload), content_key=key)
-        )
+        return ContentIdentity.of(f"product.{row.subject}", payload)
 
     with _TRACER.start_as_current_span(f"product.{row.subject}", attributes={"rasm.product.kind": kind.value}):
         return boundary(PRODUCT_WRITE, run, catch=OSError).bind(lambda rail: rail)

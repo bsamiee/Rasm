@@ -142,7 +142,7 @@ Each translator is `IDisposable`, exposes `warnings()`/`errors()` → `LogMessag
 
 - `EpwFile`: site accessors `latitude()`/`longitude()`/`timeZone()`/`elevation()` → `double` and `data()` → the `EpwDataPointVector` whose rows carry `directNormalRadiation()`/`diffuseHorizontalRadiation()`/`globalHorizontalRadiation()` → `OptionalDouble`, the `Analysis/daylight` `WeatherIngress` reader.
 - `SqlFile`: annual `totalSiteEnergy()`/`netSiteEnergy()`/`totalSourceEnergy()`/`netSourceEnergy()`, per-end-use `electricityHeating()`/`electricityCooling()`/`electricityInteriorLighting()`/`electricityTotalEndUses()`/`naturalGasHeating()`, and per-month `energyConsumptionByMonth`/`peakEnergyDemandByMonth` all return `OptionalDouble`.
-- `LogMessageVector`: collects the translator `warnings()`/`errors()`, folded into each boundary's typed receipt, never the console.
+- `LogMessageVector`: collects the translator `warnings()`/`errors()`, folded into each boundary result as provider diagnostics, never the console.
 
 [PUBLIC_TYPE_SCOPE]: CLR enums
 
@@ -194,7 +194,7 @@ Only these types are true CLR enums; most OpenStudio "enumerations" are SWIG `*E
 | [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                                 |
 | :-----: | :--------------------------------------------------------------------- | :------- | :------------------------------------------- |
 |  [01]   | `new EnergyPlusForwardTranslator().translateModel(Model) -> Workspace` | instance | OSM → the EnergyPlus IDF                     |
-|  [02]   | `translator.warnings() / errors() -> LogMessageVector`                 | instance | the translation receipt                      |
+|  [02]   | `translator.warnings() / errors() -> LogMessageVector`                 | instance | the translation diagnostics                  |
 |  [03]   | `Workspace.save(Path, bool) -> bool`                                   | instance | persist the IDF to the scratch run directory |
 |  [04]   | `new EpwFile(Path) -> EpwFile`                                         | ctor     | the weather file passed to the subprocess    |
 
@@ -220,18 +220,18 @@ EnergyPlus runs as the `EnergyToolchain`-resolved subprocess (`energyplus -w <ep
 - Any load or get that can miss returns an `Optional<T>`/`OptionalDouble`; the law is `is_initialized()` (or `!isNull()`) then `get()`, else `value_or(default)`, and a bare `get()` on an empty optional faults in native code. Lower the SWIG optional onto `Fin<T>`/`Option<T>` at the consuming boundary — the Bim Exchange edge, or the Compute runner railing a missing required output onto `ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, …)`.
 - Every file API takes a `Path` built with `OpenStudioUtilitiesCore.toPath(string)` and read back with `toString(Path)`; a raw `string` does not compile against the file overloads.
 - OpenStudio builds the model and reads the results; the EnergyPlus binary is a parameterized subprocess resolved through `Analysis/energy` `EnergyToolchain.Resolve` (`ENERGYPLUS_EXE` → `OPENSTUDIO_ENERGYPLUSDIR` → configured path → the package's bundled-runtime fallback), and an unresolved binary rails `ComputeFault.ToolchainUnresolved` with the probe trail.
-- EnergyPlus must match the OpenStudio SWIG version: the SWIG-generated IDF schema tracks that version, so a version-matched EnergyPlus consumes the forward-translated IDF and a resolved-binary mismatch folds a warning into the receipt.
+- EnergyPlus must match the OpenStudio SWIG version: the SWIG-generated IDF schema tracks that version, so a version-matched EnergyPlus consumes the forward-translated IDF and a resolved-binary mismatch folds into the provider diagnostics.
 
 [STACKING]:
 - `HoneybeeSchema`(`Rasm.Bim/.api/api-honeybee-schema.md`): the HBJSON authored model meets this OSM/IDF runtime at gbXML — `GbXMLReverseTranslator.loadModel` ingests the shared gbXML — and at the canonical Bim energy model; the full HBJSON→OSM path runs the external `honeybee-openstudio` Python step.
 - `GeometryGymIFC`(`Rasm.Bim/.api/api-geometrygym-ifc.md`): an IFC building exports gbXML, `GbXMLReverseTranslator.loadModel` folds it into a `Model`, and IFC spaces and zones become OSM spaces and thermal zones at the Exchange/import boundary.
 - `SharpGLTF.Ext.3DTiles`(`api-sharpgltf-3dtiles.md`): `GltfForwardTranslator` and `ThreeJSForwardTranslator` emit a model's geometry onto the Exchange/export delivery rail the glTF and 3D-Tiles legs share.
 - `System.IO.Hashing`(`api-hashing.md`): a saved `.osm`/IDF UTF-8 string feeds `XxHash3` for the in-process fingerprint and `XxHash128` for the persisted content key into the `Rasm.Persistence` artifact index — the saved IDF/SQL artifacts ride the same content-identity rail as every other Compute artifact.
-- Bim consumer anchor: the Energy Exchange lowers each `Optional<Model>` onto `Fin<Model>`, captures translator `errors()`/`warnings()` as a typed receipt, and offloads a translation as one unit of work; this leg owns OSM load/save/version-upgrade and the gbXML/SDD semantic bridges, and never builds from the seam graph.
+- Bim consumer anchor: the Energy Exchange lowers each `Optional<Model>` onto `Fin<Model>`, retains translator `errors()`/`warnings()` on the translation result, and offloads a translation as one unit of work; this leg owns OSM load/save/version-upgrade and the gbXML/SDD semantic bridges, and never builds from the seam graph.
 - Compute consumer anchor: `Analysis/energy` builds the `Model` from the `Rasm.Element` `ElementGraph` — spatial Object nodes become `Space`/`ThermalZone`, faces become `Surface(Point3dVector, Model)`, and `MaterialComposition.LayerSet` becomes `Construction.setLayers(MaterialVector)` over `StandardOpaqueMaterial`/`StandardGlazing` carrying the seam `MaterialPropertySet.Thermal` conductivity and thickness — the graph already lowered from IFC by Bim's projector. The `Analysis/aggregator` ISO 6946 series-U fold reads the same seam thermal properties, so the EnergyPlus U-value and the closed-form value agree by construction; the `SqlFile` annual outputs become an `AssessmentResult` fact stream written back as a content-keyed `Node.Assessment` `GraphDelta`, keyed via `Runtime/codecs` content addressing so a re-run on an unchanged graph reuses the prior result.
 
 [LOCAL_ADMISSION]:
-- `Rasm.Bim` exchange leg: model read enters through `VersionTranslator.loadModel(path)` returning an `OptionalModel` lowered to `Fin<Model>`; model write enters through `model.save(path, overwrite)`; translation enters through the matching `*Translator` under a `using`, capturing `errors()`/`warnings()` as a typed receipt.
+- `Rasm.Bim` exchange leg: model read enters through `VersionTranslator.loadModel(path)` returning an `OptionalModel` lowered to `Fin<Model>`; model write enters through `model.save(path, overwrite)`; translation enters through the matching `*Translator` under a `using`, retaining `errors()`/`warnings()` on the result.
 - `Rasm.Compute` simulation leg: `Analysis/energy` builds the energy model in-process from the seam `ElementGraph` (`new Model()` with the `new Space`/`Surface`/`Construction`/`StandardOpaqueMaterial` folds), forward-translates through `new EnergyPlusForwardTranslator().translateModel`, runs the `EnergyToolchain`-resolved subprocess, and reads back through `new SqlFile(toPath(path))`.
 
 [RAIL_LAW]:

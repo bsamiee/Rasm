@@ -2,17 +2,17 @@
 
 `DiagramDraw` folds one positioned `DiagramGlyph` sequence into a named-layer SVG or editable `.drawio` artifact. Target admission rejects unspellable payloads and dangling topology before provider mutation; SVG grouping accumulates mixed-intent layer and typesetting faults before serialization. SVG labels outline through `ziafont`, mathematical labels compose `Formula.laid()`, and `GlyphStyle` indices project through one `hex_ramp` palette.
 
-Glyph fold is one total dispatch over the closed `DiagramGlyph` case. SVG lowers each named payload to geometry, shared terminal definitions, and outlined text; `.drawio` lowers the representable subset to editable objects, containers, port seats, and routed edges while preserving source text. `_INTENT` assigns one `LayerIntent` to each SVG layer. `DiagramDraw.emit` mints its pre-run `ContentKey` from the length-framed glyph, palette, frame, target, and font preimage; fixed `ziafont.config.precision` and `ziafont.config.svg2` make the SVG projection deterministic for that key. Both targets contribute `ArtifactReceipt.Diagram`.
+Glyph fold is one total dispatch over the closed `DiagramGlyph` case. SVG lowers each named payload to geometry, shared terminal definitions, and outlined text; `.drawio` lowers the representable subset to editable objects, containers, port seats, and routed edges while preserving source text. `_INTENT` assigns one `LayerIntent` to each SVG layer. `DiagramDraw.emit` mints its pre-run `ContentKey` from the length-framed glyph, palette, frame, target, and font preimage; fixed `ziafont.config.precision` and `ziafont.config.svg2` make the SVG projection deterministic for that key. Both targets return `DrawArtifact`.
 
 ## [01]-[INDEX]
 
-- [02]-[DRAW]: `DiagramDraw`'s glyph-to-artifact fold over the `DrawTarget`-selected arm — the `drawsvg` SVG arm bucketing each mark into its `GlyphStyle.layer` `Group` under its `_INTENT` class and outlining labels through `ziafont`/`Formula.laid()`, or the `drawpyo` `.drawio` arm lowering the same grammar to editable mxGraph with port seats, container parenting, and rotated markers — both threading the palette hex, refusing unspellable payloads as `DrawFault`, and contributing the `ArtifactReceipt.Diagram` facts.
+- [02]-[DRAW]: `DiagramDraw`'s glyph-to-artifact fold over the `DrawTarget`-selected arm — the `drawsvg` SVG arm bucketing each mark into its `GlyphStyle.layer` `Group` under its `_INTENT` class and outlining labels through `ziafont`/`Formula.laid()`, or the `drawpyo` `.drawio` arm lowering the same grammar to editable mxGraph with port seats, container parenting, and rotated markers — both threading the palette hex and refusing unspellable payloads as `DrawFault`.
 
 ## [02]-[DRAW]
 
 - Owner: `DiagramDraw` owns one total `DrawTarget` and `DiagramGlyph` dispatch. Glyphset's `DiagramGlyph.mark` projection exposes each named payload without ordinal coupling. SVG groups require one `LayerIntent` per layer name; conflicting classes reject through `DrawFault.layer_intent`. `.drawio` admission proves node identity, parent identity, edge endpoints, and named port seats before `File`/`Page` mutation, then stages objects before parenting and edges. `_CAPS` derives shared SVG definitions, `_DRAWIO_CAP` carries target token plus fill semantics for every `EndCap`, and `_rendered` traps provider refusals once as `DrawFault.provider`.
 - Cases: SVG lowers every `DiagramGlyph` case through `_shape`, `_marker`, `_CAPS`, `_paint`, and `_caption`; `TextRun` selects face, size, ink, bold, and oblique policy, while mathematical text composes `Formula.laid()` and re-spells `MathFault` through `DrawFault.typeset`. `.drawio` retains editable labels, node shapes, entity header bands, ports, parents, marker rotation, edge routes, and terminal fill. `AreaMark` and `FragmentMark` reject through `DrawFault.unrepresentable` because drawpyo owns no faithful arbitrary-ring or path object.
-- Entry: `DiagramDraw.emit` returns ONE `ArtifactWork` per rendered kind (suite construction is `core/issue#ISSUE`'s `Diagrams` arm, which constructs `DiagramDraw(glyphs=..., palette=...)` per assigned layout); `_key` is `ContentIdentity.key` over the `_seed` length-framed canonical chunks — `(tag, payload)` glyph rows, palette octets, frame/target/font bundle — minted PRE-RUN so keyed admission probes the warm seed and `receipt.slot == node.key`; `_emit` renders once through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` (the kernel touches the isolate-unsafe `ziafont`/`numpy` C-extensions the subinterpreter cannot load, so the thread arm is its one placement), mints the receipt, and awaits `Journal.record` over `receipt.evidence()` for the `OPERATIONAL` fact and its `STORAGE` charge — seated at that awaitable fold and never inside the worker kernel, where nothing suspends and no journal custody is bound; `layered()` projects the SVG arm's `graphic/layer#LAYER` `LayerPlan`, each root's intent from the `_INTENT` class. `_render_svg` serializes EACH named `Group` to its OWN `<svg>`; the `.drawio` kernel serializes `File.xml` into a standalone diagrams.net-editable file (the `load_diagram` inverse ingests a template, mutates `get_by_id` rows, and re-emits).
+- Entry: `DiagramDraw.emit` returns ONE `ArtifactWork` per rendered kind (suite construction is `core/issue#ISSUE`'s `Diagrams` arm, which constructs `DiagramDraw(glyphs=..., palette=...)` per assigned layout); `_key` is `ContentIdentity.key` over the `_seed` length-framed canonical chunks — `(tag, payload)` glyph rows, palette octets, frame/target/font bundle — minted PRE-RUN so keyed admission probes the warm seed. `_emit` renders once through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` and returns `DrawArtifact`; `layered()` projects the SVG arm's `graphic/layer#LAYER` `LayerPlan`, each root's intent from the `_INTENT` class. `_render_svg` serializes EACH named `Group` to its OWN `<svg>`; the `.drawio` kernel serializes `File.xml` into a standalone diagrams.net-editable file (the `load_diagram` inverse ingests a template, mutates `get_by_id` rows, and re-emits).
 - Growth: a new mark element is one `DiagramGlyph` case plus one `_lower` arm plus one `_INTENT` row; a new node silhouette one `NodeShape` row plus one `_shape` arm plus one `_DRAWIO_STYLE` row; a new marker one `MarkerKind`/`_marker` pair plus one `_DRAWIO_MARKER` row; a new crow's-foot terminal one glyphset `ER_CAPS` row; a new generic terminal one `EndCap` row plus one `_cap_glyph` arm plus one `_DRAWIO_CAP` row; a new style axis one `GlyphStyle` field; a new named layer a new `GlyphStyle.layer` value the `_groups` partition already buckets; a new egress arm one `DrawTarget` row plus one `DrawArtifact` case plus one `_render_*` arm; a new route regime one glyphset `EdgeRoute` member plus one `_DRAWIO_ROUTE` row. A print/PDF-X plane requiring non-scaling outlined strokes composes `graphic/vector/region#REGION` `RegionOp.Outline`/`RegionOp.Boolean` one hop through the vector owner, never a draw-owned `pathops` import; a CAD-native diagram deliverable is `export/dxf#DXF`'s `Diagram` arm consuming the same positioned glyph sequence under the `drawing/regime#REGIME` pen vocabulary, never a draw-local ezdxf arm shipping vendor-default linework.
 - Boundary: pre-run canonical input owns node identity, and rendering never fingerprints a second byte stream. Layout supplies coordinates and routes; `hex_ramp` supplies color; SVG labels outline to paths, while `.drawio` labels remain editable source text. Typed refusal replaces every silent payload drop.
 
@@ -32,9 +32,8 @@ from expression.collections import Block, Map
 from msgspec import Struct, json
 
 from builtins import frozendict
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
 from rasm.artifacts.graphic.layer import EDITORIAL, LayerContent, LayerIntent, LayerMeta, LayerNode, LayerPlan
 from rasm.artifacts.typography.math import Formula, FormulaSpec, MixedSpec
@@ -56,8 +55,8 @@ from rasm.artifacts.visualization.diagram.glyphset import (
 )
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy from drawpyo import File, Page
@@ -172,7 +171,7 @@ class DiagramDraw(Struct, frozen=True):
     target: DrawTarget = DrawTarget.SVG
     font_family: str | None = None
 
-    def emit(self, /) -> "Iterable[ArtifactWork]":
+    def emit(self, /) -> "Iterable[ArtifactWork[DrawArtifact]]":
         key = self._key
         return (
             ArtifactWork(
@@ -190,20 +189,28 @@ class DiagramDraw(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"diagram-{self.target}", IdentitySource(parts=self._seed))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        crossed = await self.lane.offload(Kernel.of(partial(self._rendered, key), KernelTrait.RELEASING))
-        match crossed.bind(lambda inner: inner.map(lambda pair: pair[1]).map_error(self._fault)):
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[DrawArtifact]:
+        crossed = await self.lane.offload(Kernel.of(self._rendered, KernelTrait.RELEASING))
+        match crossed.bind(lambda inner: inner.map_error(self._fault)):
+            case Result(tag="ok", ok=artifact):
+                match artifact:
+                    case DrawArtifact(tag="layered", layered=layers):
+                        size = sum(len(node.leaf[1].fragment) for node in layers if node.tag == "leaf" and node.leaf[1].tag == "fragment")
+                    case DrawArtifact(tag="drawio", drawio=data):
+                        size = len(data)
+                    case _ as unreachable:
+                        assert_never(unreachable)
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind="diagram", scope=self.lane.scope)
+                return Ok(artifact)
             case refused:
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        crossed = await self.lane.offload(Kernel.of(partial(self._rendered, self._key), KernelTrait.RELEASING))
+        crossed = await self.lane.offload(Kernel.of(self._rendered, KernelTrait.RELEASING))
         return crossed.bind(
             lambda inner: inner.bind(
-                lambda pair: Ok(LayerPlan(schema=EDITORIAL, roots=pair[0].layered))
-                if pair[0].tag == "layered"
+                lambda artifact: Ok(LayerPlan(schema=EDITORIAL, roots=artifact.layered))
+                if artifact.tag == "layered"
                 else Error(DrawFault(unrepresentable=("layered",)))
             ).map_error(self._fault)
         )
@@ -211,33 +218,27 @@ class DiagramDraw(Struct, frozen=True):
     def _fault(self, fault: DrawFault, /) -> BoundaryFault:
         return BoundaryFault(domain=(DRAW_RENDER.subject, fault))
 
-    def _rendered(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
+    def _rendered(self) -> Result[DrawArtifact, DrawFault]:
         try:
             match self.target:
                 case DrawTarget.SVG:
-                    return self._render_svg(key)
+                    return self._render_svg()
                 case DrawTarget.DRAWIO:
-                    return self._render_drawio(key)
+                    return self._render_drawio()
                 case _ as unreachable:
                     assert_never(unreachable)
         except (AttributeError, KeyError, OSError, TypeError, ValueError) as bad:
             return Error(DrawFault(provider=f"{self.target}:{bad}"))
 
-    def _tally(self) -> tuple[int, int]:
-        return (sum(1 for g in self.glyphs if g.tag == "node"), sum(1 for g in self.glyphs if g.tag == "edge"))
-
-    def _render_svg(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
+    def _render_svg(self) -> Result[DrawArtifact, DrawFault]:
         ziafont.config.precision = _PRECISION
         ziafont.config.svg2 = True
         ramp = hex_ramp(self.palette)
         face = ziafont.Font(self.font_family)
-        nodes, edges = self._tally()
-
-        def _artifact(groups: dict[str, tuple[LayerIntent, "draw.Group"]]) -> tuple[DrawArtifact, ArtifactReceipt]:
+        def _artifact(groups: dict[str, tuple[LayerIntent, "draw.Group"]]) -> DrawArtifact:
             rendered = tuple((name, intent, self._layer_svg(group)) for name, (intent, group) in sorted(groups.items()))
             leaves = tuple(LayerNode.Leaf(LayerMeta(name=name, intent=intent), LayerContent.Fragment(svg)) for name, intent, svg in rendered)
-            volume = sum(len(svg) for _, _, svg in rendered)
-            return (DrawArtifact(layered=leaves), ArtifactReceipt.Diagram(key, "diagram-svg", nodes, edges, "drawsvg", volume))
+            return DrawArtifact(layered=leaves)
 
         return self._groups(ramp, face, _cap_defs()).map(_artifact)
 
@@ -276,7 +277,7 @@ class DiagramDraw(Struct, frozen=True):
                 cyclic.append(origin)
         return tuple(cyclic)
 
-    def _render_drawio(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
+    def _render_drawio(self) -> Result[DrawArtifact, DrawFault]:
         if refused := tuple(sorted({glyph.tag for glyph in self.glyphs if glyph.tag in _DRAWIO_UNSPELLABLE})):
             return Error(DrawFault(unrepresentable=refused))
         marks = tuple(glyph.mark for glyph in self.glyphs)
@@ -320,9 +321,8 @@ class DiagramDraw(Struct, frozen=True):
             placed[index].parent = placed[parent]
         for glyph in (glyph for glyph in self.glyphs if glyph.tag == "edge"):
             _lower_drawio(glyph, page, ramp, placed, seats)
-        nodes, edges = self._tally()
         data = doc.xml.encode()
-        return Ok((DrawArtifact(drawio=data), ArtifactReceipt.Diagram(key, "diagram-drawio", nodes, edges, "drawpyo", len(data))))
+        return Ok(DrawArtifact(drawio=data))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -4,7 +4,7 @@ description: >-
     Scripted actions in macOS — an app's scripting dictionary, Apple Event wire ABI under
     it, and the Objective-C bridge opening Cocoa and Foundation to JXA. Drives native machine
     and app state and data, resolves terminology via installed dictionary, provides capability
-    as an agent-callable tool returning a typed JSON envelope, embeds OSA in a Cocoa host,
+    as an agent-callable tool returning a native result, embeds OSA in a Cocoa host,
     runs unattended via launchd, ships packaged applets, and authors sdef that makes an
     app scriptable. Use whenever interacting with macOS applications, programmatic native
     scripting, or whenever a capability should become a reusable tool, and for writing or
@@ -13,7 +13,7 @@ description: >-
 
 # [CODING_APPLESCRIPT]
 
-AppleScript is an object-specifier compiler over the Apple Event ABI: a production artifact treats the language as a descriptor DSL, keeps process invocation outside script bodies, and returns typed receipts. This machine runs with automation privilege already granted. Every send, probe, and host reaches its target directly: never author a consent preflight, an entitlement check, a privilege fallback, or a denial branch, and never raise the subject in prose or receipts.
+AppleScript is an object-specifier compiler over the Apple Event ABI: a production artifact treats the language as a descriptor DSL, keeps process invocation outside script bodies, and returns native domain values. This machine runs with automation privilege already granted. Every send, probe, and host reaches its target directly: never author a consent preflight, an entitlement check, a privilege fallback, or a denial branch, and never raise the subject in output.
 
 [AUTOMATION_LAW]:
 - User values reach a script as escaped literals inside closed templates, never as concatenated source.
@@ -32,8 +32,8 @@ Application automation through object specifiers and Foundation bridge calls sta
 - [05]-[DISTRIBUTION](references/distribution.md): packaging and the observation rails that carry an artifact into production.
 
 [TEMPLATES]:
-- [01]-[RUNNER](templates/osascript-runner.sh): `osascript` dispatch shell — argv marshalling, typed receipt, one exit contract.
-- [02]-[OSA_TOOL](templates/osa-tool.js): agent-tool skeleton across the OSA host set, argv in and one typed JSON envelope out.
+- [01]-[RUNNER](templates/osascript-runner.sh): `osascript` dispatch shell — argv marshalling and one exit contract.
+- [02]-[OSA_TOOL](templates/osa-tool.js): agent-tool skeleton across the OSA host set, argv in and one native JSON value out.
 - [03]-[COMPILED_LIBRARY](templates/applescript-library.applescript): reusable script object compiled to a `.scpt`/`.scptd` handler library.
 - [04]-[APPLET](templates/applet.sh): script-app build driving `osacompile` output to a distributable bundle.
 - [05]-[LAUNCHD_AGENT](templates/launchd-osa-agent.plist): unattended launchd user agent driving one OSA artifact on one trigger.

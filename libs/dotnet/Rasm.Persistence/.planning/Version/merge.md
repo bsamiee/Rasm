@@ -1,6 +1,6 @@
 # [PERSISTENCE_VERSION_MERGE]
 
-`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or `FieldMask` member patches over the binary `NodeWire`, lowered onto the generated `Element.EntityEditWire` whose members arm carries one `PatchOp` per mask path, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `ConflictReceipt` without manufacturing missing authorship.
+`StructuralMerge` aligns re-ingested roots and classifies topology and content in one base-relative merge. `EntityEdit` emits base-addressed tombstones or `FieldMask` member patches over the binary `NodeWire`, lowered onto the generated `Element.EntityEditWire` whose members arm carries one `PatchOp` per mask path, while insertions stay on the `EditOp.Insert` and `GraphDelta` mutation rail. `GraphNode` drives detection alone, and conflicts project available `(Hlc, actor)` evidence into `Conflict` without manufacturing missing authorship.
 
 ## [01]-[INDEX]
 
@@ -26,7 +26,7 @@
 - Auto: `FieldMask.IsValid` gates the path set; `Merge` under `ReplaceMessageFields`/`ReplaceRepeatedFields`/`ReplacePrimitiveFields` applies it, so a primitive returning to its default crosses as a change — the member a ProtoJSON diff elided.
 - Auto: The wire pointer re-spells each mask segment through the field's `JsonName`, and the op kind derives from which side renders the member — `Add`, `Replace`, or `Remove` — so the peer's ProtoJSON document and the binary mask name one change.
 - Auto: `Patch` collapses an over-ceiling path set to the top-level field set both sides render, so the successor replaces whole and the op count stays under the ceiling by construction.
-- Receipt: a structural diff rides `store.diff.structural` carrying the edit-op count by kind; a three-way merge rides `store.merge.threeway` carrying the conflict count folded into `MergeOutcome.Counts`, and each `MergeConflict` projects the held/incoming changefeed evidence it actually has to `ConflictReceipt`; each projected receipt fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
+- Output: `MergeOutcome.Counts` carries the conflict count, and each `MergeConflict` projects the held/incoming changefeed evidence it actually has to `Conflict`; each projected conflict fires the `rasm.persistence.merge.conflict` observe point (`Store/observability#HOOK_RAIL`) at the composition root.
 - Packages: Rasm.Element owns graphs, node addressing, and the railed `ElementWire.Encode(node, tolerance, key)` producing the binary `NodeWire` the mask diffs; Rasm.Contracts owns `Element.EntityEditWire`/`EditTombstone`/`EditMembers` and the `Patch.PatchOp` family.
 - Packages: Google.Protobuf owns `FieldMask`/`Merge`/`IsValid`, the descriptor walk (`Fields.InFieldNumberOrder`, `FieldDescriptor.Accessor`/`JsonName`/`HasPresence`/`FieldType`/`IsRepeated`, `MessageDescriptor.Parser`), and `Value.Parser.ParseJson`; Rasm.AppHost `WireJson.Formatter.WriteValue` is the one ProtoJSON leaf render.
 - Packages: Rasm `ContentHash.Of` + `CanonicalWriter` own every local digest (`GeometryDigest`, `Seal`); LanguageExt owns immutable carriers and `Fin`.
@@ -256,9 +256,6 @@ public readonly record struct MergeOutcome(Seq<EditOp> Merged, Seq<MergeConflict
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StructuralMerge {
-    public static readonly Seq<StoreSlot> Slots = Seq(
-        StoreSlot.Create("store.diff.structural"), StoreSlot.Create("store.merge.threeway"));
-
     public static Seq<GraphNode> Forest(ElementGraph graph) {
         Seq<Relationship.Compose> contain = toSeq(graph.Edges.Choose(static e => Optional(e as Relationship.Compose)));
         HashMap<NodeId, NodeId> parentByKey = toHashMap(contain.Map(static c => (c.Part, c.Whole)));
@@ -347,9 +344,9 @@ public static class StructuralMerge {
                                     subject, ContentAddress.Of(before, @base.Header.Tolerance), held))))))),
         };
 
-    public static ConflictReceipt Project(MergeConflict conflict, ModelId model, CorrelationId correlation, Instant at) {
+    public static Conflict Project(MergeConflict conflict, ModelId model) {
         (Option<ConflictSide> held, Option<ConflictSide> incoming) = conflict.Evidence;
-        return Receipt(conflict.Subject, model, conflict.Family, held, incoming, correlation, at);
+        return new(model, conflict.Subject.Value, conflict.Family, held, incoming);
     }
 
     public static (ElementGraph Aligned, HashMap<NodeId, NodeId> Remap) Reconcile(ElementGraph persisted, ElementGraph ingested) {
@@ -446,9 +443,6 @@ public static class StructuralMerge {
         toSeq(edits.Keys.Choose(key => ParentOf(key, edits, byKey).Filter(parent => IsDescendant(parent, key, byKey, HashSet<NodeId>()))
             .Map(parent => (MergeConflict)new MergeConflict.ContainmentCycle(key, parent, ByOurs, Stamp(stamp(key))))));
 
-    static ConflictReceipt Receipt(NodeId key, ModelId model, ColumnFamily family, Option<ConflictSide> held, Option<ConflictSide> incoming, CorrelationId correlation, Instant at) =>
-        new(model, key.Value, family, held, incoming, correlation, at);
-
     static Option<ConflictSide> Stamp(Option<OpLogEntry> entry) =>
         entry.Map(static e => new ConflictSide(new Hlc(e.Physical, e.Logical), e.Actor));
 
@@ -478,7 +472,7 @@ public static class StructuralMerge {
 |  [07]   | subtree prune         | kernel `ContentHash.Of` over `U128`/`Ordinal`/`String`/`Rows`                 |
 |  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                     |
 |  [09]   | edit egress           | `Tombstone \| Members` lowered onto `Element.EntityEditWire` by `EditWire`    |
-|  [10]   | conflict receipt      | `Version/ledger#MERGE_LAW` `ConflictReceipt`                                  |
+|  [10]   | conflict              | `Version/ledger#MERGE_LAW` `Conflict`                                         |
 |  [11]   | reconciliation seam   | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
 |  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |
 |  [13]   | patch target          | binary `NodeWire`: `FieldMask` diff, `IsValid` gate, `Merge` apply            |
@@ -494,7 +488,7 @@ Each row's binding invariant, keyed to its policy:
 - [07]-[SUBTREE_PRUNE]: linear in changed nodes, no `GetHashCode`, no second alphabet beside the kernel writer.
 - [08]-[CONFLICT_ACCUMULATION]: one-pass classify, both carried, never first-abort.
 - [09]-[EDIT_EGRESS]: both arms compare the held node's producer-carried base address.
-- [10]-[CONFLICT_RECEIPT]: held/incoming `(Hlc, actor)` from the changefeed.
+- [10]-[CONFLICT]: held/incoming `(Hlc, actor)` from the changefeed.
 - [11]-[RECONCILIATION_SEAM]: `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary.
 - [12]-[TYPE_CORRELATION]: `TypeKey` diffs a re-keyed GlobalId-less `Type` as RENAME; the kernel V8a seed replaces the interim on landing.
 - [13]-[PATCH_TARGET]: `Members` diffs the binary `NodeWire` and applies through `Merge`; ProtoJSON is the `PatchOp` leaf render alone; insertion remains on `GraphDelta`.
@@ -503,7 +497,6 @@ Each row's binding invariant, keyed to its policy:
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

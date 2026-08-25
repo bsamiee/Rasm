@@ -31,7 +31,7 @@
 `WireCycle` separates payload timing while `WireEdm.Generate` remains the one operation. `Contour`, `TaperContour`, `Collar`, and `VariableTaper` share the boundary-pass algebra; `FourAxis` supplies an independent upper profile with registered correspondence; `NoCorePocket` supplies recession; `Rotary` supplies a cylindrical station map; `Cutoff` supplies a terminal slug handoff.
 
 - Owner: the occurrence evidence every cycle publishes — taper demand, extra stations, correspondence, and spindle frame — rides BASE COLUMNS each case fills at construction, so dispatch is the two folds that genuinely differ per case and not six parallel eight-arm ladders restating one roster.
-- Exemption: vertex-station folding, span-frame normalization, and receipt reduction are measured kernel statement boundaries.
+- Exemption: vertex-station folding, span-frame normalization, and pass reduction are measured kernel statement boundaries.
 - Entry: `Generate<TOut>` fixes ingress as `WireDemand?` and parameterizes the egress projection result.
 - Auto: every pass derives compound offset, vertex, bridge, taper, correspondence, access, and handoff stations, corner-control transitions, and simultaneous lower/upper samples; a clearing cycle carries its offset LEVEL on every block, so a span is measured inside one ring and a level boundary reports no length rather than being clamped to zero.
 - Auto: four-axis pairing maps registered physical stations rather than incidental indices or normalized-length coincidence.
@@ -43,12 +43,12 @@
 
 ## [04]-[EGRESS]
 
-`WireProgram` is the inverse-sufficient receipt: every block carries simultaneous guides, physical station, offset level, traversed arc length, traversal progress, payload-timed action, wire bow, upper corner radius, and optional rotary position; program custody preserves access, retention, correspondence, context, and recovery beside pass quality evidence.
+`WireProgram` is the inverse-sufficient program: every block carries simultaneous guides, physical station, offset level, traversed arc length, traversal progress, payload-timed action, wire bow, upper corner radius, and optional rotary position; program custody preserves access, retention, correspondence, context, and recovery beside pass quality evidence.
 
-- Law: posting retains guide-pair simultaneity, simulation retains specialized rows and duration, and estimation consumes that simulation receipt. The `SpecializedToolpathEnvelope` is admitted ONCE at program construction through the S0 factory, so no consumer re-walks its rows, and `ToolpathRowMap` owns the block-to-row transcription — including the projection of the payload-bearing `WireAction` case onto the S0 `WireActionKind` row a preimage can frame.
+- Law: posting retains guide-pair simultaneity, simulation retains specialized rows and duration, and estimation consumes that simulation ledger. The `SpecializedToolpathEnvelope` is admitted ONCE at program construction through the S0 factory, so no consumer re-walks its rows, and `ToolpathRowMap` owns the block-to-row transcription — including the projection of the payload-bearing `WireAction` case onto the S0 `WireActionKind` row a preimage can frame.
 - Law: a routed erosion pass reaches this owner through `WireEdm.Lower`: the LOWER guide is the Cartesian path the machine's axes execute and every simultaneous, electrical, and rotary fact stays on the `SpecializedToolpathEnvelope`, so routing preserves exactly what a flattened lower/upper move pair would destroy.
 - Output: `WireProgram.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
-- Receipt: `WirePassEvidence` preserves schedule identity, quality, removed offset, arc-true cut length, consumed wire, peak wire bow, bridge count, and recovery budget; cut length folds `TraversedMm` deltas within one ring, never chord distance between sampled guides. It is EVIDENCE and not a receipt: `Process/owner#RECEIPT` `Receipt<TEvidence>` requires a content key, a plane, and a settling stamp, and a per-pass fold over blocks the program already holds settles nothing, mints no artifact, and reads no clock — the suffix claimed a spine the value never joined.
+- Output: `WirePassEvidence` preserves schedule identity, quality, removed offset, arc-true cut length, consumed wire, peak wire bow, bridge count, and recovery budget; cut length folds `TraversedMm` deltas within one ring, never chord distance between sampled guides; the per-pass fold mints no key and reads no clock.
 - Growth: a machine-book capability is one `WirePass` row; a new occurrence payload is one `WireCycle` case filling the shared columns; a new projection changes only the supplied arrow.
 - Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this seam.
 
@@ -890,7 +890,6 @@ public static class WireEdm {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

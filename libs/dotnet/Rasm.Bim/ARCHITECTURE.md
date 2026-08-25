@@ -36,7 +36,7 @@ Rasm.Bim/                  # Host-neutral openBIM owner; sole GeometryGym/IFC su
 │   ├── Format.cs          # InterchangeFormat rows carry a CapabilitySet<InterchangeCapability> joined by codec-and-extension columns
 │   ├── Import.cs          # BimIo lowers each format row to its canonical carrier: pooled geometry, live DatabaseIfc, STEP model, display graph
 │   ├── Export.cs          # ExportPayload seals every emit; Author mints the GlbScene GlobalId→Node index TileMetadata and AnimateSchedule bind
-│   ├── Tessellation.cs    # TessellationRequest crosses to the IfcOpenShell companion; the outcome receipt carries dual keys and mesh evidence
+│   ├── Tessellation.cs    # TessellationRequest crosses to the IfcOpenShell companion; TessellationOutcome carries dual keys and mesh evidence
 │   ├── Reconstruct.cs     # ReconstructionProjector lowers a segmented cloud into occurrence nodes carrying typed Pset_Reconstruction bags
 │   ├── Saf.cs             # SafCodec validates and executes both workbook directions, realizing imports as authored GeometryGym entities
 │   ├── Wire.cs            # One raw artifact: format key, IFC bytes, schema key, ContentAddress.OfGraph, mint instant
@@ -45,9 +45,9 @@ Rasm.Bim/                  # Host-neutral openBIM owner; sole GeometryGym/IFC su
 │   ├── Exchange.cs        # EnergyExchange.Apply(EnergyOp) raises documents onto the graph and lowers graph content to the authoring schemas
 │   ├── Projector.cs       # Five decode arms converge on ONE projection the Compute energy runner simulates
 │   ├── Derive.cs          # EnergyDerive folds IfcSpace nodes to honeybee rooms; EnergyTranslate runs the frozen (source, target) matrix
-│   └── Results.cs         # EnergyResults.Admit lands the run receipt as producer-authored Pset_EnergyResults bags bound per subject
+│   └── Results.cs         # EnergyResults.Admit lands the Compute run's results as producer-authored Pset_EnergyResults bags bound per subject
 ├── Review/                # Model-checking and coordination
-│   ├── Validation.cs      # Seam ModelAudit composes WHOLE by value; stored receipts compare structurally, so a re-load reads as no change
+│   ├── Validation.cs      # Seam ModelAudit composes WHOLE by value; stored tier verdicts compare structurally, so a re-load reads as no change
 │   ├── Issues.cs          # BcfFile/BcfTopic/BcfComment/BcfViewpoint family at full schema surface, anchored on IFC GlobalIds
 │   ├── Diff.cs            # ModelDiff carries baseline and revision graph identities; ElementChange arms join by stored GlobalId
 │   ├── Coordination.cs    # If-X-then-Y rule engine, clash-resolution proposal fold, A/B impact report, and the BCF sign-off state machine
@@ -176,7 +176,6 @@ flowchart LR
     Rasm e17@-->|"[SHAPE]: ChannelDtype"| Semantics
     Rasm e18@-->|"[SHAPE]: RgbProfile"| Semantics
     Rasm e19@-->|"[SHAPE]: BenchClaim"| Review
-    Rasm e20@-->|"[PORT]: ReceiptSinkPort"| Model
     Model e21@-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Exchange e22@<-->|"[TESSELLATION]: TessellationOutcome"| Compute
     Energy e24@-->|"[CONTENT_KEY]: EnergyArtifact"| Compute
@@ -221,16 +220,15 @@ flowchart LR
     Exchange e1@<-->|"[WIRE]: IfcWire"| Geometry
     Model e2@-->|"[CONTENT_KEY]: RepresentationContentHash"| Geometry
     Energy e4@<-->|"[WIRE]: Hbjson"| Geometry
-    Energy e5@-->|"[RECEIPT]: EnergyResults"| AppUi
+    Energy e5@-->|"[SHAPE]: EnergyResults"| AppUi
     Semantics e6@-->|"[SHAPE]: GeoTiles"| AppUi
     Semantics e7@-->|"[SHAPE]: GeoReference"| AppUi
-    Planning e8@-->|"[RECEIPT]: ScheduleNetwork"| AppUi
-    Planning e9@-->|"[RECEIPT]: CostSchedule"| AppUi
-    Planning e10@-->|"[RECEIPT]: ConstructionState"| AppUi
+    Planning e8@-->|"[SHAPE]: ScheduleNetwork"| AppUi
+    Planning e9@-->|"[SHAPE]: CostSchedule"| AppUi
+    Planning e10@-->|"[SHAPE]: ConstructionState"| AppUi
     Review e11@-->|"[PORT]: IssueBoard"| AppUi
     Review e12@-->|"[BOUNDARY]: BcfViewpoint"| AppUi
     Model e13@-->|"[PORT]: BimHooks"| AppHost
-    Model e14@-->|"[RECEIPT]: BimBenchReceipt"| AppHost
     Model e15@-->|"[WIRE]: BrickGraph"| AppHost
     Exchange e16@-->|"[EVENT]: CloudEvents announcement"| AppHost
     Host e17@-->|"[BOUNDARY]: GlobalId"| Exchange

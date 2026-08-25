@@ -148,10 +148,10 @@ Every blocking member carries an async twin over `Memory<byte>` with a `Cancella
 - `CompressionPolicy.Zstd` and `ZstdHigh` are the admitted rows, each a level with its archival flag; a further profile is one more row against the same frame helper.
 - `PackStream`/`UnpackStream` carry a payload past one contiguous buffer, and `GetCompressBound` bounds a one-shot destination.
 - `ZstdException` maps to a typed `Fin` failure at the codec boundary, so the no-throw twins keep a short destination on the value rail.
-- Level, frame flags, dictionary id, and pledged size project as receipt data on the policy row.
+- Level, frame flags, dictionary id, and pledged size remain on the codec policy row.
 
 [RAIL_LAW]:
 - Package: `ZstdSharp.Port`
 - Owns: Zstandard compression for snapshot and blob payloads — one-shot span codec, the `OperationStatus` pump, async-mirrored `Stream` adapters, the advanced parameter surface, and trained dictionaries
 - Accept: `CompressionPolicy` rows configured through `SetParameter`; `GetCompressBound`-sized one-shot destinations; the pump or the adapters for large payloads; `LoadDictionary` for the small-similar-blob regime; `TryWrap`/`TryUnwrap` folded into `Fin`
-- Reject: a second frame over a body its serializer or IPC stream already compressed; a sidecar decoded length where `contentSizeFlag` self-describes the frame; one context shared across parallel workers; a thrown `ZstdException` crossing the receipt boundary; a `ZSTD_c_experimentalParam*` value in a policy row
+- Reject: a second frame over a body its serializer or IPC stream already compressed; a sidecar decoded length where `contentSizeFlag` self-describes the frame; one context shared across parallel workers; a thrown `ZstdException` crossing the codec boundary; a `ZSTD_c_experimentalParam*` value in a policy row

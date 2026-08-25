@@ -11,11 +11,10 @@ Every ingested feature lands as ONE `GeoFeatureRow`: decoded `Geometry`, canonic
 
 ## [02]-[GEO_SOURCE]
 
-- Owner: `GeoCapability` closes the wire-capability vocabulary over the kernel `ICapability` floor; `GeoFormat` carries one `CapabilitySet` column with the `Law` barring the illegal corner; `GeoAdmission` carries the shared factory, ordinate cap, codec instances, plural fold, `ToCellFrame` projection, and the GeoJSON mapper bound to that factory; `CrsPolicy` carries admitted payload SRIDs; `GeoSpec` fixes format, source, CRS, admission, H3 resolution, and layer, and derives the EFFECTIVE capability set; `GeoOp`/`GeoYield` close dispatch; `[FaultCase]` closes the case-grain fault roster realizing the kernel `[FaultCase]` floor over the `GeoIngest` row; `GeoIngestFault` closes the accumulating family above it; `GeoFactKind`/`GeoFact` close receipts; `GeoSource` owns `Run`.
-- Cases: `GeoOp.Ingest(GeoSpec)` decodes into `Seq<GeoFeatureRow>`; `GeoOp.Egress(GeoSpec, Seq<GeoPayload>)` writes GeoJSON as one `FeatureCollection`, GeoPackage as GPB with attributes, and WKB/WKT as one arity-honest `GeometryCollection`; `GeoOp.Probe(GeoSpec)` yields layer identity, CRS, geometry column/type, Z/M rules, spatial-index presence, and count. `GeoCapability` is `properties | measures | layers | crs-free | streamable`. `GeoIngestFault` is `CodecReject | CrsUnsupported | CrsMismatch | GeometryInvalid | CapabilityLoss | LayerMissing | ColumnUnknown`; independent cases accumulate as `Error.Many`. `GeoFactKind` closes `ingest | egress | probe`.
-- Entry: `public static IO<Validation<Error, GeoYield>> Run(GeoOp op, ProjectionContext frame, Func<GeoFact, IO<Unit>> sink)` — ONE polymorphic entry over the closed op union through the generated total `Switch`; the typed-properties reify is NOT a second entry — it is the `GeoFeatureRow.Bind<T>` member on the yielded row.
+- Owner: `GeoCapability` closes the wire-capability vocabulary over the kernel `ICapability` floor; `GeoFormat` carries one `CapabilitySet` column with the `Law` barring the illegal corner; `GeoAdmission` carries the shared factory, ordinate cap, codec instances, plural fold, `ToCellFrame` projection, and the GeoJSON mapper bound to that factory; `CrsPolicy` carries admitted payload SRIDs; `GeoSpec` fixes format, source, CRS, admission, H3 resolution, and layer, and derives the effective capability set; `GeoOp`/`GeoYield` close dispatch; `[FaultCase]` closes the case-grain fault roster; `GeoIngestFault` closes the accumulating family above it; `GeoSource` owns `Run`.
+- Cases: `GeoOp.Ingest` decodes into `Seq<GeoFeatureRow>`; `GeoOp.Egress` writes the selected container; `GeoOp.Probe` yields layer metadata. `GeoCapability` is `properties | measures | layers | crs-free | streamable`. `GeoIngestFault` is `CodecReject | CrsUnsupported | CrsMismatch | GeometryInvalid | CapabilityLoss | LayerMissing | ColumnUnknown`; independent cases accumulate as `Error.Many`.
+- Entry: `Run(GeoOp, ProjectionContext)` is the ONE polymorphic entry; typed-property reification remains `GeoFeatureRow.Bind<T>` on the yielded row.
 - Auto: all codecs bind one factory and ordinate cap. `GeoSpec` admission folds ONE rule table — path, resolution, CRS-factory agreement, CRS pinning, layer selection, stream posture, measure loss, and the `CapabilityLaw` corner — reporting every violated rule in one error rather than the first. GeoPackage gates `GeoPackageBinaryHeader.SrsId` against both `CrsPolicy` and the registered spine before decoding, accumulating BOTH refusals per row. Strict parse and `Geometry.IsValid` precede minting. `ToCellFrame` preserves payload geometry while projecting a WGS84 indexing copy; non-`4326` output refuses before H3. Cell derivation covers points, multipoints, lines, multilines, polygons, multipolygons, and recursive collections — `Fill` itself splits an antimeridian-crossing polygon (`IsTransMeridian` gating its internal lon±360 `SplitGeometry`), so no caller-side hemisphere split exists; an unsupported collection member, invalid/uncovered cell set, or mixed resolution refuses without partial indexing. Egress derives the payload's DEMANDED capability set from the values themselves and diffs it against the spec's effective set, so one refusal names every capability the wire drops.
-- Receipt: every op rides a `GeoFact` under `store.geo.*` — an `ingest` fact carrying the format key, feature count, and derived-cell total; an `egress` fact carrying the format and feature count; a `probe` fact carrying the layer count — one kind-discriminated stream stamped `frame.Now()`.
 - Packages: NetTopologySuite.IO.GeoPackage (`GeoPackageGeoReader`/`GeoPackageGeoWriter`/`GeoPackageBinaryHeader`), NetTopologySuite.IO.GeoJSON4STJ (`GeoJsonConverterFactory` via `GeoJsonProjection.Default.Factory`, `IPartiallyDeserializedAttributesTable.TryDeserializeJsonObject<T>`, `NetTopologySuite.Features.Feature`/`FeatureCollection`/`AttributesTable`), NetTopologySuite (`WKBReader`/`WKBWriter`/`WKTReader`/`WKTWriter`/`NtsGeometryServices`/`GeometryFactory.CreateGeometryCollection`/`Geometry.IsValid`/`PrecisionModel`/`Ordinates`), pocketken.H3 (`H3Index.FromPoint`, `Geometry.Fill` — antimeridian split internal, `LineString.Fill`, `H3Index.Invalid`, the `ulong` durable form), Microsoft.Data.Sqlite (the GeoPackage container spine read — already admitted), Riok.Mapperly (the GeoJSON feature correspondence), Rasm (`Rasm/Domain/validation#CAPABILITY` `ICapability`/`CapabilitySet`/`CapabilityLaw`, `Rasm/Domain/rails#FAULT_BAND` `FaultBand`), Rasm.Persistence (`Element/codec` `ContentAddress`/`GeoJsonProjection`, `Element/identity` `H3Cell`, `Element/graph#STORE_RAIL` `ProjectionContext`, `Ingest/tabular#TABULAR_SOURCE` `Origin`), LanguageExt.Core, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
 - Growth: a new wire projection is one `GeoFormat` row with its capability set and its codec arms in the format `Switch` (broken loudly at compile time); a new carriable trait is one `GeoCapability` row with the memberships that hold it and, where a corner is illegal, one `Law` row; a new CRS stance is one `CrsPolicy` value (DATA, zero code); a new ordinate posture is one `GeoAdmission` value on the spec; a new fault class is one case inside the registry decade; zero new surface — a per-codec `GeometryFactory`, a `bool` capability column beside the set, a raw-WKB read of a GPB blob (the header is unparseable to a raw reader), a `RepairRings`-on row beside content addressing, a WKT `string.Split` parse, a hand-spelled GeoJSON shaper, an unframed plural byte egress, a second H3 coordinate model, or a geo→element map inside this codec is the deleted form.
 - Boundary: NTS `Geometry` is the SINGLE interior vocabulary and a store-to-feed flow is decode-blob → interior → encode-text, never a direct transcode; WKB is the canonical interchange binary — the content key hashes the WKB bytes, so identity is storage-codec-independent; the GeoJSON id convention rides the ONE `GeoJsonProjection` row (two partner id conventions are two projection rows on two options instances, never post-read patching); precision is admission-side (the reader's `PrecisionModel` applies as coordinates parse; writers emit stored doubles raw), so emitted-text hash stability comes from constructing under the fixed factory BEFORE serialization; XYM/XYZM degrade silently on the GeoJSON text wire, so measure-bearing data routes through the `Measures` capability the format row holds or withholds; a stream source reaches only a format holding `Streamable`, so the container legs never re-gate it; `→ Element/identity#ELEMENT_IDENTITY` (cell derivation — the `H3Cell`/`Cell(Envelope,int)` owner, leg-3→leg-1 downward), `← Element/codec#CODEC_AXIS` (converter graph), `→ Rasm.Element` (row shape only), `← Rasm.Bim/Semantics/feature` (feature ingress over the `GeoWire` wire — the in-branch pair both `[03]-[SEAMS]` maps register whole); the GDAL/OGR GeoParquet COLUMNAR lane is `Query/columnar`'s — this page owns feature-file codecs, never a columnar reader.
@@ -230,40 +229,23 @@ public abstract partial record GeoIngestFault : Fault {
     };
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class GeoFactKind {
-    public static readonly GeoFactKind Ingest = new("ingest");
-    public static readonly GeoFactKind Egress = new("egress");
-    public static readonly GeoFactKind Probe = new("probe");
-}
-
-public readonly record struct GeoFact(GeoFactKind Kind, string Format, long Features, long Cells, Instant At);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class GeoSource {
-    public static readonly Seq<StoreSlot> Slots =
-        toSeq(GeoFactKind.Items).Map(static kind => StoreSlot.Create($"store.geo.{kind.Key}"));
-
     static readonly Seq<(GeoCapability Capability, Func<GeoPayload, bool> Evidence)> Demands = Seq(
         (GeoCapability.Properties, (Func<GeoPayload, bool>)(static f => !f.Properties.IsEmpty)),
         (GeoCapability.Measures, static f => f.Shape.Coordinates.Any(static c => !double.IsNaN(c.M))));
 
-    public static IO<Validation<Error, GeoYield>> Run(GeoOp op, ProjectionContext frame, Func<GeoFact, IO<Unit>> sink) =>
+    public static IO<Validation<Error, GeoYield>> Run(GeoOp op, ProjectionContext frame) =>
         op.Switch(
-            (frame, sink),
-            ingest: static (s, i) => Ingested(i.Spec, s.frame, s.sink),
-            egress: static (s, e) => Emitted(e.Spec, e.Features, s.frame, s.sink),
-            probe:  static (s, p) => Probed(p.Spec, s.frame, s.sink));
+            frame,
+            ingest: static (f, i) => Ingested(i.Spec),
+            egress: static (f, e) => Emitted(e.Spec, e.Features, f),
+            probe:  static (f, p) => Probed(p.Spec));
 
-    static IO<Validation<Error, GeoYield>> Ingested(GeoSpec spec, ProjectionContext frame, Func<GeoFact, IO<Unit>> sink) =>
-        from rows in IO.lift(() => Decoded(spec).Bind(features => features.Traverse(feature => GeoFeatureRow.Of(spec, feature)).As()))
-        from _ in rows.Match(
-            Succ: y => sink(new GeoFact(GeoFactKind.Ingest, spec.Format.Key, y.Count, y.Sum(static r => (long)r.Cells.Count), frame.Now())),
-            Fail: _ => IO.pure(unit))
-        select rows.Map(static y => (GeoYield)new GeoYield.Features(y));
+    static IO<Validation<Error, GeoYield>> Ingested(GeoSpec spec) => IO.lift(() =>
+        Decoded(spec).Bind(features => features.Traverse(feature => GeoFeatureRow.Of(spec, feature)).As())
+            .Map(static rows => (GeoYield)new GeoYield.Features(rows)));
 
     static Validation<Error, Seq<GeoDecoded>> Decoded(GeoSpec spec) => spec.Format.Switch(
         spec,
@@ -275,10 +257,9 @@ public static class GeoSource {
     static Seq<GeoDecoded> Bared(Seq<Geometry> shapes) =>
         shapes.Map(static shape => new GeoDecoded(shape, new GeoProperties.Bare()));
 
-    static IO<Validation<Error, GeoYield>> Emitted(GeoSpec spec, Seq<GeoPayload> features, ProjectionContext frame, Func<GeoFact, IO<Unit>> sink) =>
+    static IO<Validation<Error, GeoYield>> Emitted(GeoSpec spec, Seq<GeoPayload> features, ProjectionContext frame) =>
         from at in IO.lift(frame.Now)
         from done in IO.lift(() => Payload(spec, features).Bind(admitted => Written(spec, admitted, at)))
-        from _ in done.Match(Succ: _ => sink(new GeoFact(GeoFactKind.Egress, spec.Format.Key, features.Count, 0L, at)), Fail: _ => IO.pure(unit))
         select done.Map(_ => (GeoYield)new GeoYield.Written(features.Count));
 
     static Validation<Error, Seq<GeoPayload>> Payload(GeoSpec spec, Seq<GeoPayload> features) =>
@@ -306,15 +287,14 @@ public static class GeoSource {
         wkb:        static s => Capture(s.spec.Format, () => Binary(s.spec, s.spec.Admission.WkbOut.Write(s.spec.Admission.Collected(s.features)))),
         wkt:        static s => Capture(s.spec.Format, () => Binary(s.spec, Encoding.UTF8.GetBytes(s.spec.Admission.WktOut.Write(s.spec.Admission.Collected(s.features))))));
 
-    static IO<Validation<Error, GeoYield>> Probed(GeoSpec spec, ProjectionContext frame, Func<GeoFact, IO<Unit>> sink) =>
-        from roster in IO.lift(() => spec.Format.Switch(
+    static IO<Validation<Error, GeoYield>> Probed(GeoSpec spec) =>
+        IO.lift(() => spec.Format.Switch(
             spec,
             geoPackage: static s => GeoContainer.Spine(s),
             geoJson:    static s => s.Admission.Wire.Census(s),
             wkb:        static s => Capture(s.Format, () => s.Admission.WkbIn.Read(Bytes(s.Source))).Map(shape => Layer("wkb", shape, s.Admission.Cap)),
-            wkt:        static s => Capture(s.Format, () => s.Admission.WktIn.Read(Text(s.Source))).Map(shape => Layer("wkt", shape, s.Admission.Cap))))
-        from _ in roster.Match(Succ: y => sink(new GeoFact(GeoFactKind.Probe, spec.Format.Key, y.Count, 0L, frame.Now())), Fail: _ => IO.pure(unit))
-        select roster.Map(static y => (GeoYield)new GeoYield.Roster(y));
+            wkt:        static s => Capture(s.Format, () => s.Admission.WktIn.Read(Text(s.Source))).Map(shape => Layer("wkt", shape, s.Admission.Cap)))
+            .Map(static rows => (GeoYield)new GeoYield.Roster(rows)));
 
     static Seq<GeoLayer> Layer(string name, Geometry shape, Ordinates cap) => Seq(new GeoLayer(
         name,
@@ -384,8 +364,7 @@ public static class GeoCells {
 |  [10]   | plural binary wire  | `Collected` → one `GeometryCollection`        | egress arity is the value's shape; concatenation deleted           |
 |  [11]   | H3 buckets          | `FromPoint`/`Fill` at spec resolution         | `h3-pg` bit parity; `Invalid` and empty shapes contribute nothing  |
 |  [12]   | fault band          | `[FaultCase]` ordinals on `Fault`             | `8440`-`8447`; contiguous case-grain identity                      |
-|  [13]   | receipt             | one `GeoFact` stream `store.geo.*`            | kind-discriminated; never parallel records                         |
-|  [14]   | element projection  | per-app geo→element map                       | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; Bim consumes features |
+|  [13]   | element projection  | per-app geo→element map                       | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; Bim consumes features |
 
 ## [03]-[FEATURE_ROWS]
 
@@ -393,7 +372,6 @@ public static class GeoCells {
 - Cases: `GeoProperties.Deferred` holds the GeoJSON element-backed table — reified typed ONLY through `TryDeserializeJsonObject<T>(GeoWire.Options, out …)` so a feature's geometry and its typed properties resolve under ONE geometry converter row (a false return is absence, never a throw); `GeoProperties.Columns` holds the GeoPackage attribute-column bag — bound through the same STJ wire round-trip tabular cells mint through; `GeoProperties.Bare` is the Wkb/Wkt geometry-only row.
 - Entry: `GeoRows` `extension(GeoFeatureRow row)` member `public Validation<Error, Option<T>> Bind<T>()` dispatches the properties union through the typed codec rail; loose `IAttributesTable` walks are rejected.
 - Auto: container reads derive layer name, geometry column/type, SRID, Z/M rules, spatial-index presence, and count from `gpkg_geometry_columns`, `gpkg_contents`, and `sqlite_master` — the spine reader CLOSES before the per-layer probes run, and each layer mints once with its two ordinate-rule admissions and its count accumulated. Selected-layer absence reaches `LayerMissing`; a `z`/`m` column no rule names reaches `CodecReject`; GPB/header-to-spine disagreement reaches `CrsMismatch` per row, accumulated with the header's own SRID admission. Egress ADMITS before it mutates: every feature's SRID and every property column resolve against the registered schema first, so the transaction opens over admitted material and a refusal costs one rollback rather than a partial write; the write then binds typed `SqliteParameter` values, quotes every identifier, and writes rows, an extant R-tree, and the `gpkg_contents` extent in one immediate transaction stamped from `ProjectionContext`.
-- Receipt: rides `[02]`'s facts — the container read contributes its per-layer feature counts to the one `ingest` fact.
 - Packages: covered by `[02]`.
 - Growth: a new properties source is one `GeoProperties` case with one `Bind<T>` arm (compile-broken); a new spine gate is one lift inside the layer mint; zero new surface — a second reify path beside `Bind<T>`, a per-format row type, a hand-built `Feature`/`AttributesTable` beside the mapper, a geometry-only attributed write, or a raw-WKB read of a GPB column is the deleted form.
 - Boundary: GPB headers own payload SRID and must equal the registered spine SRID; `HandleSRID` stamps the admitted value onto geometry. `GeoWire` absorbs a null GeoJSON geometry into the empty collection under the one factory, so properties survive without an interior null, while a null DOCUMENT refuses typed rather than reading as an empty collection. `Store/provisioning#EMBEDDED_FLOOR` owns database lifecycle; this page mounts an existing `.gpkg` read-only for ingest/probe or read-write for an attributed layer transaction. `data-interchange`'s reader carve keeps the ordinal `SqliteDataReader` read hand-bound — a reader is not a mappable source — while the GeoJSON feature model, an object pair, generates.

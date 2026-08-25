@@ -2,7 +2,7 @@
 
 `Rasm.Materials` owns architectural substance, appearance, and buildable component type: what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end, from BSDF lobes and OpenPBR lowering through spectral color science to Kubelka-Munk finishes, held at render grade.
 
-Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor, reaches the signal plane through the kernel capsule, and references `Rasm.AppHost` for the benchmark gate and the branch's neutral generated-message admission. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
+Component rows feed generated assemblies and fabrication physics, capacity verdicts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It composes the `Rasm` admission floor, reaches the signal plane through the kernel capsule, and references `Rasm.AppHost` for the benchmark gate and the branch's neutral generated-message admission. It projects property catalogues, the component-family axis, section profiles, and section capacities onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type.
 
 ## [01]-[ROUTER]
 
@@ -57,8 +57,8 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 
 [PROJECTION]:
 - [42]-[COMPONENT](.planning/Projection/component.md): `ComponentProjector` fold minting Type Objects and material subgraphs.
-- [43]-[OBSERVABILITY](.planning/Projection/observability.md): Closed fact family over the folder hook rail with instrument and receipt projections.
-- [44]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with receipt gating.
+- [43]-[OBSERVABILITY](.planning/Projection/observability.md): Closed fact family over the folder hook rail with its instrument projection.
+- [44]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with benchmark gating.
 - [45]-[ANALYTICS](.planning/Projection/analytics.md): Analytics datasets declared as wire onto flat row streams for the columnar custodian.
 
 ## [02]-[DOMAIN_PACKAGES]
@@ -101,7 +101,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
 - `JetBrains.Annotations`
-- `NodaTime` — `Duration` fact columns, `Instant`/`Interval` receipt stamps, and the `LocalDate` evidence expiry.
+- `NodaTime` — `Duration` fact columns, `Instant`/`Interval` run stamps, and the `LocalDate` evidence expiry.
 - `QuikGraph` — Appearance-DAG topological sort and the Edmonds-Karp max-flow cut behind the tileability synthesizer.
 - `Riok.Mapperly` — Source-generated boundary transcription under the completeness gate.
 - `Wacton.Unicolour` — Color-space conversion and perceptual difference for the appearance engine.

@@ -14,14 +14,14 @@
 
 [PUBLIC_TYPE_SCOPE]: reader, materialized blocks, and metadata
 
-`read_excel` returns an `ExcelReader`; `load_sheet`/`load_table` return a lazy `ExcelSheet`/`ExcelTable` or an eager `pyarrow.RecordBatch`. `ColumnInfo` carries `name`, `index`, `absolute_index`, `dtype`, `column_name_from`, `dtype_from` as the ingestion receipt; `ColumnInfoNoDtype` drops `dtype`/`dtype_from` for pre-dtype predicates. `DefinedName` carries `name`/`formula`; `CellError` carries `position`, `offset_position`, `row_offset`, `detail`, collected in `CellErrors.errors`.
+`read_excel` returns an `ExcelReader`; `load_sheet`/`load_table` return a lazy `ExcelSheet`/`ExcelTable` or an eager `pyarrow.RecordBatch`. `ColumnInfo` carries `name`, `index`, `absolute_index`, `dtype`, `column_name_from`, and `dtype_from` as native column metadata; `ColumnInfoNoDtype` drops `dtype`/`dtype_from` for pre-dtype predicates. `DefinedName` carries `name`/`formula`; `CellError` carries `position`, `offset_position`, `row_offset`, `detail`, collected in `CellErrors.errors`.
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                             |
 | :-----: | :------------------ | :------------ | :--------------------------------------- |
 |  [01]   | `ExcelReader`       | reader        | open workbook exposing sheet/table load  |
 |  [02]   | `ExcelSheet`        | data block    | one sheet as an Arrow PyCapsule          |
 |  [03]   | `ExcelTable`        | data block    | one named table as an Arrow PyCapsule    |
-|  [04]   | `ColumnInfo`        | metadata      | resolved-column receipt descriptor       |
+|  [04]   | `ColumnInfo`        | metadata      | resolved-column descriptor               |
 |  [05]   | `ColumnInfoNoDtype` | metadata      | pre-dtype descriptor for `use_columns`   |
 |  [06]   | `DefinedName`       | metadata      | workbook named range                     |
 |  [07]   | `CellError`         | metadata      | one cell parse failure                   |
@@ -109,9 +109,9 @@ A lazy `ExcelSheet`/`ExcelTable` exports through the Arrow PyCapsule dunders, so
 - window: `header_row` (`int`, or `None` for no header), `column_names`, `skip_rows`, `n_rows`, `skip_whitespace_tail_rows`, and `whitespace_as_null` are call rows; `skip_rows` widens to `int | list[int] | Callable[[int], bool]` on `load_sheet`/`load_sheet_eager` (data-relative index) and stays `int` on the `by_name`/`by_idx`/`load_table` rows; windowing is a parameter, never a pre-filtered sheet copy.
 - dtype: `dtypes` (one `DType` for all columns or a `DTypeMap` keyed by index/name) overrides inference; `schema_sample_rows` bounds inference (`None` scans every row); `dtype_coercion` selects `coerce` from `strict` on mixed columns, and typing is a call row, never a downstream cast.
 - selection: `use_columns` takes a name/index list, an Excel-letter range string (`"A:E"`, `"A,C,E:F"`, open `"B:"`, from-start `":C"`, except `":C,E:"`), or a `Callable[[ColumnInfoNoDtype], bool]`; pruning happens at decode, never as a post-load projection, and the eager `load_sheet_eager` row drops the callable.
-- export: lazy `ExcelSheet`/`ExcelTable` export through `__arrow_c_schema__`/`__arrow_c_array__`; `to_polars` builds `pl.DataFrame(self)` zero-copy on the `polars` extra alone; `to_arrow`/`to_pandas` and `eager=True` require the `pyarrow` extra (`to_pandas` is `to_arrow().to_pandas()`); `to_arrow_with_errors` pairs the batch with a `CellErrors` receipt and is `ExcelSheet`-only.
+- export: lazy `ExcelSheet`/`ExcelTable` export through `__arrow_c_schema__`/`__arrow_c_array__`; `to_polars` builds `pl.DataFrame(self)` zero-copy on the `polars` extra alone; `to_arrow`/`to_pandas` and `eager=True` require the `pyarrow` extra (`to_pandas` is `to_arrow().to_pandas()`); `to_arrow_with_errors` pairs the batch with native `CellErrors` and is `ExcelSheet`-only.
 - error: every failure derives from `FastExcelError`, and per-cell parse failures surface as `CellError` inside `CellErrors.errors`, never as silent nulls.
-- evidence: each load records sheet/table name, width, height, total height, selected `ColumnInfo`, specified dtypes, sheet visibility (`ExcelSheet` only), and any `CellErrors` as the ingestion receipt.
+- evidence: each load returns sheet/table name, width, height, total height, selected `ColumnInfo`, specified dtypes, sheet visibility (`ExcelSheet` only), and any native `CellErrors`.
 
 [STACKING]:
 - `polars`(`polars.md`): the lazy sheet's PyCapsule lands in the eager columnar owner through `pl.DataFrame(sheet)` zero-copy on the `polars` extra alone.
@@ -129,4 +129,4 @@ A lazy `ExcelSheet`/`ExcelTable` exports through the Arrow PyCapsule dunders, so
 - Package: `fastexcel`
 - Owns: calamine-backed Excel decode into Arrow, per-column dtype control and coercion, header/skip/row windowing with int/list/callable skip predicates, Excel-letter/list/callable column selection, whitespace-tail trimming and whitespace-as-null, named-table and defined-name access, `ExcelSheet` per-cell parse-error capture, and zero-copy PyCapsule export
 - Accept: Excel workbook ingestion into Arrow record batches feeding the dataset, frame, and persistence owners
-- Reject: a wrapper-rename of `read_excel`/`load_sheet`; a hand-rolled xlsx/ods decoder; a parallel reader type per source kind or eager/lazy mode; a per-sheet column-name family; a forced `pyarrow` dependency where the polars PyCapsule export needs only the `polars` extra; a post-load row filter where the `skip_rows` predicate prunes at decode; silent dropping of unparseable cells the `to_arrow_with_errors` `CellErrors` receipt records
+- Reject: a wrapper-rename of `read_excel`/`load_sheet`; a hand-rolled xlsx/ods decoder; a parallel reader type per source kind or eager/lazy mode; a per-sheet column-name family; a forced `pyarrow` dependency where the polars PyCapsule export needs only the `polars` extra; a post-load row filter where the `skip_rows` predicate prunes at decode; silent dropping of unparseable cells native `CellErrors` records

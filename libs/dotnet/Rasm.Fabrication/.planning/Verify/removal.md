@@ -1,15 +1,15 @@
 # [RASM_FABRICATION_REMOVAL]
 
-`Removal.Verify` owns post-program stock truth: one admitted `VerifyPolicy` materializes stock and target through the shared voxel runtime, folds setup-framed cutter sweeps and non-cutting body membership over actual stock, and projects residual stock, snapshots, signed surface deviation, and tolerance evidence onto `FabricationResult.VerificationResult` before firing the settled receipt onto the fabrication tap.
+`Removal.Verify` owns post-program stock truth: one admitted `VerifyPolicy` materializes stock and target through the shared voxel runtime, folds setup-framed cutter sweeps and non-cutting body membership over actual stock, and projects residual stock, snapshots, signed surface deviation, and tolerance evidence onto `FabricationResult.VerificationResult` before writing its mounted instruments.
 
-`FabricationPolicy.Verify`, `VoxelWire`, `ToolMagazine.HolderEnvelope`, `StockSnapshot`, `ContentKey.Of`, and the `FabricationFact.Removal` projection remain frozen seams. Arc geometry reads the S0 atom's own admitted `SweepRadians` and `Radius`, loop identity reads `Loop.CanonicalBytes`, byte framing reads `FabricationCanon`, and native handles terminate inside one exception-capture and disposal capsule; only process atoms leave the Verify plane.
+`FabricationPolicy.Verify`, `VoxelWire`, `ToolMagazine.HolderEnvelope`, `StockSnapshot`, `ContentKey.Of`, and the mounted removal instrument rows remain frozen seams. Arc geometry reads the S0 atom's own admitted `SweepRadians` and `Radius`, loop identity reads `Loop.CanonicalBytes`, byte framing reads `FabricationCanon`, and native handles terminate inside one exception-capture and disposal capsule; only process atoms leave the Verify plane.
 
 ## [01]-[INDEX]
 
 - [02]-[POLICY]: generated admission for removal resolution, setup framing, arc-length stationing, tolerance, and native budget.
 - [03]-[STOCK_FOLD]: setup-ordered cutter sweeps and shank-plus-holder membership tests over one mutable stock lease.
 - [04]-[SURFACE_TRUTH]: signed nominal-to-actual deviation, residual topology, and payload-complete snapshot identity.
-- [05]-[VERDICT]: finding adjudication, result projection, and the settled-receipt fact fire.
+- [05]-[VERDICT]: finding adjudication, result projection, and the removal instrument writes.
 
 ## [02]-[POLICY]
 
@@ -19,7 +19,7 @@
 - Law: the verification runs on the CALLER's admitted context. The grid every residual loop, canonical preimage, and section walk reads is `Bands.Model`, so a project that tightened its absolute band verifies against that band rather than against a millimetre context the operation minted for itself and no caller could reach.
 - Law: a circular move's sweep and radius are the S0 atom's OWN admitted columns. `Move.Circular.SweepRadians` is signed with magnitude in `(0, Tau]` and `Move.Circular.Radius` is the centre-to-target distance, both proved at `Move.Circular.Of`; this page reads them and mints no endpoint re-derivation, no angular epsilon, and no clockwise sign convention. A full turn and its zero-sweep twin are distinct admitted moves, so the generator separates them where an `atan2` difference cannot.
 - Law: the setup partition resolves ONCE off the admitted members and is held on the policy, so the coverage gate, the depth gate, the fold, and the snapshot preimage read one sequence rather than four re-sorts of the same rows.
-- Entry: `Removal.Verify(FabricationPolicy.Verify, FabricationInput, FabricationTap?)` is the sole public operation; the policy case carries the admitted `VerifyPolicy`, the prior residual, and the prior snapshots, and the tap defaults silent so a headless verification emits nothing and branches nowhere.
+- Entry: `Removal.Verify(FabricationPolicy.Verify, FabricationInput, Option<InstrumentSet>)` is the sole public operation; the policy case carries the admitted `VerifyPolicy`, the prior residual, and the prior snapshots, and the set defaults absent so a headless verification writes nothing and branches nowhere.
 - Auto: generated factories reject primitive defects on the fabrication band, one `AdmissionSlots.Gate` fan proves stock lineage, setup partition, cutting-motion presence, tool-frame coverage, silhouette generability, and voxel demand together, and `Capture` encloses native source construction, voxelization, callback execution, and lease disposal.
 - Exemption: `RequiredCells` folds a `BigInteger` axis product to prove the grid fits the cell cap before any allocation.
 - Growth: a sampling law is one `SweepSampling` row, and an acceptance regime is one `RemovalBands` value — a lane-named gate moves at the context override with no column added here.
@@ -227,7 +227,7 @@ public sealed partial class VerifyPolicy {
 - Entry: setup and move arity collapse into immutable sequences consumed by `FoldM`, while resource custody stays inside the native boundary capsule.
 - Auto: `HolderEnvelope` arrives as an admitted `Loop` and the shank silhouette is a three-vertex bulge circle, so both obstruction rings sample arc-exactly through `Loop.Apply` and no polygonal circle generator exists; every silhouette derivation is outward-bounding, so a narrowing family verifies against a superset of its own body.
 - Exemption: `RemoveWindow` holds the native shadow lease and its cut list, `AddTool` and `Seal` push lattice beams across the provider ABI, and `Difference`/`Intersects` probe two voxel fields — the native statement kernels. Every one is a per-element `Lattice`/`Voxels` call the provider publishes no batched entry for, so no fold, span, or tensor operator can stand where they do; the branch's own sequence combinators own every walk that is not such a call.
-- Receipt: `RemovalFinding` retains gouge, strike, uncut, overcut, air-cut, signed-deviation, and unresolved-coverage evidence, and each case carries its own invalidating verdict through one total dispatch.
+- Output: `RemovalFinding` retains gouge, strike, uncut, overcut, air-cut, signed-deviation, and unresolved-coverage evidence, and each case carries its own invalidating verdict through one total dispatch.
 - Growth: a cutter geometry is one `CutterFamily` row on the existing rule columns; a new non-cutting body is one `Obstruction` row.
 - Boundary: a body that crashes never reads as material removed, because obstruction membership never subtracts.
 
@@ -315,14 +315,15 @@ public static class Removal {
     public static Fin<FabricationResult.VerificationResult> Verify(
         FabricationPolicy.Verify request,
         FabricationInput input,
-        FabricationTap? tap = null) =>
-        Solve(request, input).Map(result => Fired(result, tap ?? FabricationTap.Silent));
-
-    private static FabricationResult.VerificationResult Fired(
-        FabricationResult.VerificationResult result, FabricationTap tap) {
-        _ = tap.Fire(FabricationFact.Removal.Of(result));
-        return result;
-    }
+        Option<InstrumentSet> set = default) =>
+        from result in Solve(request, input)
+        from _verdict in set.Write(FabricationInstruments.RemovalVerifications, 1d,
+            (FabricationInstruments.VerdictSlot, result.Gouges.IsEmpty ? FabricationInstruments.Pass : FabricationInstruments.Fail))
+        from _defects in set.Write(FabricationInstruments.RemovalDefects, result.Gouges.Count)
+        from _uncut in set.Write(FabricationInstruments.RemovalResidual, result.UncutVolume, (FabricationInstruments.ResidueSlot, FabricationInstruments.Uncut))
+        from _overcut in set.Write(FabricationInstruments.RemovalResidual, result.OvercutVolume, (FabricationInstruments.ResidueSlot, FabricationInstruments.Overcut))
+        from _air in set.Write(FabricationInstruments.RemovalAirCut, result.AirCutRatio)
+        select result;
 
     private static Fin<FabricationResult.VerificationResult> Solve(
         FabricationPolicy.Verify request, FabricationInput input) {
@@ -715,7 +716,7 @@ public static class Removal {
 - Law: identity reads the S0 owners whole. `Loop.CanonicalBytes` is THE loop preimage — rotation-canonical and tolerance-quantized — and `FabricationCanon` is THE framing family and both of its closes, so this page declares no rotation rule, no coordinate writer, no presence tag, no hex render inside a preimage, and no writer mint of its own. Residual loops order by their own canonical origin and area under a stable sort, so a re-rooted section cannot fork one snapshot key.
 - Auto: barycentric draws come from `Deterministic.UnitInterval` on the face centroid over two streams, so the field reproduces bit-identically and the pair stays uncorrelated; Boolean volume deltas remain the independent conservation check and neither scalar path substitutes for the other.
 - Exemption: `Surface` folds the cumulative-area prefix and `ResidualLoops` welds extracted native vertices — the two native statement kernels here. Both walk `PicoGK.Mesh.GetTriangle`, an out-parameter call per triangle with no batched or spanned form, so the prefix scan and the vertex weld are statement bodies for the ABI's sake and not for the arithmetic's; the sample draw over that prefix is an ordinary sequence fold.
-- Receipt: every setup snapshot key closes through `FabricationCanon.Keyed` — the ONE retaining mint over the `Rasm.Element` codec, answering on the `Fin` rail — framing stock lineage, motion, setup and tool frames, tool assembly identity, cutter policy, the acceptance bands, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two. The circular arm writes `SweepRadians`, so a full-turn arc and its zero-sweep twin keep distinct keys.
+- Law: every setup snapshot key closes through `FabricationCanon.Keyed` — the ONE retaining mint over the `Rasm.Element` codec, answering on the `Fin` rail — framing stock lineage, motion, setup and tool frames, tool assembly identity, cutter policy, the acceptance bands, machined loops, metrics, and signed field samples, so a `-0.0`, a NaN payload, or a string boundary cannot fork one snapshot into two. The circular arm writes `SweepRadians`, so a full-turn arc and its zero-sweep twin keep distinct keys.
 - Boundary: `ResidualLoops` reuses one Rhino vertex index per extracted native vertex before plane intersection; provider geometry terminates here.
 
 ```csharp
@@ -890,10 +891,10 @@ public static partial class Removal {
 ## [05]-[VERDICT]
 
 - Owner: `Project` adjudicates the finding set against the admitted tolerance, mints the residual stock, and closes on `FabricationResult.VerificationResult`; `Fired` is the one emission seam.
-- Law: a verified program that missed its band is a RECEIPT with `Clean` false, not a failed rail — the atom carries the volumes, the ratio, and the gouge witnesses precisely so the consumer reads the verdict. Only a physical strike, an out-of-band gouge, or surface evidence too sparse to support any claim invalidates the run, and the volume tolerance floors at the one voxel the field can resolve.
-- Entry: `Removal.Verify` returns the concrete `FabricationResult.VerificationResult`, so the run spine's synchronous lift binds it directly and the fact projection reads its typed columns without a downcast.
-- Auto: `FabricationFact.Removal.Of` flattens the settled receipt to gouge count, uncut and overcut volume, and air-cut ratio, reaching `rasm.fabrication.removal.verifications`, `.defects`, `.residual`, and `.aircut` through `Process/telemetry#FACT_PROJECTION` under kind `removal`; the tap defaults to `FabricationTap.Silent`, whose send is a total no-op, so a headless verification pays no branch.
-- Receipt: `FabricationResult.VerificationResult` carries residual stock, per-setup snapshots, gouge witnesses, both residue volumes, the air-cut ratio, and the voxel-derived volume tolerance its own `Clean` verdict reads.
+- Law: a verified program that missed its band is a RESULT with `Clean` false, not a failed rail — the atom carries the volumes, the ratio, and the gouge witnesses precisely so the consumer reads the verdict. Only a physical strike, an out-of-band gouge, or surface evidence too sparse to support any claim invalidates the run, and the volume tolerance floors at the one voxel the field can resolve.
+- Entry: `Removal.Verify` returns the concrete `FabricationResult.VerificationResult`, so the run spine's synchronous lift binds it directly and the instrument writes read its typed columns without a downcast.
+- Auto: the settled `VerificationResult` writes its gouge verdict, gouge count, uncut and overcut volume, and air-cut ratio onto `FabricationInstruments.RemovalVerifications`, `RemovalDefects`, `RemovalResidual`, and `RemovalAirCut` at the site (`Process/telemetry#OBSERVE`); the set defaults absent, so a headless verification pays no branch.
+- Output: `FabricationResult.VerificationResult` carries residual stock, per-setup snapshots, gouge witnesses, both residue volumes, the air-cut ratio, and the voxel-derived volume tolerance its own `Clean` verdict reads.
 - Boundary: the page opens no solver span, because the removal fold counts no solver-internal step and `FabricationEngine` rosters no removal lane; a traced removal lane is one `FabricationEngine` row at `Process/telemetry` before a bracket exists here.
 
 ```csharp
@@ -996,7 +997,6 @@ public static partial class Removal {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

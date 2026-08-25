@@ -44,7 +44,7 @@ Topology â€” projects, environments, configs, service tokens, directory scopes â
 
 - One directory's scope keys land as `enclave.project`, `enclave.config`; the set is driver-owned and scope `/` stays untouched.
 - Secret downloads pipe to `jq 'keys'` or `jq 'length'`; configure reads strip the root token with `del(.token)`, since a bare `configure debug` or `configure --all` prints it.
-- Receipts, transcripts, and logs carry key names and counts, never values or tokens.
+- Transcripts and logs carry key names and counts, never values or tokens.
 
 ## [04]-[OP_CLI]
 

@@ -101,7 +101,7 @@ One `Provider` per arm carries the credential and threads through `opts.provider
 [STACKING]:
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `Provider.apiToken` binds a single-key `getSecretsOutput({ project, config }).apply(r => r.map["CLOUDFLARE_TOKEN"])` `Output<string>` — the in-graph credential bind the Doppler provider-credential fan-in names for this row; `WorkersScript` secret bindings draw from the same canonical store.
 - `@pulumi/tls`(`.api/pulumi-tls.md`): `CertRequest.certRequestPem` feeds `OriginCaCertificate.csr` and `PrivateKey.privateKeyPem` supplies the origin key where Cloudflare does not mint it — the cert material the `kube/traffic` rows consume.
-- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): every `XArgs` field is `Input<T>` and every output an `Output<T>` mirror threaded through `opts.provider` via `CustomResourceOptions`; resource failures fold into the `automation.UpResult` run receipt, and a `TUNNEL_TOKEN` crossing a manifest travels only `pulumi.secret`-wrapped.
+- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): every `XArgs` field is `Input<T>` and every output an `Output<T>` mirror threaded through `opts.provider` via `CustomResourceOptions`; resource failures reject the lifecycle operation and map to `DeployFault`, and a `TUNNEL_TOKEN` crossing a manifest travels only `pulumi.secret`-wrapped.
 - within-lib: `effect` owns the `Match` arm dispatch and the `StackSpec`/`StackOutputs` `Schema`; typed `StackOutputs` (zone id, tunnel id, record fqdn) project through `stack/output`.
 
 [LOCAL_ADMISSION]:

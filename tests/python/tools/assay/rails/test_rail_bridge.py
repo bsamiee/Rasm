@@ -13,19 +13,7 @@ import pytest
 
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    BridgeLifecycle,
-    Claim,
-    Fault,
-    Mode,
-    RailStatus,
-    receipt,
-    Report,
-    validate_detail,
-    VerifySummary,
-)
+from assay.core.model import Artifact, ArtifactKind, BridgeLifecycle, Claim, Completed, Fault, Mode, RailStatus, Report, validate_detail, VerifySummary
 from assay.rails.bridge import (
     _aggregate_closure,
     _completed_from_stdout,
@@ -59,7 +47,7 @@ from tests.python.tools.assay.kit import SeamExecutor
 
 if TYPE_CHECKING:
     from assay.core.exec import Executor
-    from assay.core.model import Check, Completed
+    from assay.core.model import Check
     from tests.python.tools.assay.kit import AssayHarness
 
 
@@ -94,6 +82,7 @@ def _envelope(
     first_fault_phase: str | None = None,
     scenarios: tuple[dict[str, object], ...] = (),
     evidence: tuple[dict[str, object], ...] = (),
+    phases: tuple[dict[str, object], ...] = (),
     host: dict[str, object] | None = None,
     capabilities: tuple[dict[str, object], ...] = (),
 ) -> bytes:
@@ -107,6 +96,7 @@ def _envelope(
         "capabilities": list(capabilities),
         "scenarios": list(scenarios),
         "evidence": list(evidence),
+        "phases": list(phases),
         "firstFailure": first_failure,
         "firstFaultPhase": first_fault_phase,
     })
@@ -116,17 +106,11 @@ def _closure(path: Path, *assemblies: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     for assembly in assemblies:
         (path.parent / assembly).write_text(assembly, encoding="utf-8")
-    path.write_bytes(
-        msgspec.json.encode({
-            "assemblies": list(assemblies),
-            "hostPlugins": ["b45a29b1-4343-4035-989e-044e8580d9cf"],
-            "builtAgainst": {"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "2.0", "runtimeVersion": "10.0"},
-        })
-    )
+    path.write_bytes(msgspec.json.encode({"assemblies": list(assemblies), "hostPlugins": ["b45a29b1-4343-4035-989e-044e8580d9cf"], "builtAgainst": {"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "2.0", "runtimeVersion": "10.0"}}))
 
 
 def _bridge_run(envelope: bytes, verbs: list[str] | None = None, build_outcome: Result[Completed, Fault] | None = None) -> Callable[..., object]:
-    """Executor run lane dispatching on the bridge tool mode: BUILD folds a receipt, VERIFY plays the supervisor envelope.
+    """Executor run lane dispatching on the bridge tool mode: BUILD folds completion, VERIFY plays the supervisor envelope.
 
     Returns:
         Run-lane callable for ``SeamExecutor(run_fn=...)``.
@@ -135,10 +119,10 @@ def _bridge_run(envelope: bytes, verbs: list[str] | None = None, build_outcome: 
     def run(check: Check, **_kw: object) -> Result[Completed, Fault]:
         match check.tool.mode:
             case Mode.BUILD:
-                return build_outcome if build_outcome is not None else Ok(receipt(("dotnet", "build"), 0, status=RailStatus.OK))
+                return build_outcome if build_outcome is not None else Ok(Completed(("dotnet", "build"), 0, status=RailStatus.OK))
             case _:
                 verbs.append(str(check.args.verb)) if verbs is not None else None
-                return Ok(receipt(tuple(check.args.fill(check.tool.command)), 0, stdout=envelope, status=RailStatus.OK))
+                return Ok(Completed(tuple(check.args.fill(check.tool.command)), 0, stdout=envelope, status=RailStatus.OK))
 
     return run
 
@@ -185,14 +169,14 @@ def test_selection_projects_pattern_to_payload(label: str, pattern: str, expecte
 
 
 def test_decode_envelope_and_first_fault() -> None:
-    done = receipt(("rasm-bridge",), 0, stdout=_envelope(status=RailStatus.FAILED, first_failure="compile failed", first_fault_phase="load"))
+    done = Completed(("rasm-bridge",), 0, stdout=_envelope(status=RailStatus.FAILED, first_failure="compile failed", first_fault_phase="load"), status=RailStatus.OK)
     envelope = _decode_envelope(done)
     assert envelope.status is RailStatus.FAILED
     assert first_fault(envelope) == ("load", "compile failed")
 
 
 def test_decode_malformed_stdout_returns_failed_sentinel() -> None:
-    envelope = _decode_envelope(receipt(("rasm-bridge",), 0, stdout=b"{bad", stderr=b"raw failure"))
+    envelope = _decode_envelope(Completed(("rasm-bridge",), 0, stdout=b"{bad", stderr=b"raw failure", status=RailStatus.OK))
     assert envelope.status is RailStatus.FAILED
     assert envelope.first_failure == "raw failure"
 
@@ -201,9 +185,7 @@ def test_decode_empty_stdout_reads_process_log(tmp_path: Path) -> None:
     out_log = tmp_path / "out.log"
     out_log.write_bytes(_envelope(report_dir=str(tmp_path), scenarios=({"scenario": "analysis.NativeRail", "status": "ok"},)))
 
-    done = receipt(
-        ("rasm-bridge",), 0, stdout=b"", artifacts=(Artifact(id="out", kind=ArtifactKind.PROCESS, path=str(out_log), bytes=out_log.stat().st_size),)
-    )
+    done = Completed(("rasm-bridge",), 0, stdout=b"", status=RailStatus.OK, artifacts=(Artifact(id="out", kind=ArtifactKind.PROCESS, path=str(out_log), bytes=out_log.stat().st_size),))
 
     envelope = _decode_envelope(done)
     assert envelope.status is RailStatus.OK
@@ -220,31 +202,19 @@ def test_completed_from_stdout_projects_status_notes_and_artifacts(tmp_path: Pat
     (tmp_path / "ignore.bin").write_bytes(b"bin")
     (tmp_path / "bridge-certificate.json").write_bytes(
         msgspec.json.encode({
-            "artifacts": [
-                {
-                    "id": rel,
-                    "role": role,
-                    "relativePath": rel,
-                    "mediaType": media,
-                    "bytes": len(payload),
-                    "hash": {"algorithm": "sha256", "value": hashlib.sha256(payload.encode()).hexdigest()},
-                    "retention": "evidence",
-                    "scenario": "blocks.CoreRail",
-                }
-                for rel, role, media, payload in rows
-            ]
+            "artifacts": [{"id": rel, "role": role, "relativePath": rel, "mediaType": media, "bytes": len(payload), "hash": {"algorithm": "sha256", "value": hashlib.sha256(payload.encode()).hexdigest()}, "retention": "evidence", "scenario": "blocks.CoreRail"} for rel, role, media, payload in rows]
         })
     )
-    done = _completed_from_stdout(receipt(("rasm-bridge",), 0, stdout=_envelope(report_dir=str(tmp_path))))
+    done = _completed_from_stdout(Completed(("rasm-bridge",), 0, stdout=_envelope(report_dir=str(tmp_path)), status=RailStatus.OK))
     assert done.status is RailStatus.OK
     assert done.notes == (f"bridge.reportDir={tmp_path}",)
     assert {Path(artifact.path).name for artifact in done.artifacts} == {"facts.jsonl", "view.png"}
 
 
 def test_faulted_maps_failed_completion_to_fault() -> None:
-    fault = assert_error_status(_faulted(Ok(receipt(("rasm-bridge",), 1, status=RailStatus.FAILED, stderr=b"boom"))), RailStatus.FAULTED)
+    fault = assert_error_status(_faulted(Ok(Completed(("rasm-bridge",), 1, status=RailStatus.FAILED, stderr=b"boom"))), RailStatus.FAULTED)
     assert "boom" in fault.message
-    assert _faulted(Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK))).is_ok()
+    assert _faulted(Ok(Completed(("rasm-bridge",), 0, status=RailStatus.OK))).is_ok()
 
 
 # --- [CLOSURE_AGGREGATION]
@@ -289,7 +259,7 @@ def test_client_run_spawns_built_supervisor_binary(assay_root: AssayHarness) -> 
 
     def _spawn(check: Check, **_kw: object) -> Result[Completed, Fault]:
         checks.append(check)
-        return Ok(receipt(("supervisor",), 0, stdout=_envelope()))
+        return Ok(Completed(("supervisor",), 0, stdout=_envelope(), status=RailStatus.OK))
 
     binary = assay_root.supervisor()
     done = assert_ok(client_run(assay_root.settings, "status", executor=SeamExecutor(run_fn=_spawn)))
@@ -334,11 +304,7 @@ def test_lifecycle_verbs_fold_supervisor_completion(verb_name: str, verb_fn: _Br
 
 def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarness) -> None:
     """A lifecycle fold projects the supervisor host versions and capability rows into a wire-round-tripping BridgeLifecycle detail."""
-    envelope = _envelope(
-        report_dir="report/status",
-        host={"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "", "runtimeVersion": "10.0"},
-        capabilities=({"key": "rail.core", "outcome": "ok", "receipt": "warm"}, {"key": "rail.vectors", "outcome": "skipped", "receipt": ""}),
-    )
+    envelope = _envelope(report_dir="report/status", host={"bundleVersion": "9.0", "rhinoCommonVersion": "9.0", "grasshopper2Version": "", "runtimeVersion": "10.0"}, capabilities=({"key": "rail.core", "outcome": "ok", "detail": "warm"}, {"key": "rail.vectors", "outcome": "skipped", "detail": ""}))
     assay_root.supervisor()
     report = assert_ok(status(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor(run_fn=_bridge_run(envelope))))
     detail = report.detail
@@ -349,8 +315,8 @@ def test_lifecycle_detail_projects_host_and_capabilities(assay_root: AssayHarnes
     assert validate_detail(detail) == detail, "BridgeLifecycle did not survive the tagged-union wire codec"
 
 
-def test_build_folds_bridge_build_receipt(assay_root: AssayHarness) -> None:
-    """Build folds the per-project executor receipts into one bridge-build report."""
+def test_build_folds_bridge_completion(assay_root: AssayHarness) -> None:
+    """Build folds the per-project executor completions into one bridge-build report."""
     report = assert_ok(build(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams(), SeamExecutor(run_fn=_bridge_run(_envelope()))))
     assert report.claim is Claim.BRIDGE
     assert report.verb == "build"
@@ -371,10 +337,7 @@ def test_verify_folds_session_summary(assay_root: AssayHarness) -> None:
     cargo.mkdir(parents=True)
     (cargo / "Cargo.dll").write_bytes(b"")
     assay_root.supervisor()
-    envelope = _envelope(
-        scenarios=({"scenario": "blocks.CoreRail", "status": "ok", "durationMs": 1.0},),
-        evidence=({"$type": "fact", "stamp": {"scenario": "blocks.CoreRail"}, "key": "mesh.count", "value": 3},),
-    )
+    envelope = _envelope(scenarios=({"scenario": "blocks.CoreRail", "status": "ok", "durationMs": 1.0},), evidence=({"$type": "fact", "stamp": {"scenario": "blocks.CoreRail"}, "key": "mesh.count", "value": 3},), phases=({"phase": "execute", "status": "ok", "durationMs": 1.0},))
     verbs: list[str] = []
 
     report = assert_ok(verify(assay_root.settings, scope, BridgeParams(paths=("blocks",)), SeamExecutor(run_fn=_bridge_run(envelope, verbs))))
@@ -382,6 +345,7 @@ def test_verify_folds_session_summary(assay_root: AssayHarness) -> None:
     assert report.verb == "verify"
     assert verbs == ["verify"]
     assert isinstance(report.detail, VerifySummary)
+    assert report.detail.phase_status == (("execute", "ok"),)
     assert report.detail.facts
     assert report.detail.facts[0][0] == "blocks.CoreRail"
 
@@ -425,13 +389,7 @@ def test_evidence_status_reference_lanes() -> None:
 
 def test_reference_problems_bind_the_unpromoted_prefix() -> None:
     """_reference_problems emits admission-prefixed rows: only unpromoted rows carry the lane prefix, matched rows vanish."""
-    certificate = _EvidenceCertificate(
-        references=(
-            _ReferenceEvidenceResult(scenario="blocks.CoreRail", admission="unpromoted"),
-            _ReferenceEvidenceResult(scenario="camera.Sweep", admission="matched", matched=True),
-            _ReferenceEvidenceResult(scenario="ui.Paint", admission="mismatch"),
-        )
-    )
+    certificate = _EvidenceCertificate(references=(_ReferenceEvidenceResult(scenario="blocks.CoreRail", admission="unpromoted"), _ReferenceEvidenceResult(scenario="camera.Sweep", admission="matched", matched=True), _ReferenceEvidenceResult(scenario="ui.Paint", admission="mismatch")))
     problems = _reference_problems(certificate)
     assert problems == ("reference.unpromoted:blocks.CoreRail", "reference.mismatch:ui.Paint")
     assert [problem.startswith(_REFERENCE_UNPROMOTED_PREFIX) for problem in problems] == [True, False]

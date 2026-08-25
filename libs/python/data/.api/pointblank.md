@@ -142,7 +142,7 @@ Every step row appends to the plan and returns `Validate`; `columns` accepts a n
 - render axis: `get_tabular_report()` emits the `great_tables.GT` grade frame keyed by the interrogated plan; `get_step_report`/`get_dataframe_report`/`get_json_report` and the plan-free `col_summary_tbl`/`missing_vals_tbl`/`preview`/`DataScan.get_tabular_report` are report rows feeding the renderer directly.
 - frame axis: `data` accepts a Polars/Pandas/Ibis frame, a CSV/Parquet path or glob, a GitHub URL, or a database connection string through Narwhals; `connect_to_table` and `load_dataset`/`generate_dataset` supply tables, so the engine is backend-agnostic.
 - declarative axis: the typed `Contract`/`Step`/`Pipeline`/`PipelineResult` model round-trips through `from_yaml`/`to_yaml`/`from_dict`/`to_dict` and `Contract.to_validate` lowers to a `Validate` plan; `yaml_interrogate`/`validate_yaml`/`yaml_to_python` build a plan from YAML and `read_file`/`write_file` persist an interrogated `Validate`, and `Pipeline.run` executes a multi-table contract set.
-- evidence: each interrogated plan captures step count, per-step passing/failing test-unit counts and fractions, severity grade per level, threshold breach flags, sundered row counts, and the emitted report kind as a grade receipt.
+- evidence: each `Interrogation` retains step count, per-step passing/failing test-unit counts and fractions, severity grade per level, threshold breach flags, sundered row counts, and emitted report kind.
 
 [STACKING]:
 - `narwhals`(`.api/narwhals.md`): `Validate` accepts the Narwhals-normalized frame, so Polars/Pandas/Ibis/DuckDB/CSV/Parquet/connection-string inputs all enter one backend-agnostic plan through the narwhals carrier.

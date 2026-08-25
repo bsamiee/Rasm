@@ -185,7 +185,7 @@ final class ShapeExportCommand: NSScriptCommand {
             let outcome = await Task.detached { Result { try ShapeExporter.write(shape, to: destination) } }.value
             guard let self else { return }
             switch outcome {
-            case .success(let receipt): self.resumeExecution(withResult: receipt)
+            case .success(let result): self.resumeExecution(withResult: result)
             case .failure(let fault):
                 self.scriptErrorNumber = NSInternalScriptError
                 self.scriptErrorString = fault.localizedDescription

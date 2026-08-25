@@ -1,7 +1,7 @@
-"""Convert foreign tool output into wire evidence and fold receipts into rail reports.
+"""Convert foreign tool output into wire evidence and fold outcomes into rail reports.
 
 One converter owner block per diagnostic family, keyed by the ``Parser`` value the engine stamps onto each
-receipt; SARIF documents fold per build target, and the structured-search decoders own ast-grep,
+outcome; SARIF documents fold per build target, and the structured-search decoders own ast-grep,
 tree-sitter, and ripgrep payloads.
 """
 
@@ -20,21 +20,7 @@ import msgspec
 import structlog
 from tree_sitter import Language as TSLanguage, Query as TSQuery, QueryError
 
-from assay.core.model import (
-    AnyDetail,
-    ArtifactKind,
-    Band,
-    Claim,
-    Completed,
-    Counts,
-    ExecReceipt,
-    field_cap,
-    Match,
-    Parser,
-    RailStatus,
-    Report,
-    SarifStatus,
-)
+from assay.core.model import AnyDetail, ArtifactKind, Band, Claim, Completed, Counts, field_cap, Match, Parser, RailStatus, RemoteExecution, Report, SarifStatus
 
 if TYPE_CHECKING:
     from tree_sitter import Node
@@ -51,10 +37,7 @@ _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 _HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
 _RULE_HEADER = re.compile(r"^(?P<rule>[a-z][a-z0-9]*(?:-[a-z0-9]+)*):\s*(?P<message>.+)$")
 _ARROW_LOCATION = re.compile(r"^\s*-->\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)$")
-_HEADER_POLICIES: tuple[tuple[frozenset[str], re.Pattern[str], str], ...] = (
-    (frozenset(), _HEADER_DIAGNOSTIC, ""),
-    (frozenset(("ruff", "ruff-format")), _RULE_HEADER, "error"),
-)
+_HEADER_POLICIES: tuple[tuple[frozenset[str], re.Pattern[str], str], ...] = ((frozenset(), _HEADER_DIAGNOSTIC, ""), (frozenset(("ruff", "ruff-format")), _RULE_HEADER, "error"))
 _MYPY_DIAGNOSTIC = re.compile(
     r"^(?P<path>.+?):(?P<line>\d+)(?::(?P<column>\d+))?:\s*(?P<severity>error|warning|note):\s*"
     r"(?P<message>.*?)(?:\s+\[(?P<rule>[a-z0-9_.-]+)])?$",
@@ -65,9 +48,7 @@ _TSC_DIAGNOSTIC = re.compile(
     r"(?P<severity>error|warning)\s+(?P<rule>TS\d+):\s*(?P<message>.+)$",
     re.IGNORECASE,
 )
-_BIOME_TEXT_DIAGNOSTIC = re.compile(
-    r"^(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)\s+(?P<rule>(?:lint|assist|parse|format)[/\w.-]*)\s*(?P<message>.*)$", re.IGNORECASE
-)
+_BIOME_TEXT_DIAGNOSTIC = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<column>\d+)\s+(?P<rule>(?:lint|assist|parse|format)[/\w.-]*)\s*(?P<message>.*)$", re.IGNORECASE)
 _FORMAT_DIAGNOSTIC = re.compile(r"^(?:Would reformat:\s*(?P<path>.+)|(?P<path2>\S+)\s+would be reformatted)$", re.IGNORECASE)
 _CS_DIAGNOSTIC = re.compile(
     r"^(?P<path>.*?\.(?:cs|csproj|props|targets|slnx))\((?P<line>\d+),(?P<column>\d+)\):\s*"
@@ -330,18 +311,7 @@ def _sarif_log(path: Path) -> _SarifLog:
 
 
 def _code_match(rule_id: str, severity: str, path: str, line: int, column: int, message: str, *, text: str, project: str = "") -> Match:
-    return Match(
-        id=rule_id,
-        kind=ArtifactKind.CODE,
-        text=text[:_MATCH_TEXT_CAP],
-        line=line,
-        column=column,
-        score=column,
-        severity=severity,
-        path=path,
-        project=project,
-        message=message,
-    )
+    return Match(id=rule_id, kind=ArtifactKind.CODE, text=text[:_MATCH_TEXT_CAP], line=line, column=column, score=column, severity=severity, path=path, project=project, message=message)
 
 
 def _sarif_match(result: _SarifResult) -> Match:
@@ -351,9 +321,7 @@ def _sarif_match(result: _SarifResult) -> Match:
     parsed = urlparse(uri)
     path = unquote(parsed.path if parsed.scheme == "file" else uri)
     message = result.message.text.strip()
-    return _code_match(
-        result.rule_id.lower(), _SARIF_SEVERITY.get(result.level, "warning"), path, line, column, message, text=f"{path}({line},{column}): {message}"
-    )
+    return _code_match(result.rule_id.lower(), _SARIF_SEVERITY.get(result.level, "warning"), path, line, column, message, text=f"{path}({line},{column}): {message}")
 
 
 def _sarif_files(base: Path, stamped: str, stem: str, *, slnx: bool) -> tuple[Path, ...]:
@@ -372,19 +340,8 @@ def _sarif_rows(sarif_dir: str | None, outcomes: tuple[Completed, ...]) -> tuple
         return ()
     base = Path(sarif_dir)
     builds = tuple(done for done in outcomes if "dotnet" in done.argv and "build" in done.argv)
-    files = (
-        tuple(
-            path
-            for done in builds
-            for stem, slnx in (_build_targets(done.argv) or (("", True),))
-            for path in _sarif_files(base, done.sarif_dir, stem, slnx=slnx)
-        )
-        if builds
-        else tuple(sorted(base.glob("*.sarif")))
-    )
-    return tuple(
-        _sarif_match(result) for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions
-    )
+    files = tuple(path for done in builds for stem, slnx in (_build_targets(done.argv) or (("", True),)) for path in _sarif_files(base, done.sarif_dir, stem, slnx=slnx)) if builds else tuple(sorted(base.glob("*.sarif")))
+    return tuple(_sarif_match(result) for path in files if path.is_file() for run in _sarif_log(path).runs for result in run.results if not result.suppressions)
 
 
 def _build_targets(argv: tuple[str, ...]) -> tuple[tuple[str, bool], ...]:
@@ -399,12 +356,7 @@ def sarif_status(outcomes: tuple[Completed, ...], sarif_dir: str | None) -> tupl
         warm-incremental skip distinct from a clean analyzer pass.
     """
     base = Path(sarif_dir) if sarif_dir else None
-    return tuple(
-        (stem, _classify_sarif(done.status, base, done.sarif_dir, stem, slnx=slnx).token(_sarif_results(base, done.sarif_dir, stem, slnx=slnx)))
-        for done in outcomes
-        if "dotnet" in done.argv and "build" in done.argv
-        for stem, slnx in (_build_targets(done.argv) or (("", False),))
-    )
+    return tuple((stem, _classify_sarif(done.status, base, done.sarif_dir, stem, slnx=slnx).token(_sarif_results(base, done.sarif_dir, stem, slnx=slnx))) for done in outcomes if "dotnet" in done.argv and "build" in done.argv for stem, slnx in (_build_targets(done.argv) or (("", False),)))
 
 
 def _classify_sarif(status: RailStatus, base: Path | None, stamped: str, stem: str, *, slnx: bool) -> SarifStatus:
@@ -436,8 +388,7 @@ def _dotnet_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
             int(found.group("line")),
             int(found.group("column")),
             message := found.group("message").strip(),
-            text=f"{found.group('path')}({found.group('line')},{found.group('column')}): {message}"
-            + (f" [project={project}]" if (project := (found.group("project") or "").strip()) else ""),
+            text=f"{found.group('path')}({found.group('line')},{found.group('column')}): {message}" + (f" [project={project}]" if (project := (found.group("project") or "").strip()) else ""),
             project=project,
         )
         for done in outcomes
@@ -447,12 +398,7 @@ def _dotnet_rows(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
         if found is not None
     )
     if rows:
-        _LOG.info(
-            "diagnostic.discovered",
-            count=len(rows),
-            source=sum(1 for row in rows if not _generated(row)),
-            generated=sum(1 for row in rows if _generated(row)),
-        )
+        _LOG.info("diagnostic.discovered", count=len(rows), source=sum(1 for row in rows if not _generated(row)), generated=sum(1 for row in rows if _generated(row)))
     return rows
 
 
@@ -475,16 +421,7 @@ def _text_rows(tool: str, payload: str) -> tuple[Match, ...]:
         if row is not None:
             rows.append(row)
             continue
-        header = next(
-            (
-                (policy_severity or _severity(found.group("severity")), found.groupdict().get("rule") or tool, found.group("message").strip())
-                for tools, pattern, policy_severity in _HEADER_POLICIES
-                if not tools or tool in tools
-                for found in (pattern.match(line),)
-                if found is not None
-            ),
-            None,
-        )
+        header = next(((policy_severity or _severity(found.group("severity")), found.groupdict().get("rule") or tool, found.group("message").strip()) for tools, pattern, policy_severity in _HEADER_POLICIES if not tools or tool in tools for found in (pattern.match(line),) if found is not None), None)
         if header is not None:
             pending = header
             continue
@@ -508,9 +445,7 @@ def _json_object[T](payload: str, decoder: msgspec.json.Decoder[T]) -> str:
     return candidate
 
 
-def _json_rows[T](
-    payload: str, *, decoder: msgspec.json.Decoder[T], project: str, rows: Callable[[T], tuple[Match, ...]], embedded: bool = False
-) -> tuple[Match, ...]:
+def _json_rows[T](payload: str, *, decoder: msgspec.json.Decoder[T], project: str, rows: Callable[[T], tuple[Match, ...]], embedded: bool = False) -> tuple[Match, ...]:
     span = _json_object(payload, decoder) if embedded else payload
     if not span:
         return _text_rows(tool=project, payload=payload)
@@ -540,16 +475,7 @@ def _severity(raw: str) -> str:
 
 def _diagnostic_match(tool: str, rule: str, severity: str, path: str, line: str, column: str, message: str) -> Match:
     line_number, column_number, rule_id = int(line), int(column), rule.lower()
-    return _code_match(
-        f"{tool}:{rule_id}",
-        _severity(severity),
-        path,
-        line_number,
-        column_number,
-        message,
-        text=f"{tool}: {path}:{line_number}:{column_number}: {rule_id}: {message}",
-        project=tool,
-    )
+    return _code_match(f"{tool}:{rule_id}", _severity(severity), path, line_number, column_number, message, text=f"{tool}: {path}:{line_number}:{column_number}: {rule_id}: {message}", project=tool)
 
 
 def _generated(row: Match) -> bool:
@@ -579,25 +505,13 @@ def _group_generated(rows: tuple[Match, ...]) -> tuple[Match, ...]:
         key = (row.id, row.severity, row.project.replace("\\", "/").lower(), body)
         grouped[key] = grouped.get(key, 0) + 1
     return tuple(
-        Match(
-            id=rule,
-            kind=ArtifactKind.PROCESS,
-            text=f"generated diagnostics grouped count={count}: {body}"[:_MATCH_TEXT_CAP],
-            severity=severity,
-            project=project,
-            message=body,
-            count=count,
-        )
-        for (rule, severity, project, body), count in sorted(
-            grouped.items(), key=lambda item: (_DIAGNOSTIC_SEVERITY_RANK.get(item[0][1] or "", 9), item[0])
-        )
+        Match(id=rule, kind=ArtifactKind.PROCESS, text=f"generated diagnostics grouped count={count}: {body}"[:_MATCH_TEXT_CAP], severity=severity, project=project, message=body, count=count)
+        for (rule, severity, project, body), count in sorted(grouped.items(), key=lambda item: (_DIAGNOSTIC_SEVERITY_RANK.get(item[0][1] or "", 9), item[0]))
     )
 
 
 def _rank(rows: tuple[Match, ...]) -> tuple[Match, ...]:
-    return tuple(
-        sorted(rows, key=lambda row: (_DIAGNOSTIC_SEVERITY_RANK.get(row.severity or "", 9), row.id, row.path, row.line, row.column, row.text))
-    )
+    return tuple(sorted(rows, key=lambda row: (_DIAGNOSTIC_SEVERITY_RANK.get(row.severity or "", 9), row.id, row.path, row.line, row.column, row.text)))
 
 
 def _result_rows(claim: Claim, outcomes: tuple[Completed, ...], defects: tuple[Match, ...], sarif_dir: str | None) -> tuple[Match, ...]:
@@ -624,21 +538,10 @@ def _diagnostic_notes(rows: tuple[Match, ...]) -> tuple[str, ...]:
         f"warning={sum(count for row, count in weights if row.severity == 'warning')} "
         f"info={sum(count for row, count in weights if row.severity == 'info')}"
     )
-    return (
-        summary,
-        "diagnostics.rules: " + " ".join(f"{rule}={count}" for rule, count in sorted(rule_counts.items(), key=lambda item: (-item[1], item[0]))[:16]),
-    )
+    return (summary, "diagnostics.rules: " + " ".join(f"{rule}={count}" for rule, count in sorted(rule_counts.items(), key=lambda item: (-item[1], item[0]))[:16]))
 
 
-def fold(
-    claim: Claim,
-    verb: str,
-    outcomes: tuple[Completed, ...],
-    *,
-    detail: AnyDetail | None = None,
-    sarif_dir: str | None = None,
-    promote_empty: bool = False,
-) -> Report:
+def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None, sarif_dir: str | None = None, promote_empty: bool = False) -> Report:
     """Fold process outcomes and evidence into a rail report.
 
     Every outcome seats one leaf in the census under its own status, so a skipped, unsupported, or faulted lane stays
@@ -651,27 +554,12 @@ def fold(
     Returns:
         Report carrying status, census, artifacts, evidence rows, notes, and optional detail.
     """
-    defects = tuple(
-        Match(
-            id=shlex.join(o.argv) if o.argv else claim.value,
-            kind=ArtifactKind.PROCESS,
-            text=(o.stderr or o.stdout)[-_DEFECT_TAIL:].decode(errors="replace").strip(),
-            severity="failed",
-        )
-        for o in outcomes
-        if o.status.band is Band.REFUSED
-    )
+    defects = tuple(Match(id=shlex.join(o.argv) if o.argv else claim.value, kind=ArtifactKind.PROCESS, text=(o.stderr or o.stdout)[-_DEFECT_TAIL:].decode(errors="replace").strip(), severity="failed") for o in outcomes if o.status.band is Band.REFUSED)
     results = _result_rows(claim, outcomes, defects, sarif_dir)
     diagnostic_rows = tuple(m for m in results if m.severity in _SARIF_SEVERITY.values() and m.id)
     source_error = any(row.kind is ArtifactKind.CODE and row.severity == "error" for row in diagnostic_rows)
     folded_status = RailStatus.fold(*(o.status for o in outcomes))
-    status = (
-        RailStatus.FAILED
-        if claim is Claim.STATIC and source_error
-        else RailStatus.OK
-        if promote_empty and claim in _PROCESS_BACKED_OK_CLAIMS and folded_status is RailStatus.EMPTY and bool(outcomes) and not defects
-        else folded_status
-    )
+    status = RailStatus.FAILED if claim is Claim.STATIC and source_error else RailStatus.OK if promote_empty and claim in _PROCESS_BACKED_OK_CLAIMS and folded_status is RailStatus.EMPTY and bool(outcomes) and not defects else folded_status
     return Report(
         claim,
         verb,
@@ -679,12 +567,9 @@ def fold(
         Counts.of(*(o.status for o in outcomes)),
         results=results,
         artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
-        notes=(
-            *tuple(n for o in outcomes for n in o.notes),
-            *((_diagnostic_notes(diagnostic_rows)) if claim is Claim.STATIC and diagnostic_rows else ()),
-        ),
+        notes=(*tuple(n for o in outcomes for n in o.notes), *((_diagnostic_notes(diagnostic_rows)) if claim is Claim.STATIC and diagnostic_rows else ())),
         detail=detail,
-        exec=ExecReceipt.merge(tuple(o.exec for o in outcomes if o.exec is not None)),
+        remote=RemoteExecution.merge(tuple(o.remote for o in outcomes if o.remote is not None)),
     )
 
 
@@ -702,14 +587,7 @@ _TEXT_POLICIES: tuple[_TextPolicy, ...] = (
     _TextPolicy(_MYPY_DIAGNOSTIC, frozenset(("mypy",))),
     _TextPolicy(_TSC_DIAGNOSTIC, frozenset(("tsc",)), line_groups=("line1", "line2"), column_groups=("column1", "column2")),
     _TextPolicy(_BIOME_TEXT_DIAGNOSTIC, frozenset(("biome",)), severity="error"),
-    _TextPolicy(
-        _FORMAT_DIAGNOSTIC,
-        frozenset(("ruff-format",)),
-        rule="format",
-        severity="error",
-        message="file would be reformatted",
-        path_groups=("path", "path2"),
-    ),
+    _TextPolicy(_FORMAT_DIAGNOSTIC, frozenset(("ruff-format",)), rule="format", severity="error", message="file would be reformatted", path_groups=("path", "path2")),
 )
 
 _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
@@ -720,37 +598,10 @@ _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
     Parser.TSC: lambda payload: _text_rows("tsc", payload),
     Parser.BUF: _buf_rows,
     Parser.BIOME: lambda payload: _json_rows(
-        payload,
-        decoder=_BIOME_LOG,
-        project="biome",
-        embedded=True,
-        rows=lambda report: tuple(
-            _diagnostic_match(
-                "biome",
-                row.category or "biome",
-                row.severity,
-                row.location.path,
-                str(row.location.start.line),
-                str(row.location.start.column),
-                row.message,
-            )
-            for row in report.diagnostics
-        ),
+        payload, decoder=_BIOME_LOG, project="biome", embedded=True, rows=lambda report: tuple(_diagnostic_match("biome", row.category or "biome", row.severity, row.location.path, str(row.location.start.line), str(row.location.start.column), row.message) for row in report.diagnostics)
     ),
 }
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "AST_MATCHES",
-    "CAPTURES",
-    "CAPTURE_ENCODER",
-    "Capture",
-    "RG_EVENT",
-    "cap_note",
-    "fold",
-    "node_text",
-    "sarif_status",
-    "ts_language",
-    "ts_query",
-]
+__all__ = ["AST_MATCHES", "CAPTURES", "CAPTURE_ENCODER", "Capture", "RG_EVENT", "cap_note", "fold", "node_text", "sarif_status", "ts_language", "ts_query"]

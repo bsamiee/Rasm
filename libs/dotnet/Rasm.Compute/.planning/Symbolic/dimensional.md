@@ -252,7 +252,7 @@ public static class DimensionProof {
 
 ## [04]-[UNITS_BRIDGE]
 
-- Owner: `DimensionVerdict` the `[Union]` receipt binding the PROVED expression's content key to its monomial and, where the roster names it, its candidate `QuantityFamily` set; `DimensionAdmission` the static projection that censuses, proves, and matches against the `Symbolic/units#DIMENSIONAL_LAW` SI baseline.
+- Owner: `DimensionVerdict` the `[Union]` result binding the PROVED expression's content key to its monomial and, where the roster names it, its candidate `QuantityFamily` set; `DimensionAdmission` the static projection that censuses, proves, and matches against the `Symbolic/units#DIMENSIONAL_LAW` SI baseline.
 - Cases: `DimensionVerdict` cases `Named(Subject, Dimension, Candidates)` — the roster carries one or more rows at that dimension — and `Unnamed(Subject, Dimension)` — the formula is dimensionally sound and the admitted roster names nothing at that dimension; bound free symbols arrive from the `Runtime/admission#DISPATCH_SPINE` `ComputeIntent.SymbolicProject.Dimensions` map, each carrying its declared `QuantityFamily` KEY.
 - Law: the verdict is evidence about ONE expression. `Subject` carries the proved formula's content key, so `Symbolic/lowering#LOWERING` binds a compile to the proof that admitted it and a verdict minted for a different tree is a typed refusal — the gate that page's Law always claimed and, without this column, could only claim.
 - Law: dimensional soundness and quantity NAMING are two questions, and only the first is the proof's. Curvature reciprocal-length and per-length stiffness are sound intermediates the admitted roster carries no row for, so the verdict reports `Unnamed` with its proven monomial and downstream admission decides whether an unnamed result is admissible for its own consumer; faulting there rejected formulas whose algebra was never in doubt.
@@ -310,11 +310,3 @@ public static class DimensionAdmission {
             : new DimensionVerdict.Unnamed(subject, monomial);
 }
 ```
-
-## [05]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

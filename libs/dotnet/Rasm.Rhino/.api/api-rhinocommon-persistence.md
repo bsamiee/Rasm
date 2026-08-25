@@ -146,7 +146,7 @@
 
 [LOCAL_ADMISSION]:
 - a dictionary value enters through `Set`; a settings value through a typed `Set<Kind>` writer or `SetDefault`; attached custody through a `UserData` subclass or `UserData.Move*`; settings custody through `FromPlugInId`/`RhinoAppSettings`.
-- live `UserData`, `UserDictionary`, and `ObjectAttributes` values remain inside the document grant; downstream code receives detached `ArchivableDictionary` snapshots, decoded typed values, or projected receipts.
+- live `UserData`, `UserDictionary`, and `ObjectAttributes` values remain inside the document grant; downstream code receives detached `ArchivableDictionary` snapshots, decoded typed values, or detached facts.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon`

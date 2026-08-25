@@ -12,7 +12,6 @@ The chart plane's ink base: `ChartChrome` folds every chart chrome key from the 
 ## [02]-[CHART_FAULTS]
 
 - Owner: `ChartFault` — the direct generated `[Union]` every Charts page raises, with one `[FaultCase]` leaf per semantic failure.
-- Receipt: recovery selects the concrete `ChartFault` case through `error.IsType<T>()`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: `ChartFault` grows by one `[FaultCase]` leaf and its owning constructions.
 - Boundary: `ChartFault` owns failures shared across the Charts sub-domain; each leaf carries only the payload its semantic case requires.

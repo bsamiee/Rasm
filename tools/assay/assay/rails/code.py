@@ -21,39 +21,9 @@ from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    BaseParams,
-    Check,
-    Claim,
-    Completed,
-    Counts,
-    Fault,
-    Language,
-    language_choice,
-    Match,
-    Mode,
-    RailStatus,
-    receipt,
-    Report,
-    RESULT_CAP,
-    Step,
-    ToolArgs,
-)
+from assay.core.model import Artifact, ArtifactKind, BaseParams, Check, Claim, Completed, Counts, Fault, Language, language_choice, Match, Mode, RailStatus, Report, RESULT_CAP, Step, ToolArgs
 from assay.core.routing import resolve_languages, route, Routed, Scope
-from assay.diagnostics import (
-    AST_MATCHES,
-    cap_note,
-    Capture,
-    CAPTURE_ENCODER,
-    CAPTURES,
-    fold,
-    node_text,
-    RG_EVENT,
-    ts_language,
-    ts_query,
-)
+from assay.diagnostics import AST_MATCHES, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, fold, node_text, RG_EVENT, ts_language, ts_query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -81,13 +51,9 @@ class CodeParams(BaseParams):
 
     dotnet: Annotated[bool, Parameter(name="--dotnet", negative="", show_default=False, help="Restrict the command to .NET targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
-    typescript: Annotated[
-        bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
-    ] = False
+    typescript: Annotated[bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")] = False
     language: Annotated[Language | None, Parameter(parse=False)] = None
-    pattern: Annotated[
-        str, Parameter(allow_leading_hyphen=True, help="Pattern; the leading positional fills this slot when the flag is omitted.")
-    ] = ""
+    pattern: Annotated[str, Parameter(allow_leading_hyphen=True, help="Pattern; the leading positional fills this slot when the flag is omitted.")] = ""
     max_results: NonNegativeInt = 1000
 
     @override
@@ -129,10 +95,7 @@ class _RowSpec[M]:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_GRAMMARS: dict[Language, Callable[[], object]] = {
-    Language.PYTHON: tree_sitter_python.language,
-    Language.TYPESCRIPT: tree_sitter_typescript.language_typescript,
-}
+_GRAMMARS: dict[Language, Callable[[], object]] = {Language.PYTHON: tree_sitter_python.language, Language.TYPESCRIPT: tree_sitter_typescript.language_typescript}
 _TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -150,9 +113,7 @@ def _checks(routed: Routed, mode: Mode, splice: Callable[[Tool, Routed], Check])
             return tuple(splice(t, routed) for t in select(Claim.CODE, routed.language) if t.mode is mode)
 
 
-def _dispatch(
-    routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, splice: Callable[[Tool, Routed], Check], executor: Executor
-) -> tuple[Result[Completed, Fault], ...]:
+def _dispatch(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, splice: Callable[[Tool, Routed], Check], executor: Executor) -> tuple[Result[Completed, Fault], ...]:
     checks = _checks(routed, mode, splice)
     match checks:
         case ():
@@ -161,15 +122,9 @@ def _dispatch(
             return executor.fan(checks, settings=settings, scope=scope, routed=routed)
 
 
-def _fan(
-    settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Check], executor: Executor
-) -> Result[tuple[Completed, ...], Fault]:
+def _fan(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Check], executor: Executor) -> Result[tuple[Completed, ...], Fault]:
     return resolve_languages(params.language, params.paths, claim=Claim.CODE).bind(
-        lambda languages: _routed(languages, params.paths, settings).bind(
-            lambda routed: sequence(
-                routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice, executor=executor)))
-            ).map(tuple)
-        )
+        lambda languages: _routed(languages, params.paths, settings).bind(lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice, executor=executor)))).map(tuple))
     )
 
 
@@ -183,9 +138,7 @@ def _targets(paths: tuple[str, ...], root: Path) -> tuple[str, ...]:
 
 def _search_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Check]:
     targets = _targets(params.paths, root)
-    return lambda tool, routed: Check(
-        tool=tool, paths=routed.files, args=ToolArgs(pattern=params.pattern, language=routed.language.value, targets=targets)
-    )
+    return lambda tool, routed: Check(tool=tool, paths=routed.files, args=ToolArgs(pattern=params.pattern, language=routed.language.value, targets=targets))
 
 
 def _query_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Check]:
@@ -222,13 +175,7 @@ def _eq_needles(query_src: str) -> tuple[frozenset[bytes], ...] | None:
     predicates = frozenset(re.findall(r"#([a-z][a-z-]*)\?", query_src))
     match (predicates, _top_level_patterns(query_src)):
         case (preds, 1) if preds <= frozenset(("eq", "any-of")) and preds:
-            groups = (
-                *(frozenset((literal.encode(),)) for literal in re.findall(r'#eq\?\s+@\S+\s+"([^"\\]*)"', query_src)),
-                *(
-                    frozenset(literal.encode() for literal in re.findall(r'"([^"\\]*)"', body))
-                    for body in re.findall(r"#any-of\?\s+@\S+((?:\s+\"[^\"\\]*\")+)", query_src)
-                ),
-            )
+            groups = (*(frozenset((literal.encode(),)) for literal in re.findall(r'#eq\?\s+@\S+\s+"([^"\\]*)"', query_src)), *(frozenset(literal.encode() for literal in re.findall(r'"([^"\\]*)"', body)) for body in re.findall(r"#any-of\?\s+@\S+((?:\s+\"[^\"\\]*\")+)", query_src)))
             return groups if groups and all(groups) else None
         case _:
             return None
@@ -245,9 +192,7 @@ def _read(path: Path) -> bytes | None:
         return None
 
 
-def _ts_file_captures(
-    query_src: str, language: Language, rel: str, src: bytes, *, cap: int, parsers: dict[Callable[[], object], TSParser]
-) -> tuple[Capture, ...]:
+def _ts_file_captures(query_src: str, language: Language, rel: str, src: bytes, *, cap: int, parsers: dict[Callable[[], object], TSParser]) -> tuple[Capture, ...]:
     grammar = _ts_grammar(language, is_tsx=rel.endswith(".tsx"))
     root_node = (parsers.get(grammar) or parsers.setdefault(grammar, TSParser(ts_language(grammar)))).parse(src).root_node
     match ts_query(grammar, query_src):
@@ -298,21 +243,10 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
     parsers: dict[Callable[[], object], TSParser] = {}
 
     def run(check: Check) -> Completed:
-        rows = tuple(
-            cap_row
-            for rel in check.paths
-            for src in (_read(root / rel),)
-            if src is not None and (needles is None or all(any(needle in src for needle in group) for group in needles))
-            for cap_row in _ts_file_captures(query_src, language, rel, src, cap=cap, parsers=parsers)
-        )
+        rows = tuple(cap_row for rel in check.paths for src in (_read(root / rel),) if src is not None and (needles is None or all(any(needle in src for needle in group) for group in needles)) for cap_row in _ts_file_captures(query_src, language, rel, src, cap=cap, parsers=parsers))
         captures = tuple(rows[:cap])
         status = RailStatus.FAILED if any(c.parse_error for c in captures) else RailStatus.OK if captures else RailStatus.EMPTY
-        return receipt(
-            ("tree-sitter", "query", language, *check.paths),
-            1 if status is RailStatus.FAILED else 0,
-            stdout=CAPTURE_ENCODER.encode(captures),
-            status=status,
-        )
+        return Completed(argv=("tree-sitter", "query", language, *check.paths), returncode=1 if status is RailStatus.FAILED else 0, stdout=CAPTURE_ENCODER.encode(captures), status=status)
 
     return run
 
@@ -331,23 +265,12 @@ def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -
         return empty
 
 
-def _report(
-    settings: AssaySettings,
-    scope: ArtifactScope,
-    verb: str,
-    pattern: str,
-    completeds: tuple[Completed, ...],
-    rows: tuple[Match, ...],
-    listing: str,
-    notes: tuple[str, ...],
-) -> Report:
+def _report(settings: AssaySettings, scope: ArtifactScope, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str, notes: tuple[str, ...]) -> Report:
     base = fold(Claim.CODE, verb, completeds)
     status = RailStatus.OK if rows and base.status is RailStatus.EMPTY else base.status
     done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=notes)
     final_rows = rows or base.results
-    return msgspec.structs.replace(
-        fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(scope, verb, listing, settings),) if listing else (), results=final_rows
-    )
+    return msgspec.structs.replace(fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(scope, verb, listing, settings),) if listing else (), results=final_rows)
 
 
 def _relevance(pattern: str, text: str) -> int:
@@ -357,52 +280,24 @@ def _relevance(pattern: str, text: str) -> int:
 _AG_SPEC: Final[_RowSpec[AstMatch]] = _RowSpec(
     extract=lambda completeds: tuple(m for done in completeds for m in _safe_decode(AST_MATCHES, done.stdout or b"[]", ())),
     entry=lambda m: f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else ""),
-    row=lambda m, pattern: Match(
-        id=f"ast-grep:{m.file}:{m.range.start.line + 1}",
-        kind=ArtifactKind.CODE,
-        text=(f"{m.text} => {m.replacement}" if m.replacement else m.text)[:_TEXT_CAP],
-        line=m.range.start.line + 1,
-        score=_relevance(pattern, m.text),
-    ),
+    row=lambda m, pattern: Match(id=f"ast-grep:{m.file}:{m.range.start.line + 1}", kind=ArtifactKind.CODE, text=(f"{m.text} => {m.replacement}" if m.replacement else m.text)[:_TEXT_CAP], line=m.range.start.line + 1, score=_relevance(pattern, m.text)),
     saturated=lambda _matches: False,
 )
 _TS_SPEC: Final[_RowSpec[Capture]] = _RowSpec(
     extract=lambda completeds: tuple(c for done in completeds for c in _safe_decode(CAPTURES, done.stdout or b"[]", ())),
     entry=lambda c: f"{c.file}:{c.line}:{c.column}: @{c.name}#{c.ordinal}/{c.pattern} {c.text}",
-    row=lambda c, pattern: Match(
-        id=f"tree-sitter:{c.file}:{c.line}:{c.name}",
-        kind=ArtifactKind.CODE,
-        text=f"{'parse-error ' if c.parse_error else ''}@{c.name} {c.text}"[:_TEXT_CAP],
-        line=c.line,
-        score=_relevance(pattern, c.text),
-        severity="failed" if c.parse_error else None,
-    ),
+    row=lambda c, pattern: Match(id=f"tree-sitter:{c.file}:{c.line}:{c.name}", kind=ArtifactKind.CODE, text=f"{'parse-error ' if c.parse_error else ''}@{c.name} {c.text}"[:_TEXT_CAP], line=c.line, score=_relevance(pattern, c.text), severity="failed" if c.parse_error else None),
     saturated=lambda captures: any(c.truncated for c in captures),
 )
 _RG_SPEC: Final[_RowSpec[RgEvent]] = _RowSpec(
-    extract=lambda completeds: tuple(
-        e
-        for done in completeds
-        for line in (done.stdout or b"").splitlines()
-        if line
-        for e in (_safe_decode(RG_EVENT, line, None),)
-        if e is not None and e.kind == "match"
-    ),
+    extract=lambda completeds: tuple(e for done in completeds for line in (done.stdout or b"").splitlines() if line for e in (_safe_decode(RG_EVENT, line, None),) if e is not None and e.kind == "match"),
     entry=lambda e: f"{e.data.path.text}:{e.data.line_number}: {e.data.lines.text.rstrip()}",
-    row=lambda e, pattern: Match(
-        id=f"ripgrep:{e.data.path.text}:{e.data.line_number}",
-        kind=ArtifactKind.CODE,
-        text=e.data.lines.text.rstrip()[:_TEXT_CAP],
-        line=e.data.line_number,
-        score=_relevance(pattern, e.data.lines.text.rstrip()),
-    ),
+    row=lambda e, pattern: Match(id=f"ripgrep:{e.data.path.text}:{e.data.line_number}", kind=ArtifactKind.CODE, text=e.data.lines.text.rstrip()[:_TEXT_CAP], line=e.data.line_number, score=_relevance(pattern, e.data.lines.text.rstrip())),
     saturated=lambda _events: False,
 )
 
 
-def _project_rows[M](
-    completeds: tuple[Completed, ...], cap: int, pattern: str, *, spec: _RowSpec[M]
-) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
+def _project_rows[M](completeds: tuple[Completed, ...], cap: int, pattern: str, *, spec: _RowSpec[M]) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
     matches = spec.extract(completeds)
     rows = tuple(spec.row(m, pattern) for m in matches[:cap])
     return rows, "\n".join(spec.entry(m) for m in matches), cap_note(len(rows), len(matches), cap, saturated=spec.saturated(matches))
@@ -438,11 +333,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, ex
     """
     match bool(_METAVAR.search(params.pattern)):
         case True:
-            return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root))), executor=executor).map(
-                lambda done: _report(
-                    settings, scope, "search", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC)
-                )
-            )
+            return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root))), executor=executor).map(lambda done: _report(settings, scope, "search", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC)))
         case False:  # pragma: no cover
             return _content_search(settings, scope, params, executor)
 
@@ -460,15 +351,7 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
     rows, listing, cap_notes = _project_rows((done,), params.max_results, params.pattern, spec=_RG_SPEC)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
-    return Report(
-        Claim.CODE,
-        "search",
-        status,
-        Counts.of(status),
-        artifacts=(_artifact(scope, "search", listing, settings),) if listing else (),
-        results=rows,
-        notes=(*notes, *cap_notes),
-    )
+    return Report(Claim.CODE, "search", status, Counts.of(status), artifacts=(_artifact(scope, "search", listing, settings),) if listing else (), results=rows, notes=(*notes, *cap_notes))
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, executor: Executor) -> Result[Report, Fault]:
@@ -481,9 +364,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, exe
     Returns:
         Folded report with capture rows and listing artifact, or a routing/spawn fault.
     """
-    return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root))), executor=executor).map(
-        lambda done: _report(settings, scope, "query", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_TS_SPEC))
-    )
+    return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root))), executor=executor).map(lambda done: _report(settings, scope, "query", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_TS_SPEC)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

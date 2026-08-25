@@ -33,7 +33,7 @@ One hyphen fusing a law, its mechanism, two consequences, an exception, and an e
 
 Entries whose fragments are all load-bearing at this tier are not bullets: each promotes to a GroupedRecord card with earned fields, never shredded into sibling bullets.
 
-- Detection: Flag a single entry carrying three or more co-equal facts about one owner — a shape, its fields, its policy, its receipt — where none governs a sibling and none demotes to a fence, so every fragment must survive at this tier.
+- Detection: Flag a single entry carrying three or more co-equal facts about one owner — a shape, its fields, its policy, its output — where none governs a sibling and none demotes to a fence, so every fragment must survive at this tier.
 - Rejected:
     ```markdown
     - Owner: `Plan` folds the `Work` graph into admission units carrying the pre-minted `key`, the `work` thunk the plan schedules but never invokes, the `parents` upstream keys, the `cost` weight the forward pass sums into earliest-finish, and its `admission` case union, so a node is its key and a dependency is a key edge; the closed `Admission` union selects the scheduling case (`keyed` the cache-eligible default, `bare` a forced-live one-shot, `retried` a transient offload carrying its class), the `Schedule` computes the critical path once over the graph, and a flat unit list losing the front structure is the deleted form.
@@ -81,10 +81,10 @@ Splitting a mega bullet's sentence run into sibling bullets without classifying 
 
 Lists whose entries answer different reader questions — what exists, how it runs, what it emits, where ownership stops — are several containers wearing one bullet run.
 
-- Detection: Consecutive entries under one label switch question class — a model inventory beside a package call beside a receipt projection beside an anti-pattern ban — so no single question orders the list.
+- Detection: Consecutive entries under one label switch question class — a model inventory beside a package call beside an output projection beside an anti-pattern ban — so no single question orders the list.
 - Rejected:
     ```markdown
-    - Cases: `Row` carries the format, extent, and style; the `mesh` arm calls `Reader.Decode` over the accessor contract; the receipt projects `(key, bytes, count)`; a per-format importer family and a raw `float[]` proliferation are the deleted forms; ownership stops at the capsule, never crossing the seam.
+    - Cases: `Row` carries the format, extent, and style; the `mesh` arm calls `Reader.Decode` over the accessor contract; the `Decoded` result projects `(key, bytes, count)`; a per-format importer family and a raw `float[]` proliferation are the deleted forms; ownership stops at the capsule, never crossing the seam.
     ```
 - Accepted:
 
@@ -93,13 +93,13 @@ Lists whose entries answer different reader questions — what exists, how it ru
     - Fields: `format`, `extent`, `style`.
 
     [Decode]: The `mesh` arm folds `Reader.Decode` over the accessor contract.
-    [Receipt]: `(key, bytes, count)`.
+    [Decoded]: `(key, bytes, count)`.
 
     Ownership stops at the capsule.
     ```
 
-- Reason: Model inventory, decode mechanism, receipt shape, and boundary law answer four questions; one bullet run forces the reader to re-sort them, where a card, a prose line, a record, and a boundary line each own one.
-- Reframe: Split the run by question class — inventory to a card or table, mechanism to prose or a fence, receipt to a record, boundary to one line.
+- Reason: Model inventory, decode mechanism, result shape, and boundary law answer four questions; one bullet run forces the reader to re-sort them, where a card, a prose line, a record, and a boundary line each own one.
+- Reframe: Split the run by question class — inventory to a card or table, mechanism to prose or a fence, result to a record, boundary to one line.
 
 ## [05]-[PSEUDO_SEQUENCE]
 
@@ -115,7 +115,7 @@ Numbered markers claim an ordered sequence; peers wearing numbers de-number to b
 
     - The plan folds the graph into fronts,
     - so each front drains under one policy,
-    - which the runtime threads forward as receipts.
+    - which the runtime threads forward as drain tallies.
     ```
 
 - Accepted:
@@ -125,7 +125,7 @@ Numbered markers claim an ordered sequence; peers wearing numbers de-number to b
     - `bare`: Forced-live one-shot.
     - `retried`: Transient offload with its class.
 
-    The plan folds the graph into fronts, each draining under one policy the runtime threads forward as receipts.
+    The plan folds the graph into fronts, each draining under one policy the runtime threads forward as drain tallies.
     ```
 
 - Reason: Numbers claim an order the union cases do not carry, so they read as peer bullets; the second run is one sentence broken at its commas, so it reflows to prose where the bullet markers add no parallel structure.
@@ -228,11 +228,11 @@ Entries opening on an article bury their owner; marker leaders only disguise the
 - Detection: Flag marker bodies opening on an article — `The`/`the`, `A`/`An`.
 - Rejected:
     ```markdown
-    - [02]-[SOLVE_VOCABULARY]: The solve, eigen, norm, and gauge route algebra every receipt discriminates on.
+    - [02]-[SOLVE_VOCABULARY]: The solve, eigen, norm, and gauge route algebra every solution discriminates on.
     ```
 - Accepted:
     ```markdown
-    - [02]-[SOLVE_VOCABULARY]: `Solve`, `eigen`, `norm`, and `gauge` route the algebra every receipt discriminates on.
+    - [02]-[SOLVE_VOCABULARY]: `Solve`, `eigen`, `norm`, and `gauge` route the algebra every solution discriminates on.
     ```
 - Reason: Route families become the subject under the owning verb `route`.
 - Reframe: Recast owner-first; repair holds only when the subject moved, never when the determiner changed.

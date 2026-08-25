@@ -14,8 +14,8 @@ data/
 │   ├── materialize.py    # DerivedSnapshot partition-delta recompute; PartitionBundle Merkle-folds child content keys
 │   ├── contract.py       # Structural admission, covenant, and quality gate folded on one ContractClaim
 │   ├── profile.py        # Quality-profile owner grading a frame the artifacts renderer renders
-│   ├── egress.py         # ObjectEgress receipt-and-governance surface composing the runtime store lane whole
-│   ├── cost.py           # CostFact.of polymorphic receipt harvest; CostLedger.frame group-fold under a rate policy
+│   ├── egress.py         # ObjectEgress result-and-governance surface composing the runtime store lane whole
+│   ├── cost.py           # CostFact.of polymorphic result harvest; CostLedger.frame group-fold under a rate policy
 │   └── journal.py        # FactJournal over the lakehouse commit matrix and the columnar reader; composed, not widened
 ├── spatial/              # Vector and raster claims, the DuckDB-spatial engine, the DGG plane, STAC catalog, mesh exchange
 │   ├── geospatial.py     # VectorGeoClaim and RasterGeoClaim carriers; pyproj axis-order-aware reproject prelude
@@ -28,9 +28,9 @@ data/
 │   ├── store.py          # TensorStore zarr v3 chunk grid; ZARR sync and TENSORSTORE async engines over one grid
 │   ├── virtual.py        # FieldVirtual byte-range aggregation and VirtualReference chunk registration, copying no byte
 │   ├── ragged.py         # RaggedSource admission, RaggedOp transforms, RaggedSink egress over columnar option rows
-│   ├── field.py          # FieldEngine axis, flox-vectorized FieldSelection folds, and the FieldReceipt egress fold
+│   ├── field.py          # FieldEngine axis, flox-vectorized FieldSelection folds, and content-keyed egress
 │   └── ensemble.py       # DataTree leaves stay field-plane cubes; cross-scenario map, reduce, and difference in one call
-├── graph/                # Rustworkx graph payloads with a networkx codec lane and typed receipts
+├── graph/                # Rustworkx graph payloads with a networkx codec lane and canonical results
 │   ├── graph.py          # License-split backend triangle; analysis collapses onto the rustworkx kernel, stable int ids
 │   └── network.py        # FlowAlgorithm arms over the networkx flow kernels alone; results lower onto GraphResult
 └── impact/               # Material environmental impact: EPD ingest and LCA compute on one EN 15804 carrier
@@ -55,7 +55,7 @@ config:
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: How the data interior ranks over the tabular floor, the dashed GraphResult and PlanReceipt counter-edges carrying wire data downward.
+    accDescr: How the data interior ranks over the tabular floor, the dashed GraphResult and Materialization counter-edges carrying wire data downward.
     subgraph D2["S2 SPATIAL"]
         Spatial[spatial]
     end
@@ -76,11 +76,11 @@ flowchart TB
         Profile[profile]
         Interop[interop]
     end
-    Spatial e1@-->|"[IMPORT]: QueryReceipt"| Columnar
+    Spatial e1@-->|"[IMPORT]: DuckDbSession"| Columnar
     Spatial e30@-->|"[IMPORT]: DataLeg"| Interop
     Spatial e2@-->|"[IMPORT]: ObjectEgress"| Egress
     Spatial e3@-->|"[IMPORT]: FieldVirtual"| Gridded
-    Spatial e4@-->|"[IMPORT]: FieldReceipt"| Gridded
+    Spatial e4@-->|"[IMPORT]: VirtualSnapshot"| Gridded
     Gridded e5@-->|"[IMPORT]: ArrowCStream, DataLeg"| Interop
     Impact e6@-->|"[IMPORT]: FrameAdmission"| Contract
     Impact e7@-->|"[IMPORT]: QualityProfile"| Profile
@@ -102,29 +102,29 @@ flowchart TB
     Contract e22@-->|"[IMPORT]: FrameInterop"| Interop
     Columnar e23@-->|"[IMPORT]: arrow_bytes"| Interop
     Profile e24@-->|"[IMPORT]: FieldShape"| Interop
-    Cost e25@-->|"[IMPORT]: QueryReceipt"| Columnar
-    Cost e26@-->|"[IMPORT]: LakeReceipt"| Lakehouse
+    Cost e25@-->|"[IMPORT]: QueryCensus"| Columnar
+    Cost e26@-->|"[IMPORT]: LakeResult"| Lakehouse
     Cost e27@-->|"[IMPORT]: PartitionBundle"| Materialize
-    Cost e28@-->|"[IMPORT]: EgressReceipt"| Egress
-    Gridded e29@-.->|"[COUNTER]: PlanReceipt"| Cost
+    Cost e28@-->|"[IMPORT]: EgressResult"| Egress
+    Gridded e29@-.->|"[COUNTER]: Materialization facts"| Cost
     Interop f1@-->|"forbidden: upward import"| D2
 ```
 
 - S0 `tabular` — `interop` the floor, `columnar` the scan base above it; `contract`, `profile`, `query`, `lakehouse`, `egress` branch independently.
 - S0 `materialize` closes the operational apex, folding every hook point through one scope-keyed registration rail.
 - S0 `materialize` threads the root-bound `BackendGeneration` into every per-partition query, so one refresh reads one contract generation.
-- S0 `materialize` reads the change feed through the `lakehouse` `LakeOp.ChangeFeed` receipt payload, never a CDF provider of its own.
-- S0 `cost` prices receipts it never produces — no producer prices its own receipt, so the fold imports receipt families one-way.
+- S0 `materialize` reads the change feed through the `lakehouse` `LakeOp.ChangeFeed` result payload, never a CDF provider of its own.
+- S0 `cost` prices canonical results it never produces, so the fold imports result families one-way.
 - S1 `gridded` + `impact` — both compose the tabular floor alone, holding no edge between themselves or to `graph`.
-- S1 `virtual` mints the `FieldReceipt` family in-folder, and `field`'s raw read leg decodes the corpus container without a tabular hop.
-- S1→S0 `gridded -> cost` — `PlanReceipt` crosses as wire DATA on the counter-edge, never an import, so the price fold adds no cycle.
+- S1 `virtual` returns the manifest `ContentKey`, and `field`'s raw read leg decodes the corpus container without a tabular hop.
+- S1→S0 `gridded -> cost` — `Materialization.facts()` crosses as wire DATA on the counter-edge, never an import, so the price fold adds no cycle.
 - S1→S0 `graph -> columnar` — `GraphResult` crosses as wire DATA on the counter-edge; `graph` stays import-isolated, composing runtime alone.
 - S0→S1 `lakehouse -> graph` — `LakeOp.Ancestry` projects a `Generation` edge frame as wire DATA, so version-lineage walks stay the rustworkx kernel.
 - S1 `network` composes `graph` strictly downward inside the subfolder; the flow family adds no new stratum edge.
 - S1 `impact` siblings — `inventory`, `solve`, and `scenario` compose runtime alone and feed the carrier's cases, never a second matrix.
 - S1 `declaration` composes `impact` strictly downward for the `ImpactRegime` method order alone — a local preference forks edition policy.
-- S2 `spatial` — apex consumer composing columnar, the `ObjectEgress` receipt owner, and the gridded `VirtualReference` plane.
-- S2 `spatial` store operations cross from the runtime lane, never from `tabular`; `cube` egresses on the gridded `FieldReceipt` family.
+- S2 `spatial` — apex consumer composing columnar, the `ObjectEgress` result owner, and the gridded `VirtualReference` plane.
+- S2 `spatial` store operations cross from the runtime lane, never from `tabular`; `cube` egresses with the gridded content key.
 
 ## [03]-[SEAMS]
 
@@ -153,8 +153,8 @@ flowchart LR
     end
     Runtime{{python:runtime}}
     Egress e1@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
-    Query e2@-->|"[RECEIPT]: QueryReceipt"| Runtime
-    Gridded e3@-->|"[RECEIPT]: TensorReceipt"| Runtime
+    Query e2@-->|"[RESULT]: QueryCensus"| Runtime
+    Gridded e3@-->|"[CONTENT_KEY]: ContentKey"| Runtime
     Mesh e4@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
     Tabular e5@-->|"[SHAPE]: Fact"| Runtime
     Egress e6@-->|"[SHAPE]: Fact"| Runtime
@@ -271,7 +271,7 @@ config:
 ---
 flowchart LR
     accTitle: Data tabular interchange spine
-    accDescr: How a foreign frame admits, gates, lands, refreshes, and serves, with receipts and facts closing on the evidence apex.
+    accDescr: How a foreign frame admits, gates, lands, refreshes, and serves, with results and facts closing on the evidence apex.
     Foreign([foreign frame or bytes]) e1@-->|"admit: FrameAdmission"| Interop[interop · frame floor]
     Interop e2@-->|"gate: ContractClaim"| Contract[contract · admission gate]
     Contract e3@-->|"land: LakeOp"| Lakehouse[(lakehouse residence)]
@@ -279,14 +279,14 @@ flowchart LR
     Materialize e5@-->|"refresh: QuerySpec"| Query[query engine]
     Materialize e6@-->|"put: StoreOp"| Egress[egress · object store]
     Query e7@-->|"serve: Arrow"| Consumers([consumers])
-    Lakehouse e8@-->|"receipts"| Cost[cost · evidence apex]
+    Lakehouse e8@-->|"results"| Cost[cost · evidence apex]
     Materialize e9@-->|"facts"| Journal[(journal · Ledger implementer)]
     Contract f1@-.->|"veto: ContractClaim"| Fault[/BoundaryFault rail/]
     Materialize f2@-.->|"refuse: unrowed change type"| Fault
 ```
 
 - Admission runs once at `interop` — every keyer imports the one whole-table `arrow_bytes` serialization, so no second preimage spelling exists.
-- `spatial` persists through `egress`'s `ObjectEgress` receipts — no spatial page opens a store lane of its own.
+- `spatial` persists through `egress`'s `ObjectEgress` results — no spatial page opens a store lane of its own.
 - `gridded` decodes once — the ragged bridge crosses the interop carrier and `virtual` registers byte ranges, copying none.
 - `graph` and `impact` lift at the seam — results lower onto `GraphResult` frames and the EN 15804 carrier before any tabular hop.
 

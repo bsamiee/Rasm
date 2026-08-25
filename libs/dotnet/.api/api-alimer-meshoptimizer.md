@@ -15,7 +15,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the `Meshopt` facade and its value types — stream input, meshlet geometry, options, and by-value analysis receipts
+[PUBLIC_TYPE_SCOPE]: the `Meshopt` facade and its value types — stream input, meshlet geometry, options, and by-value analysis results
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
 | :-----: | :----------------------- | :------------ | :---------------------------------------------------------------------------------------- |
@@ -113,7 +113,7 @@ Every surface is a static method on `Meshopt` in two forms. The MANAGED form pin
 |  [11]   | `SpatialSortTriangles(dst, idx, pos, stride)`                                            | triangle reorder by centroid locality     |
 |  [12]   | `SpatialClusterPoints(dst, pos, stride, nuint clusterSize)`                              | spatially-coherent point clustering       |
 
-[ENTRYPOINT_SCOPE]: analysis receipts and scalar helpers — analysis returns its `*Statistics` struct by value; a bound helper takes `nuint` counts, returns the `nuint` output ceiling, and sizes a buffer before the op fills it; cache params are `uint`
+[ENTRYPOINT_SCOPE]: analysis results and scalar helpers — analysis returns its `*Statistics` struct by value; a bound helper takes `nuint` counts, returns the `nuint` output ceiling, and sizes a buffer before the op fills it; cache params are `uint`
 
 | [INDEX] | [SURFACE]                                                                | [CAPABILITY]                                |
 | :-----: | :----------------------------------------------------------------------- | :------------------------------------------ |
@@ -139,7 +139,7 @@ Every surface is a static method on `Meshopt` in two forms. The MANAGED form pin
 - each `delegate* unmanaged<...>` parameter (`GenerateVertexRemapCustom`, `SetAllocator`) binds a `[UnmanagedCallersOnly]` static address, so no closure crosses the boundary.
 - codec versioning is PROCESS-GLOBAL: `EncodeIndexVersion`/`EncodeVertexVersion` set the format the next encode emits, `EncodeVertexBufferLevel` overrides it per call, and `Decode*Version` probes an unknown blob before its decode target is allocated — this shared mutable state is why the two consuming folders compose one catalogue, never a partition; `SimplificationOptions` flags compose by bitwise OR.
 - `Stream` `(void* data, nuint size, nuint stride)` points `data` at the first attribute of a de-interleaved stream, `size` the per-vertex byte span the remap hashes, `stride` the advance; multi-stream remap builds one table covering every stream.
-- canonical GPU-ready order, each stage feeding the next: dedup (`GenerateVertexRemap{,Multi,Custom}` → `RemapVertexBuffer` + `RemapIndexBuffer`) → locality (`OptimizeVertexCache` → `OptimizeOverdraw` → `OptimizeVertexFetch{,Remap}`) → LOD (`SimplifyWithAttributes`/`Simplify`/`SimplifySloppy` per level, `SimplifyScale`-normalized under `meshopt_SimplifyErrorAbsolute`; `SimplifyPrune` drops islands) → mesh-shader (`BuildMeshlets{,Flex,Spatial}` sized by `BuildMeshletsBound` → `OptimizeMeshlet` → `ComputeMeshletBounds`; `PartitionClusters` groups for Nanite-style DAGs) → wire (`EncodeFilter{Oct,Quat,Exp,Color}` → `EncodeVertexBufferLevel` + `EncodeIndexBuffer`; `Analyze*` receipts gate the result).
+- canonical GPU-ready order, each stage feeding the next: dedup (`GenerateVertexRemap{,Multi,Custom}` → `RemapVertexBuffer` + `RemapIndexBuffer`) → locality (`OptimizeVertexCache` → `OptimizeOverdraw` → `OptimizeVertexFetch{,Remap}`) → LOD (`SimplifyWithAttributes`/`Simplify`/`SimplifySloppy` per level, `SimplifyScale`-normalized under `meshopt_SimplifyErrorAbsolute`; `SimplifyPrune` drops islands) → mesh-shader (`BuildMeshlets{,Flex,Spatial}` sized by `BuildMeshletsBound` → `OptimizeMeshlet` → `ComputeMeshletBounds`; `PartitionClusters` groups for Nanite-style DAGs) → wire (`EncodeFilter{Oct,Quat,Exp,Color}` → `EncodeVertexBufferLevel` + `EncodeIndexBuffer`; `Analyze*` results gate the output).
 
 [STACKING]:
 - `SharpGLTF.Core`(`api-sharpgltf.md`): SharpGLTF carries no meshopt or Draco encoder, so this surface owns the `EXT_meshopt_compression` encode path — `EncodeFilterOct`/`…Quat`/`…Exp` pre-quantize into the filter-coded layout the extension declares, then `EncodeVertexBufferLevel`/`EncodeIndexBuffer` produce the `byte[]` payload attached under the extension's bufferView metadata; `SharpGLTF.Toolkit` mesh building feeds raw positions and indices into the `Generate*`→`Optimize*` head.
@@ -147,7 +147,7 @@ Every surface is a static method on `Meshopt` in two forms. The MANAGED form pin
 - `Microsoft.IO.RecyclableMemoryStream`(`Rasm.Compute/.api/api-recyclable-stream.md`): a `*Bound`-sized rented stream whose pinned `GetSpan()` is the codec target, so encode and decode scratch takes no per-call LOH churn.
 - `System.IO.Hashing`(`api-hashing.md`): `XxHash3`/`XxHash128` fingerprints an encoded blob into the `Microsoft.Extensions.Caching.Hybrid` LOD cache key, so identical source meshes reuse encoded output.
 - `CommunityToolkit.HighPerformance`(`api-highperformance.md`): `Span2D<T>`/`MemoryOwner<T>` with `System.Numerics.Tensors` back the managed position, attribute, and remap arrays the spans project from.
-- Bim consumer anchor: the canonical interleaved vertex struct threads the index-optimize/encode path as one `ReadOnlySpan<TVertex>` shared with Drako intake; every `Bounds`/`*Statistics` value return folds into typed receipt fields under the codec `Fin`/`Eff` rail, while `ResolveLibrary`/`SetAllocator` native-load throws enter `Op.Catch` and remain the original exceptional `Error` unless a documented native verdict maps to a caused owner case.
+- Bim consumer anchor: the canonical interleaved vertex struct threads the index-optimize/encode path as one `ReadOnlySpan<TVertex>` shared with Drako intake; every `Bounds`/`*Statistics` value return folds into the typed domain result under the codec `Fin`/`Eff` rail, while `ResolveLibrary`/`SetAllocator` native-load throws enter `Op.Catch` and remain the original exceptional `Error` unless a documented native verdict maps to a caused owner case.
 - Compute consumer anchor: the cluster-LOD residency chain — `LodChain`/`ClusterLevel` builds each coarser level through error-bounded `SimplifyScale`-normalized `Simplify` then re-meshlets it with `BuildMeshlets`, threading `Level`/`Parent`/`Error`/`ParentError` onto `ResidencyMeshlet` rows so the viewer's screen-space-error cut stays monotonic — a parent error never below its child's.
 
 [LOCAL_ADMISSION]:

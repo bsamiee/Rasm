@@ -1,6 +1,6 @@
 # [RASM_RHINO_OBJECTS_HISTORY]
 
-`HistoryScript` writes one generated slot family into a leased `HistoryRecord`; the same `SlotValue` cases recover the host-readable subset and reject write-only cases. `Regrown` owns the replay update family, `ReplayProgram` compiles preparation and regrowth into the `ReplayHook` value `CommandPolicy.Replay` carries, and `Chronicle` owns undo-recorded linkage returning `HistoryReceipt`, dependency topology, and scoped `HistorySettings` conduct.
+`HistoryScript` writes one generated slot family into a leased `HistoryRecord`; the same `SlotValue` cases recover the host-readable subset and reject write-only cases. `Regrown` owns the replay update family, `ReplayProgram` compiles preparation and regrowth into the `ReplayHook` value `CommandPolicy.Replay` carries, and `Chronicle` owns undo-recorded linkage, dependency topology, and scoped `HistorySettings` conduct.
 
 ## [01]-[INDEX]
 
@@ -9,7 +9,7 @@
 - [04]-[REPLAY_READS]: `SlotValue.Recover` — read dispatch on the write-family case.
 - [05]-[REGROWN]: `Regrown` — generated update dispatch over the `UpdateTo*` family.
 - [06]-[REPLAY_PROGRAM]: `ReplayProgram` — the compiled delegate and the strict-`bool` seam.
-- [07]-[CHRONICLE]: `BondOp`, `WebAsk`, `WebBudget`, `HistoryConduct`, the `HistorySlot`/`HistoryBody` stream vocabularies, and the linkage entry.
+- [07]-[CHRONICLE]: `BondOp`, `WebAsk`, `WebBudget`, `HistoryConduct`, and the linkage entry.
 - [08]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[SLOT_ALGEBRA]
@@ -19,7 +19,7 @@
 - Law: the transform setter is the host's own misspelling — `SetTransorm` is the literal managed member (the native call underneath is spelled correctly), so the `Motion` arm names it verbatim and no local alias "fixes" it.
 - Law: source slots arm replay — `Source` and `PointOnSource` register a dependency through `SetObjRef`/`SetPoint3dOnObject`, so editing the referenced object fires the replay; a script recording only value slots never re-fires on a geometry edit, which makes at least one source slot the practical floor for a history-aware command.
 - Law: read asymmetry is payload law — plural readers exist only for ints, doubles, and guids, and no geometry reader exists at all, so geometry and the other plural payloads are write-only evidence: a replay program re-derives geometry from its source slots, and a plural point, vector, color, text, or bool payload that must read back encodes as scalar slots under consecutive keys.
-- Law: record and replay are ONE custody regime and it is NOT the commit stream. `HistoryScript.Mint` answers a `Lease<HistoryRecord>` the host copies out of, `ReplayProgram` mutates a host-owned `ReplayHistoryData` inside a callback that owns nothing, and neither carries an undo serial — so `Document/facts.md`'s `FactStream` is the wrong owner for both, and only `Chronicle.Bind`, which does ride `ObjectSpine.Commit`, conforms.
+- Law: `HistoryScript.Mint` answers a `Lease<HistoryRecord>` the host copies out of, `ReplayProgram` mutates host-owned `ReplayHistoryData` inside its callback, and `Chronicle.Bind` alone rides `ObjectSpine.Commit` because linkage mutates document state.
 - Law: payload bools are HOST SLOTS, not policy. `Toggle` and `Toggles` transcribe `SetBool`/`SetBools`, whose two states are the datum a caller stores, so no vocabulary stands between them and the record — while every bool this page authored about its own conduct carries a named row instead.
 - Growth: a new payload kind is one `SlotValue` case whose write and read arms are compiler-coupled; write-only cases return typed unreadable failure.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Unsupported`).
@@ -649,8 +649,8 @@ public sealed class ReplayProgram {
 - Law: conduct is process state, not document state — the rows drive `Rhino.ApplicationSettings.HistorySettings` statics (`RecordingEnabled`, `RecordNextCommand`, `UpdateEnabled`, `ObjectLockingEnabled`, `BrokenRecordWarningEnabled`), demand no session, and answer the post-write value as `ObjectSignal`, the folder's own two-state vocabulary, so no host boolean crosses `Conduct` or `Under`; `RecordNextCommand` arms one command only, and `ObjectLockingEnabled` makes history-bearing outputs edit only through their inputs. The accessors carry NO managed thread affinity — each is a bare `UnsafeNativeMethods.CRhinoHistoryManager_GetBool`/`SetBool` P/Invoke over a process-global manager — so the process-wide recursive `Lock` `HistoryConduct` owns IS the whole exclusion the managed surface admits, and no marshal crossing is owed.
 - Law: process state takes a process gate and the gate never spans a foreign body — `HistoryConduct` owns one recursive lock over the read, the write, and the restore, so two scopes cannot interleave their priors and a nested `Under` reads the outer's written value as its own; the caller's body runs OUTSIDE the lock, because a body holding a process-global monitor while it opens a document grant, marshals to the command thread, or takes any second lock deadlocks against the sibling holding those and waiting here.
 - Law: every topology answer is BUDGETED, one-hop and transitive alike — `WebBudget` bounds nodes and edges, the adjacency arms refuse a roster or an edge total over the ceiling, `Woven` drives one frontier value to its own fixpoint under the same bound, and an exhausted bound is a typed refusal naming the ceiling it spent; a budget an arm accepts and ignores is a bound no caller can rely on.
-- Law: linkage mutates on the shared spine and its consequences ride the Document spine's stream. `Bind` walks `ObjectSpine.Commit` with redraw `None`, resolves once, applies every bond, and lands one `HistoryBody` per bond beside the sealed serial — so a caller reads WHICH bond landed on which object rather than an untyped id roster that spelled attach, detach, and survival identically.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<int>]`, `[SmartEnum<string>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `ICapability`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashSet`, `TraverseM`, `Fold`, `Error` monoid); QuikGraph (`BidirectionalGraph`, `SEdge<T>`, `AddVerticesAndEdge`, `OutEdges`); RhinoCommon objects (`RhinoObject.SetHistory`/`DeleteHistoryRecord`/`SetCopyHistoryOnReplace`/`HistoryParents`/`HistoryChildren`, `ObjectTable.HistoryRecordCount`); RhinoCommon application settings (`.api/api-rhinocommon-appsettings.md` — `HistorySettings.RecordingEnabled`/`RecordNextCommand`/`UpdateEnabled`/`ObjectLockingEnabled`/`BrokenRecordWarningEnabled`); `Blocks/graph.md` (`GraphFold.Ordered`/`Cycles`/`Reduced`/`Condensed`, `GraphProjection<TVertex>.Closure`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Document/session.md` (`DraftFault`).
+- Law: linkage mutates on the shared spine — `Bind` resolves once, applies every bond inside `ObjectSpine.Commit`, seals the undo record, and returns `Unit` after every host operation settles.
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<int>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashSet`, `TraverseM`, `Error` monoid); QuikGraph (`BidirectionalGraph`, `SEdge<T>`, `AddVerticesAndEdge`, `OutEdges`); RhinoCommon objects (`RhinoObject.SetHistory`/`DeleteHistoryRecord`/`SetCopyHistoryOnReplace`/`HistoryParents`/`HistoryChildren`, `ObjectTable.HistoryRecordCount`); RhinoCommon application settings (`.api/api-rhinocommon-appsettings.md` — `HistorySettings.RecordingEnabled`/`RecordNextCommand`/`UpdateEnabled`/`ObjectLockingEnabled`/`BrokenRecordWarningEnabled`); `Blocks/graph.md` (`GraphFold.Ordered`/`Cycles`/`Reduced`/`Condensed`, `GraphProjection<TVertex>.Closure`); `Document/tables.md` (`TableTarget`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Document/session.md` (`DraftFault`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -668,26 +668,16 @@ public abstract partial record BondOp {
             detach: static (_, bond) => Fin.Succ<BondOp>(bond),
             survival: static (key, bond) => key.Need(bond.Posture).Map(_ => (BondOp)bond));
 
-    internal Fin<HistoryReceipt> Apply(RhinoDoc document, RhinoObject native, Op op) =>
-        ResourceId.Admit(value: native.Id, key: op).Bind(identity => Switch(
-            (Document: document, Native: native, Id: identity, Op: op),
+    internal Fin<Unit> Apply(RhinoDoc document, RhinoObject native, Op op) =>
+        Switch(
+            (Document: document, Native: native, Op: op),
             attach: static (context, bond) => bond.Script.Mint(document: context.Document, key: context.Op)
                 .Bind(lease => lease.Use(
                     record => context.Op.Confirm(success: context.Native.SetHistory(history: record)),
-                    context.Op))
-                .Bind(_ => HistoryReceipt.Of(
-                    slot: HistorySlot.Attached,
-                    body: new HistoryBody.Versioned(Id: context.Id, Version: bond.Script.Version),
-                    key: context.Op)),
-            detach: static (context, _) => context.Op.Confirm(success: context.Native.DeleteHistoryRecord())
-                .Bind(__ => HistoryReceipt.Of(
-                    slot: HistorySlot.Detached, body: new HistoryBody.Named(Id: context.Id), key: context.Op)),
+                    context.Op)),
+            detach: static (context, _) => context.Op.Confirm(success: context.Native.DeleteHistoryRecord()),
             survival: static (context, bond) => context.Op
-                .Catch(() => context.Native.SetCopyHistoryOnReplace(bCopy: bond.Posture.Key))
-                .Bind(_ => HistoryReceipt.Of(
-                    slot: HistorySlot.Survived,
-                    body: new HistoryBody.Postured(Id: context.Id, Posture: bond.Posture),
-                    key: context.Op))));
+                .Catch(() => context.Native.SetCopyHistoryOnReplace(bCopy: bond.Posture.Key)));
 }
 
 [ComplexValueObject]
@@ -806,64 +796,22 @@ public sealed partial class HistoryConduct {
         }));
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class HistoryBodyKind : ICapability<HistoryBodyKind> {
-    public static readonly HistoryBodyKind Named = new(key: "named");
-    public static readonly HistoryBodyKind Versioned = new(key: "versioned");
-    public static readonly HistoryBodyKind Postured = new(key: "postured");
-    public static readonly HistoryBodyKind Record = new(key: "record");
-}
-
-[SmartEnum<int>]
-public sealed partial class HistorySlot : IFactSlot<HistoryBody, HistoryBodyKind> {
-    private static readonly CapabilitySet<HistoryBodyKind> Scripted = CapabilitySet<HistoryBodyKind>.Of(HistoryBodyKind.Versioned);
-    private static readonly CapabilitySet<HistoryBodyKind> Addressed = CapabilitySet<HistoryBodyKind>.Of(HistoryBodyKind.Named);
-    private static readonly CapabilitySet<HistoryBodyKind> Posed = CapabilitySet<HistoryBodyKind>.Of(HistoryBodyKind.Postured);
-    private static readonly CapabilitySet<HistoryBodyKind> Stamped = CapabilitySet<HistoryBodyKind>.Of(HistoryBodyKind.Record);
-
-    public static readonly HistorySlot Attached = new(key: 0, bodies: Scripted);
-    public static readonly HistorySlot Detached = new(key: 1, bodies: Addressed);
-    public static readonly HistorySlot Survived = new(key: 2, bodies: Posed);
-    public static readonly HistorySlot Undo = new(key: 3, bodies: Stamped);
-
-    public CapabilitySet<HistoryBodyKind> Bodies { get; }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record HistoryBody : IFactBody<HistoryBodyKind> {
-    private HistoryBody() { }
-    public sealed record Named(ResourceId Id) : HistoryBody;
-    public sealed record Versioned(ResourceId Id, int Version) : HistoryBody;
-    public sealed record Postured(ResourceId Id, ReplaceSurvival Posture) : HistoryBody;
-    public sealed record Record(UndoSerial Serial) : HistoryBody;
-
-    public HistoryBodyKind Kind => Map(
-        named: HistoryBodyKind.Named,
-        versioned: HistoryBodyKind.Versioned,
-        postured: HistoryBodyKind.Postured,
-        record: HistoryBodyKind.Record);
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Chronicle {
-    public static Fin<HistoryReceipt> Bind(
+    public static Fin<Unit> Bind(
         DocumentSession session, TableTarget target, BondOp bond, Op? key = null) {
         Op op = key.OrDefault();
         return from active in op.Need(bond).Bind(value => value.Admit(op: op))
-               from receipt in ObjectSpine.Commit(
+               from _ in ObjectSpine.Commit(
                    session: session,
                    name: nameof(Chronicle),
                    redraw: RedrawPolicy.None,
-                   fold: (document, rail) => Objects.Resolve(document: document, target: target, key: rail)
+                   run: (document, rail) => Objects.Resolve(document: document, target: target, key: rail)
                        .Bind(natives => natives.TraverseM(native => active.Apply(
                            document: document, native: native, op: rail)).As()
-                           .Map(static rows => rows.Fold(
-                               HistoryReceipt.Empty, static (state, next) => state + next))),
-                   undo: HistorySlot.Undo,
-                   record: static serial => new HistoryBody.Record(Serial: serial),
+                           .Map(static _ => unit)),
                    op: op)
-               select receipt;
+               select unit;
     }
 
     public static Fin<WebAnswer> Ask(DocumentSession session, WebAsk ask) {
@@ -1035,9 +983,6 @@ public static class Chronicle {
     }
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------
-global using HistoryFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody>;
-global using HistoryReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody>;
 ```
 
 ## [08]-[SURFACE_LEDGER]
@@ -1052,16 +997,10 @@ global using HistoryReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.
 |  [06]   | text emphasis       | `TextEmphasis`    | the raw-text emphasis pair as one set    | `RawTextGrowth`   |
 |  [07]   | replay body         | `ReplayProgram`   | strict-`bool` telemetry delegate         | `Delegate`        |
 |  [08]   | linkage mutation    | `BondOp`          | shared-spine linkage union               | `Chronicle.Bind`  |
-|  [09]   | linkage consequence | `HistorySlot`     | slot roster over the spine's fact stream | `Chronicle.Bind`  |
-|  [10]   | dependency topology | `HistoryWeb`      | delegate-column web projection           | `Chronicle.Ask`   |
-|  [11]   | process governance  | `HistoryConduct`  | gated settings rows with restoration     | `Under`           |
-|  [12]   | traversal bound     | `WebBudget`       | node and edge ceilings on every arm      | `WebAsk.Targeted` |
+|  [09]   | dependency topology | `HistoryWeb`      | delegate-column web projection           | `Chronicle.Ask`   |
+|  [10]   | process governance  | `HistoryConduct`  | gated settings rows with restoration     | `Under`           |
+|  [11]   | traversal bound     | `WebBudget`       | node and edge ceilings on every arm      | `WebAsk.Targeted` |
 
 ## [09]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
 
 (none)

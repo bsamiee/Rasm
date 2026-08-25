@@ -506,16 +506,15 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
 
 ## [03]-[MATERIALIZE_FOLD]
 
-- Owner: `ControlFactory` the one intent-to-control fold; `MaterializeContext` the composition-bound resolution columns; `ControlReceipt` the materialization evidence record.
+- Owner: `ControlFactory` the one intent-to-control fold; `MaterializeContext` the composition-bound resolution columns.
 - Law: every `ICommand` rides `BehaviorRail.Intent` — a `BindCommand` call site is the deleted form and the intent never carries a live command, only its key; a bound command ALWAYS attaches and the trigger column narrows which gesture raises it, so a control that resolved a verb it could never be invoked through is unrepresentable.
 - Law: the fold writes NO resolved appearance value. Emphasis and posture resolve one `ControlSkin` row onto `StyledElement.Theme`, the semantic `PaintRole` key and the `TypographyRole` key land as style classes, and the control theme's own `{DynamicResource}` setters carry every brush, metric, radius, and shadow.
 - Law: every control's id and name derive from `ControlIntent.Key` through the one `Apply` fold — the id is the key verbatim and the name is `MaterializeContext.Label(key)` off the composition-bound `Theme/locale` resolver.
 - Law: container arms recurse `Materialize` over child intents so a whole screen is one fold over one nested intent tree.
 - Entry: `public Fin<Control> Materialize(ControlIntent intent, MaterializeContext context)` — one polymorphic fold over the closed family; the `Fin` rail aborts on an unbound command key, an unresolved skin row, an unavailable slot, a refused payload, or a recycling violation, sealing the typed `ControlFault`.
 - Auto: each arm constructs the compiled-template control its case names — the Avalonia core rows for text, content, choice, range, toggle, grid, tree, menu, tab, expander, and colour surfaces, and the Ursa rows for the families that roster lacks — binds its `ICommand` through `BehaviorRail.Intent(context.Command(key))` exclusively, resolves its skin through `context.Skin(row)`, derives automation identity from the intent key, and admits values, activation, icons, and pending state through the typed `MaterializeContext` boundaries; no reflection path, per-kind materializer call site, runtime-XAML emission, or second binding bridge exists.
-- Receipt: `ControlReceipt` — intent key, control type name, bound command key, resolved emphasis, `Instant` — minted by `Materialize` on every successful fold through the `MaterializeContext.Evidence` column bound at composition to the screen evidence stream; `TelemetryRow` contributes the control-materialized and control-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia, Avalonia.Controls.DataGrid, Avalonia.Controls.ColorPicker, Irihi.Ursa, Irihi.Ursa.Themes.Semi, Xaml.Behaviors.Avalonia, ReactiveUI, LanguageExt.Core, NodaTime
-- Growth: one fold arm and one `ShapeOf` arm per new `ControlIntent` case; a new container is one nesting arm recursing `Materialize`; one control instrument is one `InstrumentSpec` row on `ControlFactory.TelemetryRow`; zero new surface.
+- Growth: one fold arm and one `ShapeOf` arm per new `ControlIntent` case; a new container is one nesting arm recursing `Materialize`; zero new surface.
 - Boundary: `ControlFactory` is the named boundary capsule for the control-construction statement carve-out — each arm carries the control-construction statements while the dispatch stays one total generated `Switch`, so a new case breaks every site at compile time and a runtime `_` arm is the rejected form; the only `ICommand` binding bridge is `BehaviorRail.Intent`, so `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo`, `CommandBinder.BindCommand`, and `IViewFor` property-expression wiring are rejected wholesale (the `[04]-[BOUNDARIES]` ReactiveUI-code-behind clause); the materialized control's value bridge resolves the typed `IntentBinding.ValueKey` against the `ShapeOf` row's OWN `Slot` through `MaterializeContext.Value`, never reflection over a string property path — a ValueKey on a case whose row declares no slot refuses as `SlotUnavailable`; each arm binds its compiled template through `TemplatedControl.Template` and its theme through `StyledElement.Theme`, the grid cell intents bind `DataGridTemplateColumn.CellTemplate`/`CellEditingTemplate`, and only runtime `AvaloniaRuntimeXamlLoader` inflation is rejected by `Surfaces.RejectRuntimeInflation`; the `Grid`, `Tree`, `Select`, and `MultiSelect` arms hand their `VirtualWindowSpec` to the `Shell/virtualization` `VirtualWindow` owner and take back the fabric's own `WindowLease<TView>`, so no arm mints a second lease record and no arm binds a raw change-set to `ItemsSource`; the `Overview` arm resolves its `OverviewFrame` stream through the named source column, so the downsample, the decoration lanes, and the drag-to-jump conversion all live at the one `Shell/virtualization` `OverviewScale` owner; a control that publishes a typed gesture VALUE resolves its verb through `MaterializeContext.Gesture` rather than `Command` — the arrow lowers the value onto an existing payload case at the raising surface so the verb stays a deck row; the tree indent rides the shipped level-to-padding multi-value converter over a `{DynamicResource}` indent thickness; the `Panel` and `Dock` arms hand their `ConstraintProgram` to the `Shell/solver` `LayoutSolver` panel and mount their children through `Mounted`, which stamps `LayoutSolver.ChildKeyProperty` from each child intent's `Key` before the child enters `Children`; the command key resolves against the boot-frozen `CommandDeck` so an unknown key aborts the materialize on the `Fin` rail rather than binding a dead control; a resolved icon image is a `Theme/tokens` `Rematerialize.TintedAsset` roster member, so a theme swap rebuilds it through the swap's roster rather than through a second icon subscription here.
 
 [CONTEXT_COLUMNS]: a column exists only where the fold CANNOT construct the value — a third-party or sibling owner holds it, or the host supplies it. Everything else constructs in the arm. `Own`/`Release` are the two verbs of ONE activation-scope custody the host alone owns; `Options`/`Window` are two lease doors whose element types no single non-generic column could carry — both discriminants named here so neither pair reads as an accidental twin.
@@ -534,9 +533,7 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
 |  [10]   | `Activate` | third-party rail | `BehaviorRail.Intent` over `Xaml.Behaviors.Avalonia` — the one command hop |
 |  [11]   | `Own`      | host lifetime    | the surface activation scope that disposes every bound lifetime            |
 |  [12]   | `Release`  | host lifetime    | the same scope, releasing a parked control's lifetimes before reuse        |
-|  [13]   | `Evidence` | evidence stream  | `Diagnostics/evidence` receipt sink bound at composition                   |
-|  [14]   | `Clock`    | host clock       | the composed `IClock` — the one instant every receipt stamps               |
-|  [15]   | `Overview` | sibling owner    | `Shell/virtualization` `OverviewFrame` over a screen-owned strip producer  |
+|  [13]   | `Overview` | sibling owner    | `Shell/virtualization` `OverviewFrame` over a screen-owned strip producer  |
 
 [PACKAGE_ADMISSION]: every extended-control candidate is admitted at a named case, seated at the page that mounts it as a boundary capsule, or refused with its reason; absence is closed, never silent. A SEATED row is neither of the other two on purpose — the control ships and is used, but its value is not a schema field; the chord capture cell is the one such row.
 
@@ -585,47 +582,15 @@ public sealed record MaterializeContext(
     Func<string, Control, AvaloniaProperty, Fin<IDisposable>> Value,
     Func<ControlTrigger, Control, ICommand, Fin<IDisposable>> Activate,
     Func<Control, IDisposable, Unit> Own,
-    Func<Control, Unit> Release,
-    Func<ControlReceipt, Unit> Evidence,
-    IClock Clock);
-
-public sealed record ControlReceipt(
-    string IntentKey,
-    string ControlType,
-    Option<string> Command,
-    ControlEmphasis Emphasis,
-    Instant At);
+    Func<Control, Unit> Release);
 ```
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class ControlFactory {
-    public static readonly InstrumentSpec Materialized = InstrumentSpec.Create(
-        "rasm.appui.control.materialized", InstrumentKind.Count, MeasureForm.Whole, "{control}",
-        "controls materialized by intent case", Seq(AppUiTelemetry.IntentSlot), None, None, None);
-    public static readonly InstrumentSpec Rejected = InstrumentSpec.Create(
-        "rasm.appui.control.rejected", InstrumentKind.Count, MeasureForm.Whole, "{control}",
-        "control intents rejected", Seq<string>(), None, None, None);
-
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, Materialized, Rejected);
-
-    public static Fin<Unit> Observe(InstrumentSet set, Fin<ControlReceipt> outcome) =>
-        outcome.Match(
-            Succ: receipt => set.Write(Materialized, 1d,
-                InstrumentSet.Tags((AppUiTelemetry.IntentSlot, receipt.IntentKey))),
-            Fail: _ => set.Write(Rejected, 1d));
-
     public static Fin<Control> Materialize(ControlIntent intent, MaterializeContext context) =>
         Visual(intent, context)
-            .Bind(control => Bind(intent, control, context))
-            .Map(control => Sealed(intent, control, context));
-
-    private static Control Sealed(ControlIntent intent, Control control, MaterializeContext context) {
-        ignore(context.Evidence(new ControlReceipt(
-            intent.Key, control.GetType().Name, intent.Binding.Command, intent.Binding.Emphasis, context.Clock.GetCurrentInstant())));
-        return control;
-    }
+            .Bind(control => Bind(intent, control, context));
 
     private static Fin<Control> Visual(ControlIntent intent, MaterializeContext context) => intent.Switch(
         state: context,
@@ -1293,7 +1258,7 @@ public static partial class ControlFactory {
 - Law: the held count is a FIELD of the swapped value, never a fold over the racks — a per-return scan of every rack is the deleted form, and a count that disagrees with the racks is unrepresentable because one swap writes both.
 - Law: the pool is CAPPED on its held count and the cap is a mount argument, because a screen-wide pool with no ceiling retains one control per row a long scroll ever realized; the refusal is a transition verdict the caller reads, so an over-cap control is disposed by its own scope rather than parked forever.
 - Entry: `public Transition<PoolState> Return(string host, Control parked)` — parks a scrolled-out control under its host name, answering `Committed` with the post-state or `Refused` when the rack is at its cap. `public Option<Control> Take(string host)` — draws one parked host out, the absent answer being the empty rack itself. `public (Transition<PoolState> Transition, Seq<Control> Drained) Drain()` — the take-and-clear the activation scope calls, the drained roster riding the transition because an empty post-state cannot report what it released. `public static Fin<Control> Realize(ControlIntent intent, MaterializeContext context, RecycleScope scope)` — the recycling-aware fold: a parked host is reset, re-dressed, and re-bound; anything else falls to the cold `Materialize`. `public static Fin<Control> Rebind(ControlIntent intent, Control parked, MaterializeContext context)` — the re-entry, gated on the parked type name matching the shape's own `Parked` answer.
-- Auto: `Realize` reads `ShapeOf(intent).Parked`, draws that host from the pool, releases every lifetime the previous tenant bound, re-dresses through the shape's OWN `Redress` column — the same body the cold fold would have used — and re-attaches through the same `Bind` admission, so a recycled control and a freshly built one are identical by construction; a failed re-dress rolls the parked control's remaining custody back rather than leaking a half-dressed host into the tree; every successful re-entry seals the same `ControlReceipt` a cold materialize does, so the evidence stream cannot tell a reuse from a build and a recycling regression shows as a receipt whose control type disagrees with its intent.
+- Auto: `Realize` reads `ShapeOf(intent).Parked`, draws that host from the pool, releases every lifetime the previous tenant bound, re-dresses through the shape's OWN `Redress` column — the same body the cold fold would have used — and re-attaches through the same `Bind` admission, so a recycled control and a freshly built one are identical by construction; a failed re-dress rolls the parked control's remaining custody back rather than leaking a half-dressed host into the tree.
 - Packages: Avalonia, Irihi.Ursa, Xaml.Behaviors.Avalonia, Rasm (kernel `Atom`/`Cell`/`Transition`/`Custody`/`Dimension`), LanguageExt.Core
 - Growth: a new poolable case is one `Parked` name and one `Redress` body on the existing `ShapeOf` arm; a new pool ceiling is one `Dimension` at the mount; zero new surface.
 - Boundary: `RecycleScope` is the one control pool in the package — the `Shell/virtualization` `VirtualWindow` fabric parks and draws through it for every windowed list, tree, grid, and canvas, so a per-surface control cache beside it is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form; the pool holds CONTROLS and never intents, values, or leases, because a parked control's data is exactly what the reset drops; the reset releases through `MaterializeContext.Release` so the surface activation scope — the one owner of every bound lifetime — decides what dies, and the fold never disposes a lifetime it did not mint; `Interaction.GetBehaviors(parked).Clear()` is the one framework-forced statement, since the behaviour collection is attached state no property clear reaches; the style classes clear while pseudo-classes survive, which is why a stale variant class cannot ride a reuse into a new row and why a pointer-over state left mid-scroll resolves itself; the data context, tooltip, and theme return to UNSET rather than to null, so the host's own inheritance answers instead of a sentinel the boundary law forbids past it; a control whose rack is at its cap is refused BACK to its caller, which drops it on the activation scope — the pool never silently discards a control it accepted; the scope's `Drain` runs on the screen's own teardown and hands the roster back, so the drained controls die with the scope that built them and the pool never outlives the tree it served.
@@ -1382,8 +1347,7 @@ public static class MaterializePool {
 public static partial class ControlFactory {
     public static Fin<Control> Rebind(ControlIntent intent, Control parked, MaterializeContext context) =>
         Redress(intent, parked, context)
-            .Bind(control => Bind(intent, control, context))
-            .Map(control => Sealed(intent, control, context));
+            .Bind(control => Bind(intent, control, context));
 
     private static Fin<Control> Redress(ControlIntent intent, Control parked, MaterializeContext context) {
         ControlShape shape = ShapeOf(intent);
@@ -1403,7 +1367,7 @@ public static partial class ControlFactory {
 - Entry: `ControlMap.Emit(ControlIntent)` recursively fills one generated oneof arm. A future ProtoJSON egress calls `WireJson.Formatter.Format` on the generated message, so the shared descriptor registry alone controls field names, enums, well-known types, and omissions.
 - Packages: Rasm.Contracts (project, generated `Ui` family), Rasm.AppHost (project, `WireJson`), Google.Protobuf, Google.Api.CommonProtos, NodaTime.Serialization.Protobuf, Riok.Mapperly, LanguageExt.Core
 - Growth: a new required arm or mapped enum value regenerates every language binding and breaks the producer correspondence or its completeness proof until supplied; a new interior arm breaks the total `Switch`; zero hand-maintained peer shape or JSON options surface.
-- Boundary: Interior `ControlIntent`, `IntentBinding`, row values, package enums, and smart-enum policy rows remain because materialization consumes their behavior. A smart-enum row carries its generated coordinate beside its behavior; package enums cross through Mapperly's source-and-target-complete correspondence. Both project once at the design-pinned boundary without a string ladder; the AppUI contract test owns the generated-enum roster proof for smart-enum rows. `ControlReceipt` stays interior process evidence. If a future peer consumes it, it enters the existing `EvidenceReceiptWire` oneof and `EvidenceTimelineWire` rail rather than minting a standalone receipt transport. `@rasm\/contracts/rasm/contracts/ui/controls_pb` is the reusable leaf binding; the current TypeScript viewer admits it only through `appui_surface_pb`, and future apps do not re-declare either transport shape. Three sibling partials separate arm seating, row projection, and package-enum correspondence without minting another public type.
+- Boundary: Interior `ControlIntent`, `IntentBinding`, row values, package enums, and smart-enum policy rows remain because materialization consumes their behavior. A smart-enum row carries its generated coordinate beside its behavior; package enums cross through Mapperly's source-and-target-complete correspondence. Both project once at the design-pinned boundary without a string ladder; the AppUI contract test owns the generated-enum roster proof for smart-enum rows. `@rasm\/contracts/rasm/contracts/ui/controls_pb` is the reusable leaf binding; the current TypeScript viewer admits it only through `appui_surface_pb`, and future apps do not re-declare either transport shape. Three sibling partials separate arm seating, row projection, and package-enum correspondence without minting another public type.
 
 ### [05.1]-[CONTROLMAP_ARMS_CS]
 

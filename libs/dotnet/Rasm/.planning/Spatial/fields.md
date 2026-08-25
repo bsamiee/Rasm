@@ -125,7 +125,6 @@ public sealed partial class SdfStatus {
     public static readonly SdfStatus NativeProfile = new(key: 2);
     public static readonly SdfStatus MeshApproximate = new(key: 3);
     public static readonly SdfStatus Reconstruction = new(key: 4);
-    public static readonly SdfStatus TetSignedHeat = new(key: 5);
 }
 
 [SmartEnum<int>]
@@ -245,9 +244,9 @@ public abstract partial record SdfKind {
 
 ## [04]-[SCALAR_FIELD]
 
-- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, reconstruction, and the lattice-backed `LatticeCase` that makes a baked or imported plane a first-class field. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range, the fitted payload against its `reconstruct.md` minter, or the value census against the admitting `CellLattice`. Reconstruction cases split by payload timing, not by kernel: a FITTED case (`Rbf`, `Poisson`, `TetSignedHeat`) carries the solved coefficients its minter produced, an EVALUATED case (`Mls`, `LevinMls`, `Apss`, `Sibson`) carries the admitted sample set and its support or tolerance and solves per query, so a coefficient array on an evaluated case names a solve that never ran. `Noise` takes the `NoisePolicy` record.
+- Owner: `ScalarField` `[Union]` — the scalar algebra in case families spanning analytic sources, combinators, domain warps, differential operators, mesh-aware solvers, reconstruction, and the lattice-backed `LatticeCase` that makes a baked or imported plane a first-class field. Mesh-aware and reconstruction cases construct only through their admitting factories, never `new`, so the factory proves sources against the `MeshSpace` range, the fitted payload against its `reconstruct.md` minter, or the value census against the admitting `CellLattice`. Reconstruction cases split by payload timing, not by kernel: a FITTED case (`Rbf`, `Poisson`) carries the solved coefficients its minter produced, an EVALUATED case (`Mls`, `LevinMls`, `Apss`, `Sibson`) carries the admitted sample set and its support or tolerance and solves per query, so a coefficient array on an evaluated case names a solve that never ran. `Noise` takes the `NoisePolicy` record.
 - Auto: `SampleScalar` is the one total generated `Switch` over the union — analytic sources evaluate closed forms, combinators recurse, warps pre-transform the sample and recurse, differential arms delegate to the `calculus.md` `Nabla` stencil with sampler closures the stencil never learns the union from, mesh-aware arms delegate through the `MeshSpace` seam, and reconstruction arms evaluate the fitted payload through `reconstruct.md`. One shared `SampleMapped` body collapses the map-only warps, and one `ReconstructLattice` body is the sample reconstruction every lattice-backed arm (`LatticeCase`, `PoissonCase`) reads through its `LatticeInterpolation` row's own `CenterOffset` and `Axis` columns, so the body carries no per-row branch. `SampleLattice` is the one batch sweep — every cell centre through the same rail, the first failure carrying its cell coordinate. `LipschitzBound` is an ABSTRACT per-case column, not a fold with a catch-all: an over-claimed bound overshoots ray-march steps into silently missed surfaces and an unstated one silently disables the bound, so every case declares — `Twist`, `Bend`, `Periodic`, the sampled `LatticeCase`, and every mesh and reconstruction species answer `None` by decision, and a new case cannot compile without deciding.
-- Receipt: `SampleDetailed → Fin<FieldSample>` is the public tagged rail carrying value, `SdfStatus` provenance, and nested evidence for mesh, reconstruction, and tet species. `SampleSdfDetailed → Fin<SdfSample>` refuses a species with no distance semantics, faulting `Unsupported` rather than mislabeling a value as a distance; its `SdfSample` carries the profile-extrusion `ProfileFeature` and `ProfileContainment` columns only on the `NativeProfile` species.
+- Output: `SampleDetailed → Fin<FieldSample>` is the public tagged rail carrying value, `SdfStatus` provenance, and nested evidence for mesh and reconstruction species. `SampleSdfDetailed → Fin<SdfSample>` refuses a species with no distance semantics, faulting `Unsupported` rather than mislabeling a value as a distance; its `SdfSample` carries the profile-extrusion `ProfileFeature` and `ProfileContainment` columns only on the `NativeProfile` species.
 - Packages: `RhinoCommon`, `Thinktecture.Runtime.Extensions`, `LanguageExt.Core`.
 - Growth: a new scalar species is one case, one `Switch` arm, and one `LipschitzBound` declaration the compiler demands, a factory only when raw material enters; a new blend or CSG mode is a vocabulary row; a new provenance species is one `SdfStatus` row.
 - Boundary: mesh-aware arms are one-line delegations, and any solver math here is a mis-homed body. `SampleScalar` assumes admitted fields, so an in-arm re-validation is double admission. Tagged sampling is the one public seam; a second `Evaluate` or `Probe` family is the rejected surface.
@@ -267,12 +266,12 @@ public readonly record struct NoisePolicy(int Seed, FieldLane Lane, Dimension Oc
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct FieldSample(
-    double Value, SdfStatus Status, Option<SdfMeshReceipt> Mesh,
-    Option<ReconstructionSampleReceipt> Reconstruction, Option<TetSignedHeatReceipt> Tet);
+    double Value, SdfStatus Status, Option<SdfSolve> Mesh,
+    Option<SampleFit> Reconstruction);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SdfSample(
-    double Value, SdfStatus Status, Option<double> LipschitzBound, Option<SdfMeshReceipt> Mesh, Option<TetSignedHeatReceipt> Tet,
+    double Value, SdfStatus Status, Option<double> LipschitzBound, Option<SdfSolve> Mesh,
     Option<ProfileExtrusionFeature> ProfileFeature, Option<PointContainment> ProfileContainment);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -324,13 +323,12 @@ public abstract partial record ScalarField {
     public sealed record SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshPolicy Policy) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
 
     // --- [RECONSTRUCTION]
-    public sealed record RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
-    public sealed record MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
-    public sealed record LevinMlsCase(Seq<MlsSample> Samples, LevinMlsPolicy Policy, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
-    public sealed record ApssCase(Seq<MlsSample> Samples, ApssPolicy Policy, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
-    public sealed record SibsonCase(NaturalNeighborField Field, Arr<double> Values, ReconstructionReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
-    public sealed record TetSignedHeatCase(TetMeshDomain Domain, TetSignedHeatPolicy Policy, Arr<double> Values, TetSignedHeatReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
-    public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonReceipt Receipt) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionFit Fit) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionFit Fit) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record LevinMlsCase(Seq<MlsSample> Samples, LevinMlsPolicy Policy, ReconstructionFit Fit) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record ApssCase(Seq<MlsSample> Samples, ApssPolicy Policy, ReconstructionFit Fit) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record SibsonCase(NaturalNeighborField Field, Arr<double> Values, ReconstructionFit Fit) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
+    public sealed record PoissonCase(PoissonGrid Grid, double Gamma, PoissonSolve Solve) : ScalarField { public override Option<double> LipschitzBound => Option<double>.None; }
 
     public abstract Option<double> LipschitzBound { get; }
 
@@ -528,7 +526,7 @@ public abstract partial record TensorField {
     public Fin<Seq<(double Eigenvalue, Direction Axis)>> PrincipalDirections(Point3d sample, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return SampleTensor(sample: sample, context: context, key: op)
-            .Bind(tensor => tensor.DecomposeEigenDetailed(key: op)).Bind(receipt => receipt.PairsIn(expected: EigenOrder.DescendingMagnitude, key: op))
+            .Bind(tensor => tensor.DecomposeEigenDetailed(key: op)).Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude, key: op))
             .Bind(pairs => pairs.TraverseM(pair =>
                 Direction.Of(value: new Vector3d(x: pair.Eigenvector[0], y: pair.Eigenvector[1], z: pair.Eigenvector[2]), context: context, key: op)
                     .Map(axis => (pair.Eigenvalue, Axis: axis))).As());
@@ -557,7 +555,6 @@ public abstract partial record TensorField {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

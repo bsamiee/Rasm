@@ -504,10 +504,10 @@ public static class BoardTemplates {
 - Cases: `PublishArm` = snapshot · live — a paginated PDF of the board as it stands, and a shared document whose frames and cards re-resolve on every open.
 - Entry: `public static IO<Fin<PublishedBoard>> Publish(PublishRun run)` — the one publish entry, dispatching onto the arm ROW's own fold; `public static Fin<Seq<ReportBlock>> BoardPrint.Figure(SKImage tile, BoardItem item, PublishPolicy policy, string altKey, string caption)` / `BoardPrint.Stat(StatAnatomy anatomy, MetricBinding binding, PublishPolicy policy)` / `BoardPrint.Note(string markdown)` — the three lowerings a seam `Print` arm reaches for, so the board's report vocabulary stays this page's while the resolution stays the composition's.
 - Auto: the snapshot arm folds the board's items into `Document/export#FLOW_REPORT` `ReportBlock` rows through each placement's own seam `Print` arm and renders through `FlowReport.Render`, so a board PDF is the same paginated engine every other report uses and this page mints no second pagination. A card stays TEXT rather than a tile, because rasterizing a stat prints a picture of a number no reader can select or search — and text is read, so its captions are label keys the policy's own `ResolvedLocale` resolves and its magnitudes render through the board's own `DraftUnits.Text` where the binding declares a `MeasureRole` and through the locale's number formats where it declares none. Tile density and printed extent are ONE scale and one resolution class rather than two free doubles: the physical width rides a UnitsNet `Length` per board unit off each item's own box, and the raster density DERIVES as that length in inches times the `Rasm/Drawing/sheet` `PlotResolution` row's own dpi — so a sharper export and a larger one stay separate decisions while the pixels-per-unit knob a caller could set to disagree with the paper is gone. The live arm delivers the board's own `Board` value — items, boxes, and references — through the same `VisualDestination` gate under the composition-seated `EvidenceOps.Wire` options with the placement union's `[JsonDerivedType]` roster carrying the discriminants, so a shared board is a document the product re-opens against live sources and a re-publish is not needed when a source moves.
-- Receipt: the two arms seal DIFFERENTLY and that asymmetry is the law rather than an oversight. The snapshot arm's evidence IS `FlowReport`'s own `RenderReceipt` of kind document, format pdf — the engine already sealed the delivered bytes, and a second board-kind receipt over the same payload would double every `ExportBytes` and `ExportedFrames` the `Diagnostics/evidence#CORRELATION_JOIN` tenant fold accrues, which is the same double-count law that keeps the dev-loop HUD sample off the stream. The live arm seals its own `RenderReceipt` of kind board carrying the arm's format, because nothing else sealed those bytes. No board instrument is declared: the publish count, its byte total, and its elapsed span are all columns of receipts already on the stream, and a count instrument beside them would measure a fact the fan can already read.
+- Evidence: both arms return a `PublishedBoard` carrying the one `VisualArtifact` that was actually delivered. The snapshot arm reuses `FlowReport`'s document artifact; the live arm publishes its board artifact through `ExportDelivery.Landed`. Neither arm emits a second fact over the same payload.
 - Packages: Rasm.AppHost (project), Rasm (project — `MonotonicTimeline`, `PlotResolution`), UnitsNet, LanguageExt.Core, NodaTime, SkiaSharp, Thinktecture.Runtime.Extensions
 - Growth: a new publish modality is one `PublishArm` row carrying its own fold — the entry has no switch to grow; a new placement's report projection is one `BoardSeams` row; zero new surface.
-- Boundary: publishing rides the ONE export plane — a board-local PDF writer, a board-local pagination fold, and a board-local delivery path are the three deleted forms, so the destination admission, the atomic write, the colour policy, and the receipt all come from the export owner. The live arm publishes REFERENCES and never resolved values, which is the whole reason a living deliverable does not go stale; a live publish that embedded its resolved frames would be a snapshot under a second name. That payload crosses `System.Text.Json` under the ONE composition-seated wire options with the placement union carrying its own `[JsonDerivedType]` roster, because `[Union]` generates no JSON support and a union serialized as its abstract base emits an empty object — the retired bare `SerializeToUtf8Bytes(board)` published a document whose items were `[{},{},{}]` and whose content hash and byte count therefore described an empty roster; `Board` registers on `AppUiWireContext` so the payload also survives trimming. Every placed tile is rasterized by the placement's OWN source through the capture codec axis and arrives through the seam, so the board never rasterizes anything itself and the one raster owner stays the capture plane. A visual placeable that lowered to a heading, or ink that lowered to nothing, is the deleted form: a printed board missing its panels and its annotations reads as complete while carrying neither the frames it was composed from nor the marks a reviewer left on it. The markdown-to-report lowering stays a HAND fold and refuses the Mapperly rung by the same reason `Document/media#MARKDOWN_BLOCKS` already states for its own block dispatch — every second arm composes children recursively, so a generated mapper would carry a `Use` converter per member and prove nothing. Time is the kernel `MonotonicTimeline` the run carries: `Capture` answers a stamp and `Elapsed` a span, both on the rail, so a broken gauge refuses rather than fabricating a duration — a mark-and-elapsed pair on an app-stratum `ClockPolicy` is the deleted form, and that record never crosses downward into this package at all.
+- Boundary: publishing rides the ONE export plane — a board-local PDF writer, a board-local pagination fold, and a board-local delivery path are the three deleted forms, so destination admission, atomic write, colour policy, and artifact publication come from the export owner. The live arm publishes REFERENCES and never resolved values, which is the whole reason a living deliverable does not go stale; a live publish that embedded its resolved frames would be a snapshot under a second name. That payload crosses `System.Text.Json` under the ONE composition-seated wire options with the placement union carrying its own `[JsonDerivedType]` roster, because `[Union]` generates no JSON support and a union serialized as its abstract base emits an empty object — the retired bare `SerializeToUtf8Bytes(board)` published a document whose items were `[{},{},{}]` and whose content hash and byte count therefore described an empty roster; `Board` registers on `AppUiWireContext` so the payload also survives trimming. Every placed tile is rasterized by the placement's OWN source through the capture codec axis and arrives through the seam, so the board never rasterizes anything itself and the one raster owner stays the capture plane. A visual placeable that lowered to a heading, or ink that lowered to nothing, is the deleted form: a printed board missing its panels and its annotations reads as complete while carrying neither the frames it was composed from nor the marks a reviewer left on it. The markdown-to-report lowering stays a HAND fold and refuses the Mapperly rung by the same reason `Document/media#MARKDOWN_BLOCKS` already states for its own block dispatch — every second arm composes children recursively, so a generated mapper would carry a `Use` converter per member and prove nothing. `ExportDelivery.Landed` measures the live arm on `VisualRuntime.Line`; the board carries no parallel clock or span state.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -536,9 +536,9 @@ public sealed record PublishPolicy(
 }
 
 public sealed record PublishRun(
-    Board Board, PublishArm Arm, BoardSeams Seams, VisualRuntime Runtime, MonotonicTimeline Line, PublishPolicy Policy);
+    Board Board, PublishArm Arm, BoardSeams Seams, VisualRuntime Runtime, PublishPolicy Policy);
 
-public sealed record PublishedBoard(string BoardKey, PublishArm Arm, string Destination, RenderReceipt Receipt);
+public sealed record PublishedBoard(string BoardKey, PublishArm Arm, VisualArtifact Artifact);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -623,26 +623,18 @@ public static class BoardPublish {
 
     internal static IO<Fin<PublishedBoard>> Reported(PublishRun run) =>
         (from blocks in FinT.lift<IO, Seq<ReportBlock>>(Blocks(run))
-         from receipt in FinT.liftIO<IO, RenderReceipt>(FlowReport.Render(run.Runtime, new ReportSpec(
+         from artifact in FinT.liftIO<IO, VisualArtifact>(FlowReport.Render(run.Runtime, new ReportSpec(
              run.Board.Title, blocks, Some(run.Board.Title),
              Some(run.Policy.Setup), run.Policy.Pdf, run.Policy.Destination,
              CapabilitySet<ReportTrait>.Of(ReportTrait.PageNumbers))))
-         select new PublishedBoard(
-             run.Board.Key, run.Arm, receipt.Destination.IfNone(string.Empty), receipt)).runFin.As();
+         select new PublishedBoard(run.Board.Key, run.Arm, artifact)).runFin.As();
 
     internal static IO<Fin<PublishedBoard>> Delivered(PublishRun run) =>
-        (from start in FinT.lift<IO, MonotonicStamp>(run.Line.Capture(PublishOp))
-         from payload in FinT.lift<IO, byte[]>(Structure(run.Board))
-         from destination in FinT.liftIO<IO, string>(
-             ExportDelivery.Deliver(run.Runtime, run.Policy.Destination, payload))
-         from end in FinT.lift<IO, MonotonicStamp>(run.Line.Capture(PublishOp))
-         from span in FinT.lift<IO, TimeSpan>(run.Line.Elapsed(start, end, PublishOp))
-         let receipt = new RenderReceipt(
-             Kind, run.Arm.Format, run.Runtime.ContentHash(payload), None, None, payload.LongLength,
-             Duration.FromTimeSpan(span), run.Runtime.Correlation, Some(destination),
-             VisualCodec.ColorPolicy.Display.Key)
-         from _ in FinT.liftIO<IO, Unit>(run.Runtime.Sink(receipt))
-         select new PublishedBoard(run.Board.Key, run.Arm, destination, receipt)).runFin.As();
+        (from artifact in FinT.liftIO<IO, VisualArtifact>(ExportDelivery.Landed(
+             run.Runtime, ArtifactKind.Create(Kind), run.Arm.Format, VisualCodec.ColorPolicy.Display.Key,
+             Some(run.Policy.Destination),
+             IO.lift<ReadOnlyMemory<byte>>(() => Structure(run.Board).Map(static payload => (ReadOnlyMemory<byte>)payload))))
+         select new PublishedBoard(run.Board.Key, run.Arm, artifact)).runFin.As();
 
     static Fin<Seq<ReportBlock>> Blocks(PublishRun run) =>
         toSeq(run.Board.Items.OrderBy(static item => item.Box.Z))
@@ -689,7 +681,7 @@ flowchart LR
     PublishArm -->|snapshot| FlowReport
     PublishArm -->|live| ExportDelivery
     BoardSeam -->|Print| BoardPrint
-    BoardPublish --> RenderReceipt
+    BoardPublish --> VisualArtifact
 ```
 
 ## [06]-[RESEARCH]

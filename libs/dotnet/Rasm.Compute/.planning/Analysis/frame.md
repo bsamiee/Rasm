@@ -728,11 +728,3 @@ public static partial class StructuralAnalysis {
     }
 }
 ```
-
-## [04]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

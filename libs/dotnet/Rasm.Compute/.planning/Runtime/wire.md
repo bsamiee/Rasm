@@ -10,7 +10,8 @@ One compact `rasm.contracts.fault.FaultDetail` — `domain`, `case`, `correlatio
 
 - [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, progress, stage, control, artifact, fault, clock, scan, and event families, rosters the surviving generated services, seats the bounded `ParseGuard` beside `WireServices`, and holds the one enum-to-key lowering every interior roster reads.
 - [03]-[FAULT_PROJECTION]: the total `StatusCode`→`WireFault` client rail and the `RemoteFault` admission composed off AppHost `FaultWire`.
-- [04]-[TS_PROJECTION]: the browser consumes the generated `@rasm\/contracts` schemas and service descriptors; this page mints no TS shape.
+- [04]-[JSON_CONTEXT]: `InvariantTextJsonConverter<T>`, `ComputeWireContext` — the one Strict STJ context every JSON-crossing Compute value rides.
+- [05]-[TS_PROJECTION]: the browser consumes the generated `@rasm\/contracts` schemas and service descriptors; this page mints no TS shape.
 
 ## [02]-[PROTO_VOCABULARY]
 
@@ -225,7 +226,7 @@ Each message carries its generated field set and wire role; enum vocabularies ca
 - [11]-[SETDEGRADATIONRESPONSE]: `level=1 DegradationLevel` — the resolved level
 - [12]-[DRAINRUNTIMEREQUEST]: `cooperative=1 Duration; reason=2 string` — the caller's remaining cooperative allotment
 - [13]-[DRAINSTEP]: `name=1; band=2; allotted=3; consumed=4; outcome=5` — projects one typed drain step
-- [14]-[DRAINRUNTIMERESPONSE]: `steps=1; final_phase=2; at=3; elapsed=4; correlation=5` — projects `DrainReceipt` field-for-field
+- [14]-[DRAINRUNTIMERESPONSE]: `steps=1; final_phase=2; at=3; elapsed=4; correlation=5` — projects the AppHost `Drained` tally field-for-field
 - [15]-[WATCHREQUEST]: `correlation=1 bytes(16)` — the RFC 4122 form of the watched intent's own key, and the whole request
 - [16]-[WATCHRESPONSE]: `phase=1 ProgressPhase; fraction=2 optional double; segments=3 optional uint64; at=4 Timestamp; correlation=5 bytes(16)` — the two measurements cross OPTIONAL so an unmeasured phase publishes absence rather than a zero a chart reads as a stall
 - [17]-[STAGE]: `rasm.contracts.stage.StageRequestWire`/`StageResultWire` with their nested product, input, output, score, and bucket rows — admitted here and executed at `Model/stage#STAGE_WIRE`
@@ -304,14 +305,46 @@ public abstract partial record WireFault : Fault {
 }
 ```
 
-## [04]-[TS_PROJECTION]
+## [04]-[JSON_CONTEXT]
+
+- Owner: `ComputeWireContext` — the package's one source-generated `JsonSerializerContext`, the Strict resolver every JSON-crossing Compute value rides: the `Charge` event `data`, the `Model/identity#GRADUATION_EVIDENCE` `GraduationEvidence` bundle Python decodes, and the `Runtime/claims#PROFILE_EVIDENCE` `ProfileArtifact` union; `InvariantTextJsonConverter<T>` — the culture-invariant text codec for the 64-bit and 128-bit integers JSON cannot carry as numbers.
+- Entry: `ComputeWireContext.Default` — the composition-bound options handle; a `.Default` type-info elsewhere is the deleted form (branch `RULINGS` `[02]`).
+- Auto: the Thinktecture key-scalar resolver rides the `TypeInfoResolverChain` merge so every `[SmartEnum]`/`[ValueObject]` spine field round-trips as its key scalar; `LanguageExtJsonConverterFactory` keeps every `Option<T>` PRESENT on the wire as an explicit null, the `| null` unions the Python and TS mirrors spell; `UnmappedMemberHandling.Disallow` refuses drift at the consuming edge.
+- Packages: System.Text.Json, Thinktecture.Runtime.Extensions.Json, Rasm (project — `LanguageExtJsonConverterFactory`), BCL inbox
+- Growth: a new JSON-crossing value is one `[JsonSerializable]` row; a new polymorphic family declares its own `[JsonPolymorphic]` roster on the type, never here.
+- Boundary: ABSENCE is an `Option<T>` column and never a nullable slot — the context declines the suite's `OmitAbsent` modifier, and a nullable column past this boundary is the deleted form.
+
+```csharp
+public sealed class InvariantTextJsonConverter<T>(NumberStyles styles, string format) : JsonConverter<T>
+    where T : ISpanParsable<T>, ISpanFormattable, INumberBase<T> {
+    public static readonly InvariantTextJsonConverter<T> Decimal = new(NumberStyles.Integer, "G");
+    public static readonly InvariantTextJsonConverter<T> Hex32 = new(NumberStyles.HexNumber, "x32");
+
+    public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        reader.TokenType == JsonTokenType.String
+        && T.TryParse(reader.GetString(), styles, CultureInfo.InvariantCulture, out T? value)
+        && value is { } admitted
+            ? admitted
+            : throw new JsonException($"<invariant-text-expected:{typeof(T).Name}:{format}>");
+
+    public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.ToString(format, CultureInfo.InvariantCulture));
+}
+
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+    RespectNullableAnnotations = true,
+    RespectRequiredConstructorParameters = true,
+    Converters = [
+        typeof(ThinktectureJsonConverterFactory), typeof(LanguageExtJsonConverterFactory),
+        typeof(InvariantTextJsonConverter<long>), typeof(InvariantTextJsonConverter<UInt128>)])]
+[JsonSerializable(typeof(Charge))]
+[JsonSerializable(typeof(GraduationEvidence))]
+[JsonSerializable(typeof(ProfileArtifact))]
+public partial class ComputeWireContext : JsonSerializerContext;
+```
+
+## [05]-[TS_PROJECTION]
 
 - Law: the browser consumes only its selected generated semantic-package schemas and this page mints no TS interface, alias, or method-shape roster. `artifact.ArtifactService.Fetch` is server-streaming and `Put` client-streaming where an app needs artifact transfer; `scan.GaussianSplatScan` rides framed bytes with no browser decode forced on every app; the `stage` family is a same-language crossing no browser reads, so it carries no TS consumer at all. `progress.ProgressService.Watch` is the browser's ONE dial into a Compute-served endpoint, bound at `typescript:core/interchange/invoke#PROGRESS_WATCH` over the generated `WatchResponseSchema`.
-
-## [05]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

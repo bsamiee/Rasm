@@ -65,7 +65,7 @@ const _rows = (table: Cadence.Table): ReadonlyArray<Cadence.Row> =>
 - Law: catch-up is a bounded computed prefix, not an open loop — on execution the pass reads the last-run mark through the caller-supplied `marks` projection (an audit read over the `cadence.backfilled`/step-exit evidence — read-side material, so the mint carries no run-history table), walks `Cron.sequenceReverse(cron, now)` only until the last run, filters ticks older than the misfire horizon, and applies the posture row: `skip` takes none, `once` takes the latest missed instant, and `all` takes at most the row's `backfill` ceiling before restoring chronological execution order. Every replay uses the same instant-keyed step, so a long outage can never allocate an unbounded tick roster.
 - Law: the backlog carries its own truncation, because the executed count cannot state it — the walk pulls ONE element past the posture ceiling, which proves a clip while the ceiling still bounds the iteration, and the meter fact publishes the admitted count beside that flag. A fact carrying the count alone reads identically whether the backlog fit the posture or the posture silently dropped every earlier tick of an outage, and only the second is a recovery an operator must widen a ceiling for; counting the true missed set to state the same fact would materialize the roster the ceiling exists to refuse.
 - Law: `Date` lives only at the `Cron.sequenceReverse` seam — the iterator's platform `Date` converts through `DateTime.unsafeFromDate` inside the seam's own `Iterable.map`, so the cadence-domain callback, the tick identity, and every comparison ride `DateTime.Utc`; a `Date`-typed callback or a `toISOString` identity is the host-scalar leak `values.md` names.
-- Receipt: every tick's step exit is the durable run evidence — instant, verdict, duration — the operator census reads; no separate run-history table exists.
+- Output: every tick's step `Exit` is the durable run evidence — instant, verdict, duration — the operator census reads; no separate run-history table exists.
 - Growth: a new posture is one `Anchor` discriminant and one `_missed` arm; per-row notification is a tap on the row's body at its owner.
 - Packages: `@effect/cluster` (`ClusterCron`); `effect` (`Cron`, `Array`, `Iterable`, `Layer`, `DateTime`); `./flow.ts` (`Step`); `@rasm/data` (`Fact` — the backfill meter).
 
@@ -213,7 +213,6 @@ export { Cadence }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -80,7 +80,7 @@ public readonly record struct RedriveMark(int Attempt, int Bound);
 - Entry: `public IO<Fin<Option<EvidenceTimeline>>> Timeline(EvidenceSource source)` on `RunOrigin` — the one drill-down read both arms answer.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, DynamicData, System.Reactive, Rasm (kernel `Retriability`, `Expected`), BCL inbox
 - Growth: a new queueing route is one `RunOrigin` arm answering the drill-down read; a new card fact is one `StateStrip`; a new artifact disposition is one `OutputState` case; zero new surface.
-- Boundary: state arrives as APPENDED strips so a card never changes size class mid-run — a card that grows on its first warning re-flows every card beneath it and moves the button the operator was reaching for. `OutputState` makes the illegal artifact composite unspellable: a draft carries no adoption verb slot at all, so "unsealed but adoptable" cannot be constructed and the old `(bool Sealed, Option Adopt)` pair's refused corner is gone. `RunCard.Fault` carries the run's own typed refusal so the retry gate reads the `Retriability` the fault PUBLISHED, and `Redrive` carries the producer's attempt-of-bound. The report READS the correlation join and mints no evidence — the STUDY arm rides `EvidenceJoin.Run` (the owner that defined the join; `Editing/forms#STUDY_FORM`'s `StudySubmission` is the carrier), so a queued study's cross-package causal story assembles at the diagnostics owner rather than at a queue re-spelling it. The tile union carries NO list case and this screen is the owner — a board tile renders one aggregate; the queue's aggregates go the other way, as stat tiles the board folds from this surface's own instruments.
+- Boundary: state arrives as APPENDED strips so a card never changes size class mid-run — a card that grows on its first warning re-flows every card beneath it and moves the button the operator was reaching for. `OutputState` makes the illegal artifact composite unspellable: a draft carries no adoption verb slot at all, so "unsealed but adoptable" cannot be constructed and the old `(bool Sealed, Option Adopt)` pair's refused corner is gone. `RunCard.Fault` carries the run's own typed refusal so the retry gate reads the `Retriability` the fault PUBLISHED, and `Redrive` carries the producer's attempt-of-bound. The report READS the correlation join and mints no evidence — both origin arms carry the run-creation `ActivityTraceId` and pass it directly to `EvidenceJoin.Run`, while `CorrelationId` remains the queue's DynamicData identity. The live `RunQueueSeams.Evidence` binding is `SurfaceRuntime.Evidence`; a resident binding keeps the same `EvidenceSource` fold and changes only the app-root arrow. The tile union carries NO list case and this screen is the owner — a board tile renders one aggregate; the queue's aggregates go the other way, as stat tiles the board folds from this surface's own instruments.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -117,16 +117,15 @@ public abstract partial record RunOrigin {
     private RunOrigin() { }
 
     public sealed record Study(StudySubmission Submission) : RunOrigin;
-    public sealed record Verb(CorrelationId Correlation) : RunOrigin;
+    public sealed record Verb(CorrelationId Correlation, ActivityTraceId Trace) : RunOrigin;
 
     public CorrelationId Correlation => Switch(
         study: static c => c.Submission.Correlation,
         verb: static c => c.Correlation);
 
     public IO<Fin<Option<EvidenceTimeline>>> Timeline(EvidenceSource source) => Switch(
-        study: c => EvidenceJoin.Run(source, c.Submission),
-        verb: c => EvidenceJoin.Correlated(source.Narrowed(c.Correlation))
-            .Map(read => read.Map(timelines => timelines.Find(row => row.Correlation == c.Correlation))));
+        study: c => EvidenceJoin.Run(source, c.Submission.Trace),
+        verb: c => EvidenceJoin.Run(source, c.Trace));
 }
 
 public sealed record RunCard(
@@ -204,7 +203,7 @@ public static class RunReport {
 - Owner: `RunQueueSurface` — the queue instruments, the retriability-gated action fold, the adoption handoff, the body fold, the seated program with its bounded drill-down cache, and the card template.
 - Entry: `public static Fin<string> Action(RunCard card)` — the one verb key the card's single action button carries, retry gated on the fault's own `Retriability`; `public static Fin<Unit> Adopt(OutputRow output, Func<string, CommandPayload, Unit> raise)` — the sealed-output handoff; `public static ControlIntent Body(Seq<ReportChip> chips, Set<string> live, VirtualWindowSpec window)`; `public static ScreenProgram Program(ScreenComposition composition)`.
 - Auto: cards realize through the one `VirtualWindow` fabric as a tree whose children are the run's own steps, so a run and its steps ride one item template; progress binds the correlation-selected cell every progress consumer reads; retry and cancel raise command keys through the deck, so a queue affordance, a palette invocation, and a remote call are one verb; the per-run evidence report joins through `EvidenceJoin`, so a live queue and a post-mortem reconstruction render the identical report.
-- Receipt: queue depth, completion, failure, and retry facts fold onto the one AppUi meter through `TelemetryRow`, and the telemetry board's queue stat tiles read exactly those instrument rows (`Charts/telemetry#BOARD_ROWS`).
+- Telemetry: queue depth, completion, failure, and retry facts fold onto the one AppUi meter through `TelemetryRow`, and the telemetry board's queue stat tiles read exactly those instrument rows (`Charts/telemetry#BOARD_ROWS`).
 - Packages: LanguageExt.Core, NodaTime, DynamicData, System.Reactive, Rasm, BCL inbox
 - Growth: one queue instrument is one `InstrumentSpec` row on `TelemetryRow`; zero new surface.
 - Boundary: the retry affordance consults the FAULT — a run whose typed refusal reads `Retriability.Terminal` renders no retry however its status row leans, because offering a retry the fault already refused teaches the operator that retry is decorative; an absent fault (a cancellation) admits. Adoption RAISES the layer plane's own verb with the output as its `Single` payload — the analysis plane owns what a sealed study becomes, and the affordance seats in the card's own fixed head because a fold reachable only from composition is a handoff no operator can start. The drill-down is BOUNDED: one roster subscription seats the live set, and expanded cards re-read their timeline only when the card itself moved (`At`) — the per-card cache is what keeps a change-set emission from re-reading every expanded run's whole timeline. A failed timeline read seals `ScreenFault.QueueRejected` on the screen's own fault cell while an absent timeline contributes nothing — the two are different facts and the fold keeps them apart.
@@ -356,12 +355,12 @@ flowchart LR
     accTitle: Run-queue card, report, and output handoff
     accDescr: The card change set realizing through the virtual window into the tree body, the run origin narrowing an evidence source into one timeline that folds a severity-first report behind count chips, and a sealed output raising the layer adoption verb.
     RunQueueSeams --> VirtualWindow
+    RunQueueSeams --> EvidenceSource
     VirtualWindow --> Body
     RunCard --> RunOrigin
-    RunOrigin -->|study| JoinRun["EvidenceJoin.Run"]
-    RunOrigin -->|verb| JoinCorrelated["EvidenceJoin.Correlated"]
+    RunOrigin -->|trace| JoinRun["EvidenceJoin.Run"]
+    EvidenceSource --> JoinRun
     JoinRun --> EvidenceTimeline
-    JoinCorrelated --> EvidenceTimeline
     EvidenceTimeline --> RunReport
     RunReport --> Chips
     RunCard --> OutputRow

@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_NODEMAILER]
 
-`nodemailer` is the SMTP/mail transport `runtime/src/work/deliver.ts` internalizes as the single mail-egress owner: one polymorphic `createTransport` discriminates on the transport-option shape to return a `Transporter` whose `sendMail` sends one RFC-5322 `Mail.Options` message, whose `verify` proves the connection, and whose every send yields a `SentMessageInfo` receipt splitting accepted from rejected recipients, over a `LOGIN`/`OAUTH2`/`CUSTOM` auth union with native DKIM signing.
+`nodemailer` is the SMTP/mail transport `runtime/src/work/deliver.ts` internalizes as the single mail-egress owner: one polymorphic `createTransport` discriminates on the transport-option shape to return a `Transporter` whose `sendMail` sends one RFC-5322 `Mail.Options` message, whose `verify` proves the connection, and whose every send yields a `SentMessageInfo` splitting accepted from rejected recipients, over a `LOGIN`/`OAUTH2`/`CUSTOM` auth union with native DKIM signing.
 
 `Effect.tryPromise` lifts `sendMail`/`verify` around the callback/`Promise` library, `Redacted` carries every secret, the `Transporter` is a scoped `Layer`, and a durable job retries on `SMTPError.code` classification.
 
@@ -15,7 +15,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the transporter, the message, and the send receipt
+[PUBLIC_TYPE_SCOPE]: the transporter, the message, and the send result
 - rail: boundaries
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]   | [CONSUMER]                                                                   |
@@ -25,7 +25,7 @@
 |  [03]   | `Mail.Address`                       | address value   | `{ name?, address }` recipient; escapes `Name <email>`                       |
 |  [04]   | `Mail.Attachment`                    | attachment      | a `report`/jszip byte artifact attaches here                                 |
 |  [05]   | `Mail.ListHeaders` / `Mail.Headers`  | header shape    | `list` builds `List-Unsubscribe`; suppression seam                           |
-|  [06]   | `SentMessageInfo`                    | send receipt    | top-level export is `any`; `SMTPTransport.SentMessageInfo` carries the shape |
+|  [06]   | `SentMessageInfo`                    | send result     | top-level export is `any`; `SMTPTransport.SentMessageInfo` carries the shape |
 |  [07]   | `Transport<T, D>`                    | plugin contract | `{ name, version, send, verify?, close? }` backend                           |
 
 - `SentMessageInfo`: nodemailer erases this root export to `any`, so a consumer declares its own widened band over `SMTPTransport.SentMessageInfo` rather than importing the erased name.
@@ -97,7 +97,7 @@
 - `@effect/platform` (`../../.api/effect-platform.md`): a `report`/jszip artifact attaches as `{ content: Uint8Array }` or `{ path }`; `FileSystem.stream` feeds a large attachment as a `Readable`; `PlatformConfigProvider.layerDotEnv` behind `Config` supplies the SMTP DSN and DKIM key without a `process.env` read.
 - `@effect/platform-node` (`../../.api/effect-platform-node.md`): the mail `Layer` composes under `NodeContext.layer`; `NodeStream.toReadable` converts an Effect `Stream<Uint8Array>` into the `Readable` an attachment or `raw` body expects.
 - `jspdf` + `exceljs` + `papaparse` + `jszip` (`./jspdf.md`, `./exceljs.md`, `./papaparse.md`, `./jszip.md`): the `work/report` byte producers — a PDF/XLSX/CSV `Uint8Array` or a `jszip` bundle attaches as `Mail.Attachment` `{ content: bytes, contentType }`; nodemailer transports what the report format and archive container produce, never rendering a document itself.
-- `security` (`../../security/.api/`): `crypt/sign` owns domain HMAC egress signing (webhook receipts); nodemailer owns RFC-6376 DKIM message signing natively, the two distinct and never merged. `jose` may mint the OAuth2 assertion, but the SMTP `XOAuth2` refresh flow stays in-transport.
+- `security` (`../../security/.api/`): `crypt/sign` owns domain HMAC egress signing (webhook bodies); nodemailer owns RFC-6376 DKIM message signing natively, the two distinct and never merged. `jose` may mint the OAuth2 assertion, but the SMTP `XOAuth2` refresh flow stays in-transport.
 - `@effect/workflow` + `@effect/cluster` (`./effect-workflow.md`, `./effect-cluster.md`): a send is a durable `Activity` with a compensation arm recording a suppression on hard bounce; the `work/deliver` entity fences per-tenant send quota, and the outbox relay drains queued messages under the `isIdle` pool signal.
 
 [LOCAL_ADMISSION]:
@@ -110,6 +110,6 @@
 
 [RAIL_LAW]:
 - Package: `nodemailer` (+ `@types/nodemailer`)
-- Owns: mail egress — the polymorphic `createTransport`, `sendMail`/`verify`/`close`/`isIdle`, the one `Mail.Options` message shape, the `LOGIN`/`OAUTH2`/`CUSTOM` auth union, native DKIM signing, SMTP pooling with rate limits, `wellKnown` provider resolution, the `SentMessageInfo` delivery receipt
+- Owns: mail egress — the polymorphic `createTransport`, `sendMail`/`verify`/`close`/`isIdle`, the one `Mail.Options` message shape, the `LOGIN`/`OAUTH2`/`CUSTOM` auth union, native DKIM signing, SMTP pooling with rate limits, `wellKnown` provider resolution, the `SentMessageInfo` delivery result
 - Accept: `Effect.tryPromise`-lifted send/verify, a scoped `Layer` transporter with `close` release, `Redacted`/`Config.redacted` secrets, one `Schema`-decoded message, `SMTPError.code` as a `Data.taggedEnum` retry discriminant, partial-rejection reconciliation, `streamTransport`/`jsonTransport` specs
 - Reject: a factory per transport, an untyped inline message, secrets outside `Redacted`, a module-level transporter singleton, string-matched error retry, partial rejection treated as success, live SMTP in a deterministic test

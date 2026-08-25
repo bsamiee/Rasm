@@ -1,6 +1,6 @@
 # [APPUI_ICONS_ASSETS]
 
-Rasm.AppUi sources every icon, pointer, and bundled asset through the kernel `Rasm.Interaction` asset vocabulary: `AssetDeclaration` registers each kernel `AssetKey` once with its avares source, its kind, its preload partitions, its host glyph binding, and its ordered icon rows; `IconSurface` composes each row into one kernel `IconRender` — origin, `IconPose`, ordered `IconFilter` chain — and walks the rows to the first materialized product, sizing every draw off the `Theme/tokens` `MetricFamily.Icon` scale through the kernel `AssetExtent`. Origin, extent, pose, rotation, mirror, filter, and raster vocabularies are the KERNEL's; this page owns what Avalonia adds — the host glyph-binding table a `Vector` key resolves through, the pointer vocabulary, the folder's ONE byte-budgeted `BudgetedCache` and the asset plane's instance of it, the SVG pipeline retaining documents behind lease capsules, the raster loaders, and the avares admission minting identity receipts under per-surface preload partitions.
+Rasm.AppUi composes the kernel asset vocabulary through Avalonia. `AssetDeclaration` owns avares sources, preload partitions, host glyph bindings, and ordered icon alternatives; `IconSurface` materializes the first successful row at the `MetricFamily.Icon` scale through `AssetExtent`. This page owns the host binding table, pointers, one `BudgetedCache`, SVG leases, raster loading, and partitioned asset-fact publication.
 
 ## [01]-[INDEX]
 
@@ -9,7 +9,7 @@ Rasm.AppUi sources every icon, pointer, and bundled asset through the kernel `Ra
 - [04]-[ASSET_CACHE]: The folder's budgeted cache owner, its retention postures, and the asset plane's instance.
 - [05]-[SVG_PIPELINE]: Retained SVG documents, scene graph, dirty-region mutation, animation leases, hit testing.
 - [06]-[RASTER_ASSETS]: Async raster loaders, cache scope, fallbacks, DPI-variant selection.
-- [07]-[ASSET_CATALOG]: One asset declaration roster, partitioned preload receipts, the avares admission.
+- [07]-[ASSET_CATALOG]: One asset declaration roster, partitioned preload admission, and asset-fact publication.
 
 ## [02]-[ICON_AXIS]
 
@@ -36,7 +36,7 @@ using FluentIcons.Avalonia;
 using FluentIcons.Common;
 using LanguageExt;
 using LanguageExt.Common;
-using NodaTime;
+using Rasm.AppUi.Diagnostics;
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -416,13 +416,12 @@ public static class PointerCatalog {
 
 ## [04]-[ASSET_CACHE]
 
-- Owner: `BudgetedCache<TKey,TValue>` — the folder's ONE byte-budgeted, generation-stamped, least-touched-release cache every product plane composes (`Theme/typography` shaped runs, `Render/shading` shader and texture planes, `Render/meshlets` residency callers); `RetentionPosture` — the `[SmartEnum]` carrying the two retention laws as ROW DATA; `CacheSweep` — the lifecycle counts a cohort edge or a seal answers; `AssetCache` — the asset plane's instance over `AssetProduct`, owning the theme-swap and display-scale edges, the platform pointer handles, and the `CacheReceipt` seal.
+- Owner: `BudgetedCache<TKey,TValue>` — the folder's ONE byte-budgeted, generation-stamped, least-touched-release cache every product plane composes (`Theme/typography` shaped runs, `Render/shading` shader and texture planes, `Render/meshlets` residency callers); `RetentionPosture` — the `[SmartEnum]` carrying the two retention laws as ROW DATA; `CacheSweep` — the lifecycle counts a cohort edge or a seal answers; `AssetCache` — the asset plane's instance over `AssetProduct`, owning the theme-swap and display-scale edges and the platform pointer handles.
 - Cases: `RetentionPosture.Generation` — a read below the live generation MISSES, because the cell backs a device handle a current draw dereferences; `RetentionPosture.Holder` — reads ignore generation and a retired cohort survives ONE grace rotation on its own lane, because retention is a consumer holding the value; the pressure lane is every instance's and rotates on every fill.
-- Entry: `BudgetedCache.Of(ceiling, posture, bytes, release, refuse)` — `Fin`; `Take(key, build)` — the one admission path and the pressure-lane edge; a CAS loser releases its OWN mint and returns the winner; `Retire(stale, advance)` — the cohort edge, raising the generation when `advance`; `Seal()` — drains the pressure counts (count instruments report what happened since the previous seal); `Dispose()` releases every lane and every live cell. `AssetCache.Cycle(rows, correlation)` and `Rescale(scale, correlation)` are the asset plane's two cohort edges, each sealing one `CacheReceipt`; `Platform(row, mint)` seats a platform pointer handle under the row.
-- Auto: `Cycle` binds `ThemeCell.Rebuild` at composition and acts on the `Rematerialize.TintedAsset` row alone; `Rescale` binds the `Shell/hosts` `SurfaceFact.ScaleChanged` fact; each answers a `CacheReceipt` the composition observes — the admission-plane `AssetReceipt` alone crosses the evidence stream through `Diagnostics/evidence` `EvidenceMap.ToEvidence`; every transition is one `Cell.Commit` over a single immutable state record, so the byte total, the touch order, the lanes, and the generation move as one value and a contended commit past the swap budget REFUSES rather than corrupting the ledger.
-- Receipt: `CacheReceipt` — generation, live cell count, live bytes, retired count, released count, `CacheTrigger` row, `Instant`, correlation id.
-- Packages: Rasm (`Cell`, `Transition`, `Dimension`, `Op`), Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new product plane is one `BudgetedCache.Of` call naming its posture, cost, and release; a new retention law is one `RetentionPosture` row; a new cohort cause on the asset plane is one `CacheTrigger` row and one `Retire` call.
+- Entry: `BudgetedCache.Of(ceiling, posture, bytes, release, refuse)` — `Fin`; `Take(key, build)` — the one admission path and the pressure-lane edge; a CAS loser releases its OWN mint and returns the winner; `Retire(stale, advance)` — the cohort edge, raising the generation when `advance`; `Seal()` — drains the pressure counts (count instruments report what happened since the previous seal); `Dispose()` releases every lane and every live cell. `AssetCache.Cycle(rows)` and `Rescale(scale)` are the asset plane's two cohort edges and return the intrinsic `CacheSweep`; `Platform(row, mint)` seats a platform pointer handle under the row.
+- Auto: `Cycle` binds `ThemeCell.Rebuild` at composition and acts on the `Rematerialize.TintedAsset` row alone; `Rescale` binds the `Shell/hosts` `SurfaceFact.ScaleChanged` fact; every transition is one `Cell.Commit` over a single immutable state record, so the byte total, the touch order, the lanes, and the generation move as one value and a contended commit past the swap budget REFUSES rather than corrupting the ledger.
+- Packages: Rasm (`Cell`, `Transition`, `Dimension`, `Op`), Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Growth: a new product plane is one `BudgetedCache.Of` call naming its posture, cost, and release; a new retention law is one `RetentionPosture` row; a new cohort cause on the asset plane is one `Retire` projection.
 - Boundary: this cache is the BOUNDARY's own custody per the kernel asset law — a kernel-side cache over a host handle outlives the surface that asked for it. `AssetCache` is the ONLY owner that disposes an `AssetProduct`; a caller holding a resolved image never releases it. Byte cost derives from the product's own extent, and a single product larger than the whole ceiling refuses as `BudgetRejected` rather than retiring the table to admit one cell. Release runs OUTSIDE the commit: the transition answers what it displaced and the caller releases that, so a re-run CAS body never disposes twice. Every edge that FILLS a lane also advances it; the two lanes stay apart because a staleness cohort's grace must span the swap's re-materialization roster while a pressure retiree's grace is the next eviction.
 
 ```csharp
@@ -441,17 +440,8 @@ public sealed partial class RetentionPosture {
     public partial bool Releasable(long cell, long live);
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class CacheTrigger {
-    public static readonly CacheTrigger ThemeSwap = new("theme-swap");
-    public static readonly CacheTrigger ScaleFlip = new("scale-flip");
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CacheSweep(long Generation, int Live, long Bytes, int Retired, int Released);
-
-public sealed record CacheReceipt(long Generation, int Live, long Bytes, int Retired, int Released, CacheTrigger Trigger, Instant At, CorrelationId Correlation);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnull {
@@ -584,34 +574,30 @@ public sealed class AssetCache : IDisposable {
     static readonly Op Caching = Op.Of(name: "appui.asset.cache");
     readonly BudgetedCache<AssetRequest, AssetProduct> products;
     readonly BudgetedCache<PointerRow, Cursor> pointers;
-    readonly IClock clock;
 
-    AssetCache(BudgetedCache<AssetRequest, AssetProduct> products, BudgetedCache<PointerRow, Cursor> pointers, IClock clock) =>
-        (this.products, this.pointers, this.clock) = (products, pointers, clock);
+    AssetCache(BudgetedCache<AssetRequest, AssetProduct> products, BudgetedCache<PointerRow, Cursor> pointers) =>
+        (this.products, this.pointers) = (products, pointers);
 
-    public static Fin<AssetCache> Of(long ceiling, IClock clock) =>
+    public static Fin<AssetCache> Of(long ceiling) =>
         from products in BudgetedCache<AssetRequest, AssetProduct>.Of(ceiling, RetentionPosture.Holder,
             static product => product.Bytes, static product => ignore(product.Release()),
             static (request, cost) => new AssetFault.BudgetRejected($"{request.Key} {cost}b"), Caching)
         from pointers in BudgetedCache<PointerRow, Cursor>.Of(ceiling, RetentionPosture.Holder,
             static _ => 0L, static cursor => cursor.Dispose(),
             static (row, _) => new AssetFault.BudgetRejected(row.Key), Caching)
-        select new AssetCache(products, pointers, clock);
+        select new AssetCache(products, pointers);
 
     public Fin<AssetProduct> Take(AssetRequest request, Func<Fin<AssetProduct>> build) => products.Take(request, build);
 
     public Fin<Cursor> Platform(PointerRow row, Func<Fin<Cursor>> mint) => pointers.Take(row, mint);
 
-    public CacheReceipt Cycle(Seq<Rematerialize> rows, CorrelationId correlation) =>
-        Sealed(rows.Exists(static row => row == Rematerialize.TintedAsset)
+    public CacheSweep Cycle(Seq<Rematerialize> rows) =>
+        rows.Exists(static row => row == Rematerialize.TintedAsset)
             ? products.Retire(static (_, _) => true, advance: true)
-            : products.Seal(), CacheTrigger.ThemeSwap, correlation);
+            : products.Seal();
 
-    public CacheReceipt Rescale(double scale, CorrelationId correlation) =>
-        Sealed(products.Retire((request, _) => request.Scale != scale, advance: false), CacheTrigger.ScaleFlip, correlation);
-
-    CacheReceipt Sealed(CacheSweep sweep, CacheTrigger trigger, CorrelationId correlation) =>
-        new(sweep.Generation, sweep.Live, sweep.Bytes, sweep.Retired, sweep.Released, trigger, clock.GetCurrentInstant(), correlation);
+    public CacheSweep Rescale(double scale) =>
+        products.Retire((request, _) => request.Scale != scale, advance: false);
 
     public void Dispose() { pointers.Dispose(); products.Dispose(); }
 }
@@ -765,7 +751,7 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
 ## [06]-[RASTER_ASSETS]
 
 - Owner: `RasterAssets` — the async raster loader capability and DPI-variant election; `RasterRow` the policy record carrying placeholder and error fallback keys, cache folder, and HiDPI threshold.
-- Entry: `RasterAssets.Open(ProfileRoots roots, Option<HttpClient> client)` — one disposable capability owns the disk-cached loader and publishes it as the global `ImageLoader.AsyncImageLoader` at construction, so every `AdvancedImage` in the product resolves through it and a second publish site has no spelling; `Pick(row, scale)` — the PURE variant election, returning the elected variant beside its declared scale so a receipt records what SERVED.
+- Entry: `RasterAssets.Open(ProfileRoots roots, Option<HttpClient> client)` — one disposable capability owns the disk-cached loader and publishes it as the global `ImageLoader.AsyncImageLoader` at construction, so every `AdvancedImage` in the product resolves through it and a second publish site has no spelling; `Pick(row, scale)` — the PURE variant election returning the source and declared scale that served.
 - Packages: AsyncImageLoader.Avalonia, Avalonia, Rasm (`AssetKey`), Rasm.AppHost (`ProfileRoots`), LanguageExt.Core, BCL inbox
 - Growth: one policy value per cache or variant fact; a storage-scoped source composes the loader's own `IAdvancedAsyncImageLoader.ProvideImageAsync(url, storage)` at its consuming surface.
 - Boundary: a present `HttpClient` stays borrowed (`disposeHttpClient: false`) and its retry policy is the AppHost outbound owner's — this page runs no `Schedule` over a client it does not own; cache content lives under `ProfileRoots`; `AssetRow.Variants` carries an extensible scale table; variant election is pure over the row and one scale, so the `AssetCache` scale edge is the only re-election trigger — the loader hierarchy's own RAM cache holds decoded bytes and knows nothing of backing scale. The companion RAM loader, the storage lane, and the fallback-key bindings the earlier page claimed had no consumer on disk and are gone; a fallback binding lands with the `AdvancedImage` row that reads it.
@@ -801,10 +787,10 @@ public sealed class RasterAssets : IDisposable {
 
 ## [07]-[ASSET_CATALOG]
 
-- Owner: `AssetDeclaration` — the ONE `[SmartEnum<string>]` roster declaring every asset the product ships: kernel `AssetKey`, `AssetKind`, avares source, scale variants, preload partitions, the optional host glyph binding, and the ordered icon alternatives; `AssetCatalog` projects the runtime tables and owns the avares admission and the partitioned preload receipts; `PreloadPartition` is the per-surface preload axis ranked by depth.
+- Owner: `AssetDeclaration` — the ONE `[SmartEnum<string>]` roster declaring every asset the product ships: kernel `AssetKey`, `AssetKind`, avares source, scale variants, preload partitions, the optional host glyph binding, and the ordered icon alternatives; `AssetCatalog` projects the runtime tables and owns avares admission and partitioned preload publication; `PreloadPartition` is the per-surface preload axis ranked by depth.
 - Cases: `AssetKind` = vector | raster | geo | glyph — the glyph kind names a row that binds a host-typed payload and ships no avares bytes, so the two disjoint key sets the `Vector` arm walks are one column value; `PreloadPartition` = chrome | canvas | document | export with a `Depth` rank the mount's projection reads.
-- Entry: `AssetCatalog.Open(AssetKey key, double scale)` — `Fin`, `Validation` over the independent scale and key admissions; `AssetCatalog.Preload(SurfaceMount mount, double scale)` — `Validation` over every elected row, so a boot reports EVERY refused asset rather than the first; `AssetCatalog.Runtime(svg, cache)` — the one `AssetRuntime` mint projecting `Rows`, `Bindings`, and the shipped dictionary off the roster.
-- Receipt: `AssetReceipt` — key, kind, elected origin `Uri`, elected scale, and the asset-byte `ContentHash` currency minted through the kernel `ContentHash.Of(Stream)`; the text projection is the wire's (`ContentHash.Hex`), never the receipt's.
+- Entry: `AssetCatalog.Open(AssetKey key, double scale)` — `Fin`, `Validation` over the independent scale and key admissions; `AssetCatalog.Preload(SurfaceMount mount, double scale, HookRail rail)` — `Validation` over every elected row and `Fin<Unit>` after direct publication, so a boot reports EVERY refused asset rather than the first; `AssetCatalog.Runtime(svg, cache)` — the one `AssetRuntime` mint projecting `Rows`, `Bindings`, and the shipped dictionary off the roster.
+- Auto: `AppUiFact.Asset` carries key, kind, elected origin, elected scale, and the asset-byte `ContentHash` minted through `ContentHash.Of(Stream)`; `HookRail` publishes it at `AppUiPoint.Asset` from the successful preload admission.
 - Packages: Rasm (`AssetKey`, `AssetOrigin`, `MirrorAxis`, `ContentHash`, `Custody`, `AcceptValidated`), Avalonia, FluentIcons.Common, Semi.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one `AssetDeclaration` row admits a new asset with its kind, source, variants, partitions, binding, and icon alternatives at once; a sixth `RevertKind` lands its glyph as one `History(...)` row whose key the mint derives.
 - Boundary: avares content is the only Release-time asset origin; the key vocabulary crosses pages as `AssetDeclaration.X.Key` values. Declaration order inside `Icons` IS fallback order — font face first, shipped geometry second, bundled vector last. The mirror AXIS is decided once per glyph here; the MECHANISM nowhere here. `AssetKind.Glyph` rows carry no avares source and `Open` refuses them by name; every other kind carries one, so a binding key with no bytes and a byte key with no binding are two row shapes, never an accidental miss. The five history glyph keys carry the `history-` stem through one `History` mint and `Editing/history.md` `RevertKind` reads them — the derivation runs DOWNWARD because `Theme` is S0 vocabulary and may not import the S2 history owner.
@@ -846,8 +832,6 @@ public sealed partial class PreloadPartition {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record AssetRow(AssetKey Key, AssetKind Kind, Uri Source, Seq<(double Scale, Uri Source)> Variants, Seq<PreloadPartition> Partitions);
-
-public sealed record AssetReceipt(AssetKey Key, AssetKind Kind, Uri Origin, double Scale, UInt128 ContentHash);
 
 // --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
@@ -939,20 +923,26 @@ public static class AssetCatalog {
         from stream in Opening.Catch(() => Fin.Succ(AssetLoader.Open(RasterAssets.Pick(admitted.Declared.Row, admitted.Scale.Value).Source)))
         select stream;
 
-    public static Fin<Seq<AssetReceipt>> Preload(SurfaceMount mount, double scale) =>
+    public static Fin<Unit> Preload(
+        SurfaceMount mount,
+        double scale,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
         PreloadPartition.Elect(mount) switch {
             var elected => toSeq(AssetDeclaration.Items)
                 .Filter(row => row.Partitions.Any(elected.Contains))
-                .Traverse(row => Receipt(row, scale).ToValidation())
-                .As().ToFin(),
+                .Traverse(row => Open(row.Asset, scale)
+                    .Bind(payload => Custody.Bracket(
+                        () => Opening.Catch(() => Fin.Succ(ContentHash.Of(payload))), payload))
+                    .Bind(digest => RasterAssets.Pick(row.Row, scale) switch {
+                        var source => rail.Fire(
+                            at: AppUiPoint.Asset,
+                            fact: new AppUiFact.Asset(row.Asset.Value, row.Kind.Key, source.Source.ToString(), source.Scale, digest),
+                            key: Opening),
+                    })
+                    .ToValidation())
+                .As().ToFin()
+                .Map(static _ => unit),
         };
-
-    static Fin<AssetReceipt> Receipt(AssetDeclaration row, double scale) =>
-        Open(row.Key, scale).Bind(payload => Custody.Bracket(
-            () => Opening.Catch(() => Fin.Succ(ContentHash.Of(payload))), payload))
-            .Map(digest => RasterAssets.Pick(row.Row, scale) switch {
-                var elected => new AssetReceipt(row.Asset, row.Kind, elected.Source, elected.Scale, digest),
-            });
 }
 ```
 

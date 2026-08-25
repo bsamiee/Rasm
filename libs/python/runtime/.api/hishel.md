@@ -143,12 +143,12 @@
 [STACKING]:
 - `AsyncCacheTransport(next_transport=AsyncHTTPTransport(...), storage=AsyncSqliteStorage(database_path=...), policy=SpecificationPolicy(CacheOptions(shared=...)))` mounts on the runtime `AsyncClient`: one transport stack, cache above transport above pool.
 - `httpx`(`.api/httpx.md`): the served `httpx.Response` is byte-identical to the origin's, so its `Response.json()` feeds the same `msgspec.convert`/pydantic wire-model decoder the `httpx` rail already owns — the cache adds no decode seam.
-- `opentelemetry-instrumentation-httpx`(`.api/opentelemetry-instrumentation-httpx.md`): the httpx client span wraps the transport beneath the cache, so a `FromCache` served response carries no origin span, and the runtime reads its `AnyState` tag onto the transport receipt rather than a separate hit/miss counter.
+- `opentelemetry-instrumentation-httpx`(`.api/opentelemetry-instrumentation-httpx.md`): the httpx client span wraps the transport beneath the cache, so a `FromCache` served response carries no origin span, and the runtime reads its `AnyState` tag onto the transport outcome rather than a separate hit/miss counter.
 
 [LOCAL_ADMISSION]:
 - One `AsyncCacheTransport` wraps the one `AsyncHTTPTransport`; the runtime owns no second cache and no parallel per-mode caching client.
 - Revalidation is owned by `SpecificationPolicy` beside the content-keyed recipe lanes; the two owners never overlap — hishel caches HTTP responses, the recipe owner caches computed artifacts.
-- OTel `opentelemetry-instrumentation-httpx` spans the underlying transport beneath the cache; a `FromCache` state short-circuits the origin span while the cache decision rides the receipt.
+- OTel `opentelemetry-instrumentation-httpx` spans the underlying transport beneath the cache; a `FromCache` state short-circuits the origin span while the cache decision rides the outcome.
 
 [RAIL_LAW]:
 - Package: `hishel[httpx]`

@@ -66,7 +66,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`, the optional `voxel_c
 
 [ENTRYPOINT_SCOPE]: search, voxel, and result accessors
 
-`KdTree` search rows return an index and its squared distance; voxel-map rows build the VGICP target; `RegistrationResult` rows carry the optimization receipt.
+`KdTree` search rows return an index and its squared distance; voxel-map rows build the VGICP target; `RegistrationResult` carries the optimization outcome and solver matrices.
 
 | [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                         |
 | :-----: | :---------------------------------------- | :------- | :----------------------------------- |
@@ -89,7 +89,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`, the optional `voxel_c
 - preprocessing axis: `preprocess_points` fuses voxel-grid downsampling, KdTree construction, and normal/covariance estimation in one parallel pass; `voxelgrid_sampling` and `estimate_normals`/`estimate_covariances` are the decomposed path when stages are reused.
 - voxel axis: VGICP targets are `GaussianVoxelMap`; incremental streaming uses the `IncrementalVoxelMap*` variants whose optional `voxel_covs`/`voxel_normals` accessor matches the named attribute, and `set_lru` bounds memory for online mapping.
 - determinism: `voxelgrid_sampling` with `num_threads>1` admits up to a 10% point-count increase over the single-thread result; discretized voxel coordinates stay within the 21-bit range `[-1048576, 1048575]`, and out-of-range points are dropped.
-- evidence: each `align` returns the full `RegistrationResult` receipt, `H`/`b` exposing the final normal equations for chaining into a downstream solver.
+- evidence: each `align` returns the full `RegistrationResult`, `H`/`b` exposing the final normal equations for chaining into a downstream solver.
 - boundary: `small_gicp` owns fine multi-threaded GICP/VGICP registration; coarse feature-based global registration, FPFH, and surface reconstruction route to `open3d`, mesh-mesh ICP to `trimesh.registration`, and general PLY/scan IO to `open3d`/`laspy` rather than the test-only `read_ply`.
 
 [STACKING]:
@@ -97,7 +97,7 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`, the optional `voxel_c
 - `open3d`(`.api/open3d.md`): `registration_ransac_based_on_feature_matching`/`registration_fgr_based_on_feature_matching` yield a `RegistrationResult.transformation` seeding `align(target, source, init_T_target_source=T)` for fine GICP/VGICP refinement.
 - `kiss_matcher`(`.api/kiss-matcher.md`): `RegistrationSolution.rotation`/`translation` compose the coarse 4x4 pose feeding `align(init_T_target_source=...)` — `small_gicp` is the fine arm of the two-stage registration union.
 - `probreg`(`.api/probreg.md`): a rigid-arm `RigidTransformation` (`rot`/`t` as a 4x4) seeds `align(init_T_target_source=...)` for fine refinement following a coarse probabilistic alignment.
-- geometry scan owner: composes `read_ply`/numpy intake, `preprocess_points`, and `align` into the scan-registration mode; `RegistrationResult.H`/`b` chain into a downstream solver as the registration receipt.
+- geometry scan owner: composes `read_ply`/numpy intake, `preprocess_points`, and `align` into the scan-registration mode; `RegistrationResult.H`/`b` chain into a downstream solver directly.
 
 [LOCAL_ADMISSION]:
 - small_gicp is admitted for the fine multi-threaded GICP/VGICP/ICP/point-to-plane refinement slot the coarse global `kiss_matcher`/`open3d` and probabilistic `probreg` engines seed.

@@ -1,16 +1,16 @@
 # [RASM_FABRICATION_MANUFACTURABILITY]
 
-`Manufacturability` owns evidence-backed producibility from admitted component geometry and supplied domain observations through parameterized rule evaluation, remediation, process-requirement ranking, assembly precheck, and one settled `Receipt<DfmReport>`. Missing, insufficient-confidence, or incomparable evidence remains an explicit gate state; no absent lane reads as conforming.
+`Manufacturability` owns evidence-backed producibility from admitted component geometry and supplied domain observations through parameterized rule evaluation, remediation, process-requirement ranking, assembly precheck, and one settled `DfmReport`. Missing, insufficient-confidence, or incomparable evidence remains an explicit gate state; no absent lane reads as conforming.
 
-`Analyze`, `Offsetting`, and `Spatial` remain geometry-kernel owners and `MeshSpace` the mesh subject every kernel query takes — its memoized normal column, its spatial index, and its native duplicate are the kernel's, so this page holds no mesh scratch of its own. `Capability.Achievable` owns process-history projection through the qualifying row's own `ItGrade` and effective sample size, `ToleranceSpec.Apply(ToleranceRequest.Effective)` owns material-condition departure and virtual condition, `ToleranceChain.Evaluate` owns the stackup algebra this page composes rather than forks, `ProcedureReceipt.Qualified` owns weld-procedure compliance, `ModalityPhysics` owns process physics, and `Kinematics/fleet` owns machine matching. `DfmReport.Routing` crosses the derivation seam as ranked `ProcessKind` evidence.
+`Analyze`, `Offsetting`, and `Spatial` remain geometry-kernel owners and `MeshSpace` the mesh subject every kernel query takes — its memoized normal column, its spatial index, and its native duplicate are the kernel's, so this page holds no mesh scratch of its own. `Capability.Achievable` owns process-history projection through the qualifying row's own `ItGrade` and effective sample size, `ToleranceSpec.Apply(ToleranceRequest.Effective)` owns material-condition departure and virtual condition, `ToleranceChain.Evaluate` owns the stackup algebra this page composes rather than forks, `ProcedureAssessment.Qualified` owns weld-procedure compliance, `ModalityPhysics` owns process physics, and `Kinematics/fleet` owns machine matching. `DfmReport.Routing` crosses the derivation seam as ranked `ProcessKind` evidence.
 
 A settled assessment addresses under `EgressKind.QualityRecord` over the REQUEST it read — the DfM verdict IS the quality record for a produced component, and `Verify/audit` `Audit.Preflight` is the family's other producer over an additive slice stack. Two arms, one egress family, one keying law: `FabricationCanon.Keyed` frames the admitted request so two assessments of one request are recognized as the same check.
 
 ## [01]-[INDEX]
 
 - [02]-[DFM_VOCABULARY]: severity, outcome, feature, and concern rows; the derivation-route census and the resolution algebra that grades every reading; the weighted routing objectives.
-- [03]-[EVIDENCE_MODELS]: typed measure and criterion, locus, remedy, rule, observation, route candidate, routing weights, policy, request, and the sidecar package receipts.
-- [04]-[ASSESSMENT]: `Manufacturability.Assess`, the derived-evidence folds over the kernel mesh subject, verdict evaluation, route ranking, the stackup precheck composing `ToleranceChain.Evaluate`, and the `EgressKind.QualityRecord` receipt the fold settles on.
+- [03]-[EVIDENCE_MODELS]: typed measure and criterion, locus, remedy, rule, observation, route candidate, routing weights, policy, request, and the sidecar package results.
+- [04]-[ASSESSMENT]: `Manufacturability.Assess`, the derived-evidence folds over the kernel mesh subject, verdict evaluation, route ranking, the stackup precheck composing `ToleranceChain.Evaluate`, and the `EgressKind.QualityRecord` result the fold settles on.
 
 ## [02]-[DFM_VOCABULARY]
 
@@ -234,7 +234,7 @@ public sealed partial class RouteObjective {
 - Law: `DfmLocus` addresses a POINT, an EDGE, a FACE, a BOUNDED REGION, a keyed feature, a datum, a layer, a joint, a setup, a process, or the whole part — a second bounded case distinguished only by the word volume carried the same payload under a second name and is the deleted form.
 - Law: resting faces and drafted faces read ONE normal roster and partition it — the resting test is strictly downward so a vertical wall stays in the drafted census, and the draft demand measures the COMPLEMENT of the excluded set rather than the excluded set itself.
 - Law: `RouteCandidate` admission UNITIZES its approach directions, so every consumer reads a unit direction by construction and no probe re-derives one or guards a sentinel the derivation could return.
-- Law: a sidecar package receipt states the RESOLUTION it measured at — a voxel edge, a cutter-contact step — so the confidence its observations earn is the sidecar's own discretization rather than a constant this page assigns to the word package.
+- Law: a sidecar package result states the RESOLUTION it measured at — a voxel edge, a cutter-contact step — so the confidence its observations earn is the sidecar's own discretization rather than a constant this page assigns to the word package.
 - Auto: `DfmPolicy` proves every required concern has a generic or process-specific gating rule and every rule reaches at least one candidate; `DfmCriterion.Evaluate` compares unit-bearing, count, ratio, and flag measures; `RouteCandidate.Encloses` derives the `DfmConcern.Envelope` verdict from the candidate's own work volume, so a mesh-only part is never blocked for want of supplied operating envelope evidence.
 - Packages: `Loop.Apply` composes CavalierContours arc-native measurement and sampling; `PolygonAlgebra.Apply` composes Clipper2 topology; `DfmPackageEvidence.Cutter` carries OpenCAMLib cutter-contact evidence against canonical `ToolEvidence`; `DfmPackageEvidence.Voxel` carries PicoGK morphology, membership, ray, and solid-property evidence; UnitsNet owns every physical comparison; Thinktecture and LanguageExt own generated values and the accumulated rail.
 - Growth: a policy variation is one `DfmRule` row; a process candidate is one `RouteCandidate` row; a sidecar family is one `DfmPackageEvidence` case carrying its own resolution column.
@@ -651,7 +651,7 @@ public sealed partial class DfmRequest {
     public Seq<DfmPackageEvidence> PackageEvidence { get; }
     public Seq<ToleranceDemand> Tolerances { get; }
     public Seq<CapabilityHistory> CapabilityHistory { get; }
-    public Seq<ProcedureReceipt> Procedures { get; }
+    public Seq<ProcedureAssessment> Procedures { get; }
     public Seq<AssemblyAllowance> Allowances { get; }
 
     [BoundaryAdapter]
@@ -663,7 +663,7 @@ public sealed partial class DfmRequest {
         ref Seq<DfmPackageEvidence> packageEvidence,
         ref Seq<ToleranceDemand> tolerances,
         ref Seq<CapabilityHistory> capabilityHistory,
-        ref Seq<ProcedureReceipt> procedures,
+        ref Seq<ProcedureAssessment> procedures,
         ref Seq<AssemblyAllowance> allowances) {
         if (packageEvidence.Exists(static row => !row.IsValid))
             validationError = Manufacturability.Validation("request");
@@ -698,51 +698,50 @@ public abstract partial record DfmPackageEvidence : IValidityEvidence {
         Instant At) : DfmPackageEvidence;
 
     public Length Step => Switch(
-        cutter: static receipt => receipt.Resolution,
-        voxel: static receipt => receipt.Resolution);
+        cutter: static result => result.Resolution,
+        voxel: static result => result.Resolution);
 
     public Instant At => Switch(
-        cutter: static receipt => receipt.At,
-        voxel: static receipt => receipt.At);
+        cutter: static result => result.At,
+        voxel: static result => result.At);
 
     public bool IsValid => Switch(
-        cutter: static receipt => ValidityClaim.All(
-            receipt.Locus.IsValid,
-            ValidityClaim.Positive(receipt.CutterDiameter.Millimeters),
-            ValidityClaim.Nonnegative(receipt.CornerRadius.Millimeters),
-            ValidityClaim.Positive(receipt.CuttingLength.Millimeters),
-            ValidityClaim.Nonnegative(receipt.RequiredReach.Millimeters),
-            ValidityClaim.Positive(receipt.Resolution.Millimeters),
-            receipt.At != default),
-        voxel: static receipt => ValidityClaim.All(
-            ValidityClaim.Nonnegative(receipt.MinimumWall.Millimeters),
-            ValidityClaim.Nonnegative(receipt.MinimumGap.Millimeters),
-            ValidityClaim.CountAtLeast(receipt.TrappedVolumes, 0),
-            ValidityClaim.Positive(receipt.SolidVolume.As(VolumeUnit.CubicMillimeter)),
-            receipt.Bounds.IsValid,
-            ValidityClaim.Positive(receipt.Resolution.Millimeters),
-            receipt.At != default));
+        cutter: static result => ValidityClaim.All(
+            result.Locus.IsValid,
+            ValidityClaim.Positive(result.CutterDiameter.Millimeters),
+            ValidityClaim.Nonnegative(result.CornerRadius.Millimeters),
+            ValidityClaim.Positive(result.CuttingLength.Millimeters),
+            ValidityClaim.Nonnegative(result.RequiredReach.Millimeters),
+            ValidityClaim.Positive(result.Resolution.Millimeters),
+            result.At != default),
+        voxel: static result => ValidityClaim.All(
+            ValidityClaim.Nonnegative(result.MinimumWall.Millimeters),
+            ValidityClaim.Nonnegative(result.MinimumGap.Millimeters),
+            ValidityClaim.CountAtLeast(result.TrappedVolumes, 0),
+            ValidityClaim.Positive(result.SolidVolume.As(VolumeUnit.CubicMillimeter)),
+            result.Bounds.IsValid,
+            ValidityClaim.Positive(result.Resolution.Millimeters),
+            result.At != default));
 }
 ```
 
 ## [04]-[ASSESSMENT]
 
-- Owner: `Manufacturability.Assess` owns the cross-modality fold; `DfmVerdict` owns one rule-against-evidence decision; `RoutingRow` and `RouteScore` own ranking; `StackupPrecheck` owns the assembly-allowance verdict; `DfmReport` is the evidence payload and `Receipt<DfmReport>` the settled carrier.
-- Law: the stackup precheck COMPOSES `ToleranceChain.Evaluate` — the chain's own method, its ranked contributions, and its bound verdict — and adds only what this page owns: whether the supplied allowances cover the chain's terms and whether their accumulated interval clears the same bound. The chain arrives as the `Receipt<ChainEvidence>` its owner settled, so conformance reads `Verified` and the ranking reads `Evidence` — a local worst-case fold here would be a third stackup algebra disagreeing with the two that already answer.
+- Owner: `Manufacturability.Assess` owns the cross-modality fold; `DfmVerdict` owns one rule-against-evidence decision; `RoutingRow` and `RouteScore` own ranking; `StackupPrecheck` owns the assembly-allowance verdict; `DfmReport` owns the settled decision basis.
+- Law: the stackup precheck composes `ToleranceChain.Evaluate` — the chain's own method, its ranked contributions, and its bound verdict — and adds only what this page owns: whether the supplied allowances cover the chain's terms and whether their accumulated interval clears the same bound. Conformance reads `ChainEvidence.Conforming` and ranking reads its contributions — a local worst-case fold here would be a third stackup algebra disagreeing with the two that already answer.
 - Law: mesh-derived evidence holds NO scratch of its own. `MeshSpace` memoizes the unit-normal column, the spatial index, and the native duplicate on the snapshot itself, so the draft, resting, overhang, access, joint, and integrity lanes each read the kernel subject directly and a folder-local record re-carrying those four columns is a second cache the kernel already owns — its only remaining products were a partition and a face-box walk, and the partition is one filter over the kernel column.
 - Law: resting faces derive from the SAME normal rows the draft census reads, so the excluded set and the measured set share one index space — a face selection recovered from a second decomposition indexes a different topology and silently excludes the wrong faces.
 - Law: every gate refusal carries its OWN discriminant. The kernel `InvalidInput`/`InvalidResult` mints take no detail slot, so gates lowering onto them are refusals a caller cannot tell apart; each answers on the fabrication band under a declared locus.
 - Law: validity is the KERNEL's vocabulary. Every union on this page implements `IValidityEvidence` and spells its fold as `ValidityClaim.All(...)` over the claim rows the kernel states once — `Finite`, `Positive`, `Nonnegative`, `UnitInterval`, `Ordered`, `CountAtLeast`, `Direction`, `WhenPresent` — so a predicate is never re-derived here and the acceptance oracle reaches each carrier with no oracle edit.
 - Law: a degenerate profile, an unresolvable medial axis, or absent history contributes no observation rather than failing the report, so producibility gaps stay report rows and only kernel faults leave the rail.
-- Law: the settled receipt addresses the REQUEST, never its own conclusions. `FabricationCanon.Keyed(EgressKind.QualityRecord, …)` frames the admitted component key, every policy column a verdict turns on, and every supplied evidence row, quantized at the policy's own arc tolerance — the step every sampled reading already grades against — so two assessments of one request mint one key and a re-run under a changed rule mints another. `Verified` carries producibility, which is the one conformance question every settled receipt in the package answers on that slot.
+- Law: the settled result addresses the request, never its own conclusions. `FabricationCanon.Keyed(EgressKind.QualityRecord, …)` frames the admitted component key, every policy column a verdict turns on, and every supplied evidence row, quantized at the policy's own arc tolerance — the step every sampled reading already grades against — so two assessments of one request mint one key and a re-run under a changed rule mints another. `DfmReport.Producible` answers conformance directly.
 - Exemption: `Manufacturability.CornerEvidence` and `Manufacturability.ToPolyline` are statement kernels — one index walk and one sampling loop; every other body on this cluster is expression-shaped.
 - Entry: `Manufacturability.Assess(DfmRequest)` is the sole cross-modality fold. Geometry, capability, supplied evidence, and assembly allowances join applicatively; kernel failures remain typed `Fin` failures, while producibility failures remain report rows.
-- Receipt: `DfmVerdict` preserves process, confidence outcome, observation, criterion, locus, and remedy; `RoutingRow` preserves blockers, requirements, and the `RouteScore` column set whose `Worst` names the dominant burden; `StackupPrecheck` preserves the settled chain receipt beside the allowance census; `DfmReport` preserves the full decision basis and the carrier preserves its identity, plane, stamp, and verdict.
-- Packages: `Process/owner` (`Receipt<TEvidence>`, `FabricationCanon.Keyed`, `EgressKind.QualityRecord`, `ContentKey`); `Rasm.Domain` (`IValidityEvidence`, `ValidityClaim`, `Op`); `Rasm.Meshing` (`MeshSpace.FaceNormals`, `.Index`, `.DuplicateNative`); `Rasm.Spatial`; `Rasm.Analysis`; LanguageExt.Core for the accumulated rail.
+- Result: `DfmVerdict` preserves process, confidence outcome, observation, criterion, locus, and remedy; `RoutingRow` preserves blockers, requirements, and the `RouteScore` column set whose `Worst` names the dominant burden; `StackupPrecheck` preserves the settled chain result beside the allowance census; `DfmReport` preserves the request key and full decision basis.
+- Packages: `Process/owner` (`FabricationCanon.Keyed`, `EgressKind.QualityRecord`, `ContentKey`); `Rasm.Domain` (`IValidityEvidence`, `ValidityClaim`, `Op`); `Rasm.Meshing` (`MeshSpace.FaceNormals`, `.Index`, `.DuplicateNative`); `Rasm.Spatial`; `Rasm.Analysis`; LanguageExt.Core for the accumulated rail.
 - Boundary: routing ranks process requirements and evidence, while fleet matching, tool selection, support generation, unfolding, joining sequence, correlated stackup simulation, rendering, and persistence remain downstream owners.
 
 ```csharp
-// --- [RECEIPTS] ------------------------------------------------------------------------
 public sealed record DfmVerdict(
     ProcessKind Process,
     DfmRule Rule,
@@ -774,7 +773,7 @@ public sealed record RoutingRow(
     RouteScore Score);
 
 public sealed record StackupPrecheck(
-    Receipt<ChainEvidence> Chain,
+    ChainEvidence Chain,
     Length Negative,
     Length Positive,
     int RequiredAllowances,
@@ -784,13 +783,14 @@ public sealed record StackupPrecheck(
     public bool Complete => MissingTerms.IsEmpty && UnexpectedTerms.IsEmpty
         && ObservedAllowances == RequiredAllowances;
 
-    public bool Pass => Complete && Chain.Verified.IfNone(false)
-        && double.Max(Math.Abs(Negative.Millimeters), Math.Abs(Positive.Millimeters)) <= Chain.Evidence.BoundMm;
+    public bool Pass => Complete && Chain.Conforming
+        && double.Max(Math.Abs(Negative.Millimeters), Math.Abs(Positive.Millimeters)) <= Chain.BoundMm;
 
-    public Option<(string Term, double Share)> Dominant => Chain.Evidence.Dominant;
+    public Option<(string Term, double Share)> Dominant => Chain.Dominant;
 }
 
 public sealed record DfmReport(
+    ContentKey Key,
     UInt128 ComponentKey,
     Seq<DfmObservation> Observations,
     Seq<DfmVerdict> Verdicts,
@@ -827,7 +827,7 @@ public static class Manufacturability {
     private static readonly Error DegenerateApproach = Refusal("degenerate-approach");
     private static readonly Error DegenerateJoint = Refusal("degenerate-joint");
 
-    public static Fin<Receipt<DfmReport>> Assess(DfmRequest request) =>
+    public static Fin<DfmReport> Assess(DfmRequest request) =>
         from _ in Admit(request)
         from evidence in (Accumulate(Derived(request, request.Component.Mesh)),
                 Accumulate(PackageEvidence(request.PackageEvidence)),
@@ -839,22 +839,17 @@ public static class Manufacturability {
             .ToFin()
         let verdicts = Evaluate(request.Policy.Rules, request.Policy.Candidates, evidence, request.Policy.At)
         let stackup = Precheck(request.Policy.AssemblyChain, request.Allowances, request.Policy.At)
-        let report = new DfmReport(
-            request.Component.RepresentationKey,
-            evidence,
-            verdicts,
-            Route(request.Component, request.Policy, verdicts, stackup),
-            stackup)
+        let rows = Route(request.Component, request.Policy, verdicts, stackup)
         from key in FabricationCanon.Keyed(
             EgressKind.QualityRecord, request.Policy.ArcTolerance.Millimeters,
             writer => Request(writer, request), DfmOp)
-        select new Receipt<DfmReport> {
-            Evidence = report,
-            Concern = FabConcern.Spec,
-            Key = key,
-            Stamped = request.Policy.At,
-            Verified = Some(report.Producible),
-        };
+        select new DfmReport(
+            key,
+            request.Component.RepresentationKey,
+            evidence,
+            verdicts,
+            rows,
+            stackup);
 
     private static CanonicalWriter Request(CanonicalWriter writer, DfmRequest request) => writer
         .U128(request.Component.RepresentationKey)
@@ -991,7 +986,7 @@ public static class Manufacturability {
             Seq<string> required = owner.Terms.ToSeq().Map(static row => row.Key);
             Seq<string> observed = allowances.Map(static row => row.Term);
             return new StackupPrecheck(
-                owner.Evaluate(at),
+                owner.Evaluate(),
                 Length.FromMillimeters(allowances.Fold(0.0, static (sum, row) => sum + row.Negative.Millimeters)),
                 Length.FromMillimeters(allowances.Fold(0.0, static (sum, row) => sum + row.Positive.Millimeters)),
                 required.Count,
@@ -1080,15 +1075,15 @@ public static class Manufacturability {
             .Map(static rows => rows.Bind(identity));
 
     private static Fin<Seq<DfmObservation>> ProcedureEvidence(DfmRequest request) =>
-        request.Procedures.TraverseM(receipt => request.Policy.Candidates
-                .Find(candidate => candidate.Process == receipt.Process
+        request.Procedures.TraverseM(result => request.Policy.Candidates
+                .Find(candidate => candidate.Process == result.Process
                     && candidate.Process.Modality.Class == ModalityClass.Joined)
                 .ToFin(ProcedureOffRoster)
                 .Bind(candidate => Seq(
                     Observe(
                         DfmConcern.ProcedureQualification,
                         DfmFeature.Joint,
-                        new DfmMeasure.Flag(receipt.Qualified),
+                        new DfmMeasure.Flag(result.Qualified),
                         new DfmLocus.AtProcess(candidate.Process),
                         request.Policy.At,
                         DfmProvenance.Qualification,
@@ -1097,7 +1092,7 @@ public static class Manufacturability {
                     Observe(
                         DfmConcern.JointInspection,
                         DfmFeature.Inspection,
-                        new DfmMeasure.Count(receipt.Inspections.Count),
+                        new DfmMeasure.Count(result.Inspections.Count),
                         new DfmLocus.AtProcess(candidate.Process),
                         request.Policy.At,
                         DfmProvenance.Qualification,
@@ -1137,38 +1132,38 @@ public static class Manufacturability {
                     DfmResolution.Exact).Map(static observation => Seq(observation))
                 : Fin.Succ(Seq<DfmObservation>()));
 
-    private static Fin<Seq<DfmObservation>> CutterEvidence(DfmPackageEvidence.Cutter receipt) => Seq(
-        Observe(DfmConcern.ToolAccess, DfmFeature.Pocket, new DfmMeasure.Flag(receipt.ContactFree), receipt.Locus, receipt.At,
-            DfmProvenance.Package, Step(receipt.CutterDiameter, receipt.Resolution), Some(receipt.Process)),
-        Observe(DfmConcern.InternalCorner, DfmFeature.Pocket, new DfmMeasure.Quantity(receipt.CornerRadius), receipt.Locus, receipt.At,
-            DfmProvenance.Package, Step(receipt.CornerRadius, receipt.Resolution), Some(receipt.Process)),
+    private static Fin<Seq<DfmObservation>> CutterEvidence(DfmPackageEvidence.Cutter result) => Seq(
+        Observe(DfmConcern.ToolAccess, DfmFeature.Pocket, new DfmMeasure.Flag(result.ContactFree), result.Locus, result.At,
+            DfmProvenance.Package, Step(result.CutterDiameter, result.Resolution), Some(result.Process)),
+        Observe(DfmConcern.InternalCorner, DfmFeature.Pocket, new DfmMeasure.Quantity(result.CornerRadius), result.Locus, result.At,
+            DfmProvenance.Package, Step(result.CornerRadius, result.Resolution), Some(result.Process)),
         Observe(DfmConcern.DepthToDiameter, DfmFeature.Pocket,
-            new DfmMeasure.Ratio(receipt.RequiredReach.Millimeters / receipt.CutterDiameter.Millimeters), receipt.Locus, receipt.At,
-            DfmProvenance.Package, Step(receipt.RequiredReach, receipt.Resolution), Some(receipt.Process)),
+            new DfmMeasure.Ratio(result.RequiredReach.Millimeters / result.CutterDiameter.Millimeters), result.Locus, result.At,
+            DfmProvenance.Package, Step(result.RequiredReach, result.Resolution), Some(result.Process)),
         Observe(DfmConcern.ThreadReach, DfmFeature.Thread,
-            new DfmMeasure.Flag(receipt.CuttingLength >= receipt.RequiredReach), receipt.Locus, receipt.At,
-            DfmProvenance.Package, Step(receipt.CuttingLength, receipt.Resolution), Some(receipt.Process)))
+            new DfmMeasure.Flag(result.CuttingLength >= result.RequiredReach), result.Locus, result.At,
+            DfmProvenance.Package, Step(result.CuttingLength, result.Resolution), Some(result.Process)))
         .TraverseM(identity)
         .As();
 
-    private static Fin<Seq<DfmObservation>> VoxelEvidence(DfmPackageEvidence.Voxel receipt) => Seq(
-        Observe(DfmConcern.MinimumWall, DfmFeature.Wall, new DfmMeasure.Quantity(receipt.MinimumWall),
-            new DfmLocus.AtBounds(receipt.Bounds), receipt.At, DfmProvenance.Package, Step(receipt.MinimumWall, receipt.Resolution)),
-        Observe(DfmConcern.MinimumFeature, DfmFeature.EnclosedVolume, new DfmMeasure.Quantity(receipt.MinimumGap),
-            new DfmLocus.AtBounds(receipt.Bounds), receipt.At, DfmProvenance.Package, Step(receipt.MinimumGap, receipt.Resolution)),
-        Observe(DfmConcern.SolidVolume, DfmFeature.Envelope, new DfmMeasure.Quantity(receipt.SolidVolume),
-            new DfmLocus.AtBounds(receipt.Bounds), receipt.At, DfmProvenance.Package,
-            DfmResolution.Of(receipt.SolidVolume.As(VolumeUnit.CubicMillimeter),
-                Math.Pow(receipt.Resolution.Millimeters, 3.0))),
-        Observe(DfmConcern.TrappedVolume, DfmFeature.EnclosedVolume, new DfmMeasure.Count(receipt.TrappedVolumes),
-            new DfmLocus.AtBounds(receipt.Bounds), receipt.At, DfmProvenance.Package,
-            Step(receipt.Bounds.Diagonal.Length, receipt.Resolution)),
-        Observe(DfmConcern.EscapeAccess, DfmFeature.EnclosedVolume, new DfmMeasure.Flag(receipt.EscapeReachable),
-            new DfmLocus.AtBounds(receipt.Bounds), receipt.At, DfmProvenance.Package,
-            Step(receipt.MinimumGap, receipt.Resolution)),
-        Observe(DfmConcern.SupportRemoval, DfmFeature.Support, new DfmMeasure.Flag(receipt.SupportRemovable),
-            new DfmLocus.AtBounds(receipt.Bounds), receipt.At, DfmProvenance.Package,
-            Step(receipt.MinimumGap, receipt.Resolution)))
+    private static Fin<Seq<DfmObservation>> VoxelEvidence(DfmPackageEvidence.Voxel result) => Seq(
+        Observe(DfmConcern.MinimumWall, DfmFeature.Wall, new DfmMeasure.Quantity(result.MinimumWall),
+            new DfmLocus.AtBounds(result.Bounds), result.At, DfmProvenance.Package, Step(result.MinimumWall, result.Resolution)),
+        Observe(DfmConcern.MinimumFeature, DfmFeature.EnclosedVolume, new DfmMeasure.Quantity(result.MinimumGap),
+            new DfmLocus.AtBounds(result.Bounds), result.At, DfmProvenance.Package, Step(result.MinimumGap, result.Resolution)),
+        Observe(DfmConcern.SolidVolume, DfmFeature.Envelope, new DfmMeasure.Quantity(result.SolidVolume),
+            new DfmLocus.AtBounds(result.Bounds), result.At, DfmProvenance.Package,
+            DfmResolution.Of(result.SolidVolume.As(VolumeUnit.CubicMillimeter),
+                Math.Pow(result.Resolution.Millimeters, 3.0))),
+        Observe(DfmConcern.TrappedVolume, DfmFeature.EnclosedVolume, new DfmMeasure.Count(result.TrappedVolumes),
+            new DfmLocus.AtBounds(result.Bounds), result.At, DfmProvenance.Package,
+            Step(result.Bounds.Diagonal.Length, result.Resolution)),
+        Observe(DfmConcern.EscapeAccess, DfmFeature.EnclosedVolume, new DfmMeasure.Flag(result.EscapeReachable),
+            new DfmLocus.AtBounds(result.Bounds), result.At, DfmProvenance.Package,
+            Step(result.MinimumGap, result.Resolution)),
+        Observe(DfmConcern.SupportRemoval, DfmFeature.Support, new DfmMeasure.Flag(result.SupportRemovable),
+            new DfmLocus.AtBounds(result.Bounds), result.At, DfmProvenance.Package,
+            Step(result.MinimumGap, result.Resolution)))
         .TraverseM(identity)
         .As();
 
@@ -1458,21 +1453,21 @@ config:
 ---
 flowchart LR
     accTitle: Manufacturability assessment fold
-    accDescr: One admitted request reads the kernel mesh subject, derives geometric, package, tolerance, and procedure observations each carrying its own resolution, evaluates parameterized rules into verdicts, ranks routes on weighted dimensionless burdens, composes the settled tolerance chain receipt into one stackup precheck, and settles as one quality-record receipt keyed over the request it read.
+    accDescr: One admitted request reads the kernel mesh subject, derives geometric, package, tolerance, and procedure observations each carrying its own resolution, evaluates parameterized rules into verdicts, ranks routes on weighted dimensionless burdens, composes the settled tolerance chain result into one stackup precheck, and settles as one quality-record result keyed over the request it read.
     Request["DfmRequest — component, policy, supplied evidence"] --> Admit["Manufacturability.Admit — accumulated gates"]
     Admit --> Subject["MeshSpace — memoized normals, index, native duplicate"]
     Subject --> Derived["Derived — policy, profile, wall, removal, forming, joining, additive"]
-    Package["DfmPackageEvidence — sidecar receipts with their own step"] --> Evidence
+    Package["DfmPackageEvidence — sidecar results with their own step"] --> Evidence
     Derived --> Evidence["DfmObservation set — route + resolution per reading"]
     Tolerance["ToleranceSpec.Apply(Effective) + Capability.Achievable"] --> Evidence
-    Procedure["ProcedureReceipt.Qualified"] --> Evidence
+    Procedure["ProcedureAssessment.Qualified"] --> Evidence
     Evidence --> Verdicts["Evaluate — criterion, confidence, outcome"]
     Verdicts --> Rows["Route — blockers, requirements, RouteScore"]
-    Chain["ToleranceChain.Evaluate — Receipt&lt;ChainEvidence&gt;"] --> Stackup["StackupPrecheck — allowance census + chain verdict"]
+    Chain["ToleranceChain.Evaluate — ChainEvidence"] --> Stackup["StackupPrecheck — allowance census + chain verdict"]
     Stackup --> Rows
     Rows --> Report["DfmReport — routing, verdicts, observations"]
     Request --> Key["FabricationCanon.Keyed — EgressKind.QualityRecord over the request"]
-    Report --> Settled["Receipt&lt;DfmReport&gt; — Spec plane, keyed, stamped, Verified = producible"]
+    Report --> Settled["DfmReport — keyed decision basis"]
     Key --> Settled
 ```
 
@@ -1480,7 +1475,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

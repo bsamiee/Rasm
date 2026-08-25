@@ -8,6 +8,7 @@
                     "id": "mesh-adjacency",
                     "definition": {
                         "kind": "law",
+                        "anchor": "libs/python/runtime/.planning/evidence/identity.md#[02]-[IDENTITY]",
                         "format": "binary"
                     },
                     "consumers": [
@@ -92,6 +93,7 @@
                     "id": "tessellation-source-key",
                     "definition": {
                         "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Bim/.planning/Exchange/tessellation.md#[02]-[TESSELLATION_BRIDGE]",
                         "format": "binary"
                     },
                     "consumers": [
@@ -306,6 +308,7 @@
                     "id": "tessellation-content-key",
                     "definition": {
                         "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Bim/.planning/Exchange/tessellation.md#[02]-[TESSELLATION_BRIDGE]",
                         "format": "binary"
                     },
                     "consumers": [
@@ -317,7 +320,7 @@
                         },
                         {
                             "anchor": "python:geometry/mesh/serve#SERVE",
-                            "coordinate": "_receipt",
+                            "coordinate": "_response",
                             "direction": "message",
                             "binding": "proof"
                         }
@@ -1545,7 +1548,7 @@
                     "readiness": {
                         "kind": "blocked",
                         "blockers": [
-                            "The executable provider and client carry no frozen unary Tessellate receipt and referenced artifact through the contract harness."
+                            "The executable provider and client carry no frozen unary Tessellate response and referenced artifact through the contract harness."
                         ]
                     }
                 }
@@ -2006,7 +2009,7 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#CORRELATION_JOIN",
+                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
                             "coordinate": "TimelineWire.Lower"
@@ -2206,10 +2209,10 @@
                     }
                 },
                 {
-                    "id": "write-receipt",
+                    "id": "write-outcome",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.binding.WriteReceiptWire",
+                        "message": "rasm.contracts.binding.WriteOutcomeWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2226,21 +2229,21 @@
                             "anchor": "dotnet:Rasm.AppHost/Wire/livewire#TS_PROJECTION",
                             "direction": "message",
                             "binding": "generated",
-                            "coordinate": "Receipt"
+                            "coordinate": "Outcome"
                         }
                     },
                     "readiness": {
                         "kind": "blocked",
                         "blockers": [
-                            "No corpus harness carries one producer-emitted WriteReceiptWire ProtoJSON instance through the direct TypeScript decoder."
+                            "No corpus harness carries one producer-emitted WriteOutcomeWire ProtoJSON instance through the direct TypeScript decoder."
                         ]
                     }
                 },
                 {
-                    "id": "evidence-receipt",
+                    "id": "evidence",
                     "definition": {
                         "kind": "proto",
-                        "message": "rasm.contracts.ui.EvidenceReceiptWire",
+                        "message": "rasm.contracts.ui.EvidenceWire",
                         "framing": "proto-json"
                     },
                     "consumers": [
@@ -2254,16 +2257,16 @@
                     "authority": {
                         "kind": "domain",
                         "producer": {
-                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#RECEIPT_UNION",
+                            "anchor": "dotnet:Rasm.AppUi/Diagnostics/evidence#EVIDENCE_UNION",
                             "direction": "message",
                             "binding": "generated",
-                            "coordinate": "EvidenceWire.Lower"
+                            "coordinate": "EvidenceMap.Lower"
                         }
                     },
                     "readiness": {
                         "kind": "blocked",
                         "blockers": [
-                            "No corpus harness carries one producer-emitted EvidenceReceiptWire ProtoJSON instance through the direct TypeScript decoder."
+                            "No corpus harness carries one producer-emitted EvidenceWire ProtoJSON instance through the direct TypeScript decoder."
                         ]
                     }
                 },
@@ -2353,7 +2356,7 @@
                             "anchor": "dotnet:Rasm.Materials/Raster/set#SET_INGEST",
                             "direction": "message",
                             "binding": "generated",
-                            "coordinate": "SetIngest.Peer"
+                            "coordinate": "Peer"
                         }
                     ],
                     "authority": {
@@ -2530,7 +2533,7 @@
         },
         {
             "id": "material-wire",
-            "law": "A material crosses as rasm.contracts.appearance.Material — the OpenPBR Surface 1.1 parameter algebra, conductor key, capture receipt, and appearance content hash — colour as the scene-linear triple; peers re-derive no hash.",
+            "law": "A material crosses as rasm.contracts.appearance.Material — the OpenPBR Surface 1.1 parameter algebra, conductor key, capture, and appearance content hash — colour as the scene-linear triple; peers re-derive no hash.",
             "cases": [
                 {
                     "id": "material-wire",
@@ -2573,6 +2576,7 @@
                     "id": "glb",
                     "definition": {
                         "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Bim/.planning/Exchange/export.md#[02]-[EXPORT_RAIL]",
                         "format": "binary"
                     },
                     "consumers": [
@@ -2603,6 +2607,7 @@
                     "id": "ifc",
                     "definition": {
                         "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Bim/.planning/Exchange/wire.md#[02]-[WIRE_PROJECTION]",
                         "format": "binary"
                     },
                     "consumers": [
@@ -2633,6 +2638,7 @@
                     "id": "3dm",
                     "definition": {
                         "kind": "law",
+                        "anchor": "libs/dotnet/Rasm.Rhino/.planning/Exchange/archive.md#[05]-[TRANSACTION_RAIL]",
                         "format": "binary"
                     },
                     "consumers": [
@@ -3822,43 +3828,6 @@
             ]
         },
         {
-            "id": "board-pack",
-            "law": "Board packs cross to the deploy plane as producer-minted BoardPackWire ProtoJSON; the generated enums carry every indicator, panel, burn, and severity vocabulary, so a producer arm breaks the peer compile instead of drifting.",
-            "cases": [
-                {
-                    "id": "compute",
-                    "definition": {
-                        "kind": "proto",
-                        "message": "rasm.contracts.board.BoardPackWire",
-                        "framing": "proto-json"
-                    },
-                    "consumers": [
-                        {
-                            "anchor": "typescript:core/observe/board#PACK_WIRE",
-                            "direction": "message",
-                            "binding": "generated",
-                            "coordinate": "Board.Pack.decode"
-                        }
-                    ],
-                    "authority": {
-                        "kind": "domain",
-                        "producer": {
-                            "anchor": "dotnet:Rasm.Compute/Runtime/board#TS_PROJECTION",
-                            "direction": "message",
-                            "binding": "generated",
-                            "coordinate": "BoardWireMap.ToWire"
-                        }
-                    },
-                    "readiness": {
-                        "kind": "blocked",
-                        "blockers": [
-                            "The producer freezes no pack vector — the compute pack crosses as ProtoJSON with no pinned instance."
-                        ]
-                    }
-                }
-            ]
-        },
-        {
             "id": "stage-crossing",
             "law": "The stage crossing is a same-language process crossing: Materials mints the request and re-admits the result through its registry gate, Compute admits and answers under the descriptor rules, and the relaying root never decodes.",
             "cases": [
@@ -3874,7 +3843,7 @@
                             "anchor": "dotnet:Rasm.Compute/Model/stage#STAGE_WIRE",
                             "direction": "message",
                             "binding": "generated",
-                            "coordinate": "StageWireMap.ToDomain"
+                            "coordinate": "StageWireMap.Admit"
                         }
                     ],
                     "authority": {
@@ -3883,7 +3852,7 @@
                             "anchor": "dotnet:Rasm.Materials/Appearance/interchange#STAGE_CROSSING",
                             "direction": "message",
                             "binding": "generated",
-                            "coordinate": "StageWire.Request"
+                            "coordinate": "Request"
                         }
                     },
                     "readiness": {
@@ -3905,7 +3874,7 @@
                             "anchor": "dotnet:Rasm.Materials/Appearance/interchange#STAGE_CROSSING",
                             "direction": "message",
                             "binding": "generated",
-                            "coordinate": "StageWire.Admit"
+                            "coordinate": "Admit"
                         }
                     ],
                     "authority": {
@@ -3914,7 +3883,7 @@
                             "anchor": "dotnet:Rasm.Compute/Model/stage#STAGE_WIRE",
                             "direction": "message",
                             "binding": "generated",
-                            "coordinate": "StageWireMap.ToWire"
+                            "coordinate": "StageWireMap.Result"
                         }
                     },
                     "readiness": {

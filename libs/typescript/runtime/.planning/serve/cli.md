@@ -210,10 +210,10 @@ const _replay = (sources: Ops.Sources) =>
       Effect.gen(function* () {
         const fanout = yield* Fanout
         const announced = yield* _captured(capture[1])
-        const receipt = yield* Effect.when(fanout.publish(topic, announced), () => yes)
-        yield* Option.match(receipt, {
+        const landing = yield* Effect.when(fanout.publish(topic, announced), () => yes)
+        yield* Option.match(landing, {
           onNone: () => _out(_prose("replay declined")),
-          onSome: (ack) => _out(_kv([["position", _position(ack.position)], ["duplicate", String(ack.duplicate)]])),
+          onSome: (landed) => _out(_kv([["position", _position(landed.position)], ["duplicate", String(landed.duplicate)]])),
         })
       }),
   )
@@ -372,7 +372,7 @@ const _captured = (text: string): Effect.Effect<Fanout.Announced, ValidationErro
     Effect.mapError((issue) => ValidationError.invalidValue(HelpDoc.p(issue.message))),
   )
 
-const _position = (position: Fanout.ReceiptPosition): string =>
+const _position = (position: Fanout.Position): string =>
   position._tag === "Sequence" ? String(position.seq) : `${position.partition}@${position.offset}`
 
 const _out = (doc: AnsiDoc.AnsiDoc): Effect.Effect<void, PlatformError.PlatformError, Terminal.Terminal> =>
@@ -423,7 +423,6 @@ export { Ops, OpsFault, Print, Verb }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

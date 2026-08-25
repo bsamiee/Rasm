@@ -2,7 +2,7 @@
 
 One retry-policy table rules the whole branch: `RetryClass` is the single behavior-carrying `stamina`-backed `StrEnum` the fault, transport, lane, and concurrency clusters consume through `guard`/`guarded`/`retrying` only, each member binding one frozen `Policy` row — attempts, timeout, one `Backoff` target, the row's re-offer route, and optional backoff columns as row data, never a flag the caller re-derives. Retry is TWO axes here: `Backoff` answers the `reliability/faults#FAULT` `Recovery` verdict — terminal, transient, or a peer-stated throttle window — and `Reoffer` answers the route that verdict takes, so a refusal a caller can still satisfy NARROWED is a declared value rather than a sentence on a consumer page. This is a BASE-tier module importing no sibling-tier package: every provider-discriminated target is import-free by construction, matching a gated provider's raise structurally instead of importing its class.
 
-`guarded`/`guarded_sync` are the primary consumer envelopes — failure window, admission pacing, the cached bound caller, and one retry span off the `reliability/faults#FAULT` `SCOPES[Scope.RESILIENCE]` row, terminal raise lifted through the faults boundary once. Each stage reaches a class through its own table row, so an absent `CIRCUIT` or `RATES` row skips that stage. Every envelope takes the caller's own rostered `FaultRow[L]`, so one coordinate names the arc, the bucket, the span, and the lifted fault, and the lift's `catch` derives from the row's target rather than defaulting at the call site. Retriability is ONE vocabulary across two owners: `Backoff.retriability` answers the LIVE raise this table classifies and `BoundaryFault.retriability` the lifted fault a caller holds, both in `Recovery`, so the yes-or-no `recoverable` collapse stays a caller's own fence and never a second predicate here. `install(mode)` owns the one `set_on_retry_hooks` registration any second registration clobbers, and the DAG-proven `faults < receipts < metrics < resilience` order makes the module-load `Metrics.retry_hook()` bind eager.
+`guarded`/`guarded_sync` are the primary consumer envelopes — failure window, admission pacing, the cached bound caller, and one retry span off the `reliability/faults#FAULT` `SCOPES[Scope.RESILIENCE]` row, terminal raise lifted through the faults boundary once. Each stage reaches a class through its own table row, so an absent `CIRCUIT` or `RATES` row skips that stage. Every envelope takes the caller's own rostered `FaultRow[L]`, so one coordinate names the arc, the bucket, the span, and the lifted fault, and the lift's `catch` derives from the row's target rather than defaulting at the call site. Retriability is ONE vocabulary across two owners: `Backoff.retriability` answers the LIVE raise this table classifies and `BoundaryFault.retriability` the lifted fault a caller holds, both in `Recovery`, so the yes-or-no `recoverable` collapse stays a caller's own fence and never a second predicate here. `install(mode)` owns the one `set_on_retry_hooks` registration any second registration clobbers, and the DAG-proven `faults < observe < metrics < resilience` order makes the module-load `Metrics.retry_hook()` bind eager.
 
 ## [01]-[INDEX]
 
@@ -18,7 +18,7 @@ One retry-policy table rules the whole branch: `RetryClass` is the single behavi
 - Law: the three-state verdict collapses at ONE edge — `Backoff.__call__`, lowering `Recovery` onto the `bool | float | timedelta` contract `runtime/.api/stamina.md` `[02]` declares for `on=`. Every interior reader takes the VALUE, because a bool read fuses a stated `retry_after=0.0` with a refusal and a stated `5.0` with a bare transient, leaving the breaker unable to separate an immediate re-offer from a terminal or a dependency that is DOWN from one that ANSWERED.
 - Law: a window keys the dependency INSTANCE and never the fence row. A rostered row names the CALL, and one row serves every destination its lane dials, so keying arcs there fuses two peers into one and sheds every healthy caller of the peer that never went down; keying them at the fence ALSO splits one origin's arc across every fence that dials it, so no arc reaches its trip and an open arc stops meaning the dependency is out. `_keyed` is the one gate: a class declaring a `CIRCUIT` or `RATES` row refuses `config` when no peer is stated, a class declaring neither answers `Nothing` and both stages no-op on it, and a peer stated for such a class is KEPT so its first window row lands correctly keyed instead of breaking every call site at once.
 - Law: the lift's `catch` DERIVES from the row's target rather than defaulting at the call site — a row naming only importable classes narrows the fence to exactly those, so an unexpected raise propagates as the defect it is, and a row matching a provider class by dotted spelling or structural probe widens to `Exception` because this BASE tier refuses the import that would name it. The widening is a declared property of the row, and `Exception` is the ceiling the fault owner fixes so a cancellation never converts.
-- Auto: `Policy.schedule` folds only the present columns, so a `stamina` default stands for an absent column, and the schedule alone owns the wait a `transient` verdict earns while a `throttled` verdict overrides that attempt's curve with the peer's own window. No classified field rides a retry fact — the hook mints under the receipts-owned `OPEN` keep-all, never a local `Redaction` re-mint.
+- Auto: `Policy.schedule` folds only the present columns, so a `stamina` default stands for an absent column, and the schedule alone owns the wait a `transient` verdict earns while a `throttled` verdict overrides that attempt's curve with the peer's own window. The hook stack is three rows over one `RetryDetails` — the span hook opening one `resilience.retry` span per scheduled wait, the metrics hook counting the attempt, and stamina's own `StructlogOnRetryHook` writing the line — so no attempt fact is spelled twice.
 - Auto: `BROKER` reads the broker's OWN verdict rather than a transcribed code roster — `KafkaException.args[0]` is a `KafkaError` answering `retriable()` beside `fatal()` across a code space librdkafka revises per release, so a name roster here goes stale one bump later while the verdict never does. Three families ship a taxonomy and no verdict member, so each matches by dotted spelling at its narrowest transient arm: `pika`'s connection root beside the authentication and wrong-state subclasses it would otherwise absorb, `nats`'s reconnect, stale-connection, server-reach, and buffer arms beside the JetStream unavailability pair, and `paho`'s bare socket raises, since its own `MQTTException` names a property or packet misuse a re-dial never clears. `MaxPayloadError` holds the row's `rescope` seat: a payload past the negotiated ceiling is terminal for THIS call and satisfiable on the `dataref` leg, so the envelope hands that leg back as the refusal's own detail and no consumer page carries the alternative in prose.
 - Growth: a new retry class is one `RetryClass` member with one `POLICY` row; a new provider family is one `_backoff` roster or one `Probe` on an existing row; a new re-offer route is one `Reoffer` case with one arm at the metered settle, the standing `assert_never` breaking every collapse that lacks it; a new narrowed alternative is one `rescope` pair on the row that refuses it; a new refusal this module raises is one `FaultRow` in `RAISES`, which the faults-owned `rostered` door seats into the ONE census so its posture and leg resolve.
 - Boundary: no retry around a pure transform — `stamina` rides only flaky external oracles through this table. Exported contract is branch-consumer law: the entry family and its `FaultRow` parameter, every `POLICY` row with its route column, the `Reoffer` vocabulary, and the `RetryClass` vocabulary; narrowing the `OCCT` target below the `BrokenWorkerInterpreter | BrokenWorkerProcess` pair is a cross-folder break.
@@ -62,7 +62,7 @@ from rasm.runtime.faults import (
     spelled,
 )
 from rasm.runtime.metrics import Dimension, Metrics
-from rasm.runtime.receipts import OPEN, Receipt, Signals
+from rasm.runtime.observe import logger
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -286,20 +286,9 @@ def _backoff(
     )
 
 
-def _retry_receipt() -> RetryHook:
+def _retry_span() -> RetryHook:
     def hook(details: RetryDetails) -> AbstractContextManager[None]:
         cause = type(details.caused_by).__qualname__
-        Signals.emit(
-            Receipt.of(
-                "resilience",
-                (
-                    "planned",
-                    details.name,
-                    {"retry_num": details.retry_num, "wait_for": details.wait_for, "waited_so_far": details.waited_so_far, "caused_by": cause},
-                ),
-            ),
-            OPEN,
-        )
         span = _TRACER.start_span(
             "resilience.retry", attributes={"rasm.retry_num": details.retry_num, "rasm.wait_for": details.wait_for, "rasm.caused_by": cause}
         )
@@ -643,9 +632,9 @@ RATES: Final[Map[RetryClass, RatePolicy]] = Map.of_seq([
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-RetryReceiptHook: Final = RetryHookFactory(hook_factory=_retry_receipt)
+RetrySpanHook: Final = RetryHookFactory(hook_factory=_retry_span)
 
-RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (RetryReceiptHook, Metrics.retry_hook(), StructlogOnRetryHook)
+RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (RetrySpanHook, Metrics.retry_hook(), StructlogOnRetryHook)
 ```
 
 ## [03]-[CIRCUIT]
@@ -657,9 +646,9 @@ RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (RetryReceiptHook
 - Law: state settles from inside the retried unit where the RAISE is live. Lifting to `BoundaryFault` surrenders the exception the target classifies, so a breaker reading the rail instead of the raise cannot tell a transient exhaustion from a first-attempt refusal and counts every terminal fault toward the trip.
 - Law: no timer, no background sweep, and no expiry task — the arc re-reads `time.monotonic()` on each read, so an arc nobody consults costs nothing and a process that stops calling a dependency leaves no work behind. Cooldown is a monotonic span rather than a wall instant, so a host clock step never re-opens or prematurely closes a live arc.
 - Entry: `refused(on)` is the pre-flight read every `guarded`/`guarded_sync` call folds ahead of its dial, answering `Some(fault)` off the `CIRCUIT_OPEN` row where the circuit refuses and `Nothing` where the attempt may cross; `passed` and `failed` are the settle pair `_settled` drives, `failed` taking the `Recovery` already read rather than re-deriving one from the raise. `state(on)` is the operator read the bundle capsule projects, and `retired(on)` drops one arc where a composition releases the peer it named.
-- Auto: every transition emits its own `Receipt.of` row under the receipts-owned `OPEN` keep-all beside one `rasm.circuit.transitions` count keyed on the subject and the state reached, so an open circuit is evidence a board reads rather than a silent shed a caller infers from latency. Refusals carry the subject and the remaining cooldown on the fault, so an operator reads WHICH dependency is out and for how long.
-- Growth: a new guarded dependency class is one `CIRCUIT` row and no envelope edit, and the row is what turns that class's unkeyed dials into refusals — a loud break at the call rather than a silent fan of callers sharing one arc; a new state is one `BreakerState` member with its arm on the one `state` fold, the standing `assert_never` breaking every arm that lacks it; a new transition dimension is one key on the emitted row; a new breaker refusal is one `FaultRow` beside `CIRCUIT_OPEN`.
-- Boundary: failure windows over a named dependency only. Mints no retry curve, no rate, no receipt semantics, and no health verdict — the serve health flip stays `execution/workers#POOL`'s, and an arc is per-process state a peer never observes.
+- Auto: every transition writes its own `circuit` line beside one `rasm.circuit.transitions` count keyed on the subject and the state reached, so an open circuit is evidence a board reads rather than a silent shed a caller infers from latency. Refusals carry the subject and the remaining cooldown on the fault, so an operator reads WHICH dependency is out and for how long.
+- Growth: a new guarded dependency class is one `CIRCUIT` row and no envelope edit, and the row is what turns that class's unkeyed dials into refusals — a loud break at the call rather than a silent fan of callers sharing one arc; a new state is one `BreakerState` member with its arm on the one `state` fold, the standing `assert_never` breaking every arm that lacks it; a new transition dimension is one key on the logged line; a new breaker refusal is one `FaultRow` beside `CIRCUIT_OPEN`.
+- Boundary: failure windows over a named dependency only. Mints no retry curve, no rate, and no health verdict — the serve health flip stays `execution/workers#POOL`'s, and an arc is per-process state a peer never observes.
 
 ```python
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -749,9 +738,7 @@ class Breaker:
 
     @staticmethod
     def _transitioned(on: Dependency, state: BreakerState) -> None:
-        Signals.emit(
-            Receipt.of("resilience", ("planned", f"circuit.{on.retry.value}", {"peer": on.instance, "state": state.value})), OPEN
-        )
+        logger().info("circuit", retry_class=on.retry.value, peer=on.instance, state=state.value)
         Metrics.record(
             {"transitions": 1.0}, domain="circuit", kind=on.retry.value,
             dimensions={Dimension.TARGET: on.instance, Dimension.OUTCOME: state.value},
@@ -769,7 +756,7 @@ class Breaker:
 - Entry: `delay(on, permits=1.0)` is the one debit `_metered` and `_metered_sync` drive; `directed(on, window)` re-seats a bucket from the peer's own stated wait; `retired(on)` drops one bucket where a composition releases the destination it named, and is what a `restart`-routed re-offer spends so a re-established handle meters from the floor rather than a dead handle's debt.
 - Auto: a debit that waited publishes its seconds on `rasm.rate.wait` keyed by the destination, so throttling is visible before it becomes latency nobody attributes. Zero waits publish nothing, because a series a healthy destination fills with zeros drowns the one reading that matters.
 - Growth: a new rate-governed class is one `RATES` row and no call-site edit; a new peer directive is one `Probe` answering `throttled` on the class that decoded it, never a second `directed` call site; a new metered arm is one call to the same `delay`.
-- Boundary: admission pacing over a named destination only. Mints no retry curve, no failure window, no queue, and no receipt semantics — a rate gate delays a caller and never sheds one.
+- Boundary: admission pacing over a named destination only. Mints no retry curve, no failure window, and no queue — a rate gate delays a caller and never sheds one.
 
 ```python
 # --- [MODELS] ---------------------------------------------------------------------------

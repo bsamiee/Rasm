@@ -19,7 +19,7 @@ Everything here is host-light: `LifecycleGate`, `Subscription`, and `Reentrancy`
 - Law: the drain is bounded but still BLOCKING, so it never rides the closing caller's thread: `Begin` arms the close, runs `stop` on the caller's own rail so a marshalled arm keeps its seam, and hands back the completion — a host UI-thread owner settles that completion off-thread, because blocking there stalls the very callbacks the drain waits to see released.
 - Law: the owning close alone drives the drain, and it drives it as a scheduler continuation: `stop` runs inline on the caller's rail, then the bounded wait and the settle ride the pool; concurrent closers join the in-flight completion rather than double-driving it.
 - Law: a refused settle lands `Reopenable`, never `Closed` — the resources the settle failed to release are still held, so a terminal reading would certify a leak as a close; a later `Begin` re-drives the same drain over the surviving claims.
-- Receipt: the close outcome is the one `Fin<Unit>` every faulted step aggregated into through the `Error` monoid — stop, drain, and settle refusals all survive, never the newest alone.
+- Output: the close outcome is the one `Fin<Unit>` every faulted step aggregated into through the `Error` monoid — stop, drain, and settle refusals all survive, never the newest alone.
 - Packages: LanguageExt.Core (`Atom`, `Fin`, `Set`, the `Error` monoid); BCL inbox (`TaskCompletionSource`, `TaskScheduler`).
 - Growth: a new custody posture is one `LeaseState` case every generated dispatch breaks on loudly.
 - Boundary: the gate holds no resource of its own — `stop` and `settle` are the owner's, so the capsule is reusable across pointer leases, content streams, and watch custody without knowing any of them.
@@ -163,7 +163,7 @@ internal sealed class LifecycleGate {
 - Law: a throwing attach rolls its own subscribe back before the fault leaves — `Attach` and `Acquire` both run the inverse on the refusal arm and aggregate a failing inverse into the primary, so no half-attached handler survives an admission refusal.
 - Law: `Close` is all-attempted with retry retention: a failing detacher stays on the subscription for a later close, the settled release names every fault beside the attempted count, and concurrent closers join one in-flight settlement rather than racing the detach roster.
 - Law: `Reentrancy` answers a VERDICT the caller records — `Guarded` returns absence when the guard suppressed a recursive delivery and the ran outcome otherwise, so the guard stays journal-free and each composing owner posts its own suppression evidence; a guard that posted for its caller would couple every composer to one journal shape.
-- Receipt: `SubscriptionRelease` — `Open`, `Released(Attempted)`, or `Faulted(Attempted, Errors)`; the errors are the whole refusal set, never the newest.
+- Output: `SubscriptionRelease` — `Open`, `Released(Attempted)`, or `Faulted(Attempted, Errors)`; the errors are the whole refusal set, never the newest.
 - Packages: kernel `Domain/rails` (`Custody.Release`, `Custody.Rollback`, `Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, the `Error` monoid); BCL inbox (`TaskCompletionSource`, `Lock`).
 - Growth: a new release posture is one `SubscriptionRelease` case; generic custody postures belong on the kernel `Custody` algebra.
 - Exemption: `Subscription` and its closure records ride a `Lock` — close claims its detacher roster, runs callbacks after release, and publishes retry custody with one settled result atomically, a sequence whose steps must each run after an earlier one refused; the platform-forced lifetime seam is contained here and no composer writes one.
@@ -372,12 +372,12 @@ internal sealed class Reentrancy {
 
 - Owner: `IdlePump<TTag>` — the bounded idle-deferred pump: work parks tagged until the host's next quiet moment, the pending queue is capacity-bounded, every loss is a typed row the owner's own callback records, and the drain crosses the kernel dispatch on the deferred lane so idle work spends a gauged frame budget; `PumpLoss` the two-row loss vocabulary.
 - Entry: `Open(capacity, lost, key)` attaches the one `RhinoApp.Idle` hook and admits the bound; `Enqueue(tag, alive, run)` parks one unit of work; `Close` cancels the pending roster, reports each as `Cancelled`, and detaches the hook.
-- Law: the pump is GENERIC over the tag its loss callback names, so the delivery owner instantiates it over its own origin vocabulary and the pump holds no journal, no receipt shape, and no event type — a pump that posted for its caller would couple every deferred consumer to one journal.
+- Law: the pump is GENERIC over the tag its loss callback names, so the delivery owner instantiates it over its own origin vocabulary and the pump holds no journal, no fact shape, and no event type — a pump that posted for its caller would couple every deferred consumer to one journal.
 - Law: admission is a guarded step whose verdict rides the transition — a full queue DECLINES and the loss callback records `Overflow`, a closed pump records `Cancelled`, and neither outcome is inferred from a count read beside the swap.
 - Law: the drain is take-and-clear through the kernel `Cell.Take`, so the drained roster is the `Committed` payload of one transition and a batch enqueued during the drain waits for the next idle tick rather than racing the sweep.
 - Law: the drain crosses `UiThread.Run` as a `Blocking` crossing on `DispatchLane.Deferred` — the idle callback already holds the host UI thread, so the crossing runs in-frame and buys the gauged deferred-lane span and its breach evidence; a headless host whose crossing refuses runs the drain bare, because dropping deferred work on a marshal refusal would turn a missing application into silent loss. `RhinoApp.Idle` stays the host clock either way.
 - Law: a drained unit whose `alive` probe answers false records `Cancelled` and never runs — liveness is the enqueuer's own predicate, so a watch cancelled between park and drain drops its work as evidence rather than running against a dead owner.
-- Receipt: none of its own — every loss reaches the owner's `lost` callback with its tag, and the ran outcome is the work's own rail, recorded by the closure the enqueuer parked.
+- Output: none of its own — every loss reaches the owner's `lost` callback with its tag, and the ran outcome is the work's own rail, recorded by the closure the enqueuer parked.
 - Packages: RhinoCommon (`RhinoApp.Idle`); `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`); LanguageExt.Core (`Atom`, `Seq`, `Fin`); `Rasm.Domain` (`Cell`, `Transition`, `Dimension`).
 - Growth: a new loss posture is one `PumpLoss` row; a new deferral clock is a different pump owner, never a mode knob here.
 - Boundary: the pump owns the ONE idle hook per instance and nothing else — the work closures carry their own custody, and the pump never reads what a unit of work does.
@@ -477,7 +477,6 @@ internal sealed class IdlePump<TTag> : IDisposable {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

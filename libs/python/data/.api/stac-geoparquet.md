@@ -69,7 +69,7 @@
 - schema axis: schema resolves through `ACCEPTED_SCHEMA_OPTIONS` — `'FullFile'` scans all batches, `'FirstBatch'` infers from the first, `'ChunksToDisk'` spills oversized inputs to `tmpdir`, an explicit `pa.Schema` pins it, and an `InferredSchema` accumulator (`update_from_items`/`update_from_json`) builds a first-pass schema for a second-pass write — never a hand-built Arrow schema where the inference options apply.
 - rehydration axis: `stac_table_to_items` yields plain item dicts rebuilt through `pystac.Item.from_dict`; `json_reader.read_json`/`read_json_chunked` feed the parse functions — never re-mint a STAC item `pystac` already models.
 - geopandas axis: the top-level `to_geodataframe`/`to_item_collection`/`to_dict` trio is the `GeoDataFrame` round-trip; the zero-copy Arrow item-table path is default, the trio the boundary where a `GeoDataFrame` is required downstream.
-- evidence: each interchange captures item count, schema version, batch/chunk size, and output byte/row count as a table receipt.
+- evidence: each interchange result retains item count, schema version, batch/chunk size, and output byte/row count.
 
 [STACKING]:
 - `pystac`(`.api/pystac.md`): `pystac.Item` iterables feed `parse_stac_items_to_arrow`, and `pystac.Item.from_dict` rehydrates the `stac_table_to_items` dicts — the `Item.to_dict()` GeoJSON is the bridge shape.

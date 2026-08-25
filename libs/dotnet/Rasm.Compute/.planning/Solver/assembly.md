@@ -15,7 +15,7 @@ The boundary-condition family owns constraint application on both sides: elimina
 - Owner: `OperatorAssembly` the assembly fold; `CellAssembly` the `IAction` struct the parallel cell range fans; `LocalBlock` the per-cell delegate the continuum and frame legs both satisfy.
 - Entry: `public static Fin<SparseCompressedRowMatrixStorage<double>> Assemble(SolveProblem problem, DiscreteMesh mesh, LanePolicy policy)` — forks on the operator row's own dense column, folds every other payload through the parallel cell assembly, and lands one CSR through `SparseOps.Ingest`.
 - Auto: the coefficient lowering binds ONCE at entry, so the per-cell reader is total and no Gauss point re-runs a fallible payload dispatch; each cell writes its `block × block` local into a pooled scratch plane, scatters into three preallocated flat triplet columns at its own offset, and lands its outcome in a per-cell rail the fold traverses after the fan.
-- Receipt: none of its own — the assembly's evidence is the DOF count and the residual on `Solver/contract`'s `Solve` receipt.
+- Result: none of its own — the assembly's evidence is the DOF count and the residual on `Solver/contract`'s `Solve` result.
 - Packages: MathNet.Numerics, CSparse, CommunityToolkit.HighPerformance (`SpanOwner<T>`/`MemoryOwner<T>`/`Span2D<T>`/`ParallelHelper`), System.Numerics.Tensors, LanguageExt.Core, BCL inbox
 - Growth: a new payload operator term is one arm on the Gauss-point fold keyed by the payload case; a new element family is one `LocalBlock` binding; zero new surface.
 - Boundary: the dense network lowering is `n × n` by the payload's own shape, so it builds its operator directly rather than staging three `n²` triplet columns to say the same thing — a coordinate staging of a dense matrix pays three quadratic allocations for a form the storage factory takes whole.
@@ -464,7 +464,3 @@ public static partial class OperatorAssembly {
     };
 }
 ```
-
-## [05]-[RESEARCH]
-
-(none)

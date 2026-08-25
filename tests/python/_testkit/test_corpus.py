@@ -12,25 +12,7 @@ import pytest
 import xxhash
 
 from assay.rails import contracts as contracts_rail
-from assay.rails.contracts import (
-    Asset,
-    BlockedReadiness,
-    Case,
-    Entry,
-    ExpectedFacts,
-    FieldFacts,
-    Fingerprint,
-    HlcValueFacts,
-    Manifest,
-    MatrixMarketFacts,
-    MessageActor,
-    ProofVector,
-    PublisherDefinition,
-    PythonPackageResource,
-    SpecimenAsset,
-    VerifiedReadiness,
-    WaveformFacts,
-)
+from assay.rails.contracts import Asset, BlockedReadiness, Case, Entry, ExpectedFacts, FieldFacts, Fingerprint, HlcValueFacts, Manifest, MatrixMarketFacts, MessageActor, ProofVector, PublisherDefinition, PythonPackageResource, SpecimenAsset, VerifiedReadiness, WaveformFacts
 from tests.python._testkit import corpus as corpus_kit
 from tests.python._testkit.corpus import assert_corpus, load_manifest
 from tests.python._testkit.spec import assert_ok
@@ -74,31 +56,19 @@ def _stage(root: Path, entry: Entry, case: Case, assets: Iterable[tuple[Asset, b
 
 
 def test_live_corpus_proves_every_verified_vector_through_its_oracle() -> None:
-    """The proof receipt equals the live tagged readiness and proof-vector census."""
+    """The corpus proof equals the live tagged readiness and proof-vector census."""
     manifest = assert_ok(load_manifest(_CORPUS))
     proof = assert_corpus(_CORPUS)
     verified = tuple(readiness for entry in manifest.entries for case in entry.cases if isinstance(readiness := case.readiness, VerifiedReadiness))
     blocked = tuple(readiness for entry in manifest.entries for case in entry.cases if isinstance(readiness := case.readiness, BlockedReadiness))
     assert proof.assay_corpus_oracles.vectors == sum(len(readiness.vectors) for readiness in verified)
-    assert proof.assay_corpus_oracles.semantic_conformance == sum(
-        len(readiness.vectors) for readiness in verified if readiness.oracle == "semantic-conformance"
-    )
-    assert proof.assay_corpus_oracles.semantic_roundtrip == sum(
-        len(readiness.vectors) for readiness in verified if readiness.oracle == "semantic-roundtrip"
-    )
+    assert proof.assay_corpus_oracles.semantic_conformance == sum(len(readiness.vectors) for readiness in verified if readiness.oracle == "semantic-conformance")
+    assert proof.assay_corpus_oracles.semantic_roundtrip == sum(len(readiness.vectors) for readiness in verified if readiness.oracle == "semantic-roundtrip")
     assert proof.assay_corpus_oracles.value_parity == sum(len(readiness.vectors) for readiness in verified if readiness.oracle == "value-parity")
-    assert proof.assay_corpus_oracles.publisher_digest == sum(
-        len(readiness.vectors) for readiness in verified if readiness.oracle == "publisher-digest"
-    )
-    assert proof.assay_corpus_oracles.external_digest == sum(
-        len(readiness.vectors) for readiness in verified if readiness.oracle == "external-digest"
-    )
+    assert proof.assay_corpus_oracles.publisher_digest == sum(len(readiness.vectors) for readiness in verified if readiness.oracle == "publisher-digest")
+    assert proof.assay_corpus_oracles.external_digest == sum(len(readiness.vectors) for readiness in verified if readiness.oracle == "external-digest")
     assert proof.python_oracles.semantic_conformance == 0
-    assert proof.python_oracles.vectors == sum(
-        vector.expected is None or vector.expected.facts_format not in {"backend-generation", "hdf5-facts", "matrix-market-facts"}
-        for readiness in verified
-        for vector in readiness.vectors
-    )
+    assert proof.python_oracles.vectors == sum(vector.expected is None or vector.expected.facts_format not in {"backend-generation", "hdf5-facts", "matrix-market-facts"} for readiness in verified for vector in readiness.vectors)
     assert proof.python_bindings > 0
     assert proof.blocked_cases == len(blocked)
     assert proof.registered_specimens == sum(len(vector.specimens) for readiness in verified for vector in readiness.vectors)
@@ -129,9 +99,7 @@ def test_rpc_direction_refuses_a_method_alias(tmp_path: Path) -> None:
     manifest = assert_ok(load_manifest(_CORPUS))
     entry, case = _case(manifest, "compute-rpc", "tessellate-request")
     consumer = msgspec.structs.replace(case.consumers[0], method="rasm.contracts.compute.ComputeService.Alias")
-    specimen = SpecimenAsset(
-        path="rpc/request.bin", bytes=0, fingerprint=Fingerprint(algorithm="xxh128", value=xxhash.xxh128(b"", seed=0).hexdigest())
-    )
+    specimen = SpecimenAsset(path="rpc/request.bin", bytes=0, fingerprint=Fingerprint(algorithm="xxh128", value=xxhash.xxh128(b"", seed=0).hexdigest()))
     readiness = VerifiedReadiness(oracle="semantic-roundtrip", vectors=(ProofVector(specimens=(specimen,)),))
     held = msgspec.structs.replace(case, consumers=(consumer,), readiness=readiness)
     _stage(tmp_path, entry, held, ((specimen, b""),))
@@ -256,11 +224,7 @@ def test_publisher_digest_refuses_a_generated_source_alias(tmp_path: Path) -> No
     source = "vendor/alias/no-such.proto"
     raw = (_CORPUS / readiness.vectors[0].specimens[0].path).read_bytes()
     specimen = _pinned(msgspec.structs.replace(readiness.vectors[0].specimens[0], path=source), raw)
-    held = msgspec.structs.replace(
-        case,
-        definition=msgspec.structs.replace(definition, source=source),
-        readiness=msgspec.structs.replace(readiness, vectors=(ProofVector(specimens=(specimen,)),)),
-    )
+    held = msgspec.structs.replace(case, definition=msgspec.structs.replace(definition, source=source), readiness=msgspec.structs.replace(readiness, vectors=(ProofVector(specimens=(specimen,)),)))
     _stage(tmp_path, entry, held, ((specimen, raw),))
     with pytest.raises(AssertionError, match="does not own generated root"):
         assert_corpus(tmp_path)

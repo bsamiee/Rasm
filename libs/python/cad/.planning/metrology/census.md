@@ -1,12 +1,12 @@
 # [PY_CAD_CENSUS]
 
-`GlbCensus.of` is the provider's one measurement of the EMITTED discrete result: it re-opens the GLB bytes already written to a provider-owned path and reads placements, unique mesh faces, per-body closure, and per-body volume back out of them. Reading the artifact rather than the source shape is what makes the census a receipt: a count derived from `TopoDS` topology describes what was asked for, while a count derived from the file describes what a consumer will decode.
+`GlbCensus.of` is the provider's one measurement of the EMITTED discrete result: it re-opens the GLB bytes already written to a provider-owned path and reads placements, unique mesh faces, per-body closure, and per-body volume back out of them. Reading the artifact rather than the source shape is what makes the census a measurement: a count derived from `TopoDS` topology describes what was asked for, while a count derived from the file describes what a consumer will decode.
 
-Emitted-file authority binds both directions. `tessellation/mesh#MESH` gates its triangle budget against this census rather than its own preflight sum, and `metrology/properties#RECEIPT` receives closure as a `Closure` arm this owner elects, so no leg reconstructs mesh evidence from a source estimate or publishes a sentinel count where a decode refused. Every refusal lands one `CENSUS_DECODE` row on `CadRail`, and no exception escapes into the `anyio.to_process` worker's return path.
+Emitted-file authority binds both directions. `tessellation/mesh#MESH` gates its triangle budget against this census rather than its own preflight sum, and `metrology/properties#MEASURE` receives closure as a `Closure` arm this owner elects, so no leg reconstructs mesh evidence from a source estimate or publishes a sentinel count where a decode refused. Every refusal lands one `CENSUS_DECODE` row on `CadRail`, and no exception escapes into the `anyio.to_process` worker's return path.
 
 ## [01]-[INDEX]
 
-- [02]-[CENSUS]: Decode admission, placement collapse, face sum, weld and split, and the `Closure` election the receipt consumes.
+- [02]-[CENSUS]: Decode admission, placement collapse, face sum, weld and split, and the `Closure` election `measured` consumes.
 
 ## [02]-[CENSUS]
 
@@ -19,9 +19,9 @@ Emitted-file authority binds both directions. `tessellation/mesh#MESH` gates its
 - Law: closure and volume read the FLATTENED scene — `to_mesh()` applies every placement, then `merge_vertices` welds the bit-identical float32 seams glTF promotion introduces, without inheriting the mutable `tol.merge` default.
 - Law: `Trimesh.split` dispatches to `trimesh.graph.split`, which resolves `networkx` or `scipy` and raises `ImportError` where neither is installed.
 - Law: `networkx` rides the root manifest as that engine, so its absence is a deployment defect surfacing at import rather than a silent `ImportError` inside the worker wearing a `CENSUS_DECODE` row it never earned.
-- Law: per-body volume sums absolute component volumes, so an inverted component contributes magnitude instead of cancelling a sibling into a forged zero the receipt delta then certifies.
+- Law: per-body volume sums absolute component volumes, so an inverted component contributes magnitude instead of cancelling a sibling into a forged zero the measure delta then certifies.
 - Law: an emission that passed its byte-extent gate yet decodes to zero placements or zero triangles refuses, because publishing those zeros certifies an empty artifact as a measured result.
-- Law: `closure` elects the `Closure` arm `metrology/properties#RECEIPT` consumes, so watertight and emitted volume are decided once here; re-deriving that pair at the receipt is what let the two disagree.
+- Law: `closure` elects the `Closure` arm `metrology/properties#MEASURE` consumes, so watertight and emitted volume are decided once here; re-deriving that pair at the measure is what let the two disagree.
 - Packages: `trimesh` for decode, placement traversal, flattening, welding, closure, and volume; `networkx` as the connected-component engine `trimesh.graph.split` dispatches to.
 - Growth: a new emitted-artifact fact is one `GlbCensus` field filled inside `of`; no caller grows an argument and no second scene opens.
 - Boundary: this owner opens the emitted file alone. Writing those bytes belongs to `tessellation/emission#EMISSION`, gating them against the budget to `tessellation/mesh#MESH`, and publishing them to `service/spool#SPOOL`.
@@ -95,4 +95,4 @@ def _admitted(census: GlbCensus, /) -> CadRail[GlbCensus]:
 
 ## [03]-[RESEARCH]
 
-- [SPLIT_ENGINE]-[OPEN]: does `Trimesh.split` forward an `engine=` selector down to `trimesh.graph.split` so the census pins `networkx` rather than trusting resolution order; probe the installed `trimesh` signature and seat the member on `.api/trimesh.md`.
+(none)

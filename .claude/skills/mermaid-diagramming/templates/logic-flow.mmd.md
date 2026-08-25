@@ -1,6 +1,6 @@
 # [LOGIC_FLOW]
 
-Draw one operation's dispatch structure: input discrimination fanning to arms, arms folding into one merge, the merge yielding a receipt. Template law bakes in the polymorphic-collapse law — variation lives in the arms and never in parallel exits, so every arm folds back to the single receipt path — and four load-bearing moves an unassisted attempt omits: the discriminator reads its arms from a policy store, making dispatch table-driven rather than hardcoded branching; the content key gates a cache short-circuit; every arm can reject onto one fault rail whose convergence point states the recovery law once, and the rail rejoins the fold so a fault still yields the one receipt; and evidence feeds the fold on a dotted trace so the receipt is auditable. Use `flowchart LR` with two rhombi — a cache gate feeding one arm discriminator, each with exhaustive, disjoint out-labels — and three-or-more arms. Ordered steps across a boundary are a wire-sequence, never a dispatch fold.
+Draw one operation's dispatch structure: input discrimination fanning to arms, arms folding into one merge, the merge yielding one result. Template law bakes in the polymorphic-collapse law — variation lives in the arms and never in parallel exits, so every arm folds back to the single result path — and four load-bearing moves an unassisted attempt omits: the discriminator reads its arms from a policy store, making dispatch table-driven rather than hardcoded branching; the content key gates a cache short-circuit; every arm can reject onto one fault rail whose convergence point states the recovery law once, and the rail rejoins the fold so a fault still yields the one result; and evidence feeds the fold on a dotted trace so the result is auditable. Use `flowchart LR` with two rhombi — a cache gate feeding one arm discriminator, each with exhaustive, disjoint out-labels — and three-or-more arms. Ordered steps across a boundary are a wire-sequence, never a dispatch fold.
 
 ```mermaid
 ---
@@ -12,7 +12,7 @@ config:
 ---
 flowchart LR
     accTitle: Solve dispatch and fold
-    accDescr: One compute entry discriminating input shape into three policy-selected arms behind an animated content-key cache short-circuit, arm rejects converging on one red fault rail that rejoins the fold, and a dotted evidence trace feeding the single solver receipt.
+    accDescr: One compute entry discriminating input shape into three policy-selected arms behind an animated content-key cache short-circuit, arm rejects converging on one red fault rail that rejoins the fold, and a dotted evidence trace feeding the single solution.
     In([SolveRequest]) -->|"content key"| Hit{Cached?}
     Hit e1@-->|"hit"| Fold
     Hit -->|"miss"| Shape{Shape?}
@@ -27,7 +27,7 @@ flowchart LR
     ArmB e4@-.->|"reject"| Fault
     ArmC e5@-.->|"reject"| Fault
     Fault e6@-->|"fault row"| Fold
-    Fold e7@--> Receipt[/SolveReceipt/]
+    Fold e7@--> Out[/Solution/]
     Evidence[(Evidence)] e8@-.->|"trace"| Fold
 ```
 

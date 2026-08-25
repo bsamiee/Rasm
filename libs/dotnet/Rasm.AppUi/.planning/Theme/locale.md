@@ -183,13 +183,12 @@ public sealed partial class LocaleRow {
 
 ## [03]-[MESSAGE_REGISTRY]
 
-- Owner: `LocaleStrings` the one string-table surface every key resolution and every registry read crosses; `MessageLength` the width-variant axis; `MessageVariant` the context-and-length request; `MessagePattern` the ICU pattern carrier; `LocaleConformance` the conformance fold answering coverage receipts beside the mirroring-law census.
+- Owner: `LocaleStrings` the one string-table surface every key resolution and every registry read crosses; `MessageLength` the width-variant axis; `MessageVariant` the context-and-length request; `MessagePattern` the ICU pattern carrier; `LocaleConformance` the conformance fold answering missing keys beside the mirroring-law census.
 - Cases: `MessageLength` = full | medium | short | tiny.
 - Law: one key resolves through one VARIANT WALK — context before length, most specific first, base last — so a toolbar chip asking for the tiny variant of a key that authored only the full form gets the full form rather than a missing-key marker, and an author adds a variant by adding a resx row instead of by adding a call site.
 - Law: a missing key renders as the ONE bracketed marker `LocaleStrings` mints — a deliberate display posture, not a swallowed absence: the marker is visibly wrong on any surface, and `LocaleConformance` reports the same absence structurally, so the paint edge stays a bare `string` and no UI binding pays a refusal ceremony for text.
-- Entry: `public static string Find(string key, CultureInfo strings)`; `public static string Resolve(string key, MessageVariant variant, LocaleRow row, CultureInfo strings)` — the variant walk under the row's proofing posture; `public static MessagePattern Pattern(string key, PluralRoute route, CultureInfo strings)` — the full ICU pattern at the base key with its typed route; `public static string Key(string owner, string member)` and the 3-ary variant form — the ONE key derivation every registry-resolved literal crosses; `public static Fin<Seq<CoverageReceipt>> LocaleConformance.Verify(IClock clock)` — the whole-registry conformance fold the proof lane binds as its locale check.
+- Entry: `public static string Find(string key, CultureInfo strings)`; `public static string Resolve(string key, MessageVariant variant, LocaleRow row, CultureInfo strings)` — the variant walk under the row's proofing posture; `public static MessagePattern Pattern(string key, PluralRoute route, CultureInfo strings)` — the full ICU pattern at the base key with its typed route; `public static string Key(string owner, string member)` and the 3-ary variant form — the ONE key derivation every registry-resolved literal crosses; `public static Validation<Error, HashMap<string, Seq<string>>> LocaleConformance.Verify()` — the whole-registry locale check returning missing keys by locale.
 - Auto: `Key` derives every key from `nameof`-supplied owner and member, so a literal key string at a call site has no producer. Coverage enumerates the neutral resource set ONCE and diffs each row's own satellite set, so the expectation derives from what the product authors rather than from a roster that drifts the moment a key lands; `PseudoPosture.Scored` is the exemption column, so the fold carries no posture branch of its own.
-- Receipt: `CoverageReceipt` — tag, expected key count, missing keys, `Instant` — is the conformance evidence `Verify` answers; the proof lane seals it.
 - Packages: NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a translatable surface is one resx key row per shipped locale row; a width-constrained surface is one `.short`/`.tiny` sibling row; a disambiguated surface is one `.<context>` sibling row; zero new surface.
 - Boundary: `GetResourceSet(culture, createIfNotExists: true, tryParents: false)` returns the row's OWN satellite and answers null where none exists, so coverage distinguishes an untranslated locale from a locale missing individual keys — the fallback-bearing `GetString` cannot make that distinction and is therefore not the conformance read; the returned `ResourceSet` is the manager's own cached instance, so no reader disposes it. Base resx values carry the complete ICU message, so exact `=n` branches, offsets, nested `select`, escaping, cardinal plural, and ordinal plural remain engine-owned and a call-site grammar branch is the deleted form.
@@ -244,7 +243,6 @@ public readonly record struct MessagePattern(string Source, PluralRoute Route) {
             : Fin.Fail<MessagePattern>(new LocaleFault.FormatRejected($"{key}: pattern lacks the {Route.Key} '{Route.Keyword}' route"));
 }
 
-public sealed record CoverageReceipt(string Tag, int Expected, Seq<string> Missing, Instant At);
 ```
 
 ```csharp
@@ -276,22 +274,24 @@ public static class LocaleStrings {
 }
 
 public static class LocaleConformance {
-    public static Fin<Seq<CoverageReceipt>> Verify(IClock clock) {
-        Seq<MirrorMechanism> orphaned = MirrorSubject.Orphaned();
-        if (!orphaned.IsEmpty) {
-            return Fin.Fail<Seq<CoverageReceipt>>(new LocaleFault.CoverageRejected(
-                $"orphaned mirror mechanisms: {string.Join(", ", orphaned.Map(static row => row.Key))}"));
-        }
-        Instant at = clock.GetCurrentInstant();
-        return toSeq(LocaleRow.Items).Traverse(row => Coverage(row, at)).As();
-    }
+    public static Validation<Error, HashMap<string, Seq<string>>> Verify() =>
+        (
+            MirrorSubject.Orphaned() switch {
+                { IsEmpty: true } => Validation<Error, Unit>.Success(unit),
+                var orphaned => Validation<Error, Unit>.Fail((Error)new LocaleFault.CoverageRejected(
+                    $"orphaned mirror mechanisms: {string.Join(", ", orphaned.Map(static row => row.Key))}")),
+            },
+            toSeq(LocaleRow.Items)
+                .Traverse(row => Missing(row).ToValidation().Map(keys => (Tag: row.Key, Keys: keys)))
+                .As()
+        ).Apply(static (_, rows) => rows.ToHashMap(static row => row.Tag, static row => row.Keys)).As();
 
-    public static Fin<CoverageReceipt> Coverage(LocaleRow row, Instant at) =>
+    static Fin<Seq<string>> Missing(LocaleRow row) =>
         from expected in Expected()
         from missing in row.Pseudo.Scored
             ? Shipped(row).Map(shipped => Missing(expected, shipped))
             : Fin.Succ(Seq<string>())
-        select new CoverageReceipt(row.Key, expected.Count, missing, at);
+        select missing;
 
     static Fin<Seq<string>> Expected() => Names(CultureInfo.InvariantCulture, parents: true);
 
@@ -318,7 +318,6 @@ public static class LocaleConformance {
 - Law: the candidate PROPAGATES BEFORE it publishes — every `LocaleSeam` row takes the new culture, and only then does the cell commit — so a partially applied culture is unrepresentable and a failed propagation leaves the committed predecessor live; the commit is a kernel `Cell.Commit` whose `Transition` verdict the apply fold READS, never an `ignore`d swap.
 - Entry: `public Fin<Unit> Apply(LocalePolicy policy)` — `Fin` aborts on unresolved tag, zone, culture, pattern, propagation failure, or a declined commit; `public static Fin<LocaleRuntime> Boot(LocalePolicy policy, IDateTimeZoneProvider zones, LocaleSeams seams)`; `public ReloadOutcome Republish(LocalePolicy policy)` — the options-monitor bridge; `LocaleSeams.Of(…)` — the admission proving every roster row bound exactly once; `LocaleField.State`/`LocaleField.Decode` — the two halves of the settings correspondence off one roster, `Decode` a `Validation` applicative accumulating every column defect.
 - Auto: `Republish` is the whole options-monitor bridge — `OptionsAdmission.Observe` wires it under the transition reload class, so a culture switch is an options reload and not a second driver. Resolution binds one cached `MessageFormatter(useCache: true, culture: Formats, customValueFormatter: …)` per culture so each ICU pattern compiles once, `LocaleValueFormatter` riding the constructor as the one typed-value coercion hook, and a locale swap mints a fresh formatter rather than mutating the live one. Date patterns carry the row's calendar and the timestamp projects its instant into that calendar at the zone, so a Hijri row renders its own era without a second pattern family.
-- Receipt: `ReloadReceipt` per culture switch from the options monitor stream — section, transition class, `ReloadOutcome`, `Instant`, correlation.
 - Packages: Rasm, Jeffijoe.MessageFormat, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new display grammar is one pattern value on `ResolvedLocale`; a new format edge is one expression-bodied projection on the same record; a new propagation destination is one `LocaleSeam` row — an arm table missing it refuses at `Of`, so no boot path can forget it; a new settings column is one `LocaleField` row carrying its own projection, admission, and landing.
 - Boundary: ambient process culture remains absent — `CultureInfo.CurrentCulture` has no reader on any AppUi surface, and every format edge takes the resolved culture explicitly; the zoned pattern is built against the INJECTED provider the runtime resolves its zone from, because a statically named provider would parse against a registry the runtime never resolved a zone from. The theme seam carries `Strings` rather than `Formats`: the theme locale selects the SHIPPED control-theme strings, not number and date rendering, so a product running English strings under German formats keeps English theme captions — and all three Semi theme styles resolve a Chinese locale for an unset value, so the seam is required at construction and re-applied on every swap. `Resolve`, `Plural`, and `Message` trap culture and formatter exceptions onto `Fin`, and `Quantity` routes through the measurement policy so a dimensioned value renders in its surface's elected unit at its declared precision — a bare scalar reaching a measured label has no spelling. Every registry-resolved settings literal derives through `LocaleStrings.Key`, so a call-site interpolation of a message key has no producer.

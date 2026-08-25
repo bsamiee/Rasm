@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_JSONSCHEMA_NET]
 
-`JsonSchema.Net` owns in-process JSON Schema evaluation on the `validation` rail: schema parse, compiled-node build, dialect and vocabulary resolution, `$ref`/`$dynamicRef` document resolution, format assertion, and the three-tier output model. It computes application-side the boolean verdict a server-side `CHECK` constraint enforces at write, so one frozen schema text governs both residences. Schema is data, evaluation is a pure fold over `System.Text.Json`, and the verdict is a receipt; the four process-global registries are the only ambient state.
+`JsonSchema.Net` owns in-process JSON Schema evaluation on the `validation` rail: schema parse, compiled-node build, dialect and vocabulary resolution, `$ref`/`$dynamicRef` document resolution, format assertion, and the three-tier output model. It computes application-side the boolean verdict a server-side `CHECK` constraint enforces at write, so one frozen schema text governs both residences. Schema is data, evaluation is a pure fold over `System.Text.Json`, and the four process-global registries are the only ambient state.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -116,7 +116,7 @@
 |  [12]   | `EvaluationResults.ToList()`                                      | instance | flatten to the `List` shape           |
 |  [13]   | `EvaluationResults.ToFlag()`                                      | instance | collapse to the `Flag` shape          |
 
-- `EvaluationResults.ToList` / `ToFlag`: both return `void`, reshaping the receipt in place rather than minting a second one.
+- `EvaluationResults.ToList` / `ToFlag`: both return `void`, reshaping the evaluation in place.
 
 [ENTRYPOINT_SCOPE]: policy, dialect derivation, registry admission, and extension — each registry exposes a process-global `Global` instance that `Register`/`Unregister` mutate and every parse and evaluation reads
 
@@ -159,13 +159,13 @@
 - `JsonSchema` is a parse-once immutable value: the frozen schema text parses at composition, the compiled tree behind `Root` is thread-safe for concurrent `Evaluate`, and parse cost never repeats.
 - `Evaluate` folds a `JsonElement` instance to an `EvaluationResults` tree whose `IsValid` is the boolean the server-side check returns, so both residences yield one verdict from one schema text.
 - Draft selection is a `Dialect`: a schema's `$schema` keyword resolves one through `DialectRegistry`, and `BuildOptions.Dialect` pins the draft when `$schema` is absent, so a version-less schema binds a stated draft.
-- `EvaluationOptions.OutputFormat` selects the verdict tier inside one evaluation, and `ToList`/`ToFlag` reshape a standing receipt without a second pass.
+- `EvaluationOptions.OutputFormat` selects the verdict tier inside one evaluation, and `ToList`/`ToFlag` reshape the standing result without a second pass.
 - `Evaluate` answers a schema-invalid instance with a verdict, so throwing marks a schema fault alone: `JsonSchema.FromText` lifts `JsonSchemaException` on invalid schema JSON and evaluation lifts `RefResolutionException` on an unresolvable reference, both discriminated from `IsValid == false` on the `validation` fault rail.
 
 [STACKING]:
 - `System.Text.Json`(`.api/api-system-text-json.md`): `JsonSchemaExporter.GetJsonSchemaAsNode(JsonTypeInfo, JsonSchemaExporterOptions)` projects a schema from the live serializer contract, and that `JsonNode` crosses to `JsonSchema.Build(JsonElement, BuildOptions?, Uri?)` through `JsonSerializer.SerializeToElement`, so a contract-derived schema and the bytes it describes cannot drift.
 - `pg_jsonschema`(`.api/api-pg-server-bgworkers.md`): `jsonb_matches_schema` enforces the verdict inside a column `CHECK` at write; when that `ServerExtension` row folds out, `JsonSchema.Evaluate(JsonElement, EvaluationOptions?)` reading `IsValid` computes the identical verdict in process, and `OutputFormat.List` with `Details`/`Errors` projects the per-keyword failure a `CHECK` cannot surface — the in-process path carries strictly more diagnostic capability than the extension it substitutes.
-- `JsonPointer.Net`: `EvaluationPath` and `InstanceLocation` are `JsonPointer` values, so a failure detail addresses schema and instance positions the receipt carries verbatim, and `FindSubschema(JsonPointer, BuildContext)` reads back the compiled node a pointer names.
+- `JsonPointer.Net`: `EvaluationPath` and `InstanceLocation` are `JsonPointer` values, so a failure detail addresses the schema and instance positions, and `FindSubschema(JsonPointer, BuildContext)` reads back the compiled node a pointer names.
 - within-lib: store provisioning parses the frozen text once into its schema contract and threads that `JsonSchema` through every candidate, `SchemaRegistry.CreateBundle` collapsing a multi-document `$ref` graph into one self-contained schema before the freeze.
 
 [LOCAL_ADMISSION]:
@@ -178,5 +178,5 @@
 [RAIL_LAW]:
 - Package: `JsonSchema.Net`
 - Owns: in-process JSON Schema evaluation — parse, compiled-node build, dialect/vocabulary/meta-schema resolution, `$ref` document resolution, format assertion, and the three output tiers
-- Accept: parse-once-evaluate-many over the frozen document-lane schema, `IsValid` for the verdict and `Details`/`Errors` for the receipt rail, custom `Format`/`IKeywordHandler`/`Dialect` derivations registered at composition, `ValidatingJsonConverter` for typed-document ingress
+- Accept: parse-once-evaluate-many over the frozen document-lane schema, `IsValid` for the verdict and `Details`/`Errors` for failure detail, custom `Format`/`IKeywordHandler`/`Dialect` derivations registered at composition, `ValidatingJsonConverter` for typed-document ingress
 - Reject: a per-instance re-parse of the schema, a second validator path beside this one, and a hand-rolled keyword check where a `Dialect` derivation carries it

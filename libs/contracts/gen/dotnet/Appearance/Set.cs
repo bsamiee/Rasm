@@ -2941,9 +2941,6 @@ namespace Rasm.Contracts.Appearance {
 
   }
 
-  /// <summary>
-  /// The optional CPU-minted press receipt of a baked set.
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class Press : pb::IMessage<Press>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE

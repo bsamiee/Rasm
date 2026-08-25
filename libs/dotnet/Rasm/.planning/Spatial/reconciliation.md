@@ -4,7 +4,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[RECONCILIATION_BRIDGE]: `Reconciliation.Apply` folds one `ReconcileOp` into `GeometryHash` content keys and the `NamingHash` receipt over the frozen canonical byte streams.
+- [02]-[RECONCILIATION_BRIDGE]: `Reconciliation.Apply` folds one `ReconcileOp` into `GeometryHash` content keys and the `NamingHash` over the frozen canonical byte streams.
 
 ## [02]-[RECONCILIATION_BRIDGE]
 
@@ -12,7 +12,7 @@
 - Cases: each `EncodeForm` stream freezes its own canonical order — a `ClusterCase` sorts vertices lexicographically and hashes any mass column as content, a `PolylineCase` stores order as content, a `RingCase` rotates to its least rotation with winding preserved under the rotation law the mesh face cycles carry, and `Parametric` takes the direction count as the curve/surface/volume generator. `CloudForm` rows carry the frozen wire ordinal each cloud stream leads with, so the discriminant has a named owner on the page that owns the wire. `CanonicalTopology.OfMesh` is the one native admission.
 - Entry: `EncodeForm.Of` discriminates admission on input shape, its raw-array parametric head the one validated ingress; that head CANONICALIZES each direction's knots onto `[0,1]` before it gates, so a producer's divide-normalized vector admits instead of forking identical geometry out of the corpus, and a refusal routes an `Op`-keyed admission fault rather than throwing.
 - Auto: `Mesh` encoding re-hashes identically under a morph and distinctly under a topology break; every arm gates input and answer through the acceptance oracle, so consumers never re-check the `IValidityEvidence` claims.
-- Receipt: `NamingHash` is the reconciliation evidence the Persistence structural merge consumes per node, registering into the `OpAcceptance.ValidityOf` oracle like every kernel receipt — no parallel reconciliation ledger.
+- Law: `NamingHash` is the reconciliation evidence the Persistence structural merge consumes per node, registering into the `OpAcceptance.ValidityOf` oracle like every kernel result — no parallel reconciliation ledger.
 - Law: `RebuiltEntity.Canonical` is a run of int WORDS, never a pre-serialized block, so the framing decision stays at `CanonicalWriter` and the entity keeps structural equality — a `byte[]` column compared by reference, which is precisely what a record whose identity IS its content cannot afford. Three `EncodeForm` streams stay BYTE-UNCHANGED under the writer, and the correspondence is member-for-member: `Word` was int32-LE and `Ordinal` is; `Real` wrote the raw IEEE754 pattern little-endian and `Bits` writes exactly that pattern, never `Double`, whose quantization is a different identity space; and every hand `Word(count)` preceding a run is precisely the count frame `Rows` writes, so the `MESH_ADJACENCY_GOLDEN` vector and the python/ts `XxHash128` peers re-verify unchanged — the vector rides `Digest(EncodeForm)` through `MeshStream`, which no member below touched. RIPPLE: the per-entity `Content` key gains the count frame `Rows` writes ahead of its word run, so `NamingHash.Addresses` and the `Rasm.Persistence` structural merge re-baseline their stored per-node keys once. Probe is the golden itself — encode the pinned mesh and compare the digest to the frozen vector; a re-baseline THERE is the defect, not the pass. NAMED LOSS: the deleted `Real` collapsed `-0.0` to `+0.0` and `Bits` writes the pattern it is handed, so a `-0.0` coordinate addresses a distinct key (escalated to `Domain/identity.md`).
 - Packages: `Rasm.Meshing` `MeshSpace` with the `RhinoCommon` welded-topology read behind `MeshSpace.DuplicateNative`, `VectorCloud`, `Rasm.Domain` for the seed-zero `ContentHash.Of`, the `CanonicalWriter` framing, and the `Op`/`Context`/`IValidityEvidence` rails, `Thinktecture.Runtime.Extensions`, `Generator.Equals`, `LanguageExt.Core`.
 - Growth: a new geometry modality is one `EncodeForm` case with its own frozen stream and one `CloudForm`-style wire row where it needs a discriminant; a new per-case content column is one counted layout block on the owning case's stream, the cluster mass block the precedent; a new reconciliation projection is one column on `NameAddress`; a native-brep adjacency source is one `CanonicalTopology.Of*` factory under the same canonical-order law.
@@ -334,7 +334,6 @@ public static class Reconciliation {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

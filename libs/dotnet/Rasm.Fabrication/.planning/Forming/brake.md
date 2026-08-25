@@ -12,14 +12,14 @@
 
 - Owner: `BendMethod` owns forming physics; `PunchKind` owns punch compatibility; `BrakeTool` owns admitted tool geometry; `SupportRule` owns handling limits; `PartPose` owns rigid orientation; `BrakePolicy` owns cell and search policy; `BendSequence` owns candidate evaluation and sequencing.
 - Cases: `BendMethod` carries air, bottom, coin, hem, wipe, and fold behavior with a per-row forming-force law; `PunchKind` carries straight, acute, gooseneck, hemming, wiping, and radius turn windows beside each punch's nose-radius floor; `BrakeRejection` carries every failed admission column.
-- Entry: `BendSequence.Plan(UnfoldResult, FormPolicy, ProcessEnvelope.Brake, FabricationTap?, CancellationToken)` is the frozen polymorphic planning entry; the tap defaults silent for headless callers and the token rides the frontier.
-- Entry: `BrakeBench.Workload` admits the `bend-search` measured workload — bend and tool floors with both bend signs present over the pinned literal operating envelope — and `BrakeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.BendSearch`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
+- Entry: `BendSequence.Plan(UnfoldResult, FormPolicy, ProcessEnvelope.Brake, Option<InstrumentSet>, CancellationToken)` is the frozen polymorphic planning entry; the set defaults absent for headless callers and the token rides the frontier.
+- Entry: `BrakeBench.Workload` admits the `bend-search` measured workload — bend and tool floors with both bend signs present over the pinned literal operating envelope — and `BrakeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.BendSearch`; measurement and result projection stay the bench edge's under the AppHost claim-field map.
 - Law: dominance keys on the QUANTIZED state, on the same grid the frontier priority already uses. A key over exact `Transform` equality never matches two states the search reached by different arithmetic paths, so the map never fired and the pruning was structurally dead — the frontier then expanded the whole reachable space under its own budget. Two states agreeing to the admitted gauge and angular resolution ARE the same state for every future feasibility and cost question, and both resolutions are state policy: `RootAccuracyDeg` is the springback inversion's convergence band alone, so tightening the solver never widens the frontier.
 - Law: a typed geometry or policy fault leaves the search on the rail it arrived on as `BrakeCandidate.Refused`. Folding it into an evaluation rejection erased which band refused, so a degenerate profile read as an infeasible bend and the census counted a structural failure as a tried candidate.
 - Law: the bend frontier polls its exact execution token and lowers `Errors.Cancelled` when requested; cancellation is neither a thrown control path nor a policy refusal.
 - Law: panel descent reads `Forming/sheet` `UnfoldEvidence.Descendants`, computed once at unfold; the byte-identical per-bend recursion this page carried walked the same tree a second time.
 - Auto: Candidate generation spans the admitted tool catalog and physical bend-axis alignments; each bend resolves the tooling its `SheetForm` demands over the policy default; independent gauge, support, sweep-station, and candidate failures accumulate before one accepted transition rotates every descendant panel and enters the best-first frontier; the folder's `ElasticLaw` inverts the cubic elastic-recovery law over the loaded radius under this lane's own fibre and thickness terms; blank weight and descendant closures resolve once for the whole search.
-- Receipt: `BendPlan` carries the frozen `Seq<BendStep>` line, angle, radius, `K`, overbend, tonnage, and orientation wire beside the settled expansion and rejection census the `FabricationFact.Engine.Of` form rows read on the run spine; the search path retains tool, gauge, setup, support, transformed-panel, and clearance evidence until projection; frontier exhaustion alone returns `BendSequenceInfeasible`, and budget exhaustion returns a distinct fault carrying the unfinished frontier.
+- Result: `BendPlan` carries the frozen `Seq<BendStep>` line, angle, radius, `K`, overbend, tonnage, and orientation wire beside the settled expansion and rejection census written through `FabricationInstruments.Steps`; the search path retains tool, gauge, setup, support, transformed-panel, and clearance evidence until projection; frontier exhaustion alone returns `BendSequenceInfeasible`, and budget exhaustion returns a distinct fault carrying the unfinished frontier.
 - Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `UnitsNet`, `RhinoCommon`, the `Geometry2D` owner, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon`, and BCL `PriorityQueue<TElement, TPriority>` compose the surface.
 - Growth: each method or punch family is one smart-enum row carrying its own force or nose law, a physical tool is catalog data, a setup derives from the live bend axis, and a feasibility dimension is one `BrakeRejection` case with one evidence column.
 - Boundary: Forming owns sequence feasibility and evolving part geometry; flat development, machine capacity, polygon topology, process physics, posting text, and artifact identity remain at their canonical owners; punch body profile is `BrakeTool.ForbiddenSections` geometry, so `PunchKind` states only the turn window and nose-radius floor a section cannot. `PriorityQueue<TElement, TPriority>`, its canonical composite priority, structural dominance map, and frontier loop are the statement-kernel exemptions — and the QuikGraph exemption is MEASURED at the frontier: every shortest-path extension binds a materialized vertex and edge set, while this space is implicit and its transition cost state-dependent, so the two graphs this page genuinely holds (`LinkOrder` at `Forming/sheet`, `ClosureOf` beside it) are the ones QuikGraph owns.
@@ -263,14 +263,16 @@ public static class BendSequence {
         UnfoldResult unfold,
         FormPolicy policy,
         ProcessEnvelope.Brake envelope,
-        FabricationTap? tap = null,
+        Option<InstrumentSet> set = default,
         CancellationToken cancel = default) =>
         unfold.Flat.IsEmpty || unfold.Bends.IsEmpty
             ? Fin.Fail<BendPlan>(FabricationFault.Inadmissible(FabConcern.Forming, "bend-sequence:input"))
             : from _ in ValidEnvelope(envelope)
               from context in Prepare(unfold, policy.Brake)
               from result in Search(context, unfold, policy, envelope, cancel)
-              let _engine = FabricationFact.Engine.Of(result).Map((tap ?? FabricationTap.Silent).Fire).Strict()
+              from _engine in set.Steps(
+                  (EnginePhase.Expansions, result.Expansions),
+                  (EnginePhase.ExpansionsRejected, result.Rejected))
               select result;
 
     private static Fin<BendPlan> Search(
@@ -985,7 +987,6 @@ public static class BrakeBench {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -590,12 +590,11 @@ public static class TextureCoordinates {
 
 - Owner: `MappingRequest` stores bind, snapshot, evaluation, decomposition, or census modality; `MappingResult` keeps each answer case explicit; `Mappings.Run` is the sole document entry.
 - Law: a request admits target, channel, profile, spec, transforms, and redraw policy before the demand window; the host document and native mapping never leave it. Channels need no seam admission at all — `MappingChannel` is default-refusing at the type, so a request carrying one is already proved.
-- Law: bind resolves every object once, mints one mapping lease, applies one profile, records one undo bracket, restores redraw suppression on every exit, and appends `ContentSlot.Mapped` facts to `ContentReceipt`.
+- Law: bind resolves every object once, mints one mapping lease, applies one profile, records one undo bracket, and restores redraw suppression on every exit.
 - Law: census composes `ObjectAttributes.HasMapping` as the cheap attribute gate and `RhinoObject.HasTextureMapping` as the texture-specific gate before reading channels.
 - Law: the host reports no object motion as `Transform.Identity`, so a read carries the returned transform as `Some(motion)` and an invalid readback transform is malformed host data failing typed — never collapsed into `None`.
 - Boundary: `MappingSpec.Ocs` binds only to `ObjectAttributes.OCSMappingChannelId`; unsupported inverse kinds remain visible through `MappingSnapshot.Kind` and absent through `MappingSnapshot.Spec`.
-- Boundary: `ContentReceipt` is the registry page's hand-built receipt; the fact-stream conformance that replaces it with `FactStream<ContentSlot, ContentBody>` is that page's to land, and this rail composes whichever shape it publishes.
-- Packages: `api-rhinocommon-objects.md` (`RhinoObject.SetTextureMapping` both arities, `GetTextureMapping`, `GetTextureChannels`, `HasTextureMapping`, `ObjectAttributes.HasMapping`, `ObjectAttributes.OCSMappingChannelId`); `api-rhinocommon-document.md` (`RhinoDoc.Objects.FindId`); kernel `Domain/rails` (`Lease<T>.Use`, `Op`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`), `Document/tables.md` (`TableTarget`, `RedrawPolicy`, `DocumentCommit.Sealed`), `Render/registry.md` (`ContentReceipt`, `ContentSlot`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-objects.md` (`RhinoObject.SetTextureMapping` both arities, `GetTextureMapping`, `GetTextureChannels`, `HasTextureMapping`, `ObjectAttributes.HasMapping`, `ObjectAttributes.OCSMappingChannelId`); `api-rhinocommon-document.md` (`RhinoDoc.Objects.FindId`); kernel `Domain/rails` (`Lease<T>.Use`, `Op`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`), `Document/tables.md` (`TableTarget`, `RedrawPolicy`, `DocumentCommit.Sealed`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -620,7 +619,7 @@ public abstract partial record MappingRequest {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MappingResult : IDetachedDocumentResult {
     private MappingResult() { }
-    public sealed record Changed(ContentReceipt Receipt) : MappingResult;
+    public sealed record Changed : MappingResult;
     public sealed record Snapshot(MappingSnapshot Value, Option<Lease<Mesh>> Coordinates) : MappingResult, IDisposable {
         public void Dispose() => Coordinates.Iter(static lease => lease.Dispose());
     }
@@ -638,7 +637,7 @@ public static class Mappings {
                from result in activeRequest.Switch(
                    context: (Session: activeSession, Op: op),
                    bind: static (state, command) => Bind(state.Session, command, state.Op)
-                       .Map(static receipt => (MappingResult)new MappingResult.Changed(receipt)),
+                       .Map(static _ => (MappingResult)new MappingResult.Changed()),
                    snapshot: static (state, query) => Read(state.Session, query.Object, query.Channel, state.Op, unit,
                        static (_, mapping, motion, key) => MappingSnapshot.Of(mapping, motion, key)
                            .Map(static recovered => (MappingResult)new MappingResult.Snapshot(
@@ -660,7 +659,7 @@ public static class Mappings {
                select result;
     }
 
-    private static Fin<ContentReceipt> Bind(DocumentSession session, MappingRequest.Bind command, Op op) =>
+    private static Fin<Unit> Bind(DocumentSession session, MappingRequest.Bind command, Op op) =>
         from objects in op.Need(command.Objects)
         from profile in op.Need(command.Profile)
         from spec in op.Need(command.Spec)
@@ -669,7 +668,7 @@ public static class Mappings {
             (spec is not MappingSpec.Ocs || command.Channel.Value == ObjectAttributes.OCSMappingChannelId)
             && command.ObjectMotion.Map(static motion => motion.IsValid).IfNone(true),
             op.InvalidInput())
-        from receipt in session.Demand(
+        from changed in session.Demand(
             use: document => DocumentCommit.Sealed(
                 document: document,
                 name: nameof(Mappings),
@@ -680,7 +679,7 @@ public static class Mappings {
                     from lease in spec.Mint(op)
                     from applied in lease.Use(mapping =>
                         from _ in profile.Apply(mapping, op)
-                        from bound in ids.TraverseM(id =>
+                        from _ in ids.TraverseM(id =>
                             from native in Optional(document.Objects.FindId(id)).ToFin(Fail: op.MissingContext())
                             from code in op.Catch(() => Fin.Succ(command.ObjectMotion switch {
                                 { IsSome: true, Case: Transform motion } =>
@@ -688,14 +687,14 @@ public static class Mappings {
                                 _ => native.SetTextureMapping(command.Channel.Value, mapping),
                             }))
                             from __ in guard(code != 0, op.InvalidResult())
-                            select id).As()
-                        select ContentReceipt.Objects(ContentSlot.Mapped, bound))
+                            select unit).As()
+                        select unit)
                     select applied,
-                stamp: static (value, serial) => serial > 0u ? value + ContentReceipt.UndoRecords(Seq(serial)) : value,
+                project: Fin.Succ,
                 op: op),
             key: op,
             needs: SessionNeed.Mutation(undo: true, redraw: redraw).ToArray())
-        select receipt;
+        select changed;
 
     private static Fin<MappingResult> Read<TState>(
         DocumentSession session,
@@ -765,7 +764,6 @@ public static class Mappings {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

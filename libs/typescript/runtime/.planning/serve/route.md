@@ -549,16 +549,16 @@ const _resolved = (
         ? Schema.decode(Event.rasm.subject)(envelope.subject).pipe(Effect.mapError((issue) => _eventProblem(issue.message)))
         : Effect.fail(_eventProblem("<dataref-subject-required>"))
       const residence = yield* Dataref
-      const receipt = yield* residence.resolve({
+      const held = yield* residence.resolve({
         source: envelope.source,
         id: envelope.id,
         subject,
         reference: roster.dataref,
         inline: yield* _inline(envelope),
       }).pipe(Effect.mapError((fault) => Problem.of(fault)))
-      return yield* receipt.carriage === "dual"
+      return yield* held.carriage === "dual"
         ? Effect.succeed(envelope)
-        : Effect.mapError(Event.clone(envelope, { data: receipt.bytes }, ["data_base64"]), _eventRefused)
+        : Effect.mapError(Event.clone(envelope, { data: held.bytes }, ["data_base64"]), _eventRefused)
     })
 
 const _carried = (

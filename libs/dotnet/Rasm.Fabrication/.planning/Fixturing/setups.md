@@ -17,7 +17,7 @@
 - Owner: `WcsSlot` is a closed payload family for base, extended, dynamic, rotary, and local offsets; controller syntax remains posting-owned. `Carrier`, `CarrierStation`, and `PartInstance` model pallet and tombstone occupancy, station frames, derived local offsets, and amortized tool-change cost without cloning operations.
 - Law: this `PartInstance` is a part MOUNTED at a carrier station for one operation, and it absorbs nothing from `Nesting/nfp`. That page's same-named pair is a part id beside a COPY ORDINAL inside a nest — its second column counts copies, not operations — and it keys a genetic-algorithm ordering. Merging would push a carrier key, a station index, and a mounting plane onto rows nesting cannot supply and would rename a copy count as an operation key; the two live in different namespaces and share no column by meaning.
 - Cases: `Mounting` closes table, pallet, tombstone face, rotary index, trunnion, spindle, robot positioner, and floor-cell mounting.
-- Receipt: `SetupEvidence` retains compatibility, `MachineReach` kinematics with optional robot-cell placement, workholding, clearance, guard, probe, stock, `DatumLineage`, and `ResourceHold` rows; `SetupBoundaryEvidence.Key` fingerprints every provider-owned field before admission.
+- Result: `SetupEvidence` retains compatibility, `MachineReach` kinematics with optional robot-cell placement, workholding, clearance, guard, probe, stock, `DatumLineage`, and `ResourceHold` rows; `SetupBoundaryEvidence.Key` fingerprints every provider-owned field before admission.
 - Law: `DatumGrade` is the ONE datum-knowledge row — measured, traceable, or both — so a landed rebase takes the roster's own `AfterProbe` transition instead of poking one of two independent booleans and leaving the other to say whatever it already said.
 - Growth: a new scheduling concern lands as one relation case, one `SetupAxis` row, one mounting case, or one evidence field; no delegate column or entrypoint appears beside the owner.
 - Boundary: scalar admission is `workholding#EVALUATION` `Fixtures`, so a `As(unit) >= 0 && double.IsFinite(...)` clause spelled at this page is the deleted form.
@@ -319,7 +319,7 @@ public readonly record struct MachineReach(
         !Axes.IsEmpty, Axes.ForAll(Fixtures.Finite),
         ValidityClaim.Positive(JacobianCondition),
         Fixtures.Nonnegative(Clearance), Fixtures.Nonnegative(Travel),
-        Robot.ForAll(static receipt => double.IsFinite(receipt.Selected.Score)));
+        Robot.ForAll(static result => double.IsFinite(result.Selected.Score)));
 }
 
 [SmartEnum<string>]
@@ -399,10 +399,10 @@ public sealed record SetupEvidence(
 - Law: controller and carrier-station WCS rows come from the unconsumed admitted roster remainder; setup indices never derive controller syntax, array position, or offset availability, and makespan accumulates per machine so setups on distinct machines do not serialize.
 - Law: transitive reduction takes NO edge factory and returns the ORIGINAL edges, so the surviving pair set is a `Set<(int, int)>` read once and the original relation rows filter against it in one pass — the per-edge rescan of the whole edge list is quadratic in the relation count and is deleted.
 - Law: a measured frame re-enters through the same evidence boundary that admitted the setup, and a correction exceeding the tightest datum tolerance the setup's operations carry rejects rather than stamping traceability. The `Joining/sequence` `DistortionField` narrows that tolerance through `workholding#FIXTURE` `DatumTransfer` before the comparison, so a distortion the weld plane measured consumes the datum budget rather than being re-estimated.
-- Exemption: `RootBound` fills the rectangular integer cost matrix `HungarianAlgorithm` binds, and `Search` threads the bounded scheduling recursion. NO shipped operator covers a cost-bounded assignment search over a precedence order with per-node evidence admission — QuikGraph ships the two questions this fold CAN delegate and both are delegated, `HungarianAlgorithm` for the root bound and infeasibility oracle and `ComputeTransitiveReduction` for the receipt, so the hand-threaded part is the branch-and-bound recursion alone. Mutation stays inside admitted graph, draft-state, and `Atom` containers; `SetupDraft` is the search's own partial schedule and `SetupSchedule` the proof-bearing result `Finalize` mints from it.
+- Exemption: `RootBound` fills the rectangular integer cost matrix `HungarianAlgorithm` binds, and `Search` threads the bounded scheduling recursion. NO shipped operator covers a cost-bounded assignment search over a precedence order with per-node evidence admission — QuikGraph ships the two questions this fold CAN delegate and both are delegated, `HungarianAlgorithm` for the root bound and infeasibility oracle and `ComputeTransitiveReduction` for the result, so the hand-threaded part is the branch-and-bound recursion alone. Mutation stays inside admitted graph, draft-state, and `Atom` containers; `SetupDraft` is the search's own partial schedule and `SetupSchedule` the proof-bearing result `Finalize` mints from it.
 - Entry: identity, relation references, WCS slots, carrier stations, part instances, machine keys, fixture keys, mounting frames, objective values, and operation payloads accumulate before graph construction.
 - Auto: one applicative evidence fan-in composes machine or robot-cell reach, rebuilt workholding restraint and corridor checks, guard, machined-stock, datum transfer, probing, and resource availability.
-- Receipt: the scheduled arm fires the `FabricationFact.Engine.Of` decision-count row through the `FabricationTap` `Apply` accepts, defaulting silent for headless callers. A cyclic precedence graph publishes its strongly-connected COMPONENT MEMBERS on `SetupChain.Components`, so the refusal names the operations a caller must break rather than a count.
+- Result: the scheduled arm writes the decision count through the optional mounted instrument set `Apply` accepts. A cyclic precedence graph publishes its strongly-connected COMPONENT MEMBERS on `SetupChain.Components`, so the refusal names the operations a caller must break rather than a count.
 - Packages: `BidirectionalGraph<int, SetupEdge>` preserves isolated operations, typed edge payloads, source-first order, strongly connected cycle evidence, and transitive reduction; `HungarianAlgorithm` at `QuikGraph.Algorithms.Assignment` binds the rectangular `int[,]` cost matrix alone.
 - Boundary: ordinary infeasibility prunes one candidate as `Option.None`; malformed input, failed geometry, exhausted budget, withdrawn run, or boundary failure remains a typed `Fin` failure.
 
@@ -499,16 +499,17 @@ public sealed record SetupSchedule(
     double Cost,
     Option<double> ProvenLowerBound,
     ContentKey Key) {
-    public static Fin<SetupResult> Apply(SetupOp? candidate, FabricationTap? tap = null, CancellationToken cancel = default) =>
+    public static Fin<SetupResult> Apply(SetupOp? candidate, Option<InstrumentSet> set = default, CancellationToken cancel = default) =>
         Optional(candidate)
             .ToFin(FabricationFault.Fixture(new FixturingWitness.Absent()))
             .Bind(op => op.Switch(
-                state: (Tap: tap ?? FabricationTap.Silent, Cancel: cancel),
+                state: (Set: set, Cancel: cancel),
                 admit: static (_, row) => Setups.Admit(row.Plan).Map<SetupResult>(static plan => new SetupResult.Admitted(plan)),
                 schedule: static (state, row) => Setups.Admit(row.Plan)
                     .Bind(plan => Setups.Solve(plan, state.Cancel))
-                    .Map<SetupResult>(schedule =>
-                        (FabricationFact.Engine.Of(schedule).Map(state.Tap.Fire).Strict(), new SetupResult.Scheduled(schedule)).Item2),
+                    .Bind(schedule =>
+                        state.Set.Steps((EnginePhase.Decisions, schedule.Decisions.Count))
+                            .Map<SetupResult>(_ => new SetupResult.Scheduled(schedule))),
                 rebase: static (_, row) => Setups.Rebase(row.Schedule, row.Setup, row.Measured)
                     .Map<SetupResult>(static schedule => new SetupResult.Rebased(schedule)),
                 project: static (_, row) => Setups.Project(row.Schedule, row.Projection)
@@ -822,8 +823,8 @@ internal static partial class Setups {
 
     private static bool Admissible(SetupOperation operation, SetupEvidence evidence, SetupPlan plan) {
         Length tolerance = plan.Distortion.Match(
-            Some: receipt => DatumTransfer
-                .Of(operation.Demand.DatumTolerance, receipt, toSet(operation.Roster.Features))
+            Some: result => DatumTransfer
+                .Of(operation.Demand.DatumTolerance, result, toSet(operation.Roster.Features))
                 .Remaining,
             None: () => operation.Demand.DatumTolerance);
         return evidence.IsValid && evidence.Compatible && evidence.Reach.Reachable && evidence.Holding.Holds
@@ -848,7 +849,7 @@ internal static partial class Setups {
     private static Fin<RestraintProof> Holding(SetupOperation operation, Fixture fixture) =>
         Workholding.Apply(new WorkholdingOp.Restrain(fixture, operation.Loads, operation.Demand.SafetyFactor))
             .Bind(static result => result switch {
-                WorkholdingResult.Restrained(var receipt) => Fin.Succ(receipt),
+                WorkholdingResult.Restrained(var result) => Fin.Succ(result),
                 _ => throw new InvalidOperationException("Workholding.Restrain returned a non-restraint result."),
             });
 
@@ -856,7 +857,7 @@ internal static partial class Setups {
         operation.Corridors.Traverse(corridor =>
             Workholding.Apply(new WorkholdingOp.Clear(fixture, FixtureState.Cut, corridor))
                 .Bind(static result => result switch {
-                    WorkholdingResult.Clearance receipt => Fin.Succ(receipt),
+                    WorkholdingResult.Clearance result => Fin.Succ(result),
                     _ => throw new InvalidOperationException("Workholding.Clear returned a non-clearance result."),
                 }).ToValidation()).As().ToFin();
 
@@ -939,7 +940,6 @@ internal static partial class Setups {
             Some: best => candidate.Match(Some: next => next.Cost < best.Cost ? candidate : current, None: () => current),
             None: () => candidate);
 
-    // --- [RECEIPT]
     private static Fin<SetupSchedule> Finalize(
         SetupPlan plan,
         BidirectionalGraph<int, SetupEdge> graph,
@@ -1143,7 +1143,6 @@ internal static partial class Setups {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

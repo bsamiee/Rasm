@@ -65,7 +65,7 @@ declare namespace AppSpec {
 - Law: hydration is boot's law — the build emits per-route static HTML stamped with the `data-rasm-prerender` marker; `Boot.hydrated` reads the marker (`Option`-carried) so the app's mount takes over a prerendered document instead of re-rendering it, and a document without the marker is a cold client render; the marker read is this cluster's one DOM touch.
 - Law: teardown rides the typed effect the handle already publishes — `disposeEffect` is `Effect<void>`, and a promise round-trip grades a rejecting scope finalizer `defect` on the shutdown path, past every gate that acts on it.
 - Exemption: the `_memo` mint is the one platform-forced boot-seam run call, and this module is the edge where it is legal.
-- Receipt: `main` returns `void` — everything observable thereafter flows through the composed graph; the annotation on `main`'s signature is the whole boot contract.
+- Output: `main` returns `void` — everything observable thereafter flows through the composed graph; the annotation on `main`'s signature is the whole boot contract.
 - Boundary: which Layer families merge into `root` is the app's selection across the branch; the `runMain` mechanics are `@effect/platform-browser`'s; view mounting is the ui wave's behind its atom bridge holding the same handle.
 - Packages: `@effect/platform-browser` (`BrowserRuntime`); `effect` (`Context`, `Effect`, `Layer`, `ManagedRuntime`, `Option`).
 
@@ -104,7 +104,7 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
 - Law: `granted` folds capability absence to silence — a host without `navigator.permissions` yields the empty stream and the consumer seeds its own default posture; a present host emits the current `PermissionState` then every `change`, so a permission affordance renders transitions, never polls.
 - Law: host refusal splits three ways, never onto one value — an absent surface is data the cell already carries, a name the agent cannot parse is a caller fault it grades `absent`, and a registration or query the agent refuses is a decision a caller re-drives, so `ConnectFault` carries the two that reach the rail and `orElseSucceed` over a whole probe is the collapse this owner forecloses.
 - Law: `navigator.connection` and the registration's `sync` member are absent from the DOM lib, so `_NetSource` and `_SyncHost` are this owner's boundary refinements and every byte-budget consumer reads the cell instead of the navigator; `otel/vital` pins its own `connection.type` refinement for the RUM stamp, because dependency direction bars an otel module from reading a browser cell, so the transport word and the byte-budget axis hold one owner each.
-- Receipt: `wake` answers `boolean` — registration accepted or capability absent — so boot stamps the wake posture without a probe, while a refused registration rides the rail because an agent that just refused is re-drivable and an absent capability never is.
+- Output: `wake` answers `boolean` — registration accepted or capability absent — so boot stamps the wake posture without a probe, while a refused registration rides the rail because an agent that just refused is re-drivable and an absent capability never is.
 - Growth: a new ambient signal (battery, memory pressure, page freeze) is one cell and one owned fold on this service — never a sibling owner, never a consumer-side listener.
 - Boundary: `otel/vital` owns RUM measurement; this cluster owns only the runtime-state cells its flush edges read; what drains on a redial is `shell#REPLAY_DRAIN`'s law.
 - Packages: `effect` (`Effect`, `Option`, `Record`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform-browser` (`BrowserStream.fromEventListenerWindow`, `BrowserStream.fromEventListenerDocument`); `@rasm/core` (`Fault.Class`).
@@ -272,7 +272,6 @@ export { AppSpec, Boot, Capability, Connect, ConnectFault }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

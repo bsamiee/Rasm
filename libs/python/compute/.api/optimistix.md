@@ -150,5 +150,5 @@
 [RAIL_LAW]:
 - Package: `optimistix`
 - Owns: JAX-native nonlinear minimization, least-squares, root-finding, and fixed-point iteration with composable descent/search strategies and differentiable implicit/recursive-checkpoint adjoints
-- Accept: `minimise`/`least_squares`/`root_find`/`fixed_point` as the solve entries, a `lineax` solver as `linear_solver=`, an `optax` optimizer via `OptaxMinimiser`, an `equinox` PyTree as `y0`/`args`, a `Solution` carrying a `RESULTS` receipt
+- Accept: `minimise`/`least_squares`/`root_find`/`fixed_point` as the solve entries, a `lineax` solver as `linear_solver=`, an `optax` optimizer via `OptaxMinimiser`, an `equinox` PyTree as `y0`/`args`, a `Solution` carrying a `RESULTS` verdict
 - Reject: `scipy.optimize` where JAX autodiff, JIT, or PyTree inputs are required (`compat.minimize` bridges only at a non-JAX boundary); a hand-rolled inner linear solve or first-order loop the siblings own

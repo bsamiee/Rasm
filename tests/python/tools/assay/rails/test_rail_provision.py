@@ -8,7 +8,7 @@ from expression import Ok
 import msgspec
 import pytest
 
-from assay.core.model import Band, Claim, Fault, ProvisionRun, RailStatus, receipt
+from assay.core.model import Band, Claim, Completed, Fault, ProvisionRun, RailStatus
 from assay.rails import provision as provision_rail
 from assay.rails.provision import ProvisionParams
 from tests.python._testkit.spec import assert_error_status, assert_ok
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from assay.composition.settings import AssaySettings
     from assay.composition.store import ArtifactScope
-    from assay.core.model import Check, Completed, Report
+    from assay.core.model import Check, Report
     from tests.python.tools.assay.kit import AssayHarness
 
 
@@ -47,16 +47,7 @@ def _string_keyed(value: object) -> dict[str, object]:
 def _resources(extra: dict[str, object]) -> tuple[dict[str, object], dict[str, object]]:
     legacy_resources = extra.pop("resources", {})
     runtime_resources: dict[str, object] = {}
-    return (
-        {
-            "counts": legacy_resources if isinstance(legacy_resources, dict) else {},
-            "owned": {"containers": extra.pop("containers", ()), "volumes": (), "networks": ()},
-            "images": extra.pop("images", ()),
-            "dockerDisk": extra.pop("dockerDisk", ()),
-            "runtime": runtime_resources,
-        },
-        runtime_resources,
-    )
+    return ({"counts": legacy_resources if isinstance(legacy_resources, dict) else {}, "owned": {"containers": extra.pop("containers", ()), "volumes": (), "networks": ()}, "images": extra.pop("images", ()), "dockerDisk": extra.pop("dockerDisk", ()), "runtime": runtime_resources}, runtime_resources)
 
 
 def _json(command: str, **extra: object) -> bytes:
@@ -77,11 +68,7 @@ def _json(command: str, **extra: object) -> bytes:
         if key in extra:
             runtime_resources[key] = extra.pop(key)
     extensions = extra.pop("extensions", ())
-    extension_carrier = {
-        "catalog": extensions if command == "extensions" else (),
-        "results": extensions if command in {"up", "check", "apply"} else (),
-        "summary": extra.pop("summary", {}),
-    }
+    extension_carrier = {"catalog": extensions if command == "extensions" else (), "results": extensions if command in {"up", "check", "apply"} else (), "summary": extra.pop("summary", {})}
     tools = extra.pop("tools", {"surfaces": {}, "summary": {}})
     artifacts = extra.pop("artifacts", {"generated": extra.pop("generated", ()), "plan": extra.pop("plan", None)})
     return msgspec.json.encode({
@@ -121,7 +108,7 @@ def _recording_fan(calls: list[tuple[tuple[str, ...], ...]]) -> Callable[..., tu
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         commands = tuple(check.args.fill(check.tool.command) for check in checks)
         calls.append(commands)
-        return tuple(Ok(receipt(command, 0, status=RailStatus.OK, stdout=_stdout(command))) for command in commands)
+        return tuple(Ok(Completed(command, 0, status=RailStatus.OK, stdout=_stdout(command))) for command in commands)
 
     return fan
 
@@ -129,7 +116,7 @@ def _recording_fan(calls: list[tuple[tuple[str, ...], ...]]) -> Callable[..., tu
 def _fan_payload(command: tuple[str, ...], stdout: bytes, *, rc: int = 0) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         assert tuple(check.args.fill(check.tool.command) for check in checks) == (command,)
-        return (Ok(receipt(command, rc, stdout=stdout)),)
+        return (Ok(Completed(command, rc, stdout=stdout, status=RailStatus.from_returncode(rc))),)
 
     return fan
 
@@ -137,16 +124,12 @@ def _fan_payload(command: tuple[str, ...], stdout: bytes, *, rc: int = 0) -> Cal
 def _override_fan(overrides: dict[tuple[str, ...], Result[Completed, Fault]]) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
     def fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
         commands = tuple(check.args.fill(check.tool.command) for check in checks)
-        return tuple(overrides.get(command, Ok(receipt(command, 0, status=RailStatus.OK, stdout=_stdout(command)))) for command in commands)
+        return tuple(overrides.get(command, Ok(Completed(command, 0, status=RailStatus.OK, stdout=_stdout(command)))) for command in commands)
 
     return fan
 
 
-def _run(
-    handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]],
-    assay_root: AssayHarness,
-    executor: SeamExecutor,
-) -> Result[Report, Fault]:
+def _run(handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]], assay_root: AssayHarness, executor: SeamExecutor) -> Result[Report, Fault]:
     return handler(assay_root.settings, assay_root.scope(Claim.PROVISION), ProvisionParams(), executor)
 
 
@@ -171,9 +154,7 @@ _STACK_VERBS = tuple((verb, getattr(provision_rail, verb)) for verb in _STACK_VE
 
 
 @pytest.mark.parametrize("verb, handler", _STACK_VERBS, ids=_STACK_VERB_NAMES)
-def test_provision_stack_verb_delegates(
-    assay_root: AssayHarness, verb: str, handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]]
-) -> None:
+def test_provision_stack_verb_delegates(assay_root: AssayHarness, verb: str, handler: Callable[[AssaySettings, ArtifactScope, ProvisionParams, SeamExecutor], Result[Report, Fault]]) -> None:
     """Stack verbs delegate to the Forge-owned provisioning command."""
     calls: list[tuple[tuple[str, ...], ...]] = []
     report = assert_ok(_run(handler, assay_root, SeamExecutor(fan_fn=_recording_fan(calls))))
@@ -184,9 +165,7 @@ def test_provision_stack_verb_delegates(
 # --- [FAULT_MATRIX]
 
 
-def _frow(
-    ident: str, payload: bytes | dict[str, object], *fragments: str, verb: str = "status", rc: int = 0
-) -> tuple[str, str, bytes, int, tuple[str, ...]]:
+def _frow(ident: str, payload: bytes | dict[str, object], *fragments: str, verb: str = "status", rc: int = 0) -> tuple[str, str, bytes, int, tuple[str, ...]]:
     body = payload if isinstance(payload, bytes) else msgspec.json.encode(payload)
     return (ident, verb, body, rc, fragments)
 
@@ -205,27 +184,11 @@ _FAULT_ROWS = (
     _frow("command-empty", {"schemaVersion": 3, "command": "", "ok": True}, "missing command"),
     _frow("command-mismatch", {"schemaVersion": 3, "command": "doctor", "ok": True}, "forge-provision JSON command"),
     _frow("sensitive-key", _json("status", services={"timescale": {"enabled": True}}, token="redacted"), "sensitive key"),  # ruff:ignore[hardcoded-password-func-arg]
-    _frow(
-        "sensitive-value",
-        _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/forge", "exitCode": 1}, ok=False),
-        "sensitive value",
-    ),
-    _frow(
-        "diagnostic-json-path",
-        _json("doctor", diagnostic={"resolvedEndpoint": "unix:///Users/example/.colima/default/docker.sock"}),
-        "sensitive value",
-        verb="doctor",
-    ),
+    _frow("sensitive-value", _json("status", error={"code": "x", "message": "postgres://postgres:pw@127.0.0.1/forge", "exitCode": 1}, ok=False), "sensitive value"),
+    _frow("diagnostic-json-path", _json("doctor", diagnostic={"resolvedEndpoint": "unix:///Users/example/.colima/default/docker.sock"}), "sensitive value", verb="doctor"),
     *(
         _frow(f"local-path-{label}", _json("doctor", docker={"executableKind": value}), "sensitive value", verb="doctor")
-        for label, value in (
-            ("users", "/Users/example/.docker/config.json"),
-            ("tmp", "/" + "tmp/forge/socket"),
-            ("run-secrets", "/run/secrets/postgres"),
-            ("etc", "/etc/passwd"),
-            ("var-run", "/var/run/docker.sock"),
-            ("unix", "unix:///tmp/forge.sock"),
-        )
+        for label, value in (("users", "/Users/example/.docker/config.json"), ("tmp", "/" + "tmp/forge/socket"), ("run-secrets", "/run/secrets/postgres"), ("etc", "/etc/passwd"), ("var-run", "/var/run/docker.sock"), ("unix", "unix:///tmp/forge.sock"))
     ),
 )
 
@@ -271,24 +234,8 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness) -> None
             }
         },
         ports=[
-            {
-                "service": "search",
-                "env": "FORGE_PROVISION_SEARCH_PORT",
-                "value": 15433,
-                "state": "free",
-                "occupied": False,
-                "ownerClass": "none",
-                "portSource": "auto",
-            },
-            {
-                "service": "timescale",
-                "env": "FORGE_PROVISION_TIMESCALE_PORT",
-                "value": 15432,
-                "state": "busy",
-                "occupied": True,
-                "ownerClass": "provision:this-project",
-                "portSource": "auto",
-            },
+            {"service": "search", "env": "FORGE_PROVISION_SEARCH_PORT", "value": 15433, "state": "free", "occupied": False, "ownerClass": "none", "portSource": "auto"},
+            {"service": "timescale", "env": "FORGE_PROVISION_TIMESCALE_PORT", "value": 15432, "state": "busy", "occupied": True, "ownerClass": "provision:this-project", "portSource": "auto"},
         ],
     )
     executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "status"), payload))
@@ -300,36 +247,14 @@ def test_provision_status_projects_json_detail(assay_root: AssayHarness) -> None
     assert detail.auth_mode == "auto-root"
     assert detail.auth_risk == "generated-root-secret"
     assert detail.port_policy == (("mode", "auto"), ("source", "auto"), ("range", "15364-15554"), ("seedFingerprint", "seed-hash"))
-    assert detail.provision_scope == (
-        ("rootKey", "abc123"),
-        ("projectKey", "forge-test-abc123"),
-        ("instance", "default"),
-        ("composeProject", "forge-forge-test-abc123-default"),
-        ("authMode", "auto-root"),
-        ("authRisk", "generated-root-secret"),
-    )
+    assert detail.provision_scope == (("rootKey", "abc123"), ("projectKey", "forge-test-abc123"), ("instance", "default"), ("composeProject", "forge-forge-test-abc123-default"), ("authMode", "auto-root"), ("authRisk", "generated-root-secret"))
     assert detail.resource_counts == (("containers", 2),)
     assert detail.summary == (("ok", 2),)
     assert detail.services == (("timescale", "true", "timescale", "15432", "timescale/timescaledb-ha:pg18"),)
-    assert detail.service_connections == (
-        (
-            "timescale",
-            "true",
-            "127.0.0.1",
-            "15432",
-            "FORGE_PROVISION_TIMESCALE_PORT",
-            "FORGE_PROVISION_TIMESCALE_DSN",
-            "postgres://postgres:***@127.0.0.1:15432/forge",
-            "5432",
-            "timescale",
-        ),
-    )
+    assert detail.service_connections == (("timescale", "true", "127.0.0.1", "15432", "FORGE_PROVISION_TIMESCALE_PORT", "FORGE_PROVISION_TIMESCALE_DSN", "postgres://postgres:***@127.0.0.1:15432/forge", "5432", "timescale"),)
     assert detail.service_roles == (("timescale", "time"),)
     assert detail.local_service_topology == (("timescale", "true", "timescale", "timescale/timescaledb-ha:pg18", "15432", "", ""),)
-    assert detail.ports == (
-        ("search", "FORGE_PROVISION_SEARCH_PORT", "15433", "free", "false", "none", "auto"),
-        ("timescale", "FORGE_PROVISION_TIMESCALE_PORT", "15432", "busy", "true", "provision:this-project", "auto"),
-    )
+    assert detail.ports == (("search", "FORGE_PROVISION_SEARCH_PORT", "15433", "free", "false", "none", "auto"), ("timescale", "FORGE_PROVISION_TIMESCALE_PORT", "15432", "busy", "true", "provision:this-project", "auto"))
     assert detail.local_probe_values == ()
 
 
@@ -344,17 +269,7 @@ def test_provision_port_policy_allows_null_seed_fingerprint(assay_root: AssayHar
 def test_provision_ok_projection_variants(assay_root: AssayHarness) -> None:
     """Verb-specific Ok payloads project exact safe evidence: redacted DSN admission and scalar plan summary without Compose YAML."""
     dsn = "postgres://postgres:***@127.0.0.1:15432/forge"
-    service = {
-        "enabled": True,
-        "connectable": True,
-        "host": "127.0.0.1",
-        "port": 15432,
-        "portEnv": "FORGE_PROVISION_TIMESCALE_PORT",
-        "dsnEnv": "FORGE_PROVISION_TIMESCALE_DSN",
-        "dsnRedacted": dsn,
-        "containerPort": 5432,
-        "composeService": "timescale",
-    }
+    service = {"enabled": True, "connectable": True, "host": "127.0.0.1", "port": 15432, "portEnv": "FORGE_PROVISION_TIMESCALE_PORT", "dsnEnv": "FORGE_PROVISION_TIMESCALE_DSN", "dsnRedacted": dsn, "containerPort": 5432, "composeService": "timescale"}
     env_executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "env"), _json("env", services={"timescale": service})))
     env_detail = _detail(assert_ok(_run(provision_rail.env, assay_root, env_executor)))
     assert env_detail.service_connections[0][6] == dsn
@@ -398,25 +313,8 @@ _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple
         ),
         {
             "extensions": (),
-            "extension_catalog": (
-                ("timescale", "postgis", "geospatial", "required", "apply-create", "local-extension", "image:timescale/timescaledb-ha", "false"),
-            ),
-            "extension_metadata": (
-                (
-                    "timescale",
-                    "postgis",
-                    "image:timescale/timescaledb-ha",
-                    "image",
-                    "runtime-probed",
-                    "create-extension",
-                    "required",
-                    "none",
-                    "none",
-                    "timescale",
-                    "timescale/timescaledb-ha:pg18.4-ts2.27.2-all",
-                    "apply-create",
-                ),
-            ),
+            "extension_catalog": (("timescale", "postgis", "geospatial", "required", "apply-create", "local-extension", "image:timescale/timescaledb-ha", "false"),),
+            "extension_metadata": (("timescale", "postgis", "image:timescale/timescaledb-ha", "image", "runtime-probed", "create-extension", "required", "none", "none", "timescale", "timescale/timescaledb-ha:pg18.4-ts2.27.2-all", "apply-create"),),
             "extension_requirements": (("timescale", "postgis", "true", "true", "true", "true", "true"),),
         },
     ),
@@ -442,25 +340,7 @@ _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple
                 "probeFunction": None,
             },
         ),
-        {
-            "extension_metadata": (
-                (
-                    "*",
-                    "hll",
-                    "postgresql-contrib-or-image-probed",
-                    "runtime-probed",
-                    "runtime-probed",
-                    "create-extension",
-                    "optional",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "probe-only",
-                ),
-            ),
-            "tool_surface_extensions": (),
-        },
+        {"extension_metadata": (("*", "hll", "postgresql-contrib-or-image-probed", "runtime-probed", "runtime-probed", "create-extension", "optional", "", "", "", "", "probe-only"),), "tool_surface_extensions": ()},
     ),
     (
         "tool-surface-rows-preserved",
@@ -498,36 +378,8 @@ _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple
         ),
         {
             "tool_surface_extensions": (
-                (
-                    "duckdb",
-                    "postgres_scanner",
-                    "duckdb",
-                    "duckdb",
-                    "core-loadable",
-                    "catalog-only",
-                    "duckdb-tooling",
-                    "catalog-only",
-                    "catalog-only",
-                    "duckdb:postgres_scanner",
-                    "postgres_scanner",
-                    "",
-                    "postgres",
-                ),
-                (
-                    "sqlite",
-                    "sqlite-vec",
-                    "sqlite-forge",
-                    "sqlite",
-                    "active-local",
-                    "loaded-by-sqlite-forge",
-                    "safe",
-                    "loaded-by-sqlite-forge",
-                    "loaded-by-sqlite-forge",
-                    "sqlite-forge:sqlite-vec",
-                    "vec0",
-                    "vec_version",
-                    "",
-                ),
+                ("duckdb", "postgres_scanner", "duckdb", "duckdb", "core-loadable", "catalog-only", "duckdb-tooling", "catalog-only", "catalog-only", "duckdb:postgres_scanner", "postgres_scanner", "", "postgres"),
+                ("sqlite", "sqlite-vec", "sqlite-forge", "sqlite", "active-local", "loaded-by-sqlite-forge", "safe", "loaded-by-sqlite-forge", "loaded-by-sqlite-forge", "sqlite-forge:sqlite-vec", "vec0", "vec_version", ""),
             )
         },
     ),
@@ -535,9 +387,7 @@ _EXTENSION_ROWS: tuple[tuple[str, tuple[dict[str, object], ...], dict[str, tuple
 
 
 @pytest.mark.parametrize("rows, expected", [row[1:] for row in _EXTENSION_ROWS], ids=[row[0] for row in _EXTENSION_ROWS])
-def test_provision_extensions_projection_matrix(
-    assay_root: AssayHarness, rows: tuple[dict[str, object], ...], expected: dict[str, tuple[tuple[str, ...], ...]]
-) -> None:
+def test_provision_extensions_projection_matrix(assay_root: AssayHarness, rows: tuple[dict[str, object], ...], expected: dict[str, tuple[tuple[str, ...], ...]]) -> None:
     """Extension payload families project into their exact ProvisionRun row shapes."""
     executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "extensions"), _json("extensions", extensions=list(rows))))
     detail = _detail(assert_ok(_run(provision_rail.extensions, assay_root, executor)))
@@ -573,11 +423,7 @@ def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness) -
             "appleContainer": {"present": True, "system": "running", "eligible": {"gate": True}},
         },
         lock={"present": True, "active": False, "state": "ownerless", "pidAlive": False, "heartbeatStale": False, "command": "doctor"},
-        colima={
-            "available": True,
-            "status": {"runtime": "docker", "arch": "aarch64", "driver": "macOS Virtualization.Framework", "mountType": "virtiofs"},
-            "raw": None,
-        },
+        colima={"available": True, "status": {"runtime": "docker", "arch": "aarch64", "driver": "macOS Virtualization.Framework", "mountType": "virtiofs"}, "raw": None},
     )
     executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "doctor"), payload))
     detail = _detail(assert_ok(_run(provision_rail.doctor, assay_root, executor)))
@@ -632,12 +478,7 @@ def test_provision_ok_false_projects_failed_run(assay_root: AssayHarness, rc: in
     assert not report.artifacts
     assert detail.ok is False
     assert detail.error == (("code", "port-conflict"), ("message", "fixed port is busy"), ("exitCode", str(rc)))
-    assert detail.provision_scope[:4] == (
-        ("rootKey", "abc123"),
-        ("projectKey", "forge-test-abc123"),
-        ("instance", "default"),
-        ("composeProject", "forge-forge-test-abc123-default"),
-    )
+    assert detail.provision_scope[:4] == (("rootKey", "abc123"), ("projectKey", "forge-test-abc123"), ("instance", "default"), ("composeProject", "forge-forge-test-abc123-default"))
 
 
 # --- [CHECK_VERB_LAWS]
@@ -657,36 +498,16 @@ def test_provision_check_folds_stack_and_local_probes(assay_root: AssayHarness) 
     assert any(command[:3] == ("forge-scientific-env", "sh", "-lc") for command in commands)
     detail = _detail(report)
     assert detail.local_probes == (("forge-python-abi", "ok"), ("forge-openblas", "ok"), ("forge-onnxruntime-lib", "ok"))
-    assert detail.local_probe_values == (
-        ("forge-python-abi", "ok", "cpython-315 0"),
-        ("forge-openblas", "ok", "0.3.30"),
-        ("forge-onnxruntime-lib", "ok", "present:libonnxruntime.dylib"),
-    )
+    assert detail.local_probe_values == (("forge-python-abi", "ok", "cpython-315 0"), ("forge-openblas", "ok", "0.3.30"), ("forge-onnxruntime-lib", "ok", "present:libonnxruntime.dylib"))
 
 
 def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: AssayHarness) -> None:
     """The merged check detail may fail while the independent tools subprocess remains successful."""
     check_cmd = ("forge-provision", "--json", "check")
     tools_cmd = ("forge-provision", "--json", "tools")
-    tools_payload = _json(
-        "tools",
-        tools={
-            "surfaces": {"duckdb": {"ok": True, "executable": "duckdb", "probe": {"extensionRows": 31}}},
-            "summary": {"selected": "all", "ok": True},
-        },
-    )
+    tools_payload = _json("tools", tools={"surfaces": {"duckdb": {"ok": True, "executable": "duckdb", "probe": {"extensionRows": 31}}}, "summary": {"selected": "all", "ok": True}})
     executor = SeamExecutor(
-        fan_fn=_override_fan({
-            check_cmd: Ok(
-                receipt(
-                    check_cmd,
-                    1,
-                    status=RailStatus.FAILED,
-                    stdout=_json("check", ok=False, error={"code": "error", "message": "owned service is not running", "exitCode": 1}),
-                )
-            ),
-            tools_cmd: Ok(receipt(tools_cmd, 0, status=RailStatus.OK, stdout=tools_payload)),
-        })
+        fan_fn=_override_fan({check_cmd: Ok(Completed(check_cmd, 1, status=RailStatus.FAILED, stdout=_json("check", ok=False, error={"code": "error", "message": "owned service is not running", "exitCode": 1}))), tools_cmd: Ok(Completed(tools_cmd, 0, status=RailStatus.OK, stdout=tools_payload))})
     )
     report = assert_ok(_run(provision_rail.check, assay_root, executor))
     detail = _detail(report)
@@ -702,11 +523,7 @@ def test_provision_check_keeps_tools_success_when_stack_check_fails(assay_root: 
 def test_provision_check_scrubs_failed_local_probe_streams(assay_root: AssayHarness) -> None:
     """Failed local probes keep a bounded failure row without durable raw stdout/stderr."""
     probe_cmd = ("forge-scientific-env", "pkg-config", "--modversion", "openblas")
-    executor = SeamExecutor(
-        fan_fn=_override_fan({
-            probe_cmd: Ok(receipt(probe_cmd, 1, status=RailStatus.FAILED, stderr=b"POSTGRES_PASSWORD=leak postgres://postgres:pw@127.0.0.1/forge"))
-        })
-    )
+    executor = SeamExecutor(fan_fn=_override_fan({probe_cmd: Ok(Completed(probe_cmd, 1, status=RailStatus.FAILED, stderr=b"POSTGRES_PASSWORD=leak postgres://postgres:pw@127.0.0.1/forge"))}))
     report = assert_ok(_run(provision_rail.check, assay_root, executor))
     encoded = msgspec.json.encode(report)
     assert report.status is RailStatus.FAILED
@@ -718,8 +535,6 @@ def test_provision_check_scrubs_failed_local_probe_streams(assay_root: AssayHarn
 def test_provision_check_rejects_sensitive_success_local_probe_values(assay_root: AssayHarness) -> None:
     """Successful local probe output must not bypass Forge payload sanitizers."""
     probe_cmd = ("forge-scientific-env", "pkg-config", "--modversion", "openblas")
-    executor = SeamExecutor(
-        fan_fn=_override_fan({probe_cmd: Ok(receipt(probe_cmd, 0, status=RailStatus.OK, stdout=b"/nix/store/leak/libopenblas.dylib\n"))})
-    )
+    executor = SeamExecutor(fan_fn=_override_fan({probe_cmd: Ok(Completed(probe_cmd, 0, status=RailStatus.OK, stdout=b"/nix/store/leak/libopenblas.dylib\n"))}))
     fault = assert_error_status(_run(provision_rail.check, assay_root, executor), RailStatus.FAULTED)
     assert "sensitive local probe value" in fault.message

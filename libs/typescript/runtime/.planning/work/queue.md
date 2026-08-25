@@ -289,7 +289,7 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
 - Law: poison short-circuits — a terminal-recovery class (`absent`, `invalid`, `malformed`, `denied`, `breached`, `defect`) parks on first failure regardless of the ceiling, because redelivering a deterministic failure spends lease windows to learn nothing; the judge fold above encodes this through `Fault.Class.retryable`, the class owner's own derived projection over the recovery band, and a page-local poison list is unspellable.
 - Law: parking is terminal for the claim, never for the work — the outbox row completes so the drain set stays bounded; the evidence row is the work's continued existence, and replay is the one path back.
 - Law: the DLQ read is maintenance-plane material — the park evidence rows carry no tenant (the target is the deliverable, so the fact stores NULL tenant, visible only under the plane posture), so the parked-evidence projection a caller hands `Lane.replay` composes `Tenancy.sweep` around its read; an unpinned projection reads an empty dead set and a replay pass reports nothing to re-offer while parked work ages silently. `Fact.record` composes no bracket for the park WRITE — it is a buffered offer whose drain owns its own plane posture at the data seam.
-- Receipt: the park evidence row carries `{ tag, deliverable, sequence, class, route, attempts, detail }` — the shape operator tooling lists, counts by class, and feeds back into `replay` — and the same fold marks the `Pulse` DLQ counter tagged by the channel `Lane.channel` reads off the announced tag, so the OTel series and the dead-set history cannot disagree and neither fans past the channel roster. `route` is what makes the dead set actionable outside the process: a `wait` row re-offers unchanged, a `restart` row needs its handle re-established first, and a `rescope` row needs its material re-authored — three postures the class table knows and an audit reader cannot derive.
+- Output: the park evidence row carries `{ tag, deliverable, sequence, class, route, attempts, detail }` — the shape operator tooling lists, counts by class, and feeds back into `replay` — and the same fold marks the `Pulse` DLQ counter tagged by the channel `Lane.channel` reads off the announced tag, so the OTel series and the dead-set history cannot disagree and neither fans past the channel roster. `route` is what makes the dead set actionable outside the process: a `wait` row re-offers unchanged, a `restart` row needs its handle re-established first, and a `rescope` row needs its material re-authored — three postures the class table knows and an audit reader cannot derive.
 - Growth: a replay posture (selective by class or route, dry-run census) is a predicate parameter on the one `replay` fold; a park-notification hook is a tap on the audit stream at its consumer, never a callback here.
 - Packages: `@rasm/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
 
@@ -357,7 +357,6 @@ export { Job, Lane, LaneVerdict, Throttle }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

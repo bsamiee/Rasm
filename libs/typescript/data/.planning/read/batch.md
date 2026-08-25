@@ -114,7 +114,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 - Owner: `Batch.Engine`, `Batch.settled(engine, run)`, and `Batch.of(engine, settle)` — one admitted resolver policy, the defect-total per-request settle fold every family composes, and one mint over `RequestResolver.makeBatched` — and the combinator tail: `batchN` width caps under the engine's refined field and the `aroundRequests` timing bracket; identity baking is `RequestResolver.contextFromServices` consumed at the package surface directly, because a forwarding wrapper adds no domain value and cannot state the variadic tag contract more honestly than the package signature.
 - Packages: `effect` (`RequestResolver` — `makeBatched`, `fromEffectTagged`, `batchN`, `aroundRequests`, `contextFromServices`; `Request` — `complete`, `Request.Success`, `Request.Error`; `Effect.exit`; `Clock`, `Schema`).
 - Entry: the owning service mints its resolver once at construction and publishes `execute`-shaped members that close over it; a capability-consuming resolver bakes its services through `contextFromServices(...tags)` at the same construction, yielding the context-free, identity-stable value the window groups on.
-- Receipt: the timing bracket's evidence pair — `aroundRequests`' `before` receives the window and its result feeds `after` — carries window size and wall span onto the span AND updates the `Convention.metric.batchDuration` distribution, so batch efficiency is observable per window and queryable as a duration distribution with zero body wiring; the mount carries name, description, bucket ladder, and UCUM code off that row, and the `Convention.duration` projection converts its millisecond span wherever an SLO or board consumes it.
+- Law: the timing bracket's evidence pair — `aroundRequests`' `before` receives the window and its result feeds `after` — carries window size and wall span onto the span AND updates the `Convention.metric.batchDuration` distribution, so batch efficiency is observable per window and queryable as a duration distribution with zero body wiring; the mount carries name, description, bucket ladder, and UCUM code off that row, and the `Convention.duration` projection converts its millisecond span wherever an SLO or board consumes it.
 - Growth: a resolver policy axis (width, bracket, context) is a combinator on the one value; a family growing a new tag lands a handler row on the `fromEffectTagged` record, never a sibling resolver.
 - Law: the SQL-provider spans are catalogued vocabulary — every statement runs inside a `sql.execute` client span and every `SqlResolver` window inside its `sql.Resolver.batch <tag>` span — so board queries key on those names beside the `spanPrefix` attributes, never a re-derived spelling.
 - Law: the bracket holds two `Clock` instants across separate `aroundRequests` hooks, so the histogram updates from their difference — `Metric.trackDuration` demands the window run as one wrappable effect the hook pair never holds.
@@ -282,7 +282,6 @@ export { Batch, Descriptor, DescriptorFault, DescriptorMiss }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

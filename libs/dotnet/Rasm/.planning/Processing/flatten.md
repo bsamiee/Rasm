@@ -13,17 +13,17 @@ Rebuild work composes the settled substrate: the `MeshAdjointSnapshot.Of` DEC ha
 - Owner: `Flatten` mints the static parameterization surface, `ParamTrait` the guarantee vocabulary every energy declares, and `ChartId` the one chart identity every island carries — island labels alone, so a fault raised before islanding rides the `ParameterizationFault`'s `Option<ChartId>` rather than a negative sentinel every reader decodes.
 - Cases: each `ParamOp` case carries its chart, its constraint payload, and its policy row, so `Apply` discriminates on the value alone.
 - Entry: `Flatten.Apply(ParamOp, Op?)` rides the `Fin<ChartAtlas>` rail and reaches the kernel consumer rail as `VectorIntent.Parameterize`, whose `ParameterizeCase` dispatch arm projects through `ChartAtlas.Project<TOut>` — the host LSCM lane stays its own `FlattenHostCase`, so a caller names which formulation ran; the admitted `MeshSpace` is not re-validated, every genuine gate faults typed, and `ChartAtlas.ToMesh`/`ToTextureMesh` re-emit the chart with UV coordinates or the islands as 2D geometry. `UvIsland.Boundary(Context, Op?)` projects the island's oriented boundary loops onto the `Meshing/intersect` `Chain` carrier — outer CCW, holes CW off face winding — so every downstream nesting or development consumer reads one walker instead of re-deriving the cycle walk.
-- Auto: modality dispatch is the union's total generated `Switch`, and every arm lowers the same `MeshDec.Of` DEC composition, differing only in the energy. `Assemble` scores distortion in one partition-disjoint parallel per-face pass, folds the receipt through `TensorPrimitives`, labels islands through QuikGraph over the face-dual, and refuses any flip typed.
+- Auto: modality dispatch is the union's total generated `Switch`, and every arm lowers the same `MeshDec.Of` DEC composition, differing only in the energy. `Assemble` scores distortion in one partition-disjoint parallel per-face pass, folds the distortion through `TensorPrimitives`, labels islands through QuikGraph over the face-dual, and refuses any flip typed.
 - Law: `ParamKind` declares ONE `CapabilitySet<ParamTrait>` column — conformality, area preservation, boundary freedom, and iterativeness are the four guarantees a downstream strain gate discriminates on, they co-occur in legal corners the roster fixes, and four bool columns are four authorities. `ChartAtlas.Traits` republishes the solved kind's set, so a consumer reads what the atlas carries rather than re-deriving it from the op case.
-- Law: the flip verdict has ONE authority — `Assemble` reads the first flipped face slot and hands it to `Fold`, so `DistortionReceipt.FlipFreeBijective` and the refusal cannot disagree.
+- Law: the flip verdict has ONE authority — `Assemble` reads the first flipped face slot and hands it to `Fold`, so `Distortion.FlipFreeBijective` and the refusal cannot disagree.
 - Law: degeneracy is a LANE verdict, never an exact-zero read of a float — the reference triangle gates on `Context.For(ToleranceLane.Area)` and the UV singular values on `.For(ToleranceLane.Collapse)`, both hoisted off `MeshDec` once per run. A face inside either band carries NO map: `Jacobian` answers `Option`, the pass sets a degenerate bit, and `Assemble` lowers `DegenerateInput` before one distortion figure is claimed, so a degenerate chart can no longer pass the bijectivity gate on an untouched UV triangle.
 - Law: the ARAP budget is `Cell.Converge` over one `Atom<Fin<ArapState>>`; the transition supplies the terminal state, and an unconverged run leaves through typed `ParameterizationFault` alone.
 - Law: `ParamPolicy` has a private constructor and one admitting `Of`, so an inadmissible policy is unrepresentable and no entry re-tests a bool the value already proved.
 - Law: boundary cycles have ONE walker — `Cycles.Of` over a functional successor map, shared by `UvIsland.Boundary` and `MeshDec.BoundaryLoops`, with one open-chain refusal instead of two divergent ones. It REFUSES QuikGraph's `StronglyConnectedComponents`, which answers the component set where this owner's whole product is the cyclic order the winding, the pin ring, and `IntegrateBoundary` read.
 - Exemption: `ChartStore` is pooled single-writer scratch, and the `MeshDec`/`UvIsland` boundary tables are `Dictionary`/`HashSet` rebuilt inside one fold and dropped — none is a startup-admitted table, so none freezes. `ReducedSystem` memoizes ONE pin set on the `MeshDec` capsule and the memo rides `Option`, never a nullable tuple.
-- Receipt: `DistortionReceipt` carries the conformal, area, and quasi-conformal distortion, the iteration count, and the exact-`Orient2D` bijectivity verdict — the evidence the `Rasm.Fabrication` nesting strain gate reads. `Residual`, `FactorNonZeros`, and `SpectralGap` are `Option` because the arms measure different subsets: a direct back-solve takes no residual, the eigen arm holds no Cholesky factor, and only the eigen arm has a gap — λ₃ of the conformal operator, which used to ride the residual column in a different unit from every other arm's.
+- Output: `Distortion` carries the conformal, area, and quasi-conformal distortion, the iteration count, and the exact-`Orient2D` bijectivity verdict — the evidence the `Rasm.Fabrication` nesting strain gate reads. `Residual`, `FactorNonZeros`, and `SpectralGap` are `Option` because the arms measure different subsets: a direct back-solve takes no residual, the eigen arm holds no Cholesky factor, and only the eigen arm has a gap — λ₃ of the conformal operator, which used to ride the residual column in a different unit from every other arm's.
 - Packages: `Rasm.Meshing` (`MeshSpace`, `MeshAdjointSnapshot.Of` the DEC handle, `MeshEdit` soup + freeze), `Rasm.Domain` (`Context`/`ToleranceLane` the two degeneracy bands, `Cell.Converge` the ARAP driver), `Rasm.Processing` (`FeatureEdge`/`MeshFeatureKind` seam source), `Rasm.Numerics` (`SparseMatrix`/`CholeskySparse` solve owners, `Predicate.Orient2D` flip floor, `EpsilonPolicy` the residual anchor, `AtomProjection`/`ProjectionRow` the atlas egress), `Rhino.Geometry`, QuikGraph (face-dual `WeaklyConnectedComponents`), System.Numerics.Tensors (`TensorPrimitives` distortion folds), CommunityToolkit.HighPerformance (`MemoryOwner`/`ParallelHelper`), Rasm.Domain, Thinktecture.Runtime.Extensions, LanguageExt.Core (`Atom`/`Fin`).
-- Growth: a new modality is one `ParamKind` row with its trait set, one `ParamOp` case, and one generated-`Switch` arm lowering the same substrate; a new distortion measure is one pooled plane and one `DistortionReceipt` field; a new constraint mode is one `ParamPolicy` column with its default on `Canonical` and its optional at `Of`, or one op-case payload; a new seam source is one `MeshFeatureKind` row; a new guarantee is one `ParamTrait` row.
+- Growth: a new modality is one `ParamKind` row with its trait set, one `ParamOp` case, and one generated-`Switch` arm lowering the same substrate; a new distortion measure is one pooled plane and one `Distortion` field; a new constraint mode is one `ParamPolicy` column with its default on `Canonical` and its optional at `Of`, or one op-case payload; a new seam source is one `MeshFeatureKind` row; a new guarantee is one `ParamTrait` row.
 - Boundary: the parameterization is the one polymorphic `ParamOp` union, never a sibling flattener-class family; every solve composes the `matrix.md` owners, never a raw `CSparse` or MathNet factorization; the DEC substrate is reached only through the public `MeshAdjointSnapshot.Of` handle, never a Geometry-side re-assembly or the internal `LaplacianCache`; the UV-flip verdict is the exact `Orient2D` sign, never a float signed-area band; a seam cut splits a chart into islands rather than discarding a region.
 
 ```csharp
@@ -184,7 +184,7 @@ public sealed record UvIsland(ChartId Chart, Arr<int> Vertices, Arr<(int A, int 
     }
 }
 
-public sealed record DistortionReceipt(
+public sealed record Distortion(
     double MaxConformal,
     double MeanConformal,
     double MaxArea,
@@ -197,13 +197,13 @@ public sealed record DistortionReceipt(
     Option<double> SpectralGap,
     bool FlipFreeBijective);
 
-public sealed record ChartAtlas(MeshSpace Source, CapabilitySet<ParamTrait> Traits, Seq<UvIsland> Islands, Seq<FeatureEdge> Seams, DistortionReceipt Receipt) {
+public sealed record ChartAtlas(MeshSpace Source, CapabilitySet<ParamTrait> Traits, Seq<UvIsland> Islands, Seq<FeatureEdge> Seams, Distortion Distortion) {
     internal Fin<TOut> Project<TOut>(Op key) {
         ChartAtlas self = this;
         return AtomProjection.Rows<ChartAtlas, TOut>(self: self, key: key,
             ProjectionRow.Of<Seq<UvIsland>>(() => Fin.Succ(self.Islands)),
             ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Seams)),
-            ProjectionRow.Of<DistortionReceipt>(() => Fin.Succ(self.Receipt)),
+            ProjectionRow.Of<Distortion>(() => Fin.Succ(self.Distortion)),
             ProjectionRow.Of<MeshSpace>(() => self.ToMesh(key)));
     }
 
@@ -276,7 +276,7 @@ public abstract partial record ParamOp {
 
 public static class Flatten {
     public static readonly BenchClaim DistortionClaim = new(
-        Claim: Op.Of(name: nameof(DistortionReceipt)),
+        Claim: Op.Of(name: nameof(Distortion)),
         VectorizedLane: "TensorPrimitives.Max/Sum/MaxMagnitude over the per-face distortion planes",
         ReferenceLane: "scalar element loops over the same planes",
         SpeedupFloor: 1.0);
@@ -395,10 +395,10 @@ public static class Flatten {
         }
         Seq<UvIsland> islands = Islands(store, dec);
         int flipped = store.Flip.Span.IndexOf(true);
-        DistortionReceipt receipt = Fold(store, dec, solved, flipped);
+        Distortion distortion = Fold(store, dec, solved, flipped);
         return flipped < 0
-            ? Fin.Succ(new ChartAtlas(op.Chart, op.Kind.Traits, islands, dec.Seams, receipt))
-            : Fin.Fail<ChartAtlas>(new GeometryFault.ParameterizationFault(Some(ChartId.Create(store.Chart[flipped])), receipt.MaxConformal));
+            ? Fin.Succ(new ChartAtlas(op.Chart, op.Kind.Traits, islands, dec.Seams, distortion))
+            : Fin.Fail<ChartAtlas>(new GeometryFault.ParameterizationFault(Some(ChartId.Create(store.Chart[flipped])), distortion.MaxConformal));
     }
 
     readonly struct DistortionPass(MeshDec dec, ReadOnlyMemory<double> u, ReadOnlyMemory<double> v, Memory<double> conformal, Memory<double> area, Memory<double> quasi, Memory<bool> flip, Memory<bool> degenerate, double areaFloor, double collapseFloor) : IAction {
@@ -424,10 +424,10 @@ public static class Flatten {
         }
     }
 
-    static DistortionReceipt Fold(ChartStore store, MeshDec dec, Solved solved, int flipped) {
+    static Distortion Fold(ChartStore store, MeshDec dec, Solved solved, int flipped) {
         int n = dec.FaceCount;
         ReadOnlySpan<double> c = store.Conformal.Span, a = store.Area.Span, q = store.QuasiConformal.Span;
-        return new DistortionReceipt(
+        return new Distortion(
             MaxConformal: TensorPrimitives.Max(c), MeanConformal: TensorPrimitives.Sum(c) / n,
             MaxArea: TensorPrimitives.Max(a), MinArea: TensorPrimitives.Min(a), MeanArea: TensorPrimitives.Sum(a) / n,
             MaxQuasiConformal: TensorPrimitives.MaxMagnitude(q),
@@ -528,7 +528,7 @@ file sealed record ReducedSystem(CholeskySparse Factor, int[] Map, (int Interior
     public Fin<Arr<double>> Solve(Func<int, double> pinnedValue, Op key) {
         double[] rhs = new double[InteriorCount];
         foreach ((int i, int slot, double w) in Couplings) rhs[i] += w * pinnedValue(slot);
-        return Factor.SolveDetailed(new Arr<double>(rhs), key).Map(static receipt => receipt.Solution);
+        return Factor.SolveDetailed(new Arr<double>(rhs), key).Map(static solve => solve.Solution);
     }
 
     public Fin<Arr<double>> SolveWith(Memory<double> source, Func<int, double> pinnedValue, Op key) {
@@ -536,7 +536,7 @@ file sealed record ReducedSystem(CholeskySparse Factor, int[] Map, (int Interior
         ReadOnlySpan<double> plane = source.Span;
         for (int vertex = 0; vertex < Map.Length; vertex++) { if (Map[vertex] >= 0) rhs[Map[vertex]] = plane[vertex]; }
         foreach ((int i, int slot, double w) in Couplings) rhs[i] += w * pinnedValue(slot);
-        return Factor.SolveDetailed(new Arr<double>(rhs), key).Map(static receipt => receipt.Solution);
+        return Factor.SolveDetailed(new Arr<double>(rhs), key).Map(static solve => solve.Solution);
     }
 
     public double[] Scatter(int[] pinned, Func<int, double> pinnedValue, Arr<double> interior) {
@@ -571,7 +571,7 @@ file sealed class MeshDec {
         from _ in guard(snapshot.FaceCount > 0, new GeometryFault.DegenerateInput(Kind.Mesh, snapshot.FaceCount, "parameterization: faceless chart")).ToFin()
         from featurePolicy in MeshFeaturePolicy.Of(dihedralRadians: policy.CreaseDihedral.Value, space: chart, faceRegions: Option<Arr<int>>.None, key: key)
         from intent in VectorIntent.Features(chart, featurePolicy, key)
-        from features in intent.Project<FeatureReceipt>(chart.Tolerance, key)
+        from features in intent.Project<FeatureEdges>(chart.Tolerance, key)
         let native = chart.DuplicateNative()
         let seams = features.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary))
         let seamEdges = seams.Map(static e => Order(e.A, e.B)).ToHashSet()
@@ -799,7 +799,7 @@ flowchart LR
     Apply -->|Lscm sparse L_C smallest eigenpair| Lobpcg["SparseMatrix.SmallestEigenpairsDetailed"]
     Apply -->|Arap local-global, factor reused| Factor
     Apply -->|parallel per-face pass| Distortion["conformal/area/quasi planes + flip bits"]
-    Distortion -->|TensorPrimitives Max/Sum/MaxMagnitude| Receipt["DistortionReceipt"]
+    Distortion -->|TensorPrimitives Max/Sum/MaxMagnitude| Measures["Distortion"]
     Distortion -->|exact Orient2D flip| Predicate
     Seams -->|face-dual, non-seam arcs| QuikGraph["WeaklyConnectedComponents"]
     QuikGraph -->|per-face island labels| Islands["UvIsland (Arr, structural)"]
@@ -813,7 +813,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

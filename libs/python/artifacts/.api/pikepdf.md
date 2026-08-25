@@ -20,7 +20,7 @@
 |  [02]   | `Page`             | class         | media/crop/art/bleed/trim boxes, contents, resources, overlay               |
 |  [03]   | `Encryption`       | class         | `owner`/`user` passwords, `R` level, `aes`, `allow=Permissions`             |
 |  [04]   | `Permissions`      | class         | `accessibility`/`extract`/`modify_*`/`print_highres`/`print_lowres`         |
-|  [05]   | `Job`              | class         | run a job-JSON pipeline; exit/warnings/encryption/output receipt            |
+|  [05]   | `Job`              | class         | run job JSON; expose exit, warnings, encryption, and output                |
 |  [06]   | `JobBuilder`       | class         | fluent job-JSON assembler to `.build()` dict                                |
 |  [07]   | `AcroForm`         | class         | `add_field`/`fields`/`remove_fields`/`disable_digital_signatures`           |
 |  [08]   | `AcroFormField`    | class         | one interactive field; `FormFieldFlag` bit policy                           |
@@ -164,14 +164,12 @@
 - Separation/DeviceN spot colorspaces author over the typed object model — a `Array`/`Dictionary`/`Name` colorspace with a Type 2 exponential or Type 4 PostScript-calculator tint function registered into `page.Resources.ColorSpace` and selected by the `cs`/`scn` operators — never a byte-string-concatenated colorspace array.
 - `Pdf.open_metadata` yields the read-or-edit XMP editor and `Pdf.docinfo` the raw `/Info` dictionary; an XMP `parseType="Resource"` struct bag, the `pdfd:declarations` PDF Declarations bag, reads whitespace through the `PdfMetadata` mapping view, so its member URIs read off the raw `/Metadata` stream bytes via an element-tree parse.
 - `pikepdf.sanitize` is the structure-level active/privacy scrub, distinct from `flatten_annotations` appearance baking and from `pyhanko` signing.
-- Each op captures page count, linearization flag, encryption `R` level and AES state, object-stream mode, object count, `Job` exit/warning state, and output byte length as one `ArtifactReceipt` case.
 
 [STACKING]:
 - `pillow`(`.api/pillow.md`): `models.PdfImage(page.get_images()[name]).as_pil_image()` hands a `PIL.Image` to the `graphic/raster/io#` owner — an `/SMask`/`/Mask`-bearing image arrives alpha-composited (`LA`/`RGBA`) under the `apply_mask=True` default — and `extract_to` writes native codec bytes; pikepdf extracts, pillow re-encodes and ICC-converts.
 - `pypdf`(`.api/pypdf.md`) / `pymupdf`(`.api/pymupdf.md`): `Pdf.save(encryption=Encryption(R=6), linearize=True)` re-encrypts at AES-R6 and linearizes the finished bytes that `pypdf` assembled or `pymupdf` rendered; ruled-table extraction routes to `pdfplumber`(`.api/pdfplumber.md`).
 - `pyhanko`(`.api/pyhanko.md`): `sanitize`/`flatten_annotations` finish the bytes before pyhanko PAdES-signs them; sanitize precedes sign.
 - `ocrmypdf`(`.api/ocrmypdf.md`): whole-document OCR-to-PDF/A routes here, never a hand-stitched per-page text layer.
-- `expression`(`libs/python/.api/expression.md`): the `PdfError` fault family maps at the boundary to `Result[ArtifactReceipt, PdfError]`, `PasswordError` the auth arm and `DataDecodingError`/`DependencyError` the codec arm.
 - within-lib: `document/egress` composes `Encryption`/`Permissions`/`flatten_annotations`/`sanitize`; `document/tagged` emits the `begin_marked_content_proplist` MCID binding; `graphic/color/managed` authors the Separation/DeviceN plate over this object model.
 
 [LOCAL_ADMISSION]:

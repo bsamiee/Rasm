@@ -47,7 +47,7 @@ Rasm.Persistence/            # One system of record; every sub-domain a closed-c
     ├── Schema.cs            # Sole current-state contract and immutable generation state machine
     ├── Provisioning.cs      # Verification-first PostgreSQL read fold and the idempotent SQLite open ritual
     ├── Coordination.cs      # Token-VALIDATING fenced-lease store behind the four AppHost port contracts
-    └── Observability.cs     # Engine-stat harvests, receipt-slot registry, hook rail, chargeback residence, contributor port
+    └── Observability.cs     # Engine-stat harvests, plan profiling, chargeback residence, contributor port
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type: `Validation<Error,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; clock, correlation, and tenant ride the injected `ProjectionContext` frame as the kernel types, never their key scalars. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, read lanes, operations, codecs, and policies, never provider packages.
@@ -208,13 +208,10 @@ flowchart LR
     Query e15@<-->|"[PORT]: HybridCache"| AppHost
     Store e16@<-->|"[PORT]: CoordinationOp"| AppHost
     Store e17@<-->|"[PORT]: TelemetryContributorPort"| AppHost
-    Store e18@-->|"[PORT]: PersistenceHooks"| AppHost
-    Store e19@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
     Store e20@<-->|"[CONTRACT]: BackendContract"| Runtime
     Store e21@<-->|"[CONTRACT]: BackendContract"| TsData
     AppUi e22@-->|"[PROJECTION]: ReplayWindow"| Version
     AppUi e23@-->|"[CONTENT_KEY]: CollabSnapshot"| Store
-    Query e24@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
     Version e27@<-->|"[WIRE]: SyncService"| Peer
 ```
 
@@ -265,13 +262,13 @@ Each sink cursor carries one optional deferred head, and the first terminal row 
 - Interactive-correctness reads bind the inline projection and the in-process QuikGraph view, blocking on non-stale data.
 - Async projections serve analytical lanes under a watermark alone.
 - Typed projection records and the seam `ElementGraph` are the only egress.
-- Provider failure converts once per rail; each sub-domain outcome keeps its own typed receipt or fact record.
+- Provider failure converts once per rail; each sub-domain returns its canonical result.
 - Generated rails own converters, formatters, and generation artifacts.
 - Retention reachability spans the full event history.
 - Store classes unable to prove full-history reachability retain blobs through deduplication and cold tiering instead of collecting them.
 - `ProjectionContext` is the one time and causal seam, seating the kernel `CorrelationId`/`TenantContext` pair; the HLC is the one causal clock.
 - Policy values applied at provider wire and domain catalog alike derive once from one sampled instant threaded through the write path.
-- Every receipt, RLS predicate, and blame header reads one tenancy off the `ProjectionContext` frame.
+- Every RLS predicate and blame header reads one tenancy off the `ProjectionContext` frame.
 - Each spine concept keeps one owner across content hash, identity, CRDT, selection shape, and geometry representation.
 - AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows, never reversing the dependency.
 - AppHost maps its terminal outbox delegate directly to Persistence `Coordinate.QuarantineAndAdvance`.

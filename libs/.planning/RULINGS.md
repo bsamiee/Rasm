@@ -63,7 +63,7 @@
 - Descriptor angles ARE the derivation — a consumer re-solving them substitutes a second almanac's answer for the same instant.
 - Sited and authored suns are the whole solar discriminant — a manually posed sun carries no site, so no consumer back-solves coordinates.
 - Tessellation fidelity crosses DECLARED and consumers GRADE it — a payload silently coarser than a consuming tolerance reads as geometry.
-- Descriptor bands split incomplete from wrong — an unusable column counts onto the receipt and only a wrong result refuses the crossing.
+- Descriptor bands split incomplete from wrong — an unusable column counts onto the result and only a wrong result refuses the crossing.
 - Recovery frontier lag admits at ZERO, the freshest measured recency — a stamp AFTER its observation is skew, dropping to unmeasured and refusing.
 - Host families extend with `recovery` and provider families foreclose it — a bound port supplies capability and decides no durability window.
 - Magnitudes cross EXACT and presentation stays the consumer's — a producer-rounded string draws a sub-micron tolerance as an unachievable zero.
@@ -92,6 +92,8 @@
 - Remote domain codes drive no topology — transport outcomes alone elect failover, keeping each branch taxonomy local.
 - Estate surfaces spell no version segment — packages, event types, and storage keys reshape in place with every consumer updated same-change.
 - Wire material crosses in its own binary encoding and text framings marshal at the call — the schema discriminant outranks a payload's armor label.
+- Producer-only facts are result columns — spans, meters, logs, and CloudEvents project from the column at the seam; a fact minted beside it forks.
+- Correlation, tenant, and stamp cross on the event envelope — `traceparent`, `rasm.tenant` baggage, `time` beside `sequence` — never a header wire.
 
 ## [03]-[COLLAPSE]
 

@@ -1,6 +1,6 @@
 # [APPUI_FORMS_SELECTION]
 
-A declarative forms-and-selection owner family delivers schema-driven forms with sectioned professional layout, dimensioned and expression-bearing entry, pending-commit posture, and multi-selection batch editing over the admitted `PropertyModels` infrastructure with zero new package. `FormSchema` is a sequence of typed field rows partitioned by section rows, materialized through the one `ControlFactory` and seated by `FormChrome` into the admitted `Form`/`FormGroup`/`FormItem` mechanism; validation rides the one LanguageExt `Validation<Error,T>` applicative; conditional visibility is schema data — each field declares its edges as `FieldRule` values, so the schema owns re-evaluation and no attribute machinery is claimed for it. Field identity is the kernel `FieldTag` and every stored value is a kernel `Interaction/control` `FieldValue` case inside a `FieldCell` carrying agreement, arity, authored source, and provenance — erased JSON exists only at the two wire edges, the `FormSchema.With` admission door and the `FieldJson.Lower` payload projection. Dimensioned entry resolves through `Theme/locale#MEASUREMENT_FORMAT` and expression entry rides the `Rasm.Compute` symbolic owner; `PendingForm` batches every marked write into one re-solve under one correlation; `Selection` is a model over the admitted `ICheckedList` whose one `Raise` fold carries the anchor, range, and toggle grammar, whose `SelectionBand` consumes the marquee, whose `SelectionFacet` capability set drives select-similar, and which folds batch-edit intents to one `DeckReceipt` through `CommandExecution.Combine`; `SelectionSet` is the durable named element set persisting through the `Editing/livedata#VIEW_STATE` `SnapshotPort`, and `SelectionChannel` is the one snapshot stream availability, footer, and screen state read. The PropertyModels `[ConditionTarget]`/`[PropertyVisibilityCondition]`/`[DependsOnProperty]` annotations stay the inspector's law and never govern this schema. The spine is `Irihi.Ursa`, `bodong.PropertyModels`, the `ControlIntent`/`ControlFactory` owner, the `CommandRow`/`CommandExecution` rail, UnitsNet, `Rasm.Compute` symbolic admission, QuikGraph, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+A declarative forms-and-selection owner family delivers schema-driven forms with sectioned professional layout, dimensioned and expression-bearing entry, pending-commit posture, and multi-selection batch editing over the admitted `PropertyModels` infrastructure with zero new package. `FormSchema` is a sequence of typed field rows partitioned by section rows, materialized through the one `ControlFactory` and seated by `FormChrome` into the admitted `Form`/`FormGroup`/`FormItem` mechanism; validation rides the one LanguageExt `Validation<Error,T>` applicative; conditional visibility is schema data — each field declares its edges as `FieldRule` values, so the schema owns re-evaluation and no attribute machinery is claimed for it. Field identity is the kernel `FieldTag` and every stored value is a kernel `Interaction/control` `FieldValue` case inside a `FieldCell` carrying agreement, arity, authored source, and provenance — erased JSON exists only at the two wire edges, the `FormSchema.With` admission door and the `FieldJson.Lower` payload projection. Dimensioned entry resolves through `Theme/locale#MEASUREMENT_FORMAT` and expression entry rides the `Rasm.Compute` symbolic owner; `PendingForm` batches every marked write into one re-solve under one correlation; `Selection` is a model over the admitted `ICheckedList` whose one `Raise` fold carries the anchor, range, and toggle grammar, whose `SelectionBand` consumes the marquee, whose `SelectionFacet` capability set drives select-similar, and which folds batch-edit intents to one `DeckOutcome` through `CommandExecution.Combine`; `SelectionSet` is the durable named element set persisting through the `Editing/livedata#VIEW_STATE` `SnapshotPort`, and `SelectionChannel` is the one snapshot stream availability, footer, and screen state read. The PropertyModels `[ConditionTarget]`/`[PropertyVisibilityCondition]`/`[DependsOnProperty]` annotations stay the inspector's law and never govern this schema. The spine is `Irihi.Ursa`, `bodong.PropertyModels`, the `ControlIntent`/`ControlFactory` owner, the `CommandRow`/`CommandExecution` rail, UnitsNet, `Rasm.Compute` symbolic admission, QuikGraph, Thinktecture.Runtime.Extensions, and LanguageExt rails.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 - [03]-[FORM_CHROME]: The form-mechanism capsule seating every plan row, its section furniture, rail, and operation column.
 - [04]-[WIZARD_FLOW]: Multi-step wizard over the one section roster; step gates ride the same validation rail.
 - [05]-[SELECTION_MODEL]: Checked-list selection over the one admitted collection backing; the gesture, marquee, and similarity producers; durable named selection sets and the one snapshot stream.
-- [06]-[BATCH_EDIT]: Pending-commit posture, the parameter revert lane and value sets, and the N-item batch fold to one `DeckReceipt`.
+- [06]-[BATCH_EDIT]: Pending-commit posture, the parameter revert lane and value sets, and the N-item batch fold to one `DeckOutcome`.
 - [07]-[STUDY_FORM]: Revision-bearing study recipes compiled into the one schema grammar and submitted under one correlation.
 
 ## [02]-[FORM_SCHEMA]
@@ -824,7 +824,7 @@ public static class WizardFold {
 - Growth: a new selection mode is one `PickMode` row; a new gesture is one `SelectionGesture` row with its fold and anchor column; a new similarity axis is one `SelectionFacet` row; a new set operation is one `SelectionAlgebra` row; zero new surface.
 - Boundary: selection rides the admitted `ICheckedList` — single mode applies `Select` for the exclusive check and `SetChecked(item, false)` for the clear so the range delegate stays TOTAL over its flag, multi mode applies `SetRangeChecked`, and `Count` reads `Items` because membership IS the selection. The modifier fold reads the platform primary from `Shell/input#HOTKEY_DERIVATION` `GesturePolicy.Primary`, so selection and shortcuts agree about the primary modifier on every desktop; the anchor is a COLUMN on the model and the range gesture alone preserves it. Set application, marquee replace, and a bare click are ONE exact projection — clear the roster, check the hits. Marquee DIRECTION is the selector: the `BandMode` row derives from the drag and carries the containment fold, the window-versus-crossing grammar every desktop modeler shares.
 - Boundary: SELECT-SIMILAR is a signature match over a `CapabilitySet<SelectionFacet>` — the set deduplicates and orders by declaration rank, so two callers naming one facet set produce one signature where a caller-ordered `Seq` produced two; a facet a seed does not carry refuses the query, because an absent layer treated as a wildcard selects the whole model, and the refusal accumulates per seed. Facet VALUES are Bim-owned element facts read through one composition-bound projection; this page models no element schema.
-- Boundary: every `SelectionSet` persists per document through the `Editing/livedata#VIEW_STATE` `SnapshotPort` instantiation bound at composition to the Persistence snapshot vocabulary — no store type enters these fences and a second port shape is the deleted form; composition refuses operands spanning two documents; the recall verbs are command-table intents gated by the availability algebra, so a set list, apply, rename, and drop mint no local command surface; element-set queries stay Bim-owned receipts and AppUi runs no query engine.
+- Boundary: every `SelectionSet` persists per document through the `Editing/livedata#VIEW_STATE` `SnapshotPort` instantiation bound at composition to the Persistence snapshot vocabulary — no store type enters these fences and a second port shape is the deleted form; composition refuses operands spanning two documents; the recall verbs are command-table intents gated by the availability algebra, so a set list, apply, rename, and drop mint no local command surface; element-set queries stay Bim-owned results and AppUi runs no query engine.
 
 ```csharp
 [SmartEnum]
@@ -1037,13 +1037,13 @@ public static class SelectionChannel {
 
 ## [06]-[BATCH_EDIT]
 
-- Owner: `CommitPosture` the per-field write axis; `PendingForm` the deferred-commit cell with its `OutcomeCount` instrument pair; `CommitReceipt` the batched-write evidence; `ParameterLane` the parameter-scoped revert lane; `ParameterSet` the exportable value set; `BatchEdit<TItem>` the multi-item batch fold; `BatchReceipt` the combined-edit evidence; `OutcomeCount` the applied-or-rejected instrument pair both outcome writers share.
+- Owner: `CommitPosture` the per-field write axis; `PendingForm` the deferred-commit cell with its `OutcomeCount` instrument pair; `ParameterLane` the parameter-scoped revert lane; `ParameterSet` the exportable value set; `BatchEdit<TItem>` the multi-item batch fold; `OutcomeCount` the applied-or-rejected instrument pair both outcome writers share.
 - Cases: `CommitPosture` = deferred | immediate, each row carrying the seat fold its half runs.
 - Law: an apply is ONE command execution under ONE correlation, and the marked keys cross ordinally sorted, so the payload digest is stable across two runs that marked the same fields in different orders.
-- Law: a sealed receipt is not a landing — `BatchEdit.Landed` admits on the execution's own `CommandOutcome`, so a rejected, cancelled, rolled-back, or compensated run refuses on the typed rail instead of clearing marks, recording a revert step for a write nothing applied, and counting itself as applied.
-- Entry: `PendingForm.Mark` admits one write through the schema and seats it by the field's posture; `PendingForm.Cancel` drops every mark; `PendingForm.Apply(CommandDeck deck, ParameterLane lane, CorrelationId correlation, CancellationToken cancel = default)` — validates the projected state, runs the commit intent once with the marked key set, records the whole batch as one composite revertible op, and seals one `CommitReceipt`; `ParameterLane.Turn(RevertDirection direction)` walks parameter history; `ParameterSet.Export`/`Import` move a value set between forms; `BatchEdit.Execute(string verbIntent, CommandDeck deck, CorrelationId correlation)` is the N-item batch transaction.
+- Law: `BatchEdit.Landed` admits on the execution's own `CommandOutcome`, so a rejected, cancelled, rolled-back, or compensated run refuses on the typed rail instead of clearing marks, recording a revert step for a write nothing applied, and counting itself as applied.
+- Entry: `PendingForm.Mark` admits one write through the schema and seats it by the field's posture; `PendingForm.Cancel` drops every mark; `PendingForm.Apply(CommandDeck deck, ParameterLane lane, CancellationToken cancel = default)` — validates the projected state, runs the commit intent once with the marked key set, records the whole batch as one composite revertible op, and returns the settled form and lane; `ParameterLane.Turn(RevertDirection direction)` walks parameter history; `ParameterSet.Export`/`Import` move a value set between forms; `BatchEdit.Execute(string verbIntent, CommandDeck deck)` is the N-item batch transaction.
 - Auto: a deferred field marks and renders under the pending ink row while an immediate field writes through, so the expensive-solve gate is a field column rather than a caller branch; `Projected` shadows committed values with marked ones, so validation, visibility, propagation, and the plan all see what the operator typed; cancel restores by dropping marks alone; the applied batch records as one `RevertDelta.Composite` whose children are per-field `Set` deltas, so one parameter undo restores the whole batch and partial-batch undo is structurally absent. A batch verb over N selected items materializes one child through `CommandExecution.Combine`; the batch availability gates on non-empty selection, and an unknown verb key aborts on `Fin`.
-- Receipt: the commit seals one `DeckReceipt` and `CommitReceipt` derives its field count from the marked snapshot and its cursor from the lane; the batch seals one `DeckReceipt` and `BatchReceipt` derives item count from the executed `CommandPayload.Many` snapshot; `TelemetryRow` contributes the commit and batch instrument rows inward through the AppHost `TelemetryContributorPort`, each written by the one `OutcomeCount.Observe` projection composition binds at the outcome.
+- Result: the commit and batch return the deck's canonical `DeckOutcome`; successful form application returns the settled `PendingForm` and `ParameterLane`; `TelemetryRow` contributes the commit and batch instrument rows inward through the AppHost `TelemetryContributorPort`, each written by the one `OutcomeCount.Observe` projection composition binds at the outcome.
 - Packages: bodong.PropertyModels, ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (seam `Hlc`)
 - Growth: a new commit posture is one `CommitPosture` row; a new batch verb is one `CommandRow` row the selection folds over; a new outcome instrument pair is one `OutcomeCount` row; zero new surface.
 - Boundary: the pending cell is the one deferred-commit owner — a per-screen dirty-field set, a second apply path, and a keystroke-driven re-solve are rejected. The parameter lane is an INSTANCE of the settled `Editing/history#REVERT_SCOPE` algebra: it carries its own recorder, `ClientLog`, content identity, actor, and cursor, binds that owner's `SessionWindow` so the durable half answers empty by construction, and reads the algebra's OWN head placement — a lane-local head read hands the newest recorded op to undo and redo alike. A value set re-admits every member through the target schema on import and reports each stale member individually. Batch editing folds through the one `CommandExecution.Combine` algebra with one intent key and one `CommandPayload.Many`; a per-macro registry and a batch payload case beside the closed `CommandPayload` union are rejected. Host-mutating batch edits route through the abstract `DocumentTransaction` surface-host port so the undo scope batches the N edits as one host transaction.
@@ -1069,12 +1069,6 @@ public sealed partial class CommitPosture {
 public sealed record OutcomeCount(InstrumentSpec Applied, InstrumentSpec Rejected, string Slot) {
     public Fin<Unit> Observe<T>(InstrumentSet set, string key, Fin<T> outcome) =>
         set.Write(outcome.IsSucc ? Applied : Rejected, 1d, InstrumentSet.Tags((Slot, key)));
-}
-
-public sealed record BatchReceipt(string Verb, int Items, CorrelationId Correlation, DeckReceipt Command);
-
-public sealed record CommitReceipt(string Schema, int Fields, CorrelationId Correlation, DeckReceipt Command, RevertCursor Cursor) {
-    public const string Kind = "form-commit";
 }
 
 public sealed record ParameterLane(RevertScope Scope, RevertCursor Cursor, string ContentIdentity, string Actor, Func<Hlc> Stamp) {
@@ -1138,32 +1132,33 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
 
     public PendingForm Cancel() => this with { Pending = HashMap<FieldTag, FieldCell>() };
 
-    public IO<Fin<(PendingForm Next, CommitReceipt Receipt)>> Apply(
+    public IO<Fin<(PendingForm Form, ParameterLane Lane)>> Apply(
         CommandDeck deck,
         ParameterLane lane,
-        CorrelationId correlation,
         CancellationToken cancel = default) =>
         Pending.IsEmpty
-            ? IO.pure(Fin.Fail<(PendingForm, CommitReceipt)>(new FormFault.CommitRejected($"{Schema.Key}: nothing marked")))
+            ? IO.pure(Fin.Fail<(PendingForm, ParameterLane)>(new FormFault.CommitRejected($"{Schema.Key}: nothing marked")))
             : Marked switch {
                 var marked => Schema.Admit(Projected).ToFin()
                     .Bind(_ => deck.Rows.TryGetValue(Schema.CommitIntent, out CommandRow? row)
                         ? Fin.Succ(row)
                         : Fin.Fail<CommandRow>(new DeckFault.UnknownIntent(Schema.CommitIntent)))
                     .Match(
-                        Succ: row => row.Run(new CommandPayload.Many(marked.Map(static key => key.Value)), deck, cancel)
-                            .Map(receipt => BatchEdit.Landed(receipt).Map(landed => {
+                        Succ: row => row.Run(
+                            new CommandPayload.Many(marked.Map(static key => key.Value)),
+                            deck,
+                            CallerModality.Operator,
+                            cancel)
+                            .Map(outcome => BatchEdit.Landed(outcome).Map(_ => {
                                 ParameterLane next = lane.Record(Composite(marked, lane.Actor, lane.Stamp()));
-                                return (
-                                    new PendingForm(Schema, Projected, HashMap<FieldTag, FieldCell>()),
-                                    new CommitReceipt(Schema.Key, Pending.Count, correlation, landed, next.Cursor));
+                                return (new PendingForm(Schema, Projected, HashMap<FieldTag, FieldCell>()), next);
                             })),
-                        Fail: fault => IO.pure(Fin.Fail<(PendingForm, CommitReceipt)>(fault))),
+                        Fail: fault => IO.pure(Fin.Fail<(PendingForm, ParameterLane)>(fault))),
             };
 
     public Seq<FieldTag> Marked => toSeq(Pending.Keys.OrderBy(static key => key.Value, StringComparer.Ordinal));
 
-    public static Fin<Unit> Observe(InstrumentSet set, string schemaKey, Fin<(PendingForm Next, CommitReceipt Receipt)> outcome) =>
+    public static Fin<Unit> Observe(InstrumentSet set, string schemaKey, Fin<(PendingForm Form, ParameterLane Lane)> outcome) =>
         Commits.Observe(set, schemaKey, outcome);
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
@@ -1196,19 +1191,19 @@ public static class BatchEdit {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Applied, Rejected);
 
-    public static Fin<DeckReceipt> Landed(DeckReceipt receipt) =>
-        receipt.Outcome is CommandOutcome.Completed
-            ? Fin.Succ(receipt)
-            : Fin.Fail<DeckReceipt>(new FormFault.CommitRejected($"{receipt.Key}: {receipt.Outcome}"));
+    public static Fin<DeckOutcome> Landed(DeckOutcome outcome) =>
+        outcome.Outcome is CommandOutcome.Completed
+            ? Fin.Succ(outcome)
+            : Fin.Fail<DeckOutcome>(new FormFault.CommitRejected($"{outcome.Key}: {outcome.Outcome}"));
 
-    public static Fin<Unit> Observe(InstrumentSet set, string verbIntent, Fin<BatchReceipt> outcome) =>
+    public static Fin<Unit> Observe(InstrumentSet set, string verbIntent, Fin<DeckOutcome> outcome) =>
         Batches.Observe(set, verbIntent, outcome);
 
     extension<TItem>(Selection<TItem> selection) where TItem : notnull {
-        public Fin<CombinedReactiveCommand<CommandPayload, DeckReceipt>> Combine(string verbIntent, CommandDeck deck) =>
+        public Fin<CombinedReactiveCommand<CommandPayload, DeckOutcome>> Combine(string verbIntent, CommandDeck deck) =>
             selection.Count > 0
                 ? deck.Combine(verbIntent)
-                : Fin.Fail<CombinedReactiveCommand<CommandPayload, DeckReceipt>>(new FormFault.SubmitRejected($"{verbIntent}: empty selection"));
+                : Fin.Fail<CombinedReactiveCommand<CommandPayload, DeckOutcome>>(new FormFault.SubmitRejected($"{verbIntent}: empty selection"));
 
         public Fin<CommandPayload.Many> Payload() => selection.Selected().Bind(items => {
             Seq<string> identities = items.Map(selection.Identity);
@@ -1218,36 +1213,33 @@ public static class BatchEdit {
                 : Fin.Fail<CommandPayload.Many>(new FormFault.SubmitRejected("batch identity is empty or duplicated"));
         });
 
-        public BatchReceipt Seal(string verb, CorrelationId correlation, CommandPayload.Many payload, DeckReceipt command) =>
-            new(verb, payload.Ids.Count, correlation, command);
-
-        public IO<Fin<BatchReceipt>> Execute(string verbIntent, CommandDeck deck, CorrelationId correlation) =>
+        public IO<Fin<DeckOutcome>> Execute(string verbIntent, CommandDeck deck) =>
             selection.Payload()
                 .Bind(payload => selection.Combine(verbIntent, deck).Map(command => (Payload: payload, Command: command)))
                 .Match(
                     Succ: staged => IO.liftAsync(async () => {
-                        System.Collections.Generic.IList<DeckReceipt> receipts =
+                        System.Collections.Generic.IList<DeckOutcome> outcomes =
                             await staged.Command.Execute(staged.Payload).ToTask().ConfigureAwait(false);
-                        return receipts.Count == 1
-                            ? Landed(receipts[0]).Map(landed => selection.Seal(verbIntent, correlation, staged.Payload, landed))
-                            : Fin.Fail<BatchReceipt>(new FormFault.SubmitRejected($"{verbIntent}: combined execution answered {receipts.Count} receipts"));
+                        return outcomes.Count == 1
+                            ? Landed(outcomes[0])
+                            : Fin.Fail<DeckOutcome>(new FormFault.SubmitRejected($"{verbIntent}: combined execution answered {outcomes.Count} outcomes"));
                     }),
-                    Fail: fault => IO.pure(Fin.Fail<BatchReceipt>(fault)));
+                    Fail: fault => IO.pure(Fin.Fail<DeckOutcome>(fault)));
     }
 }
 ```
 
 ## [07]-[STUDY_FORM]
 
-- Owner: `RecipeInputKind` the per-input concern row family; `SectionSlot` the required/optional partition axis; `RecipeInput` the recipe's declared input row; `StudyRecipe` the revision-bearing recipe; `RecipePin` the revision-pin axis; `RecipeCatalog` the revision resolve; `StudySchema` the recipe-to-schema compilation; `StudySubmission` the queued-run evidence.
+- Owner: `RecipeInputKind` the per-input concern row family; `SectionSlot` the required/optional partition axis; `RecipeInput` the recipe's declared input row; `StudyRecipe` the revision-bearing recipe; `RecipePin` the revision-pin axis; `RecipeCatalog` the revision resolve; `StudySchema` the recipe-to-schema compilation; `StudySubmission` the queued-run identity.
 - Cases: `RecipePin` = Pinned | Tracking; `RecipeInputKind` = source | number | words | choice; `SectionSlot` = required | optional.
 - Law: a recipe row is DATA and a study form is its compilation — a per-analysis screen, a per-recipe control class, and a second input vocabulary are all deleted by one schema compile.
-- Entry: `RecipeCatalog.Resolve(Seq<StudyRecipe> revisions, RecipePin pin)` — elects the pinned revision or the highest available one, refusing an absent pin; `StudySchema.Compile(StudyRecipe recipe, string submitIntent, string commitIntent)` — projects identity, required, and optional sections onto one `FormSchema`; `StudySchema.Submit(StudyRecipe recipe, FormSchema schema, PendingForm cell, CommandDeck deck, CorrelationId correlation, Func<Fin<Unit>> admit, CancellationToken cancel = default)` — folds the composition-bound pre-solve gate, then validates the projected state whole, then runs the schema's submit intent once.
+- Entry: `RecipeCatalog.Resolve(Seq<StudyRecipe> revisions, RecipePin pin)` — elects the pinned revision or the highest available one, refusing an absent pin; `StudySchema.Compile(StudyRecipe recipe, string submitIntent, string commitIntent)` — projects identity, required, and optional sections onto one `FormSchema`; `StudySchema.Submit(StudyRecipe recipe, FormSchema schema, PendingForm cell, CommandDeck deck, CorrelationId correlation, ActivityTraceId trace, Func<Fin<Unit>> admit, CancellationToken cancel = default)` — folds the composition-bound pre-solve gate, then validates the projected state whole, then runs the schema's submit intent once.
 - Auto: required and optional inputs compile into two sections under the section grammar — the slot is the input's own declared row, so requiredness, the partition, and the rule are ONE declaration rather than a bool re-derived three ways; each kind row carries the control intent and admission row it implies; a live input compiles under its declared `CommitPosture` so a slider re-solves as it moves while the rest batches; study identity is two ordinary fields in their own section.
-- Receipt: submission seals the one `DeckReceipt` and admits on its outcome through the page's one `Landed` gate; `StudySubmission` carries the study key, resolved recipe revision, and correlation the run queue joins on — `Diagnostics/evidence#CORRELATION_JOIN` `EvidenceJoin.Run` is its one read-back.
+- Result: submission admits the deck's `DeckOutcome` through the page's one `Landed` gate; `StudySubmission` carries the study key, resolved recipe revision, queue correlation, and the run's actual `ActivityTraceId`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new input concern is one `RecipeInputKind` row; a new study is one `StudyRecipe` value; a new revision is one catalog row; zero new surface.
-- Boundary: a study form is a compiled `FormSchema` — no schema type, wizard variant, or submission dialog is minted, and the pending posture is the settled one. Revision election refuses an absent pin because a study silently re-configured against a newer recipe is a result nobody can reproduce. Submission binds the settled correlation vocabulary alone and names no queue type. The pre-solve gate arrives as an ARROW — `Analysis/context#BUDGET_METER` `BudgetMeter.Of` (mapped to `Fin<Unit>` at composition) binds there, that owner already consumes `StudySubmission`, and a budget TYPE crossing into this fence would make the pair mutually referential; the gate runs FIRST because a request nothing can compute makes every field rule beneath it moot.
+- Boundary: a study form is a compiled `FormSchema` — no schema type, wizard variant, or submission dialog is minted, and the pending posture is the settled one. Revision election refuses an absent pin because a study silently re-configured against a newer recipe is a result nobody can reproduce. Composition supplies the queue `CorrelationId` and the run owner's actual `ActivityTraceId`; this form performs no conversion between them. The pre-solve gate arrives as an ARROW — `Analysis/context#BUDGET_METER` `BudgetMeter.Of` (mapped to `Fin<Unit>` at composition) binds there, that owner already consumes `StudySubmission`, and a budget TYPE crossing into this fence would make the pair mutually referential; the gate runs FIRST because a request nothing can compute makes every field rule beneath it moot.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1309,7 +1301,12 @@ public sealed record RecipeInput(
 
 public sealed record StudyRecipe(string Key, int Revision, string TitleKey, Seq<RecipeInput> Inputs);
 
-public sealed record StudySubmission(string StudyKey, string RecipeKey, int Revision, CorrelationId Correlation, DeckReceipt Command) {
+public sealed record StudySubmission(
+    string StudyKey,
+    string RecipeKey,
+    int Revision,
+    CorrelationId Correlation,
+    ActivityTraceId Trace) {
     public const string Kind = "study-submission";
 }
 
@@ -1350,6 +1347,7 @@ public static class StudySchema {
         PendingForm cell,
         CommandDeck deck,
         CorrelationId correlation,
+        ActivityTraceId trace,
         Func<Fin<Unit>> admit,
         CancellationToken cancel = default) =>
         admit()
@@ -1358,9 +1356,13 @@ public static class StudySchema {
                 ? Fin.Succ(row)
                 : Fin.Fail<CommandRow>(new DeckFault.UnknownIntent(schema.SubmitIntent)))
             .Match(
-                Succ: row => row.Run(new CommandPayload.Many(schema.Fields.Map(static field => field.Key.Value)), deck, cancel)
-                    .Map(receipt => BatchEdit.Landed(receipt)
-                        .Map(landed => new StudySubmission(schema.Key, recipe.Key, recipe.Revision, correlation, landed))),
+                Succ: row => row.Run(
+                    new CommandPayload.Many(schema.Fields.Map(static field => field.Key.Value)),
+                    deck,
+                    CallerModality.Operator,
+                    cancel)
+                    .Map(outcome => BatchEdit.Landed(outcome)
+                        .Map(_ => new StudySubmission(schema.Key, recipe.Key, recipe.Revision, correlation, trace))),
                 Fail: fault => IO.pure(Fin.Fail<StudySubmission>(fault)));
 
     static Seq<FormSection> Sections(StudyRecipe recipe) =>
@@ -1412,7 +1414,7 @@ config:
 ---
 flowchart LR
     accTitle: Form schema, chrome, commit, and batch ownership
-    accDescr: A schema partitions typed fields into sections that project a plan, the chrome capsule seats each plan row through the control factory into the form mechanism, the pending cell batches marked writes into one command receipt and one composite revert op, and checked selection composes one combined batch command.
+    accDescr: A schema partitions typed fields into sections that project a plan, the chrome capsule seats each plan row through the control factory into the form mechanism, the pending cell batches marked writes into one command outcome and one composite revert op, and checked selection composes one combined batch command.
     StudyRecipe --> FormSchema
     FormSchema --> FormField
     FormSchema --> FormSection
@@ -1431,10 +1433,6 @@ flowchart LR
     ParameterLane --> RevertScope
     Selection --> ICheckedList
     Selection -->|Combine| CommandExecution
-    CommandExecution --> DeckReceipt
-    DeckReceipt --> ReceiptSinkPort
+    CommandExecution --> DeckOutcome
+    DeckOutcome --> AppUiFact
 ```
-
-## [08]-[RESEARCH]
-
-(none)

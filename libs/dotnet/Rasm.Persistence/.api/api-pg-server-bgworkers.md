@@ -63,7 +63,7 @@ One bgworker drives every job from the `cron.job` registry. Schedule grammar adm
 |  [03]   | `squeeze.stop_worker()`                                 | function | stop every worker in the current database         |
 |  [04]   | `squeeze.get_active_workers()`                          | function | in-flight worker progress keyed by `pid`          |
 |  [05]   | `squeeze.tables`                                        | table    | scheduled-table registry, the sole write target   |
-|  [06]   | `squeeze.log`                                           | table    | one row per completed rewrite; the receipt source |
+|  [06]   | `squeeze.log`                                           | table    | one row per completed rewrite                     |
 |  [07]   | `squeeze.errors`                                        | table    | per-task failure rows                             |
 
 - `squeeze.squeeze_table` args: `(tabschema, tabname, clustering_index, rel_tablespace, ind_tablespaces)` — the index and tablespace args NULL out.
@@ -91,7 +91,7 @@ One bgworker drives every job from the `cron.job` registry. Schedule grammar adm
 
 - `Query/lane#READ_ROUTING` declares one `ServerExtension` `CreateSql` over `(Table, Column, Constraint, Schema)` emitting `ALTER TABLE … ADD CONSTRAINT … CHECK (jsonb_matches_schema('<schema>', <column>))`, so a declared-shape document is rejected at WRITE.
 - Schema strings arrive pre-frozen from the document-lane shape, never raw runtime input, so the `jsonschema` cast stays stable for the life of the constraint.
-- `jsonschema_validation_errors` feeds the `Validate` receipt the per-error rail the `CHECK` boolean cannot surface.
+- `jsonschema_validation_errors` supplies per-error detail the `CHECK` boolean cannot surface.
 - Absent the pgrx-compiled extension, the `ServerExtension("pg_jsonschema", Fallback: "Json.Schema.JsonSchema.Evaluate")` row moves the same verdict in-process; `api-jsonschema-net.md` owns that evaluator's surface.
 
 ## [06]-[PGAUDIT]
@@ -128,7 +128,7 @@ Every surface is a GUC bound through `SET`; the runtime obligation is the bound 
 - `timescaledb`(`.api/api-timescaledb.md`): native `add_retention_policy`/`add_continuous_aggregate_policy` bgworkers own hypertable cadence, so a `partman.create_parent` set covers the non-hypertable history tables and `cron.schedule` never re-drives a Timescale policy.
 - `JsonSchema.Net`(`.api/api-jsonschema-net.md`): `Json.Schema.JsonSchema.Evaluate` computes the `jsonb_matches_schema` verdict in-process, selected by the `ServerExtension` `Fallback` row when the extension is absent.
 - `pg_net`(`.api/api-pg-net.md`): a `cron.schedule_in_database` job body calls `net.http_post`, so a server-local cadence drives outbound HTTP with no process leg.
-- within-lib: one `cron.schedule` composes `partman.run_maintenance_proc()` and a `squeeze.tables` registration into a single server-local cadence, and `cron.job_run_details` joined against `squeeze.log` and `partman.part_config` projects one maintenance receipt across all three workers.
+- within-lib: one `cron.schedule` composes `partman.run_maintenance_proc()` and a `squeeze.tables` registration into a single server-local cadence, and `cron.job_run_details` joined against `squeeze.log` and `partman.part_config` projects maintenance telemetry across all three workers.
 
 [LOCAL_ADMISSION]:
 - Server-local cadence enters only where the process must not own the job; anything the AppHost schedule port can drive stays process-side.

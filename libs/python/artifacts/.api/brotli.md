@@ -56,14 +56,12 @@
 [TOPOLOGY]:
 - One-shot (`compress`/`decompress`) and incremental (`Compressor`/`Decompressor`) are modality rows on one codec, and `MODE_*` with the `quality`/`lgwin`/`lgblock` knobs are call arguments on it, never parallel codec owners or per-mode types; modality follows input shape and mode follows payload class.
 - `Decompressor.process(output_buffer_limit=)` with the `can_accept_more_data`/`is_finished` probes is the one bounded-memory decode: the per-call cap and the `process(b"")` drain contain a decompression bomb, and an unfinished stream after input and drain exhaust signals truncation.
-- Each codec call records one typed compression receipt carrying `mode`, `quality`, window and block logs, input/output byte lengths, and — on the bounded path — the output cap and drain-call count, onto the single `ArtifactReceipt` family.
 
 [STACKING]:
 - `fonttools`(`.api/fonttools.md`): `MODE_FONT` compresses the WOFF2 per-table entropy stream while `fontTools.ttLib.woff2` owns the container and glyph-transform layer.
 - `msgspec`(`.api/msgspec.md`): the boundary encodes canonical payload `bytes` via `msgspec.msgpack.encode`, then brotli compresses the encoded buffer.
 - `expression`(`.api/expression.md`): the producing boundary call runs `stamina`-retried and its result lifts onto the `expression.Result[bytes, ArtifactError]` rail, a `brotli.error` becoming an `Error` case at the seam rather than a raised exception crossing the owner.
-- `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each call stamps an event and span carrying the same codec facts the receipt records.
-- artifacts compression owner: composes `compress`/`decompress`/`Compressor`/`Decompressor` and contributes the receipt through the runtime `ReceiptContributor` port onto `core/receipt#RECEIPT`; the upstream `BrotliKnobs` carries `mode`/`quality`/`lgwin`/`lgblock` as row data.
+- `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each call binds `mode`, `quality`, window and block logs, byte lengths, output cap, and drain count to one event and span.
 
 [LOCAL_ADMISSION]:
 - `import brotli` at boundary scope only; module-level import is banned by the manifest import policy.

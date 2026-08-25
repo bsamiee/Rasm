@@ -6,7 +6,6 @@
 
 ## [01]-[INDEX]
 
-- [02]-[SUBTITLE]: the `Subtitle` owner over the closed `SubtitleOp` family — `Whisper` admission, `Convert`/`Retime`/`Restyle` document edits, `Mux` timed-packet passthrough, and `BurnIn` styled overlay — folding into the shared `ArtifactReceipt.Media` case.
 
 ## [02]-[SUBTITLE]
 
@@ -14,7 +13,6 @@
 - Cases: the `Mux`-versus-`BurnIn` choice derives from `_SOFT_SUB` membership — the muxers whose in-process packet path is verified writable — and a muxer outside the table rails `MediaFault.unregistered` so the caller routes `BurnIn`, the hard-subtitle substitute for every container the packet path cannot reach and for the absent libass filter.
 - Entry: `Subtitle.of_whisper` stores the typed `WhisperPayload` in the `whisper` case; `_whisper` performs `pysubs2.load_from_whisper` inside the process worker, so malformed provider material rails through `_subtitle_fault`. Every worker maps runtime-contract violations through the `media/container#CONTAINER` `_worker` aspect to `MediaFault.contract`; `_crossed` maps the lane's outer `BoundaryFault` through `_lapsed` and flattens the worker `Result` after retry settles.
 - Auto: `parse_tags` decomposes each event into override-honoring styled runs (plaintext fallback for a tagless line), so an inline `\i`/`\b`/`\fn`/`\r` burns faithfully rather than flattening; `make_time` owns the frame→ms mapping; `_anchored` maps the ASS numpad `alignment` (column `(a-1) % 3`, row `(a-1) // 3`) plus margins onto the paint origin so a top-left `an7` title and a bottom-center `an2` caption both land where the document says; `_plane` memoizes the rendered run RGBA on the frozen `TextSpec` so identical text re-rasterizes zero times across a frame span; `_composite`'s numpy alpha fold is the burn floor.
-- Receipt: the text arms produce `SubtitleEvidence` directly; `Mux`/`BurnIn` compose `MediaEvidence` and merge the `{events, styles}` band. `SubtitleEvidence` keeps provider handles out of the receipt owner; `_keyed` threads the PRE-RUN node key as the receipt slot — the `core/receipt#RECEIPT` elision law, so an identical op at an identical dialect is a planner cache hit — and lands the produced-bytes content address as the `address` band fact. `_canon` frames the burn-in preimage (text, dialect, profile, sorted faces, raw frame bytes) per the identity framing law; every other case encodes whole through `CANON`.
 - Packages: `pysubs2` owns the timed-text document — the per-dialect parsers, the SubStation override grammar, the ms/frame codec, format autodetection, the shift/framerate retiming, and the style rename/import — so the owner wraps its ingest/egress and track edits, never re-implementing them; `av` owns the mux capsule and the raw-packet subtitle write. Both settled against the folder `.api`.
 - Growth: a writable dialect is one `SubtitleDialect` member; a retime mode is one `RetimeShift` case; a restyle operation is one `RestyleStep` case; a packet-writable muxer is one `_SOFT_SUB` row; a face is one `BurnStyle.faces` row; an evidence fact is one band key; a modality is one `SubtitleOp` case plus one total dispatch arm.
 
@@ -39,11 +37,11 @@ from msgspec import Struct
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import ArtifactsLeg, BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, Frames, MediaEvidence, MediaFault, MediaProfile, _lapsed, framed
 
 lazy import av
@@ -194,26 +192,25 @@ class Subtitle(Struct, frozen=True):
     def of_whisper(result: WhisperPayload, dialect: SubtitleDialect = SubtitleDialect.SRT, /, *, lane: LanePolicy) -> "Subtitle":
         return Subtitle(op=SubtitleOp(whisper=(result, dialect)), lane=lane)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[SubtitleProduct]:
         return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"media.subtitle-{self.op.tag}", _canon(self.op))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[SubtitleProduct]:
         railed = await async_boundary(SUBTITLE_FOLD, self._folded, catch=MEDIA_RESIDUE)
-        return railed.bind(
+        settled = railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SUBTITLE_FOLD.subject, fault)))
         )
+        match settled:
+            case Result(tag="ok", ok=product):
+                Metrics.record({BYTE_VOLUME: float(len(product[0]))}, domain=DOMAIN, kind="media", scope=self.lane.scope)
+        return settled
 
-    async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:
-        return (await self._dispatch()).map(self._keyed)
-
-    def _keyed(self, product: SubtitleProduct, /) -> ArtifactReceipt:
-        blob, ev = product
-        address = ContentIdentity.key(ev.container, blob)
-        return ArtifactReceipt.Media(self._key, ev.container, ev.codec, ev.duration, ev.byte_count, ev.count, 0, ev.facts | {"address": address.hex})
+    async def _folded(self, /) -> Result[SubtitleProduct, MediaFault]:
+        return await self._dispatch()
 
     async def _crossed(self, worker: "Callable[..., Result[SubtitleProduct, MediaFault]]", /, *args: object) -> Result[SubtitleProduct, MediaFault]:
         outcome = await self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE), *args)

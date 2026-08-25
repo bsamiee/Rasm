@@ -6,7 +6,7 @@
 
 [RUNTIME]:
 - [01]-[PROFILES](.planning/Runtime/profiles.md): Consumption-profile boot — `Resolve`-admitted axis row, identity fold, power-fidelity scaling.
-- [02]-[LIFECYCLE](.planning/Runtime/lifecycle.md): Lifecycle spine — phase transitions, fault traps, drain receipts, cancellation provenance.
+- [02]-[LIFECYCLE](.planning/Runtime/lifecycle.md): Lifecycle spine — phase transitions, fault traps, drain completion, cancellation provenance.
 - [03]-[TIME](.planning/Runtime/time.md): Injected clock pair, deadline taxonomy, and the one scheduler.
 - [04]-[RESOURCES](.planning/Runtime/resources.md): Bounded resource lanes — hybrid cache, object pools, and drainable queues.
 - [05]-[MODULES](.planning/Runtime/modules.md): One composition root folding and freezing the service graph.
@@ -24,10 +24,10 @@
 - [15]-[FEDERATION](.planning/Agent/federation.md): MCP-client federation — external servers folded into one registry as brokered descriptors.
 - [16]-[CAPABILITY](.planning/Agent/capability.md): Typed op catalog, pin-bound peer discovery, command algebra, and scoped grant metering.
 - [17]-[IDENTITY](.planning/Agent/identity.md): Authentication boundary — OIDC issuer-trust, rotating token validation, claims-policy gate.
-- [18]-[RUNTIME](.planning/Agent/runtime.md): One command-dispatch front door over the command algebra, tool adoption, and receipt.
+- [18]-[RUNTIME](.planning/Agent/runtime.md): One command-dispatch front door over the command algebra, tool adoption, and result.
 
 [WIRE]:
-- [19]-[OUTBOUND](.planning/Wire/outbound.md): Outbound boundary — every external dispatch admitted on one `Fin` rail and exiting as a receipt.
+- [19]-[OUTBOUND](.planning/Wire/outbound.md): Outbound boundary — every external dispatch admitted on `Fin` and returning its settled result.
 - [20]-[LIVEWIRE](.planning/Wire/livewire.md): Reactive bidirectional external-binding studio over the industrial-transport axis.
 - [21]-[COMPANION](.planning/Wire/companion.md): Multi-process modality, gRPC-over-UDS control, and authenticated CloudEvents webhook ingress.
 - [22]-[TOPICS](.planning/Wire/topics.md): In-process event bus — every domain event fanned once and every declined offer accounted.
@@ -41,12 +41,12 @@
 - [28]-[PROVISIONING](.planning/Sandbox/provisioning.md): Every update phase after the fetch — release-ring feeds, drain-before-swap, fleet waves.
 
 [OBSERVABILITY]:
-- [29]-[TELEMETRY](.planning/Observability/telemetry.md): Four-signal composition with per-signal governance and conformance projection.
+- [29]-[TELEMETRY](.planning/Observability/telemetry.md): Four-signal composition with per-signal governance.
 - [30]-[HEALTH](.planning/Observability/health.md): Capability-health fold — backing probes onto one degradation ladder with its grading table.
 - [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture — trigger vocabulary, frozen window, one zip.
-- [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog projecting the receipt fan into metrics.
+- [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog written directly by the producing operations.
 - [33]-[HOOKS](.planning/Observability/hooks.md): Spine seams a rider governs or watches, each advertising the guard its mechanism runs.
-- [34]-[BENCHMARKS](.planning/Observability/benchmarks.md): Benchmark receipt family, the corpus gate, and profile-linked capture rows.
+- [34]-[BENCHMARKS](.planning/Observability/benchmarks.md): Benchmark result, the corpus gate, and profile-linked capture rows.
 - [35]-[EGRESS](.planning/Observability/egress.md): Durable OTLP transport — blob queue, disposition ledger, mutual-auth mount, persistent handler.
 
 ## [02]-[DOMAIN_PACKAGES]
@@ -78,7 +78,7 @@ Domain-specific libraries admitted by this folder; versions centralize in `Direc
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring` — Windows and Linux process and container utilization instruments behind the pressure grade.
 - `Microsoft.Diagnostics.NETCore.Client` — Process-dump and EventPipe capture feeding the support-bundle fan.
-- `Microsoft.Diagnostics.Runtime` — ClrMD `DataTarget.LoadDump` post-capture triage feeding support-bundle receipts.
+- `Microsoft.Diagnostics.Runtime` — ClrMD `DataTarget.LoadDump` post-capture triage feeding the support archive.
 - `Microsoft.Diagnostics.Tracing.TraceEvent` — Decodes the EventPipe event stream off the diagnostics session.
 - `Npgsql` — Pooled `NpgsqlDataSource` the store health driver row binds; the probe shares production pool pressure, never a second connection.
 - `Npgsql.OpenTelemetry` — `AddNpgsql` tracing and `AddNpgsqlInstrumentation` metrics registered once at the store-composing root.
@@ -202,4 +202,4 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — Handler chain behind every outbound hop, resilience pipeline, and durable OTLP transport.
-- `System.Text.Json` — Host-local receipts and discovery manifest freeze into one merged source-generated options identity.
+- `System.Text.Json` — Host-local outcomes and discovery manifest freeze into one merged source-generated options identity.

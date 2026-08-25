@@ -22,7 +22,7 @@
 - Cases: `Feed` carries engagement evidence and its minimum fraction; `Smooth` geometry preservation; `Compact` collinear and co-circular tolerances; `Pattern` the pattern window, its occurrence floor, its first label, and its occurrence BUDGET; `Stability` the chatter lobes with the depth they are relative to and the margin floor a point must clear.
 - Entry: `Optimize.Apply(CutProgram, OptimizationIngress, OptimizationEgress)` is the only public operation; `OptimizationEgress.Measurement` derives the final codec, termination, and framing with `BlockLimit.Observe`, while `Final` retains `BlockLimit.Enforce`.
 - Auto: independent raw-policy failures accumulate through `Validation<Error, _>` before the `Fin<_>` execution rail; each policy admits through its generated `Validate` and the one `Admitted` bridge.
-- Receipt: every admitted column carries its `UnitsNet` quantity past admission.
+- Result: every admitted column carries its `UnitsNet` quantity past admission.
 - Packages: `UnitsNet` supplies `Speed`, `RotationalSpeed`, `Length`, `Angle`, `Power`, `Ratio`, and `Duration`; `Process/physics#EQUIPMENT` `ProcessRange` supplies controller bounds; `Riok.Mapperly` owns the unit lift; `LanguageExt.Core` supplies `Validation<Error, _>`, applicative `Apply`, `Fin<_>`, and the equality-keyed `HashMap` carrier `BlockLocus` requires.
 - Boundary: raw dimensional doubles, provider range types, and page-local cutting-force equations never cross admission; the ordered `Map` carrier never keys on a `[ComplexValueObject]`, which owns structural equality and no comparer.
 
@@ -382,10 +382,10 @@ internal static partial class OptimizeMap {
 - Cases: five selected rows and one terminal certification fold over one `PassState`.
 - Entry: `Optimize.Apply(CutProgram, OptimizationIngress, OptimizationEgress)` is the only public operation.
 - Law: `PassState.Stable` is what makes the stability and feed passes COMPOSE — the elected point fixes the spindle every later feed derivation prices against and caps the axial depth it engages at. Without that column each pass would price against a policy constant the other pass had already replaced.
-- Law: the terminal feed certification is a STAGE with its own delta. `Post.Lookahead` rewrites every block, macro, and subprogram feed after the selected passes settle, and the prior receipt read its objective off the certified program while every delta stopped one stage short — so the minutes the certification itself cost or saved were in the total and in no row.
+- Law: the terminal feed certification is a STAGE with its own delta. `Post.Lookahead` rewrites every block, macro, and subprogram feed after the selected passes settle, and the prior result read its objective off the certified program while every delta stopped one stage short — so the minutes the certification itself cost or saved were in the total and in no row.
 - Law: `OptimizeLedger` states each endpoint ONCE. Baseline objective is the first stage's own `Before`, optimized objective the certification's own `After`, and estimated engagement and folded patterns are sums over the stages — every one of those was a top-level column restating a `PassDelta` the ledger already carried.
 - Auto: baseline and optimized record counts come from `PostImage.PhysicalRecords`, the one census neither delta carries because a per-pass emit would render the whole program once per stage; `PassState` threads the interpretation forward so each stage interprets the program it produced exactly once. An intermediate program costs no content key, because `CutProgram` holds its key lazily.
-- Receipt: `OptimizeLedger` carries the ordered stage deltas, the terminal certification delta, the elected point, and the baseline and optimized physical-record counts.
+- Result: `OptimizeLedger` carries the ordered stage deltas, the terminal certification delta, the elected point, and the baseline and optimized physical-record counts.
 - Growth: one optimization concern adds one `PassPolicy` case, one `OptimizePass` row, and one pure `PassState` fold.
 - Boundary: separate `Feeds`, `Delta`, and `Blocks` estimators are deleted forms; symbolic `GValue.Variable`/`Expression` motion fails admission because geometry-changing passes cannot preserve unevaluated coordinates by inspection.
 
@@ -500,7 +500,7 @@ public static partial class Optimize {
 - Owner: `Optimize.Objective` owns machine minutes over the whole trace.
 - Law: objective time counts EVERY machine minute — rapids traverse at `MotionDynamics.RapidFeed`, feed motion is bounded by `LinearFeed` and `ArcFeed`, `FeedMode.InverseTime` reads one block as `1/F` minutes, and `GCommand.Dwell` contributes its `P` seconds for every commanded pause including pierce delay. A cutting-only objective reports compaction and linking gains it never earned.
 - Law: each span is accel-limited — `MotionDynamics.JunctionFeed` fixes the shared speed at the turn between consecutive spans, and `Acceleration` bounds the reachable peak, so a fold of short segments cannot show its programmed feed. The junction speed is derived ONCE per advance: computing it twice from the same operands let the entry speed a span recorded and the elapsed time its predecessor was charged disagree.
-- Receipt: `MotionSpan` carries length, cruise ceiling, entry speed, and chord direction, and the trapezoid closes each span when its successor fixes the exit; the last span decelerates to rest.
+- Result: `MotionSpan` carries length, cruise ceiling, entry speed, and chord direction, and the trapezoid closes each span when its successor fixes the exit; the last span decelerates to rest.
 - Boundary: arc rows preserve their admitted `I`/`J` centre evidence, distances use full `Point3d` positions, no absent axis becomes zero, and no zero-length span becomes fabricated distance.
 
 ```csharp
@@ -663,7 +663,7 @@ internal static class NodeWalk {
 - Law: every pass transform reads the nodes it is HANDED. A transform that closed over the incoming program and ignored its argument ran against the pre-pass tree whatever the fold passed it.
 - Cases: `feed` evaluates `CuttingData.Evaluate(CutIntent)` for each subtractive locus, applies radial chip thinning, intersects process, controller, and spindle-power limits, and writes one explicit effective `F`; tapping and threading cycles are excluded because their feed is bound to pitch and spindle speed. `smooth` runs only after the trace proves absolute `G17` motion with explicit `X`/`Y`/`Z` and the dialect admits centre-form arcs. `compact` folds forward-collinear rapid and feed runs and co-circular arc runs while preserving traversed locus, and strips repeated modal `F` and `S` values. `Certify` is the terminal stage every run takes, so its rewrite publishes a delta like any other.
 - Auto: a nested body executes under state the parent fold cannot see, so the modal census clears at every non-word node rather than stripping a word the body already changed; a locus with no measured engagement reads the context's nominal depths and increments the ledger's estimated count.
-- Receipt: generated labels come only from the pattern policy, and `Dialect.Emit` hoists one definition per label regardless of call-site count.
+- Result: generated labels come only from the pattern policy, and `Dialect.Emit` hoists one definition per label regardless of call-site count.
 - Exemption: `PatternCensus` is the measured hash kernel — the prefix array and the per-window read are one linear pass whose intermediate array IS the algorithm.
 - Boundary: `Geometry2D/arcs` remains the owner for subsequent arc inspection, offset, and densification.
 
@@ -1017,7 +1017,6 @@ internal static class PatternCensus {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

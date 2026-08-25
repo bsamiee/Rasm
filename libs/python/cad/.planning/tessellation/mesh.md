@@ -2,7 +2,7 @@
 
 `tessellate` is the provider's one discrete-result spine: it takes an admitted transfer, drives `BRepMesh_IncrementalMesh` under the caller's `TessellationPolicy`, admits the kernel verdict, sums the located triangulation against the budget before any byte is written, then hands the document to the writer and the emitted file to the census. Meshing mutates the transferred shape's stored triangulation in place, so the mesher runs exactly once over one root and every later reader sees the same triangulation.
 
-Policy arrives whole on the wire as `deflection_m`, `angle_tolerance_rad`, and `triangle_budget`, already bounded by protovalidate, so no arm re-checks a knob the request proved. `exchange/assembly#ROOTS` owns the reader, its mode set, the XCAF document, and the free-shape root; `tessellation/emission#EMISSION` owns the writer and byte admission; `metrology/census#CENSUS` owns the emitted-file counts and `metrology/properties#RECEIPT` the kernel receipt. This owner sequences those four and adds the mesher, the preflight, and the budget verdict.
+Policy arrives whole on the wire as `deflection_m`, `angle_tolerance_rad`, and `triangle_budget`, already bounded by protovalidate, so no arm re-checks a knob the request proved. `exchange/assembly#ROOTS` owns the reader, its mode set, the XCAF document, and the free-shape root; `tessellation/emission#EMISSION` owns the writer and byte admission; `metrology/census#CENSUS` owns the emitted-file counts and `metrology/properties#MEASURE` the kernel measure. This owner sequences those four and adds the mesher, the preflight, and the budget verdict.
 
 ## [01]-[INDEX]
 
@@ -62,7 +62,7 @@ def _meshed(root: TopoDS_Shape, policy: TessellationPolicy, custody: Custody, /)
 - Law: `traverse` short-circuits on the first absent face, replacing a `while` cursor whose two mid-walk raises made the refusal order implicit.
 - Law: the budget verdict reads one summed total, so its coordinate names the whole shape rather than whichever face first crossed the line.
 - Law: `TopLoc_Location()` is the out-parameter the read-back fills, never an input placement, so the returned triangulation stays in its own frame.
-- Law: preflight counts native triangles; the emitted-file census stays the receipt authority and gates the budget a second time after emission.
+- Law: preflight counts native triangles; the emitted-file census stays the measurement authority and gates the budget a second time after emission.
 - Growth: a new pre-emission proof is one arrow inside the traversal step; the traversal itself takes no new argument.
 - Boundary: this owner reads `NbTriangles()` alone. `Poly_Triangulation.Node`/`Triangle` and `Poly_Triangle.Value` are verified present and unread, so the vertex and face buffers a mesh consumer wants have no owner; the gap is the carrier, never the spelling.
 
@@ -108,10 +108,10 @@ def _preflight(root: TopoDS_Shape, policy: TessellationPolicy, /) -> CadRail[int
 ## [04]-[MESH]
 
 - Owner: `tessellate` — the one entry the native lane calls; it sequences transfer, mesh, preflight, emission, and census, and returns one `TessellationEvidence` value.
-- Entry: do-notation, never `pipeline` — the root feeds mesher, preflight, and receipt while the document feeds the writer, so two intermediates outlive their successor step and a kleisli chain cannot name them.
+- Entry: do-notation, never `pipeline` — the root feeds mesher, preflight, and measure while the document feeds the writer, so two intermediates outlive their successor step and a kleisli chain cannot name them.
 - Law: the emitted census gates the budget a second time, because welding and primitive splitting move the emitted total away from the native sum.
-- Law: `MESH_BUDGET` carries both gates under distinct coordinates, so a receipt names whether the native fold or the emitted file crossed the line.
-- Law: `GlbCensus.closure` elects the `Closure` arm the receipt consumes, so watertight and delta are never decided twice.
+- Law: `MESH_BUDGET` carries both gates under distinct coordinates, so the refusal names whether the native fold or the emitted file crossed the line.
+- Law: `GlbCensus.closure` elects the `Closure` arm `measured` consumes, so watertight and delta are never decided twice.
 - Output: `TessellationEvidence` crosses the `to_process` seam as a value; the emitted bytes never do, and the parent owns the path they sit on.
 - Output: `artifact_bytes` rides the evidence as emission proof `service/spool#SPOOL` confirms its publish against; the wire reserves the field.
 - Growth: a new spine stage is one `yield from` arrow; a new source kind lands at `exchange/assembly#ROOTS` and this spine stands unchanged.
@@ -123,12 +123,12 @@ from pathlib import Path
 from expression import Error, Ok, effect
 from msgspec import Struct
 from rasm.contracts.rasm.contracts.cad.service_pb import TessellateRequest
-from rasm.contracts.rasm.contracts.cad.types_pb import BrepKernelReceipt
+from rasm.contracts.rasm.contracts.cad.types_pb import BrepMeasure
 
 from rasm.cad.exchange.assembly import transferred
 from rasm.cad.faults import MESH_BUDGET, CadFault, CadRail
 from rasm.cad.metrology.census import GlbCensus
-from rasm.cad.metrology.properties import receipt
+from rasm.cad.metrology.properties import measured
 from rasm.cad.tessellation.emission import emitted
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ class TessellationEvidence(Struct, frozen=True, kw_only=True):
     element_count: int
     triangle_count: int
     artifact_bytes: int
-    kernel: BrepKernelReceipt
+    measure: BrepMeasure
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -155,12 +155,12 @@ def tessellate(request: TessellateRequest, source_path: Path, glb_path: Path, ce
     yield from _preflight(meshed, request.policy)
     artifact_bytes = yield from emitted(document, glb_path, ceiling)
     census = yield from GlbCensus.of(glb_path).bind(lambda read: _budgeted(read, request.policy.triangle_budget))
-    kernel = yield from receipt(meshed, census.closure)
+    measure = yield from measured(meshed, census.closure)
     return TessellationEvidence(
-        element_count=census.instances, triangle_count=census.triangles, artifact_bytes=artifact_bytes, kernel=kernel
+        element_count=census.instances, triangle_count=census.triangles, artifact_bytes=artifact_bytes, measure=measure
     )
 ```
 
 ## [05]-[RESEARCH]
 
-- [TRIANGULATION_READBACK]-[OPEN]: what request shape and wire carrier hand a meshed `Poly_Triangulation` to a consumer as vertex and face buffers, so a mesh consumer stops fetching and re-decoding a GLB that `geometry/mesh/cad#BRIDGE` forbids it to parse twice; settle the carrier at the client seam and card the arm at concept grain.
+(none)

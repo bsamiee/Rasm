@@ -2,21 +2,17 @@
 
 `FontEngineering` is the font-binary engineering owner over the document rail — one owner folding a font plus a discriminated `FontJob` into a minimized, instanced, compiled, synthesized, axis-introspected, outline-metered, feature-frozen, feature-varied, merged, or embed-validated deliverable. Each `FontJob` case carries only its operation's fields. `fontTools` owns the binary model, typed footprint retention, partial-axis instancing, designspace compilation, whole-font synthesis, color tables, axis introspection, outline algebra, merge, feature authoring, conditional GSUB, and script resolution; `opentype-feature-freezer` owns the GSUB→`cmap` freeze.
 
-`emit()` mints one pre-run key over `(source-font ⊕ job)`, captures it in the work closure, and threads it through the rendered receipt. `FontJob.receipt` projects every payload onto `ArtifactReceipt.Document` — the typography document-rail case, never the `pdf` kind wire — with glyph, axis, and coverage evidence riding the encoded payload; `EmbedReport.complete` requires requested coverage, required tables, and an embeddable `OS/2.fsType`. Downstream face maps consume produced font bytes, `ScriptTags` and axis catalogs drive face selection, and `FaceMetrics` drive cap-height lettering and rule placement.
 
 ## [01]-[INDEX]
 
-- [02]-[FONT]: fontTools + opentype-feature-freezer font-binary owner over the closed per-mode `FontJob` union, one total `apply` match folding every mode and `FontJob.receipt` projecting the one rendered payload onto its `ArtifactReceipt` case.
 
 ## [02]-[FONT]
 
 - Owner: `FontEngineering` folds `(font, job)` into one deliverable; `FontJob` is the closed per-mode `@tagged_union`, `apply(font)` total over the arms by `assert_never`. fontTools owns the binary model, synthesis, and the `fvar`/`STAT`/`cmap`/`unicodedata` introspection; opentype-feature-freezer owns the GSUB→`cmap` freeze alone.
 - Cases: eleven ops on one union — `SUBSET` (footprint prune under the typed `SubsetPolicy` retention owner, `SubsetPolicy.flavor` re-flavoring to WOFF/WOFF2 in the same pass), `INSTANCE` (partial-axis instancing over the per-axis `AxisLimit` pin/range/drop map), `AXIS_CATALOG` (`fvar` axes and named instances plus the `STAT` design-axis records into `AxisCatalog`), `OUTLINE` (one `RecordingPen` traversal per glyph replayed into the SVG/area/bounds/statistics pens), `EMBED_AUDIT` (cmap coverage against the requested set plus required-table presence into `EmbedReport`), `MERGE`, `FREEZE` (GSUB single/alternate baked into the default `cmap` for non-OpenType consumers), `FEATURE` (`.fea` into GSUB/GPOS/GDEF), `FEATURE_VARIATIONS` (rvrn-style conditional GSUB rows added before instancing pins them), `COMPILE` (the designspace-to-varfont inverse of `INSTANCE`), `SYNTHESIZE` (`FontBuilder` whole-font authoring from recorded pen contours — the drawing-symbol and diagram-glyph vocabularies packaged as one embeddable face, COLRv0 layers plus CPAL palettes when color-capable).
 - Auto: `SUBSET`/`INSTANCE`/`FEATURE`/`FEATURE_VARIATIONS`/`AXIS_CATALOG`/`OUTLINE`/`EMBED_AUDIT` load and save through `io.BytesIO`; `MERGE`/`FREEZE` spill their binary inputs through `_spill` — the handle closes inside its `with` block, the path outlives it for the path-only merger and freezer, and `unlink` runs in a `finally`. `ScriptTags.itemize` resolves the ordered-unique scripts a run carries into the per-script OT-tag+direction rows shape face-selection reads.
-- Entry: `emit()` returns one `ArtifactWork` whose pre-run key covers `(source-font ⊕ job)` under `CANONICAL_POLICY`; `partial(self._emit, key)` captures that fact before admission, and `_emit` crosses `_rendered` through the `INTERPRETER` offload lane.
-- Receipt: `FontJob.receipt(key, payload)` projects every produced payload onto `ArtifactReceipt.Document` with the captured pre-run key and byte volume — a font binary is never stamped onto the `pdf` kind wire, so kind-keyed folds stay honest. Glyph counts stay derivable from the binary payload, `EMBED_AUDIT` coverage lives in its encoded `EmbedReport`, and no operation re-runs to mint evidence.
+- Entry: `emit()` returns one `ArtifactWork` whose pre-run key covers `(source-font ⊕ job)` under `CANONICAL_POLICY`; `_emit` crosses `_rendered` through the `INTERPRETER` offload lane.
 - Exemption: outline replay, temporary-path bracketing, designspace source assembly, and glyph synthesis are measured provider kernels; their statement loops own mutable package objects and never escape the operation.
-- Packages: `fonttools` (`subset` with the `Options` keys `SubsetPolicy` types, `ttLib`, the `pens.*` outline algebra, `TTGlyphPen` glyph construction, `fontBuilder.FontBuilder` `setup*` synthesis incl. `setupCOLR`/`setupCPAL`, `varLib.instancer`/`build`/`featureVars.addFeatureVariations`, `merge.Merger`, `feaLib`, `designspaceLib`, `unicodedata`, `fvar`/`STAT` table access), `opentype-feature-freezer` (`RemapByOTL`), `uharfbuzz` (the `FaceMetrics` OT-metrics tier), `msgspec` (the deterministic msgpack encoding of the catalog, outline, and `EmbedReport` payloads), `core/receipt#RECEIPT` (`ArtifactReceipt.Document`, composed never re-declared).
 - Growth: a new engineering operation is one `FontJob` case plus its total `apply` arm; a new retention, instancing, freeze, synthesis, or outline axis is one field on its existing policy owner. CFF↔glyf conversion lands as one `FontJob` case over `cu2qu`/`qu2cu`, while WOFF/WOFF2 remains `SubsetPolicy.flavor`.
 - Boundary: no PDF authoring (`document/emit#DOCUMENT`), no text shaping (`typography/shape#SHAPE`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner transforms or authors a font binary and proves it embeddable, never producing a document. A post-`SUBSET`/`INSTANCE`/`FREEZE` shaping-regression proof composes `typography/shape#SHAPE`'s `QA` request over the produced binary — the vharfbuzz golden oracle lives there, never a second QA arm here. A hand-walked `glyf`/`CFF`/`GSUB`/`fvar`/`STAT`/outline decode, a hand-assembled static cut or variable font, a Python-list font-merge, hand-built COLR/CPAL tables, and a hand-coded script→OT-tag map are each rejected against the fontTools op that owns them; the uharfbuzz HarfBuzz subsetter loses to fontTools `SUBSET` for Python-native `Options` feature-policy control. A permissive `Mapping[str, object]` option bag, a parallel `_woff` writer, and a `dict` instancer keyword bag collapse into the per-mode `FontJob` case carrying only its op's typed fields.
 
@@ -27,7 +23,6 @@ import math
 from builtins import frozendict
 from contextlib import ExitStack
 from enum import StrEnum
-from functools import partial
 from itertools import accumulate, groupby, islice
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -35,14 +30,15 @@ from types import SimpleNamespace
 from typing import Final, Literal, assert_never
 
 import msgspec
-from expression import case, tag, tagged_union
+from expression import Result, case, tag, tagged_union
 from msgspec import Struct
 
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.runtime.faults import RuntimeRail
-from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import uharfbuzz as hb
@@ -437,32 +433,28 @@ class FontJob:
             case _:
                 assert_never(self)
 
-    def receipt(self, key: ContentKey, payload: bytes, /) -> ArtifactReceipt:
-        facts: frozendict[str, float | str] = frozendict({"job": self.tag})
-        if self.tag == "embed_audit":
-            report = _REPORT_DECODER.decode(payload)
-            facts = facts | {"covered": float(report.covered), "glyphs": float(report.glyph_count)}
-        return ArtifactReceipt.Document(key, len(payload), facts)
-
-
 class FontEngineering(Struct, frozen=True):
     font: bytes
     job: FontJob
     lane: LanePolicy
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[bytes]:
         key = ContentIdentity.key(f"font-{self.job.tag}", _ENCODER.encode((self.font, self.job)))
-        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
+        return ArtifactWork(key=key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        return await self.lane.offload(Kernel.of(_rendered, KernelTrait.PURE), self.font, self.job, key)
+    async def _emit(self, /) -> RuntimeRail[bytes]:
+        rendered = await self.lane.offload(Kernel.of(_rendered, KernelTrait.PURE), self.font, self.job)
+        match rendered:
+            case Result(tag="ok", ok=payload):
+                Metrics.record({BYTE_VOLUME: float(len(payload))}, domain=DOMAIN, kind="document", scope=self.lane.scope)
+        return rendered
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _rendered(font: bytes, job: FontJob, key: ContentKey, /) -> ArtifactReceipt:
-    return job.receipt(key, job.apply(font))
+def _rendered(font: bytes, job: FontJob, /) -> bytes:
+    return job.apply(font)
 
 
 def _spill(data: bytes, suffix: str, /) -> Path:

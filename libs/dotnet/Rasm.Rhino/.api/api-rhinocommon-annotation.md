@@ -259,7 +259,7 @@
 
 [LOCAL_ADMISSION]:
 - A style enters through `DimStyleTable.Add`/`Modify`; per-object overrides enter through `AnnotationBase.SetOverrideDimStyle` after the differing fields are marked, never by mutating a shared style in place. `DimStyleTable.Modify(style, annotation)` is the sole reverse-projection from a live annotation to a style, its `ModifyType` inspected before the write is treated as durable.
-- Live `DimensionStyle`, `AnnotationBase`, `Dimension`, and `*Object` values stay inside the document grant; downstream code receives bounded owners, detached geometry, resolved formula strings, projected receipts, or explicitly owned bitmap leases.
+- Live `DimensionStyle`, `AnnotationBase`, `Dimension`, and `*Object` values stay inside the document grant; downstream code receives bounded owners, detached geometry, resolved formula strings, detached facts, or explicitly owned bitmap leases.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon`

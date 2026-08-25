@@ -12,7 +12,7 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once and `Audit.Preflight` gates g
 - [05]-[PROJECTION]: `SupportProgram` closes planar, tree, hybrid, and generated modalities behind one projection, coverage, and admission.
 - [06]-[GROWTH]: tip distribution, guarded descent, kernel-broad-phase merge and parenting, reverse-topological accumulation, and stress-sized radii.
 - [07]-[TOPOLOGY]: `SupportTopology`, the published graph-index-sites owner, and the named evidence columns its algorithms produce.
-- [08]-[IDENTITY]: one canonical codec over `FabricationCanon`, the settled receipt, and the content-keyed plan.
+- [08]-[IDENTITY]: one canonical codec over `FabricationCanon` and the content-keyed support artifact.
 
 ## [02]-[VOCABULARY]
 
@@ -238,8 +238,8 @@ public static partial class Support {
     public static Fin<SupportPlan> Grow(SliceStack stack, SupportPolicy policy) =>
         from _policy in AdmitPolicy(policy)
         from audit in Audit.Preflight(stack, policy.Audit)
-        from _clean in AdmissionSlots.Gate(audit.Evidence.Clean,
-            FabConcern.Additive, $"support:audit:{audit.Evidence.Defects.Count}", FabricationFault.Inadmissible).As().ToFin()
+        from _clean in AdmissionSlots.Gate(audit.Clean,
+            FabConcern.Additive, $"support:audit:{audit.Defects.Count}", FabricationFault.Inadmissible).As().ToFin()
         from demand in Demand(stack, policy)
         let context = new SupportContext(stack, demand, policy)
         from projected in Project(context)
@@ -253,13 +253,8 @@ public static partial class Support {
             admitted.PlanarRows,
             admitted.SupportNodes,
             topology,
-            new Receipt<SupportEvidence> {
-                Evidence = evidence,
-                Concern = FabConcern.Additive,
-                Key = ContentKey.Of(EgressKind.Plan, bytes.Span),
-                Consumed = Seq(audit.Key),
-                Stamped = policy.Audit.EvaluatedAt,
-            });
+            evidence,
+            ContentKey.Of(EgressKind.Plan, bytes.Span));
 
     private static Fin<Unit> AdmitPolicy(SupportPolicy policy) => AdmissionSlots.Accumulate(Seq(
         AdmissionSlots.Gate(policy.Factors.Total, FabConcern.Additive, "support:factor-coverage", FabricationFault.Inadmissible),
@@ -311,7 +306,7 @@ public static partial class Support {
 - Law: the heat share reads `SliceStack.AreaAt`, the kernel's own signed-shoelace layer metric, so no fold on this page re-derives a filled area the wire already projects. A layer carrying an island but no measured area is a contradiction and refuses.
 - Law: each island retains its own bound and never borrows model extent for sparse or interface candidate generation.
 - Law: `BridgeSpan` endpoints are rim points extremal along the island's own PRINCIPAL bearing, taken from its rim second moment. A bounding-box diagonal names a direction the material need not occupy and its corners lie off the island entirely, so neither enters a published span; an admitted island rim carries at least three vertices, so the span has no absence arm.
-- Receipt: bridge spans, contact area, trapped area, drain reach, load, heat, and removability remain evidence, never prose-only claims.
+- Result: bridge spans, contact area, trapped area, drain reach, load, heat, and removability remain evidence, never prose-only claims.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -918,9 +913,9 @@ internal static class SupportSites {
 - Owner: `SupportTopology` is the ONE support-edge owner in this folder — the parent-to-child graph, the identity index, and the site broad phase over the settled node positions. `Additive/implicit` tree edges and `Additive/production` support beams read `Topology.Graph.Edges` and `Topology.ById`; neither rebuilds an edge set, and a third reconstruction anywhere is the deleted form.
 - Exemption: `SupportTopology` is a sealed CLASS holding a mutable QuikGraph container, so it carries reference identity and never structural equality. A record here would compare graph references under a value contract and would make `SupportPlan` equality depend on a container the plan's own `ContentKey` already identifies. The container is admitted once from an immutable node set and never mutated after, which is what makes the held view sound.
 - Law: identity admits BEFORE construction — contiguous ordinals, resolved parents, no repeated parent — and acyclicity rails a typed refusal before any sort runs, so no algorithm here throws its own precondition.
-- Law: the critical load path is `DagShortestPathAlgorithm` under `DistanceRelaxers.CriticalDistance`, whose relaxer inverts the comparison and seeds `double.MinValue`, so the fold IS the longest path and no weight is negated to fake one. A sink still holding the relaxer's initial distance was never reached from that root — the reading is ABSENT rather than zero, and the unreached census is its own receipt column.
+- Law: the critical load path is `DagShortestPathAlgorithm` under `DistanceRelaxers.CriticalDistance`, whose relaxer inverts the comparison and seeds `double.MinValue`, so the fold IS the longest path and no weight is negated to fake one. A sink still holding the relaxer's initial distance was never reached from that root — the reading is ABSENT rather than zero, and the unreached census is its own result column.
 - Law: a support forest is a DAG, not a rooted tree — `SupportNode.Parents` is a sequence and `TreeRole.Junction` names exactly the multi-parent case — so `OfflineLeastCommonAncestor`, which admits rooted trees only, has no standing here. Merge ambiguity is the closure ANTICHAIN measure: one pass over the transitive closure counts, per ancestor, how many sinks it reaches, and a shared ancestor is one reaching more than one. An all-pairs sink intersection restates that in quadratic time and sums it into a number naming no node.
-- Receipt: every algorithm output publishes as a NAMED column — roots, sinks, components, closure and reduced edge counts, shared ancestors, the widest merge fan, reachable nodes, unreached routes, and the critical path with the node count that carried it. No graph container leaves this cluster except the one `SupportTopology` publishes by charter.
+- Result: every algorithm output publishes as a NAMED column — roots, sinks, components, closure and reduced edge counts, shared ancestors, the widest merge fan, reachable nodes, unreached routes, and the critical path with the node count that carried it. No graph container leaves this cluster except the one `SupportTopology` publishes by charter.
 - Packages: QuikGraph (`BidirectionalGraph`, `SEquatableEdge`, `IsDirectedAcyclicGraph`, `Roots`, `Sinks`, `SourceFirstTopologicalSort`, `WeaklyConnectedComponents`, `ComputeTransitiveClosure`, `ComputeTransitiveReduction`, `TreeBreadthFirstSearch`, `DagShortestPathAlgorithm`, `DistanceRelaxers`, `VertexPredecessorRecorderObserver`); `Rasm.Spatial` for the site index.
 
 ```csharp
@@ -1072,12 +1067,12 @@ public static class SupportGraph {
 
 ## [08]-[IDENTITY]
 
-- Owner: `SupportCodec.Write` is the sole canonical octet projection over the admitted draft; `SupportEvidence` carries what the growth MEASURED; `Receipt<SupportEvidence>` carries plane, key, consumed ancestry, and stamp; `SupportPlan` carries the wire.
+- Owner: `SupportCodec.Write` is the sole canonical octet projection over the admitted draft; `SupportEvidence` carries what the growth measured; `SupportPlan` carries the topology, evidence, and key.
 - Law: `Loop.CanonicalBytes` is the ONE loop preimage in the package — rotation-canonical and tolerance-quantized at its S0 owner — so this page declares no rotation rule and no cyclic station comparison. Sibling loops still need a deterministic ORDER, and `Loop.CanonicalOrder` — the S0 owner's own rank over that same normal form — supplies it; neither the rotation nor the comparison is restated here.
 - Law: every scalar rides `FabricationCanon` over the `Rasm.Element` `CanonicalWriter` — `Coords`, `Maybe`, `Rows`, and `Discriminant` — so a generated owner enters as its own length-framed key rather than an ordinal a row reorder silently re-keys, and `Rows` frames its count so the layout stays self-delimiting.
 - Law: offset, program, family, contact, growth, structural, thermal, removal, drainage, completion, and every realized geometry value enter the payload under canonical row, node, bridge, and loop order.
-- Output: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over the written bytes and rides the carrier's `Key`; `SupportEvidence.PreimageLength` records that payload's measured extent at construction. `Consumed` carries the preflight this growth stood on, and `AuditPolicy.EvaluatedAt` stamps it — the branch's one evaluation instant per build, and the only one this entry reaches.
-- Boundary: the receipt never re-enters the payload it seals, and the plan's identity is its receipt's key — `SupportTopology` carries reference identity, so plan equality is the key's, never a graph comparison. A second key column on the plan beside the carrier's own is the deleted duplicate.
+- Output: `ContentKey.Of(EgressKind.Plan, bytes)` mints once over the written bytes and becomes `SupportPlan.Key`; `SupportEvidence.PreimageLength` records that payload's measured extent at construction.
+- Boundary: the result never re-enters the payload it seals, and the plan's identity is its key — `SupportTopology` carries reference identity, so plan equality is the key's, never a graph comparison.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1097,7 +1092,8 @@ public sealed record SupportPlan(
     Seq<SupportLayer> PlanarRows,
     Seq<SupportNode> SupportNodes,
     SupportTopology Topology,
-    Receipt<SupportEvidence> Receipt);
+    SupportEvidence Evidence,
+    ContentKey Key);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Support {
@@ -1281,14 +1277,13 @@ flowchart LR
     Planar --> Codec["SupportCodec over FabricationCanon + Loop.CanonicalBytes"]
     Evidence --> Codec
     Codec --> Key["ContentKey.Of Plan"]
-    Key --> Plan["SupportPlan + Receipt&lt;SupportEvidence&gt;"]
+    Key --> Plan["SupportPlan"]
 ```
 
 ## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

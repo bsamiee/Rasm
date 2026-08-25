@@ -1,6 +1,6 @@
 # [IAC_SPEC]
 
-`StackSpec` is the decoded value an app supplies to deploy — the closed arm union, the consumption-axis rosters, coordinate options, and capability profile — and the coordinates-never-material law keeps every spec value loggable, diffable, and receipt-safe. Deployment shape arrives here and nowhere else, so no tier infers a topology, tenant count, or pooling posture. `iac/src/program/spec.ts` is the module; a new cloud is one arm entry `provider.md` realizes, a new axis one profile field with its default, a new plane one `Option` field.
+`StackSpec` is the decoded value an app supplies to deploy — the closed arm union, the consumption-axis rosters, coordinate options, and capability profile — and the coordinates-never-material law keeps every spec value loggable and diffable. Deployment shape arrives here and nowhere else, so no tier infers a topology, tenant count, or pooling posture. `iac/src/program/spec.ts` is the module; a new cloud is one arm entry `provider.md` realizes, a new axis one profile field with its default, a new plane one `Option` field.
 
 `Connection` owns the SSH coordinate product, and its `ssh` projection is the only spelling of the daemon URL. `Tier` adapts Pulumi's class model with one option fold, one terminal output registration, and the `harden` anchor every pod-constructing tier stamps, `StackOutputs` is the typed exit whose secret-refusal gate holds the raw `OutputMap`, whose `pairsOf` owns the one `<plane>.<field>` flatten, and whose `channels` and `custody` catalogs together own every deploy-to-process variable spelling, and `sharding` is the sole plane crossing back into the runtime graph — the two planes meet at the process boundary and never import each other.
 
@@ -22,7 +22,7 @@
 ## [03]-[SPEC_OWNER]
 
 [SPEC_OWNER]:
-- Law: coordinates, never material — `Connection` carries host/user/port with the hardening coordinates (`hostKey` is the host's public key pinned against a MITM re-key, `bastion` is the jump-hop's own host/user/port row reusing the same struct) and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
+- Law: coordinates, never material — `Connection` carries host/user/port with the hardening coordinates (`hostKey` is the host's public key pinned against a MITM re-key, `bastion` is the jump-hop's own host/user/port row reusing the same struct) and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state or logs; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
 - Law: `epoch` is the one rotation trigger — it feeds every `@pulumi/random` `keepers` map and every `@pulumi/command` `triggers` list, so bumping one field re-mints credentials and re-runs bootstrap deliberately; per-resource rotation knobs are the named defect.
 - Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `capacity` sizes the node pool that escalation stands (the instance type and the EKS-optimized OS family off their providers' own rosters, beside the pool's floor and ceiling), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, retention, and the pooling pair, `fanout` carries the NATS replica quorum and stream storage, and `separation` carries the tenant-boundary posture the cluster realizes — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas; `objective` alone is a getter rather than a field, because the durability window follows from `topology` and a defaulted second declaration of it forks the pair the runner grades against.
 - Law: `topology` is the deployment-shape axis a composition root supplies, not a fact a package infers — `proc/config#ADMISSION_ROWS` owns the closed roster and `ConsumptionProfile.topologies` spreads that one spelling into this schema, `service` is the deploy plane's own default, and a tier serving a proper subset refuses the rest at admission with typed evidence naming the axis and the rejected value; `operate/converge.md` is the first such refusal, `_SERVED` its subset; the same owner supplies the topology-keyed durability window through `ConsumptionProfile.recoveryOf`, so `objective` reads one branch table and this schema restates no window of its own.
@@ -329,7 +329,7 @@ abstract class Tier extends pulumi.ComponentResource {
 - Law: the projection is total over presence — absent planes contribute zero rows, values render through the injected renderer at this seam exactly once, and a consumer never re-derives a pair from the decoded owner; the widened `Record<string, string | number>` view on the fold is the type-seam bracket posture, since every plane record is flat scalars by construction.
 - Entry: `StackOutputs.read(stack, spec.name)` after any `up`; the plane records project by field access; `outputs.pairs` into the workload env assembly; `StackOutputs.pairsOf(record, render)` inside a program body over live `Output`s.
 - Growth: a new plane is one `Option` field, its arm return keys, and one `_CHANNELS` row per field; a custody or backend variable is one row in its sibling catalog reaching every deploy writer.
-- Boundary: which keys each arm returns is `provider.md`'s program body; how a channel row becomes a container `EnvVar` is `kube/workload.md`'s rendering; which custody variables a cell holds is `operate/secret.md`'s mint; the reading side's group nesting is the runtime `Setting` owner's; receipt evidence is `automation.md`'s — outputs and receipts never merge.
+- Boundary: each arm returns `StackOutputs` through Pulumi's native `UpResult.outputs`; workload rendering and secret custody remain at their owning tiers.
 - Packages: `effect` (`Effect`, `Schema`, `Option`, `Array`, `Record`); `@pulumi/pulumi` (`Output`); `@pulumi/pulumi/automation` (`Stack`); `@rasm/core` (`Shape.Record`); `./automation.ts` (`DeployFault`).
 
 ```typescript
@@ -436,12 +436,3 @@ declare namespace StackOutputs {
 
 export { Connection, StackOutputs, StackSpec, Tier }
 ```
-
-## [06]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

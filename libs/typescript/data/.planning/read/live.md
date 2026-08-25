@@ -76,7 +76,7 @@ const _merged = (coordinates: ReadonlyArray<Live.Keys>): Live.Keys =>
 - Owner: `Live.of(spec)` — one binding over `{ keys, query, rearm, backoff, backlog, coordinate }` yielding the three read modalities — `read` (the decoded one-shot), `changes` (the reactive stream re-running on every overlapping mutation under the bound's re-arm policy), `mailbox` (the pull twin derived from that same stream) — and `coordinate`, the emission-identity projection the serving plane's SSE fold reads as its dedupe token.
 - Packages: `@effect/experimental` (`Reactivity.stream` — the keyed re-run over any effect); `effect` (`Effect`, `Stream`, `Mailbox.fromStream`, `Schedule`, `ParseResult`, `Predicate`, `Duration`, `Option`); `@rasm/core` (`Fault.Class.retryable`).
 - Entry: a projection lane publishes `Live.of` bindings beside its table (the lane's `read` composed with the lane's band); the runtime branch serves `changes` over sockets and server-sent events, and the browser's persistence lane pulls `mailbox` — both consume the bound value, never the bus.
-- Receipt: every `changes` emission is a fresh run of the same query — the stream carries decoded values only, so a subscriber holds domain shapes and re-render diffing is the consumer's fold over equal-by-construction values.
+- Output: every `changes` emission is a fresh run of the same query — the stream carries decoded values only, so a subscriber holds domain shapes and re-render diffing is the consumer's fold over equal-by-construction values.
 - Growth: a new live view is one `Live.of` with its own query and coordinates; a parameterized view (per-cell, per-window) is a constructor argument closing over the query, never a second modality.
 - Law: the bus is the one reactive road — `Reactivity.stream` re-runs ANY effect on overlapping invalidation, so a bound over an object-plane fold, a cache read, or an in-memory projection binds exactly as a relational read binds and no client type enters the seam; the SQL client's own reactive members delegate to this same service on every driver this branch carries, so routing the read half through a client while the write half stamps the bus spells one capability twice and drags a relational dependency into bindings that touch no relation.
 - Law: re-arm is a policy row, never a knob — the bus ENDS a feed on the first failed re-run, so `rearm` partitions the query's fault channel into `resume` (re-register the coordinates and re-read after the bound's backoff) and `close` (surface once and end); without the row one connection reset retires a subscription permanently and silently, which is the stall this policy deletes.
@@ -178,7 +178,6 @@ export { Live }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

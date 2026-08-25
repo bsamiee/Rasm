@@ -24,7 +24,7 @@ It is a remote-origin row on the `object/file` plane — origin-addressed, capab
 |  [02]   | `WebDAVClientOptions` auth      | auth row      | `AuthType.Auto \| Password \| Digest \| Token \| None` as data   |
 |  [03]   | `WebDAVClientOptions` transport | transport     | agent pooling, header policy, LOCK contact, XML-expansion bounds |
 |  [04]   | `FileStat`                      | stat fact     | census/diff unit; `etag` is the poll-watch change key            |
-|  [05]   | `ResponseDataDetailed<T>`       | receipt       | every read's `details: true` projection                          |
+|  [05]   | `ResponseDataDetailed<T>`       | detail        | every read's `details: true` projection                          |
 |  [06]   | `DiskQuota`                     | quota fact    | capacity row for transfer admission                              |
 |  [07]   | `LockResponse`                  | lock fact     | the RFC 4918 token `unlock` requires                             |
 
@@ -70,11 +70,11 @@ It is a remote-origin row on the `object/file` plane — origin-addressed, capab
 [LOCAL_ADMISSION]:
 - Mint one scoped client per origin; credentials and `authType` are config rows, never literals.
 - Select transfer lane by runtime and size: streams on node, `getFileContents`/`putFileContents` in the browser, `range`/`partialUpdateFileContents` for resume where the capability flag proves support.
-- Read with `details: true` wherever a receipt (status, headers, etag) feeds evidence; a bare body read that later re-stats is the double-round-trip defect.
+- Read with `details: true` wherever the detailed response (status, headers, etag) feeds evidence; a bare body read that later re-stats is the double-round-trip defect.
 - Bound hostile XML through `entityDecoder` (`maxTotalExpansions`/`maxExpandedLength`) on untrusted origins; probe unknown servers with `getDAVCompliance` before relying on lock or search rows.
 
 [RAIL_LAW]:
 - Package: `webdav`
 - Owns: the DAV protocol lane — client factory with auth/transport rows, directory census, whole/ranged/streamed transfer, server-side copy/move, quota, RFC 4918 locks, partial updates, capability probing
-- Accept: scoped per-origin clients, `AuthType` rows over auth forks, `NodeStream`/`NodeSink` lifts on node, etag-diff poll watching, `details: true` receipts, capability-flag degrade paths
+- Accept: scoped per-origin clients, `AuthType` rows over auth forks, `NodeStream`/`NodeSink` lifts on node, etag-diff poll watching, `details: true` responses, capability-flag degrade paths
 - Reject: browser calls into the stubbed stream members, credential literals, a second DAV wrapper, polling bodies where an etag diff suffices, treating a missing capability as an error instead of a degrade row

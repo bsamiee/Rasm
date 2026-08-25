@@ -81,7 +81,7 @@ public sealed partial class DispatchLane : IGaugeLane<DispatchLane> {
 - Law: the marshal is the only site that names an Eto application, and it carries `[BoundaryAdapter]` — every interior owner on this sub-domain takes admitted values and returns rails, so the host surface is one page wide.
 - Law: a crossing never swallows: a body's `Fin` failure rides out unchanged, and only the CROSSING itself — a dead context, a refused post, a headless entry — becomes a `UiFault`.
 - Law: an observer raise never fails the crossing it observed. Publication runs through `FaultRail.Isolate`, which parks the subscriber's refusal on the sub-domain fault cell and settles the crossing, because a tap that can fail a marshal turns instrumentation into a liveness dependency.
-- Receipt: `DispatchPulse` per crossing and `DispatchEcho` per queued settle, both published to leased observers rather than returned, so a caller that wants only the value pays nothing.
+- Output: `DispatchPulse` per crossing and `DispatchEcho` per queued settle, both published to leased observers rather than returned, so a caller that wants only the value pays nothing.
 - Packages: Eto.Forms for `Application` (registered at `libs/dotnet/.api/api-eto-runtime.md`); LanguageExt.Core for the rails and the `Lease`; `Parametric/projections` for the timeline and the gauge lane floor.
 - Growth: a new observer is one lease; a new lane is one row the seated pace already budgets.
 - Boundary: `Application.Instance` is read at the entry and never stored — a captured instance outlives a host restart and marshals onto a dead context that never re-posts.
@@ -119,7 +119,7 @@ public static class UiThread {
 - Auto: the seat is an atom holding the PORTABLE band until a host tunes, so a lane's `Bound` is answerable before any tune and a display migration re-seats one value rather than every lane row. `PaceBand.Portable` is the DECLARED row both boundaries hardcoded as the same sixteen-millisecond frame before this owner existed.
 - Law: a per-lane widening is a dimensionless STRETCH on the seated policy, never a millisecond override. A stored millisecond bound beside a frame multiple is two authorities over one budget, and the pair disagrees the first time a host publishes a real refresh interval. NAMED LOSS: a host can no longer state one lane's budget in absolute time; it states the multiple and the pace, and the product is the budget.
 - Law: every seat transition answers a `Transition<StallPolicy>` verdict, so a tune that lost a race under contention reads its case rather than assuming a swap.
-- Receipt: `DispatchPulse` carries the operation, the lane, the elapsed span, and the derived breach; `DispatchEcho` carries the operation and the settled outcome, so a queued crossing's failure is observable without the caller awaiting it.
+- Output: `DispatchPulse` carries the operation, the lane, the elapsed span, and the derived breach; `DispatchEcho` carries the operation and the settled outcome, so a queued crossing's failure is observable without the caller awaiting it.
 - Growth: a new measured coordinate is one column on the pulse, answered by the one gauge that produces it.
 - Boundary: the pulse is EVIDENCE and never a gate — no crossing branches on a prior pulse, because a budget that steers the next crossing turns a measurement into a feedback loop nothing declared.
 
@@ -258,7 +258,6 @@ public static class FaultRail {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

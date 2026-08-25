@@ -34,9 +34,9 @@
 |  [15]   | `lance.Session`                        | class         | shared cache/handle reused across `dataset()` opens                |
 |  [16]   | `lance.LanceNamespace`                 | class         | namespace-client + `table_id` open over a Lance catalog            |
 |  [17]   | `lance.DatasetBasePath`                | class         | named storage base for multi-base datasets                         |
-|  [18]   | `lance.ScanStatistics`                 | class         | per-scan statistics receipt (`scan_stats_callback`)                |
-|  [19]   | `lance.DataStatistics`                 | class         | dataset-level data statistics receipt                              |
-|  [20]   | `lance.FieldStatistics`                | class         | per-field statistics receipt                                       |
+|  [18]   | `lance.ScanStatistics`                 | class         | per-scan statistics (`scan_stats_callback`)                        |
+|  [19]   | `lance.DataStatistics`                 | class         | dataset-level data statistics                                      |
+|  [20]   | `lance.FieldStatistics`                | class         | per-field statistics                                               |
 |  [21]   | `lance.ShardWriter`                    | class         | MemWAL shard writer streaming Arrow into WAL + MemTable            |
 |  [22]   | `lance.LsmScanner`                     | class         | LSM-tier scanner over base + flushed generations + active MemTable |
 |  [23]   | `lance.ExecutionPlan`                  | class         | physical plan emitted by the LSM planners                          |
@@ -92,7 +92,7 @@
 |  [07]   | `tags` / `branches` / `create_branch(name)`                 | property | named version tags and branch refs (`Tags` accessor)      |
 |  [08]   | `optimize` / `.compact_files` / `.optimize_indices`         | property | compaction and ANN/scalar index rebuild                   |
 |  [09]   | `cleanup_old_versions(...)`                                 | instance | prune old versions (`older_than` is a delta)              |
-|  [10]   | `stats` / `io_stats_snapshot` / `io_stats_incremental`      | instance | data/IO statistics receipts                               |
+|  [10]   | `stats` / `io_stats_snapshot` / `io_stats_incremental`      | instance | data/IO statistics                                       |
 |  [11]   | `lance.iops_counter` / `lance.bytes_read_counter`           | static   | process-wide IO counters                                  |
 |  [12]   | `lance.batch_udf(output_schema=None, checkpoint_file=None)` | static   | checkpointed resumable batch UDF                          |
 |  [13]   | `lance.blob_field(name, *, nullable=True) -> pa.Field`      | static   | build a blob-typed Arrow field                            |
@@ -144,7 +144,7 @@
 - `polars`(`.api/polars.md`): a frame crosses via `pl.DataFrame.to_arrow()` in and `pl.from_arrow(ds.to_table(...))` out, Lance owning the versioned storage layer beneath the Polars/DataFusion query.
 - within-lib retrieval: numpy embeddings → `create_index(col, "IVF_HNSW_PQ", metric="cosine")` (or `"IVF_RQ"` for RaBitQ compression) → `scanner(nearest={"column":, "q":np_vec, "k":})` → `pa.Table`, with `prefilter` gating a scalar predicate before the ANN stage; the FTS rail stacks `create_scalar_index(col, "INVERTED")` → `full_text_query=lance.query.BoostQuery([MatchQuery(...), PhraseQuery(...)])` for one-scan hybrid lexical+vector retrieval.
 - within-lib streaming: the real-time-ingest owner opens `mem_wal_writer(shard_id)` per shard, `put`s Arrow micro-batches with durable WAL, and serves fresh reads via `ShardWriter.lsm_scanner()` / `LsmVectorSearchPlanner.plan_search(...)` before compaction folds MemTable generations into base fragments — no separate streaming store beside the versioned dataset.
-- within-lib lakehouse: the lakehouse LANCE arms read `version` for the receipt, take an `int` snapshot / `str` tag on `version=` and a timestamp on `asof=`, and re-head via `restore()`; `cleanup_old_versions`/`optimize.compact_files` are the retention/compaction scheduled over the `tracked_files`/`all_files` inventory.
+- within-lib lakehouse: the lakehouse LANCE arms return native `version`, take an `int` snapshot / `str` tag on `version=` and a timestamp on `asof=`, and re-head via `restore()`; `cleanup_old_versions`/`optimize.compact_files` are the retention/compaction scheduled over the `tracked_files`/`all_files` inventory.
 - `add_bases`/`initial_bases` spread physical storage across named `DatasetBasePath` roots; blob columns (`blob_field`/`read_blobs`) hold geometry/raster/asset bytes read as `BlobFile` instead of separate object-store fetches.
 
 [LOCAL_ADMISSION]:

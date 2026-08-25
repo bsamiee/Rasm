@@ -38,4 +38,4 @@
 - Package: `nutpie`
 - Owns (as admitted): the `"nutpie"` NUTS-backend string PyMC dispatches to, with the `backend`/`gradient_backend` compile levers and `init_mean`/`low_rank_modified_mass_matrix` sample levers as `nuts_sampler_kwargs`
 - Accept: `pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax"})` inside a `pm.Model()` study, graduated through `az.summary`/`az.rhat` on the returned `DataTree`
-- Reject: any `import nutpie` in compute; a direct compile/sample/benchmark/Zarr-store call; a Stan model; a posterior claim without the PyMC-returned `InferenceData`/`DataTree` receipt; catalog re-authoring of the declined surfaces
+- Reject: any `import nutpie` in compute; a direct compile/sample/benchmark/Zarr-store call; a Stan model; a posterior claim without the PyMC-returned `InferenceData`/`DataTree`; catalog re-authoring of the declined surfaces

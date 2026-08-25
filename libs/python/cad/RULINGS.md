@@ -16,15 +16,15 @@
 - `Selection` ordinals are durable per artifact digest — the reseal readback proves the decode order and every correspondence image rekeys onto it.
 - `Selection` is one grain-free message and the operation is its grain — an edge feature reads edges, a face feature reads `Indices` of faces.
 - `Correspondence` replaces two booleans — operand, image cardinality, deletion, and section edges were the four facts the pair erased.
-- `Inertia` rides the receipt at solid dimension alone — a zero tensor on a face or edge body is a measurement no rung took.
+- `Inertia` rides `BrepMeasure` at solid dimension alone — a zero tensor on a face or edge body is a measurement no rung took.
 - `PartIdentity.node` is the emitter's node string read back from the file — deriving it from the name format is a second authority.
-- Healing is its own arm with a receipt stating what moved — sewing is a healing step, and the retired `sew` arm re-mints nothing.
+- Healing is its own arm answering `Healing` — before/after census, tolerance, and validity beside one `Step` row per step; sewing is one such step.
 - `Emission` is required on every execute request — an absent output format is a default the zero value would forge.
 - `CadFault` rows hold leg and case as INDEPENDENT columns — four legs raise `INPUT` and one raises five cases, so either collapse loses a join axis.
 - `Recovery` mirrors the generated `FaultRecovery.kind` oneof arm for arm, both ways — a `transient: bool` knob makes the stated window unreachable.
 - Shared tessellation policy owns deflection, angular tolerance, and triangle budget — IFC and CAD precision stay source-owned with no healing alias.
 - STEP admission reads the file-local `FILE_SCHEMA` through `APIHeaderSection_MakeHeader` — a process-selected protocol carries no file authority.
-- GLB receipts count placements, unique triangles, and node names from emitted bytes — source estimates forge an untaken measurement.
+- `GlbCensus` counts placements, unique triangles, and node names from emitted bytes — source estimates forge an untaken measurement.
 - `ProviderPolicy` admits once through `msgspec.convert` — `Meta` guards the convert, never the constructor, so construction past a bound passes.
 
 ## [03]-[COLLAPSE]
@@ -32,8 +32,8 @@
 - One spine drives both rpcs over a per-rpc row — twin methods differed by a fold, an argument, and a literal while copying an eight-arm cascade.
 - One `CadService` owns two idempotent unary methods — operation-specific RPC families re-mint the route the oneof already carries.
 - One deadline scope spans fetch, fold, put, and confirmation — `timeout_ms` recomputes REMAINING time per read, so a second read answers anew.
-- One emitted-file census supplies receipts and the parts roster; sentinel counts and source estimates assert measurements the file never made.
-- One measurement owner serves both native legs — `receipt` already took `watertight` and `mesh_volume_m3`, which the B-rep leg cannot supply.
+- One emitted-file census supplies closure, counts, and the parts roster — sentinel counts and source estimates assert measurements never made.
+- One measurement owner serves both native legs — `Closure` carries the watertight-and-volume arm the B-rep leg lacks, so no leg threads a nullable.
 - One `Custody` grant minted by the lane serves the boolean and the mesher — a kernel page holding a parallel constant claims cores it never owns.
 - One `extent` gate at `metrology/census` serves both native legs — an extent gate at either writer forces the other leg to re-spell it.
 - Tangent joins collapse onto intersection — the two are byte-identical on every admitted profile family, so `OffsetJoin` carries two members.
@@ -58,7 +58,7 @@
 ## [05]-[PROCESS]
 
 - Native OCCT reached by an `OCP.*` import stays here — geometry's `graph/nonmanifold` runs OCCT inside `topologic_core` under AGPL isolation.
-- `Execute` and `Tessellate` return reference-only unary receipts after `ArtifactService.Put` confirms — no body inlines.
+- `Execute` and `Tessellate` answer reference-only unary replies after `ArtifactService.Put` confirms — no body inlines.
 - `BodyAdmission` admits every generated request and response, and Connect status beside `FaultDetail` carries typed failure evidence.
 - Provider-owned paths carry every input and output, and the operation directory destroys after success, refusal, timeout, or worker death.
 - Process-global OCCT state initializes inside the worker — a parent-process latch is never read by the process running the fold.

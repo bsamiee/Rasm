@@ -61,7 +61,7 @@
 
 | [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [CAPABILITY]                                     |
 | :-----: | :------------------------------------------------------- | :------------ | :----------------------------------------------- |
-|  [01]   | `Job` `CloudJob` `CloudJobList` `CreatedContent`         | job           | job body, cloud state, list page, create receipt |
+|  [01]   | `Job` `CloudJob` `CloudJobList` `CreatedContent`         | job           | job body, cloud state, list page, created content |
 |  [02]   | `Run` `StepStatus` `JobStatusEnum` `RunStatusEnum`       | run           | run state, per-step status, status discriminants |
 |  [03]   | `Project` `ProjectCreate`                                | project       | project transport and create body                |
 |  [04]   | `ProjectRecipeFilter` `ProjectAccessPolicyList`          | access        | recipe-filter and access policy                  |

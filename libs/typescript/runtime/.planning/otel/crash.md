@@ -15,7 +15,7 @@ Breadcrumb history attaches as replay evidence redacted at the moment of capture
 - Owner: the breadcrumb ring inside the `Crash` service — a `Ref<Chunk<Breadcrumb>>` sliding window whose width is the interior `_RING` policy row; a breadcrumb is `{ at, label, detail }` with `detail` an open attribute bag (`Convention.Bag` — crash context lawfully carries keys the vocabulary never minted).
 - Law: redaction-at-capture — the ambient rule set (`Redaction.Current`, the one `Rules` shape `emit#REDACTION` owns) runs when the breadcrumb is RECORDED, so the ring never holds an unscrubbed value and a memory dump is as clean as the export; this is deliberately distinct from the export-boundary scrub, which governs what leaves the process — sibling consumption sites in the one signal-safety ledger, one rule shape.
 - Law: the ring is a `Chunk` fold — append then `takeRight(width)` — never a mutable array; a full ring drops the oldest silently because breadcrumbs are lossy context by definition.
-- Receipt: on capture the ring projects as ordered breadcrumb records under the `Convention.event.breadcrumb` name, an annotation row on the fatal emission — evidence, never a second signal.
+- Output: on capture the ring projects as ordered breadcrumb records under the `Convention.event.breadcrumb` name, an annotation row on the fatal emission — evidence, never a second signal.
 - Growth: a new breadcrumb source is one `note` call site; a richer scrub is a rule row.
 - Packages: `effect` (`Chunk`, `DateTime`, `Ref`), `@rasm/core` (`Convention`), `./emit.ts` (`Redaction`).
 

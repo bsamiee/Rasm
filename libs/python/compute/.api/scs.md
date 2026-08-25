@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_SCS]
 
-`scs` owns the first-order operator-splitting solve of a quadratic-plus-conic problem — a sparse `data` dict (`P`/`A`/`b`/`c`) and an ordered `cone` dict — running Douglas-Rachford ADMM on the homogeneous self-dual embedding and returning primal `x`, dual `y`, slack `s`, and an `info` residual receipt. `cvxpy` selects it as the first-order conic backend, and the dual `y` with the residual pair is the optimality certificate the compute convex-optimization rail reads. `compute` composes `SCS`, the `cone` dict, `solve`, and `update`; the splitting iteration stays SCS's.
+`scs` owns the first-order operator-splitting solve of a quadratic-plus-conic problem — a sparse `data` dict (`P`/`A`/`b`/`c`) and an ordered `cone` dict — running Douglas-Rachford ADMM on the homogeneous self-dual embedding and returning primal `x`, dual `y`, slack `s`, and an `info` residual dict. `cvxpy` selects it as the first-order conic backend, and the dual `y` with the residual pair is the optimality certificate the compute convex-optimization rail reads. `compute` composes `SCS`, the `cone` dict, `solve`, and `update`; the splitting iteration stays SCS's.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -18,7 +18,7 @@
 |  [01]   | `SCS`    | class         | `SCS(data, cone, **settings)` assembles the workspace and owns `solve`/`update` |
 |  [02]   | `data`   | dict          | keys `P` (upper-triangular sparse quadratic), `A` (sparse constraint), `b`, `c` |
 |  [03]   | `cone`   | dict          | ordered cone-block partition of the constraint rows; keys below                 |
-|  [04]   | solution | dict          | keys `x` (primal), `y` (dual), `s` (slack), `info` (receipt)                    |
+|  [04]   | solution | dict          | keys `x` (primal), `y` (dual), `s` (slack), `info` (solve measures)                    |
 |  [05]   | `info`   | dict          | `status`, `status_val`, `iter`, objectives, residuals, and timings; keys below  |
 
 [PUBLIC_TYPE_SCOPE]: `cone` dict keys
@@ -37,7 +37,7 @@
 |  [08]   | `ed`      | dual exponential cone count | number of dual 3-dimensional exponential cones                    |
 |  [09]   | `p`       | power cone list             | list of power-cone exponents (positive primal, negative dual)     |
 
-[PUBLIC_TYPE_SCOPE]: `info` receipt keys
+[PUBLIC_TYPE_SCOPE]: `info` dict keys
 
 `status_val` is the closed integer verdict, one of the module status constants:
 
@@ -84,7 +84,7 @@
 |  [03]   | `SCS.update(b=, c=)`                         | instance | in-place `b`/`c` update for warm re-solve        |
 |  [04]   | `scs.solve(data, cone, **settings) -> dict`  | static   | module-level one-shot solve                      |
 |  [05]   | solution `x` / `y` / `s`                     | dict key | primal, dual conic multipliers, primal slack     |
-|  [06]   | solution `info`                              | dict key | the solve-receipt dict                           |
+|  [06]   | solution `info`                              | dict key | the solve-measures dict                           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -93,12 +93,12 @@
 - `cone` is the single ordered partition of the constraint rows — zero, nonnegative, box, second-order, semidefinite, exponential, dual-exponential, and power memberships are cone entries whose dimensions sum to the row count, never a per-cone solver or manual slack reformulation.
 - Constructor keywords carry tolerances, caps, splitting relaxation, acceleration, scaling, linear backend, and verbosity as one keyword row; tune by keyword, never a parallel solver subclass.
 - A sweep changing only the linear terms re-solves through `SCS.update(b=, c=)` then `solve()`, reusing the KKT factorization; a change to `P`/`A` sparsity or the cone partition rebuilds a fresh `SCS` — the warm boundary is narrower than Clarabel's `P`/`q`/`A`/`b` update and discriminates the two backends.
-- Each solve folds `status`/`status_val`, `x`, `y`, `s`, objectives, iterations, per-phase timings, and residuals into one conic-solve receipt; dual `y` with the residual pair is the optimality certificate, and `INFEASIBLE`/`UNBOUNDED` and their `_INACCURATE` neighbours carry the corresponding certificate residual.
+- Each solve folds `status`/`status_val`, `x`, `y`, `s`, objectives, iterations, per-phase timings, and residuals into one `ConvexOptimum`; dual `y` with the residual pair is the optimality certificate, and `INFEASIBLE`/`UNBOUNDED` and their `_INACCURATE` neighbours carry the corresponding certificate residual.
 
 [STACKING]:
-- `cvxpy`(`.api/cvxpy.md`): `cp.Problem.solve(solver=cp.SCS)` reduces a disciplined-convex model to the exact `data`/`cone` dict form; `get_problem_data(cp.SCS)` exposes that reduction so an offline study drives `SCS` directly and reads the `info` residual receipt with no modeling layer in the hot loop.
+- `cvxpy`(`.api/cvxpy.md`): `cp.Problem.solve(solver=cp.SCS)` reduces a disciplined-convex model to the exact `data`/`cone` dict form; `get_problem_data(cp.SCS)` exposes that reduction so an offline study drives `SCS` directly and reads the `info` residual dict with no modeling layer in the hot loop.
 - `scipy`(`.api/scipy.md`): `data["P"]`/`data["A"]` are `scipy.sparse.csc_matrix` — upper-triangular `P` via `scipy.sparse.triu(P).tocsc()`, the cone-block stack assembled with `scipy.sparse.vstack` in cone-dict order.
-- compute convex backend: `status`/`iter`/`solve_time`/`res_pri`/`res_dual` fold into the conic-solve receipt handed across the graduation wire; dual `y` is the certificate the consumer reads, never recomputed. Receipt shape aligns with the Clarabel receipt so the backend emits one uniform conic-solve row regardless of arm.
+- compute convex backend: `status`/`iter`/`solve_time`/`res_pri`/`res_dual` fold into the `ConvexOptimum` handed across the graduation wire; dual `y` is the certificate the consumer reads, never recomputed. The measure set aligns with the Clarabel measures so the backend emits one uniform conic-solve row regardless of arm.
 
 [LOCAL_ADMISSION]:
 - `scs` is the `cvxpy`-selected first-order conic backend beside Clarabel's interior-point arm; select SCS when the cone program is large, sparse, and moderate accuracy suffices, Clarabel when high accuracy on a small-to-medium problem is required.

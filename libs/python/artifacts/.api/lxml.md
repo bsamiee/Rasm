@@ -165,7 +165,7 @@ Tag filters accept `*`, a tag name, a `{ns}local` Clark name, or an `etree.Eleme
 - namespaced build/emit: `etree.Element(f"{{{ns}}}RDF", nsmap={...})` + `etree.SubElement(parent, f"{{{ns}}}local").text = value` (Clark-notation) then `etree.tostring(root, xml_declaration=True, encoding="utf-8")` feeds `pyvips` `Image.set("xmp-data", ...)` or a `stream-zip` `MemberFile` iterable directly — the XMP-packet and OpenRaster `stack.xml` path in `exchange/metadata` and `export/layered`, never a temp file.
 - anchor-resolution: `_Element.xpath(selector)` over SimpleIDML's `IDMLPackage.xml_structure` (`export/indesign`) is the pre-mutation existence gate — an empty result is the missing-anchor signal raised as a typed `KeyError`/`BoundaryFault` before the worker mutates.
 - rail-and-effects: parse/validate/transform compose under the `expression` `Result[T, E]` rail (`libs/python/.api/expression.md`); `@beartype` (`libs/python/.api/beartype.md`) guards boundary signatures.
-- diagnostics: a structured-documents receipt records the `error_log` row count, element/namespace tally, and output byte length; `etree.PyErrorLog` routes libxml2 errors into `structlog` (`libs/python/.api/structlog.md`).
+- diagnostics: `EmitFact.errors` carries the `error_log` count; `etree.PyErrorLog` routes libxml2 diagnostics into `structlog` (`libs/python/.api/structlog.md`).
 - retry: a network-touching parse (DTD/XInclude over a URL) wraps `stamina.retry` (`libs/python/runtime/.api/stamina.md`).
 - incremental scale: `etree.iterparse(source, tag=qname)` with per-element `.clear()` is the bounded-memory ingest of a large OOXML/IDML part and `etree.xmlfile(out)` the emit — both over the `anyio` streaming lanes (`libs/python/.api/anyio.md`).
 

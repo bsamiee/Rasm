@@ -4,7 +4,7 @@ using Rhino;
 namespace Rasm.ScenarioKit;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record CaptureReceipt(string Path, int Width, int Height, bool OnFailure, ArtifactRef? Artifact = null);
+public sealed record Snapshot(string Path, int Width, int Height, bool OnFailure, ArtifactRef? Artifact = null);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DocumentScope : IDisposable {
@@ -55,12 +55,12 @@ public sealed class DocumentScope : IDisposable {
 }
 
 public static class Capture {
-    internal static Func<string, Fin<CaptureReceipt>>? Hook { get; set; }
+    internal static Func<string, Fin<Snapshot>>? Hook { get; set; }
 
-    public static Fin<CaptureReceipt> Snapshot(string label) {
+    public static Fin<Snapshot> Snapshot(string label) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: label);
         return Hook is { } hook
             ? hook(label)
-            : Fin.Fail<CaptureReceipt>(error: Error.New(message: $"Capture.Snapshot('{label}'): no capture surface bound — outside a bridge scenario run"));
+            : Fin.Fail<Snapshot>(error: Error.New(message: $"Capture.Snapshot('{label}'): no capture surface bound — outside a bridge scenario run"));
     }
 }

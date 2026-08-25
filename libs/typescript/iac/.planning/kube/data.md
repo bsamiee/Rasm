@@ -708,12 +708,3 @@ declare namespace Postgres {
 
 export { DataRefused, Nats, ObjectStore, Postgres }
 ```
-
-## [06]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

@@ -10,15 +10,14 @@ Transport endpoints arrive from the runtime `TransportResource` at the boundary;
 
 ## [01]-[INDEX]
 
-- [02]-[DECLARATION]: the corpus `ImpactCategory`/`Module` rosters and the reader reach they derive, the `IngestPolicy` registry rows, the `DeclarationIngress` payload axis, the `Keying` row, the generated `DeclarationRecord` mint, the `Admitted` slot census, the proto-binary `wire` crossing, and the `DeclarationReceipt` coverage census.
+- [02]-[DECLARATION]: the corpus `ImpactCategory`/`Module` rosters and the reader reach they derive, the `IngestPolicy` registry rows, the `DeclarationIngress` payload axis, the `Keying` row, the generated `DeclarationRecord` mint, the `Admitted` slot census, and the proto-binary `wire` crossing.
 
 ## [02]-[DECLARATION]
 
 - Owner: the record IS the generated `rasm.contracts.declaration.DeclarationRecord` — every closed vocabulary the corpus declares TYPES its field as the generated enum (`Registry`, `DeclaredUnit`, `Standard`, `Subtype`, `ImpactCategory`, `Module`), the cell matrix is `repeated ImpactCell{category, stage, value}` whose PRESENCE is the coverage census, the dates are `google.type.Date` cells, and each enum's declaration ORDER is the corpus's frozen order, so the generated enum is the ordering authority the cell fold walks rather than a roster standing beside it; this page mints no struct, no schema, and no JSON twin. `Keying` binds one registry identity to one estate `material_key`.
 - Cases: `DeclarationIngress` discriminates the payload shape alone — `ilcd` (an Ökobaudat/soda4LCA ILCD+EPD document, `str | bytes`) and `openepd` (a typed EC3 declaration) — closed on `assert_never`, never a provider knob; WHICH registry a payload came from is the `IngestPolicy` value the caller hands beside it, so a new registry on an existing payload shape costs one row and no body.
 - Entry: `MaterialDeclaration.of(payload, policy, keying, *, by=Disposition.ABORT)` is the one normalization entry, polymorphic over one ingress or a `Block` exactly as the impact plane's `of`; `MaterialDeclaration.fetched(transport, policy, uuid)` is the live leg reading the registry's own resource row off the runtime transport, refusing typed for a registry whose policy declares no live leg; `wire(record)` composes the consumer-edge crossing — the record's proto binary beside the `ContentKey` minted over its ProtoJSON projection, the declaration-ordered, map-free text every branch renders identically, never over the non-canonical binary.
-- Auto: coverage is NEVER fabricated — a parser field holding `None` writes no cell, and the census a consumer reads is exactly the key set. What key presence alone CANNOT say is why a cell is missing, so each reader's capability bound is a DECLARED row: `EPDX_REACH` names the six contract indicators the A1-shaped epdx model can carry and thereby names the split GWP/EP rows and `wdp` UNREACHABLE for that reader, openepd's `ImpactSet` answers the +A2 core roster whole so its bound is the vocabulary entire and its census reports no unreachable slot, `READERS` keys those bounds by payload case, and `DeclarationReceipt` reports declared, undeclared, and unreachable slots apart. Admission refuses rather than defaults: an `UNKNOWN` declared unit or standard refuses because the roster carries no member for it, an absent or blank issuer refuses because the contract's `minLength: 1` admits no blank half of the duplicate-check pair, a record with no declared cell refuses on the contract's `minProperties: 1`, and a record missing issue or expiry dates refuses because a dateless declaration cannot enter a resolution law that gates on expiry. Every one of those elects on its OWN rail, so a declaration with a bad unit and two bad dates names three columns in one aggregate fault rather than the first to trip.
-- Receipt: `DeclarationReceipt` keys on the registry identity — registry, uuid, version, material key, and the three-way cell census — so re-ingestion of one registration dedupes in the reuse ledger rather than re-fetching; structured evidence on the one runtime rail, no new metric family minted — declaration ingest is evidence-plane traffic and the impact plane's `domain="impact"` measure stays the branch's one environmental metric row.
+- Auto: coverage is NEVER fabricated — a parser field holding `None` writes no cell, and the census a consumer reads is exactly the record's cell set. Each reader's capability bound is a DECLARED row: `EPDX_REACH` names the contract indicators its A1-shaped model can carry, openepd's `ImpactSet` answers the +A2 core roster whole, and `READERS` keys those bounds by payload case. Admission refuses rather than defaults: an `UNKNOWN` declared unit or standard refuses because the roster carries no member for it, an absent or blank issuer refuses because the contract's `minLength: 1` admits no blank half of the duplicate-check pair, a record with no declared cell refuses on the contract's `minProperties: 1`, and a record missing issue or expiry dates refuses because a dateless declaration cannot enter a resolution law that gates on expiry. Every one of those elects on its OWN rail, so a declaration with a bad unit and two bad dates names three columns in one aggregate fault rather than the first to trip.
 - Packages: `epdx` parses the ILCD+EPD wire (`convert_ilcd` + the `epdx.pydantic` EN 15804 model), `openepd` the EC3 typed model, `rasm.contracts` the generated record, its enums, and the `Date` cell, `protobuf-py` the `to_binary`/`to_json` pair whose encode-time validation is the one raise surface the wire fence names; runtime rails, identity, lanes, and transport compose as everywhere, and the `pyo3` panic on malformed input crosses `impact/impact#IMPACT`'s `ilcd_document` — the package's one qualname guard, composed rather than restated, because the panic class is unnameable and a `catch` set alone never held it. No Brightway, no openLCA — a declaration is a published record, never a solve.
 - Growth: a new registry is one `IngestPolicy` row naming its token, its payload case, and its live resource — never a new body; a new refusal law is one `FaultRow` row on this module's `RAISES` table, and a slot whose law an existing parameterized row already holds costs no row at all, only its subject at the raise; a new PAYLOAD SHAPE is one `DeclarationIngress` case with one reader and one `READERS` reach row, and the total `match` breaks loudly until it lands; a new correspondence is one DIVERGENCE — the reader's reach set states which indicators it reaches and the provider spelling derives from the contract token, so only a drifting spelling costs a row; a schema field is a CONTRACT change first — the corpus definition moves, then this struct transcribes, in that order.
 - Boundary: this page mints no `MaterialImpact` and the impact plane mints no declaration — two nouns, two owners, one shared source ecosystem — and the one thing it does reach across for is `ImpactRegime`'s characterization-method preference order, because which method carries an edition's core roster is edition policy the impact plane already owns and a second order here would be the fork that ruling forecloses; the record shape is the corpus message's — the `protovalidate` rules on it (`min_len`, `finite`, the `[0, 1]` fractions, `enum.defined_only`) are declared at the corpus and this page's admission rails enforce the same laws on the rail before construction, since the Python runtime validates at encode alone; registry licence custody stays with the consuming estate's settled clearance (Ökobaudat's redistribution licence, recorded at the Materials counterpart) and this page adds no catalogue store. Three contract slots have no like-for-like `openepd` member and each ELECTS on a stated ground the catalog's `[DECLARATION_FIELD_SCOPE]` rows carry: the contract's issuer is the programme operator, so `program_operator` answers it and `manufacturer` never does; representativeness has no field at all in the distribution, so the product `doctype` answers it and every other doctype refuses rather than being stamped specific; and the standard has no enum, so a free `compliance` spelling folds to the roster token or refuses naming every spelling it saw. Deleted forms — a per-registry record class or normalize arm, a provider knob on `of`, a second mapping table beside a roster whose member names already agree, an `if/else` electing a standard for a declaration that declares none, a zero written into an undeclared cell, a blank written into a required identity half, a fabricated date, a keying inferred from name matching, a date rendered to text and re-parsed when the reader already hands a `datetime`, a declared unit admitted without its quantity, an impact set folded without its characterization method pinned, split `A1`/`A2`/`A3` summed into the production cell, and a provenance identity aliased off the registration on a rail where the two genuinely part.
@@ -166,16 +165,6 @@ class IngestPolicy:
     resource: Option[str]
 
 
-class DeclarationReceipt(Struct, frozen=True, omit_defaults=True):
-    registry: Registry
-    uuid: str
-    material_key: str
-    declared: int
-    undeclared: int
-    unreachable: int
-    version: str | None = None
-
-
 @tagged_union(frozen=True)
 class DeclarationIngress:
     tag: IngressTag = tag()
@@ -245,16 +234,6 @@ POLICIES: Final[Map[Registry, IngestPolicy]] = Map.of_seq(
 def wire(record: DeclarationRecord) -> "RuntimeRail[tuple[bytes, ContentKey]]":
     return boundary(DECLARATION_WIRE, lambda: (record.to_binary(), record.to_json().encode()), catch=_ENCODE_RAISES).bind(
         lambda rendered: ContentIdentity.of("declaration", rendered[1]).map(lambda key: (rendered[0], key)))
-
-
-def receipt(record: DeclarationRecord) -> DeclarationReceipt:
-    reach = READERS[POLICIES[record.source.registry].ingress]
-    return DeclarationReceipt(
-        registry=record.source.registry, uuid=record.source.uuid,
-        version=record.source.version if record.source.has_field("version") else None,
-        material_key=record.material_key, declared=len(record.cells),
-        undeclared=len(reach) * len(_STAGES) - len(record.cells),
-        unreachable=(len(_CATEGORIES) - len(reach)) * len(_STAGES))
 
 
 class MaterialDeclaration:

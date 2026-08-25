@@ -104,10 +104,10 @@
 - within-lib: the sub-byte enum members (`FLOAT8E4M3FN`, `INT4`, `FLOAT4E2M1`) make the dtype table exhaustive so a structural validator admits a quantized graph instead of rejecting it as unknown.
 
 [LOCAL_ADMISSION]:
-- A model asset admits after `load`, `check_model(full_check=True)`, and `infer_shapes(strict_mode=True)`; the model-asset receipt captures the opset (`defs.onnx_opset_version()`) and the graph input/output signatures.
+- A model asset admits after `load`, `check_model(full_check=True)`, and `infer_shapes(strict_mode=True)`; the `ModelAssetManifest` captures the opset (`defs.onnx_opset_version()`) and the graph input/output signatures.
 
 [RAIL_LAW]:
 - Package: `onnx`
 - Owns: offline ONNX model IR — the structural gate, bottom-up construction, and `TensorProto`↔NumPy bridging for the model-asset rail
-- Accept: a model asset validated through `check_model(full_check=True)` + `infer_shapes(strict_mode=True)` with a captured opset and input/output signature receipt; producer output from `skl2onnx.to_onnx`
+- Accept: a model asset validated through `check_model(full_check=True)` + `infer_shapes(strict_mode=True)` with a captured opset and input/output signature; producer output from `skl2onnx.to_onnx`
 - Reject: hand-parsed protobuf; hand-written `TensorProto`↔NumPy conversion `numpy_helper` owns; wrapper-renames of the checker/inference calls; runtime inference `onnxruntime` owns

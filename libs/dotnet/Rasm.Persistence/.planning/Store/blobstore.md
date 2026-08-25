@@ -1,25 +1,24 @@
 # [PERSISTENCE_STORE_BLOBSTORE]
 
-Rasm.Persistence stores every admitted artifact class as content-keyed object bytes — one `ObjectStore` `[SmartEnum]` provider axis behind the `BlobRemote` placement contract, five rows deep (`S3`/`Azure`/`GCS`/`Minio` credentialed, the credential-free `Presigned` grant), every write content-addressed, write-once-sealed through the conditional-write `412`-noop, and routed through the one `MultipartTransfer.Upload` receipt path onto the one write-blob-first protocol. Algebra keeps the plane asset-AGNOSTIC and seats its payload families as retention-class ROWS, so a second consumer admits as one row rather than forking the plane. Object names derive from the seam `ContentAddress` the kernel `XxHash128` mints, so this store holds bytes and never mints a second identity, and no relational engine appears because the durable home for an artifact class's bytes is the object plane. `ObjectClient` IS the dispatch: its union case resolves the fourteen-delegate `ObjectLeg` row that carries every per-provider variance, and one packing fold drives both the staged-multipart and whole-object transfer models through one seal without a mode knob.
+Rasm.Persistence stores admitted artifacts as content-addressed bytes through one `ObjectStore` provider axis and one `MultipartTransfer.Upload` path. `ObjectClient` resolves provider variance into `ObjectLeg`; the shared packing fold resumes committed parts, seals the object, and returns the realized `BlobResidence`.
 
-`ContentAddress`, `ChunkPolicy`, `ChunkManifest`, and `ContentChunker` compose from `Element/codec#CONTENT_ADDRESS` and `#CONTENT_CHUNKING`; `ObjectChecksum`, `ObjectCodec`, `StorageTier`, `Rung`, `Extent`, `ObjectEncryption`, `ObjectLock`, and `StanceSeat` from `Store/residence#RESIDENCE_FORM` and `#WRITE_STANCE`; `RemoteStoreFault`, `ObjectVerb`, `StoreHop`, `StoreVerdict`, and `StoreRedrivePort` from `Store/redrive#FAULT_BAND` and `#REDRIVE_SEAM`; `BlobGc.WriteBlobFirst`, `BlobLedger`, `PendingWrite`, and `BlobCatalogRow` from `Store/blobgc#BLOB_GC`, which every placement write routes through; `RetentionClass` and `ArtifactKind` from `Version/retention#RETENTION_CLASSES`; `ProjectionContext`, `StoreSlot`, `TenantId`, `CorrelationId`, `DataClassification`, and `WrappedKey` from the `Element/graph#STORE_RAIL` frame and the kernel. `StoreCapability` is the store-plane capability roster `Store/provisioning#STORE_PROFILE` owns and this page composes for its own row columns; the roster lands with that page's own rebuild, and until it does the rows here name the capabilities they hold without a second roster beside it.
+`ContentAddress`, chunking, storage form, retention, re-drive, tenancy, and classification compose from their owning package surfaces. `BlobGc.WriteBlobFirst` persists pending and catalog rows around the object write.
 
 ## [01]-[INDEX]
 
-- [02]-[OBJECT_STORE]: `ObjectStore` the five-provider axis projecting `BlobRemote`, its `CapabilitySet` columns and their honest-degrade complement, the `ResidenceClaim` fold naming the one form where transport and identity coincide, the residence transform in one fixed order, the endpoint-parameterized grant mint, the closed grant and thaw vocabularies, and the `BlobFactKind` fact vocabulary the slot roster derives from.
-- [03]-[TRANSFER]: `ObjectIo` the one generic transfer engine over the fourteen-delegate `ObjectLeg` row, `MultipartTransfer` the receipt-emitting write with its content-defined part packer, `BlobName` the class-leading object-name projection minting the form-bearing `BlobHandle`, the five per-provider legs, and the durable-session resume and explicit abandon the torn ceremony survives on.
+- [02]-[OBJECT_STORE]: Provider axis, placement contract, capabilities, integrity claim, storage transform, grant plane, and thaw state.
+- [03]-[TRANSFER]: Generic provider leg, content-defined part packing, durable-session resume, and explicit abandon.
 
 ## [02]-[OBJECT_STORE]
 
-- Owner: `ObjectStore` the `[SmartEnum<string>]` provider axis under ordinal comparison — each row carrying the part floor, per-part ceiling, part count, chunking window, integrity stance, storage class, SSE stance, WORM stance, stance seats, erase page, and the `CapabilitySet<StoreCapability>` naming what it holds — building its `BlobRemote` from the resolved `ObjectClient`, the `[Union]` whose `Map` owns per-leg dispatch; `ResidenceClaim` the three-case integrity fold; `GrantRequest`/`GrantDemand`/`ObjectGrant`/`GrantSigner` the grant plane; `ThawState` the cold-rung state family; `EraseTally` the partial-failure receipt; `BlobResidence` the realized residence report; `BlobFactKind` and `BlobTransferFact` the closed fact vocabulary; `BlobAdmission` the admitted write request; `BlobRemote` the placement-delegate bundle the app wires; `ContentBlobPort` the key-minting byte seam DERIVED off `BlobRemote` — the two-slot put/get pair a composition root binds onto an up-stack consumer's own port slots (the model-session key-minting store and the artifact-index byte read are its standing consumers), so a loose bytes-to-key delegate pair at a consumer is the deleted form.
+- Owner: `ObjectStore` carries provider policy and resolves `BlobRemote`; `ResidenceClaim` closes integrity, `EraseTally` preserves partial provider deletion output, `BlobResidence` is the realized object state, and `ContentBlobPort` is the key-minting byte seam.
 - Cases: `s3`, `azure-blob`, `gcs`, `minio`, `presigned`, each naming where its write stances are ENFORCED and holding the capability set that decides what it can do at all. `presigned` inverts the row — a grant minter and roster pair with a host-dialed `HttpClient` replace endpoint and credential, reaching domain-cloud planes no credentialed row can because the client-side credential never exists, and single-shot by construction since the upstream roster carries no checksum, no multipart, and no resume. `ResidenceClaim` is `Framed` (a codec or seal sits between plaintext and provider), `Plain` (stored bytes ARE plaintext but the row's digest is not the key), and `Proven` (they coincide, so the digest IS the content key). `GrantRequest` is `Write`/`Read`/`Erase`; `ObjectGrant` is `FormPost`/`SignedUrl`; `ThawState` is `Resident`/`Frozen`/`Thawing`.
 - Law: absence is a capability the row does not HOLD, not six spellings of the same fact; a conditional-write bool, a part count of one, an erase page of one, a seat of none, and a checksum row of none all said "this row lacks capability C" in five vocabularies no reader folds; the numeric columns keep their MAGNITUDE alone and `Degrade` is the complement of what the row holds, so the honest clause a reader selects on is derived rather than restated.
 - Law: the two integrity claims coincide ONLY where stored bytes ARE the plaintext bytes, so `ResidenceClaim` admits `Proven` on exactly that form. Supplying the content key as a provider digest over framed bytes makes the provider reject a correct upload; reading a passing provider digest as proof of identity asserts a claim nobody made. Three cases make both substitutions unspellable where four independent predicates only discouraged them.
-- Law: every write routes through the one composed receipt path and the one write-blob-first protocol, so a placement write opens its pending fence, emits its transfer facts under the frame's correlation, and commits its catalog row as one composition — a bare put beside the receipt engine was the orphaned-surface defect this routing deletes.
+- Law: every placement write opens its pending row, runs `MultipartTransfer.Upload`, and commits the returned `BlobResidence` into the catalog.
 - Law: the fact vocabulary is CLOSED and the slot roster DERIVES from it, so a new kind is one row, a projection arm keyed on rows breaks loud, and no free string reaches the fact stream; the fault fact carries the SETTLED verdict itself, so the evidence surface and the re-drive decision read one value. `Store/observability#STORE_INSTRUMENTS` still keys its projection on five of the nine rows, so `session`, `conflict-noop`, `tier`, and `lifecycle-noop` reach no arm until that page mounts the roster this owner now derives.
 - Entry: `Placement` projects the row's `BlobRemote`, its write arrow routed through `Store/blobgc#BLOB_GC` `WriteBlobFirst`; `Encode`/`Decode` own the residence transform in ONE fixed order, codec then seal, so no caller re-spells which frames first; `Put` drains the source once and partitions through the content chunker at the row tier alone, a tier change being `Transition` rather than a second write; `Fetch`/`Head` are the read legs, `Head` reading the realized storage class and the stored form back through their own observation entries; `Rehydrate` requests a thaw and reports the state either way; `EraseMany` chunks a group against the row's own erase page; `Grant` is the ISSUER mint, the inverse of the presigned CONSUMER row.
 - Auto: content-defined chunks pack into provider parts of at least the part floor, but only the exact object-name seal proves whole-blob residence — chunk membership never short-circuits a provider that cannot assemble an object from foreign parts. Re-putting an existing key `412`s to a conflict, and one catch arm confirms the exact object by `Head` before yielding the benign no-op. Encryption, lock, and residence form all apply through the ONE stamp fold per request type — SSE first, WORM second, form last — so a leg silently dropping a column is unrepresentable. Fetching a rung the provider holds offline refuses from the provider's OWN error code, so no read pays a probing head and no thaw-requiring rung reads as a denial.
-- Receipt: a `BlobTransferFact` rides its kind's own slot — a part per uploaded window, a resume per skipped-committed window, a session per opened token, a conflict no-op per exact-object `412`, a tier per realized transition, a lifecycle no-op per rung a provider rule already moved, an abort per torn ceremony, a write per admitted object, and a fault carrying the settled verdict; the erase tally carries accepted and refused as separate columns over one page; the message envelope stamps the HLC, so no fact carries an instant.
 - Boundary: the content-key object name derives from the kernel identity, so the store never mints a second identity and the neutral representation map leaks no foreign schema name. Write-once is the optimistic-concurrency edge each provider exposes (S3 and Minio `IfNoneMatch:*`, Azure `ETag.All`, GCS `IfGenerationMatch:0`), so a content-address store needs no read-before-write and a `412` folds to a conflict treated as success. Every SDK exception lifts once at `#TRANSFER` `Bound`, which is also where the root-bound re-drive port wraps the crossing — this tier publishes the discriminant and executes nothing itself. Credential, endpoint, and region are host-resolved connection inputs, never fence members; the presigned row inverts the boundary, its minter closure seeing only a grant request, and only that expiry-aware minter can mint an expired-grant refusal because a bare `403` cannot distinguish expiry from signature failure or policy refusal; a write stance admits only where the row's seat ENFORCES it, so a stance set on a row seating none stamps a retention window no provider holds and makes the blob permanently un-evictable on a fiction.
 - Packages: AWSSDK.S3, Azure.Storage.Blobs, Azure.Storage.Blobs.Batch, Azure.Storage.Common, Google.Cloud.Storage.V1, Minio, CommunityToolkit.HighPerformance, System.IO.Hashing, System.Collections.Frozen, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox (`HttpClient` and the multipart form content for the presigned leg's granted HTTP).
 - Growth: one `ObjectStore` row absorbs a new provider with zero new surface — one row, one leg, one capability set (`presigned` exercised it); a new presigned domain is one minter value, a new grant modality one `GrantRequest` case the collapsed signer already spells a verb for, a new capability one `StoreCapability` row every row then answers; a per-provider upload service, a second presigner beside the endpoint-parameterized one, a row delegate re-discriminating the union, a second HTTP uploader, a client-type guard, or a prose degrade clause beside the capability set is the deleted form because the union case IS the dispatch.
@@ -73,21 +72,6 @@ public abstract partial record ResidenceClaim {
     public Option<string> Digest => this is Proven proven ? Some(proven.Wire) : None;
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class BlobFactKind {
-    public static readonly BlobFactKind Part = new("part", StoreSlot.Create("store.blob.part"));
-    public static readonly BlobFactKind Resume = new("resume", StoreSlot.Create("store.blob.resume"));
-    public static readonly BlobFactKind Abort = new("abort", StoreSlot.Create("store.blob.abort"));
-    public static readonly BlobFactKind Write = new("write", StoreSlot.Create("store.blob.write"));
-    public static readonly BlobFactKind Session = new("session", StoreSlot.Create("store.blob.session"));
-    public static readonly BlobFactKind ConflictNoop = new("conflict-noop", StoreSlot.Create("store.blob.conflict"));
-    public static readonly BlobFactKind Tier = new("tier", StoreSlot.Create("store.blob.tier"));
-    public static readonly BlobFactKind LifecycleNoop = new("lifecycle-noop", StoreSlot.Create("store.blob.lifecycle"));
-    public static readonly BlobFactKind Fault = new("fault", StoreSlot.Create("store.blob.fault"));
-    public StoreSlot Slot { get; }
-    private BlobFactKind(string key, StoreSlot slot) : this(key) => Slot = slot;
-}
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BlobStat(ContentAddress Key, long Length);
@@ -100,12 +84,10 @@ public readonly record struct EraseTally(int Requested, Seq<(ContentAddress Key,
 
 public readonly record struct BlobAdmission(ContentAddress Key, long Length, DataClassification Classification, Option<ContentAddress> Lineage, Option<string> Session);
 
-public readonly record struct BlobResidence(ContentAddress Key, Extent Extent, Rung Tier, ObjectCodec Codec, int Parts, int ResumedParts, Option<ContentAddress> Verified, Option<string> ConditionToken, CorrelationId Correlation) {
+public readonly record struct BlobResidence(ContentAddress Key, Extent Extent, Rung Tier, ObjectCodec Codec, int Parts, int ResumedParts, Option<ContentAddress> Verified, Option<Instant> WormUntil, Option<string> ConditionToken, CorrelationId Correlation) {
     public static BlobResidence From(ContentAddress key, Extent extent, Rung tier, ObjectCodec codec) =>
-        new(key, extent, tier, codec, 0, 0, None, None, CorrelationId.None);
+        new(key, extent, tier, codec, 0, 0, None, None, None, CorrelationId.None);
 }
-
-public readonly record struct BlobTransferFact(ObjectStore Provider, BlobFactKind Kind, ContentAddress Key, long Bytes, int Part, Option<string> Session, Option<StoreVerdict> Settled = default);
 
 public readonly record struct GrantSigner(IAmazonS3 Client, string Bucket) {
     public async Task<ObjectGrant> Sign(GrantDemand demand, BlobHandle handle, Instant now) =>
@@ -234,11 +216,11 @@ public sealed partial class ObjectStore {
             ? IO.pure(plain)
             : IO.fail<ReadOnlyMemory<byte>>(new RemoteStoreFault.IntegrityBreach(handle.Key, "content-key"));
 
-    public IO<BlobResidence> Put(ObjectClient client, BlobHandle handle, BlobResidence residence, ChunkManifest manifest, ReadOnlySequence<byte> source, Func<BlobTransferFact, IO<Unit>> sink, Instant now) =>
-        (ObjectIo.For(client).Multipart(this, Tier, handle, residence, manifest, source, sink, now)
+    public IO<BlobResidence> Put(ObjectClient client, BlobHandle handle, BlobResidence residence, ChunkManifest manifest, ReadOnlySequence<byte> source, Instant now) =>
+        (ObjectIo.For(client).Multipart(this, Tier, handle, residence, manifest, source, now)
             | @catch<IO, BlobResidence>(static e => e is RemoteStoreFault.Conflict or RemoteStoreFault.ProviderConflict, _ => Head(client, handle)
                 .Bind(present => present.Match(
-                    Some: existing => sink(new BlobTransferFact(this, BlobFactKind.ConflictNoop, handle.Key, 0L, 0, None)).Map(_ => existing with { Parts = 0 }),
+                    Some: existing => IO.pure(existing with { Parts = 0 }),
                     None: () => IO.fail<BlobResidence>(new RemoteStoreFault.NotFound(handle.Key)))))).As();
 
     public IO<Stream> Fetch(ObjectClient client, BlobHandle handle, Option<(long Start, long End)> range) =>
@@ -246,8 +228,8 @@ public sealed partial class ObjectStore {
     public IO<Option<BlobResidence>> Head(ObjectClient client, BlobHandle handle) => ObjectIo.For(client).Head(this, handle);
     public IO<Unit> Delete(ObjectClient client, BlobHandle handle) => ObjectIo.For(client).Erase(handle);
     public IO<Seq<ContentAddress>> List(ObjectClient client) => ObjectIo.For(client).Enumerate();
-    public IO<Unit> Abandon(ObjectClient client, BlobHandle handle, string session, Func<BlobTransferFact, IO<Unit>> sink) =>
-        ObjectIo.For(client).Abandon(this, handle, session, sink);
+    public IO<Unit> Abandon(ObjectClient client, BlobHandle handle, string session) =>
+        ObjectIo.For(client).Abandon(handle, session);
 
     public IO<Unit> Transition(ObjectClient client, BlobHandle handle, StorageTier tier, Instant now) =>
         ObjectIo.For(client).Transition(this, handle, tier, now);
@@ -263,14 +245,14 @@ public sealed partial class ObjectStore {
         ObjectIo.For(client).Issue(demand, BlobName.Handle(demand.Request.Addressed, client.Tenant, cls, ObjectCodec.Identity, 0L), frame.Now());
 
     // --- [COMPOSITION]
-    public BlobRemote Placement(ObjectClient client, ArtifactKind kind, ObjectCodec codec, Func<ContentAddress, IO<Option<WrappedKey>>> envelope, BlobLedger ledger, ProjectionContext frame, Func<BlobTransferFact, IO<Unit>> sink) {
+    public BlobRemote Placement(ObjectClient client, ArtifactKind kind, ObjectCodec codec, Func<ContentAddress, IO<Option<WrappedKey>>> envelope, BlobLedger ledger, ProjectionContext frame) {
         RetentionClass cls = kind.Retention;
         BlobHandle Named(ContentAddress key, long plain) => BlobName.Handle(key, client.Tenant, cls, codec, plain);
         IO<BlobHandle> Resolved(ContentAddress key) => Head(client, Named(key, 0L))
             .Bind(present => present.Match(Some: r => IO.pure(Named(key, r.Extent.Plain) with { Codec = r.Codec }), None: () => IO.fail<BlobHandle>(new RemoteStoreFault.NotFound(key))));
         return new(
             Put: (admitted, stream) => ObjectIo.Drain(stream, source =>
-                BlobGc.WriteBlobFirst(this, client, admitted, kind, codec, source, ledger, sink, frame).Map(static residence => residence.Key)),
+                BlobGc.WriteBlobFirst(this, client, admitted, kind, codec, source, ledger, frame).Map(static residence => residence.Key)),
             Get: (key, range) => Resolved(key).Bind(handle => Decode(client, handle, range, envelope)),
             Stat: key => Head(client, Named(key, 0L)),
             Thaw: (key, window) => Rehydrate(client, Named(key, 0L), window),
@@ -316,32 +298,30 @@ public readonly record struct ContentBlobPort(
 |  [06]   | capability set   | `Holds` per row, `Degrade` its complement    | one absence vocabulary; the honest clause derives, never restated   |
 |  [07]   | fault rail       | one `Lift` per edge, one `Granted` per grant | the band classifies; the root-bound port executes                   |
 |  [08]   | re-drive seam    | `ObjectClient.Redrive` wraps every crossing  | one pass unbound, typed refusal intact                              |
-|  [09]   | fact vocabulary  | `BlobFactKind` closes it; slots DERIVE       | a new kind is one row; no free string reaches the stream            |
-|  [10]   | receipt path     | every write via write-blob-first             | pending fence, transfer facts, catalog row as one composition       |
-|  [11]   | presigned grants | minter to `ObjectGrant` per op               | minter-attested expiry; a bare `403` is `Denied`                    |
-|  [12]   | issuer grants    | `Grant` via the leg per row                  | TTL-boxed, admission-gated, frame-instant expiry                    |
-|  [13]   | one WORM clock   | `Upload` samples the frame instant once      | provider retention date and catalog window derive from it           |
-|  [14]   | object ceiling   | `PartCeiling * PartCount` per row            | domain-side refusal at admission; never learned from a provider 4xx |
-|  [15]   | transfer window  | `ReadOnlySequence<byte>` end to end          | no `int` length on the write path; no truncating narrowing          |
-|  [16]   | stance seat      | one `StanceSeat` per stance column           | every rung but `None` enforces; only the grant plane holds none     |
-|  [17]   | residence form   | codec row, then the seal, on metadata        | the key covers plaintext; `Head` observes what the writer declared  |
-|  [18]   | tier ladder      | `Transition` metadata rewrite                | bytes never move for a storage class; the re-PUT is deleted         |
-|  [19]   | cold rung        | `ThawState` plus the provider's own code     | thaw is a verb, not a refusal; no probing head per read             |
-|  [20]   | erase page       | `EraseBatch` per row, one tally per page     | accepted and refused are two columns; a page of one degrades        |
-|  [21]   | one presigner    | `GrantSigner` keyed by dialed endpoint       | every grant case reaches a verb; no per-provider signer             |
-|  [22]   | verb identity    | `ObjectVerb` on every crossing               | one code reads per verb; a re-drive names what it re-drives         |
+|  [09]   | write path       | every write via write-blob-first             | pending row, realized residence, catalog row as one composition     |
+|  [10]   | presigned grants | minter to `ObjectGrant` per op               | minter-attested expiry; a bare `403` is `Denied`                    |
+|  [11]   | issuer grants    | `Grant` via the leg per row                  | TTL-boxed, admission-gated, frame-instant expiry                    |
+|  [12]   | one WORM clock   | `Upload` samples the frame instant once      | provider retention date and catalog window derive from it           |
+|  [13]   | object ceiling   | `PartCeiling * PartCount` per row            | domain-side refusal at admission; never learned from a provider 4xx |
+|  [14]   | transfer window  | `ReadOnlySequence<byte>` end to end          | no `int` length on the write path; no truncating narrowing          |
+|  [15]   | stance seat      | one `StanceSeat` per stance column           | every rung but `None` enforces; only the grant plane holds none     |
+|  [16]   | residence form   | codec row, then the seal, on metadata        | the key covers plaintext; `Head` observes what the writer declared  |
+|  [17]   | tier ladder      | `Transition` metadata rewrite                | bytes never move for a storage class; the re-PUT is deleted         |
+|  [18]   | cold rung        | `ThawState` plus the provider's own code     | thaw is a verb, not a refusal; no probing head per read             |
+|  [19]   | erase page       | `EraseBatch` per row, one tally per page     | accepted and refused are two columns; a page of one degrades        |
+|  [20]   | one presigner    | `GrantSigner` keyed by dialed endpoint       | every grant case reaches a verb; no per-provider signer             |
+|  [21]   | verb identity    | `ObjectVerb` on every crossing               | one code reads per verb; a re-drive names what it re-drives         |
 
 ## [03]-[TRANSFER]
 
-- Owner: `ObjectIo` the one generic transfer engine — a per-provider `ObjectLeg` delegate row (initiate, stage, seal, abort, list-committed, fetch, head, erase, erase-many, enumerate, issue, retain, transition, rehydrate) the five providers each fill once, over which a single packing fold packs the manifest's content-defined chunks into provider parts and seals; `ObjectLeg` the closed fourteen-delegate carrier the union case resolves; `MultipartTransfer` the receipt-emitting `Upload` and the `Parts` packer; `TransferPart`/`CommittedPart`/`PartCursor` the part-packing shapes; `BlobName` the class-leading name projection minting the form-bearing `BlobHandle`; `BlobTransferReceipt` the per-object evidence carrying the frame correlation.
+- Owner: `ObjectIo` resolves one `ObjectLeg` per provider; `MultipartTransfer` packs content-defined chunks and returns `BlobResidence`; `TransferPart`, `CommittedPart`, and `PartCursor` carry the provider part protocol.
 - Law: the transfer window is `ReadOnlySequence<byte>` on every write surface, because a payload past `int` range reaches no `ReadOnlySpan<byte>` at all — the kernel rules the one-shot span unrepresentable there rather than merely slow, so an `int`-shaped length or offset anywhere on this path is the byte ceiling wearing a field type.
 - Law: per-provider variance rides ONE leg carrier; a residence axis widens the handle, never fourteen delegate arities, so a new stored form is a column on one value rather than a parameter on every slot.
 - Law: staged parts SURVIVE a fault or cancel by design; the durable session token rides the pending ledger, so a re-drive resumes the committed windows instead of restarting, and the explicit abandon is the one reap — an auto-abort release deletes the parts resume exists to keep.
 - Law: the presigned leg rails like every other. Its grant execution folds status through the band's own grant admission, so no throw crosses a domain body and the closed grant union dispatches through its generated total switch rather than a catch-all that turns a future case into a silent failure.
 - Exemption: the granted HTTP execution and its form-post assembly are the platform-forced statement seams; the minted fields precede the payload part because the upstream form policy requires that order.
-- Entry: `Upload` is the receipt-emitting write every op composes — the frame supplies mark, elapsed, and now, stamping the correlation onto residence and receipt, and the row's derived object ceiling admits the payload BEFORE the first part stages; `Multipart` runs the one bracket-scoped packing fold over the resolved leg at the row tier; `Drain` stages a fetch stream into a pooled buffer writer; `Parts` packs the chunks into windows clearing the provider floor and bounded by its per-part ceiling; `Formed` reads the stored residence form back out of whichever metadata dictionary its provider owns; `Bound` is the ONE crossing, lifting every SDK call into the band and carrying it through the root-bound re-drive port.
+- Entry: `Upload` admits the object ceiling, resumes committed parts, seals the object, and returns its realized residence. `Multipart`, `Drain`, `Parts`, `Formed`, and `Bound` remain the single provider crossing.
 - Auto: `Parts` accumulates content-defined chunks into part windows each closing once it clears the floor or reaches the ceiling, so a part spans whole chunks at the smallest legal part count and the open tail seals last; `Multipart` reads the prior committed set so an interrupted transfer SKIPS windows already committed in the same session — orthogonal to whole-manifest dedup, one resuming a torn upload and the other skipping a resident object — then folds the residual windows, counting resumed versus fresh into the residence; a fault or cancel folds to the band's torn case and leaves the staged parts in place.
-- Receipt: the transfer facts ride their own slots per uploaded part, skipped window, opened session, and torn ceremony, and the fault fact carries the settled re-drive verdict so a refusal states once whether its durable session is worth resuming; the residence carries the realized part and resumed-part counts the receipt reads.
 - Boundary: the object name is `{class}/{tenant}/{key:x32}` and projects ONCE at the dispatch layer, so every naming slot takes the resolved handle and a leg composing a prefix is unrepresentable; the class segment LEADS so a provider lifecycle rule governs one class across every tenant, and per-tenant listing folds the closed retention-class roster into one prefixed page per stem rather than scanning a bucket the tenant partition exists to fence; the content-defined chunk boundary, the per-chunk key, and the whole-blob identity are the codec owner's, consumed here as the manifest, so a re-declared frame width, a second chunker, or a second hash is the deleted form. Provider placement deduplicates only at the whole-object seal because no row can synthesize one object from another object's resident chunks; the part floor clears the S3 minimum as a row value, never a free literal; a torn upload leaves resumable staged parts under its durable session, with the provider's incomplete-upload lifecycle rule the backstop.
 - Packages: AWSSDK.S3, Azure.Storage.Blobs, Azure.Storage.Blobs.Batch, Google.Cloud.Storage.V1, Minio, CommunityToolkit.HighPerformance (`ArrayPoolBufferWriter<byte>`), System.IO.Hashing, System.Collections.Frozen, LanguageExt.Core, NodaTime, BCL inbox (`HttpClient`, `MultipartFormDataContent`, `ReadOnlyMemoryContent`).
 - Growth: one part-floor, per-part-ceiling, part-count, and erase-page quadruple per provider row, or one chunking row for a tighter window; a sixth provider fills one leg row — its retain, transition, and rehydrate slots the declared no-ops wherever its seats hold nothing — and contributes its exception family to the one lift fold; a second chunker, a re-declared frame width, a hand-written object-size or page literal beside the row columns, a per-provider transfer or read body, a second HTTP uploader, a per-leg page-chunking loop, or a per-provider abort catch is the deleted form.
@@ -350,8 +330,6 @@ public readonly record struct ContentBlobPort(
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TransferPart(int Number, long Offset, long Length, int Chunks);
 public readonly record struct CommittedPart(int Number, string ETag);
-
-public readonly record struct BlobTransferReceipt(ObjectStore Provider, ContentAddress Key, Extent Extent, int Parts, int ResumedParts, Option<ContentAddress> Verified, Option<Instant> WormUntil, Duration Elapsed, Instant At, CorrelationId Correlation);
 
 public readonly record struct BlobHandle(ContentAddress Key, string Name, ObjectCodec Codec, long Plain);
 
@@ -380,15 +358,11 @@ static class BlobName {
 }
 
 public static class MultipartTransfer {
-    public static IO<BlobTransferReceipt> Upload(ObjectStore provider, ObjectClient client, BlobHandle handle, BlobResidence residence, ChunkManifest manifest, ReadOnlySequence<byte> source, Func<BlobTransferFact, IO<Unit>> sink, ProjectionContext frame) =>
-        from mark in IO.lift(frame.Mark)
+    public static IO<BlobResidence> Upload(ObjectStore provider, ObjectClient client, BlobHandle handle, BlobResidence residence, ChunkManifest manifest, ReadOnlySequence<byte> source, ProjectionContext frame) =>
         from now in IO.lift(frame.Now)
         from _ in Admitted(provider, handle.Key, source.Length)
-        from sealed_ in (provider.Put(client, handle, residence with { Correlation = frame.Correlation }, manifest, source, sink, now)
-            | @catch<IO, BlobResidence>(static _ => true, error => sink(new BlobTransferFact(provider, BlobFactKind.Fault, handle.Key, source.Length, 0, residence.ConditionToken,
-                Some(client.Redrive.Settle(new StoreHop.Object(ObjectVerb.Write), provider.Key, residence.ResumedParts, Fin<BlobResidence>.Fail(error)))))
-                    .Bind(_ => IO.fail<BlobResidence>(error)))).As()
-        select new BlobTransferReceipt(provider, sealed_.Key, sealed_.Extent, sealed_.Parts, sealed_.ResumedParts, sealed_.Verified, provider.Lock.Until(now), frame.Elapsed(mark), now, frame.Correlation);
+        from sealed_ in provider.Put(client, handle, residence with { Correlation = frame.Correlation }, manifest, source, now)
+        select sealed_ with { WormUntil = provider.Lock.Until(now) };
 
     static IO<Unit> Admitted(ObjectStore provider, ContentAddress key, long length) =>
         length <= provider.ObjectCeiling
@@ -412,22 +386,16 @@ file readonly record struct PartCursor(long Start, long Bytes, int Chunks) {
 }
 
 public static class ObjectIo {
-    public static readonly Seq<StoreSlot> Slots = toSeq(BlobFactKind.Items).Map(static row => row.Slot);
-
     public static ObjectLeg For(ObjectClient client) => client.Map(
         s3: static r => S3Leg(r), azure: static r => AzureLeg(r), gcs: static r => GcsLeg(r), minio: static r => MinioLeg(r), presigned: static r => PresignedLeg(r));
 
-    public static IO<BlobResidence> Multipart(this ObjectLeg leg, ObjectStore provider, StorageTier tier, BlobHandle handle, BlobResidence residence, ChunkManifest manifest, ReadOnlySequence<byte> source, Func<BlobTransferFact, IO<Unit>> sink, Instant now) {
+    public static IO<BlobResidence> Multipart(this ObjectLeg leg, ObjectStore provider, StorageTier tier, BlobHandle handle, BlobResidence residence, ChunkManifest manifest, ReadOnlySequence<byte> source, Instant now) {
         Seq<TransferPart> windows = MultipartTransfer.Parts(manifest, provider);
         return (leg.Initiate(provider, tier, handle, now, residence.ConditionToken).Bind(token =>
-                from _session in sink(new BlobTransferFact(provider, BlobFactKind.Session, handle.Key, 0L, 0, Some(token)))
                 from prior in leg.Committed(token, handle)
                 let resumed = prior.Map(static p => p.Number).ToFrozenSet()
                 from staged in windows.Filter(w => !resumed.Contains(w.Number)).TraverseM(w =>
-                    from committed in leg.Stage(token, handle, w, source.Slice(w.Offset, w.Length))
-                    from _ in sink(new BlobTransferFact(provider, BlobFactKind.Part, handle.Key, w.Length, w.Number, None))
-                    select committed).As()
-                from _ in prior.TraverseM(p => sink(new BlobTransferFact(provider, BlobFactKind.Resume, handle.Key, 0L, p.Number, None))).As()
+                    leg.Stage(token, handle, w, source.Slice(w.Offset, w.Length))).As()
                 let verified = Verified(provider, handle, source, windows, prior.Count)
                 from _integrity in verified.Match(
                     Some: minted => minted == handle.Key
@@ -447,10 +415,8 @@ public static class ObjectIo {
                 (Source: source, Windows: windows),
                 static (state, hash) => state.Windows.Iter(row => hash.Append(state.Source.Slice(row.Offset, row.Length).AsStream())))));
 
-    public static IO<Unit> Abandon(this ObjectLeg leg, ObjectStore provider, BlobHandle handle, string session, Func<BlobTransferFact, IO<Unit>> sink) =>
-        from _ in leg.Abort(session, handle)
-        from _fact in sink(new BlobTransferFact(provider, BlobFactKind.Abort, handle.Key, 0L, 0, Some(session)))
-        select unit;
+    public static IO<Unit> Abandon(this ObjectLeg leg, BlobHandle handle, string session) =>
+        leg.Abort(session, handle);
 
     static BlobResidence Formed(ContentAddress key, long stored, Rung tier, Func<string, string?> stated) =>
         BlobResidence.From(key,
@@ -672,7 +638,6 @@ public static class ObjectIo {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

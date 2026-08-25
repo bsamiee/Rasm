@@ -1,6 +1,6 @@
 # [RASM_RHINO_DISPLAY_DRAW]
 
-`Marks` owns the package's ONE draw dispatch over four canvases — the live display pipeline, the retained `CustomDisplay` overlay, an interactive Eto surface, and a replayed page — and `DisplayMark` is its one vocabulary: the SCREEN band is the kernel `Rasm.Interaction` mark algebra composed verbatim, the WORLD band is `WorldMark`, the RhinoCommon payloads only a `DisplayPipeline` or `CustomDisplay` can draw, and the SPRITE band is the `DisplayBitmap` blit family only the pipeline's GPU blend path serves. The partition is HOST knowledge: a world mark routed to a surface, a kernel fill routed to the pipeline, and a sprite routed to a retained overlay each land as a typed refusal row on the receipt, never a silent partial draw.
+`Marks` owns the package's ONE draw dispatch over four canvases — the live display pipeline, the retained `CustomDisplay` overlay, an interactive Eto surface, and a replayed page — and `DisplayMark` is its one vocabulary: the SCREEN band is the kernel `Rasm.Interaction` mark algebra composed verbatim, the WORLD band is `WorldMark`, the RhinoCommon payloads only a `DisplayPipeline` or `CustomDisplay` can draw, and the SPRITE band is the `DisplayBitmap` blit family only the pipeline's GPU blend path serves. The partition is HOST knowledge: a world mark routed to a surface, a kernel fill routed to the pipeline, and a sprite routed to a retained overlay each land as a typed refusal row on `DrawTally`, never a silent partial draw.
 
 The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills, strokes, glyph blocks, poses, clips, text shaping, the paint program, the resource stock, and hit-testing are `Interaction/paint`'s (`Mark`, `PathSpec`, `FillSource`, `StrokeSpec`, `GlyphBlock`, `PosePlan`, `PaintProgram`, `PaintStock`, `Surface`), and a consumer wanting the retained screen program calls `PaintProgram.Of` directly. What stays here is what RhinoCommon alone can know — the `DisplayPen` projection with its halo, taper, and pattern axes, the `DisplayMaterial` custody bracket, the iso-banding effect, the sprite cache, and the world mark family. `PerceptualColor` remains the only colour source and every host egress composes the kernel `ToDrawing` rail, so an out-of-gamut ink refuses typed instead of clipping.
 
@@ -8,7 +8,7 @@ The Eto half of the old two-backend algebra is DELETED, not moved: paths, fills,
 
 - [02]-[STYLE]: `StrokeCap`, `StrokeJoin`, `WidthSpace`, `PatternTrait`, `PatternLaw`, `PenDecoration`, `Stroke`, `PenRhythm`, `ShadedFace`, `ShadedMaterial`, `BlendUse`, `BlendPair` — the display-pen and shaded-appearance projections.
 - [03]-[ASSETS]: `PathPrimitive`, `SpriteSource`, `ISpriteFiles`, `SpriteRef`, `SpriteSheet`, `PointUse`, `VectorTip`, `PolygonPaint`, `IsoMode`, `IsoGap`, `IsoBanding` — lowered pipeline geometry, native sprite custody, and the world-mark vocabularies.
-- [04]-[MARKS]: `WorldMark`, `SpriteAnchor`, `SpriteMark`, `DisplayMark`, `Canvas`, `DrawReceipt`, `Marks` — the one mark union, the four canvases, and the accounted paint dispatch.
+- [04]-[MARKS]: `WorldMark`, `SpriteAnchor`, `SpriteMark`, `DisplayMark`, `Canvas`, `DrawTally`, `Marks` — the one mark union, the four canvases, and the accounted paint dispatch.
 
 ## [02]-[STYLE]
 
@@ -637,9 +637,9 @@ public sealed class SpriteSheet : IDisposable {
 
 ## [04]-[MARKS]
 
-- Owner: `DisplayMark` partitions the three payload bands by backend capability while preserving one public concept; `WorldMark` is the RhinoCommon world band, grown by the retained-overlay fold (`Points`, `Vector`, `Polygon`, `Label3d` — the old eight-case `RetainedMark` deletes whole); `SpriteMark` is the ONE `DisplayBitmap` blit family whose `SpriteAnchor` closes the three anchor shapes the host publishes; `Canvas` names the four backends, each case CARRYING what its backend consumes; `Marks.Paint` is the one dispatch and `DrawReceipt` its accounted evidence.
-- Entry: `Marks.Paint(canvas, marks, key)` draws one batch and accounts every mark as drawn, culled, or refused — a capability-illegal `Canvas × mark` corner lands a typed refusal ROW on the receipt and the batch continues, while a HOST fault aborts typed; `DrawReceipt.IsValid` is the empty refusal set, so a silent partial draw is unrepresentable.
-- Law: the corner table is LAW, per canvas: the PIPELINE draws world marks, sprite blits, and the stroke-and-plain-text projection of kernel screen marks (fills, glyph blocks, panes, clips, poses, and OS-role faces refuse — Eto-surface capabilities); the RETAINED overlay draws the `CustomDisplay`-addressable world subset (`Points`, `Vector`, `Polygon`, undecorated `Curve`, `Label3d`) and refuses the rest; the SURFACE and PAGE replay kernel screen marks through `PaintProgram.Replay` — the kernel owns draw, cull, hit, and stock — and refuse world and sprite bands. NAMED LOSS: the per-entry backend twins (`Pipeline`/`Surface`/`ScreenPipeline`/`ScreenSurface`/`WorldPipeline`) and their per-arm refusals; bought back as the explicit corner rows this dispatch names and the receipt reports.
+- Owner: `DisplayMark` partitions the three payload bands by backend capability while preserving one public concept; `WorldMark` is the RhinoCommon world band, grown by the retained-overlay fold (`Points`, `Vector`, `Polygon`, `Label3d` — the old eight-case `RetainedMark` deletes whole); `SpriteMark` is the ONE `DisplayBitmap` blit family whose `SpriteAnchor` closes the three anchor shapes the host publishes; `Canvas` names the four backends, each case CARRYING what its backend consumes; `Marks.Paint` is the one dispatch and `DrawTally` its accounted evidence.
+- Entry: `Marks.Paint(canvas, marks, key)` draws one batch and accounts every mark as drawn, culled, or refused — a capability-illegal `Canvas × mark` corner lands a typed refusal ROW on `DrawTally` and the batch continues, while a HOST fault aborts typed; `DrawTally.IsValid` is the empty refusal set, so a silent partial draw is unrepresentable.
+- Law: the corner table is LAW, per canvas: the PIPELINE draws world marks, sprite blits, and the stroke-and-plain-text projection of kernel screen marks (fills, glyph blocks, panes, clips, poses, and OS-role faces refuse — Eto-surface capabilities); the RETAINED overlay draws the `CustomDisplay`-addressable world subset (`Points`, `Vector`, `Polygon`, undecorated `Curve`, `Label3d`) and refuses the rest; the SURFACE and PAGE replay kernel screen marks through `PaintProgram.Replay` — the kernel owns draw, cull, hit, and stock — and refuse world and sprite bands. NAMED LOSS: the per-entry backend twins (`Pipeline`/`Surface`/`ScreenPipeline`/`ScreenSurface`/`WorldPipeline`) and their per-arm refusals; bought back as the explicit corner rows this dispatch names and `DrawTally` reports.
 - Law: `Surface` and `Page` are two quality postures over one Graphics replay — `Surface` carries its caller's `ScenePolicy`, `Page` is pinned `Fidelity` because a printed page never trades quality for latency — and both hand the kernel the stock and timeline the replay is gauged against.
 - Law: render order is input order; hit-testing is the KERNEL's (`PaintProgram.Hit` over the screen band) and this page answers none — the world band hit-tests through the host pick pipeline, a different owner.
 - Law: an arrowhead is a HOST primitive, never a re-derived triangle — `WorldMark.Arrowhead` folds `DrawAnnotationArrowhead(Arrowhead, Transform, Color)` so head shape rides the `DimensionStyle.ArrowType` row or the user-block the `Arrowhead` carries.
@@ -746,7 +746,7 @@ public abstract partial record Canvas {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct DrawReceipt(Rasm.Numerics.Dimension Drawn, Rasm.Numerics.Dimension Culled, Seq<Error> Refused) : IValidityEvidence {
+public readonly record struct DrawTally(Rasm.Numerics.Dimension Drawn, Rasm.Numerics.Dimension Culled, Seq<Error> Refused) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Refused.IsEmpty);
 }
 
@@ -754,7 +754,7 @@ public readonly record struct DrawReceipt(Rasm.Numerics.Dimension Drawn, Rasm.Nu
 public static class Marks {
     private enum Outcome { Drawn, Culled }
 
-    public static Fin<DrawReceipt> Paint(Canvas canvas, Seq<DisplayMark> marks, Op? key = null) {
+    public static Fin<DrawTally> Paint(Canvas canvas, Seq<DisplayMark> marks, Op? key = null) {
         Op op = key.OrDefault();
         return guard(canvas is not null && canvas.Valid
                 && marks.ForAll(static mark => mark is not null && mark.Valid), op.InvalidInput()).ToFin()
@@ -770,14 +770,14 @@ public static class Marks {
                     ctx.Marks, backend.Target, ScenePolicy.Fidelity, backend.Stock, backend.Clock, ctx.Op)));
     }
 
-    private static Fin<DrawReceipt> Immediate(
+    private static Fin<DrawTally> Immediate(
         Seq<DisplayMark> marks, Op op, Func<DisplayMark, Fin<Either<Error, Outcome>>> arm) =>
-        marks.TraverseM(arm).As().Map(outcomes => new DrawReceipt(
+        marks.TraverseM(arm).As().Map(outcomes => new DrawTally(
             Drawn: Rasm.Numerics.Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Drawn))),
             Culled: Rasm.Numerics.Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Culled))),
             Refused: outcomes.Choose(static row => row.Match(Left: Some, Right: static _ => Option<Error>.None))));
 
-    private static Fin<DrawReceipt> Replayed(
+    private static Fin<DrawTally> Replayed(
         Seq<DisplayMark> marks, Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock, Op op) {
         Seq<Mark> screen = marks.Choose(static mark => mark is DisplayMark.Screen row ? Some(row.Value) : None);
         Seq<Error> refused = marks.Choose(mark => mark switch {
@@ -787,7 +787,7 @@ public static class Marks {
         });
         return PaintProgram.Of(marks: screen, key: op)
             .Bind(program => program.Replay(target: target, policy: policy, stock: stock, clock: clock, lane: DispatchLane.Paced, key: op))
-            .Map(receipt => new DrawReceipt(Drawn: receipt.Drawn, Culled: receipt.Culled, Refused: refused));
+            .Map(tally => new DrawTally(Drawn: tally.Drawn, Culled: tally.Culled, Refused: refused));
     }
 
     // --- [PIPELINE_ARM]
@@ -951,7 +951,6 @@ public static class Marks {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

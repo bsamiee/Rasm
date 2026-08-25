@@ -14,14 +14,14 @@
 - Cases: `KSource` resolves table, measured-coupon, `DIN 6935`, and material-physics neutral-axis positions; `HemKind` carries per-row sweep and inside-radius laws; `ReliefKind` sizes and generates rectangular, obround, tear, and circular reliefs; `SheetForm` carries each feature's distinct evidence and its tooling demand.
 - Entry: `FlatPattern.Unfold(FormPolicy, FabricationInput)` is the frozen development seam, and `FlatPattern.Formed(UnfoldResult, Seq<BendStep>) : Fin<FabricationResult>` is the frozen result projection — the rail is the preimage close's, because a content key minted off a writer holding no buffer is a forged artifact identity.
 - Auto: Panel links derive a topological placement order; the generated grain field gates bend radius and loop-feature strain; surface links shift kernel islands by neutral-axis deltas; every bend endpoint enters one relief-seat census that folds co-terminating bends into one corner seat sized against the formed radius; one `PolygonOp.Boolean` subtracts admitted reliefs.
-- Receipt: `UnfoldResult` preserves flat regions, bend topology, forming physics, kernel isometry, neutral-axis displacement, feature evidence, relief evidence, and material identity.
+- Result: `UnfoldResult` preserves flat regions, bend topology, forming physics, kernel isometry, neutral-axis displacement, feature evidence, relief evidence, and material identity.
 - Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `QuikGraph`, `MathNet.Numerics` (`Brent.TryFindRoot`, the folder's one elastic-recovery inversion), `UnitsNet`, `Rasm`, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon`, and the `Geometry2D` owner compose the surface.
 - Growth: each K convention is one `KSource` row, a hem geometry is one `HemKind` row, a relief geometry is one `ReliefKind` row, a sheet feature is one `SheetForm` case, a link modality is one `SheetLink` case, and a new source is one `SheetSource` case with one total dispatch arm.
 - Boundary: Forming owns neutral-axis and feature development; kernel isometry, planar topology, process physics, and content identity remain at their canonical owners.
 
 - Law: `ElasticLaw` is the folder's ONE springback inversion — the cubic recovery over the loaded radius and its bracketed root find, byte-identical where `Forming/brake` and `Forming/tube` each carried it — and `FormingCanon` its ONE shared material-state law. Neither sibling sits below the other two by dependency, so the shared law seats on the folder's substrate page and both reach it through the one namespace.
 - Law: both preimage CLOSES seat at the S0 `FabricationCanon` — `Keyed` for the retaining close every artifact key rides, `Ordered` for the streaming digest the brake frontier tie-break reads — because the writer's constructor is private and one facade over one codec serves the package. A Forming copy of either was a second owner of one convention, and the `new CanonicalWriter(...)` spelling it replaced named no member at all.
-- Law: `FlatRejection` is the closed refusal vocabulary — a rejection locus is a key a receipt partitions by and a consumer matches on, so an interpolated slug at a raise site is the deleted form; `Forming/brake` carries the same shape for its own lane.
+- Law: `FlatRejection` is the closed refusal vocabulary — a rejection locus is a key a result partitions by and a consumer matches on, so an interpolated slug at a raise site is the deleted form; `Forming/brake` carries the same shape for its own lane.
 - Law: `PanelClosure` is computed ONCE per unfold, threaded on the assembly, and published on `UnfoldEvidence.Descendants` — `Forming/brake` reads it for sequence descent and this page for the neutral-axis shift. One reverse-topological fold over the bend tree unions each panel's children into its own set, so the census costs one pass rather than one search per panel, and the order is the acyclicity gate the surface lane otherwise skipped.
 - Law: relief-corner clustering is a DISJOINT SET over the proximity relation. A first-match-wins fold is non-transitive, so three seats within probe distance in a chain landed as one cluster or two purely by arrival order, and a corner took either one relief or two overlapping cuts on the same geometry.
 - Law: `Nesting/nfp` `Nest.Rings` is the ONE `Chain`-to-`Loop` termination this page composes; the island walk already owns winding and once-counted edges, so a second termination here forks the admitted context.
@@ -545,7 +545,7 @@ public sealed record PanelClosure(Map<int, Set<int>> Reachable) {
 }
 
 public sealed record UnfoldEvidence(
-    Option<DevelopmentReceipt> Isometry,
+    Option<Isometry> Isometry,
     Seq<PanelRegion> Panels,
     Seq<(int Bend, double ShiftMm)> NeutralAxis,
     Seq<SheetFeatureEvidence> Features,
@@ -733,8 +733,8 @@ public static class FlatPattern {
             strips: static _ => Fin.Fail<DevelopmentResult.Unrolled>(
                 new KernelFault.InvalidValue("sheet", FlatRejection.SurfaceResult.Key)),
             unrolled: static value => Fin.Succ(value))
-        from _accepted in unrolled.Receipt.Band.Maximum.To() <= policy.Development.Isometry.Value
-            && unrolled.Receipt.Torsal.Maximum.To() <= policy.Development.Torsal.Value
+        from _accepted in unrolled.Result.Band.Maximum.To() <= policy.Development.Isometry.Value
+            && unrolled.Result.Torsal.Maximum.To() <= policy.Development.Torsal.Value
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(FabricationFault.UnfoldInfeasible(unrolled.Atlas.Islands.Count, unrolled.Field.RailOffsets.Count))
         from bends in source.Links.Traverse(link => SurfaceBendOf(link, unrolled.Atlas.Islands, policy, forming).ToValidation()).As().ToFin()
@@ -744,7 +744,7 @@ public static class FlatPattern {
             panels.Map(static panel => panel.Boundary).ToArr(),
             bends,
             source.Features,
-            Some(unrolled.Receipt),
+            Some(unrolled.Result),
             panels,
             closure);
 
@@ -1137,12 +1137,12 @@ public static class FlatPattern {
                 .Double(relief.WidthMm).Double(relief.DepthMm).Double(relief.InsideRadiusMm)
                 .Rows(toSeq(relief.Meeting.Order()), static (slot, bend) => slot.Ordinal(bend))
                 .Bool(relief.ExistingClearance))
-            .Maybe(unfold.Evidence.Isometry, static (target, receipt) => Write(Write(target
-                        .Ordinal(receipt.Strips).Ordinal(receipt.Rulings)
-                        .Rows(receipt.IsometryOf.ToSeq(), static (slot, value) => slot.Double(value)),
-                    receipt.Band),
-                    receipt.Torsal)
-                .Ordinal(receipt.Components))
+            .Maybe(unfold.Evidence.Isometry, static (target, result) => Write(Write(target
+                        .Ordinal(result.Strips).Ordinal(result.Rulings)
+                        .Rows(result.IsometryOf.ToSeq(), static (slot, value) => slot.Double(value)),
+                    result.Band),
+                    result.Torsal)
+                .Ordinal(result.Components))
             .Rows(unfold.Evidence.Panels, static (target, panel) =>
                 panel.Boundary.CanonicalBytes(target.Ordinal(panel.Panel)))
             .Rows(unfold.Evidence.NeutralAxis, static (target, row) => target.Ordinal(row.Bend).Double(row.ShiftMm))
@@ -1187,7 +1187,7 @@ public static class FlatPattern {
         Arr<Loop> Flat,
         Seq<BendLine> Bends,
         Seq<SheetForm> Features,
-        Option<DevelopmentReceipt> Isometry,
+        Option<Isometry> Isometry,
         Seq<PanelRegion> Panels,
         PanelClosure Descendants);
 
@@ -1225,7 +1225,6 @@ public static class FlatPattern {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

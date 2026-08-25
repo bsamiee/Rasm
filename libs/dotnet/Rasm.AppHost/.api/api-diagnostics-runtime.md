@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_DIAGNOSTICS_RUNTIME]
 
-`Microsoft.Diagnostics.Runtime` (ClrMD) owns post-capture managed triage: it reads a captured minidump back into a live CLR view and walks the GC heap, managed threads, stack traces, and in-flight exceptions. It is the categorical owner of dump heap/thread/stack analysis, admitting a `Microsoft.Diagnostics.NETCore.Client` dump artifact and projecting it into structured support-bundle receipts, never a hand-rolled minidump parser.
+`Microsoft.Diagnostics.Runtime` (ClrMD) owns post-capture managed triage: it reads a captured minidump back into a live CLR view and walks the GC heap, managed threads, stack traces, and in-flight exceptions. It is the categorical owner of dump heap/thread/stack analysis, admitting a `Microsoft.Diagnostics.NETCore.Client` dump artifact and projecting it into structured support-bundle artifacts, never a hand-rolled minidump parser.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -106,14 +106,14 @@
 - `DataTarget`, `ClrRuntime`, and the DAC service graph are `IDisposable`: a pass materializes, drains the enumerations, and disposes, so the dump handle never spans a capture window.
 
 [STACKING]:
-- `Microsoft.Diagnostics.NETCore.Client`(`.api/api-diagnostics-client.md`): `DiagnosticsClient.WriteDump(DumpType, string)` writes the dump and `DataTarget.LoadDump(string)` reads it back — the sole capture→triage hand-off, composed as one `dump` + `dump-triage` receipt pair.
-- support-bundle projection fan (`bundles.md`): a `dump-triage` artifact folds `DataTarget.LoadDump -> ClrRuntime` into a bounded `heap-summary` (type histogram by `ClrType.Name`, segment sizes, root counts) and a `thread-summary` (per-`ClrThread` top-N frames, any `ClrException`) as `SupportReceipt` rows; DAC and corruption faults fold to the typed `SupportFault`.
+- `Microsoft.Diagnostics.NETCore.Client`(`.api/api-diagnostics-client.md`): `DiagnosticsClient.WriteDump(DumpType, string)` writes the dump and `DataTarget.LoadDump(string)` reads it back — the sole capture→triage hand-off, composed as one `dump` + `dump-triage` artifact pair.
+- support-bundle projection fan (`bundles.md`): a `dump-triage` artifact folds `DataTarget.LoadDump -> ClrRuntime` into a bounded `heap-summary` (type histogram by `ClrType.Name`, segment sizes, root counts) and a `thread-summary` (per-`ClrThread` top-N frames, any `ClrException`) as `SupportManifest` entries; DAC and corruption faults fold to the typed `SupportFault`.
 
 [LOCAL_ADMISSION]:
 - Triage depth is policy DATA on the artifact row, not a call-site literal: frame count rides `EnumerateStackTrace(bool, int)` `maxFrames`, histogram breadth rides the enumeration cap, and a full `EnumerateObjects` census runs only under an explicit escalation trigger, so a multi-gigabyte dump never fully walks on a routine window.
-- DAC-resolution and corruption faults (`ClrDiagnosticsException`, a missing or mismatched DAC, `ClrHeap.CanWalkHeap == false`, `IsObjectCorrupted`) fold to the typed `SupportFault` and `SupportReceipt.Partial` for the failed summary, never a thrown exception aborting the bundle.
+- DAC-resolution and corruption faults (`ClrDiagnosticsException`, a missing or mismatched DAC, `ClrHeap.CanWalkHeap == false`, `IsObjectCorrupted`) fold to typed `SupportFault` manifest entries for the failed summary, never a thrown exception aborting the bundle.
 - Triage binds captured artifacts and the host/companion process tree the AppHost owns, self-attaching through `AttachToProcess`/`CreateSnapshotAndAttach` only for live escalation, never a general remote-process attach, and rides `DeadlineClass` bounds so a slow symbol fetch degrades one summary row.
-- Every triage summary is a `SupportReceipt` row carrying a `Rasm.Domain.ContentHash.Of` hash over the payload; the source dump path is recorded, never the dump bytes crossing the wire.
+- Every triage summary is a `SupportManifest` entry carrying a `Rasm.Domain.ContentHash.Of` hash over the payload; the source dump path is recorded, never the dump bytes crossing the wire.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Diagnostics.Runtime`

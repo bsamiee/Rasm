@@ -16,7 +16,7 @@ Package roots in strata order; each root README routes its own design pages, and
 - [06]-[APP_PLATFORM]: [Rasm.AppHost](../Rasm.AppHost/README.md) — host-neutral runtime spine every app root folds.
 - [07]-[APP_PLATFORM]: [Rasm.Compute](../Rasm.Compute/README.md) — measured-execution engine and discipline-assessment authority.
 - [08]-[APP_PLATFORM]: [Rasm.Persistence](../Rasm.Persistence/README.md) — content-addressed durable system of record.
-- [09]-[APP_PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product surface over the receipt spine.
+- [09]-[APP_PLATFORM]: [Rasm.AppUi](../Rasm.AppUi/README.md) — Avalonia product surface.
 - [11]-[HOST_BOUNDARY]: [Rasm.Rhino](../Rasm.Rhino/README.md) — RhinoCommon + Eto host boundary.
 - [12]-[HOST_BOUNDARY]: [Rasm.Grasshopper](../Rasm.Grasshopper/README.md) — GH2 + Eto host boundary.
 
@@ -120,7 +120,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `System.Diagnostics.Metrics` — In-box `Meter`/`Instrument` emission surface behind every minted meter.
 - `System.Threading.Channels` — Bounded producer-consumer transport behind host callbacks and work lanes.
 - `System.Net.Http` — Outbound handler chain, message pair, and connection pool behind every dial-out hop and exporter egress.
-- `System.Security.Cryptography` — DER, X.509, and ECDSA custody with zeroization at credential and receipt boundaries.
+- `System.Security.Cryptography` — DER, X.509, and ECDSA custody with zeroization at credential and attestation boundaries.
 - `System.Runtime.InteropServices` — POSIX signal registration behind drain traps and reload.
 - `System.Xml` — LINQ-to-XML, streaming reader/writer, schema, and XSLT behind MaterialX, BCF, and SVG payloads.
 - `System.Text.Json` — Contract-frozen JSON wire: source-generated contracts, converter dispatch, node models, and the schema exporter.

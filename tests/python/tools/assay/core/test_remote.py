@@ -19,26 +19,11 @@ import msgspec
 import pytest
 from upath import UPath
 
-from assay.composition.settings import (
-    AssaySettings,
-    PullStrategy,
-    run_id_host_token,
-    Ssh,
-)
+from assay.composition.settings import AssaySettings, PullStrategy, run_id_host_token, Ssh
 from assay.composition.store import ArtifactScope
 from assay.core.exec import fan_out, run_check
 from assay.core.govern import ExecPlan, recv_ssh
-from assay.core.model import (
-    ArtifactKind,
-    Check,
-    Claim,
-    Input,
-    Language,
-    Mode,
-    receipt,
-    Runner,
-    Tool,
-)
+from assay.core.model import ArtifactKind, Check, Claim, Input, Language, Mode, Runner, Tool
 import assay.core.remote as remote_mod
 from assay.core.remote import pooled_ssh, remote_command, run_remote, ssh_outcome
 from assay.core.routing import Routed, Scope
@@ -95,19 +80,7 @@ def _plan(settings: AssaySettings, *, cwd: str = "", scope: ArtifactScope | None
     Returns:
         Plan carrying the settings/scope/cwd the transfer dispatches on.
     """
-    return ExecPlan(
-        argv=argv,
-        check=Check(tool=_stream_tool("remote-plan-law", ("/bin/echo", "x"))),
-        cwd=cwd,
-        env={},
-        settings=settings,
-        scope=scope,
-        streaming=False,
-        tail_cap=4096,
-        spill_cap=1 << 20,
-        chunk=65536,
-        thread_limiter=None,
-    )
+    return ExecPlan(argv=argv, check=Check(tool=_stream_tool("remote-plan-law", ("/bin/echo", "x"))), cwd=cwd, env={}, settings=settings, scope=scope, streaming=False, tail_cap=4096, spill_cap=1 << 20, chunk=65536, thread_limiter=None)
 
 
 async def _git_seed(root: Path, files: Mapping[str, bytes]) -> None:
@@ -125,38 +98,19 @@ async def _git_seed(root: Path, files: Mapping[str, bytes]) -> None:
 
 def test_ssh_outcome_projects_status_and_signal() -> None:
     """``ssh_outcome``: integer exits pass through (no notes); a signal kill maps to 255 with the signal name."""
-    rows: tuple[tuple[str, int | None, object | None, tuple[int, tuple[str, ...]]], ...] = (
-        ("clean-exit", 0, None, (0, ())),
-        ("nonzero-exit", 2, None, (2, ())),
-        ("signal-no-name", None, None, (255, ())),
-        ("signal-named", None, ("TERM", False, "", ""), (255, ("ssh.signal=TERM",))),
-    )
+    rows: tuple[tuple[str, int | None, object | None, tuple[int, tuple[str, ...]]], ...] = (("clean-exit", 0, None, (0, ())), ("nonzero-exit", 2, None, (2, ())), ("signal-no-name", None, None, (255, ())), ("signal-named", None, ("TERM", False, "", ""), (255, ("ssh.signal=TERM",))))
     for label, exit_status, sig, expected in rows:
         assert ssh_outcome(exit_status, sig) == expected, f"{label}: outcome drifted"
     assert (remote_mod._as_bytes(b"x"), remote_mod._as_bytes(None), remote_mod._as_bytes("s")) == (b"x", b"", b"s")
 
 
 @pytest.mark.parametrize(
-    "argv, cwd, env, fragments",
-    [
-        (("dotnet", "test"), "/work", {}, ("cd /work &&", "dotnet test")),
-        (("ruff", "check", "."), "/repo root", {"PYTHONHASHSEED": "0"}, ("cd '/repo root'", "PYTHONHASHSEED=0", "ruff check .")),
-        (("echo", "a b"), "/w", {"K": "v w"}, ("cd /w &&", "K='v w'", "echo 'a b'")),
-    ],
+    "argv, cwd, env, fragments", [(("dotnet", "test"), "/work", {}, ("cd /work &&", "dotnet test")), (("ruff", "check", "."), "/repo root", {"PYTHONHASHSEED": "0"}, ("cd '/repo root'", "PYTHONHASHSEED=0", "ruff check .")), (("echo", "a b"), "/w", {"K": "v w"}, ("cd /w &&", "K='v w'", "echo 'a b'"))]
 )
 def test_remote_command_shell_quotes_cwd_env_argv(argv: tuple[str, ...], cwd: str, env: dict[str, str], fragments: tuple[str, ...]) -> None:
     """``remote_command`` shell-quotes the cwd prefix, env exports, and every argv segment into one ``cd ... && ...`` line."""
     command = remote_command(argv, cwd=cwd, env=env)
     assert command == Contains(*fragments), f"missing fragment in {command!r}"
-
-
-def test_fold_receipt_projects_exec_facts_onto_completed() -> None:
-    """``_fold_receipt`` stamps the remote target URL/host, exit status, signal, and push/pull counts onto ``Completed.exec``."""
-    target = Ssh(host="vps", port=22, user="root")
-    done = remote_mod._fold_receipt(receipt(("dotnet", "test"), 0), target, exit_status=0, signal="", notes=("n",), pushed=3, pulled=2)
-    assert done.exec is not None
-    assert (done.exec.target, done.exec.host, done.exec.exit_status) == ("ssh://root@vps:22", "vps", 0)
-    assert (done.exec.pushed, done.exec.pulled, done.exec.notes) == (3, 2, ("n",))
 
 
 # --- [SSH_ROUND_TRIP]
@@ -181,7 +135,7 @@ async def test_run_check_remote_streaming_round_trips(
     assay_root: AssayHarness,
     ssh_env: SshEnv,
 ) -> None:
-    """The remote streaming arm drains the ssh double reply and tail-caps the receipt; the scoped row persists the artifact."""
+    """The remote streaming arm drains the ssh double reply and tail-caps the result; the scoped row persists the artifact."""
     remote = assay_root.remote(ssh_env.url)
     scope = assay_root.scope(Claim.STATIC) if scoped else None
     name = "remote-scoped-stream-law" if scoped else "remote-stream-law"
@@ -270,7 +224,7 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(assay_root:
 
     The push leg lands exactly the ``git ls-files`` manifest under the remote run dir; the pull leg downloads the
     tool-written scope tree to the agent-local store at the same scope-relative parts, with real byte/line counts,
-    no absolute host path in ``Artifact.path``, and the receipt carrying pushed/pulled counts.
+    no absolute host path in ``Artifact.path``, and the result carrying pushed/pulled counts.
     """
     remote = _remote_settings(assay_root.root, exec_workroot="/work")
     offload = remote.offload
@@ -293,13 +247,7 @@ async def test_remote_transfer_pushes_manifest_then_pulls_scope_tree(assay_root:
             pass
         pulled = await transfer.pull({})
         run_dir = tmp_path / "work" / run_id
-        landed_manifest = {
-            rel
-            for p in run_dir.rglob("*")
-            if p.is_file()
-            for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)
-            if not rel.startswith(".artifacts/")
-        }
+        landed_manifest = {rel for p in run_dir.rglob("*") if p.is_file() for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),) if not rel.startswith(".artifacts/")}
     finally:
         conn.close()
         await conn.wait_closed()
@@ -330,16 +278,7 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
     """
     remote = _remote_settings(assay_root.root, exec_workroot="/work")
     run_id = remote.run_id
-    manifest = {
-        "Workspace.slnx": b"slnx\n",
-        "a.txt": b"root-a\n",
-        ".claude/skills/one/SKILL.md": b"one\n",
-        ".claude/skills/two/SKILL.md": b"two\n",
-        ".claude/skills/three/SKILL.md": b"three\n",
-        "docs/x/index.md": b"x\n",
-        "docs/y/index.md": b"y\n",
-        "docs/y/deep/leaf.md": b"leaf\n",
-    }
+    manifest = {"Workspace.slnx": b"slnx\n", "a.txt": b"root-a\n", ".claude/skills/one/SKILL.md": b"one\n", ".claude/skills/two/SKILL.md": b"two\n", ".claude/skills/three/SKILL.md": b"three\n", "docs/x/index.md": b"x\n", "docs/y/index.md": b"y\n", "docs/y/deep/leaf.md": b"leaf\n"}
     await _git_seed(Path(str(remote.local_root)), manifest)
     remote_cwd = remote.exec_target.remote_workroot(run_id) if isinstance(remote.exec_target, Ssh) else ""
     assert "~" not in remote_cwd, f"workroot must be absolute, not a literal tilde: {remote_cwd!r}"
@@ -348,9 +287,7 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
     try:
         pushed, notes = await remote_mod._push_repo(conn, _plan(remote, cwd=remote_cwd), tuple(sorted(manifest)))
         run_dir = tmp_path / "work" / run_id
-        landed = {
-            rel: (run_dir / rel).read_bytes() for p in run_dir.rglob("*") if p.is_file() for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)
-        }
+        landed = {rel: (run_dir / rel).read_bytes() for p in run_dir.rglob("*") if p.is_file() for rel in (str(p.relative_to(run_dir)).replace("\\", "/"),)}
     finally:
         conn.close()
         await conn.wait_closed()
@@ -361,9 +298,7 @@ async def test_push_repo_pipelines_nested_tree_preserving_structure(assay_root: 
 
 
 @pytest.mark.anyio
-async def test_remote_transfer_keeps_exec_cancellable_under_deadline(
-    assay_root: AssayHarness, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_remote_transfer_keeps_exec_cancellable_under_deadline(assay_root: AssayHarness, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A wedged remote exec inside the transfer bracket is reclaimed by the check deadline; the push leg completes shielded.
 
     The push shield must scope to the push leg only — never the bracketed exec — or a hung remote tool runs
@@ -430,9 +365,7 @@ def _moto_s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[AbstractFileSystem]:
 
 
 @pytest.mark.anyio
-async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(
-    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, socket_enabled: None
-) -> None:
+async def test_remote_transfer_reads_shared_cloud_scope_without_byte_transfer(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, socket_enabled: None) -> None:
     """A SHARED cloud offload reads the tool-written scope tree straight from the object store with zero byte transfer.
 
     The agent opens the SAME universal paths the remote tool wrote, folding ``Artifact`` rows scope-relative with
@@ -485,13 +418,7 @@ def test_stale_remote_runs_keeps_newest_per_host_namespace() -> None:
     this host the oldest ``len-keep`` dirs by ``(mtime, run_id)`` are returned. ``keep >= own`` selects nothing.
     """
     mine, theirs, absent = "aaaaaaaa", "bbbbbbbb", "cccccccc"
-    rows = (
-        (f"2026-01-01T00-00-00.0-{mine}-100", 100.0),
-        (f"2026-01-02T00-00-00.0-{mine}-101", 200.0),
-        (f"2026-01-03T00-00-00.0-{mine}-102", 300.0),
-        (f"2026-01-01T00-00-00.0-{theirs}-999", 50.0),
-        ("custom-no-token", 10.0),
-    )
+    rows = ((f"2026-01-01T00-00-00.0-{mine}-100", 100.0), (f"2026-01-02T00-00-00.0-{mine}-101", 200.0), (f"2026-01-03T00-00-00.0-{mine}-102", 300.0), (f"2026-01-01T00-00-00.0-{theirs}-999", 50.0), ("custom-no-token", 10.0))
     assert run_id_host_token(rows[0][0]) == mine, "host token must round-trip out of the canonical run id"
     keep1 = remote_mod._stale_remote_runs(rows, token=mine, keep=1)
     assert keep1 == (rows[0][0], rows[1][0]), f"keep=1 must drop this host's two oldest, newest-first retained: {keep1!r}"
@@ -531,19 +458,7 @@ async def test_remote_prune_sweeps_only_this_hosts_stale_run_dirs(assay_root: As
 
 
 def _manifest_plan(harness: AssayHarness, tool: Tool, paths: tuple[str, ...] = ()) -> ExecPlan:
-    return ExecPlan(
-        argv=tool.command,
-        check=Check(tool=tool, paths=paths),
-        cwd="",
-        env={},
-        settings=harness.settings,
-        scope=None,
-        streaming=False,
-        tail_cap=4096,
-        spill_cap=1 << 20,
-        chunk=65536,
-        thread_limiter=None,
-    )
+    return ExecPlan(argv=tool.command, check=Check(tool=tool, paths=paths), cwd="", env={}, settings=harness.settings, scope=None, streaming=False, tail_cap=4096, spill_cap=1 << 20, chunk=65536, thread_limiter=None)
 
 
 def test_lane_manifest_dotnet_scopes_to_transitive_project_closure(assay_root: AssayHarness) -> None:
@@ -559,17 +474,7 @@ def test_lane_manifest_dotnet_scopes_to_transitive_project_closure(assay_root: A
     (root / "libs/A/A.csproj").write_bytes(b'<Project><ItemGroup><ProjectReference Include="../B/B.csproj"/></ItemGroup></Project>')
     (root / "libs/B/B.csproj").write_bytes(b"<Project/>")
     (root / "libs/C/C.csproj").write_bytes(b"<Project/>")
-    universe = (
-        "Directory.Build.props",
-        "Directory.Packages.props",
-        "README.md",
-        "libs/A/A.csproj",
-        "libs/A/Owner.cs",
-        "libs/B/B.csproj",
-        "libs/B/Dep.cs",
-        "libs/C/C.csproj",
-        "libs/C/Other.cs",
-    )
+    universe = ("Directory.Build.props", "Directory.Packages.props", "README.md", "libs/A/A.csproj", "libs/A/Owner.cs", "libs/B/B.csproj", "libs/B/Dep.cs", "libs/C/C.csproj", "libs/C/Other.cs")
     tool = Tool("cs-build", Runner.DOTNET, ("build", str(root / "libs/A/A.csproj")), Input.OWNED, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD)
     scoped = frozenset(remote_mod._lane_manifest(_manifest_plan(assay_root, tool), universe))
     assert frozenset({"libs/A/Owner.cs", "libs/B/Dep.cs"}) <= scoped, f"closure dropped a transitive project file: {scoped!r}"
@@ -587,17 +492,10 @@ def test_lane_manifest_dotnet_scopes_to_transitive_project_closure(assay_root: A
             ("pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py", "libs/dotnet/Rasm/Foo.cs", "docs/x.md"),
             {"pyproject.toml", "uv.lock", "tools/assay/core/engine.py", "tests/python/conftest.py"},
         ),
-        (
-            "unknown-lane-full-universe",
-            Tool("direct", Runner.DIRECT, ("echo",), Input.NONE, Language.DOTNET, Claim.STATIC),
-            ("a", "b/c", "d/e/f"),
-            {"a", "b/c", "d/e/f"},
-        ),
+        ("unknown-lane-full-universe", Tool("direct", Runner.DIRECT, ("echo",), Input.NONE, Language.DOTNET, Claim.STATIC), ("a", "b/c", "d/e/f"), {"a", "b/c", "d/e/f"}),
     ],
 )
-def test_lane_manifest_python_and_unknown_lanes(
-    label: str, tool: Tool, universe: tuple[str, ...], expected: set[str], assay_root: AssayHarness
-) -> None:
+def test_lane_manifest_python_and_unknown_lanes(label: str, tool: Tool, universe: tuple[str, ...], expected: set[str], assay_root: AssayHarness) -> None:
     """The Python lane scopes to package source + tests + config anchors; a lane with no project graph keeps the full universe."""
     _ = label
     assert set(remote_mod._lane_manifest(_manifest_plan(assay_root, tool), universe)) == expected
@@ -611,15 +509,7 @@ def test_remote_scope_argv_rebases_host_absolute_scope_paths(assay_root: AssayHa
     """
     local_root = str(assay_root.settings.local_root)
     remote_root = "/work/run-1"
-    argv = (
-        "dotnet",
-        "build",
-        f"-p:CspSarifDir={local_root}/.artifacts/assay/build/bridge/Release/sarif",
-        "--artifacts-path",
-        f"{local_root}/.artifacts/assay/build/bridge/Release",
-        "/p:Unrelated=value",
-        f"{local_root}/libs/A/A.csproj",
-    )
+    argv = ("dotnet", "build", f"-p:CspSarifDir={local_root}/.artifacts/assay/build/bridge/Release/sarif", "--artifacts-path", f"{local_root}/.artifacts/assay/build/bridge/Release", "/p:Unrelated=value", f"{local_root}/libs/A/A.csproj")
     rebased = remote_mod._remote_scope_argv(argv, local_root=local_root, remote_root=remote_root)
     assert rebased[2] == f"-p:CspSarifDir={remote_root}/.artifacts/assay/build/bridge/Release/sarif", f"CspSarifDir not rebased: {rebased[2]!r}"
     assert rebased[4] == f"{remote_root}/.artifacts/assay/build/bridge/Release", f"--artifacts-path value not rebased: {rebased[4]!r}"

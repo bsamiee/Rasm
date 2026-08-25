@@ -146,12 +146,11 @@
 - unit: measurements use `Inches`/`Pt`/`Cm`/`Mm`/`Emu`/`Twips` `Length` value objects, and alignment/break/section-start/underline/tab/highlight/cell-align/row-height ride the `WD_*` enum rows.
 
 [STACKING]:
-- `document/emit#DOCUMENT`(`emit.md`): `DocumentMode.DOCX` resolves to the docx arm, which walks the `document/model#NODE` `DocumentNode` tree emitting paragraphs/headings/tables/pictures/sections, threads one `EmitFact` evidence carrier, and mints the `core/receipt#RECEIPT` `ArtifactReceipt.Office(key, bytes)` case; the emit owner holds the engine, and `document/lens#LENS` is the `.docx` extraction inverse.
 - `docxtpl`(`.api/docxtpl.md`): the `DocumentMode.DOCX_TEMPLATE` fan derives a docxtpl context from the same `DocumentNode` tree and mirrors the `RichText.add` appearance axis onto `Run.font`; `docxtpl.DocxTemplate.render` carries styled fill-from-context, raw `python-docx` carries programmatic block construction.
 - `msoffcrypto-tool`(`.api/msoffcrypto-tool.md`): decrypts an encrypted container to a plaintext stream `Document(stream)` reads and re-seals saved bytes; `puremagic`(`.api/puremagic.md`)/`python-magic`(`.api/python-magic.md`) gate which reader runs at `exchange/detect#DETECT`.
 - `lxml`(`.api/lxml.md`): owns the element serialization and relationship/content-type part graph every `add_*` writes through.
 - `pillow`(`.api/pillow.md`)/`numpy`(`.api/numpy.md`): an RGBA overlay/QR/chart raster arrives as a numpy array -> PNG and anchors through `add_picture`, Pillow sizing the image part.
-- `msgspec`(`.api/msgspec.md`)/`pydantic`(`.api/pydantic.md`): the office-receipt model is one `Struct` admitted through a `TypeAdapter`, capturing paragraph/table/image/section/comment/style counts and output byte length onto the `EmitFact`.
+- `msgspec`(`.api/msgspec.md`)/`pydantic`(`.api/pydantic.md`): `EmitFact` carries the saved bytes and measured document counts; `TypeAdapter` admits its input model.
 - rail: the lowering op is `@beartype`-guarded, emits one `structlog` event inside an `opentelemetry` span, retries transient save I/O under `stamina`(`libs/python/runtime/.api/stamina.md`), and a provider raise converts to the `expression`(`.api/expression.md`) `Result` rail; Excel routes to `openpyxl`, PowerPoint to `python-pptx`, ODF to `odfpy`, PDF render to `pymupdf`/`weasyprint`.
 
 [LOCAL_ADMISSION]:

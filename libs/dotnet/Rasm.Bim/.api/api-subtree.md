@@ -82,14 +82,14 @@
 
 [TOPOLOGY]:
 - Every availability op folds through the Morton index `ImplicitSubdivisionScheme` selects; a tile is available exactly when its Morton bit is set in the `.subtree` bitstream.
-- `Subtree` is the record root; subdivision scheme, level count, and available-tile count are the receipt facts the EXPORT fold records.
-- `LevelOffset.GetNumberOfLevels` derives the level count from the availability string LENGTH alone by walking `GetLevelOffset` until the string falls inside one level's span, so a receipt reads its depth off the bitstream rather than a caller-carried count.
+- `Subtree` is the record root; subdivision scheme, level count, and available-tile count are the facts the EXPORT fold carries on `SubtreeArtifact`.
+- `LevelOffset.GetNumberOfLevels` derives the level count from the availability string LENGTH alone by walking `GetLevelOffset` until the string falls inside one level's span, so `SubtreeArtifact` reads its depth off the bitstream rather than a caller-carried count.
 - `BitArrayExtensions.Count(bool whereClause = false)` counts bits EQUAL to `whereClause`, so the parameterless call answers the UNSET count — an available-tile tally spells `Count(true)`, and the bare call is the inverted-tally trap.
 - `ToByteArray` sizes its buffer `(bits.Length - 1) / 8 + 1` and `CopyTo`s, so a bitstream round-trips index-for-index through `new BitArray(byte[])` and the trailing pad bits of the final byte read as unset.
 
 [STACKING]:
 - `SharpGLTF.Ext.3DTiles`(`libs/dotnet/.api/api-sharpgltf-3dtiles.md`): SharpGLTF owns per-tile glTF CONTENT and `EXT_structural_metadata`, `subtree` the tileset AVAILABILITY bitstream; both key off the shared `MortonOrder` index, so a tile is "available with content" exactly when both bitstreams set the same Morton bit.
-- EXPORT authoring fold: selects `SubtreeCreator`/`SubtreeCreator3D` and its `ImplicitSubdivisionScheme` once from the subdivision kind, emits each `GenerateSubtreefiles` overflow binary keyed by its root tile with `GetSubtreeTiles`/`GetRelativeTile` re-basing coordinates so child-subtree pointers resolve, and asserts receipts via `SubtreeReader.ReadSubtree` round-trip and `BitstreamReader.Read` level slices.
+- EXPORT authoring fold: selects `SubtreeCreator`/`SubtreeCreator3D` and its `ImplicitSubdivisionScheme` once from the subdivision kind, emits each `GenerateSubtreefiles` overflow binary keyed by its root tile with `GetSubtreeTiles`/`GetRelativeTile` re-basing coordinates so child-subtree pointers resolve, and witnesses the bitstream via `SubtreeReader.ReadSubtree` round-trip and `BitstreamReader.Read` level slices.
 
 [LOCAL_ADMISSION]:
 - `Rasm.Bim` admits `subtree` for `.subtree` availability authoring and read only; glTF tile content, tileset.json hierarchy, and bounding-volume geometry stay `SharpGLTF`/EXPORT concerns.

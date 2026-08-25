@@ -25,7 +25,7 @@ It carries the transactional exactly-once producer and manual-commit at-least-on
 |  [03]   | `Consumer`                    | consumer      | `Client &` subscribe/run surface; manual offset commit is the at-least-once lane         |
 |  [04]   | `Admin`                       | admin         | topic/group lifecycle — create, offsets, metadata the engine reconciles at boot          |
 |  [05]   | `ProducerRecord`              | message       | `topic` with `Message[]` — `key`/`value`/`partition?`/`headers?`/`timestamp?`            |
-|  [06]   | `RecordMetadata`              | receipt       | per-message `topicName`, `partition`, `offset?`, `timestamp?` — publish evidence         |
+|  [06]   | `RecordMetadata`              | publish ack   | per-message `topicName`, `partition`, `offset?`, `timestamp?` — publish evidence         |
 |  [07]   | `EachMessagePayload`          | delivery      | `message`, `partition`, `heartbeat`, `pause` — the `eachMessage` handler argument        |
 |  [08]   | `EachBatchPayload`            | delivery      | `batch`, `resolveOffset`, `commitOffsetsIfNecessary` — the `eachBatch` argument          |
 |  [09]   | `ConsumerRunConfig`           | run config    | `eachMessage`/`eachBatch`, `partitionsConsumedConcurrently`, auto-resolve toggle         |

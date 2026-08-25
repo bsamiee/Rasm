@@ -1,8 +1,8 @@
 # [RASM_GRASSHOPPER_CANVAS_PAINT]
 
-Grasshopper painting composes the kernel paint estate inside the host's own paint fences: `Rasm/Interaction/paint.md` owns the mark vocabulary, stock, receipt, probe, and colour crossing; this page owns what only the host can — the eight GH2 paint-event fences, the event-scoped scene capability, the four Grasshopper2-drawn mark cases no kernel case expresses, and the CoreAnimation overlay projection. Planner receives snapshot data and returns a `GhPlan`; the executor batches kernel runs through `PaintProgram.Replay`, draws host cases through GH2's own renderers, and settles one gauged receipt.
+Grasshopper painting composes the kernel paint estate inside the host's own paint fences: `Rasm/Interaction/paint.md` owns the mark vocabulary, stock, tally, probe, and colour crossing; this page owns what only the host can — the eight GH2 paint-event fences, the event-scoped scene capability, the four Grasshopper2-drawn mark cases no kernel case expresses, and the CoreAnimation overlay projection. Planner receives snapshot data and returns a `GhPlan`; the executor batches kernel runs through `PaintProgram.Replay`, draws host cases through GH2's own renderers, and settles one gauged `PaintPass`.
 
-Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSpec`, `TypeFace`, `BlockSpec`, `Mark`, `PaintLifetime`, `PaintStock`, `PaintPlan`, `PaintReceipt`, `Pigment`, `ChromeRole` — is DELETED onto the kernel owners; GH's case sets were the richer half on `PathSpec`, `FillSource`, and the stock, and the kernel took them, so the deletion loses nothing and gains Rhino's `TypeRole` roster, the `Dash` value family, `GlyphBlock` retained shaping, and the identity-keyed redundant-swap skip.
+Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSpec`, `TypeFace`, `BlockSpec`, `Mark`, `PaintLifetime`, `PaintStock`, `PaintPlan`, `Pigment`, `ChromeRole` — is DELETED onto the kernel owners; GH's case sets were the richer half on `PathSpec`, `FillSource`, and the stock, and the kernel took them, so the deletion loses nothing and gains Rhino's `TypeRole` roster, the `Dash` value family, `GlyphBlock` retained shaping, and the identity-keyed redundant-swap skip.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@ Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSp
 - Owner: `Mounted<TFacts>` — the Canvas sub-domain's ONE release capsule: the latest facts cell, the composition's bounded `FaultCell`, and a release that PARKS its refusal and stays redrivable — the latch seats only on a settled release, so a failed teardown is retryable by policy rather than by a hand `0/1/2` integer ladder. `Canvas/interaction.md`'s mounts and `Canvas/wires.md`'s route custody compose this capsule; the three byte-twin capsules the fan carried are this one type.
 - Owner: `PaintPhase` `[SmartEnum<int>]` — the ordered before/after rows for background, groups, wires, and objects, each carrying its exact installed host delegate family as row data (the two background rows mirror `event CanvasBackgroundPaintEventArgs` with the `OverrideDefaultPainting` suppression action; the six layer rows mirror `event CanvasPaintEventArgs`), so a wrong wire is a compile failure and the attach returns its exact inverse.
 - Owner: `PaintFrame` readonly record struct — declarative snapshot data: the interpolated `Skin`, admitted content-frame `Visible` bounds, the raising graphics' `PointsPerPixel`, and the `AppearanceRow` the skin identity resolves (`Platform/native.md`'s two-row vocabulary — a bare bool cannot grow the host's high-contrast appearance). `PaintScene` sealed `IDisposable` — the raw event capability over the raising canvas; every live read is a `Fin` refusing `UiFault.Released` on a closed scene, and disposal clears every reference and action — the two `ObjectDisposedException` throws are unspellable on this shape.
-- Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, GhPlan> plan, MonotonicTimeline clock, FaultCell faults, Op? key = null)` → `Fin<Lease<Mounted<PassReceipt>>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults, Op? key = null)` — the raw window takes no clock and mints no receipt, so raw draws are budget-invisible by declaration and a painter needing the `paint.pass` judgment mounts the planned form. Clock is the session's injected timeline (folder RULINGS `[02]`).
+- Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, GhPlan> plan, MonotonicTimeline clock, FaultCell faults, Op? key = null)` → `Fin<Lease<Mounted<PaintPass>>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults, Op? key = null)` — the raw window takes no clock and settles no pass, so raw draws are budget-invisible by declaration and a painter needing the `paint.pass` judgment mounts the planned form. Clock is the session's injected timeline (folder RULINGS `[02]`).
 - Law: the hook-rail raise is this page's — the two BACKGROUND fences fire `rail.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)` inside the contained callback before the plan executes (`PaintAnchor.Herald`), and a `Fail` verdict suppresses the host default through the scene's `SuppressDefault`; the rail arrives as a required mount parameter. Layer fences raise NOTHING — post-facto paint cadence is the kernel drain's `CanvasSignal.Draw` row or the plugin's own mount, never rail governance (`Shell/hooks.md` named loss).
 - Law: device-pixel ratio is frame data read once per raise off the raising graphics; the kernel replay reads density off its target and takes none, so only the off-graphics probes carry the frame's measured value.
 - Law: the appearance flag selects the skin, never a palette — `Canvas.SkinLit`/`SkinDim` are the host's two palettes, chosen by the per-view effective-appearance read `Platform/native.md`'s workspace lease republishes; no painter caches a swatch across a flip, and an OS chrome swatch is the kernel `ChromeRole.Sample` read.
@@ -123,7 +123,7 @@ internal static partial class PaintLog {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class PaintAnchor {
-    public static Fin<Lease<Mounted<PassReceipt>>> Mount(
+    public static Fin<Lease<Mounted<PaintPass>>> Mount(
         PaintPhase phase,
         Func<PaintFrame, GhPlan> plan,
         MonotonicTimeline clock,
@@ -135,7 +135,7 @@ public static class PaintAnchor {
         HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op key) =>
         rail.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key);
 
-    public static Fin<Lease<Mounted<PassReceipt>>> MountRaw(
+    public static Fin<Lease<Mounted<PaintPass>>> MountRaw(
         PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults, Op? key = null);
 }
 ```
@@ -146,10 +146,10 @@ public static class PaintAnchor {
 - Law: the kernel leg BATCHES — maximal `Kernel` runs fold into one `PaintProgram` replayed once through the kernel executor, so culling, the leased spec-to-resource stock, redundant-identity skips, and the accountability tally all arrive from the kernel and no local walk re-rolls them. Host leg draws per case with its own conservative cull (`Capsule.Bounds`, the icon frame, `WireShape.Bounds` inflated by the stroke) and every raise contained by `Op.Catch`.
 - Law: `[GenerateUnionOps]` rides the band — the folder's own rung-3 proof — and the total generated `Switch` is the executor's dispatch, so a fifth host case breaks it loudly.
 - Law: the ghost pen is the ONE host-side pen mint, from the kernel `StrokeSpec`'s admitted columns through `PaintColor.ToEto` — a ghost draws once per drag frame for one wire, never per wire per layer, so it earns no stock seat; the wire PASS itself is `Canvas/wires.md`'s `Seq<Mark>` producer over the kernel program, where the stock does serve every wire.
-- Law: the pass receipt is `PassReceipt(Tally, Refused)` — the Rhino `DrawReceipt` form: `Tally` is ONE kernel `PaintReceipt` (kernel segments + settled host tallies, span gauged whole by the injected timeline) whose `Drawn + Culled == Marks` fold counts only marks that SETTLED, and `Refused` is the typed host-case refusal lane riding BESIDE the kernel fold — a refused mark is never misfiled as `Culled`, so the silently-skipped-mark guarantee survives the partial-success posture. `Graphics.Flush` runs before the settle capture so latency covers raster completion.
-- Law: partial success is the producer posture — a refused host case lands on `PassReceipt.Refused` AND parks on the capsule's cell, and the pass continues (the per-row `(Accepted, Refused)` folder ruling); only a refused kernel segment fails the pass, because the kernel replay is one atomic run.
+- Law: the settled pass is `PaintPass(Tally, Settled, Refused)`: `Tally` is ONE kernel `PaintTally` (kernel segments + settled host tallies, span gauged whole by the injected timeline) whose `Drawn + Culled == Marks` fold counts only marks that SETTLED, `Settled` is the timeline stamp captured after `Graphics.Flush` so latency covers raster completion and `Platform/capture.md`'s proof orders frames against it, and `Refused` is the typed host-case refusal lane riding BESIDE the kernel fold — a refused mark is never misfiled as `Culled`, so the silently-skipped-mark guarantee survives the partial-success posture. `Execute` writes `GhInstruments.Painted` for the raising canvas's document once the pass settles, so `paint.duration` and `paint.marks` land at the one site that holds the tally.
+- Law: partial success is the producer posture — a refused host case lands on `PaintPass.Refused` AND parks on the capsule's cell, and the pass continues (the per-row `(Accepted, Refused)` folder ruling); only a refused kernel segment fails the pass, because the kernel replay is one atomic run.
 - Boundary: `AnimatedPath` glyph strokes are `Canvas/motion.md`'s draw family run inside a `MountRaw` window; snap-guide overlays are `Canvas/layout.md`'s `Seq<Mark>` producers transported through the planned window.
-- Packages: Grasshopper2 (`Capsule`, `Parts`, `Shade`, `Skin`, `WireShape`, `IIcon`), `Rasm.Interaction` (`Mark`, `PaintProgram`, `PaintStock`, `PaintReceipt`, `ScenePolicy`, `StrokeSpec`, `PaintColor`), `Rasm.Numerics` (`PerceptualColor`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`), LanguageExt.Core, `Rasm.Domain`.
+- Packages: Grasshopper2 (`Capsule`, `Parts`, `Shade`, `Skin`, `WireShape`, `IIcon`), `Rasm.Interaction` (`Mark`, `PaintProgram`, `PaintStock`, `PaintTally`, `ScenePolicy`, `StrokeSpec`, `PaintColor`), `Rasm.Numerics` (`PerceptualColor`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`, `GaugedSpan`), `Shell/telemetry.md` (`GhInstruments`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new host-drawn species is one `GhMark` case with one draw arm and one cull arm; every kernel-expressible addition is the kernel's one case and costs this band nothing.
 
 ```csharp
@@ -178,8 +178,8 @@ public abstract partial record GhMark {
 public sealed record GhPlan(Seq<GhMark> Marks);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct PassReceipt(PaintReceipt Tally, Seq<Error> Refused) : IValidityEvidence {
-    public bool IsValid => Tally.IsValid;
+public readonly record struct PaintPass(PaintTally Tally, MonotonicStamp Settled, Seq<Error> Refused) : IValidityEvidence {
+    public bool IsValid => Tally.IsValid && Settled.IsValid;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -187,7 +187,7 @@ public readonly record struct PassReceipt(PaintReceipt Tally, Seq<Error> Refused
 public static class GhPaint {
     internal static Fin<Seq<Either<PaintProgram, GhMark>>> Runs(GhPlan plan, Op key);
 
-    internal static Fin<PassReceipt> Execute(
+    internal static Fin<PaintPass> Execute(
         PaintScene scene, GhPlan plan, MonotonicTimeline clock, FaultCell faults, Op key);
 
     public static Fin<Option<GhMark>> Probe(
@@ -199,7 +199,7 @@ public static class GhPaint {
 
 - Owner: `OverlayNode` `[Union]` — the canvas decoration vocabulary: `PanelCase` a framed fill-and-border panel, `StrokeCase` a kernel `PathSpec` with perceptual fill and stroke; both nest children and both carry their style bits as `CapabilitySet<LayerTrait>` (`Platform/layers.md`'s vocabulary — `Clip` and `Rounded` are the same two axes, so no overlay-local trait roster exists). `CanvasOverlay` — the mounted composer projecting the tree into `Platform/layers.md`'s `LayerNode` through `LayerPaint`, anchored on the live canvas, holding the `Lease<LayerMount>` with per-ordinal glide, halt, and re-frame reach.
 - Entry: `CanvasOverlay.Mount(OverlayNode root, Op? key = null)` → `Fin<Lease<CanvasOverlay>>`; `Glide(int ordinal, GlidePlan plan, …)` / `Halt(int ordinal, GlideKey glide, …)` / `Reframe(int ordinal, RectangleF frame, …)` → `Fin<Unit>`. Composition root's canvas mount roster row reaches this owner.
-- Law: compositor residence is live-proven — a mounted decoration survives the host's paint and a compositor-run glide advances its presentation layer with ZERO canvas paint events, so decoration motion costs no mark walk, enters no receipt, and never touches the `paint.pass` budget.
+- Law: compositor residence is live-proven — a mounted decoration survives the host's paint and a compositor-run glide advances its presentation layer with ZERO canvas paint events, so decoration motion costs no mark walk, enters no tally, and never touches the `paint.pass` budget.
 - Law: the strata edge points DOWN — this S2 composer consumes S1 `Compose.Mount`/`LayerPaint`/`Glides`/`MacAnchor` and hands them canvas vocabulary (kernel `PathSpec`, `PerceptualColor`); a Platform-side canvas composer inverts the one forbidden direction.
 - Law: the path hand-off is a two-lease bracket — the kernel `PathSpec.Build` mints an owned Eto path lease, `LayerPaint.Stroked` converts it into an owned `Lease<CGPath>`, and the composer releases the Eto lease the moment `Stroked` returns; the `FillMode` argument is inert on a stroke projection and passes `Winding` by declaration.
 - Law: wide colour crosses as `PerceptualColor` values through the Display-P3 layer mint; no Eto `Color` and no host skin swatch enters the projection unadmitted.
@@ -258,14 +258,15 @@ config:
 ---
 flowchart LR
     accTitle: Paint composition at the Grasshopper boundary
-    accDescr: Host paint fences hand an event-scoped scene to the planned mount; the plan's kernel runs replay through the kernel paint program with its leased stock while host cases draw through GH2 renderers; the aggregate receipt lands on the mount capsule and compositor-resident overlays glide with zero paint passes.
+    accDescr: Host paint fences hand an event-scoped scene to the planned mount; the plan's kernel runs replay through the kernel paint program with its leased stock while host cases draw through GH2 renderers; the settled pass lands on the mount capsule and writes its instruments, and compositor-resident overlays glide with zero paint passes.
     Fence["GH2 paint fences"] -->|"contained raise"| Anchor["PaintAnchor"]
     Anchor -->|"background veto fires"| Rail["HookRail"]
     Anchor -->|"PaintFrame"| Plan["GhPlan producer"]
     Plan -->|"Kernel runs"| Program["kernel PaintProgram.Replay + PaintStock"]
     Plan -->|"host cases"| Host["Capsule · IIcon · WireShape draws"]
-    Program -->|"PassReceipt"| Capsule["Mounted&lt;PassReceipt&gt;"]
+    Program -->|"PaintPass"| Capsule["Mounted&lt;PaintPass&gt;"]
     Host -->|"tallies + parked refusals"| Capsule
+    Capsule -->|"GhInstruments.Painted"| Meter[("paint.duration · paint.marks")]
     Overlay["OverlayNode tree"] -->|"LayerPaint projection"| Layers["Platform/layers.md Compose.Mount"]
     Layers -->|"Glide · Halt · Reframe"| Motion["compositor-run decoration"]
 ```
@@ -279,7 +280,7 @@ flowchart LR
 |  [03]   | host mark band   | `GhMark` + `GhPaint`            | kernel batching + four host draw arms         |    5    |
 |  [04]   | retained overlay | `OverlayNode` + `CanvasOverlay` | layers projection, ordinal-addressed motion   |    2    |
 
-Mark vocabulary, specs, stock, lifetime brackets, receipt, probe, colour crossing, and OS palette roster are the kernel paint estate's (`Mark`, `PathSpec`, `FillSource`, `PosePlan`, `StrokeSpec`, `Dash`, `TypeFace`, `GlyphBlock`, `PaintProgram`, `PaintStock`, `PaintReceipt`, `Tween`, `PaintColor`, `ChromeRole`); the ten hand rollback ladders, three CAS triples, `PaintLifetime`, `PaintHook`, and the six `Finite`/`Admitted` duplicates deleted onto it.
+Mark vocabulary, specs, stock, lifetime brackets, tally, probe, colour crossing, and OS palette roster are the kernel paint estate's (`Mark`, `PathSpec`, `FillSource`, `PosePlan`, `StrokeSpec`, `Dash`, `TypeFace`, `GlyphBlock`, `PaintProgram`, `PaintStock`, `PaintTally`, `Tween`, `PaintColor`, `ChromeRole`); the ten hand rollback ladders, three CAS triples, `PaintLifetime`, `PaintHook`, and the six `Finite`/`Admitted` duplicates deleted onto it.
 
 ## [06]-[RESEARCH]
 

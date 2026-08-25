@@ -52,7 +52,7 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 
 - Credential-bearing handles bind per composition — `ResourceGuard` isolates the write path and the store's own protocol the cross-process half.
 - `KernelTrait` reads the provider's GIL behavior alone — payload weight and call frequency decide nothing: a GIL-holding call starves the loop.
-- Journal producers record at the nearest ASYNC fold and a synchronous receipt fold records nothing — the send suspends, so a sync leg can only shed.
+- Journal producers record at the nearest async producer fold; synchronous projections record nothing because the send suspends.
 - Tenancy resolves at the `Journal` writer off `TENANT_BAGGAGE` and a fact arriving WITH it passes untouched — a re-read kills the on-behalf case.
 - Provider release seams are per-distribution and the `.api` catalog names each — `hvac.Client` releases through `client.adapter.close()` alone.
 - Host-native crossings ride the caller's `LanePolicy` onto the shared band — a folder-minted `CapacityLimiter` oversubscribes the provider's pool.

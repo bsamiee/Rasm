@@ -15,7 +15,7 @@
 - Law: `[FaultCase]` ordinals are the sole per-case numeric identity; band membership derives through `FaultBand.OwnerOf(BandKind.Fault, code)`, never a category string or literal range test.
 - Entry: callers construct the typed leaf directly and lift it bare onto `Fin<T>` or `Validation<Error,T>`; generated owner admission crosses through the kernel bridge unchanged.
 - Auto: `Bake` routes `NodeAbsent` on an absent root and `RelationshipInvalid` on a cyclic `Compose` ancestry; `ElementGraph.Apply`/`WorkingGraph.Apply` route `NodeAbsent`, `RelationshipInvalid`, and `DeltaConflict` per the structural law; irreducible Element semantic gates route `ValueRejected`; each projector implementation returns documented refusals as its typed owner fault or an explicit `ProjectorFaulted`, while `Assemble` preserves unknown throws as their exact exceptional `Error`; `ElementHooks.Live` preserves a kernel composition refusal unchanged, while a captured subscriber failure parks as `IsolatedFault` on the rail's `FaultCell`; `ContentAddress.Verify` routes `AddressUnstable` on a re-derived id drifting from its stored `NodeId`, the snapshot sweep accumulating every drift over `Validation<Error,Unit>`.
-- Receipt: recovery reads the typed leaf or numeric band owner; telemetry projects `Code` and its derived owner. Retryable provider refusals retain the owning package fault that classified them.
+- Output: recovery reads the typed leaf or numeric band owner; telemetry projects `Code` and its derived owner. Retryable provider refusals retain the owning package fault that classified them.
 - Packages: `Rasm` (`Fault`, `FaultBand`, `FaultCaseAttribute`, `Op`), Thinktecture.Runtime.Extensions (`[Union]`, generated validation), LanguageExt.Core (`Error`/`Fin`/`Validation`), NodaTime.
 - Growth: a genuinely new arm is one leaf with the next justified `[FaultCase]` ordinal; no parallel registry, category, factory, or string code is added.
 - Boundary: the typed leaf lifts bare; `.ToError()`, `Error.New(code, message)`, category mirrors, and compatibility factories are deleted forms. Foreign exceptions enter only through the capture funnel and retain their opaque message as evidence.
@@ -54,7 +54,6 @@ public abstract partial record ElementFault : Fault {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

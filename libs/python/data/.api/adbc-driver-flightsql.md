@@ -129,12 +129,12 @@ Owns the partition read-ahead queue, Substrait version, and per-statement overri
 - transport: TLS, mTLS (`MTLS_CERT_CHAIN`/`MTLS_PRIVATE_KEY`), hostname override, root certs, message-size cap, cookie middleware, and per-call fetch/query/update timeouts are `DatabaseOptions` rows; arbitrary headers attach through `RPC_CALL_HEADER_PREFIX` at the narrowest applicable scope.
 - auth: `OAUTH_FLOW` selects an `OAuthFlowType`; client-credentials keys client-id/secret/scope, token-exchange keys subject/actor/requested token URIs by `OAuthTokenType`, and `AUTHORIZATION_HEADER` carries a static bearer without a flow.
 - telemetry: inherits the manager's ADBC Go-driver OTel contract (`adbc-driver-manager.md` `[04]-[IMPLEMENTATION_LAW]`); the flightsql delta is dual OTLP exporters, gRPC and HTTP.
-- receipt: each connection captures the resolved URI, applied option keys, OAuth flow, partition and per-partition batch counts, and Arrow schema.
+- result: each connection exposes the resolved URI, applied option keys, OAuth flow, partition and per-partition batch counts, and Arrow schema.
 
 [STACKING]:
 - `adbc-driver-manager`(`.api/adbc-driver-manager.md`): the concrete driver delegates loading, the DBAPI surface (`Connection`/`Cursor`/`Error` tree, `AdbcStatusCode`), and Arrow delivery to the manager; this catalog adds only the Flight SQL option vocabulary and OAuth axes.
 - `arro3-core`(`.api/arro3-core.md`), `polars`: each partition `RecordBatchReader` exposes `__arrow_c_stream__`, feeding `arro3.core.RecordBatchReader.from_stream` or `polars.from_arrow` zero-copy; fan partitions across workers and collapse with one terminal `read_all`/`fetch_arrow_table`.
-- data partition owner: partition endpoints fan across workers and Arrow batches collapse to the partition receipt; dataframe materialization routes to `pyarrow`/`polars` and credential minting to the runtime owner.
+- data partition owner: partition endpoints fan across workers and Arrow batches collapse directly into the returned table; dataframe materialization routes to `pyarrow`/`polars` and credential minting to the runtime owner.
 
 [LOCAL_ADMISSION]:
 - Import `adbc_driver_flightsql`/`.dbapi` at boundary scope only.

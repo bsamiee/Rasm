@@ -2,7 +2,7 @@
 
 Rasm.Compute binds every performance-motivated route to a MEASURED claim: an admitted input class, a measured distribution, a typed profile artifact, and the host fingerprint the measurement ran under. A route binds only behind a winning claim whose full fingerprint and input class match, so a SIMD lane, a compression posture, a partition count, a DATAS value, or a numeric-provider rank is a measurement rather than an intuition.
 
-Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cache#BENCHMARK_INDEX` owner's — its horizon and clock close inside the index — and `HostFingerprint` is the `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` declaration this package composes through its legal reference. Claims fold onto the one `Runtime/receipts#RECEIPT_UNION` fact vocabulary and mint no receipt of their own.
+Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cache#BENCHMARK_INDEX` owner's — its horizon and clock close inside the index — and `HostFingerprint` is the `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` declaration this package composes through its legal reference.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,6 @@ Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cach
 - Owner: `PayloadBand` owns the closed payload-size band and each row's own ceiling; `BenchmarkPolarity` owns the closed optimization direction; `BenchDistribution` owns the six columns one benchmark run measures together and their ordering invariants; `BenchmarkInput` owns the admitted tensor shape, stride, batch, density, and band.
 - Entry: `BenchmarkInput.Validate` / `BenchmarkInput.Create` — the generated `[ComplexValueObject]` factory pair over the member-ordered arguments; `PayloadBand.Of(long)` classifies a payload size onto its row; `BenchDistribution.Validate` admits the measured distribution.
 - Auto: admission validates payload size, dtype, shape, strides, batch, and density in ONE accumulating pass, so a malformed input reports every offending column in one refusal; `Rank`, `Contiguous`, and `Band` derive from the admitted members and never travel as caller-supplied columns a caller could contradict.
-- Receipt: none — an input class is admission evidence; the sweep run that measures it emits `TensorRun`/`ModelRun` facts on the one `Runtime/receipts#RECEIPT_UNION` union.
 - Packages: Thinktecture.Runtime.Extensions, Generator.Equals (`[Equatable]` + `[IgnoreEquality]` — the input-class diff rail), LanguageExt.Core, NodaTime, Rasm.Element (project — the `Projection/fault#ADMISSION_SLOTS` accumulating slot algebra), BCL inbox
 - Growth: a new input dimension is one `BenchmarkInput` member with its own slot; a new payload band is one `PayloadBand` row carrying its ceiling; duration admits `BenchmarkPolarity.Minimize` while throughput and scores admit `Maximize`.
 - Law: admission ACCUMULATES. Every column here is an INDEPENDENT claim, so a malformed sweep row names all seven at once where the `+`-chained violation string it replaces reported them as an opaque comma list and the short-circuiting rail before that reported one. The slots are the seam's own `AdmissionSlots` algebra under its deferred-mint arity, so the refusal codes on Compute's `FaultBand.Core` row through Compute's own minter and this page declares no accumulator of its own.
@@ -134,12 +133,11 @@ public sealed partial class BenchmarkInput {
 ## [03]-[PROFILE_EVIDENCE]
 
 - Owner: `ProfileArtifact` — the ONE typed benchmark profile-evidence vocabulary, keyed by the content address the blob index mints.
-- Cases: `ChromeTrace` from the inference `EndProfiling` run, carrying the `InferenceSession.ProfilingStartTimeNs` epoch so a trace viewer aligns receipt-relative timestamps without re-opening the session · `BenchmarkExport` from a BenchmarkDotNet exporter, carrying the exporter key · `EpContext` from the session fleet compile, carrying the execution-provider key.
+- Cases: `ChromeTrace` from the inference `EndProfiling` run, carrying the `InferenceSession.ProfilingStartTimeNs` epoch so a trace viewer aligns run-relative timestamps without re-opening the session · `BenchmarkExport` from a BenchmarkDotNet exporter, carrying the exporter key · `EpContext` from the session fleet compile, carrying the execution-provider key.
 - Auto: artifacts — chrome-trace profiles, BenchmarkDotNet exports, EP-context caches — admit as content-keyed `ArtifactIndexRow`s on the blob lane and ride the claim as typed cases, each carrying the same `ContentAddress` the index row holds so evidence joins its blob in one hop.
-- Receipt: none of its own; a profiled run rides the `Runtime/receipts#RECEIPT_UNION` `ModelRun` case, whose `Profile` column carries this vocabulary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Element (project — `Projection/address#CONTENT_ADDRESS` `ContentAddress`), Rasm.Persistence (project), BCL inbox
 - Growth: a new profile source is one case row and one oneof arm at `[06]-[BENCHMARK_WIRE]`; zero new surface.
-- Boundary: identity is the `ContentAddress` the blob index mints, never the on-disk path, so a moved or re-materialized file cannot fork evidence. This vocabulary replaces the loose path-string columns on `ModelRun` and on any per-run artifacts list alike. Continuous profiles join by SPAN identity through the `Runtime/receipts#TELEMETRY_PROJECTION` trace-correlation law, never as a fourth artifact case.
+- Boundary: identity is the `ContentAddress` the blob index mints, never the on-disk path, so a moved or re-materialized file cannot fork evidence. This vocabulary replaces loose path-string columns on per-run artifact lists.
 
 ```csharp
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -165,7 +163,6 @@ public abstract partial record ProfileArtifact {
 - Owner: `BenchmarkClaim` — measured evidence bound to `BenchmarkFamily`, `CacheToken`, and `HostFingerprint`, carrying its own durable mint and its staleness read.
 - Entry: `BenchmarkClaim.Validate` / `BenchmarkClaim.Create` — the generated `[ComplexValueObject]` factory pair; `Persist()` delegates the durable mint to `BenchmarkFamily.Claim`, carrying operations, corpus, artifact key, timing, allocation, fingerprint, and timestamp without a parallel constructor; `Stale(HostFingerprint)` compares the effective fingerprint through the spine record's generated structural equality; `Sweep(Func<IO<Unit>>)` registers the equivalence cadence row on `WorkLane.Benchmark`.
 - Auto: `Key` includes the family, admitted case token, full input class, route, provider, polarity, and tolerance class, so claim admission refuses a zero-init case token — the struct value object's admission-bypassing ghost — beside the family check before identity forms. `Stale` includes the container-limited processor count `HostFingerprint.Effective` substitutes for the spine mint's ambient host count.
-- Receipt: every sweep run emits `TensorRun`/`ModelRun` receipts on the one `Runtime/receipts#RECEIPT_UNION` union beside the persisted row; the claim mints none of its own.
 - Packages: BenchmarkDotNet (the `Summary` graph the AppHost bench edge folds into the measured distribution and the `JsonExporter.Full` artifact this claim references by key), Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, Rasm.AppHost (project — the declared `HostFingerprint` this claim composes), Rasm.Element (project — the accumulating slot algebra), Rasm.Persistence (project — `BenchmarkFamily.Claim`, `BenchmarkRow`), BCL inbox
 - Growth: a new performance surface is one claim row; a new claim dimension is one `BenchmarkClaim` member with its own slot; a new host dimension lands on the AppHost declaration, never a Compute mirror.
 - Law: `ArtifactKey` is a PATH a run wrote, never a minted address. It carries the BenchmarkDotNet `ExporterBase.GetArtifactFullName(Summary)` string the AppHost bench edge resolves, spelled identically at `Rasm.Persistence` `Query/cache#BENCHMARK_INDEX` `BenchmarkRow.ArtifactKey` — three packages, one `Option<string>` column. The Compute object-plane address grammar (`Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Address`) and the `Rasm.Bim` `Energy/exchange#ENERGY_EXCHANGE` `ArtifactKey` value object both MINT a `<content-key:x32>:<kind>` address; this column mints nothing, which is the discriminant, and admitting it through either grammar would reject every export path a harness writes.
@@ -239,7 +236,6 @@ public sealed partial class BenchmarkClaim {
 - Owner: `HostClaims` — the two `HostFingerprint` members only this domain can decide, and the ONE duration-forecast query.
 - Entry: `public Option<BenchmarkRow> Claim(ModelResultIndex index, Seq<BenchmarkRow> rows)` delegates fingerprint and recency admission to the Persistence `ModelResultIndex.Claim` owner (its horizon and clock close inside the index; no call shape can omit or replace them), `None` being the fall-through to the static cost rank on the substrate row. `public Option<Duration> Forecast(ModelResultIndex index, Seq<BenchmarkClaim> claims, Substrate substrate, long payloadBytes)` is the ONE duration-forecast query — it narrows the claims to the substrate row and the payload band, hands the survivors' minted rows to that same `Claim` gate, and answers the winner's median; `Runtime/admission#SUBSTRATE_AXIS` `SelectionContext.Forecast` binds it and re-derives no half of it.
 - Auto: narrowing lands here because substrate and payload band live on the CLAIM — the durable row key carries family, case, and route alone — while fingerprint match and recency stay closed inside `ModelResultIndex.Claim`, so neither gate is re-implemented on the selection side. Claims whose mint refuses drop out rather than forecasting off a row persistence would never hold.
-- Receipt: none.
 - Packages: LanguageExt.Core, NodaTime, Rasm.AppHost (project — `HostFingerprint`, `CpuBudget`), Rasm.Persistence (project — `ModelResultIndex`, `BenchmarkRow`), BCL inbox
 - Growth: a further host-derived read that only this domain can decide is one extension member here; a further host DIMENSION lands on the AppHost declaration.
 - Boundary: `HostFingerprint` is DECLARED at `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` (the `libs/contracts/manifest.json` `HOST_FINGERPRINT` minter) and composed here through this package's legal reference. A Compute-side declaration would close the S1-to-S3 cycle the branch acyclicity law forbids, so the two members only this domain can decide land as extensions: the container-limited processor count and the Persistence index admission. Neither spelling can live at the spine — `CpuBudget` and `ModelResultIndex` never cross downward.
@@ -336,11 +332,3 @@ public static partial class ClaimWireMap {
     [UserMapping] private static BenchPolarity Polarity(BenchmarkPolarity polarity) => Enum.Parse<BenchPolarity>(polarity.Key, ignoreCase: true);
 }
 ```
-
-## [07]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

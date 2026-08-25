@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_SECTIONPROPERTIES]
 
-`sectionproperties` computes geometric, warping, plastic, and stress properties for an arbitrary 2D profile over a triangular FE mesh. It is the gated enrichment on the geometry ifc/structural rail, deriving the warping and plastic section receipts the closed-form spine (`ifcopenshell` profile geometry over numpy section integrals) cannot; the spine never depends on it. Card `geometry [STRUCTURAL_SECTION_PROPS_GATED] [BLOCKED]` tracks the deferred consumer.
+`sectionproperties` computes geometric, warping, plastic, and stress properties for an arbitrary 2D profile over a triangular FE mesh. It is the gated enrichment on the geometry ifc/structural rail, deriving the warping and plastic section properties the closed-form spine (`ifcopenshell` profile geometry over numpy section integrals) cannot; the spine never depends on it. Card `geometry [STRUCTURAL_SECTION_PROPS_GATED] [BLOCKED]` tracks the deferred consumer.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -31,8 +31,8 @@
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CAPABILITY]                                          |
 | :-----: | :----------------------- | :---------------- | :---------------------------------------------------- |
 |  [01]   | `analysis.Section`       | section solver    | geometric/warping/plastic property solver over a mesh |
-|  [02]   | `post.SectionProperties` | property receipt  | accumulated geometric/warping/plastic property fields |
-|  [03]   | `post.StressResult`      | stress receipt    | per-element stress arrays from a stress calculation   |
+|  [02]   | `post.SectionProperties` | property state    | accumulated geometric/warping/plastic property fields |
+|  [03]   | `post.StressResult`      | stress result     | per-element stress arrays from a stress calculation   |
 |  [04]   | `post.StressPost`        | stress aggregator | the stress-analysis result carrier from a load case   |
 
 ## [03]-[ENTRYPOINTS]
@@ -74,7 +74,7 @@ Build from points, a DXF, or a Rhino `.3dm`, register interior voids through the
 
 [ENTRYPOINT_SCOPE]: computed-property accessors (`Section.get_*`)
 
-Each `get_*` reads a scalar off the `post.SectionProperties` receipt after its owning calculate pass populates it.
+Each `get_*` reads a scalar off `post.SectionProperties` after its owning calculate pass populates it.
 
 - [GEOMETRIC]: `get_area` `get_perimeter` `get_mass` `get_ic` `get_z` `get_rc` `get_phi`
 - [WARPING]: `get_j` `get_sc` `get_sc_p` `get_sc_t` `get_as` `get_as_p` `get_gamma` `get_beta`
@@ -85,18 +85,18 @@ Each `get_*` reads a scalar off the `post.SectionProperties` receipt after its o
 
 [TOPOLOGY]:
 - geometry axis: `from_points`/`from_dxf`/`from_3dm` build a single region, `CompoundGeometry` assembles built-up sections, interior voids register through the `-` operator or `from_points(holes=...)`, and `create_mesh(mesh_sizes)` triangulates at a maximum-area bound — the mesh is the prerequisite for every `Section` calculation.
-- solver axis: `calculate_geometric_properties` is the prerequisite for `calculate_warping_properties` and `calculate_plastic_properties`; each populates the `post.SectionProperties` receipt read back through the `get_*` accessors, and `calculate_frame_properties` returns the reduced area/inertia/torsion tuple a frame analysis needs, bypassing the staged receipt.
+- solver axis: `calculate_geometric_properties` is the prerequisite for `calculate_warping_properties` and `calculate_plastic_properties`; each populates `post.SectionProperties` read back through the `get_*` accessors, and `calculate_frame_properties` returns the reduced area/inertia/torsion tuple a frame analysis needs without the staged property passes.
 - stress axis: `get_stress_at_points(pts, n, mxx, myy, ...)` evaluates stress at sample points under a normal-force/moment case once warping properties exist, and `calculate_stress(...)` runs the full-field pass returning a `post.StressPost` whose `StressResult` arrays hold the per-element fields.
 
 [STACKING]:
-- `ifcopenshell`(`.api/ifcopenshell.md`): the `IfcProfileDef` point ring read through `util.element` feeds `Geometry.from_points`, and the staged warping/plastic receipt writes back onto the structural member's property set through the `ifcopenshell.api.<module>.<action>` authoring dispatch.
+- `ifcopenshell`(`.api/ifcopenshell.md`): the `IfcProfileDef` point ring read through `util.element` feeds `Geometry.from_points`, and the staged warping/plastic properties write back onto the structural member's property set through the `ifcopenshell.api.<module>.<action>` authoring dispatch.
 - geometry `structural.py`: the section-integral owner over `IfcProfileDef` composes `sectionproperties` for the warping, plastic, and shear FE closed-form numpy integrals cannot derive, staging `calculate_geometric_properties` then `calculate_warping_properties`/`calculate_plastic_properties` over the `create_mesh` triangulation.
 
 [LOCAL_ADMISSION]:
-- A meshed `Geometry`/`CompoundGeometry` profile enriches an IFC structural member's section receipt, admitted as a gated enrichment by rail policy; the closed-form spine stays independent of it.
+- A meshed `Geometry`/`CompoundGeometry` profile enriches an IFC structural member's section result, admitted as a gated enrichment by rail policy; the closed-form spine stays independent of it.
 
 [RAIL_LAW]:
 - Package: `sectionproperties`
 - Owns: arbitrary-profile cross-section warping, plastic, shear, and stress properties over a triangular FE mesh, beyond closed-form section integrals
-- Accept: a meshed profile enriching an IFC structural member's section receipt
+- Accept: a meshed profile enriching an IFC structural member's section result
 - Reject: a hand-rolled warping/plastic/shear FE solve or torsion-constant integration where sectionproperties owns it; a closed-form-only section owner claiming warping or plastic properties

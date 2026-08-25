@@ -291,11 +291,3 @@ public static class TensorLayout {
         : Fin.Succ(unit);
 }
 ```
-
-## [03]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

@@ -1,8 +1,8 @@
 # [RASM_RHINO_ARCHIVE]
 
-`Archives.Apply` owns standalone `File3dm` admission, bounded materialization, detached graph and metadata projection, mutation, verification, and content-keyed egress. One archive lease contains every host handle, one closed request family discriminates every modality, and one receipt preserves result, native evidence, program extent, and mutation residue after release.
+`Archives.Apply` owns standalone `File3dm` admission, bounded materialization, detached graph and metadata projection, mutation, verification, and content-keyed egress. One archive lease contains every host handle, one closed request family discriminates every modality, and one `ArchiveOutcome` preserves result, native evidence, program extent, and mutation residue after release.
 
-The rail composes and never re-mints: `OutputPolicy.Land` is the folder's atomic staging kernel, `MutationPhase`/`MutationTrace` its residue ladder, `ExchangeFault` its refusal family, `WriteContent` its write-channel vocabulary, and `BatchProgram<ArchiveReceipt>` the ordered-row fold this page shares with the document exchange rail (all at `Exchange/operations`). `ExchangeEvidence` and its `MutationOutcome` seat HERE as the folder-wide detached evidence family both rails emit.
+The rail composes and never re-mints: `OutputPolicy.Land` is the folder's atomic staging kernel, `MutationPhase`/`MutationTrace` its residue ladder, `ExchangeFault` its refusal family, `WriteContent` its write-channel vocabulary, and `BatchProgram<ArchiveOutcome>` the ordered-row fold this page shares with the document exchange rail (all at `Exchange/operations`). `ExchangeEvidence` and its `MutationOutcome` seat HERE as the folder-wide detached evidence family both rails emit.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@ The rail composes and never re-mints: `OutputPolicy.Land` is the folder's atomic
 - Owner: `ArchiveSource` closes path and owned-byte ingress; `ArchiveSlice` carries each host filter as data; `MeshChannel` is the mesh-payload capability vocabulary; `ArchiveWritePolicy` admits the complete mesh-write matrix before projecting a fresh `File3dmWriteOptions`.
 - Law: byte ingress copies once into `ArchiveBytes`, so deferred execution never observes caller memory. Filtered reads remain path-only; byte requests retain the requested slice as degraded evidence while materializing the complete archive.
 - Law: `ArchiveSlice.Full` bypasses the filtered overload. Every filtered row composes only catalogued `TableTypeFilter` members, and `ObjectTypeFilter.Any` becomes relevant only when `ObjectTable` participates.
-- Law: mesh payload is a capability SET over `MeshChannel`, and each target declares the channels it CAN carry. The prior pair — a four-row `MeshPayload` enumerating the `(render, analysis)` product and a `SupportsRender` boolean on the target — spelled one two-element vocabulary as three declarations and five columns, and the compatibility check compared a payload row against a target flag rather than a set against a set. `MeshTarget.Channels` states the host fact directly (render meshes reach brep, extrusion, and SubD; analysis meshes extend to mesh), and an unsupported request refuses at construction. NAMED LOSS: the four named payload rows; bought back by `Channels.Wire`, which prints the requested channels a receipt can carry.
+- Law: mesh payload is a capability SET over `MeshChannel`, and each target declares the channels it CAN carry. The prior pair — a four-row `MeshPayload` enumerating the `(render, analysis)` product and a `SupportsRender` boolean on the target — spelled one two-element vocabulary as three declarations and five columns, and the compatibility check compared a payload row against a target flag rather than a set against a set. `MeshTarget.Channels` states the host fact directly (render meshes reach brep, extrusion, and SubD; analysis meshes extend to mesh), and an unsupported request refuses at construction. NAMED LOSS: the four named payload rows; bought back by `Channels.Wire`, which prints the requested channels an outcome can carry.
 - Law: write-policy admission completes the mesh matrix — an absent target takes its declared default row and a repeated target rejects — so `Host()` writes every target explicitly and native mesh defaults never leak. `Content` gates against `WriteContent.ArchiveAxes`, because the standalone writer carries only the user-data channel and a caller passing a texture or backup channel here learns so instead of watching it vanish.
 - Law: `FormatVersion.Of` is the ONE admission entry and `FormatVersion.Host` the one named sentinel. Zero names the WRITING host's own version, so the generated validator states the host-free floor without touching `RhinoApp` and `Of` applies the live ceiling at call time; a standalone archive program therefore admits a version outside any running host, and no policy spells the bare `0` literal a reader would take for "version zero". Every write receives a new native options instance.
 - Packages: `Domain/rails` (`Op`, `ContentHash`), `Domain/validation` (`CapabilitySet<T>`, `ICapability<T>`), `Rasm.Rhino.Document` (`DocumentPath`), `Exchange/operations` (`ExchangeFault`, `WriteContent`), RhinoCommon (`File3dm.TableTypeFilter`/`ObjectTypeFilter`, `File3dmWriteOptions.EnableRenderMeshes`/`EnableAnalysisMeshes`, `RhinoApp.ExeVersion`) per `.api/api-rhinocommon-fileio.md`.
@@ -592,11 +592,11 @@ public sealed record ArchiveMutation(ResourceNode Resource, Seq<ExchangeEvidence
 
 ## [05]-[TRANSACTION_RAIL]
 
-- Owner: `ArchiveOp` `[Union]` is the standalone request family. Extraction, amendment, and persistence each carry an `OutputPolicy` — the operations rail's one collision/directory/landing owner — so replace-versus-refuse, parent-directory minting, and bounded ordinal renaming are the same rows every Exchange egress obeys, never a second archive-local collision vocabulary. `ArchiveYield` carries detached result data and `ArchiveReceipt` the yield plus evidence.
-- Entry: `Archives.Apply(ArchiveSource, ArchiveOp, Op?) : Fin<ArchiveReceipt>` — no live document or session enters the archive scope.
-- Law: the ordered program is `BatchProgram<ArchiveReceipt>` (`Exchange/operations#[04]-[BATCH_PROGRAM]`), not a rail-local step union. `ArchiveStep`, `ArchiveProgram`, and the private `ArchiveFold` were the exchange rail's `ExchangeStep`/`ExchangeProgram`/`ProgramFold` written a second time — same ordinal column, same first-failure stop, same evidence concatenation, and two separately-maintained mutation-residue projections — so all six declarations collapse onto the shared owner and the archive rail contributes only its receipt. NAMED LOSS: `ArchiveProgram.Requested`/`Steps`/`StoppedAt`/`Completed`/`Failed` as archive-named members; every one survives on `BatchProgram<ArchiveReceipt>` under the same name.
-- Law: `ArchiveReceipt` REFUSES `FactStream<TSlot, TBody>` (`Document/facts#[04]-[STREAM]`) on TIMING, the discriminant that page's charter names. A fact stream accumulates slot-addressed consequences inside ONE commit and seals under the `UndoSerial` its envelope stamps; this rail opens no commit and holds no undo facility, because a standalone `File3dm` never enters a `RhinoDoc` — no envelope stamps it and no serial stands behind it. `ArchiveYield` therefore closes a detached RESULT family keyed on request modality rather than a slot vocabulary emitting bodies, and a slot-and-body pair minted here carries a commit-scoped undo column no archive operation ever fills. Residue rides `MutationOutcome` off the landing trace instead — the one mutation fact a filesystem-scoped rail observes.
-- Law: `ArchiveReceipt.Nested` is always absent because `BatchCase` refuses nesting at admission — a batch containing a batch is rejected before materialization, so the shared fold's nested-verdict arm has nothing to read here and states so rather than leaving the reader to infer it.
+- Owner: `ArchiveOp` `[Union]` is the standalone request family. Extraction, amendment, and persistence each carry an `OutputPolicy` — the operations rail's one collision/directory/landing owner — so replace-versus-refuse, parent-directory minting, and bounded ordinal renaming are the same rows every Exchange egress obeys, never a second archive-local collision vocabulary. `ArchiveYield` carries detached result data and `ArchiveOutcome` the yield plus evidence.
+- Entry: `Archives.Apply(ArchiveSource, ArchiveOp, Op?) : Fin<ArchiveOutcome>` — no live document or session enters the archive scope.
+- Law: the ordered program is `BatchProgram<ArchiveOutcome>` (`Exchange/operations#[04]-[BATCH_PROGRAM]`), not a rail-local step union. `ArchiveStep`, `ArchiveProgram`, and the private `ArchiveFold` were the exchange rail's `ExchangeStep`/`ExchangeProgram`/`ProgramFold` written a second time — same ordinal column, same first-failure stop, same evidence concatenation, and two separately-maintained mutation-residue projections — so all six declarations collapse onto the shared owner and the archive rail contributes only its outcome. NAMED LOSS: `ArchiveProgram.Requested`/`Steps`/`StoppedAt`/`Completed`/`Failed` as archive-named members; every one survives on `BatchProgram<ArchiveOutcome>` under the same name.
+- Law: `ArchiveOutcome` carries one detached `ArchiveYield` with filesystem mutation evidence observed at the landing boundary; standalone `File3dm` work owns no document session or undo serial.
+- Law: `ArchiveOutcome.Nested` is always absent because `BatchCase` refuses nesting at admission — a batch containing a batch is rejected before materialization, so the shared fold's nested-verdict arm has nothing to read here and states so rather than leaving the reader to infer it.
 - Law: `InspectCase` over a `PathCase` never constructs a `File3dm` — the static header reads (`ReadNotes`, `ReadArchiveVersion`, `ReadRevisionHistory`, `ReadApplicationData`, `ReadEarthAnchorPoint`, `ReadPageViews`, `ReadDimensionStyles`, `ReadPreviewImage`) answer from the file, and the batch dispatcher routes an inner inspect over a path source to the same static reads; only a `BytesCase` inspect projects the in-memory header with `ExchangeEvidence.DegradedCase`, so the yield shape never forks on ingress and the degraded row is emitted only where the layout roster is genuinely unreachable.
 - Law: `SerializeCase` keys the exact `ToByteArray(policy.Host())` payload it returns; `PersistCase` and `AmendCase` write and verify a same-directory temporary file, move it over the target, and key the bytes that were committed, so content identity names the landed artifact.
 - Law: every nonempty `ReadWithLog`, `WriteWithLog`, and `IsValidWithLog` diagnostic becomes `ExchangeEvidence.NativeCase` with the native call's outcome, and every refused native call becomes `ExchangeFault.HostRefused` carrying the same log — so a caller reads the host's own words on both the success and the refusal path. `ReadWithLog` names its filter parameter `tableTypeFilterFilter` in the host's own doubled spelling, preserved verbatim beside every other host misspelling this boundary binds — renaming it to the readable form breaks the compile rather than repairing anything.
@@ -675,35 +675,35 @@ public abstract partial record ArchiveYield {
     public sealed record PersistedCase(DocumentPath Target, UInt128 ContentKey) : ArchiveYield;
     public sealed record VerdictCase(ArchiveVerdict Verdict) : ArchiveYield;
     public sealed record DeltaCase(ArchiveDelta Delta) : ArchiveYield;
-    public sealed record ProgramCase(BatchProgram<ArchiveReceipt> Program) : ArchiveYield;
+    public sealed record ProgramCase(BatchProgram<ArchiveOutcome> Program) : ArchiveYield;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ArchiveReceipt(ArchiveYield Yield, Seq<ExchangeEvidence> Evidence)
+public sealed record ArchiveOutcome(ArchiveYield Yield, Seq<ExchangeEvidence> Evidence)
     : IDetachedDocumentResult, IBatchYield {
     public Option<BatchVerdict> Nested => None;
 
-    internal static ArchiveReceipt Of(ArchiveYield yield, Seq<ExchangeEvidence> evidence = default) =>
+    internal static ArchiveOutcome Of(ArchiveYield yield, Seq<ExchangeEvidence> evidence = default) =>
         new(Yield: yield, Evidence: evidence);
 
-    internal static ArchiveReceipt Program(BatchProgram<ArchiveReceipt> program, Seq<ExchangeEvidence> prelude = default) =>
+    internal static ArchiveOutcome Program(BatchProgram<ArchiveOutcome> program, Seq<ExchangeEvidence> prelude = default) =>
         new(Yield: new ArchiveYield.ProgramCase(Program: program), Evidence: prelude + program.Evidence);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Archives {
-    public static Fin<ArchiveReceipt> Apply(ArchiveSource source, ArchiveOp request, Op? key = null) {
+    public static Fin<ArchiveOutcome> Apply(ArchiveSource source, ArchiveOp request, Op? key = null) {
         Op op = key.OrDefault();
         return from ingress in op.Need(source).Bind(candidate => candidate.Admit(op: op))
                from operation in op.Need(request).Bind(candidate => candidate.Admit(op: op))
-               from receipt in operation switch {
+               from outcome in operation switch {
                    ArchiveOp.InspectCase when ingress is ArchiveSource.PathCase path => InspectPath(path: path.Path, op: op),
                    _ => Materialized(source: ingress, request: operation, op: op),
                }
-               select receipt;
+               select outcome;
     }
 
-    private static Fin<ArchiveReceipt> Materialized(ArchiveSource source, ArchiveOp request, Op op) {
+    private static Fin<ArchiveOutcome> Materialized(ArchiveSource source, ArchiveOp request, Op op) {
         ArchiveSlice slice = request is ArchiveOp.SnapshotCase snapshot ? snapshot.Slice : ArchiveSlice.Full;
         return Open(source: source, slice: slice, op: op).Bind(opened =>
             opened.Lease.Use(
@@ -747,7 +747,7 @@ public static class Archives {
                                  Detail: "Byte ingress admits only full reads; the slice filter is path-only."))
                              : Seq<ExchangeEvidence>()))));
 
-    private static Fin<ArchiveReceipt> Dispatch(
+    private static Fin<ArchiveOutcome> Dispatch(
         ArchiveSource source,
         File3dm archive,
         ArchiveOp request,
@@ -757,7 +757,7 @@ public static class Archives {
         request.Switch(
             (Source: source, Archive: archive, Evidence: evidence, Trace: trace, Op: op),
             snapshotCase: static (ctx, _) =>
-                Graph(archive: ctx.Archive, op: ctx.Op).Map(graph => ArchiveReceipt.Of(
+                Graph(archive: ctx.Archive, op: ctx.Op).Map(graph => ArchiveOutcome.Of(
                     yield: new ArchiveYield.GraphCase(Graph: graph),
                     evidence: ctx.Evidence + (graph.Nodes.IsEmpty
                         ? Seq<ExchangeEvidence>(new ExchangeEvidence.EmptyCase(Surface: nameof(ArchiveGraph)))
@@ -765,15 +765,15 @@ public static class Archives {
             inspectCase: static (ctx, _) => ctx.Source.Switch(
                 ctx,
                 pathCase: static (inner, source) => InspectPath(path: source.Path, op: inner.Op)
-                    .Map(receipt => receipt with { Evidence = inner.Evidence + receipt.Evidence }),
+                    .Map(outcome => outcome with { Evidence = inner.Evidence + outcome.Evidence }),
                 bytesCase: static (inner, _) => MetadataOf(archive: inner.Archive, op: inner.Op)
-                    .Map(receipt => receipt with { Evidence = inner.Evidence + receipt.Evidence })),
+                    .Map(outcome => outcome with { Evidence = inner.Evidence + outcome.Evidence })),
             extractCase: static (ctx, request) => Extract(
                 archive: ctx.Archive, folder: request.Folder, output: request.Output, trace: ctx.Trace, op: ctx.Op)
-                .Map(receipt => receipt with {
+                .Map(outcome => outcome with {
                     Evidence = ctx.Evidence
-                        + receipt.Evidence
-                        + (receipt.Yield is ArchiveYield.ExtractedCase { Files.IsEmpty: false }
+                        + outcome.Evidence
+                        + (outcome.Yield is ArchiveYield.ExtractedCase { Files.IsEmpty: false }
                             ? Committed(surface: nameof(ArchiveOp.ExtractCase))
                             : Seq<ExchangeEvidence>(new ExchangeEvidence.EmptyCase(Surface: nameof(ArchiveOp.ExtractCase)))),
                 }),
@@ -788,7 +788,7 @@ public static class Archives {
                     output: request.Output,
                     op: ctx.Op,
                     landing: Some(ctx.Trace))
-                select ArchiveReceipt.Of(
+                select ArchiveOutcome.Of(
                     yield: new ArchiveYield.AmendedCase(
                         Changed: changes.Map(static change => change.Resource),
                         Target: written.Target,
@@ -798,7 +798,7 @@ public static class Archives {
                         + Logged(written: written)),
             serializeCase: static (ctx, request) =>
                 ArchiveBytes(archive: ctx.Archive, policy: request.Policy, op: ctx.Op).Map(bytes =>
-                    ArchiveReceipt.Of(
+                    ArchiveOutcome.Of(
                         yield: new ArchiveYield.BytesCase(Bytes: bytes, ContentKey: ContentHash.Of(canonicalBytes: bytes)),
                         evidence: ctx.Evidence)),
             persistCase: static (ctx, request) =>
@@ -809,7 +809,7 @@ public static class Archives {
                     output: request.Output,
                     op: ctx.Op,
                     landing: Some(ctx.Trace))
-                select ArchiveReceipt.Of(
+                select ArchiveOutcome.Of(
                     yield: new ArchiveYield.PersistedCase(
                         Target: written.Target,
                         ContentKey: written.ContentKey),
@@ -821,11 +821,11 @@ public static class Archives {
                 from sourceBytes in ArchiveBytes(archive: ctx.Archive, policy: ArchiveWritePolicy.Current, op: ctx.Op)
                 from sourceGraph in Graph(archive: ctx.Archive, op: ctx.Op)
                 from other in Open(source: request.Other, slice: ArchiveSlice.Full, op: ctx.Op)
-                from receipt in other.Lease.Use(
+                from outcome in other.Lease.Use(
                     body: otherArchive =>
                         from otherBytes in ArchiveBytes(archive: otherArchive, policy: ArchiveWritePolicy.Current, op: ctx.Op)
                         from otherGraph in Graph(archive: otherArchive, op: ctx.Op)
-                        select ArchiveReceipt.Of(
+                        select ArchiveOutcome.Of(
                             yield: new ArchiveYield.DeltaCase(Delta: ArchiveDelta.Of(
                                 sourceKey: ContentHash.Of(canonicalBytes: sourceBytes),
                                 otherKey: ContentHash.Of(canonicalBytes: otherBytes),
@@ -833,9 +833,9 @@ public static class Archives {
                                 other: otherGraph)),
                             evidence: ctx.Evidence + other.Evidence),
                     key: ctx.Op)
-                select receipt,
-            batchCase: static (ctx, request) => Fin.Succ(value: ArchiveReceipt.Program(
-                program: BatchProgram<ArchiveReceipt>.Fold(
+                select outcome,
+            batchCase: static (ctx, request) => Fin.Succ(value: ArchiveOutcome.Program(
+                program: BatchProgram<ArchiveOutcome>.Fold(
                     rows: request.Program,
                     halt: ExchangeHalt.None,
                     posture: BatchPosture.Halting,
@@ -843,7 +843,7 @@ public static class Archives {
                         source: ctx.Source, archive: ctx.Archive, request: inner, index: index, op: ctx.Op)),
                 prelude: ctx.Evidence)));
 
-    private static BatchStep<ArchiveReceipt> Step(
+    private static BatchStep<ArchiveOutcome> Step(
         ArchiveSource source, File3dm archive, ArchiveOp request, int index, Op op) {
         MutationTrace trace = MutationTrace.Fresh();
         return Dispatch(
@@ -852,10 +852,10 @@ public static class Archives {
             request: request,
             evidence: Seq<ExchangeEvidence>(),
             trace: trace,
-            op: op).Match<BatchStep<ArchiveReceipt>>(
-                Succ: receipt => new BatchStep<ArchiveReceipt>.SucceededCase(
-                    Index: index, Mutation: trace.Phase, Receipt: receipt),
-                Fail: failure => new BatchStep<ArchiveReceipt>.FailedCase(
+            op: op).Match<BatchStep<ArchiveOutcome>>(
+                Succ: outcome => new BatchStep<ArchiveOutcome>.SucceededCase(
+                    Index: index, Mutation: trace.Phase, Outcome: outcome),
+                Fail: failure => new BatchStep<ArchiveOutcome>.FailedCase(
                     Index: index,
                     Mutation: trace.Phase,
                     Failure: failure,
@@ -930,21 +930,21 @@ public static class Archives {
         toSeq(values ?? Array.Empty<T>()).Fold(0, static (count, value) =>
             new Lease<T>.Owned(Value: value).Use(state: count, project: static (held, _) => held + 1));
 
-    private static Fin<ArchiveReceipt> InspectPath(DocumentPath path, Op op) =>
+    private static Fin<ArchiveOutcome> InspectPath(DocumentPath path, Op op) =>
         from anchor in op.Catch(() => {
             using EarthAnchorPoint? held = File3dm.ReadEarthAnchorPoint(path: path.Value);
             return Optional(held).Match(
                 Some: live => EarthAnchor.Located(anchor: live, op: op),
                 None: static () => Fin.Succ(Option<GeoPoint>.None));
         })
-        from receipt in op.Catch(() => {
+        from outcome in op.Catch(() => {
             bool hasRevision = File3dm.ReadRevisionHistory(
                 path: path.Value, createdBy: out string createdBy, lastEditedBy: out string lastEditedBy,
                 revision: out int revision, createdOn: out DateTime createdOn, lastEditedOn: out DateTime lastEditedOn);
             File3dm.ReadApplicationData(
                 path: path.Value, applicationName: out string appName,
                 applicationUrl: out string appUrl, applicationDetails: out string appDetails);
-            return Fin.Succ(value: ArchiveReceipt.Of(
+            return Fin.Succ(value: ArchiveOutcome.Of(
                 yield: new ArchiveYield.MetadataCase(Metadata: ArchiveMetadata.Of(
                     notes: () => ArchiveMetadata.Text(value: File3dm.ReadNotes(path: path.Value)),
                     archiveVersion: () => File3dm.ReadArchiveVersion(path: path.Value),
@@ -959,14 +959,14 @@ public static class Archives {
                     dimensionStyles: () => CountOwned(values: File3dm.ReadDimensionStyles(path: path.Value)),
                     preview: () => ArchiveMetadata.Previewed(bitmap: File3dm.ReadPreviewImage(path: path.Value))))));
         })
-        select receipt;
+        select outcome;
 
-    private static Fin<ArchiveReceipt> MetadataOf(File3dm archive, Op op) =>
+    private static Fin<ArchiveOutcome> MetadataOf(File3dm archive, Op op) =>
         from anchor in op.Catch(() => {
             using EarthAnchorPoint held = archive.EarthAnchorPoint;
             return EarthAnchor.Located(anchor: held, op: op);
         })
-        from receipt in op.Catch(() => Fin.Succ(value: ArchiveReceipt.Of(
+        from outcome in op.Catch(() => Fin.Succ(value: ArchiveOutcome.Of(
             yield: new ArchiveYield.MetadataCase(Metadata: ArchiveMetadata.Of(
                 notes: () => ArchiveMetadata.Text(value: archive.Notes.Notes),
                 archiveVersion: () => archive.ArchiveVersion,
@@ -982,9 +982,9 @@ public static class Archives {
             evidence: Seq<ExchangeEvidence>(new ExchangeEvidence.DegradedCase(
                 Surface: nameof(MetadataOf),
                 Detail: "Byte ingress projects the in-memory header; the layout roster is a path-only read.")))))
-        select receipt;
+        select outcome;
 
-    private static Fin<ArchiveReceipt> Verify(File3dm archive, Seq<ExchangeEvidence> evidence, Op op) =>
+    private static Fin<ArchiveOutcome> Verify(File3dm archive, Seq<ExchangeEvidence> evidence, Op op) =>
         Graph(archive: archive, op: op).Bind(graph => op.Catch(() => {
             Seq<(bool Valid, Option<ExchangeEvidence> Evidence)> checks = toSeq(archive.Objects).Map(entry => {
                 string subject = entry.Name ?? entry.Id.ToString();
@@ -1009,7 +1009,7 @@ public static class Archives {
                         Detail: $"{subject}: geometry unrealized (null native pointer)."))));
             });
             (Seq<ResourceLink> dangling, Seq<ResourceNode> orphans) = graph.Integrity();
-            return Fin.Succ(value: ArchiveReceipt.Of(
+            return Fin.Succ(value: ArchiveOutcome.Of(
                 yield: new ArchiveYield.VerdictCase(Verdict: new ArchiveVerdict(
                     InvalidObjects: checks.Count(static check => !check.Valid),
                     DanglingLinks: dangling.Count,
@@ -1020,7 +1020,7 @@ public static class Archives {
                     + orphans.Map(static node => (ExchangeEvidence)new ExchangeEvidence.OrphanCase(Node: node))));
         }));
 
-    private static Fin<ArchiveReceipt> Extract(
+    private static Fin<ArchiveOutcome> Extract(
         File3dm archive,
         DocumentPath folder,
         OutputPolicy output,
@@ -1041,7 +1041,7 @@ public static class Archives {
                        trace: trace,
                        op: op))
                    .As()
-               select ArchiveReceipt.Of(yield: new ArchiveYield.ExtractedCase(Files: landed));
+               select ArchiveOutcome.Of(yield: new ArchiveYield.ExtractedCase(Files: landed));
     });
 
     private static Fin<(string Name, DocumentPath Target, UInt128 ContentKey)> ExtractOne(
@@ -1181,7 +1181,7 @@ config:
 ---
 flowchart LR
     accTitle: Standalone Rhino archive transaction rail
-    accDescr: Archive source and request enter one route discriminator, static inspection bypasses materialization, every materialized arm folds detached values or a shared batch program into one receipt, and typed evidence traces the terminal.
+    accDescr: Archive source and request enter one route discriminator, static inspection bypasses materialization, every materialized arm folds detached values or a shared batch program into one outcome, and typed evidence traces the terminal.
     Source([ArchiveSource]) --> Entry[[Archives.Apply]]
     Request([ArchiveOp]) --> Entry
     Entry --> Route{Dispatch route?}
@@ -1191,20 +1191,19 @@ flowchart LR
     Dispatch -->|graph or metadata| Projection[Detached projection]
     Dispatch -->|verify| Integrity[QuikGraph container — dangling · orphans]
     Dispatch -->|bytes or write| Keyed[OutputPolicy.Land — verified bytes · content key]
-    Dispatch -->|batch| Program[BatchProgram of ArchiveReceipt]
-    Header --> Receipt
-    Projection --> Receipt[/ArchiveReceipt/]
-    Integrity --> Receipt
-    Keyed --> Receipt
-    Program --> Receipt
-    Evidence[(ExchangeEvidence · MutationOutcome)] -.->|trace| Receipt
+    Dispatch -->|batch| Program[BatchProgram of ArchiveOutcome]
+    Header --> Outcome
+    Projection --> Outcome[/ArchiveOutcome/]
+    Integrity --> Outcome
+    Keyed --> Outcome
+    Program --> Outcome
+    Evidence[(ExchangeEvidence · MutationOutcome)] -.->|trace| Outcome
 ```
 
 ## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

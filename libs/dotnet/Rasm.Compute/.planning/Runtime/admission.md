@@ -1,21 +1,21 @@
 # [COMPUTE_ADMISSION]
 
-Rasm.Compute admits every substrate-routed execution request through one `ComputeIntent` union under the spine-declared `Spec` policy record it adopts whole, routes it over one `Substrate` axis (cpu-tensor, device-wgpu, onnx, genai, remote-grpc) whose capability needs, browser exclusion, provider gates, cost ranks, payload caps, and load tie-breaks are row columns, and dispatches through generated total Switches — selection folds over row data, never an if-ladder, and every walk lands a `SelectionReceipt`. Each intent's eligible chain IS its degrade order (device->cpu->remote, onnx->remote, genai->remote), so a vetoed row degrades to the next without a parallel per-row fallback successor. This owner holds the intent vocabulary, the substrate axis, the direct `ComputeFault` family on `FaultBand.Core`, and the dispatch spine.
+Rasm.Compute admits every substrate-routed execution request through one `ComputeIntent` union under the spine-declared `Spec` policy record it adopts whole, routes it over one `Substrate` axis (cpu-tensor, device-wgpu, onnx, genai, remote-grpc) whose capability needs, browser exclusion, provider gates, cost ranks, payload caps, and load tie-breaks are row columns, and dispatches through generated total Switches — selection folds over row data, never an if-ladder, and every walk settles one `Selection`. Each intent's eligible chain IS its degrade order (device->cpu->remote, onnx->remote, genai->remote), so a vetoed row degrades to the next without a parallel per-row fallback successor. This owner holds the intent vocabulary, the substrate axis, the direct `ComputeFault` family on `FaultBand.Core`, and the dispatch spine.
 
-Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, `Stats/estimator` `Fit`, `Symbolic/expression` `Compile`, `Analysis/assessment` `Assess` — never re-entering this boundary; they rejoin the package only at the one `ComputeReceipt` union, the 2200-band `ComputeFault`, and the `Runtime/scheduling` `LaneRuntime`. Dispatch composes Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary — `Spec`, `WorkLane`, `DeadlineClass`, and `SubscriptionPolicy` among them, each declared at the spine and reached through this package's legal upward reference; `ComputeIntent` never crosses the other way, so the platform compiles INTO this rail and never names the union it targets.
+Discipline lanes own their own typed entry folds — `Solver/contract` `Solve`, `Stats/estimator` `Fit`, `Symbolic/expression` `Compile`, `Analysis/assessment` `Assess` — never re-entering this boundary; they rejoin the package only at the `ComputeOutput` family the dispatch spine settles, the 2200-band `ComputeFault`, and the `Runtime/scheduling` `LaneRuntime`. Dispatch composes Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled AppHost vocabulary — `Spec`, `WorkLane`, `DeadlineClass`, and `SubscriptionPolicy` among them, each declared at the spine and reached through this package's legal upward reference; `ComputeIntent` never crosses the other way, so the platform compiles INTO this rail and never names the union it targets.
 
 ## [01]-[INDEX]
 
 - [02]-[INTENT_FAMILY]: `ComputeIntent` closes the intent roster over the adopted `Spec` record and one boundary admission fold.
 - [03]-[SUBSTRATE_AXIS]: five substrate rows (incl. device-wgpu GPGPU); capability needs, browser exclusion, provider gates, ranks, caps, load as columns.
-- [04]-[DISPATCH_SPINE]: `ComputeFault` owns the direct `[FaultCase]` family over `FaultBand.Core`; `AssessmentInputReason` closes the analysis witness vocabulary; the ordered selection fold dispatches totally onto one selection receipt.
+- [04]-[DISPATCH_SPINE]: `ComputeFault` owns the direct `[FaultCase]` family over `FaultBand.Core`; `AssessmentInputReason` closes the analysis witness vocabulary; the ordered selection fold settles one `Selection` and `DispatchTable` runs it onto the one `ComputeOutput` family.
 
 ## [02]-[INTENT_FAMILY]
 
 - Owner: `ComputeIntent` `[Union]` cases; `AdmittedIntent` the evidence carrier whose private constructor makes `Admit` the only mint — the admission fold lives ON the carrier, so an unadmitted intent structurally cannot reach `Plan`, `Enqueue`, or `DispatchTable.Run`, which all take `AdmittedIntent`. `Spec` is NOT declared here: the request policy a capability descriptor answers at projection declares at `Rasm.AppHost` `Agent/capability#DESCRIPTOR_AXIS` and this fold adopts it WHOLE onto the carrier — one record, one seat, so the descriptor's declared posture and the value this admission gates on can never be two shapes that agree by convention.
 - Cases: TensorOp | ModelInfer | RemoteCall | UnitProject | SymbolicProject | SensorAdmit | Pipeline | Generate; the adopted `Spec` carries deadline row, lane row, allocation row, cache-policy row, payload caps, forced-substrate `Option`, progress-subscription `Option`, and one inseparable `(Allotted, Provenance)` override.
 - Entry: `public static Fin<AdmittedIntent> AdmittedIntent.Admit(ComputeIntent intent, Spec spec, CorrelationId correlation, CancelScope parent, ClockPolicy clocks)` — `Fin<T>` aborts; admission runs exactly once at the boundary and interiors never re-validate; the byte and element caps are independent gates, so `Bounded` accumulates both violations through the `Validation` applicative pair before `ToFin` widens once, and a shape's axes accumulate the same way so a rank-3 request with two bad axes names both — a first-fail gate that hides the second breach is the rejected form.
-- Auto: the intent digest derives from the operation symbol and payload bytes and feeds every selection receipt; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
+- Auto: the intent digest derives from the operation symbol and payload bytes and rides every `Selection`; the admitted `CancelScope` child binds the allotted deadline so expiry rides the linked token.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm (project), Rasm.AppHost (project), BCL inbox
 - Growth: one intent case breaks every total Switch at compile time; a new shared policy value lands as one column on the spine's `Spec` and reaches every fold here untouched; zero new surface.
 - Boundary: arity discriminates on the case payload shape — one value, a buffered span handle, or a stream handle — so name suffixes and mode flags never arise; payload spans admit at the edge into `ReadOnlyMemory<byte>` handles owned by the declared allocation row; `Budget` couples every deadline override to non-empty provenance and admission rejects non-positive durations; a pipeline shares one `Spec`, digest, deadline, scope, and correlation while `Projected` re-measures each child for substrate payload gates without minting new boundary evidence; the adopted `Spec` crosses DOWNWARD only — this owner reads its columns and never widens them, so a Compute-only policy axis is a column on a Compute shape rather than a field on the platform's request record; the intent's model field is the XxHash128 checksum, its rich identity record a model-lane concern; `Generate` carries that checksum, the prompt, and the model-lane `GenerationPolicy` (search options, guidance constraint, prompt-assembly inputs) so token streaming admits through the one fold like every intent — a separate remote generate request or a chat-client surface never arises; the boundary takes the one `ClockPolicy` record its AppHost owner declares rather than a hand-picked `(IClock, TimeProvider)` pair, because `CancelScope.Derive` reads that record and the derived deadline source, the semantic instant, and the kernel `MonotonicTimeline` — minted once off the provider at the app root — are three legs of one temporal fact that must not disagree; a raw provider mark/elapsed pair below the root is the deleted form, an admission-latency reading brackets through `ClockPolicy.Gauged` on its own `DeadlineClass` lane, and the semantic instant stays NodaTime's alone.
@@ -204,9 +204,9 @@ public sealed record AdmittedIntent {
 - Entry: `public Option<string> Veto(SelectionContext context)` — `Option<T>` carries the rejection reason, `None` admits; one derived body folds the browser-exclusion, capability-need, and provider-gate columns so the five rows share one veto and onnx/device/genai availability is the one `!Providers.Contains(Key)` shape, never five parallel delegates.
 - Auto: `EffectiveRank` reads the boot-frozen `BenchmarkRank` projection, falling through to the static cost rank on a host-fingerprint mismatch; `SelectionContext.Providers` arrives boot-frozen from the host probe — the ORT probe contributes `onnx` when the runtime reports an execution provider, the device boot `device-wgpu`, the GenAI dylib probe `genai`; warm-start affinity reorders the eligible chain so a cold companion routes to the node holding the matching EP-context blob, one column picking host-vs-companion-vs-farm exactly as it picks cpu-vs-onnx, never an `if (warm)` branch; `LoadRank` is the third tie-break key (rank -> warm-affinity -> load), reading per-node load from the AppHost `PeerRoster` health so the least-loaded of rank-equal-and-warm nodes wins; `Forecast` is the duration-forecast column the composition root binds to the one query owner, `Runtime/claims#CLAIM_ROW` `HostClaims.Forecast(index, claims, row, admitted.PayloadBytes)` — band by `BenchmarkClaim.BandOf`, substrate by row key, fingerprint and recency closed inside `ModelResultIndex.Claim` — so `DeadlineVeto` answers "can this finish inside its allotment" before dispatch and an unmeetable local row degrades down the same chain every other veto rides.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Microsoft.ML.OnnxRuntime, BCL inbox
-- Growth: one substrate row — key, capability need, browser exclusion, provider gate, rank, payload cap, sheddable flag — absorbs a new execution substrate; `device-wgpu` is exactly that one row (ordered before `cpu-tensor` in the tensor-op chain, sheddable, provider-gated on its `Providers` key), so the device thrust spawns no parallel device-state machine and no second `SelectionReceipt` — admission, dispatch, and receipt read device-ness from the same `OrtResidency.DeviceResident` discriminant the CPU path uses; warm-start affinity and `LoadRank` are columns the fold already reads, so farm load-and-offload needs no `FarmRouter`; zero new surface.
+- Growth: one substrate row — key, capability need, browser exclusion, provider gate, rank, payload cap, sheddable flag — absorbs a new execution substrate; `device-wgpu` is exactly that one row (ordered before `cpu-tensor` in the tensor-op chain, sheddable, provider-gated on its `Providers` key), so the device thrust spawns no parallel device-state machine and no second `Selection` — admission, dispatch, and result read device-ness from the same `OrtResidency.DeviceResident` discriminant the CPU path uses; warm-start affinity and `LoadRank` are columns the fold already reads, so farm load-and-offload needs no `FarmRouter`; zero new surface.
 - Boundary: wasm is a platform predicate column — `OperatingSystem.IsBrowser` excludes the onnx and device-wgpu rows while cpu-tensor and remote-grpc admit it, so a wasm substrate row never arises; the boot-frozen `Providers` set carries the available keys (`onnx` iff the ORT runtime reports an execution provider, `device-wgpu` iff the shared `ONE_WGPU_DEVICE` adapter resolves, `genai` iff the GenAI dylib loads), so those rows share the one `!Providers.Contains(Key)` gate and a differently-shaped set read never arises; each provider-gated row vetoes itself when its key is absent and a second health probe beside that gate is the named defect, so a device-unavailable tensor intent degrades to the CPU GEMM and a genai-unavailable token stream degrades remote — both through the same ordered `Chain` fold, the tensor chain ordering `device-wgpu` before `cpu-tensor` and the generate chain ordering `genai` before `remote-grpc` and never `cpu-tensor`, keeping the degrade total.
-- Boundary: `SubstrateSelection` consumes the one per-`WorkLane` `Admission` the AppHost `LaneGuard` mints from the atomic `DegradationReading` (the `Runtime/admission ← dotnet:Rasm.AppHost` `ONE_DEGRADATION_SHED_VERDICT` seam) — resolved once by the governor for the admitted `Spec.Lane` and carried on `SelectionContext.Shed` exactly as `DegradationLevel` rides `SelectionContext.Level`, so the seam couples to the `Admission` = `AdmittedCase(LaneReading)` | `ShedCase(LaneReading, ShedCause)` union and the interior switches on the case and reads `Reading.Lane`/`Reading.Level`, never the `DegradationCell` it derives from (governor interior stays AppHost-side); `Sheddable` marks the local-compute rows (cpu-tensor, device-wgpu), and `SelectionContext.ShedVeto` folds the lane-shed-AND-sheddable veto into the same `Routed` composition the `Veto`/`VetoPayload` rejections ride, carrying lane, level, and the refusal's own `ShedCause` into the hop reason (`shed:{Lane}:{Level}:{Cause}`) as receipt evidence, so a shed lane degrades a sheddable device op to `remote-grpc` or, when no row admits, reuses `SubstrateUnavailable` with the full hop trail — a device-only backpressure path, a whole-op short-circuit that discards the chain evidence, a bare-`bool` projection that drops the lane/level facts, and a Compute-side re-derivation of the shed all reject, the verdict minted once at the governor and consumed here as a column, never an `if (shed)` ladder.
+- Boundary: `SubstrateSelection` consumes the one per-`WorkLane` `Admission` the AppHost `LaneGuard` mints from the atomic `DegradationReading` (the `Runtime/admission ← dotnet:Rasm.AppHost` `ONE_DEGRADATION_SHED_VERDICT` seam) — resolved once by the governor for the admitted `Spec.Lane` and carried on `SelectionContext.Shed` exactly as `DegradationLevel` rides `SelectionContext.Level`, so the seam couples to the `Admission` = `AdmittedCase(LaneReading)` | `ShedCase(LaneReading, ShedCause)` union and the interior switches on the case and reads `Reading.Lane`/`Reading.Level`, never the `DegradationCell` it derives from (governor interior stays AppHost-side); `Sheddable` marks the local-compute rows (cpu-tensor, device-wgpu), and `SelectionContext.ShedVeto` folds the lane-shed-AND-sheddable veto into the same `Routed` composition the `Veto`/`VetoPayload` rejections ride, carrying lane, level, and the refusal's own `ShedCause` into the hop reason (`shed:{Lane}:{Level}:{Cause}`) on the `Selection` hop trail, so a shed lane degrades a sheddable device op to `remote-grpc` or, when no row admits, reuses `SubstrateUnavailable` with the full hop trail — a device-only backpressure path, a whole-op short-circuit that discards the chain evidence, a bare-`bool` projection that drops the lane/level facts, and a Compute-side re-derivation of the shed all reject, the verdict minted once at the governor and consumed here as a column, never an `if (shed)` ladder.
 - Boundary: the same device descriptor gates the ONNX Runtime Mac execution-provider residency so a model-lane device tensor and a tensor-lane device kernel resolve one allocator on one physical device; substrate predicates read the retained `Faculty` set so remote health rides the AppHost degradation fold — Rhino-absent folds to `DegradationLevel.LocalOnly` and the remote row vetoes through `Faculty.RemoteCompute`; the remote payload cap composes `GrpcChannelPolicy.Canonical.MaxSendBytes`, never a re-declared literal; warm-start affinity reorders only within the rank-equal tier (a tie-breaker, never a rank override) and `LoadRank` breaks ties only beneath affinity.
 - Boundary: the spine's `Spec` crosses its allocation, cache, and substrate posture as smart-enum KEYS because those three rosters are this package's, so `AdmittedIntent.Admit` is the one seat that decodes them — `Substrate.Admit` lifts the generated `TryGet` onto `Fin<Substrate>` for the forced selector and the one `Keyed<T>` rail lifts the static-abstract `IObjectFactory<T, string, ValidationError>.Validate` for the other two — and the resolved rows ride the admitted intent, so a reader taking `Spec.Allocation`/`Spec.Cache`/`Spec.Forced` as a typed value is the deleted form that re-decodes a key admission already refused.
 
@@ -287,7 +287,7 @@ public sealed partial class Substrate {
 
 ## [04]-[DISPATCH_SPINE]
 
-- Owner: `ComputeFault` is the partial direct family on `FaultBand.Core`; every leaf declares one `[FaultCase]` ordinal. `AssessmentInputReason`, `SelectionHop`, `SelectionReceipt`, `SubstrateSelection`, and `DispatchTable` retain their existing ownership.
+- Owner: `ComputeFault` is the partial direct family on `FaultBand.Core`; every leaf declares one `[FaultCase]` ordinal. `AssessmentInputReason`, `SelectionHop`, `Selection`, `SubstrateSelection`, `ComputeOutput`, and `DispatchTable` retain their existing ownership — `ComputeOutput` is the closed result family of the intent family, one case per `ComputeIntent` case carrying that lane's own typed value.
 - Cases: `Violation` replaces the generic text/shape/range/capacity family with typed evidence; the remaining runtime, symbolic, analysis, scheduling, model, ingest, and tensor leaves extend the same partial family at their raising fence.
 - Law: the generated numeric `Code` is the sole case identity. No category roster, mirrored band map, string case key, or offset arithmetic exists, and `Runtime/wire#FAULT_PROJECTION` transports that numeric identity directly.
 - Law: `FaultBand.Core` is 2200/30 and offsets 0..29 are contiguous; widening the family requires widening the kernel band first.
@@ -295,12 +295,11 @@ public sealed partial class Substrate {
 - Law: intent-specific eligibility owns fallback MEMBERSHIP and row policy owns ORDERING inside that closed set — the unit, symbolic, and decoded-sensor cases ride the local chain alone because shipping one measurement to a farm costs more than the fold it asks for, while the tensor, model, and generate chains open on their accelerated row and close on `remote-grpc`.
 - Law: the 2216 `AssessmentInputMissing` arm carries an `AssessmentInputReason` row beside its witness detail — a caller recovers on the reason and the detail carries only the ply, route, sensor, or share the reason names, so the twenty-six free-form stems the analysis lane once spelled stop being a grammar a consumer parses.
 - Law: `FaultBand.Items` is the one band authority; Compute declares no mirror.
-- Entry: `public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context)` — `Fin<T>` aborts; the pipeline case folds its stages sequentially with short-circuit and the stage receipts share the parent correlation and digest.
-- Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union, so a farm hop proves itself on the same receipt rail every other hop rides; the composition root threads the `Runtime/board#HOOK_POINTS` `ComputeHookRail` around this spine — `Planned` runs the `rasm.compute.runtime.admit` veto fold over the `AdmittedIntent` before `Plan` so an app-composed policy gate transforms or refuses on the emitter's own rail, and `Ran` fires the `rasm.compute.runtime.dispatch` observe tap with the `SelectionReceipt` before `DispatchTable.Run` — domain code fires evidence, subscribers attach at composition, and a subscriber fault lands on the AppHost hook fault band, never on this spine.
-- Receipt: `SelectionReceipt` — correlation, digest, route, hop evidence, forced `Option`, warm-affinity flag, `Instant` stamp.
+- Entry: `public static Fin<Seq<Selection>> Plan(AdmittedIntent admitted, SelectionContext context)` — `Fin<T>` aborts; the pipeline case folds its stages sequentially with short-circuit and the stage selections share the parent correlation and digest. `DispatchTable.Run(Selection selection, AdmittedIntent admitted)` — `IO<Fin<ComputeOutput>>`, the selected substrate arm's own settled value.
+- Auto: every selection walk settles one `Selection` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, and final route — which `DispatchTable.Run` consumes directly.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project), BCL inbox
 - Growth: one fault arm costs one typed leaf and one justified `[FaultCase]` ordinal after the band has capacity; one new substrate row costs one delegate field on `DispatchTable` and the generated row Switch breaks until it exists.
-- Boundary: every fault case projects through the remote-lane FaultDetail wire family at the server edge, never a bare status-code-plus-string terminal; cancellation classifies in one conversion arm from `CancelScope` provenance and the deadline instant so user cancel, deadline expiry, and shutdown drain stay distinct, drain-derived scopes carrying `RuntimePhase.Draining.Key` as a provenance segment; a detected second retry owner raises RetryOwnerConflict toward the Conflict receipt — the AppHost keyed Polly hop owns retry, stacking never occurs here; forced substrate replaces the ordered preference chain but still rides every capability, shed, payload, and deadline veto, so policy cannot bypass safety; dispatch delegates bind at composition through `DispatchTable` because execution capsules carry runtime state no static row column owns; substrate ranking chooses the execution family only — `Runtime/channels#TRANSPORT_AXIS` owns endpoint selection inside `remote-grpc`, and substrate-keyed load or affinity never claims node-level farm routing.
+- Boundary: every fault case projects through the remote-lane FaultDetail wire family at the server edge, never a bare status-code-plus-string terminal; cancellation classifies in one conversion arm from `CancelScope` provenance and the deadline instant so user cancel, deadline expiry, and shutdown drain stay distinct, drain-derived scopes carrying `RuntimePhase.Draining.Key` as a provenance segment; a detected second retry owner raises `RetryOwnerConflict` on the rail — the AppHost keyed Polly hop owns retry, stacking never occurs here; forced substrate replaces the ordered preference chain but still rides every capability, shed, payload, and deadline veto, so policy cannot bypass safety; dispatch delegates bind at composition through `DispatchTable` because execution capsules carry runtime state no static row column owns; substrate ranking chooses the execution family only — `Runtime/channels#TRANSPORT_AXIS` owns endpoint selection inside `remote-grpc`, and substrate-keyed load or affinity never claims node-level farm routing.
 
 ```csharp
 public static class Refusal {
@@ -508,7 +507,7 @@ public abstract partial record ComputeFault : Fault {
 
 public readonly record struct SelectionHop(Substrate Row, Option<string> Rejection);
 
-public sealed record SelectionReceipt(
+public sealed record Selection(
     CorrelationId Correlation,
     UInt128 Digest,
     Substrate Route,
@@ -536,13 +535,13 @@ public static class SubstrateSelection {
             sensorAdmit: LocalChain,
             pipeline: NoChain);
 
-    public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context) =>
+    public static Fin<Seq<Selection>> Plan(AdmittedIntent admitted, SelectionContext context) =>
         admitted.Intent is ComputeIntent.Pipeline line
             ? line.Stages.TraverseM(stage => admitted.Projected(stage).Bind(projected => Plan(projected, context))).As()
-                .Map(static nested => nested.Fold(Seq<SelectionReceipt>(), static (acc, stage) => acc + stage))
-            : Select(admitted, context).Map(static receipt => Seq(receipt));
+                .Map(static nested => nested.Fold(Seq<Selection>(), static (acc, stage) => acc + stage))
+            : Select(admitted, context).Map(static selection => Seq(selection));
 
-    public static Fin<SelectionReceipt> Select(AdmittedIntent admitted, SelectionContext context) =>
+    public static Fin<Selection> Select(AdmittedIntent admitted, SelectionContext context) =>
         Routed(
             admitted,
             context,
@@ -552,26 +551,26 @@ public static class SubstrateSelection {
     private static Seq<Substrate> Chain(Seq<Substrate> eligible, SelectionContext context) =>
         toSeq(eligible.OrderBy(context.EffectiveRank).ThenBy(context.AffinityRank).ThenBy(context.LoadRank));
 
-    private static Fin<SelectionReceipt> Routed(
+    private static Fin<Selection> Routed(
         AdmittedIntent admitted,
         SelectionContext context,
         Seq<Substrate> chain,
         Option<Substrate> forced) =>
-        Receipted(admitted, context, forced, chain.Fold(
+        Settled(admitted, context, forced, chain.Fold(
             (Route: Option<Substrate>.None, Hops: Seq<SelectionHop>()),
             (acc, row) => acc.Route.IsSome ? acc
                 : (row.Veto(context) | context.ShedVeto(row) | row.VetoPayload(admitted.PayloadBytes) | context.DeadlineVeto(row, admitted)) is { IsSome: true, Case: string reason }
                     ? (acc.Route, acc.Hops.Add(new SelectionHop(row, Some(reason))))
                     : (Some(row), acc.Hops.Add(new SelectionHop(row, None)))));
 
-    private static Fin<SelectionReceipt> Receipted(
+    private static Fin<Selection> Settled(
         AdmittedIntent admitted,
         SelectionContext context,
         Option<Substrate> forced,
         (Option<Substrate> Route, Seq<SelectionHop> Hops) walked) =>
         walked.Route
             .ToFin(new ComputeFault.SubstrateUnavailable($"<substrate-chain-exhausted:{string.Join(',', walked.Hops.Map(static hop => hop.Row.Key))}>"))
-            .Map(route => new SelectionReceipt(
+            .Map(route => new Selection(
                 admitted.Correlation,
                 admitted.Digest,
                 route,
@@ -581,13 +580,34 @@ public static class SubstrateSelection {
                 context.Clock.GetCurrentInstant()));
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ComputeOutput {
+    private ComputeOutput() { }
+
+    public sealed record Tensor(DeviceBuffer Buffer) : ComputeOutput;
+
+    public sealed record Model(ReadOnlyMemory<byte> Value) : ComputeOutput;
+
+    public sealed record Remote(RemoteReply Reply) : ComputeOutput;
+
+    public sealed record Converted(double Value) : ComputeOutput;
+
+    public sealed record Evaluated(double Value) : ComputeOutput;
+
+    public sealed record Sensor(TwinVerdict Verdict) : ComputeOutput;
+
+    public sealed record Pipeline(Seq<ComputeOutput> Stages) : ComputeOutput;
+
+    public sealed record Generated(GenerationOutcome Outcome) : ComputeOutput;
+}
+
 public sealed record DispatchTable(
-    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> CpuTensor,
-    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> DeviceWgpu,
-    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> Onnx,
-    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> GenAi,
-    Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> RemoteGrpc) {
-    public IO<Fin<ComputeReceipt>> Run(SelectionReceipt selection, AdmittedIntent admitted) =>
+    Func<AdmittedIntent, IO<Fin<ComputeOutput>>> CpuTensor,
+    Func<AdmittedIntent, IO<Fin<ComputeOutput>>> DeviceWgpu,
+    Func<AdmittedIntent, IO<Fin<ComputeOutput>>> Onnx,
+    Func<AdmittedIntent, IO<Fin<ComputeOutput>>> GenAi,
+    Func<AdmittedIntent, IO<Fin<ComputeOutput>>> RemoteGrpc) {
+    public IO<Fin<ComputeOutput>> Run(Selection selection, AdmittedIntent admitted) =>
         selection.Route.Switch(
             state: (Table: this, Work: admitted),
             cpuTensor: static s => s.Table.CpuTensor(s.Work),
@@ -608,22 +628,13 @@ config:
 ---
 flowchart LR
     accTitle: Compute intent admission and substrate selection
-    accDescr: Admitted intents plan through the hook rail into a substrate selection, and every bound refusal rails a compute fault.
+    accDescr: Admitted intents plan into a substrate selection, and every bound refusal rails a compute fault.
     ComputeIntent -- Admit --> AdmittedIntent
     AdmittedIntent -- PayloadOverBounds --> ComputeFault
-    AdmittedIntent -- Planned --> ComputeHookRail
-    ComputeHookRail -- Plan --> SubstrateSelection
+    AdmittedIntent -- Plan --> SubstrateSelection
     Substrate -- Veto --> SubstrateSelection
     SubstrateSelection -- SubstrateUnavailable --> ComputeFault
-    SubstrateSelection -- Select --> SelectionReceipt
-    SelectionReceipt -- Ran --> ComputeHookRail
-    SelectionReceipt -- Run --> DispatchTable
+    SubstrateSelection -- Select --> Selection
+    Selection -- Run --> DispatchTable
+    DispatchTable -- Settle --> ComputeOutput
 ```
-
-## [05]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

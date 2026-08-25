@@ -106,7 +106,7 @@
 - warp axis: `reproject`/`reproject_match` own grid transformation; `resampling` is a `rasterio.enums.Resampling` row and `resolution`/`shape`/`transform` pick the target grid, never a hand-rolled GDAL warp.
 - clip axis: `clip` (geometry) and `clip_box` (bounds) are the masking rows; `all_touched`/`drop`/`invert`/`from_disk` are call flags, and an empty result surfaces `NoDataInBounds`, never a silent empty array.
 - merge axis: `merge_arrays`/`merge_datasets` mosaic tile sequences with `bounds`/`res`/`nodata`/`method` rows, never a manual concat-and-align.
-- evidence: each read/write captures CRS, affine transform, resolution, bounds, shape, dtype, nodata, and driver as a geospatial receipt.
+- evidence: the canonical geospatial result retains CRS, affine transform, resolution, bounds, shape, dtype, nodata, and driver when callers require them.
 - boundary: rioxarray owns the rasterio/GDAL-to-xarray raster seam; vector geometry routes to `shapely`/`geopandas`, CRS algebra to `pyproj`, STAC discovery to `pystac`/`pystac-client`, and band-level IO to `rasterio` when no xarray labeling is needed.
 
 [STACKING]:

@@ -5,12 +5,12 @@
 ## [01]-[ROUTER]
 
 [OBSERVABILITY]:
-- [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, counted ring, cost evidence, scope axis, contributor port.
+- [01]-[OBSERVE](.planning/observability/observe.md): `measured` span weave, `Drained` drain taxonomy, `Cost` bracket, scope axis, and redaction.
 - [02]-[LOGGING](.planning/observability/logging.md): Structlog pipeline chain, OTLP wire projection, `LogShip` egress, and the terminal doors.
 - [03]-[METRICS](.planning/observability/metrics.md): Metric spine: `INSTRUMENTS` census, `MEASURES` admission, views, occupancy, and the train.
 - [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry — modality family, `StageMark` payload, attachment custody, tap rows.
-- [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job message envelope.
-- [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner and native local conformance receipt.
+- [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, `Benchmark` measurement and grading, and the offline-job envelope.
+- [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner and the local `Conformance` projection.
 - [07]-[BUNDLE](.planning/observability/bundle.md): Support-bundle capsule — fenced collectors, content-keyed archive, and the diagnostic route.
 - [08]-[JOURNAL](.planning/observability/journal.md): Durable fact stream, retention classes, exact-decimal rating, and crypto-shredded erasure.
 

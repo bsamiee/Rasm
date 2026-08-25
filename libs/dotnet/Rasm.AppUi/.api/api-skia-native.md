@@ -64,5 +64,5 @@
 [RAIL_LAW]:
 - Package: `SkiaSharp.NativeAssets.macOS`, `SkiaSharp.NativeAssets.Linux.NoDependencies`
 - Owns: the per-platform native Skia load identity, the buildTransitive copy targets, and per-RID output-asset presence
-- Accept: the native arrives through the package `runtimes/<rid>/native` payload and the RID-asset/targets copy; its load is part of the raster evidence a capture receipt reproduces per platform
+- Accept: the native arrives through the package `runtimes/<rid>/native` payload and the RID-asset/targets copy; its load is part of the raster evidence each capture reproduces per platform
 - Reject: dual Linux `libSkiaSharp.so` payloads, a runtime system-fontconfig dependency, or documenting a native asset as a public managed type — managed API facts stay in `api-skiasharp.md`

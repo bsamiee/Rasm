@@ -45,7 +45,7 @@
 |  [06]   | `instrumentation.PrometheusOnRetryHook` | `RetryHookFactory` | Prometheus `stamina_retries_total` counter increment              |
 
 [PUBLIC_TYPE_SCOPE]: `RetryDetails` fields
-- Every hook reads one `RetryDetails`; each field maps onto a receipt slot un-re-derived.
+- Every hook reads one `RetryDetails`; each field maps onto a span attribute or line field un-re-derived.
 
 | [INDEX] | [FIELD]         | [TYPE]               | [MEANING]                                             |
 | :-----: | :-------------- | :------------------- | :---------------------------------------------------- |
@@ -95,7 +95,7 @@
 [STACKING]:
 - `structlog`(`.api/structlog.md`) + `opentelemetry-api`(`.api/opentelemetry-api.md`): `set_on_retry_hooks((StructlogOnRetryHook, PrometheusOnRetryHook))` routes each on-retry signal into the structlog `stamina` bound-logger warning and the `stamina_retries_total` counter in one registration; a `RetryHook` returning an `AbstractContextManager[None]` opens a `start_as_current_span` child span around the scheduled wait, so every retry is one span carrying `RetryDetails`.
 - `trio`(`.api/trio.md`) / `anyio`(`.api/anyio.md`): async `retry_context`/`AsyncRetryingCaller` sniffio-detect the running loop and sleep through the matching `trio.sleep`/`anyio.sleep` checkpoint, so an enclosing `move_on_after`/`fail_after` preempts a retry storm and a `Cancelled` cuts the wait.
-- runtime receipt owner: `RetryDetails` maps field-for-field onto the receipt fact stream — `caused_by`/`retry_num`/`wait_for`/`waited_so_far` are recorded slots the receipt owner consumes, never re-derived.
+- runtime resilience owner: `RetryDetails` maps field-for-field onto the retry span and the `StructlogOnRetryHook` line — `caused_by`/`retry_num`/`wait_for`/`waited_so_far` are recorded slots the hook stack consumes, never re-derived.
 
 [LOCAL_ADMISSION]:
 - Every fallible I/O boundary in the lane and transport surfaces composes `retry`/`retry_context`; no sibling stands up a second retry loop.

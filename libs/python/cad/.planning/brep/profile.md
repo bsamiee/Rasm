@@ -79,7 +79,7 @@ def wire(loop: ProfileLoop, basis: Basis, /) -> CadRail[TopoDS_Wire]:
 - Owner: `face` — one `ProfileRegion` lowered to one oriented `TopoDS_Face` carrying its own holes.
 - Law: `_faced` takes the outer loop and the hole run as separate arguments, so an empty wire set is unrepresentable at construction rather than guarded at every use.
 - Law: the wire's required `ProfileRegion.outer` is that proof, and the deleted `profile.wires.empty` refusal loses no reachable state.
-- Law: `ShapeFix_Face.FixOrientation` repairs boundary orientation alone, because a wider repair pass rewrites the geometry the kernel receipt attests and the mesh reconciliation then compares two different bodies.
+- Law: `ShapeFix_Face.FixOrientation` repairs boundary orientation alone, because a wider repair pass rewrites the geometry the kernel measure attests and the mesh reconciliation then compares two different bodies.
 - Law: the shape-half probe at `placement#ADMISSION` gates the repaired face, so an invalid region refuses here, never reaches a solid builder, and re-rows to `BREP_INPUT` because a bad region is caller material rather than a kernel output defect.
 - Exemption: the face builder accumulates its holes by statement, the platform-forced seam every OCCT `Make*` owner carries.
 - Boundary: offsetting a finished face and rebuilding its areas belong to `[04]-[OFFSET]`.
@@ -172,6 +172,4 @@ def faces(section: PlacedProfile, /) -> CadRail[tuple[TopoDS_Face, ...]]:
 
 ## [05]-[RESEARCH]
 
-- [OFFSET_JOIN]-[OPEN]: which admitted profile families do `GeomAbs_Tangent` and `GeomAbs_Intersection` close over; drive each join across the line, arc, and spline loop corpus and gate on `BOPAlgo_BuilderFace` area validity.
-- [OFFSET_SPLIT]-[OPEN]: does `BRepOffsetAPI_MakeOffset` accept independent outer and hole distances on one face, or does a split offset need one call per loop; probe the face and wire overloads.
-- [FACE_MEMBERS]-[OPEN]: does the catalogue carry `BOPAlgo_BuilderFace.Perform`/`HasErrors` and `BRepBuilderAPI_MakeFace.Add`/`Build`/`Face`; census the installed `OCP` rail and land the rows.
+(none)

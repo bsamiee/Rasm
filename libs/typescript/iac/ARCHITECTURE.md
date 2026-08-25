@@ -1,6 +1,6 @@
 # [TS_IAC_ARCHITECTURE]
 
-`iac` owns the plane-distinct deploy package outside the runtime graph: sub-domains `program`, `operate`, and `kube` meet through one `StackSpec` value, one arm-keyed dispatch, one backend projection, and one Automation-API ledger. Every runtime alignment is a mirrored deploy fact, never an import the runtime carries.
+`iac` owns the plane-distinct deploy package outside the runtime graph: sub-domains `program`, `operate`, and `kube` meet through one `StackSpec` value, one arm-keyed dispatch, one backend projection, and Pulumi's native lifecycle results. Every runtime alignment is a mirrored deploy fact, never an import the runtime carries.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -15,7 +15,7 @@ iac/
     ├── operate/          # Secrets, observability, policy, backend convergence, and hosted control plane
     │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
     │   ├── observe.ts    # _SOURCES and residence row families, the _PACKS ingest arm, and the realized-backend projection seam
-    │   ├── policy.ts     # Evidence sink spine and the guard-pack row set asserting estate-authored resources
+    │   ├── policy.ts     # Native PreviewResult drift sweep and the guard-pack row set asserting estate-authored resources
     │   ├── converge.ts   # Backend proof fold and the atomic active-generation pointer write
     │   └── cloud.ts      # EscApi rail, the twin resource set, and the one-clock seating constraint
     └── kube/             # K8s estate Tier classes realized on either plane
@@ -61,7 +61,7 @@ flowchart TB
     Spec e1@-->|"[IMPORT]: DeployFault"| Automation
     Spec e2@-.->|"[COUNTER]: StackSpec"| Automation
     Operate e3@-->|"[IMPORT]: Tier"| Spec
-    Operate e4@-->|"[IMPORT]: RunReceipt"| Automation
+    Operate e4@-->|"[IMPORT]: Automation · DeployFault"| Automation
     Source e5@-->|"[IMPORT]: Tier"| Spec
     Kube e6@-->|"[IMPORT]: Tier"| Spec
     Traffic e7@-->|"[IMPORT]: Tier"| Spec
@@ -151,7 +151,7 @@ flowchart LR
 
 One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn`, so a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, beside the docker machine estate at container depth.
 
-Growth is one row on the owning surface (a cloud, capability, credential, tenancy `Tier`, or injected env fact), so promoting a metal cluster to a managed estate is one provider seam swap and finalizing a cloud is a spec value, never a lib edit. Deploy and drift evidence share one receipt vocabulary, so drift stays pure projection and cannot fork.
+Growth is one row on the owning surface (a cloud, capability, credential, tenancy `Tier`, or injected env fact), so promoting a metal cluster to a managed estate is one provider seam swap and finalizing a cloud is a spec value, never a lib edit. Automation returns Pulumi lifecycle results directly, and drift reads `PreviewResult.changeSummary`.
 
 ## [05]-[BOUNDARIES]
 

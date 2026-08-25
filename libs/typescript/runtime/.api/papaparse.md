@@ -35,7 +35,7 @@
 |  [01]   | `ParseResult<T>`     | interface     | `{ data: T[], errors, meta }` — sync return and `complete` payload     |
 |  [02]   | `ParseStepResult<T>` | interface     | `{ data: T, errors, meta }` — one row per `step`/`chunk`               |
 |  [03]   | `ParseError`         | interface     | `{ type, code, message, row?, index? }`; accumulated, never thrown     |
-|  [04]   | `ParseMeta`          | interface     | parse-evidence receipt; fields below                                   |
+|  [04]   | `ParseMeta`          | interface     | parse metadata; fields below                                           |
 |  [05]   | `Parser`             | class         | streaming-control handle passed into `step`/`chunk`                    |
 |  [06]   | `LocalFile`          | type          | `File \| NodeJS.ReadableStream`; only the stream arm is Node-reachable |
 
@@ -87,6 +87,6 @@
 
 [RAIL_LAW]:
 - Package: `papaparse` (+ `@types/papaparse`)
-- Owns: RFC 4180 CSV decode/encode — the polymorphic `parse`, `unparse` with formula-injection defense, the `Parser` streaming-control handle, the `ParseError` code union, the `ParseMeta` receipt, and the `NODE_STREAM_INPUT` Node-`Duplex` rail; the CSV arm of the report output-format policy that `exceljs.csv` defers to
+- Owns: RFC 4180 CSV decode/encode — the polymorphic `parse`, `unparse` with formula-injection defense, the `Parser` streaming-control handle, the `ParseError` code union, the `ParseMeta` metadata, and the `NODE_STREAM_INPUT` Node-`Duplex` rail; the CSV arm of the report output-format policy that `exceljs.csv` defers to
 - Accept: `Effect.sync`-wrapped `parse`/`unparse`, per-row `Schema.decodeUnknown`, `ParseError.code` as a `Data.taggedEnum`, `unparse` with `escapeFormulae`, `NodeStream.fromReadable` over the `Duplex`, the encoded `Uint8Array` through `FileSystem`/`HttpBody` or as a shared `jszip`/`nodemailer` deliver artifact
 - Reject: `dynamicTyping` in place of `Schema`, untyped consumption of `result.data`, `unparse` without the formula guard on an untrusted sink, the browser `File`/`download` paths in a Node durable job, whole-result buffering where the row count is unbounded

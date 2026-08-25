@@ -101,14 +101,14 @@ Extraction lowers a manifold into the float or double `MeshGL`; array reads copy
 |  [10]   | `manifold_meshgl_merge(mem, mesh)`             | `manifold_meshgl64_merge(mem, mesh)`             | topological re-weld  |
 |  [11]   | `manifold_meshgl_merge_from_vert(mem, mesh)`   | `manifold_meshgl64_merge_from_vert(mem, mesh)`   | source-vertex map    |
 |  [12]   | `manifold_meshgl_merge_to_vert(mem, mesh)`     | `manifold_meshgl64_merge_to_vert(mem, mesh)`     | target-vertex map    |
-|  [13]   | `manifold_meshgl_tolerance(mesh)`              | `manifold_meshgl64_tolerance(mesh)`              | receipt tolerance    |
+|  [13]   | `manifold_meshgl_tolerance(mesh)`              | `manifold_meshgl64_tolerance(mesh)`              | output tolerance     |
 
 - Sizing and allocation twins in `[02]-[MEMORY_LAW]` carry the same infix — `manifold_meshgl64_size()`/`manifold_alloc_meshgl64()`/`manifold_destruct_meshgl64()`/`manifold_delete_meshgl64()` against their unsuffixed peers — so a lane crossing is one infix across the construct, extract, and release triple rather than three independent lookups.
 - Lanes differ in element WIDTH as well as in name: the double lane reads `double` properties, `uint64_t` triangle and merge indices, and a `double` tolerance, while the float lane reads `float` properties, `uint32_t` indices, and a `float` tolerance — so a buffer sized from a `*_length` read is sized in the lane's own element type, never in bytes shared across the two.
 
 [RUN_PROVENANCE]:
 
-MeshGL carries its output triangles as RUNS — maximal contiguous index ranges sharing one original-mesh id and one instancing transform — so a boolean output attributes back to the operand that produced each face. This is the only source-identity channel across the boundary; without it a `BooleanReceipt` can report counts and volumes and nothing about provenance. Every row is lane-suffixed on the same law as `[EXTRACTION]`.
+MeshGL carries its output triangles as RUNS — maximal contiguous index ranges sharing one original-mesh id and one instancing transform — so a boolean output attributes back to the operand that produced each face. This is the only source-identity channel across the boundary; without it a `BooleanCensus` can report counts and volumes and nothing about provenance. Every row is lane-suffixed on the same law as `[EXTRACTION]`.
 
 | [INDEX] | [FLOAT_LANE]                                   | [DOUBLE_LANE]                                    | [CAPABILITY]           |
 | :-----: | :--------------------------------------------- | :----------------------------------------------- | :--------------------- |
@@ -165,7 +165,7 @@ MeshGL carries its output triangles as RUNS — maximal contiguous index ranges 
 
 [GUARANTEE_EVIDENCE]:
 
-Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without a second correctness rail.
+Guarantee reads populate `BooleanCensus` and `ManifoldStatus` without a second correctness rail.
 
 | [INDEX] | [SURFACE]                              | [CAPABILITY]          |
 | :-----: | :------------------------------------- | :-------------------- |
@@ -184,7 +184,7 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without a second 
 
 [TOPOLOGY]:
 - Every op folds through the `void* mem` sizing ABI with deterministic release; Manifold guarantees manifold output at float precision, the managed exact arrangement retaining exact signs, implicit-point crossings, and cell classification.
-- `manifold_status` forces eagerly onto the single `BooleanReceipt`/`ManifoldStatus` evidence rail, and it is also the op that consumes a context attachment — so the binding attaches at the result immediately before that read, never at the operands a deferred fold discards the context from.
+- `manifold_status` forces eagerly onto the single `BooleanCensus`/`ManifoldStatus` evidence rail, and it is also the op that consumes a context attachment — so the binding attaches at the result immediately before that read, never at the operands a deferred fold discards the context from.
 - Lane infix rides the SYMBOL, never the handle type the .NET side declares: `nint` erases `ManifoldMeshGL` and `ManifoldMeshGL64` to one shape, so nothing but the entry-point spelling keeps the two lanes apart and a mis-suffixed `LibraryImport` fails at first call rather than at compile. Kernel bindings declare the `meshgl64` lane only.
 
 [STACKING]:

@@ -11,7 +11,7 @@ Production automation treats the descriptor boundary as the real API surface, ke
 
 ## [01]-[INVOCATION_AND_ARGV]
 
-`osascript` selects exactly one source shape per invocation: concatenated `-e` lines, one program file, or stdin bound only when `-` names the program explicitly; every shape hands the same argv array to `on run argv` in AppleScript and `function run(argv)` in JXA, and the handler owns decoding, type validation, and envelope framing before any return value crosses back to the caller. `osascript -i` opens a line-at-a-time REPL that loads any `-e` or file program without running it before the prompt opens. A script error yields a non-zero exit whose numeric mapping carries no published contract.
+`osascript` selects exactly one source shape per invocation: concatenated `-e` lines, one program file, or stdin bound only when `-` names the program explicitly; every shape hands the same argv array to `on run argv` in AppleScript and `function run(argv)` in JXA, and the handler owns decoding and type validation before any return value crosses back to the caller. `osascript -i` opens a line-at-a-time REPL that loads any `-e` or file program without running it before the prompt opens. A script error yields a non-zero exit whose numeric mapping carries no published contract.
 
 ```bash
 osascript -l JavaScript -e 'function run(argv) { return JSON.stringify(argv) }' a b
@@ -26,11 +26,11 @@ on run argv
 end run
 ```
 
-## [02]-[OUTPUT_AND_ENVELOPE]
+## [02]-[OUTPUT_AND_ERRORS]
 
-Serialization mode follows the payload's shape. An OSA structure — an AppleScript list, record, or nested value — binds `-s s`, which prints recompilable source-like values; the default `-s h` display form collapses distinct list and record shapes into identical text. A JXA `JSON.stringify` envelope is already text, so its transport rides the default serialization, passing the returned string to stdout verbatim — `-s s` on that path re-quotes the envelope into a source literal and breaks the caller's parse.
+Serialization mode follows the payload's shape. An OSA structure — an AppleScript list, record, or nested value — binds `-s s`, which prints recompilable source-like values; the default `-s h` display form collapses distinct list and record shapes into identical text. A JXA `JSON.stringify` result is already text, so its transport rides the default serialization, passing the returned string to stdout verbatim — `-s s` on that path re-quotes the value into a source literal and breaks the caller's parse.
 
-`-s e` keeps script errors on stderr; `-s o` routes them to stdout, so a golden test asserts the serialized OSA error text as the primary value, never a specific exit code. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv. A JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one envelope without interleaved logging.
+`-s e` keeps script errors on stderr; `-s o` routes them to stdout, so a golden test asserts the serialized OSA error text as the primary value, never a specific exit code. Shell quoting stays inside the wrapper and never enters the script body — untrusted data crosses through argv. A JXA `run` handler's return value is the sole stdout payload; every diagnostic routes to stderr through `console.log`, so a caller parses one value without interleaved logging.
 
 ```bash
 osascript -s s -e 'return {{"foo", "bar"}, {"foo", {"bar"}}}'
@@ -43,7 +43,7 @@ osascript -l JavaScript ./automation.scpt "$bundle_id" "$payload_json"
 function run(argv) {
     const [bundleID, payloadJSON] = argv;
     console.log(`decoding payload for ${bundleID}`);
-    return JSON.stringify({ ok: true, bundleID });
+    return JSON.stringify({ bundleID });
 }
 ```
 
@@ -278,7 +278,7 @@ function quit() {
 }
 ```
 
-## [13]-[RUN_ONLY_AND_DRIFT_RECEIPTS]
+## [13]-[RUN_ONLY_AND_DRIFT_CHECKS]
 
 `osacompile -x` prevents source recovery while execution stays intact, so a build system retains canonical source and treats the run-only artifact as a disposable output; the expected decompile failure is `errOSASourceNotAvailable` (`-1756`). Decompiling a non-run-only output back to source signals formatter, language, or storage drift on a mismatch.
 

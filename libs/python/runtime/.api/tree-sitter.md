@@ -150,7 +150,7 @@
 
 [STACKING]:
 - `tree-sitter-python`(`.api/tree-sitter-python.md`) / `tree-sitter-typescript`(`.api/tree-sitter-typescript.md`): each grammar capsule (`language()`; `language_typescript()`/`language_tsx()`) wraps once into `tree_sitter.Language(...)` as a keyed grammar row feeding the reused `Parser`; the bundled `HIGHLIGHTS_QUERY`/`LOCALS_QUERY`/`TAGS_QUERY` sources compile through `Query` and run under a `QueryCursor`.
-- assay `code query` rail: grammar `Language` -> reused `Parser` -> `Tree` -> `Query` compiled once + `QueryCursor` scoped by `set_byte_range`/`set_max_start_depth` -> `captures()` keyed by name. Capture-name and node-kind strings resolve to ids against the `Language` introspection surface at registry build, so the match loop compares integers. `Node.text` slices (`bytes`) and `Point` spans map field-for-field onto the structural-search receipt's location facts.
+- assay `code query` rail: grammar `Language` -> reused `Parser` -> `Tree` -> `Query` compiled once + `QueryCursor` scoped by `set_byte_range`/`set_max_start_depth` -> `captures()` keyed by name. Capture-name and node-kind strings resolve to ids against the `Language` introspection surface at registry build, so the match loop compares integers. `Node.text` slices (`bytes`) and `Point` spans map field-for-field onto `SpanFact`'s `Locus`.
 
 [LOCAL_ADMISSION]:
 - one reusable `Parser` per grammar; grammar `Language` objects arrive from the grammar packages and construct once into a keyed registry, never per parse.

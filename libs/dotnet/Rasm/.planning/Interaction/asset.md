@@ -27,7 +27,6 @@ Both boundaries carried an origin family and an icon record; the AppUi product s
 - Law: the extent carries its own allocation CEILING and every pixel figure is overflow-safe. `MaxDimension` is a REQUIRED column seeded from the declared `AssetExtent.Ceiling` row — the tightest maximum raster edge the admitted imaging stacks publish — so an absent ask reads a bound some surface actually allocates under rather than a fabricated `int.MaxValue`; both scaled edges are measured in `double` against it and `PixelCount` answers in `long`, because two admitted edges under a retina scale wrap an `int` product long before either edge reads as unreasonable, and a wrapped count reads back as a small buffer the decode then writes past.
 - Law: an extent past its ceiling REFUSES at `Of` and no read clamps. A saturating scaled edge fabricates a picture the caller never asked for, and the fabricated edge then sizes the buffer every consumer below trusts.
 - Auto: `AssetExtent` derives its scaled pixel extent from the logical extent and the surface scale, so no consumer multiplies.
-- Receipt: none — an origin resolves to a raster and refuses typed; the raster itself is the evidence.
 - Packages: Eto.Drawing for the toolkit bitmap and `System.Drawing.Common` for the GDI bitmap (both prelude-aliased); LanguageExt.Core for the rails, `Seq`, and the packed `Arr<byte>` rows; `System.Reflection` for the embedded-resource anchor; `System.Buffers` for the frozen refused-glyph set the path admission reads. Composed inside the sub-domain: `AlphaLayout` from `Interaction/paint`, `FieldTag` from `Interaction/control`, and `UiFault`/`RejectReason` from `Interaction/dispatch`.
 - Growth: a new byte source is one case, breaking every resolve site loudly; a new product shape is one raster case beside one `RasterStack` row; a new scale in a set is one row; a backend publishing a tighter raster edge is one ceiling row.
 - Boundary: the kernel never CACHES a resolved asset — a host image cache, a `DisplayBitmap` table, and a platform image list are the boundary's own custody, because their eviction policy is the host's and a kernel cache would outlive the surface that asked.
@@ -235,7 +234,6 @@ public readonly record struct IconPose(VectorAngle Rotation, Option<MirrorAxis> 
 - Law: the render is a VALUE both boundaries pass whole, constructible without a rail because every invalid pairing is unrepresentable — neither re-spells its columns, and a boundary that needs one more coordinate widens this record rather than wrapping it.
 - Law: filter ORDER IS LAW. `Filters` applies head to tail and the sequence is the operation, because greyscale-then-fade and fade-then-greyscale answer different pixels — one desaturates a blended colour, the other blends toward a colour already desaturated. A single filter is a one-element chain and unfiltered is the empty one, so the arity that carried the ordering question is gone rather than answered per host. A host applying the chain in any other order is drawing something the value did not ask for.
 - Law: the chain states its wire form as its entries' keys IN ORDER through `Wire`, so a persisted or logged render round-trips the sequence rather than a set — a set-shaped read is the form that silently reorders, which is the same defect as a host reordering the apply.
-- Receipt: none — resolution rides `AssetOrigin.Resolve` and its refusal is a `UiFault` case.
 - Growth: a new axis is one column every consumer answers; a new filter step is one chain entry no consumer edits.
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino bitmap table registration and its `.rui` icon binding, the Grasshopper2 canvas glyph atlas, and the AppUi theme asset cache each keep their own registration and eviction, and each hands this owner a value rather than a name.
 
@@ -253,7 +251,6 @@ public sealed record IconRender(AssetOrigin Origin, IconPose Pose, Seq<IconFilte
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

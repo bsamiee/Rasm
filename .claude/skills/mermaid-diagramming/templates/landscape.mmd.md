@@ -26,7 +26,7 @@ C4Context
   }
   Rel(author, apphost, "Plans with")
   Rel(apphost, compute, "Solves through")
-  Rel(compute, store, "Writes receipts")
+  Rel(compute, store, "Writes solutions")
   Rel(hostapp, store, "Reads artifacts")
   Rel(operator, hostapp, "Operates")
 ```

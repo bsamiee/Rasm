@@ -6,7 +6,7 @@ Object render support belongs to `Rasm.Rhino.Objects`. `MaterialScope` discrimin
 
 - [02]-[SCOPE_AND_STAMP]: `SurfaceSide`, `MeshKind`, `MaterialScope`, `MaterialRealm`, `RenderMeshPolicy`, `MaterialStamp`, and the resolution law.
 - [03]-[ASK_FAMILY]: `MaterialAsk<TAnswer>` — the self-typed read over materials, mappings, caches, policy, and the batch harvest.
-- [04]-[EDIT_AND_COMMIT]: `CommitDemand`, `MaterialEdit`, `MaterialProgram`, the `MaterialSlot`/`MaterialBody` stream vocabularies, and the `Materials` entry pair.
+- [04]-[EDIT_AND_COMMIT]: `CommitDemand`, `MaterialEdit`, `MaterialProgram`, and the `Materials` entry pair.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[SCOPE_AND_STAMP]
@@ -17,7 +17,7 @@ Object render support belongs to `Rasm.Rhino.Objects`. `MaterialScope` discrimin
 - Law: resolution detaches — the resolved material projects to `MaterialStamp` inside the grant window through the seam mapper, because a `Material` is table state addressed through the document rail and a `RenderMaterial` is render-content state owned by the render tables; a live material handle crossing this seam is the deleted form.
 - Law: the per-component census is queried, never scanned — `HasSubobjectMaterials` gates `SubobjectMaterialComponents`, and stored per-plug-in rows install and retract through `AttributeEdit.FaceMaterials`.
 - Law: `RenderMeshPolicy` is the RENDER-MESH parameter encoding and carries no meshing STRATEGY. `Rasm.Compute` `Solver/discretization`'s `MeshPolicy` names a finite-element meshing strategy, so the host-boundary one carries the qualifier its concept already had.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<T>]`, `[Union]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — `[Mapper]`, `[MapProperty]`, `[UserMapping]`, `RequiredMappingStrategy.Target`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `RhinoObject.GetMaterial`/`GetRenderMaterial`, `MeshType`, `GetRenderMeshParameters`, `SetRenderMeshParameters`); RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters.FromEncodedString`/`ToEncodedString`); `Document/session.md` (`DraftFault`); `Document/tables.md` (`ResourceId`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<T>]`, `[Union]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — `[Mapper]`, `[MapProperty]`, `[UserMapping]`, `RequiredMappingStrategy.Target`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `RhinoObject.GetMaterial`/`GetRenderMaterial`, `MeshType`, `GetRenderMeshParameters`, `SetRenderMeshParameters`); RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters.FromEncodedString`/`ToEncodedString`); `Document/session.md` (`DraftFault`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -485,15 +485,14 @@ public static class MaterialAsk {
 
 ## [04]-[EDIT_AND_COMMIT]
 
-- Owner: `CommitDemand` is the two-row commit vocabulary every edit declares; `MaterialEdit` `[Union]` closes mapping, cache, policy, and provider mutations; `MaterialProgram` `[ComplexValueObject]` is the admitted edit roster; `SetMapping` composes render-owned `MappingSpec`/`MappingProfile` and mints `TextureMapping` only inside the call; `MaterialSlot`/`MaterialBody` are this rail's contribution to the shared fact stream and `MaterialReceipt` its closed instantiation.
+- Owner: `CommitDemand` is the two-row commit vocabulary every edit declares; `MaterialEdit` `[Union]` closes mapping, cache, policy, and provider mutations; `MaterialProgram` `[ComplexValueObject]` is the admitted edit roster; `SetMapping` composes render-owned `MappingSpec`/`MappingProfile` and mints `TextureMapping` only inside the call.
 - Law: the commit demands are a READABLE SET, not a bool table. `Undo` states that the program records and rolls back; `Solo` states that the effect is regenerable and must run alone, which is why the one-at-a-time rule exists at all. The spine derives grant needs and redraw policy from the same set, so rollback never promises to reverse an untracked side effect and no second window opens between the mutation and its repaint.
 - Law: a mixed program is UNREPRESENTABLE, not guarded at the entry. `MaterialProgram` admits a nonempty roster whose members share one demand set and refuses a `Solo` roster of more than one, so the homogeneity law states once on the value every caller must build rather than inside the commit body every caller reaches through.
-- Law: integer-returning writes preserve the host return — `SetTextureMapping` and `CreateMeshes` expose no catalogued verdict semantics, so bodies carry their values unchanged and invent no zero-or-sign success rule.
-- Law: every address column on `MaterialBody` takes its spine owner — an empty object id is precisely what a failed host member answers with, so a fact publishing one is indistinguishable from a real consequence.
+- Law: `SetTextureMapping` and `CreateMeshes` expose no catalogued verdict semantics, so each raw integer remains inside the caught host call and projects to `Unit` without a zero-or-sign test.
 - Boundary: `HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, and the live `RenderMeshes` accessor demand a viewport, plug-in, and display-pipeline context this package does not own — they ride the Display and Render owners; this page's provider reach ends at the parameter knob.
 - Boundary: zero raw `catch` crosses this page — every host call rides `Op.Catch` or a host-verdict fold, which is the folder exemplar and stays.
-- Growth: a new render-support mutation is one edit case with its demand set, one `MaterialSlot` row, and one `MaterialBody` case; the spine and the stream read it with zero new surface.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[SmartEnum<int>]`, `[ComplexValueObject]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `ForAll`); RhinoCommon objects (`SetTextureMapping`, `CreateMeshes`, `DestroyMeshes`, `SetRenderMeshParameters`, `SetCustomRenderMeshParameter`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
+- Growth: a new render-support mutation is one edit case with its demand set; the admitted program and the spine read it with zero new surface.
+- Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[ComplexValueObject]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `ForAll`); RhinoCommon objects (`SetTextureMapping`, `CreateMeshes`, `DestroyMeshes`, `SetRenderMeshParameters`, `SetCustomRenderMeshParameter`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -548,54 +547,33 @@ public abstract partial record MaterialEdit {
                 from value in key.Need(edit.Value).Bind(item => item.Admit(key))
                 select (MaterialEdit)new SetKnob(Provider: edit.Provider, Name: name, Value: value));
 
-    internal Fin<MaterialReceipt> Apply(RhinoObject native, Op op) =>
-        ResourceId.Admit(value: native.Id, key: op).Bind(identity => Switch(
-            (Native: native, Id: identity, Op: op),
+    internal Fin<Unit> Apply(RhinoObject native, Op op) =>
+        Switch(
+            (Native: native, Op: op),
             setMapping: static (context, edit) => edit.Spec.Mint(edit.Profile.Cap, context.Op)
                 .Bind(mapping => mapping.Use(value =>
                     from _ in edit.Profile.Apply(value, context.Op)
-                    from seated in context.Op.Catch(() => Fin.Succ(value: edit.Motion.Case switch {
+                    from __ in context.Op.Catch(() => Fin.Succ(value: edit.Motion.Case switch {
                         Transform motion => context.Native.SetTextureMapping(
                             channel: edit.Channel.Value, tm: value, objectTransform: motion),
                         _ => context.Native.SetTextureMapping(channel: edit.Channel.Value, tm: value),
                     }))
-                    select seated, context.Op))
-                .Bind(seated => MaterialReceipt.Of(
-                    slot: MaterialSlot.Mapped,
-                    body: new MaterialBody.Channelled(Id: context.Id, Channel: edit.Channel, Native: seated),
-                    key: context.Op)),
+                    select unit, context.Op)),
             buildCache: static (context, edit) => edit.Policy.Use(
                 parameters => context.Op.Catch(() => Fin.Succ(value: context.Native.CreateMeshes(
                     meshType: edit.Kind.Host,
                     parameters: parameters,
-                    ignoreCustomParameters: edit.IgnoreCustom.Key))),
-                context.Op)
-                .Bind(built => MaterialReceipt.Of(
-                    slot: MaterialSlot.CacheBuilt,
-                    body: new MaterialBody.Cached(Id: context.Id, Kind: edit.Kind, Native: built),
-                    key: context.Op)),
+                    ignoreCustomParameters: edit.IgnoreCustom.Key))).Map(static _ => unit),
+                context.Op),
             dropCache: static (context, edit) => context.Op.Catch(() => {
                 context.Native.DestroyMeshes(meshType: edit.Kind.Host);
                 return Fin.Succ(unit);
-            }).Bind(_ => MaterialReceipt.Of(
-                slot: MaterialSlot.CacheDropped,
-                body: new MaterialBody.Kinded(Id: context.Id, Kind: edit.Kind),
-                key: context.Op)),
+            }),
             setCachePolicy: static (context, edit) => edit.Policy.Use(
                 parameters => context.Op.Confirm(success: context.Native.SetRenderMeshParameters(mp: parameters)),
-                context.Op)
-                .Bind(_ => MaterialReceipt.Of(
-                    slot: MaterialSlot.PolicySet,
-                    body: new MaterialBody.Named(Id: context.Id),
-                    key: context.Op)),
-            setKnob: static (context, edit) =>
-                from _ in context.Op.Catch(() => context.Native.SetCustomRenderMeshParameter(
-                    providerId: edit.Provider, parameterName: edit.Name, value: edit.Value.Native))
-                from receipt in MaterialReceipt.Of(
-                    slot: MaterialSlot.KnobSet,
-                    body: new MaterialBody.Provided(Id: context.Id, Provider: edit.Provider, Name: edit.Name),
-                    key: context.Op)
-                select receipt));
+                context.Op),
+            setKnob: static (context, edit) => context.Op.Catch(() => context.Native.SetCustomRenderMeshParameter(
+                providerId: edit.Provider, parameterName: edit.Name, value: edit.Value.Native)));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -635,55 +613,6 @@ public sealed partial class MaterialProgram {
     internal bool RecordsUndo => Demands.Admits(capability: CommitDemand.Undo);
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class MaterialBodyKind : ICapability<MaterialBodyKind> {
-    public static readonly MaterialBodyKind Named = new(key: "named");
-    public static readonly MaterialBodyKind Kinded = new(key: "kinded");
-    public static readonly MaterialBodyKind Cached = new(key: "cached");
-    public static readonly MaterialBodyKind Channelled = new(key: "channelled");
-    public static readonly MaterialBodyKind Provided = new(key: "provided");
-    public static readonly MaterialBodyKind Record = new(key: "record");
-}
-
-[SmartEnum<int>]
-public sealed partial class MaterialSlot : IFactSlot<MaterialBody, MaterialBodyKind> {
-    private static readonly CapabilitySet<MaterialBodyKind> Mapping = CapabilitySet<MaterialBodyKind>.Of(MaterialBodyKind.Channelled);
-    private static readonly CapabilitySet<MaterialBodyKind> Built = CapabilitySet<MaterialBodyKind>.Of(MaterialBodyKind.Cached);
-    private static readonly CapabilitySet<MaterialBodyKind> Dropped = CapabilitySet<MaterialBodyKind>.Of(MaterialBodyKind.Kinded);
-    private static readonly CapabilitySet<MaterialBodyKind> Addressed = CapabilitySet<MaterialBodyKind>.Of(MaterialBodyKind.Named);
-    private static readonly CapabilitySet<MaterialBodyKind> Knobbed = CapabilitySet<MaterialBodyKind>.Of(MaterialBodyKind.Provided);
-    private static readonly CapabilitySet<MaterialBodyKind> Stamped = CapabilitySet<MaterialBodyKind>.Of(MaterialBodyKind.Record);
-
-    public static readonly MaterialSlot Mapped = new(key: 0, bodies: Mapping);
-    public static readonly MaterialSlot CacheBuilt = new(key: 1, bodies: Built);
-    public static readonly MaterialSlot CacheDropped = new(key: 2, bodies: Dropped);
-    public static readonly MaterialSlot PolicySet = new(key: 3, bodies: Addressed);
-    public static readonly MaterialSlot KnobSet = new(key: 4, bodies: Knobbed);
-    public static readonly MaterialSlot Undo = new(key: 5, bodies: Stamped);
-
-    public CapabilitySet<MaterialBodyKind> Bodies { get; }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MaterialBody : IFactBody<MaterialBodyKind> {
-    private MaterialBody() { }
-    public sealed record Named(ResourceId Id) : MaterialBody;
-    public sealed record Kinded(ResourceId Id, MeshKind Kind) : MaterialBody;
-    public sealed record Cached(ResourceId Id, MeshKind Kind, int Native) : MaterialBody;
-    public sealed record Channelled(ResourceId Id, MappingChannel Channel, int Native) : MaterialBody;
-    public sealed record Provided(ResourceId Id, Guid Provider, string Name) : MaterialBody;
-    public sealed record Record(UndoSerial Serial) : MaterialBody;
-
-    public MaterialBodyKind Kind => Map(
-        named: MaterialBodyKind.Named,
-        kinded: MaterialBodyKind.Kinded,
-        cached: MaterialBodyKind.Cached,
-        channelled: MaterialBodyKind.Channelled,
-        provided: MaterialBodyKind.Provided,
-        record: MaterialBodyKind.Record);
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Materials {
     public static Fin<TAnswer> Ask<TAnswer>(
@@ -700,31 +629,25 @@ public static class Materials {
                select answer;
     }
 
-    public static Fin<MaterialReceipt> Commit(
+    public static Fin<Unit> Commit(
         DocumentSession session, TableTarget target, RedrawPolicy redraw, MaterialProgram program, Op? key = null) {
         Op op = key.OrDefault();
         return from policy in op.Need(redraw)
                from plan in op.Need(program)
-               from receipt in ObjectSpine.Commit(
+               from _ in ObjectSpine.Commit(
                    session: session,
                    name: nameof(Materials),
                    redraw: policy,
-                   fold: (document, rail) => Objects.Resolve(document: document, target: target, key: rail)
+                   run: (document, rail) => Objects.Resolve(document: document, target: target, key: rail)
                        .Bind(natives => natives.TraverseM(native => plan.Edits
                            .TraverseM(edit => edit.Apply(native: native, op: rail)).As()).As()
-                           .Map(static grouped => grouped.Bind(static rows => rows).Fold(
-                               MaterialReceipt.Empty, static (state, next) => state + next))),
-                   undo: MaterialSlot.Undo,
-                   record: static serial => new MaterialBody.Record(Serial: serial),
+                           .Map(static _ => unit)),
                    op: op,
                    recordsUndo: plan.RecordsUndo)
-               select receipt;
+               select unit;
     }
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------
-global using MaterialFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody>;
-global using MaterialReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody>;
 ```
 
 ## [05]-[SURFACE_LEDGER]
@@ -740,13 +663,7 @@ global using MaterialReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects
 |  [07]   | owned answers         | `MeshPieces`       | the two piece-bearing reads, each its own disposer        | `MaterialAsk.CachedMeshes` |
 |  [08]   | commit demand         | `CommitDemand`     | undo and solo rows the spine and the program both read    | `MaterialProgram.Of`       |
 |  [09]   | render-support writes | `MaterialEdit`     | demand-set edits over one admitted program                | `Materials.Commit`         |
-|  [10]   | consequence evidence  | `MaterialSlot`     | slot roster over the Document spine's fact stream         | `Materials.Commit`         |
 
 ## [06]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
 
 (none)

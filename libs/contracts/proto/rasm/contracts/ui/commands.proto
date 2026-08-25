@@ -62,7 +62,7 @@ message CommandOutcomeWire {
   }
 }
 
-message DeckReceiptWire {
+message DeckOutcomeWire {
   string key = 1 [(buf.validate.field).string.min_len = 1];
   string surface = 2 [(buf.validate.field).string.min_len = 1];
   google.protobuf.Duration elapsed = 3 [
@@ -71,5 +71,4 @@ message DeckReceiptWire {
   ];
   CommandOutcomeWire outcome = 4 [(buf.validate.field).required = true];
   bytes payload_digest = 5 [(buf.validate.field).bytes.len = 16];
-  bytes correlation = 6 [(buf.validate.field).bytes.len = 16];
 }

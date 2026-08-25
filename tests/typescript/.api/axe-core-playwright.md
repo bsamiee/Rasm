@@ -4,11 +4,11 @@
 - package: `@axe-core/playwright` · license `MPL-2.0` · depends on `axe-core`, peer `playwright-core >= 1.0.0`
 - module: dual CJS/ESM (`dist/index.js` + `dist/index.mjs`) with one `.` export; `AxeBuilder` ships named AND as default — the named import is the house spelling.
 - asset: bundles the `axe-core` rules engine source and injects it into the page (and every child frame) at `analyze()`; no browser binary, no server, no network.
-- runtime: node driving a live `playwright-core` `Page`; the package declares no engine floor of its own and inherits the driver's — the audit executes inside the page, the receipt returns to node.
+- runtime: node driving a live `playwright-core` `Page`; the package declares no engine floor of its own and inherits the driver's — the audit executes inside the page, `AxeResults` returns to node.
 - plane: `plane:dev` — the accessibility half of the `tests/typescript/e2e` visual-and-aria gauge, beside `@playwright/test`; `tests/typescript/_architecture` fences it off every runtime graph.
 - rail: wcag-conformance gauge over a live page.
 
-`@axe-core/playwright` wraps one live `Page` in one builder class: chain scope (`include`/`exclude`), rule selection (`withTags`/`withRules`/`disableRules`), and engine options (`options`), then `analyze()` injects axe into every frame and folds the audit into one typed `AxeResults` receipt.
+`@axe-core/playwright` wraps one live `Page` in one builder class: chain scope (`include`/`exclude`), rule selection (`withTags`/`withRules`/`disableRules`), and engine options (`options`), then `analyze()` injects axe into every frame and folds the audit into one typed `AxeResults`.
 
 Rule-engine conformance is the half no golden encodes: `toMatchAriaSnapshot` freezes an accessibility tree, `toHaveScreenshot` freezes pixels, and axe audits CONFORMANCE against the wcag catalog with no golden to mint. Kit fixtures compose it as one row whose tag set is the policy value; specs assert on `violations`, never re-learning the engine.
 
@@ -26,7 +26,7 @@ Rule-engine conformance is the half no golden encodes: `toMatchAriaSnapshot` fre
 |  [06]   | `disableRules(rules)`      | `(string \| string[]) => this`  | rule id removal; wins over any selection                              |
 |  [07]   | `options(options)`         | `(RunOptions) => this`          | raw engine pass-through; `withTags`/`withRules` are its typed face    |
 |  [08]   | `setLegacyMode(on?)`       | `(boolean?) => this`            | pre-4.3 frame injection; never used — modern frame audit is default   |
-|  [09]   | `analyze()`                | `() => Promise<AxeResults>`     | inject, run, fold every frame; the one receipt                        |
+|  [09]   | `analyze()`                | `() => Promise<AxeResults>`     | inject, run, fold every frame; the one result                         |
 
 ```ts
 interface AxePlaywrightParams { page: Page; axeSource?: string }
@@ -44,7 +44,7 @@ declare class AxeBuilder {
 export { AxeBuilder, AxeBuilder as default }
 ```
 
-## [02]-[RESULT_RECEIPT]
+## [02]-[AXE_RESULTS]
 
 `AxeResults` is the audit as data: four disjoint result groups over one `Result` row shape; gauge verdict is `violations` — an empty array is conformance, and each violation row carries the rule id, impact, wcag tags, and the offending nodes with their selector ancestry.
 
@@ -65,7 +65,7 @@ interface RunOptions { runOnly?: RunOnly | TagValue[] | string[] | string; rules
 
 ## [04]-[RAIL_LAW]
 
-- Owns: rules-engine accessibility conformance over live Playwright pages — tag-selected wcag audits, frame-piercing scope, and the typed violation receipt.
+- Owns: rules-engine accessibility conformance over live Playwright pages — tag-selected wcag audits, frame-piercing scope, and the typed `AxeResults` violations.
 - Accept: one builder per audit call; tag policy as data (`withTags`); `include`/`exclude` scoping; asserting on `violations` rule ids.
-- Reject: a second axe injection path (`page.addScriptTag` with raw axe source); asserting on `failureSummary` prose — rule `id` and `tags` are the typed tokens; `best-practice` tags in the conformance floor — advisory rules are a ruled opt-in per audit, never the default gate; importing `axe-core` directly in a spec — the builder owns injection and the receipt types re-export through it.
-- Boundary: the audit executes in the page and its receipt crosses back as one `AxeResults`; a violation is a page fact, so the repair lands in the served surface (or the hermetic corpus), never in the spec.
+- Reject: a second axe injection path (`page.addScriptTag` with raw axe source); asserting on `failureSummary` prose — rule `id` and `tags` are the typed tokens; `best-practice` tags in the conformance floor — advisory rules are a ruled opt-in per audit, never the default gate; importing `axe-core` directly in a spec — the builder owns injection and the result types re-export through it.
+- Boundary: the audit executes in the page and crosses back as one `AxeResults`; a violation is a page fact, so the repair lands in the served surface (or the hermetic corpus), never in the spec.

@@ -192,16 +192,16 @@ Dirichlet conditioners share `(A, b=None, x=None, I=None, D=None)`; `D`/`I` acce
 [STACKING]:
 - `scipy`(`.api/scipy.md`): assembly emits a `scipy.sparse` `spmatrix` crossing to `scipy.sparse.linalg` for the solve — `solver_direct_scipy` wraps `spsolve`, `solver_iter_krylov` wraps `cg`/`gmres`/`bicgstab`, `solver_eigen_scipy` wraps ARPACK `eigs` and `solver_eigen_scipy_sym` wraps `eigsh`.
 - `gmsh`(`.api/gmsh.md`) / `meshio`(`.api/meshio.md`): a `mesh.load`-read mesh assembles directly, its physical groups arriving as boundary/subdomain tags that `with_boundaries`/`with_subdomains` name and `get_dofs` resolves.
-- within-lib: the `QuadratureIntent` weak-form fold assembles through `Basis`/`BilinearForm`, `MeshField`/`MeshExchange` own mesh topology and IO, `FieldQuery` reads back through `basis.probes`/`interpolate`, and the solve folds its solver factory and DOF-partition onto `SolverReceipt`.
+- within-lib: the `QuadratureIntent` weak-form fold assembles through `Basis`/`BilinearForm`, `MeshField`/`MeshExchange` own mesh topology and IO, `FieldQuery` reads back through `basis.probes`/`interpolate`, and the solve folds its solver factory and DOF-partition onto `Solve`.
 
 [LOCAL_ADMISSION]:
 - import: top-level `skfem`; the assembled `spmatrix` is `scipy.sparse`.
-- transfer: a callable source/Dirichlet field projects with `basis.project`; physical-point transfer fidelity uses `basis.probes`/`global_coordinates`/`doflocs`, feeding the `FieldQuery` transfer-residual receipt.
+- transfer: a callable source/Dirichlet field projects with `basis.project`; physical-point transfer fidelity uses `basis.probes`/`global_coordinates`/`doflocs`, feeding the `Readout` transfer residual.
 - adaptive: an error estimator drives `adaptive_theta(est, theta)` -> `mesh.refined(ix)`, the loop capturing the estimator and marked-element count as study evidence.
 - boundary: the conditioned `spmatrix`/solution crosses to scipy for sparse solve, and benchmark evidence stays branch-local, grading no peer runtime.
 
 [RAIL_LAW]:
 - Package: `scikit-fem`
 - Owns: FEM mesh management, H1/Hdiv/Hcurl/DG/C1 element spaces, threaded bilinear/linear/trilinear/functional assembly, Dirichlet/penalty/multi-point conditioning, sparse direct/Krylov/eigen solve dispatch, L2 projection, adaptive refinement, and physical-point interpolation
-- Accept: a `Mesh + Element + Basis` pipeline assembled via `BilinearForm`/`LinearForm`/`asm`, conditioned via `condense`/`enforce`/`mpc`, solved via `solve`/`solve_eigen` with a captured solver factory and DOF-partition receipt
+- Accept: a `Mesh + Element + Basis` pipeline assembled via `BilinearForm`/`LinearForm`/`asm`, conditioned via `condense`/`enforce`/`mpc`, solved via `solve`/`solve_eigen` with a captured solver factory and DOF partition
 - Reject: hand-rolled element quadrature, DOF bookkeeping, or assembly loops when `Basis`/`BilinearForm`/`LinearForm`/`asm` own the concern; parallel DOF-selection method families when `get_dofs` discriminates by keyword

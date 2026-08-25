@@ -176,7 +176,7 @@ declare namespace Runtime {
 - Owner: the boot law the row feeds — exactly one `main` call per process, in one boot module that exports nothing: a process whose whole life is the graph boots `row.main(Layer.launch(root))` — build, suspend, teardown as interruption, finalizers drained on `SIGINT`/`SIGTERM`; a graph carrying registered drain steps parks through `life#PHASE_SPINE`'s `parked` entry instead of bare `Layer.launch` — the same one-`main` law with the drain fold owning the interrupt; a host that calls in repeatedly holds `ManagedRuntime.make(root)` and chains `dispose`; several runtimes in one process share acquisitions through one `Layer.makeMemoMap` handed to each `ManagedRuntime.make(root, memo)`; a worker entry is a boot module under the same law: `WorkerRunner.launch(protocolLayer)` run beneath `row.runner` (`worker#RUNNER_BOOT`).
 - Law: the row is selected by the boot module and appears nowhere else — the app `main.ts` merges its Layer families, provides `row.context` and `row.client` once, and calls `row.main`; a second `runMain`, an `Effect.runPromise` heading a long-lived process, and a binding import inside a lib module are the named defects.
 - Law: the fence is physical — this module ships on the `./server` exports subpath, so `runtime:browser` resolution cannot reach a row; the architecture suite audits the purity the exports map cannot express.
-- Receipt: the root's stated annotation `Layer.Layer<Out>` and the row's `main` pinning `R` to `never` are the boot proof — an unwired Tag fails at the boot line, at compile time.
+- Law: the root's stated annotation `Layer.Layer<Out>` and the row's `main` pinning `R` to `never` are the boot proof — an unwired Tag fails at the boot line, at compile time.
 - Packages: `effect` (`Layer`, `ManagedRuntime`), `@effect/platform` (`WorkerRunner.launch`).
 
 ```typescript
@@ -195,12 +195,12 @@ const _halted = (): Promise<void> => _host.dispose();
 ## [04]-[COMMAND_SPEC]
 
 [COMMAND_SPEC]:
-- Owner: `Proc` — spec-driven subprocess execution over one Schema authority. `Proc.Spec` is a `Schema.Class`: `command`, defaulted `args`, the closed `capture` modality vocabulary (`"receipt" | "text" | "lines" | "stream"`, defaulted `"receipt"` at the declaration so absence is unspellable in the interior), `Option`-admitted `env`, `cwd`, and `feed` (the closed stdin family folded through `Command.feed`/`Command.stdin`), defaulted `shell` (`Command.runInShell`), defaulted `stderr` (the capture posture folded through `Command.stderr`), defaulted `pipes` (pipeline stages folded through `Command.pipeTo`), `Option`-admitted `budget` and `demand` (the expected exit code); `Proc.run` is the one entry, its return following the spec's own `capture` discriminant — `"receipt"` yields the `Proc.Receipt` class (exit code and elapsed), `"text"` captured stdout, `"lines"` the `Command.lines` split, `"stream"` the live byte stream; `Proc.open` is the interactive modality — a scoped acquisition of the executor's live `Process` handle for a long-lived child a caller feeds and reads (the compute-host case), released by scope close as interruption; a `runText`/`runStream`/`spawn` sibling family is the deleted spelling.
-- Law: the class is the admission seam and the constructor — raw spec material (an ops verb's arguments, a config-declared job) decodes once through `Schema.decodeUnknown(Proc.Spec)`, trusted interior construction rides `new Proc.Spec({ command })` running the same filters, and the executor consumes only admitted values: capture is a total literal read, absence is `Option`, and no execution arm re-validates or branches on `undefined`; `Proc.Receipt` is the same authority on the result side, so an ops surface encodes receipts through the derived wire twin with zero hand serialization.
+- Owner: `Proc` — spec-driven subprocess execution over one Schema authority. `Proc.Spec` is a `Schema.Class`: `command`, defaulted `args`, the closed `capture` modality vocabulary (`"status" | "text" | "lines" | "stream"`, defaulted `"status"` at the declaration so absence is unspellable in the interior), `Option`-admitted `env`, `cwd`, and `feed` (the closed stdin family folded through `Command.feed`/`Command.stdin`), defaulted `shell` (`Command.runInShell`), defaulted `stderr` (the capture posture folded through `Command.stderr`), defaulted `pipes` (pipeline stages folded through `Command.pipeTo`), `Option`-admitted `budget` and `demand` (the expected exit code); `Proc.run` is the one entry, its return following the spec's own `capture` discriminant — `"status"` yields the `Proc.Status` class (exit code and elapsed), `"text"` captured stdout, `"lines"` the `Command.lines` split, `"stream"` the live byte stream; `Proc.open` is the interactive modality — a scoped acquisition of the executor's live `Process` handle for a long-lived child a caller feeds and reads (the compute-host case), released by scope close as interruption; a `runText`/`runStream`/`spawn` sibling family is the deleted spelling.
+- Law: the class is the admission seam and the constructor — raw spec material (an ops verb's arguments, a config-declared job) decodes once through `Schema.decodeUnknown(Proc.Spec)`, trusted interior construction rides `new Proc.Spec({ command })` running the same filters, and the executor consumes only admitted values: capture is a total literal read, absence is `Option`, and no execution arm re-validates or branches on `undefined`; `Proc.Status` is the same authority on the result side, so an ops surface encodes an exit status through the derived wire twin with zero hand serialization.
 - Law: the diagnostic is captured, never discarded — `_settled` takes the live `Process` handle instead of `Command.exitCode` and drains `child.stderr` CONCURRENTLY with the exit wait, because a child that fills its stderr pipe while the parent waits on exit deadlocks. `spec.stderr` is the two-arm posture over that: `capture` folds the drained text into the exit row's own diagnostic column, and `inherit` hands the stream to the parent's own stderr through `Command.stderr("inherit")` — the arm a long-lived child with unbounded diagnostic output takes so no buffer grows behind the wait.
 - Law: `feed` is the platform's whole stdin vocabulary as a closed tagged family, never a text field — `Text` keeps the UTF-8 encode `Command.feed` owns, `Inherit` hands the child the parent's own stdin, and `Bytes` folds a live `Stream` through `Command.stdin` so a piped archive or a generated payload feeds a child the text arm cannot express; the stream arm declares `FromSelf` against the carrier's own `Stream.StreamTypeId`, so a process-bound value is admitted by nominal identity and never pretends to serialize.
 - Law: teardown is interruption — the budget interrupt, a parent scope closing, and a race loss all release the child through the executor's own bracket; a hand `kill`, a PID ledger, and a signal listener beside the rail are rejected, and escalation policy (grace then hard) is the budget value itself.
-- Law: `demand` rides the receipt modality only — text, lines, and stream captures are byte lanes whose consumer owns interpretation; `budget` rides the settled modalities only — receipt, text, and lines captures are bounded whole, while the live stream and the open handle outlive any spec deadline by nature. Receipt elapsed time derives from `Clock.currentTimeNanos`, so wall-clock adjustment cannot produce a negative or inflated process duration.
+- Law: `demand` rides the status modality only — text, lines, and stream captures are byte lanes whose consumer owns interpretation; `budget` rides the settled modalities only — status, text, and lines captures are bounded whole, while the live stream and the open handle outlive any spec deadline by nature. `Status.elapsed` derives from `Clock.currentTimeNanos`, so wall-clock adjustment cannot produce a negative or inflated process duration.
 - Boundary: `CommandExecutor` arrives from the runtime row's `context`; stdio bridges (`NodeStream.stdin`, `NodeSink.stdout`) are row-tier members an ops verb composes at its own seam, never re-exported here.
 - Entry: `Proc.run(spec)`; `Proc.open(spec)` under `Scope`; the executor requirement rides `R` to the root.
 
@@ -246,7 +246,7 @@ class ExecFault extends Schema.TaggedError<ExecFault>()('ExecFault', {
 class Spec extends Schema.Class<Spec>('Proc/Spec')({
     command: Schema.NonEmptyString,
     args: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }),
-    capture: Schema.optionalWith(Schema.Literal('receipt', 'text', 'lines', 'stream'), { default: () => 'receipt' as const }),
+    capture: Schema.optionalWith(Schema.Literal('status', 'text', 'lines', 'stream'), { default: () => 'status' as const }),
     env: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { as: 'Option' }),
     cwd: Schema.optionalWith(Schema.String, { as: 'Option' }),
     shell: Schema.optionalWith(Schema.Boolean, { default: () => false }),
@@ -270,7 +270,7 @@ class Spec extends Schema.Class<Spec>('Proc/Spec')({
     demand: Schema.optionalWith(Schema.Int, { as: 'Option' }),
 }) {}
 
-class Receipt extends Schema.Class<Receipt>('Proc/Receipt')({
+class Status extends Schema.Class<Status>('Proc/Status')({
     command: Schema.NonEmptyString,
     code: Schema.Int,
     elapsed: Schema.DurationFromMillis,
@@ -313,7 +313,7 @@ const _budgeted =
                 }),
         });
 
-const _settled = (spec: Spec): Effect.Effect<Receipt, Proc.Faults, CommandExecutor.CommandExecutor> =>
+const _settled = (spec: Spec): Effect.Effect<Status, Proc.Faults, CommandExecutor.CommandExecutor> =>
     Effect.scoped(
         Effect.gen(function* () {
             const opened = yield* Clock.currentTimeNanos;
@@ -329,18 +329,18 @@ const _settled = (spec: Spec): Effect.Effect<Receipt, Proc.Faults, CommandExecut
             const refused = Option.filter(spec.demand, (demanded) => code !== demanded);
             return Option.isSome(refused)
                 ? yield* new ExecFault({ case: { reason: 'exit', command: spec.command, code, demanded: refused.value, detail } })
-                : new Receipt({ command: spec.command, code, elapsed: Duration.nanos(closed - opened) });
+                : new Status({ command: spec.command, code, elapsed: Duration.nanos(closed - opened) });
         }),
     ).pipe(_budgeted(spec));
 
 function run(spec: Spec & { readonly capture: 'text' }): Effect.Effect<string, Proc.Faults, CommandExecutor.CommandExecutor>;
 function run(spec: Spec & { readonly capture: 'lines' }): Effect.Effect<ReadonlyArray<string>, Proc.Faults, CommandExecutor.CommandExecutor>;
 function run(spec: Spec & { readonly capture: 'stream' }): Stream.Stream<Uint8Array, PlatformError.PlatformError, CommandExecutor.CommandExecutor>;
-function run(spec: Spec & { readonly capture: 'receipt' }): Effect.Effect<Receipt, Proc.Faults, CommandExecutor.CommandExecutor>;
+function run(spec: Spec & { readonly capture: 'status' }): Effect.Effect<Status, Proc.Faults, CommandExecutor.CommandExecutor>;
 function run(
     spec: Spec,
 ):
-    | Effect.Effect<Receipt | string | ReadonlyArray<string>, Proc.Faults, CommandExecutor.CommandExecutor>
+    | Effect.Effect<Status | string | ReadonlyArray<string>, Proc.Faults, CommandExecutor.CommandExecutor>
     | Stream.Stream<Uint8Array, PlatformError.PlatformError, CommandExecutor.CommandExecutor>;
 function run(spec: Spec) {
     return spec.capture === 'stream'
@@ -355,7 +355,7 @@ function run(spec: Spec) {
 const _opened = (spec: Spec): Effect.Effect<CommandExecutor.Process, PlatformError.PlatformError, CommandExecutor.CommandExecutor | Scope.Scope> =>
     _staged(spec).pipe(Command.start);
 
-const Proc = { Spec, Receipt, run, open: _opened } as const;
+const Proc = { Spec, Status, run, open: _opened } as const;
 ```
 
 ## [05]-[MEASURED_RUN]
@@ -371,7 +371,7 @@ const Proc = { Spec, Receipt, run, open: _opened } as const;
 - Law: the error channel survives the engine's Promise seam — the engine awaits a bare closure, so a failing effect would surface as a rejected promise and reach the caller as a defect with its typed fault erased. The sampled closure runs `Effect.exit`, holds the FIRST failure in the operation's own cell, and the trial re-raises it after the run, so a fault that entered the sample fold leaves it as the same typed value; the sunk exit also feeds the engine's dead-code barrier, without which an effect whose result no one reads is eliminated and the trial measures an empty loop.
 - Law: the measured span includes the effect's own fiber boot, by construction and not by oversight — an effect's cost is inseparable from the runtime that discharges it, and the engine's noop baseline that would subtract the boot is minted by the fenced registration surface this owner may not reach. A trial therefore compares effects against effects, which is the only comparison its claims are ever asked to grade.
 - Boundary: the substrate boundary is physical — this owner imports the state-free `mitata/src/lib.mjs` kernel, so the registration list and render surface that the root module carries are never loaded into a domain process; benchmark registration and report rendering stay in the bench lane under `tests/`, and the run context that names the CPU and the noop baseline is minted there alone. The tests tier owns corpus benchmarking, this owner mints in-product claims on live workloads, and claim board join and rendering are the ui viewer probe's.
-- Receipt: the claim is the receipt and it widens in place — `Board.Bench.fromMitata` fills the rung ladder, the tick count, the raw samples, and the three enrichment bands off one `stats` record, and this owner supplies the mint fields the engine cannot know. `allocatedBytes` fills from the measured per-operation heap delta where the band survived the honesty strip; `warmups` stays absent because the engine spends warmup conditionally on its own threshold gate and reports no count, so the declared ceiling published there would be a figure no run took.
+- Output: the `Board.Bench` claim widens in place — `Board.Bench.fromMitata` fills the rung ladder, the tick count, the raw samples, and the three enrichment bands off one `stats` record, and this owner supplies the mint fields the engine cannot know. `allocatedBytes` fills from the measured per-operation heap delta where the band survived the honesty strip; `warmups` stays absent because the engine spends warmup conditionally on its own threshold gate and reports no count, so the declared ceiling published there would be a figure no run took.
 - Entry: `Trial.run(host, spec, body)`.
 - Growth: a new measured case is one `Trial.Spec`; a new enrichment band is one handle on `_tuned` plus one row in the `_points` fact stream.
 - Packages: `mitata` (`mitata/src/lib.mjs`), `effect` (`Metric`, `Exit`, `Runtime`), `@rasm/core` (`Board`, `Convention`), `node:v8` (`getHeapStatistics`).

@@ -401,8 +401,6 @@ _PressFields: TypeAlias = Literal["plan_key", "graph_key", "seed", "texels", "el
 
 class Press(Message[_PressFields]):
     """
-    The optional CPU-minted press receipt of a baked set.
-
     ```proto
     message rasm.contracts.appearance.Press
     ```

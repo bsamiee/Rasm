@@ -20,7 +20,7 @@ Controller syntax is posting-owned and lives in ROWS: `FamilyGrammar` carries on
 - Law: `BlockLimit.Observe` exposes an over-cap measurement to optimization while `BlockLimit.Enforce` gates final egress; a measurement policy reaching final egress would post past the controller's own storage cap.
 - Auto: `PostImage.Records` is the same population counted by `PhysicalRecords`, encoded into `Bytes`, and passed to `ContentKey.Of`; an empty population fails rather than keying a null artifact.
 - Exemption: `ChecksumRule.Fold` is a measured byte kernel over the record span — the prior form copied the record to an array and re-wrapped it as a sequence for every digest, so a numbered program paid two allocations per line.
-- Receipt: `ProgramDelivery` reads `PhysicalRecords` as the transferred count, so the acknowledgement and the image agree on one census.
+- Result: `ProgramDelivery` reads `PhysicalRecords` as the transferred count, so the acknowledgement and the image agree on one census.
 - Packages: `Thinktecture.Runtime.Extensions` generates `ChecksumRule`, `SequenceCounter`, `RecordFrame`, `BlockLimit`, and `EmitPolicy`; `Encoding.GetBytes` and `ContentKey.Of` seal egress.
 
 ```csharp
@@ -32,6 +32,7 @@ using System.Text;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
+using Rasm.Domain;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Ingress;
 using Rasm.Fabrication.Kinematics;
@@ -238,7 +239,7 @@ public static partial class Dialect {
 - Law: lowering dispatches through the GENERATED `Switch` over `GNode` and reads the family row inside each arm, so a new node case cannot compile without an arm and a new family cannot fall silently to an unsupported discard.
 - Entry: `Dialect.Emit` is the one public operation and consumes a complete `CutProgram` with `EmitPolicy`.
 - Auto: `GCommand.Admits` discharges the command row's own declared `Requires` and `Modalities` against the dialect, so emission gates only what the parameters decide — rotary addresses, compensation kind, revolution dwell, and arc representation. `GWord.Render` frames and counts only its returned `ProgramRender.Lines`, so macro assignments, dialect-cycle parameters, subprogram definitions, additive records, and NC1 records cannot escape `BlockCap`.
-- Receipt: subprogram definitions hoist into one label-keyed stream; identical definitions share one row, and conflicting bodies fail before rendering.
+- Result: subprogram definitions hoist into one label-keyed stream; identical definitions share one row, and conflicting bodies fail before rendering.
 - Boundary: `Dialect` never reparses, reconditions motion, invents absent command parameters, or maintains a second block-count projection. Parsed `Sequence` and `Checksum` values never survive, because `RecordFrame` owns numbering and digest on re-emission.
 
 ```csharp
@@ -351,7 +352,7 @@ public static partial class Dialect {
             additiveLayer: static (post, value) => post.Family == PostFamily.AdditiveGcode
                 ? AdditiveRecord(post, value).Map(Executable)
                 : Unsupported(post, value).Map(Executable),
-            nc1: static (_, value) => Fin.Succ(Executable(Nc1Canonical.Word(value.Receipt))),
+            nc1: static (_, value) => Fin.Succ(Executable(Nc1Canonical.Word(value.Import))),
             directive: static (post, value) => Directive(post, value.Value));
 
     private static FamilyGrammar Grammar(PostDialect dialect) => Families[dialect.Family];
@@ -540,7 +541,7 @@ public static partial class Dialect {
 - Law: `OrientedStop` emits the DECLARED orient angle. Re-deriving an angle from the retract vector discards the angle the atom carries and publishes a different stop position wherever the two disagree.
 - Cases: spindle law with its control mode and hand; a dwell carrying `DwellBasis`, which decides the time or revolution address; a synchronized channel pair; an oriented stop with its orient angle and retract; a channel barrier; and an admitted `SpecializedToolpathEnvelope`.
 - Auto: `DialectFeature.TimeDwell` and `DialectFeature.RevolutionDwell` decide the dwell address from the basis, so no arm tests a controller identity; `CommandKeys.MotionSynchronize` and `CommandKeys.ChannelBarrier` resolve their vendor words through the dialect's own override map.
-- Receipt: every `SpecializedToolpathEnvelope` arrives ADMITTED, so each row renders its evidence directly and no local revalidation runs.
+- Result: every `SpecializedToolpathEnvelope` arrives ADMITTED, so each row renders its evidence directly and no local revalidation runs.
 - Boundary: an annotation rides the family's own comment channel — parenthesised for word-address, semicolon for every other family — so a controller that ignores comments loses nothing.
 
 ```csharp
@@ -802,7 +803,7 @@ internal static partial class Nc1Map {
 public static class Nc1Canonical {
     private const string Indent = "  ";
 
-    public static GWord Word(Receipt<SteelImportEvidence> receipt) => new GWord.Nc1(Render(receipt.Evidence.Part), receipt.Key);
+    public static GWord Word(ImportedSteel result) => new GWord.Nc1(Render(result.Part), result.Key);
 
     public static Seq<string> Render(SteelPart part) =>
         Seq(SteelBlockKind.St.Key)
@@ -839,9 +840,9 @@ public static class Nc1Canonical {
 ## [08]-[DELIVERY]
 
 - Owner: `ProgramDelivery` binds a posted `PostImage` to one `CellDelivery`: image key, transferred key, controller, upload state, drive log, operator, record count, and instant.
-- Law: `Of` derives controller identity from the RECEIPT and rejects any non-upload, absent payload, or absent controller; `Verified` requires uploaded state, controller identity, and kind-plus-digest equality, so an acknowledgement that transferred a different artifact reads as unverified rather than as a hand-off.
-- Auto: `Of` fires `FabricationFact.Delivery.Of` onto `rasm.fabrication.delivery.programs` through `Process/telemetry` as kind `delivery`; operator classification redacts shop identity.
-- Receipt: `Documentation/traveler` reads `Verified` as hold evidence.
+- Law: `Of` derives controller identity from the RESULT and rejects any non-upload, absent payload, or absent controller; `Verified` requires uploaded state, controller identity, and kind-plus-digest equality, so an acknowledgement that transferred a different artifact reads as unverified rather than as a hand-off.
+- Auto: `Of` writes the settled custody verdict through `FabricationInstruments.DeliveryPrograms`; operator classification redacts shop identity.
+- Result: `Documentation/traveler` reads `Verified` as hold evidence.
 - Boundary: robot delivery rides the `CellDrive` upload channel, and a dialect gains no second delivery surface per transport.
 
 ```csharp
@@ -863,7 +864,7 @@ public sealed record ProgramDelivery(
         PostImage image,
         CellDelivery drive,
         Instant at,
-        FabricationTap? tap = null,
+        Option<InstrumentSet> set = default,
         Option<string> operatorId = default) =>
         from _state in drive.Kind == CellDriveKind.Uploaded
             ? Fin.Succ(unit)
@@ -875,7 +876,12 @@ public sealed record ProgramDelivery(
         from controller in drive.Controller.Filter(Witness.Keyed).ToFin(Refusal("controller"))
         let delivery = new ProgramDelivery(
             image.Key, Some(transferred), controller, drive.Kind, drive.Log, operatorId, image.PhysicalRecords, at)
-        let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Delivery.Of(delivery))
+        from _delivery in set.Write(FabricationInstruments.DeliveryPrograms, 1d,
+            (FabricationInstruments.KindSlot, delivery.Image.Kind.Key),
+            (FabricationInstruments.VerdictSlot, delivery.Verified
+                ? FabricationInstruments.Verified
+                : FabricationInstruments.Unverified),
+            (FabricationInstruments.ControllerSlot, delivery.Controller))
         select delivery;
 
     private static FabricationFault Refusal(string slot) =>
@@ -887,7 +893,6 @@ public sealed record ProgramDelivery(
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -2,11 +2,11 @@
 
 `Rasm.Numerics` integration is the ODE/Runge-Kutta floor — pure numerics, zero geometric content. Every Butcher tableau admits by VALIDATING its order conditions numerically rather than asserting them, so a mis-transcribed coefficient is a construction-time typed failure carrying the failed-condition census, never a silently wrong trajectory; one carrier-generic `Step` serves scalar, vector, and geometric state, and continuous dense output localizes events without re-tracing. Geometry enters only at the `Processing/flow` consumer that supplies the spatial module; this page never names a geometric type.
 
-`IntegrationModule.Combine` is the corpus' single linear-combination site; `FieldIntegrator` factories derive each dense-output receipt AND its theta-independent correction basis once at admission, so the moment-fit least-squares never runs inside the step loop — the correction is linear in a right-hand side that is itself a polynomial in theta, which is what makes the solve hoistable at all. `Step` is a PURE step function returning one closed `IntegrationStep` Accepted or Rejected: the kernel owns no reject loop, no run-level terminal partition, no step-underflow floor, and no total-step budget — each is the driver's, and the seam states itself at both ends (`Rasm.Compute/Tensor/quadrature.md` `[03]-[TRAJECTORY_DRIVER]` `TrajectoryPhase`, `Processing/flow.md` `FlowKernel.TraceState`), so a driver distinguishes budget exhaustion from underflow from a refused field where a kernel-side loop hands every one of them back as the same best-so-far. Dense continuous-extension fallback solves its moment fit through the `matrix.md` least-squares route (`Matrix`, `SolveReceipt`); every moment sum accumulates in 106-bit `ddouble` AND raises its terms there — the elementary weight folds through a `ddouble` coupling matrix and integral powers raise by repeated multiplication — so the claim rests on the summands, not on an accumulator widened after they already rounded.
+`IntegrationModule.Combine` is the corpus' single linear-combination site; `FieldIntegrator` factories derive each interpolant's `DenseConditions` AND its theta-independent correction basis once at admission, so the moment-fit least-squares never runs inside the step loop — the correction is linear in a right-hand side that is itself a polynomial in theta, which is what makes the solve hoistable at all. `Step` is a PURE step function returning one closed `IntegrationStep` Accepted or Rejected: the kernel owns no reject loop, no run-level terminal partition, no step-underflow floor, and no total-step budget — each is the driver's, and the seam states itself at both ends (`Rasm.Compute/Tensor/quadrature.md` `[03]-[TRAJECTORY_DRIVER]` `TrajectoryPhase`, `Processing/flow.md` `FlowKernel.TraceState`), so a driver distinguishes budget exhaustion from underflow from a refused field where a kernel-side loop hands every one of them back as the same best-so-far. Dense continuous-extension fallback solves its moment fit through the `matrix.md` least-squares route (`Matrix`, `LinearSolution`); every moment sum accumulates in 106-bit `ddouble` AND raises its terms there — the elementary weight folds through a `ddouble` coupling matrix and integral powers raise by repeated multiplication — so the claim rests on the summands, not on an accumulator widened after they already rounded.
 
 ## [01]-[INDEX]
 
-- [02]-[TABLEAU_VOCABULARY]: `IntegratorKind` tableau rows, the `RootedTree` Butcher-tree order algebra, and the order-condition-validated `ButcherTableau` carrier with `ButcherOrderReceipt`.
+- [02]-[TABLEAU_VOCABULARY]: `IntegratorKind` tableau rows, the `RootedTree` Butcher-tree order algebra, and the order-condition-validated `ButcherTableau` carrier with `OrderConditions`.
 - [03]-[DENSE_OUTPUT]: exact-rational interpolant families under one `DenseOutputSource` discriminant, the `ButcherDenseOutput` derivation, and the moment-fit fallback via the `matrix.md` least-squares route.
 - [04]-[STEPPER]: carrier-generic `IntegrationModule` step algebra, the one `StepControl` adaptive-control policy row, and the `FieldIntegrator` Fixed/Adaptive union.
 - [05]-[QUADRATURE]: accuracy-routed `QuadratureRoute` rows over the `IntegrationDomain` arity union, the `ReferenceElement` row family with its owned Gauss tables and typed ladder-exhaustion refusal, and the finite-guard-then-admit `Quadrature.Integrate` entry with `QuadratureEvidence`.
@@ -14,12 +14,12 @@
 
 ## [02]-[TABLEAU_VOCABULARY]
 
-- Owner: `IntegratorKind` mints the `[SmartEnum<int>]` whose rows ARE the Butcher tableaux, each a single declaration through the ONE private `Of` factory whose optionals discriminate fixed from embedded, and each carrying its derived order receipt, verified order, and dense-output family as columns; `RootedTree` is the Butcher-tree algebra — order the node count, density `γ(t) = |t|·Πγ(children)`, elementary weight `Φᵢ(t)` off the coupling matrix — whose condition set `Σᵢ bᵢΦᵢ(t) = 1/γ(t)` over every tree of order ≤ p IS the order-p proof, its pool memoized to `PoolCeiling`; `ButcherTableau` registers `IValidityEvidence` and runs that full walk at the declared order rather than asserting it, and `VerifiedOrder` DERIVES the largest certified order; `ButcherOrderReceipt` carries the walk's evidence.
+- Owner: `IntegratorKind` mints the `[SmartEnum<int>]` whose rows ARE the Butcher tableaux, each a single declaration through the ONE private `Of` factory whose optionals discriminate fixed from embedded, and each carrying its derived `OrderConditions`, verified order, and dense-output family as columns; `RootedTree` is the Butcher-tree algebra — order the node count, density `γ(t) = |t|·Πγ(children)`, elementary weight `Φᵢ(t)` off the coupling matrix — whose condition set `Σᵢ bᵢΦᵢ(t) = 1/γ(t)` over every tree of order ≤ p IS the order-p proof, its pool memoized to `PoolCeiling`; `ButcherTableau` registers `IValidityEvidence` and runs that full walk at the declared order rather than asserting it, and `VerifiedOrder` DERIVES the largest certified order; `OrderConditions` carries the walk's tally.
 - Cases: `Euler` · `Heun` · `Midpoint` · `Ralston` · `RK4` · `RK38` fixed; `BogackiShampine` · `CashKarp` · `DormandPrince` embedded-adaptive. Rows stay DISTINCT-BY-DESIGN over the closed Butcher-tableau literature — the upstream is the published tableau of each named method (Butcher's classical fourth-order pair and the 3/8 rule; Bogacki-Shampine 3(2); Cash-Karp 5(4); Dormand-Prince 5(4)) — and each row carries its coupling matrix, weight row, and embedded weight row as DATA, so no row re-derives a coefficient in a body and the order/stage witness folds from that data through the tree walk rather than a declared number.
 - Entry: `IntegratorKind.<Row>.Tableau` reads the validated carrier; `ButcherTableau.Admit` gates a tableau onto the rail; `IsFunctionalSameAsLast` detects the FSAL structure that fingerprints the method-specific dense-output families.
-- Auto: abscissae never enter as data — the factories derive them as coupling row sums, so the consistency condition holds by construction and the validity fold re-checks it as the transcription witness; `AdaptiveExponent` derives the step-control exponent from the embedded order and is ABSENT where there is none, so no fixed row silently inherits Dormand-Prince's 0.2; the tree pool per order generates once behind an accessor-forced lazy, so a fifth-order pair proves seventeen conditions with zero condition code and no re-derivation per level; the order receipt, the verified order, and the dense-output family all derive at ROW construction and ride as columns, so one admission runs the tree walk once.
+- Auto: abscissae never enter as data — the factories derive them as coupling row sums, so the consistency condition holds by construction and the validity fold re-checks it as the transcription witness; `AdaptiveExponent` derives the step-control exponent from the embedded order and is ABSENT where there is none, so no fixed row silently inherits Dormand-Prince's 0.2; the tree pool per order generates once behind an accessor-forced lazy, so a fifth-order pair proves seventeen conditions with zero condition code and no re-derivation per level; the order conditions, the verified order, and the dense-output family all derive at ROW construction and ride as columns, so one admission runs the tree walk once.
 - Law: `Admit` returns an order-carrying tableau or a TYPED structural fault that carries the walk's own census — failed and checked condition counts, the max residual, and the derived `VerifiedOrder` beside the declared `MethodOrder` — so a mis-transcribed coefficient names which claim broke instead of collapsing to a bare invalid-input token (`docs/stacks/csharp/algorithms.md [INTEGRATOR_TABLEAU]`).
-- Receipt: `ButcherOrderReceipt` folds its validity under the semantic gate `FailedConditionCount == 0 && MaxResidual <= CoefficientTolerance`; `CheckedConditionCount` is the tree census at the declared order, so an order-5 row proves every one of its seventeen elementary-weight conditions, never the first four moments alone.
+- Law: `OrderConditions` folds its validity under the semantic gate `FailedConditionCount == 0 && MaxResidual <= CoefficientTolerance`; `CheckedConditionCount` is the tree census at the declared order, so an order-5 row proves every one of its seventeen elementary-weight conditions, never the first four moments alone.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Seq`, `Option`, `Fin`), TYoshimura.DoubleDouble (`ddouble` 106-bit moment accumulation).
 - Growth: a new integrator is ONE `IntegratorKind` row through the one `Of` factory, the optionals discriminating fixed from embedded — the rooted-tree walk generates every order condition up to `RootedTree.PoolCeiling`, so a higher-order tableau validates with zero new condition code; a per-order condition roster and a second factory twin are the deleted forms.
 - Boundary: `CoefficientTolerance` is the tableau's own order-condition RESIDUAL band and `ThetaEndpointBand` the separate parameter-domain band the interpolant reads, because one constant serving two unrelated concepts let a change to the transcription band move where an interpolant thinks its endpoints are; the residual band stays a row on the carrier that owns it — exact-rational coefficients evaluate near machine epsilon, so the band catches transcription errors rather than roundoff, and seating it as an `EpsilonPolicy` row or a `ToleranceLane` puts a coefficient-transcription band in the geometry epsilon vocabulary this page carries no `Context` to read; tableau data lives ONLY on the vocabulary rows, and a consumer never spells a coupling coefficient; the recursive tree enumeration and elementary-weight loops are the named statement kernel.
@@ -75,7 +75,7 @@ public sealed partial class IntegratorKind {
         weights: [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0, 0.0],
         errorWeights: [5179.0 / 57600.0, 0.0, 7571.0 / 16695.0, 393.0 / 640.0, -92097.0 / 339200.0, 187.0 / 2100.0, 1.0 / 40.0]);
     public ButcherTableau Tableau { get; }
-    public ButcherOrderReceipt OrderReceipt { get; }
+    public OrderConditions Conditions { get; }
     public int VerifiedOrder { get; }
     internal DenseOutputCoefficientFamily DenseFamily { get; }
     internal bool IsAdaptive => Tableau.EmbeddedWeights.IsSome;
@@ -84,7 +84,7 @@ public sealed partial class IntegratorKind {
         ButcherTableau tableau = ButcherTableau.Of(
             coupling: toSeq(coupling.Select(static row => toSeq(row))), weights: toSeq(weights),
             embedded: Optional(errorWeights).Map(toSeq), order: order, embeddedOrder: Optional(embeddedOrder));
-        return new(key: key, tableau: tableau, orderReceipt: tableau.OrderReceiptOf(weights: tableau.Weights, order: order, embeddedOrder: tableau.EmbeddedOrder),
+        return new(key: key, tableau: tableau, conditions: tableau.ConditionsOf(weights: tableau.Weights, order: order, embeddedOrder: tableau.EmbeddedOrder),
             verifiedOrder: tableau.VerifiedOrderOf(), denseFamily: DenseOutputCoefficientFamily.Identify(tableau: tableau));
     }
 }
@@ -116,8 +116,8 @@ public readonly record struct ButcherTableau : IValidityEvidence {
         && Math.Abs(value: Weights[StageCount - 1]) <= CoefficientTolerance
         && Coupling[StageCount - 1].Count == StageCount - 1
         && Coupling[StageCount - 1].Zip(Weights.Take(StageCount - 1)).ForAll(static pair => Math.Abs(value: pair.First - pair.Second) <= CoefficientTolerance);
-    public bool IsValid => Valid(receipt: OrderReceiptOf(weights: Weights, order: MethodOrder, embeddedOrder: EmbeddedOrder));
-    internal bool Valid(ButcherOrderReceipt receipt) => ValidityClaim.All(
+    public bool IsValid => Valid(conditions: ConditionsOf(weights: Weights, order: MethodOrder, embeddedOrder: EmbeddedOrder));
+    internal bool Valid(OrderConditions conditions) => ValidityClaim.All(
         StageCount > 0,
         MethodOrder > 0,
         EmbeddedOrder is not { IsSome: true, Case: int embedded } || (embedded > 0 && embedded < MethodOrder),
@@ -125,26 +125,26 @@ public readonly record struct ButcherTableau : IValidityEvidence {
         Abscissae.Count == StageCount,
         Abscissae.ForAll(double.IsFinite),
         CoefficientsMatch(values: Weights, expected: 1.0),
-        receipt.IsValid,
+        conditions.IsValid,
         Coupling.Zip(Abscissae).AsIterable().Select((pair, index) => pair.First.Count <= index
             && CoefficientsMatch(values: pair.First, expected: pair.Second)).All(static ok => ok),
-        EmbeddedWeights is not { IsSome: true, Case: Seq<double> ew } || (ew.Count == StageCount && CoefficientsMatch(values: ew, expected: 1.0) && OrderReceiptOf(weights: ew, order: EmbeddedOrder.IfNone(1), embeddedOrder: EmbeddedOrder).IsValid));
+        EmbeddedWeights is not { IsSome: true, Case: Seq<double> ew } || (ew.Count == StageCount && CoefficientsMatch(values: ew, expected: 1.0) && ConditionsOf(weights: ew, order: EmbeddedOrder.IfNone(1), embeddedOrder: EmbeddedOrder).IsValid));
     internal int VerifiedOrderOf() => RootedTree.VerifiedOrder(a: CouplingMatrix(), b: [.. Weights]);
-    internal Fin<ButcherTableau> Admit(ButcherOrderReceipt receipt, int verifiedOrder, Op key) =>
-        Valid(receipt: receipt)
+    internal Fin<ButcherTableau> Admit(OrderConditions conditions, int verifiedOrder, Op key) =>
+        Valid(conditions: conditions)
             ? Fin.Succ(this)
             : Fin.Fail<ButcherTableau>(new KernelFault.InvalidValue(
                 Label: $"butcher-tableau:stages={StageCount}:order={MethodOrder}",
-                Requirement: $"every order condition within {CoefficientTolerance:e1} — failed {receipt.FailedConditionCount} of {receipt.CheckedConditionCount}, max residual {receipt.MaxResidual:e3}, verified order {verifiedOrder}",
+                Requirement: $"every order condition within {CoefficientTolerance:e1} — failed {conditions.FailedConditionCount} of {conditions.CheckedConditionCount}, max residual {conditions.MaxResidual:e3}, verified order {verifiedOrder}",
                 Key: key));
-    internal Fin<DenseOutputReceipt> DenseOutputReceipt(DenseOutputCoefficientFamily family, ButcherDenseOutput.DenseOutputInterpolant interpolant, Op key) =>
-        ButcherDenseOutput.Receipt(tableau: this, family: family, interpolant: interpolant, key: key);
+    internal Fin<DenseConditions> DenseConditionsOf(DenseOutputCoefficientFamily family, ButcherDenseOutput.DenseOutputInterpolant interpolant, Op key) =>
+        ButcherDenseOutput.Conditions(tableau: this, family: family, interpolant: interpolant, key: key);
     internal Fin<Seq<double>> DenseWeightsAt(DenseOutputCoefficientFamily family, ButcherDenseOutput.DenseOutputInterpolant interpolant, double theta, Op key) =>
         ButcherDenseOutput.WeightsAt(tableau: this, family: family, interpolant: interpolant, theta: theta, key: key);
     private static bool CoefficientsMatch(Seq<double> values, double expected) =>
         values.ForAll(double.IsFinite)
         && Math.Abs(value: values.Fold(initialState: 0.0, f: static (sum, value) => sum + value) - expected) <= CoefficientTolerance;
-    internal ButcherOrderReceipt OrderReceiptOf(Seq<double> weights, int order, Option<int> embeddedOrder) {
+    internal OrderConditions ConditionsOf(Seq<double> weights, int order, Option<int> embeddedOrder) {
         ddouble[,] aWide = WideCouplingMatrix();
         double[] b = [.. weights];
         (int Count, int Failed, double Max) state = (0, 0, 0.0);
@@ -160,7 +160,7 @@ public readonly record struct ButcherTableau : IValidityEvidence {
                     Max: Math.Max(val1: state.Max, val2: residual));
             }
         }
-        return new ButcherOrderReceipt(StageCount: StageCount, MethodOrder: order, EmbeddedOrder: embeddedOrder, CheckedConditionCount: state.Count, FailedConditionCount: state.Failed, MaxResidual: state.Max);
+        return new OrderConditions(StageCount: StageCount, MethodOrder: order, EmbeddedOrder: embeddedOrder, CheckedConditionCount: state.Count, FailedConditionCount: state.Failed, MaxResidual: state.Max);
     }
     internal static double MomentSum(Seq<double> weights, Seq<double> against, int power) =>
         (double)weights.Zip(against).Fold(initialState: (ddouble)0.0, f: (sum, pair) => sum + ((ddouble)pair.First * Raise(value: pair.Second, power: power)));
@@ -270,7 +270,7 @@ public sealed record RootedTree {
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ButcherOrderReceipt(int StageCount, int MethodOrder, Option<int> EmbeddedOrder, int CheckedConditionCount, int FailedConditionCount, double MaxResidual) : IValidityEvidence {
+public readonly record struct OrderConditions(int StageCount, int MethodOrder, Option<int> EmbeddedOrder, int CheckedConditionCount, int FailedConditionCount, double MaxResidual) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         StageCount >= 1 && MethodOrder >= 1 && CheckedConditionCount >= 0,
         EmbeddedOrder.Map(static order => order >= 1).IfNone(noneValue: true),
@@ -282,13 +282,13 @@ public readonly record struct ButcherOrderReceipt(int StageCount, int MethodOrde
 
 ## [03]-[DENSE_OUTPUT]
 
-- Owner: `DenseOutputSource` is the `[SmartEnum<string>]` discriminant over how an interpolant is obtained — `Published` for a tabulated continuous extension, `MomentFit` for the least-squares fallback — and it is the ONE column the family and its receipt both read; `DenseOutputCoefficientFamily` mints the `[SmartEnum<int>]` continuous-extension owner where `DormandPrinceShampine` and `BogackiShampine` carry their published EXACT-RATIONAL interpolant tables as row data and `Identify` matches a tableau to its family by abscissae + FSAL fingerprint, falling to `GenericMomentFit`; `ButcherDenseOutput` proves the interpolant ONCE per integrator admission (moment residuals at θ ∈ {0, ½, 1}, endpoint value/derivative residuals, coefficient consistency against the step weights), and its generic fallback solves the least-squares moment fit through the `matrix.md` route so the interpolant construction leaves a `SolveReceipt` inside the dense-output evidence.
+- Owner: `DenseOutputSource` is the `[SmartEnum<string>]` discriminant over how an interpolant is obtained — `Published` for a tabulated continuous extension, `MomentFit` for the least-squares fallback — and it is the ONE column the family and its `DenseConditions` both read; `DenseOutputCoefficientFamily` mints the `[SmartEnum<int>]` continuous-extension owner where `DormandPrinceShampine` and `BogackiShampine` carry their published EXACT-RATIONAL interpolant tables as row data and `Identify` matches a tableau to its family by abscissae + FSAL fingerprint, falling to `GenericMomentFit`; `ButcherDenseOutput` proves the interpolant ONCE per integrator admission (moment residuals at θ ∈ {0, ½, 1}, endpoint value/derivative residuals, coefficient consistency against the step weights), and its generic fallback solves the least-squares moment fit through the `matrix.md` route so the interpolant construction leaves a `LinearSolution` inside `DenseConditions`.
 - Cases: `DenseOutputSource` rows `Published` · `MomentFit`; `DenseOutputCoefficientFamily` rows `GenericMomentFit` · `DormandPrinceShampine` · `BogackiShampine`.
-- Entry: consumers never reach the family directly — `tableau.DenseWeightsAt` and `tableau.DenseOutputReceipt` are the two entries, and both take the family and the correction basis the INTEGRATOR ROW already derived, so no interpolant evaluation re-identifies a family or re-runs a matrix solve.
+- Entry: consumers never reach the family directly — `tableau.DenseWeightsAt` and `tableau.DenseConditionsOf` are the two entries, and both take the family and the correction basis the INTEGRATOR ROW already derived, so no interpolant evaluation re-identifies a family or re-runs a matrix solve.
 - Auto: the generic route pins the endpoints exactly and fits only the interior through the `θ(1−θ)`-scaled correction, so endpoint continuity is structural; that correction is LINEAR in its moment right-hand side and the right-hand side is a polynomial in θ, so `DenseOutputInterpolant` carries one solved basis column per moment and `WeightsAt` evaluates a polynomial where it once ran two matrix solves per θ; `DistinctAnchors` is the ONE distinct-abscissa derivation — the generic dense order caps at its count (the Vandermonde rank ceiling) and the moment preimage solves at those same anchor indices, one scan under one accumulator.
-- Law: the receipt carries the family and reads `Family.Source` for every evidence-shape claim — the derivative pair is `Some` exactly for `Published`, the correction `SolveReceipt` is `Some` exactly for a `MomentFit` interpolant probed at three thetas, and both couple as EQUALITIES rather than one-way implications. Family is a required positional column because `Identify` cannot return absence, and no boolean mirrors it: a `UsesStageDerivatives` or `GenericCorrectionSolve` column re-derives what `Family.Source` already answers.
-- Receipt: `DenseOutputReceipt` folds `ValidityClaim.All` coupling every residual to `CoefficientTolerance` and the family to its evidence shape — the endpoint set rides the one `EndpointResiduals` carrier whose `Derivatives` pair is `Some` exactly when the source is `Published`, so an unmeasured endpoint derivative spells absence and never a fabricated `0.0`.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Numerics.Tensors (`TensorPrimitives.Dot` — the design-plane product), CommunityToolkit.HighPerformance (`Span2D<double>` over the row-major design), `matrix.md` owners (`Matrix`, `SolveReceipt`).
+- Law: `DenseConditions` carries the family and reads `Family.Source` for every evidence-shape claim — the derivative pair is `Some` exactly for `Published`, the correction `LinearSolution` is `Some` exactly for a `MomentFit` interpolant probed at three thetas, and both couple as EQUALITIES rather than one-way implications. Family is a required positional column because `Identify` cannot return absence, and no boolean mirrors it: a `UsesStageDerivatives` or `GenericCorrectionSolve` column re-derives what `Family.Source` already answers.
+- Law: `DenseConditions` folds `ValidityClaim.All` coupling every residual to `CoefficientTolerance` and the family to its evidence shape — the endpoint set rides the one `EndpointResiduals` carrier whose `Derivatives` pair is `Some` exactly when the source is `Published`, so an unmeasured endpoint derivative spells absence and never a fabricated `0.0`.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Numerics.Tensors (`TensorPrimitives.Dot` — the design-plane product), CommunityToolkit.HighPerformance (`Span2D<double>` over the row-major design), `matrix.md` owners (`Matrix`, `LinearSolution`).
 - Growth: a new published interpolant is one `DenseOutputCoefficientFamily` row — fingerprint, order, table, and the `Published` source; a tableau without a published interpolant costs nothing, the generic moment fit covering it at the Vandermonde-rank order.
 - Boundary: interpolant tables are exact rationals spelled as ratios, never decimal approximations — the moment validation flags the drift; dense output is the event-localization substrate `Processing/flow` binds for root bisection, and a consumer interpolating trajectories by chord instead of `b(θ)` re-derives a capability this owner already proves.
 
@@ -376,7 +376,7 @@ public readonly record struct EndpointResiduals {
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder, int DenseOrder, int CheckedThetaCount, int CheckedConditionCount, int FailedConditionCount, double MaxResidual, EndpointResiduals Endpoints, DenseOutputCoefficientFamily Family, Option<SolveReceipt> CorrectionSolve = default) : IValidityEvidence {
+public readonly record struct DenseConditions(int StageCount, int MethodOrder, int DenseOrder, int CheckedThetaCount, int CheckedConditionCount, int FailedConditionCount, double MaxResidual, EndpointResiduals Endpoints, DenseOutputCoefficientFamily Family, Option<LinearSolution> CorrectionSolve = default) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         StageCount >= 1 && MethodOrder >= 1 && DenseOrder >= 0 && CheckedThetaCount >= 0,
         DenseOrder <= MethodOrder,
@@ -392,20 +392,20 @@ public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ButcherDenseOutput {
-    internal static Fin<DenseOutputReceipt> Receipt(ButcherTableau tableau, DenseOutputCoefficientFamily family, DenseOutputInterpolant interpolant, Op key) {
+    internal static Fin<DenseConditions> Conditions(ButcherTableau tableau, DenseOutputCoefficientFamily family, DenseOutputInterpolant interpolant, Op key) {
         int order = DenseOrderFor(family: family, tableau: tableau);
         return ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.0, key: key).Bind(zero =>
             ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 0.5, key: key).Bind(mid =>
                 ProbeAt(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: 1.0, key: key).Bind(one =>
                     EndpointEvidence(family: family, tableau: tableau, interpolant: interpolant, order: order, key: key).Bind(evidence => {
-                        DenseOutputReceipt receipt = new(
+                        DenseConditions conditions = new(
                             StageCount: tableau.StageCount, MethodOrder: tableau.MethodOrder, DenseOrder: order,
                             CheckedThetaCount: 3,
                             CheckedConditionCount: zero.CheckedConditionCount + mid.CheckedConditionCount + one.CheckedConditionCount,
                             FailedConditionCount: zero.FailedConditionCount + mid.FailedConditionCount + one.FailedConditionCount,
                             MaxResidual: Math.Max(val1: zero.MaxResidual, val2: Math.Max(val1: mid.MaxResidual, val2: one.MaxResidual)),
                             Endpoints: evidence, Family: family, CorrectionSolve: mid.CorrectionSolve);
-                        return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<DenseOutputReceipt>(key.InvalidResult());
+                        return conditions.IsValid ? Fin.Succ(conditions) : Fin.Fail<DenseConditions>(key.InvalidResult());
                     }))));
     }
     internal static Fin<Seq<double>> WeightsAt(ButcherTableau tableau, DenseOutputCoefficientFamily family, DenseOutputInterpolant interpolant, double theta, Op key) =>
@@ -423,7 +423,7 @@ internal static class ButcherDenseOutput {
             func: (anchors, row) => anchors.Exists(seen => Math.Abs(value: tableau.Abscissae[seen] - row.C) <= ButcherTableau.CoefficientTolerance)
                 ? anchors
                 : anchors.Add(row.Stage));
-    private readonly record struct ThetaProbe(int CheckedConditionCount, int FailedConditionCount, double MaxResidual, Option<SolveReceipt> CorrectionSolve);
+    private readonly record struct ThetaProbe(int CheckedConditionCount, int FailedConditionCount, double MaxResidual, Option<LinearSolution> CorrectionSolve);
 
     private static Fin<ThetaProbe> ProbeAt(DenseOutputCoefficientFamily family, ButcherTableau tableau, DenseOutputInterpolant interpolant, int order, double theta, Op key) =>
         Weights(family: family, tableau: tableau, interpolant: interpolant, order: order, theta: theta, key: key).Map(result => {
@@ -461,19 +461,19 @@ internal static class ButcherDenseOutput {
         values.Fold(initialState: 0.0, f: static (max, value) => Math.Max(val1: max, val2: Math.Abs(value: value)));
     private static double MaxDeviation(Seq<double> values, int target) =>
         values.AsIterable().Select((value, index) => Math.Abs(value: value - (index == target ? 1.0 : 0.0))).Aggregate(seed: 0.0, func: static (max, deviation) => Math.Max(val1: max, val2: deviation));
-    private static Fin<(Seq<double> Values, Option<SolveReceipt> Solve)> Weights(DenseOutputCoefficientFamily family, ButcherTableau tableau, DenseOutputInterpolant interpolant, int order, double theta, Op key) =>
+    private static Fin<(Seq<double> Values, Option<LinearSolution> Solve)> Weights(DenseOutputCoefficientFamily family, ButcherTableau tableau, DenseOutputInterpolant interpolant, int order, double theta, Op key) =>
         family.Source == DenseOutputSource.Published
-            ? family.WeightsAt(theta: theta, stageCount: tableau.StageCount, key: key).Map(static values => (Values: values, Solve: Option<SolveReceipt>.None))
+            ? family.WeightsAt(theta: theta, stageCount: tableau.StageCount, key: key).Map(static values => (Values: values, Solve: Option<LinearSolution>.None))
             : theta <= ButcherTableau.ThetaEndpointBand
-                ? Fin.Succ((Values: toSeq(Enumerable.Repeat(element: 0.0, count: tableau.StageCount)), Solve: Option<SolveReceipt>.None))
+                ? Fin.Succ((Values: toSeq(Enumerable.Repeat(element: 0.0, count: tableau.StageCount)), Solve: Option<LinearSolution>.None))
                 : 1.0 - theta <= ButcherTableau.ThetaEndpointBand
-                    ? Fin.Succ((Values: tableau.Weights, Solve: Option<SolveReceipt>.None))
+                    ? Fin.Succ((Values: tableau.Weights, Solve: Option<LinearSolution>.None))
                     : Fin.Succ((
                         Values: toSeq(tableau.Weights.Map(weight => theta * weight)
                             .Zip(toSeq(interpolant.At(theta: theta, stages: tableau.StageCount)))
                             .Select(pair => pair.First + (theta * (1.0 - theta) * pair.Second))),
                         Solve: interpolant.Solve));
-    internal readonly record struct DenseOutputInterpolant(int Order, ImmutableArray<double[]> Basis, Option<SolveReceipt> Solve) {
+    internal readonly record struct DenseOutputInterpolant(int Order, ImmutableArray<double[]> Basis, Option<LinearSolution> Solve) {
         internal double[] At(double theta, int stages) {
             double endpointScale = theta * (1.0 - theta);
             double[] correction = new double[stages];
@@ -493,7 +493,7 @@ internal static class ButcherDenseOutput {
         int stages = tableau.StageCount;
         double[] design = MomentDesign(tableau: tableau, stages: stages, order: order);
         return Range(0, order)
-            .Fold(Fin.Succ(Seq<(double[] Correction, SolveReceipt Solve)>.Empty),
+            .Fold(Fin.Succ(Seq<(double[] Correction, LinearSolution Solve)>.Empty),
                 (built, moment) => built.Bind(columns =>
                     BasisColumn(tableau: tableau, design: design, stages: stages, order: order, moment: moment, key: key).Map(columns.Add)))
             .Map(columns => new DenseOutputInterpolant(
@@ -502,7 +502,7 @@ internal static class ButcherDenseOutput {
                 Solve: columns.Rev().HeadOrNone().Map(static column => column.Solve)));
     }
 
-    private static Fin<(double[] Correction, SolveReceipt Solve)> BasisColumn(ButcherTableau tableau, double[] design, int stages, int order, int moment, Op key) {
+    private static Fin<(double[] Correction, LinearSolution Solve)> BasisColumn(ButcherTableau tableau, double[] design, int stages, int order, int moment, Op key) {
         double[] unit = new double[order];
         unit[moment] = 1.0;
         return MomentPreimage(tableau: tableau, stages: stages, order: order, rhs: new Arr<double>(unit), key: key).Bind(preimage =>
@@ -552,13 +552,13 @@ internal static class ButcherDenseOutput {
 
 ## [04]-[STEPPER]
 
-- Owner: `IntegrationModule<TState, TDelta>` mints the additive-module policy record — the four operations one Runge-Kutta step needs and its `Zero` delta, carrying `Combine` as the corpus' single linear-combination fold and the `Scalar`/`ComplexScalar` canonical instances for `double` and `Complex` state; `StepControl` mints the ONE adaptive-control policy row — safety factor, step-ratio clamps, reject budget, and the `StepLaw` row travelling together (`docs/stacks/csharp/algorithms.md [INTEGRATOR_TABLEAU]`) — whose `Rescale` reads the driver-threaded `StepHistory`, so an elementary, PI, or Gustafsson law is a ROW and the stepper body never changes (Hairer-Wanner II §IV.2); `FieldIntegrator` mints the `[Union]` Fixed/Adaptive integrator whose factories derive the dense-output receipt once and carry it on the case, and whose generic `Step` folds the coupling rows into stages, forms the primary and embedded combinations, applies the error control, and mints the dense-output span; `IntegrationStep<TState, TDelta>` is the closed continue-or-done outcome; `DenseOutputSpan<TState, TDelta>` carries the per-step continuous extension, its construction re-verifying the θ=1 weight combination against the tableau's declared weights.
+- Owner: `IntegrationModule<TState, TDelta>` mints the additive-module policy record — the four operations one Runge-Kutta step needs and its `Zero` delta, carrying `Combine` as the corpus' single linear-combination fold and the `Scalar`/`ComplexScalar` canonical instances for `double` and `Complex` state; `StepControl` mints the ONE adaptive-control policy row — safety factor, step-ratio clamps, reject budget, and the `StepLaw` row travelling together (`docs/stacks/csharp/algorithms.md [INTEGRATOR_TABLEAU]`) — whose `Rescale` reads the driver-threaded `StepHistory`, so an elementary, PI, or Gustafsson law is a ROW and the stepper body never changes (Hairer-Wanner II §IV.2); `FieldIntegrator` mints the `[Union]` Fixed/Adaptive integrator whose factories derive the interpolant's `DenseConditions` once and carry them on the case, and whose generic `Step` folds the coupling rows into stages, forms the primary and embedded combinations, applies the error control, and mints the dense-output span; `IntegrationStep<TState, TDelta>` is the closed continue-or-done outcome; `DenseOutputSpan<TState, TDelta>` carries the per-step continuous extension, its construction re-verifying the θ=1 weight combination against the tableau's declared weights.
 - Cases: `FieldIntegrator` `FixedCase` · `AdaptiveCase`; `IntegrationStep` `AcceptedCase` · `RejectedCase`.
-- Entry: `FieldIntegrator.Fixed` and `Adaptive` admit — re-validating the tableau, enforcing kind/case agreement (a fixed integrator over an embedded kind, or the reverse, fails typed), and deriving the carried receipt; both take a REQUIRED `Op key` because neither crosses a host boundary; `Step` takes the derivative field as a `sample` function, so the one stepper integrates a scalar ODE, a spatial streamline, or any admitted carrier; `AdmitOrFixed` defaults an absent integrator to `Fixed(RK4)`.
+- Entry: `FieldIntegrator.Fixed` and `Adaptive` admit — re-validating the tableau, enforcing kind/case agreement (a fixed integrator over an embedded kind, or the reverse, fails typed), and deriving the carried `DenseConditions`; both take a REQUIRED `Op key` because neither crosses a host boundary; `Step` takes the derivative field as a `sample` function, so the one stepper integrates a scalar ODE, a spatial streamline, or any admitted carrier; `AdmitOrFixed` defaults an absent integrator to `Fixed(RK4)`.
 - Auto: stage computation is one fold over the coupling rows; the adaptive arm reads the error from the delta between the primary and embedded combinations, rescales through the `StepControl` law against the history the driver threads, and returns `RejectedCase` with the shrunk suggestion. `Kind`, `Dense`, and `Interp` are ABSTRACT columns both cases carry, so no dispatch discriminates on a fold whose arms do not differ, and `Admit` returns the value — a `FieldIntegrator` in hand IS admitted, its case constructors internal and its factories having proved everything once.
 - Law: `Step` is a PURE step function and the DRIVE is the consumer's. Kernel owns no reject loop, no run-level terminal partition, no step-underflow floor, and no total-step budget — a kernel-side loop collapses budget exhaustion, step underflow, and a non-finite error into one indistinguishable best-so-far, so each driver owns its closed continue-or-done fold over `IntegrationStep` and names its typed terminal (`Rasm.Compute/Tensor/quadrature.md` `TrajectoryPhase`/`TrajectoryTerminal.BudgetExhausted`, `Processing/flow.md` `FlowKernel.TraceState` through `Cell.Converge` with `StreamlineStopKind.RejectBudgetExhausted`). `StepControl.RejectBudget` is the budget those drivers read; the kernel publishes it and never spends it.
 - Exemption: the error-norm choice rides `IntegrationModule.Norm` rather than the control row — the norm is a property of the STATE CARRIER, so a large-magnitude slab supplies the scaled two-pass norm that doctrine's boundary calls for while `Scalar`/`ComplexScalar` supply the modulus; a norm column on `StepControl` lets one control row claim a norm its carrier cannot compute.
-- Receipt: the dense span carries the `DenseOutputReceipt`; step error and the suggested next step ride the outcome cases, which is where a driver reads them.
+- Output: the dense span carries its `DenseConditions`; step error and the suggested next step ride the outcome cases, which is where a driver reads them.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core; zero geometry — `Rasm.Domain` `Op` only.
 - Growth: a new state carrier is one `IntegrationModule` instance at its consumer; a new control law (PI, Gustafsson) is one `StepControl` field set — the stepper body never changes.
 - Boundary: no state difference ever appears — only deltas subtract, so the module needs no `TState` subtraction, and the error is measured between the two weight combinations before adding to the state.
@@ -645,16 +645,16 @@ public abstract partial record IntegrationStep<TState, TDelta> {
 public readonly record struct DenseOutputSpan<TState, TDelta>(
     TState Start, TState End, double Step, Seq<TDelta> Stages, ButcherTableau Tableau,
     DenseOutputCoefficientFamily Family, ButcherDenseOutput.DenseOutputInterpolant Interpolant,
-    DenseOutputReceipt Receipt, IntegrationModule<TState, TDelta> Module) {
-    internal static Fin<DenseOutputSpan<TState, TDelta>> Of(IntegrationModule<TState, TDelta> module, TState start, TState end, double step, Seq<TDelta> stages, ButcherTableau tableau, DenseOutputCoefficientFamily family, ButcherDenseOutput.DenseOutputInterpolant interpolant, DenseOutputReceipt receipt, Op key) =>
+    DenseConditions Conditions, IntegrationModule<TState, TDelta> Module) {
+    internal static Fin<DenseOutputSpan<TState, TDelta>> Of(IntegrationModule<TState, TDelta> module, TState start, TState end, double step, Seq<TDelta> stages, ButcherTableau tableau, DenseOutputCoefficientFamily family, ButcherDenseOutput.DenseOutputInterpolant interpolant, DenseConditions conditions, Op key) =>
         tableau.DenseWeightsAt(family: family, interpolant: interpolant, theta: 1.0, key: key).Bind(weights => {
             TDelta reconstructed = module.Combine(coefficients: weights, deltas: stages);
             TDelta declared = module.Combine(coefficients: tableau.Weights, deltas: stages);
             double drift = module.Norm(arg: module.Sum(arg1: reconstructed, arg2: module.Scale(arg1: -1.0, arg2: declared)));
             double stageScale = stages.Fold(initialState: 0.0, f: (max, delta) => Math.Max(val1: max, val2: module.Norm(arg: delta)));
             return double.IsFinite(drift) && drift <= EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: stageScale)
-                && stages.Count == tableau.StageCount && Math.Abs(value: step) > EpsilonPolicy.ZeroTolerance && receipt.IsValid
-                ? Fin.Succ(new DenseOutputSpan<TState, TDelta>(Start: start, End: end, Step: step, Stages: stages, Tableau: tableau, Family: family, Interpolant: interpolant, Receipt: receipt, Module: module))
+                && stages.Count == tableau.StageCount && Math.Abs(value: step) > EpsilonPolicy.ZeroTolerance && conditions.IsValid
+                ? Fin.Succ(new DenseOutputSpan<TState, TDelta>(Start: start, End: end, Step: step, Stages: stages, Tableau: tableau, Family: family, Interpolant: interpolant, Conditions: conditions, Module: module))
                 : Fin.Fail<DenseOutputSpan<TState, TDelta>>(key.InvalidResult());
         });
     public Fin<TState> PointAt(double theta, Op key) {
@@ -669,42 +669,42 @@ public readonly record struct DenseOutputSpan<TState, TDelta>(
 [Union]
 public abstract partial record FieldIntegrator {
     public sealed record FixedCase : FieldIntegrator {
-        internal FixedCase(IntegratorKind kind, DenseOutputReceipt dense, ButcherDenseOutput.DenseOutputInterpolant interp) { Kind = kind; Dense = dense; Interp = interp; }
+        internal FixedCase(IntegratorKind kind, DenseConditions dense, ButcherDenseOutput.DenseOutputInterpolant interp) { Kind = kind; Dense = dense; Interp = interp; }
         public override IntegratorKind Kind { get; }
-        internal override DenseOutputReceipt Dense { get; }
+        internal override DenseConditions Dense { get; }
         internal override ButcherDenseOutput.DenseOutputInterpolant Interp { get; }
     }
     public sealed record AdaptiveCase : FieldIntegrator {
-        internal AdaptiveCase(IntegratorKind kind, PositiveMagnitude tolerance, StepControl control, DenseOutputReceipt dense, ButcherDenseOutput.DenseOutputInterpolant interp) {
+        internal AdaptiveCase(IntegratorKind kind, PositiveMagnitude tolerance, StepControl control, DenseConditions dense, ButcherDenseOutput.DenseOutputInterpolant interp) {
             Kind = kind; Tolerance = tolerance; Control = control; Dense = dense; Interp = interp;
         }
         public override IntegratorKind Kind { get; }
         public PositiveMagnitude Tolerance { get; }
         public StepControl Control { get; }
-        internal override DenseOutputReceipt Dense { get; }
+        internal override DenseConditions Dense { get; }
         internal override ButcherDenseOutput.DenseOutputInterpolant Interp { get; }
     }
     private FieldIntegrator() { }
     public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op key) =>
         from active in Optional(kind).ToFin(key.InvalidInput())
-        from tableau in active.Tableau.Admit(receipt: active.OrderReceipt, verifiedOrder: active.VerifiedOrder, key: key)
+        from tableau in active.Tableau.Admit(conditions: active.Conditions, verifiedOrder: active.VerifiedOrder, key: key)
         from fixedKind in guard(!active.IsAdaptive, key.Unsupported(inputType: active.GetType(), outputType: typeof(FixedCase)))
         from interp in ButcherDenseOutput.Interpolant(tableau: tableau, family: active.DenseFamily, key: key)
-        from dense in tableau.DenseOutputReceipt(family: active.DenseFamily, interpolant: interp, key: key)
+        from dense in tableau.DenseConditionsOf(family: active.DenseFamily, interpolant: interp, key: key)
         select (FieldIntegrator)new FixedCase(kind: active, dense: dense, interp: interp);
     public static Fin<FieldIntegrator> Adaptive(IntegratorKind kind, double tolerance, Op key, Option<StepControl> control = default) {
         StepControl law = control.IfNone(StepControl.Default);
         return from active in Optional(kind).ToFin(key.InvalidInput())
-               from tableau in active.Tableau.Admit(receipt: active.OrderReceipt, verifiedOrder: active.VerifiedOrder, key: key)
+               from tableau in active.Tableau.Admit(conditions: active.Conditions, verifiedOrder: active.VerifiedOrder, key: key)
                from adaptiveKind in guard(active.IsAdaptive, key.Unsupported(inputType: active.GetType(), outputType: typeof(AdaptiveCase)))
                from admitted in guard(law.IsValid, new KernelFault.InvalidValue(Label: nameof(StepControl), Requirement: "finite positive safety factor, ordered positive scale clamps, nonnegative reject budget, a control law", Key: key))
                from validated in key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
                from interp in ButcherDenseOutput.Interpolant(tableau: tableau, family: active.DenseFamily, key: key)
-               from dense in tableau.DenseOutputReceipt(family: active.DenseFamily, interpolant: interp, key: key)
+               from dense in tableau.DenseConditionsOf(family: active.DenseFamily, interpolant: interp, key: key)
                select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, control: law, dense: dense, interp: interp);
     }
     public abstract IntegratorKind Kind { get; }
-    internal abstract DenseOutputReceipt Dense { get; }
+    internal abstract DenseConditions Dense { get; }
     internal abstract ButcherDenseOutput.DenseOutputInterpolant Interp { get; }
     public int RejectBudget => Switch(state: 0, fixedCase: static (s, _) => s, adaptiveCase: static (_, c) => c.Control.RejectBudget);
     internal ButcherTableau Tableau => Kind.Tableau;
@@ -719,7 +719,7 @@ public abstract partial record FieldIntegrator {
         fixedCase: static (s, c) =>
             from ks in Stages(module: s.Module, sample: s.Sample, tableau: c.Kind.Tableau, state: s.State, h: s.H, key: s.Key)
             let next = s.Module.Add(arg1: s.State, arg2: s.H, arg3: s.Module.Combine(coefficients: c.Kind.Tableau.Weights, deltas: ks))
-            from dense in DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: next, step: s.H, stages: ks, tableau: c.Kind.Tableau, family: c.Kind.DenseFamily, interpolant: c.Interp, receipt: c.Dense, key: s.Key)
+            from dense in DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: next, step: s.H, stages: ks, tableau: c.Kind.Tableau, family: c.Kind.DenseFamily, interpolant: c.Interp, conditions: c.Dense, key: s.Key)
             select (IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.AcceptedCase(Next: next, SuggestedStep: s.H, Error: Option<double>.None, Dense: dense),
         adaptiveCase: static (s, c) =>
             from embeddedWeights in c.Kind.Tableau.EmbeddedWeights.ToFin(Fail: s.Key.InvalidInput())
@@ -729,7 +729,7 @@ public abstract partial record FieldIntegrator {
             let err = Math.Abs(value: s.H) * s.Module.Norm(arg: s.Module.Sum(arg1: primary, arg2: s.Module.Scale(arg1: -1.0, arg2: secondary)))
             let scale = c.Kind.AdaptiveExponent.Map(exponent => c.Control.Rescale(history: s.History, error: err, tolerance: c.Tolerance.Value, exponent: exponent)).IfNone(noneValue: 1.0)
             from result in err <= c.Tolerance.Value
-                ? DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: s.Module.Add(arg1: s.State, arg2: s.H, arg3: primary), step: s.H, stages: ks, tableau: c.Kind.Tableau, family: c.Kind.DenseFamily, interpolant: c.Interp, receipt: c.Dense, key: s.Key)
+                ? DenseOutputSpan<TState, TDelta>.Of(module: s.Module, start: s.State, end: s.Module.Add(arg1: s.State, arg2: s.H, arg3: primary), step: s.H, stages: ks, tableau: c.Kind.Tableau, family: c.Kind.DenseFamily, interpolant: c.Interp, conditions: c.Dense, key: s.Key)
                     .Map(dense => (IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.AcceptedCase(Next: s.Module.Add(arg1: s.State, arg2: s.H, arg3: primary), SuggestedStep: s.H * scale, Error: Some(err), Dense: dense))
                 : Fin.Succ((IntegrationStep<TState, TDelta>)new IntegrationStep<TState, TDelta>.RejectedCase(SuggestedStep: s.H * scale, Error: Some(err)))
             select result);
@@ -750,7 +750,7 @@ public abstract partial record FieldIntegrator {
 - Auto: each arm wraps its integrand in a skip-counting guard because no MathNet route inspects returns and a pole poisons the weighted sum silently — `QuadratureControl.MaxSkipped` makes that loss budget explicit and defaults to zero; `Op.Catch` is the one inbound exception funnel over the whole dispatch, so an integrand or MathNet raise surfaces on the typed rail with `KernelFault.Cancelled` keeping its own identity; a `Line` arm faults a route lacking `InfiniteBounds` against an infinite `IntervalSpec` rather than feeding infinity to a finite-only kernel; only `GaussKronrod` returns the `error`/`L1Norm` channel, so the error-budget and cancellation gates bind only where the channels are `Some`; `SparseGrid` folds the nested Clenshaw-Curtis combination formula through `SmolyakCubature.Integrate` under `MaxSparseLevel`; `Simplex` folds the elected reference-element table — the reference-domain integral, the consumer weighting each point by its own Jacobian at the isoparametric map it owns.
 - Law: a rule ladder that runs out REFUSES. `ReferenceElement.Rule` returns `Fin<QuadratureRule>` and faults typed against its own `Ceiling` when the requested order exceeds every owned rule, so no success-shaped under-integration ever reaches a caller who asked for a higher order.
 - Exemption: the Gauss/simplex table builders hold `List<(double, double, double, double)>` accumulators and raw `double[]` node/weight pairs inside `SmolyakCubature`; both are statement kernels — the first runs once at type init and freezes into `ImmutableArray`, the second is the per-call tensor-node walk the sparse fold streams — and neither escapes its owner.
-- Receipt: `QuadratureEvidence` carries `Option<double>` error, L1, and ratio so a non-adaptive route reports honest absence, never a fabricated `NaN`; the skip count rides the receipt, never silently as coverage; the gate is three-tier — non-finite rejects, an adaptive error estimate over `max(AbsoluteError, RelativeError·|value|)` rejects, and a cancellation ratio breaching the floor rejects — never a rejection on slow convergence alone.
+- Output: `QuadratureEvidence` carries `Option<double>` error, L1, and ratio so a non-adaptive route reports honest absence, never a fabricated `NaN`; the skip count rides it, never silently as coverage; the gate is three-tier — non-finite rejects, an adaptive error estimate over `max(AbsoluteError, RelativeError·|value|)` rejects, and a cancellation ratio breaching the floor rejects — never a rejection on slow convergence alone.
 - Packages: MathNet.Numerics (`Integrate.DoubleExponential`/`GaussLegendre`/`GaussKronrod`/`OnRectangle`/`OnCuboid`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new accuracy kernel is one `QuadratureRoute` row with its delegate and infinite-bound capability; a new arity is one `IntegrationDomain` case; a new reference domain or a higher-order rule is one `ReferenceElement` row or one entry on its rule ladder, and the ladder entry lifts every consumer already declaring that order — a prism or conical rung climbs only through its WEAKER leg, since the derived `min`/base-direction order makes a longer strong leg buy nothing `ProveAscending` would admit; a new sparse-grid 1-D rule family or dimension-adaptive refinement is a policy row on `SmolyakCubature` — zero new surface.
 - Boundary: accuracy is the primary decision with order secondary — the three MathNet kernels bind as route rows, never sibling factories, and the finite-guard-then-admit combinator applies once over the uniform `KernelOutcome` column; `KernelOutcome` is the QUADRATURE outcome triple — a value beside the two channels only an adaptive kernel measures — and shares nothing but its arity with any trajectory or solver outcome; infinite bounds route only into `DoubleExponential`/`GaussLegendre`, whose MathNet entries substitute infinity through a baked-in abscissa transform, so `InfiniteBounds` is load-bearing and any 1-D delegate forced through a 2-D rule integrates `(b−a)·∫f` and is rejected; `error`/`L1Norm`/`Ratio` are `Option<double>` because only the adaptive Kronrod row yields them, and `ConvergenceClaim` states that fact as a VERDICT the admission gate reads — absence of an error estimate is not absence of a convergence claim, so `RequireErrorWitness` defaults true and an unwitnessed route is an explicit opt-out rather than a success indistinguishable from a converged one; the reference-element tables integrate the REFERENCE domain — the physical mapping, its Jacobian, and the isoparametric basis stay the consuming element's, so this owner never learns an element topology; a consumer calling `Integrate.GaussLegendre` raw skips the finite guard, the skip budget, and the typed evidence and is the deleted form.
@@ -1096,8 +1096,8 @@ One owner per axis; capability is a case, row, or member on the owning carrier, 
 |  [07]   | Reference domain     | `ReferenceElement`                 |  7·17   |
 
 - [01]-[INTEGRATOR_ROWS]: `[SmartEnum<int>]` — the tableau IS the row.
-- [02]-[COEFFICIENT_CARRIER]: order-condition-validated record + `ButcherOrderReceipt` `ValidityClaim.All` receipt over the `RootedTree` walk.
-- [03]-[CONTINUOUS_EXTENSION]: exact-rational tables + moment-fit fallback via `matrix.md`; carriers `DenseOutputSource` · `DenseOutputCoefficientFamily` · `DenseOutputReceipt` · `ButcherDenseOutput`.
+- [02]-[COEFFICIENT_CARRIER]: order-condition-validated record + `OrderConditions` `ValidityClaim.All` tally over the `RootedTree` walk.
+- [03]-[CONTINUOUS_EXTENSION]: exact-rational tables + moment-fit fallback via `matrix.md`; carriers `DenseOutputSource` · `DenseOutputCoefficientFamily` · `DenseConditions` · `ButcherDenseOutput`.
 - [04]-[STEP_ALGEBRA]: carrier-generic policy records + `[Union]` stepper — `IntegrationModule<TState,TDelta>` (THE `Combine`) with `StepControl` · `FieldIntegrator` · `IntegrationStep` · `DenseOutputSpan`.
 - [05]-[ACCURACY_ROUTE]: `[SmartEnum<string>]` rows carrying the MathNet kernel delegate and the `InfiniteBounds` capability; `KernelOutcome` is the uniform column the admission gate reads.
 - [06]-[INTEGRATION_ARITY]: `[Union]` cases over 1-D/2-D/3-D integrands, the Smolyak sparse grid, and the reference-element simplex; `IntervalSpec` and `QuadratureControl`/`QuadratureEvidence` ride the same axis.
@@ -1107,7 +1107,6 @@ One owner per axis; capability is a case, row, or member on the owning carrier, 
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

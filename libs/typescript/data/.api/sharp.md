@@ -22,7 +22,7 @@ Native and server-bound, its Promise and stream terminals lift into the `Effect`
 | :-----: | :-------------------------------- | :--------------- | :------------------------------------ |
 |  [01]   | `SharpInput`                      | input union      | every decode source shape             |
 |  [02]   | `SharpOptions`                    | ingress config   | input gates and source select         |
-|  [03]   | `OutputInfo`                      | terminal receipt | provenance every terminal returns     |
+|  [03]   | `OutputInfo`                      | terminal info    | provenance every terminal returns     |
 |  [04]   | `Metadata`                        | pre-decode read  | drives the derivative and content-key |
 |  [05]   | `Stats` / `ChannelStats`          | pixel analysis   | dominant colour, entropy, sharpness   |
 |  [06]   | `TimeoutOptions` / `CacheOptions` | governance       | timeout deadline, libvips cache limit |
@@ -84,9 +84,9 @@ Every fold member returns `Sharp`, so the chain is one polymorphic fold.
 | [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]                                      |
 | :-----: | :------------------------------------ | :------- | :------------------------------------------------ |
 |  [01]   | `toFormat(format, options?) -> Sharp` | fold     | THE fan-out encoder — `toFormat(row.format, ...)` |
-|  [02]   | `toBuffer(opts?) -> Promise`          | instance | derivative bytes and `OutputInfo` receipt         |
+|  [02]   | `toBuffer(opts?) -> Promise`          | instance | derivative bytes beside `OutputInfo`              |
 |  [03]   | `toFile(path) -> Promise<OutputInfo>` | instance | write to a filesystem sink                        |
-|  [04]   | `toUint8Array() -> Promise`           | instance | transferable `Uint8Array` and receipt             |
+|  [04]   | `toUint8Array() -> Promise`           | instance | transferable `Uint8Array` beside `OutputInfo`     |
 |  [05]   | `tile(TileOptions) -> Sharp`          | fold     | deep-zoom / IIIF pyramid output                   |
 |  [06]   | `metadata() -> Promise<Metadata>`     | instance | pre-decode read                                   |
 |  [07]   | `stats() -> Promise<Stats>`           | instance | pixel analysis — `dominant`, `entropy`            |
@@ -133,6 +133,6 @@ Every fold member returns `Sharp`, so the chain is one polymorphic fold.
 
 [RAIL_LAW]:
 - Package: `sharp`
-- Owns: libvips image decode, transform, and encode — the polymorphic `sharp(input, options)` ingress, the chained `Sharp` `Duplex` fold grammar (resize, operation, channel, colour, composite), `toFormat` with the codec terminals and `tile`, the `toBuffer`/`toUint8Array`/`toFile` terminal trio and their `OutputInfo` receipt, `metadata`/`stats` introspection, metadata-keep controls, and process governance
+- Owns: libvips image decode, transform, and encode — the polymorphic `sharp(input, options)` ingress, the chained `Sharp` `Duplex` fold grammar (resize, operation, channel, colour, composite), `toFormat` with the codec terminals and `tile`, the `toBuffer`/`toUint8Array`/`toFile` terminal trio and their `OutputInfo`, `metadata`/`stats` introspection, metadata-keep controls, and process governance
 - Accept: server-plane use in `object/file`, `Effect`-lifted terminals with tagged faults, `toFormat`-over-spec-rows fan-out on one `clone()`d decode, untrusted-input gating (`failOn`/`block`/`limitInputPixels`), content keys minted by the core `ContentKey` owner
 - Reject: a browser or wasm-lane import, a raw Promise or throw crossing into domain code, a hardcoded per-format encoder ladder, unbounded or untrusted decode, sharp owning content addressing or upload idempotency

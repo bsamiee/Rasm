@@ -11,11 +11,10 @@ Correspondence binds one law per wire: `IssueTopic.Status` carries the custodian
 
 ## [02]-[ISSUE_SEAM]
 
-- Owner: `IssueVersion` the wire-dialect provenance axis the facts stamp; `VocabularyAxis` the closed extensible-axis vocabulary; `IssueVocabulary` the per-project frozen registry handed as data off the custodian's declared extensions; `IssueSpec` the seam descriptor fixing dialect, provenance, declared vocabulary, and correlation port; `IssueOp`/`IssueYield` the closed dispatch pair over handed rows; `[FaultCase]` the fault roster realizing the kernel `[FaultCase]` floor over the `StoreIssue` row; `IssueFault` the accumulating family above it; `IssueCensus` the one folded count carrier every receipt reads; `IssueFactKind`/`IssueFact` the receipt stream; `IssueSource` owning `Run`.
-- Cases: `IssueOp.Ingest(IssueSpec, Seq<IssueTopic>)` admits a handed row set — key uniqueness, comment-to-viewpoint join integrity, every component correlated through the resolve port — and yields the correlated rows for the durable landing; `IssueOp.Egress(IssueSpec, Seq<IssueTopic>)` releases held rows for the composition root's custodian write and yields the released count. `IssueFault` is `SeamReject | TopicRejected`; independent failures accumulate through `Validation<Error, …>` as `Error.Many`. `IssueFactKind` closes `ingest | egress`.
-- Entry: `public static IO<Validation<Error, IssueYield>> Run(IssueOp op, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink)` — ONE polymorphic entry over the closed op union through the generated total `Switch`; per-topic admission failures accumulate through `Validation<Error, …>` so one malformed topic never discards a hundred sound ones, and the correlation is the row's own member, never a second entry.
-- Auto: key admission proves every topic `Guid` unique across the handed set and every comment's viewpoint join resolves inside its own topic — a violation rails `TopicRejected` naming the topic; correlation maps each component's `IfcGuid` through the injected port and lands the outcome on the row's own `Option<SetKey>` — the identity tier's `GlobalIds` mirror knows its owning model, so a sibling discipline's reference resolves model-qualified instead of dropping to absence, so an unresolved reference rides typed absence and counts on the ingest fact; a topic value OUTSIDE the declared vocabulary is a carried fact on the receipt (the BCF vocabularies are advisory declarations, and round-trip fidelity outranks local taste), never a mutation and never a fault; egress re-releases rows byte-faithful to what admission held so a Persistence round trip never launders a foreign tool's state — the container spelling of that fidelity is the custodian's obligation, not this seam's.
-- Receipt: every op rides an `IssueFact` under `store.issue.*` carrying the dialect and ONE `IssueCensus` — topic, comment, and viewpoint counts, the unresolved-component count, and the foreign-vocabulary count folded in a single traversal of the handed rows — one kind-discriminated stream stamped `frame.Now()`.
+- Owner: `IssueVersion` is the wire-dialect provenance axis; `VocabularyAxis` is the closed extensible-axis vocabulary; `IssueVocabulary` is the per-project frozen registry; `IssueSpec` fixes dialect, provenance, declared vocabulary, and correlation port; `IssueOp`/`IssueYield` close dispatch over handed rows; `[FaultCase]` closes the fault roster; `IssueFault` is the accumulating family above it; `IssueCensus` folds counts once; `IssueSource` owns `Run`.
+- Cases: `IssueOp.Ingest(IssueSpec, Seq<IssueTopic>)` admits a handed row set and yields correlated rows; `IssueOp.Egress(IssueSpec, Seq<IssueTopic>)` releases held rows and yields the count. `IssueFault` is `SeamReject | TopicRejected`; independent failures accumulate through `Validation<Error, …>`.
+- Entry: `Run(IssueOp)` is the ONE polymorphic entry over the closed operation union; per-topic admission failures accumulate so one malformed topic never discards sound rows.
+- Auto: key admission proves every topic `Guid` unique across the handed set and every comment's viewpoint join resolves inside its own topic — a violation rails `TopicRejected` naming the topic; correlation maps each component's `IfcGuid` through the injected port and lands the result on the row's own `Option<SetKey>`; a topic value outside the declared vocabulary remains byte-faithful because BCF vocabularies are advisory declarations, never a mutation or fault.
 - Packages: Rasm.Element (`NodeId`), Rasm (`Rasm/Domain/rails#FAULT_BAND` `FaultBand`), Rasm.Persistence (`Element/graph#STORE_RAIL` `ProjectionContext`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox (zero container surface: `ZipArchive` and `XDocument` are the custodian's, and their appearance here is the deleted form the branch custody ruling names).
 - Growth: a new wire dialect is one `IssueVersion` row; a new extensible axis is one `VocabularyAxis` row; a new admission check is one arm inside the one `Admit` fold; a new fault class is one case inside the registry decade; zero new surface — a container codec, a per-dialect reader family, a compiled status/type/priority enum a foreign project breaks, a topic value silently normalized at admission, or a review-logic computation inside this seam is the deleted form because the container wire is the custodian's, the vocabularies are runtime-admitted data, and this owner is the durable half.
 - Boundary: the seam owns exactly the row half — admission, correlation, release, facts — and the container wire is `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfArchive`'s whole (read, write, version discrimination, vocabulary residence, bitmap parts), the two non-referencing S2 ends meeting at the composition root that owns the `BcfTopic`⇄`IssueTopic` transcription; the durable landing is the app's (`Element/graph#STORE_RAIL` for row residence, `Store/blobstore` for snapshot bytes, both at the composition root per the Ingest row-shape law); GlobalId correlation is a one-hop injected port because the `GlobalIds` mirror is `Element/identity`'s (this page never opens a store connection); `← Rasm.Bim` clash results mint topics the root transcribes and hands to `Ingest` for durable landing, `→ Rasm.Bim` resolved topics return as status moves the planner reads through `Reconcile`; the server-side BCF-API is the custodian's REST projection over the Compute transport — a foreign review server's export lands here as rows the root read through the same custodian.
@@ -93,12 +92,6 @@ public abstract partial record IssueFault : Fault {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class IssueFactKind {
-    public static readonly IssueFactKind Ingest = new("ingest");
-    public static readonly IssueFactKind Egress = new("egress");
-}
-
 public readonly record struct IssueCensus(int Topics, int Comments, int Viewpoints, int Unresolved, int Foreign) {
     public static readonly IssueCensus Empty = new(0, 0, 0, 0, 0);
 
@@ -112,28 +105,18 @@ public readonly record struct IssueCensus(int Topics, int Comments, int Viewpoin
             Foreign:     census.Foreign + declared.Foreign(topic)));
 }
 
-public readonly record struct IssueFact(IssueFactKind Kind, IssueVersion Dialect, IssueCensus Census, Instant At);
-
 public static class IssueSource {
-    public static readonly Seq<StoreSlot> Slots =
-        toSeq(IssueFactKind.Items).Map(static kind => StoreSlot.Create($"store.issue.{kind.Key}"));
-
-    public static IO<Validation<Error, IssueYield>> Run(IssueOp op, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink) =>
+    public static IO<Validation<Error, IssueYield>> Run(IssueOp op) =>
         op.Switch(
-            ingest: handed => Admitted(handed.Spec, handed.Rows, frame, sink),
-            egress: handed => Released(handed.Spec, handed.Rows, frame, sink));
+            ingest: handed => Admitted(handed.Spec, handed.Rows),
+            egress: handed => Released(handed.Rows));
 
-    static IO<Validation<Error, IssueYield>> Admitted(IssueSpec spec, Seq<IssueTopic> rows, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink) =>
-        Keyed(rows).Bind(unique => unique.Traverse(topic => Admit(topic, spec.Resolve)).As()).Match(
-            Succ: held => sink(Fact(IssueFactKind.Ingest, spec, held, frame))
-                .Map(_ => Validation<Error, IssueYield>.Success(new IssueYield.Topics(held))),
-            Fail: fault => IO.pure(Validation<Error, IssueYield>.Fail(fault)));
+    static IO<Validation<Error, IssueYield>> Admitted(IssueSpec spec, Seq<IssueTopic> rows) => IO.pure(
+        Keyed(rows).Bind(unique => unique.Traverse(topic => Admit(topic, spec.Resolve)).As())
+            .Map(static held => (IssueYield)new IssueYield.Topics(held)));
 
-    static IO<Validation<Error, IssueYield>> Released(IssueSpec spec, Seq<IssueTopic> rows, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink) =>
-        Keyed(rows).Match(
-            Succ: held => sink(Fact(IssueFactKind.Egress, spec, held, frame))
-                .Map(_ => Validation<Error, IssueYield>.Success(new IssueYield.Released(held.Count))),
-            Fail: fault => IO.pure(Validation<Error, IssueYield>.Fail(fault)));
+    static IO<Validation<Error, IssueYield>> Released(Seq<IssueTopic> rows) => IO.pure(
+        Keyed(rows).Map(static held => (IssueYield)new IssueYield.Released(held.Count)));
 
     static Validation<Error, Seq<IssueTopic>> Keyed(Seq<IssueTopic> rows) =>
         toSeq(rows.GroupBy(static topic => topic.Key).Where(static group => group.Count() > 1).Select(static group => group.Key))
@@ -153,8 +136,6 @@ public static class IssueSource {
             Coloring = view.Coloring.Map(group => (group.Color, group.Components.Map(component => component with { Node = resolve(component.IfcGuid) }))),
         };
 
-    static IssueFact Fact(IssueFactKind kind, IssueSpec spec, Seq<IssueTopic> topics, ProjectionContext frame) =>
-        new(kind, spec.Dialect, IssueCensus.Of(topics, spec.Declared), frame.Now());
 }
 ```
 
@@ -163,9 +144,9 @@ public static class IssueSource {
 |  [01]   | custody        | container wire is the custodian codec's      | rows in, rows out; zero `ZipArchive`/`XDocument` surface |
 |  [02]   | correspondence | `BcfTopic`⇄`IssueTopic` at the root          | `Status`⇄`StatusToken` verbatim, `Instant` stamps        |
 |  [03]   | vocabularies   | runtime-sourced `IssueVocabulary` registry   | closed axis rows, frozen per-project sets, handed data   |
-|  [04]   | foreign values | carried facts on the receipt                 | never normalized, never a fault; round-trip fidelity     |
+|  [04]   | foreign values | preserved on the row                         | never normalized, never a fault; round-trip fidelity     |
 |  [05]   | fault posture  | applicative `Validation<Error, …>` traversal | every duplicate key and orphaned join reports, not one   |
-|  [06]   | receipt counts | one `IssueCensus` folded in one traversal    | five loose columns walked the handed set four times      |
+|  [06]   | counts         | one `IssueCensus` folded in one traversal    | five loose columns walked the handed set four times      |
 
 ## [03]-[ISSUE_ROWS]
 
@@ -173,7 +154,6 @@ public static class IssueSource {
 - Cases: `IssueCamera` closes at `Perspective(ViewPoint, Direction, Up, FieldOfView, Option<double> AspectRatio)` and `Orthogonal(ViewPoint, Direction, Up, ViewToWorldScale)`; the viewpoint carries it `Option`-valued — a selection-only viewpoint is legal BCF whose absence stays typed, per the custodian's camera-XOR admission, and a fabricated default frame is the deleted form; `IssueComponent` carries the wire `IfcGuid`, the resolved model-qualified `Option<SetKey>`, and the `OriginatingSystem`/`AuthoringToolId` provenance; `IssueViewpoint` carries selection, visibility (`DefaultVisibility` + exceptions + `ViewSetupHints`), coloring groups, clipping planes, and the snapshot's `ContentAddress`.
 - Entry: `public static KeySelection IssueTopic.Referenced()` projects every RESOLVED component GlobalId across the topic's viewpoints into the one selection currency (unresolved references stay carried data); `public static IssueDelta IssueRows.Reconcile(Seq<IssueTopic> held, Seq<IssueTopic> update)` correlates by the stable topic `Guid` and partitions the cycle — opened, removed, status moves, assignment moves, comment additions — the issue sibling of the schedule `Reconcile` discipline.
 - Auto: correlation is the identity tier's law inverted — a BCF `IfcGuid` is exactly the compressed IFC GlobalId the `GlobalIds` map mirrors, so resolution is one injected-port hop and a re-imported model's fresh `NodeId`s stay correlated because the GlobalId, not the neutral key, is the wire; an unresolved component (a demolished element, a foreign file outside the project) rides `Option.None` on the row and counts on the ingest fact, while a sibling discipline's reference resolves model-qualified through the same port — review reality routinely references what the local model no longer holds; `Reconcile` never invents rows: a topic in `update` absent from `held` is `Opened`, the inverse is `Removed` (a BCF exchange that drops a topic is itself review information), and a shared GUID diffs field-wise into the move partitions.
-- Receipt: the row family carries no stream of its own — the `[02]` facts carry the counts, and the durable landing's receipts are the store rail's.
 - Packages: Rasm.Element (`NodeId`), Rasm.Persistence (`Element/codec` `ContentAddress`, `Query/lane#ELEMENT_SET_ALGEBRA` `KeySelection`/`SetKey`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime (`Instant` — the custodian's stamp law, one stamp vocabulary per wire), BCL inbox.
 - Growth: a new topic axis is one field on `IssueTopic` (`ServerAssignedId` exercised it — the BCF 3.0 column landed as one `Option` field); a new viewpoint capability is one field on `IssueViewpoint`; a new cycle partition is one `IssueDelta` field; zero new surface — a per-dialect row family, a slip DTO beside `IssueDelta`, a topic keyed by title or index instead of GUID, or an unresolved reference silently dropped is the deleted form.
 - Boundary: rows are the Persistence half of the coordination-review cycle — `Rasm.Bim` clash/IDS surfaces mint topics from their `KeySelection` results and read `Reconcile`'s partitions for review-state drift, the AppUi viewport consumes `IssueCamera`/`IssueComponent` to restore a view, and the app composition root owns both mappings; `Status`/`Type`/`Priority`/`Stage` carry the custodian's VERBATIM project-vocabulary tokens (the `StatusToken` election), never a compiled enum a foreign project breaks; the snapshot bytes live in the blob plane under their content address (this row carries the ADDRESS; a byte copy beside it forks residence); `RelatedTopics` cross-references stay topic GUIDs because the BCF wire owns that identity; container-only ornament — reference links, document references, BIM snippets, header files — stays the custodian's family and never grows a durable column here.
@@ -251,7 +231,6 @@ public static class IssueRows {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

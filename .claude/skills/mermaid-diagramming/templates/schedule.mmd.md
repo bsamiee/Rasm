@@ -31,7 +31,7 @@ gantt
   Scope freeze :vert, v1, 2026-07-24, 0d
   section Build
   Solver kernel :active, k1, after b1, 6d
-  Receipt algebra :k2, after k1, 4d
+  Outcome algebra :k2, after k1, 4d
   Seam ledger :s1, after b2, 5d
   Wire fences :crit, s2, after s1, 5d
   section Landing

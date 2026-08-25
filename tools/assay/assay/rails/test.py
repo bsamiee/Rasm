@@ -19,39 +19,10 @@ import structlog
 
 from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
-from assay.composition.store import (
-    ArtifactScope,
-    ArtifactStore,
-    DOTNET_ARTIFACT_ROOTS,
-    DOTNET_BUILD_CLOSURE,
-    PY_ARTIFACT_ROOTS,
-    PY_COVERAGE_FILES,
-)
+from assay.composition.store import ArtifactScope, ArtifactStore, DOTNET_ARTIFACT_ROOTS, DOTNET_BUILD_CLOSURE, PY_ARTIFACT_ROOTS, PY_COVERAGE_FILES
 from assay.core.exec import Executor
 from assay.core.govern import leased
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    BaseParams,
-    Check,
-    Claim,
-    Completed,
-    Fault,
-    Input,
-    Language,
-    language_choice,
-    Match,
-    Mode,
-    MutationLane,
-    RailStatus,
-    receipt,
-    Report,
-    Runner,
-    TestRun,
-    Tool,
-    ToolArgs,
-    ToolGroup,
-)
+from assay.core.model import Artifact, ArtifactKind, BaseParams, Check, Claim, Completed, Fault, Input, Language, language_choice, Match, Mode, MutationLane, RailStatus, Report, Runner, TestRun, Tool, ToolArgs, ToolGroup
 from assay.core.routing import expand, parse_csproj, resolve_languages, route, Scope
 from assay.diagnostics import fold
 
@@ -97,17 +68,11 @@ _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
-_MARKER_LANES: tuple[tuple[str, str, _TestProjectLane], ...] = (
-    ("AssayTestShell", "true", _TestProjectLane.SHELL),
-    ("IsTestProject", "false", _TestProjectLane.NON_TEST),
-    ("AssayHostBound", "true", _TestProjectLane.HOST_BOUND),
-)
+_MARKER_LANES: tuple[tuple[str, str, _TestProjectLane], ...] = (("AssayTestShell", "true", _TestProjectLane.SHELL), ("IsTestProject", "false", _TestProjectLane.NON_TEST), ("AssayHostBound", "true", _TestProjectLane.HOST_BOUND))
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
     "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
     "stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
-    "mutmut": lambda files: tuple(
-        f"{f.removeprefix('tools/assay/').removesuffix('.py').replace('/', '.')}.*" for f in files if f.startswith("tools/assay/")
-    ),
+    "mutmut": lambda files: tuple(f"{f.removeprefix('tools/assay/').removesuffix('.py').replace('/', '.')}.*" for f in files if f.startswith("tools/assay/")),
 }
 _MUTATION_GOVERNOR: frozenset[str] = frozenset(("mutmut",))
 
@@ -120,9 +85,7 @@ class TestParams(BaseParams):
 
     dotnet: Annotated[bool, Parameter(name="--dotnet", negative="", show_default=False, help="Restrict the command to .NET targets.")] = False
     python: Annotated[bool, Parameter(name="--python", negative="", show_default=False, help="Restrict the command to Python targets.")] = False
-    typescript: Annotated[
-        bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")
-    ] = False
+    typescript: Annotated[bool, Parameter(name="--typescript", negative="", show_default=False, help="Restrict the command to TypeScript targets.")] = False
     language: Annotated[Language | None, Parameter(parse=False)] = None
     target: Path | None = None
     all: bool = False
@@ -185,17 +148,11 @@ def _eligible(tool: Tool, params: TestParams) -> bool:
             return True
         case _:
             special = params.benchmark or params.coverage
-            return (
-                (ToolGroup.REQUIRES_BENCHMARK not in tool.groups or params.benchmark)
-                and (ToolGroup.REQUIRES_COVERAGE not in tool.groups or params.coverage)
-                and (ToolGroup.RUN_DEFAULT not in tool.groups or not special)
-            )
+            return (ToolGroup.REQUIRES_BENCHMARK not in tool.groups or params.benchmark) and (ToolGroup.REQUIRES_COVERAGE not in tool.groups or params.coverage) and (ToolGroup.RUN_DEFAULT not in tool.groups or not special)
 
 
 def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...]:
-    modes = {Mode.MUTATION: frozenset((Mode.MUTATION,)), Mode.CLIENT: frozenset((Mode.CLIENT,)), Mode.STAGE: frozenset((Mode.STAGE,))}.get(
-        mode, frozenset((mode, Mode.RESTORE, Mode.BUILD))
-    )
+    modes = {Mode.MUTATION: frozenset((Mode.MUTATION,)), Mode.CLIENT: frozenset((Mode.CLIENT,)), Mode.STAGE: frozenset((Mode.STAGE,))}.get(mode, frozenset((mode, Mode.RESTORE, Mode.BUILD)))
     return tuple(t for t in select(Claim.TEST, language) if t.mode in modes and _eligible(t, params))
 
 
@@ -235,13 +192,7 @@ def _mutation_args(tool: Tool, params: TestParams, settings: AssaySettings, file
     output = str(root / DOTNET_ARTIFACT_ROOTS["stryker-output"]) if staged_dotnet else ""
     if output:
         Path(output).mkdir(parents=True, exist_ok=True)
-    return ToolArgs(
-        config=str(root / "stryker-config.json") if staged_dotnet else "",
-        max_children=str(settings.mutation_max_cpu) if tool.name in _MUTATION_GOVERNOR else "",
-        output=output,
-        scope=scope,
-        solution=str(settings.solution) if staged_dotnet else "",
-    )
+    return ToolArgs(config=str(root / "stryker-config.json") if staged_dotnet else "", max_children=str(settings.mutation_max_cpu) if tool.name in _MUTATION_GOVERNOR else "", output=output, scope=scope, solution=str(settings.solution) if staged_dotnet else "")
 
 
 def _relative_project(project: str | Path, settings: AssaySettings) -> str:
@@ -264,9 +215,7 @@ def _marker_lane(project: str, settings: AssaySettings) -> _TestProjectLane:
         raw = (settings.root / project).read_bytes()
     except OSError:
         return _TestProjectLane.NON_TEST
-    return next(
-        (lane for tag, token, lane in _MARKER_LANES if any(value.casefold() == token for value in parse_csproj(raw, tag))), _TestProjectLane.MANAGED
-    )
+    return next((lane for tag, token, lane in _MARKER_LANES if any(value.casefold() == token for value in parse_csproj(raw, tag))), _TestProjectLane.MANAGED)
 
 
 def _project_lane(project: str | Path, settings: AssaySettings) -> _TestProjectLane:
@@ -334,45 +283,23 @@ def _unsupported_scope(routed: Routed, params: TestParams, settings: AssaySettin
         match (routed.language, params.target):
             case (Language.DOTNET, Path() as target) if (lane := _project_lane(target, settings)) not in _RUNNABLE_LANES:
                 project = _relative_project(target, settings)
-                return (
-                    Ok(
-                        receipt(
-                            ("assay", "test", "unsupported-target", project),
-                            RailStatus.UNSUPPORTED.exit_code,
-                            status=RailStatus.UNSUPPORTED,
-                            notes=(f"test-target[{lane.value}]: {project}",),
-                        )
-                    ),
-                )
+                return (Ok(Completed(("assay", "test", "unsupported-target", project), RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, notes=(f"test-target[{lane.value}]: {project}",))),)
             case _:
                 return ()
 
-    def _host_receipt() -> tuple[Result[Completed, Fault], ...]:
+    def _host_outcome() -> tuple[Result[Completed, Fault], ...]:
         match (routed.language, mode, routed.host_bound):
             case (Language.DOTNET, Mode.RUN | Mode.LIST, (*host,)) if host:
                 status = _host_status()
-                return (
-                    Ok(receipt(("assay", "test", "host-bound"), status.exit_code, status=status, notes=(f"host-bound[dotnet]: {', '.join(host)}",))),
-                )
+                return (Ok(Completed(("assay", "test", "host-bound"), status.exit_code, status=status, notes=(f"host-bound[dotnet]: {', '.join(host)}",))),)
             case _:
                 return ()
 
     match (mode, params.mutation):
         case (Mode.MUTATION, MutationLane.CHANGED):
-            return tuple(
-                Ok(
-                    receipt(
-                        t.command,
-                        RailStatus.UNSUPPORTED.exit_code,
-                        status=RailStatus.UNSUPPORTED,
-                        notes=(f"{t.name}: no changed-file mutation scope",),
-                    )
-                )
-                for t in _rows(routed.language, params, mode)
-                if t.name not in _MUTATION_SCOPE
-            )
+            return tuple(Ok(Completed(t.command, RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, notes=(f"{t.name}: no changed-file mutation scope",))) for t in _rows(routed.language, params, mode) if t.name not in _MUTATION_SCOPE)
         case _:
-            return (*_target_status(), *_host_receipt())
+            return (*_target_status(), *_host_outcome())
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
@@ -393,15 +320,7 @@ def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Resu
         return tuple((project, _project_lane(project, settings)) for project in projects)
 
     def admit(lanes: tuple[tuple[str, _TestProjectLane], ...], scope: Scope = routed.scope) -> _Selected:
-        return _Selected(
-            routed=msgspec.structs.replace(
-                routed,
-                scope=scope,
-                projects=tuple(project for project, lane in lanes if lane in _RUNNABLE_LANES),
-                host_bound=tuple(project for project, lane in lanes if lane is _TestProjectLane.HOST_BOUND),
-            ),
-            lanes=lanes,
-        )
+        return _Selected(routed=msgspec.structs.replace(routed, scope=scope, projects=tuple(project for project, lane in lanes if lane in _RUNNABLE_LANES), host_bound=tuple(project for project, lane in lanes if lane is _TestProjectLane.HOST_BOUND)), lanes=lanes)
 
     match (routed.language.strategy, params.target, params.all):
         case ("glob", _, _):
@@ -414,9 +333,7 @@ def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Resu
             return Ok(admit(classify(routed.projects)))
 
 
-def _dispatch(
-    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, executor: Executor
-) -> tuple[Result[Completed, Fault], ...]:
+def _dispatch(routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, executor: Executor) -> tuple[Result[Completed, Fault], ...]:
     checks = _checks(routed, params, settings, mode)
     unsupported = _unsupported_scope(routed, params, settings, mode)
     match checks:
@@ -426,14 +343,7 @@ def _dispatch(
             build_scope = ArtifactScope.build(settings, DOTNET_BUILD_CLOSURE)
             resource = f"build-{DOTNET_BUILD_CLOSURE}-{settings.configuration.value}"
             project = ",".join(routed.projects or (routed.language.value,))
-            outcome = leased(
-                resource,
-                lambda _held: Ok(executor.fan(checks, settings=settings, scope=build_scope, routed=routed)),
-                settings=settings,
-                run_id=settings.run_id,
-                project=project,
-                mode="exclusive",
-            )
+            outcome = leased(resource, lambda _held: Ok(executor.fan(checks, settings=settings, scope=build_scope, routed=routed)), settings=settings, run_id=settings.run_id, project=project, mode="exclusive")
             match outcome:
                 case Result(tag="ok", ok=rows):
                     return (*rows, *unsupported)
@@ -459,35 +369,18 @@ def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
 
 def _status_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     return tuple(
-        Match(
-            id=" ".join(c.argv) if c.argv else "test",
-            kind=ArtifactKind.TEST,
-            text=(c.stderr or c.stdout or "\n".join(c.notes).encode())[-4096:].decode(errors="replace").strip(),
-            severity=c.status.value,
-        )
+        Match(id=" ".join(c.argv) if c.argv else "test", kind=ArtifactKind.TEST, text=(c.stderr or c.stdout or "\n".join(c.notes).encode())[-4096:].decode(errors="replace").strip(), severity=c.status.value)
         for c in outcomes
         if c.status not in {RailStatus.OK, RailStatus.EMPTY, RailStatus.SKIP, RailStatus.FAILED}
     )
 
 
 def _discovery_counts(outcomes: tuple[Completed, ...], discovered: tuple[Match, ...], roster: tuple[Match, ...]) -> tuple[tuple[str, int], ...]:
-    empty_or_failed = sum(
-        1
-        for c in outcomes
-        if c.status.severity > RailStatus.OK.severity or (c.status.severity <= RailStatus.OK.severity and not _roster_matches((c,)))
-    )
-    return _lane_counts(
-        chain(
-            ((m.id, _DiscoveryLane.LISTED) for m in discovered),
-            ((m.id, _DiscoveryLane.RETURNED) for m in roster),
-            ((str(index), _DiscoveryLane.EMPTY_OR_FAILED) for index in range(empty_or_failed)),
-        )
-    )
+    empty_or_failed = sum(1 for c in outcomes if c.status.severity > RailStatus.OK.severity or (c.status.severity <= RailStatus.OK.severity and not _roster_matches((c,))))
+    return _lane_counts(chain(((m.id, _DiscoveryLane.LISTED) for m in discovered), ((m.id, _DiscoveryLane.RETURNED) for m in roster), ((str(index), _DiscoveryLane.EMPTY_OR_FAILED) for index in range(empty_or_failed))))
 
 
-def _run_detail(
-    detail: AnyDetail | None, *, project_counts: tuple[tuple[str, int], ...], discovery_counts: tuple[tuple[str, int], ...] = ()
-) -> TestRun | AnyDetail | None:
+def _run_detail(detail: AnyDetail | None, *, project_counts: tuple[tuple[str, int], ...], discovery_counts: tuple[tuple[str, int], ...] = ()) -> TestRun | AnyDetail | None:
     match (detail, bool(project_counts or discovery_counts)):
         case (TestRun() as run, _):
             return msgspec.structs.replace(run, project_counts=project_counts, discovery_counts=discovery_counts)
@@ -551,25 +444,11 @@ def _roster_artifacts(settings: AssaySettings, scope: ArtifactScope, discovered:
     text = "\n".join(m.text for m in discovered)
     raw = _ROSTER_ENCODER.encode(discovered)
     text_raw = text.encode()
-    text_path, json_path = scope.store.write_many((
-        (text_raw, (ArtifactKind.TEST.value, settings.run_id, "roster.txt")),
-        (raw, (ArtifactKind.TEST.value, settings.run_id, "roster.json")),
-    ))
-    return (
-        Artifact(id="test-roster", kind=ArtifactKind.TEST, path=text_path, bytes=len(text_raw), lines=len(discovered)),
-        Artifact(id="test-roster-json", kind=ArtifactKind.TEST, path=json_path, bytes=len(raw), lines=len(discovered)),
-    )
+    text_path, json_path = scope.store.write_many(((text_raw, (ArtifactKind.TEST.value, settings.run_id, "roster.txt")), (raw, (ArtifactKind.TEST.value, settings.run_id, "roster.json"))))
+    return (Artifact(id="test-roster", kind=ArtifactKind.TEST, path=text_path, bytes=len(text_raw), lines=len(discovered)), Artifact(id="test-roster-json", kind=ArtifactKind.TEST, path=json_path, bytes=len(raw), lines=len(discovered)))
 
 
-def _gate(
-    done: tuple[Result[Completed, Fault], ...],
-    routed: Routed,
-    params: TestParams,
-    *,
-    settings: AssaySettings,
-    scope: ArtifactScope,
-    executor: Executor,
-) -> tuple[Result[Completed, Fault], ...]:
+def _gate(done: tuple[Result[Completed, Fault], ...], routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, executor: Executor) -> tuple[Result[Completed, Fault], ...]:
     staged = next((t for t in _rows(routed.language, params, Mode.MUTATION) if t.stage.root), None)
     gate_row = next((t for t in select(Claim.TEST, routed.language) if t.mode is Mode.VERIFY and ToolGroup.MUTATION in t.groups), None)
     succeeded = any(c.returncode == 0 and "mutmut" in c.argv for r in done if r.is_ok() for c in (r.ok,))
@@ -581,15 +460,9 @@ def _gate(
             return ()
 
 
-def _dispatch_all(
-    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, executor: Executor
-) -> tuple[Result[Completed, Fault], ...]:
+def _dispatch_all(routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode, executor: Executor) -> tuple[Result[Completed, Fault], ...]:
     run = _dispatch(routed, params, settings=settings, scope=scope, mode=mode, executor=executor)
-    mutation = (
-        _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION, executor=executor)
-        if params.mutation is not MutationLane.OFF and mode is Mode.RUN
-        else ()
-    )
+    mutation = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION, executor=executor) if params.mutation is not MutationLane.OFF and mode is Mode.RUN else ()
     gate = _gate(mutation, routed, params, settings=settings, scope=scope, executor=executor) if mutation else ()
     reporting = params.coverage and mode is Mode.RUN
     combine = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.STAGE, executor=executor) if reporting else ()
@@ -597,9 +470,7 @@ def _dispatch_all(
     return (*run, *mutation, *gate, *combine, *coverage)
 
 
-def _thin_rail(
-    settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor, *, claim: Claim, verb: str, mode: Mode
-) -> Result[Report, Fault]:
+def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, executor: Executor, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run routed test eligibility, fan-out, mutation gating, and folding.
 
     Returns:
@@ -607,9 +478,7 @@ def _thin_rail(
     """
 
     def _resolved(languages: tuple[Language, ...]) -> Result[Report, Fault]:
-        eligible = tuple(
-            t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode)
-        )
+        eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode))
         gap = _mutation_gap(params, eligible)
         if gap:
             _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=params.language.value if params.language is not None else "")
@@ -621,37 +490,19 @@ def _thin_rail(
                 detail = _run_detail(_detail(outcomes, params, Path(str(settings.root))), project_counts=project_counts)
                 base = fold(claim, verb, outcomes, detail=detail, promote_empty=True)
                 return msgspec.structs.replace(
-                    base,
-                    results=(*base.results, *_status_matches(outcomes)),
-                    artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
-                    notes=(*base.notes, *(note for s in selected for note in s.routed.closure_note()), *((_GAP_NOTE,) if gap else ())),
+                    base, results=(*base.results, *_status_matches(outcomes)), artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)), notes=(*base.notes, *(note for s in selected for note in s.routed.closure_note()), *((_GAP_NOTE,) if gap else ()))
                 )
 
             return (
                 _routed(languages, params.paths, settings)
                 .bind(lambda routed: sequence(block.of_seq(_select(r, params, settings) for r in routed)))
-                .bind(
-                    lambda selected: sequence(
-                        block.of_seq(
-                            row
-                            for s in selected
-                            for row in _dispatch_all(s.routed, params, settings=settings, scope=scope, mode=mode, executor=executor)
-                        )
-                    ).map(lambda done: _settle(done, tuple(selected)))
-                )
+                .bind(lambda selected: sequence(block.of_seq(row for s in selected for row in _dispatch_all(s.routed, params, settings=settings, scope=scope, mode=mode, executor=executor))).map(lambda done: _settle(done, tuple(selected))))
             )
 
         def _nested(resources: tuple[str, ...]) -> Result[Report, Fault]:
             match resources:
                 case (head, *rest):
-                    return leased(
-                        f"mutation-{head}",
-                        lambda _held: _nested(tuple(rest)),
-                        settings=settings,
-                        run_id=settings.run_id,
-                        project=head,
-                        mode="exclusive",
-                    )
+                    return leased(f"mutation-{head}", lambda _held: _nested(tuple(rest)), settings=settings, run_id=settings.run_id, project=head, mode="exclusive")
                 case _:
                     return _work()
 
@@ -698,12 +549,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, exec
                 *base.notes,
                 *(n for s in selected for n in s.routed.closure_note()),
                 *((f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()),
-                *(
-                    f"discovery {c.status.value}: {' '.join(c.argv)[:120]}{f': {tail}' if tail else ''}"
-                    for c in outcomes
-                    if c.status.severity > RailStatus.OK.severity
-                    for tail in ((c.stderr or c.stdout)[-256:].decode(errors="replace").strip(),)
-                ),
+                *(f"discovery {c.status.value}: {' '.join(c.argv)[:120]}{f': {tail}' if tail else ''}" for c in outcomes if c.status.severity > RailStatus.OK.severity for tail in ((c.stderr or c.stdout)[-256:].decode(errors="replace").strip(),)),
             ),
             detail=_run_detail(TestRun(selected=len(discovered)), project_counts=project_counts, discovery_counts=discovery_counts),
         )
@@ -712,15 +558,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams, exec
         lambda languages: (
             _routed(languages, params.paths, settings)
             .bind(lambda routed: sequence(block.of_seq(_select(r, params, settings) for r in routed)))
-            .bind(
-                lambda selected: sequence(
-                    block.of_seq(
-                        row
-                        for s in selected
-                        for row in _dispatch(s.routed, params, settings=settings, scope=scope, mode=Mode.LIST, executor=executor)
-                    )
-                ).map(lambda done: _settle(done, tuple(selected)))
-            )
+            .bind(lambda selected: sequence(block.of_seq(row for s in selected for row in _dispatch(s.routed, params, settings=settings, scope=scope, mode=Mode.LIST, executor=executor))).map(lambda done: _settle(done, tuple(selected))))
         )
     )
 

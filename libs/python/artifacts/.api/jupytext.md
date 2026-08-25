@@ -94,7 +94,7 @@ Pairing is the reports rail's paired-editing core: `paired_paths` enumerates eve
 
 [ENTRYPOINT_SCOPE]: output merge and round-trip equivalence (`jupytext.combine`, `jupytext.compare`)
 
-`combine_inputs_with_outputs` grafts executed outputs back onto a re-read text source by cell-content match, so a text-paired notebook regains its outputs without re-execution. `compare_notebooks`/`compare_cells` diff at the cell level into a `NotebookDifference` (inputs only unless `compare_outputs=True`) and `test_round_trip_conversion` asserts a text->node->text cycle lossless — the equivalence oracle a reports receipt cites.
+`combine_inputs_with_outputs` grafts executed outputs back onto a re-read text source by cell-content match, so a text-paired notebook regains its outputs without re-execution. `compare_notebooks`/`compare_cells` diff at the cell level into a `NotebookDifference` (inputs only unless `compare_outputs=True`) and `test_round_trip_conversion` asserts a lossless text-to-node round trip for `ReportFact.notebook`.
 
 | [INDEX] | [SURFACE]                                                         | [CAPABILITY]                                           |
 | :-----: | :---------------------------------------------------------------- | :----------------------------------------------------- |
@@ -145,21 +145,18 @@ Per-grammar `*_to_notebook`/`notebook_to_*` functions are the converters `TextNo
 - exchange: the payload is the `nbformat.NotebookNode`; jupytext owns the text<->node mapping over it.
 - sync: paired editing routes `paired_paths` -> `sync_pairs.read_pair`/`write_pair` with `pairs.latest_inputs_and_outputs` timestamp-resolving the holders, and `combine.combine_inputs_with_outputs` merges executed outputs onto a re-read text source, so an executed `.ipynb` and an edited `.py:percent` reconcile through the package's own timestamp-ordered algorithm.
 - pairing: `TextFileContentsManager`/`AsyncTextFileContentsManager` own paired `.ipynb`<->text editing inside a jupyter-server host, deferred raisers when jupyter-server is absent.
-- equivalence: `compare.compare_notebooks`/`test_round_trip_conversion` assert the text->node->text cycle lossless into a `NotebookDifference`, the equivalence fact a reports receipt cites.
+- equivalence: `compare.compare_notebooks`/`test_round_trip_conversion` return `NotebookDifference` and gate the text-to-node round trip `ReportFact.notebook` preserves.
 
 [STACKING]:
-- `expression`/runtime rail (`libs/python/.api/expression.md`): every `read`/`reads`/`writes`/`combine_inputs_with_outputs` call is a `RuntimeRail` `Result` node mapping `JupytextFormatError`/`PairedFilesDiffer`/`NotSupportedNBFormatVersion` to a typed `Error`, `beartype`-checked at entry, spanned under `structlog`+OpenTelemetry with the resolved `format_name`/extension, folding the `ArtifactReceipt.Report` case via `core/receipt#RECEIPT`.
 - `msgspec`/`pydantic` (`libs/python/.api/msgspec.md`): the `fmt` selector is modeled as data over `JUPYTEXT_FORMATS`, normalized once through `long_form_one_format`/`short_form_one_format` to a `NotebookFormatDescription` row.
 - `anyio` (`libs/python/.api/anyio.md`): the sync arm runs its `read_one_file`/`write_one_file` callbacks inside the artifacts structured-concurrency boundary, fanning paired writes under one task group and cancellation scope.
 - folder reports chain (`jupytext` -> `papermill`/`nbclient` -> `nbconvert`): `read`/`reads` produces the `NotebookNode` those owners execute and export, `combine_inputs_with_outputs` re-absorbs executed outputs, and `writes` serializes the text twin — jupytext stacks below execution/export and above `nbformat`.
 
 [LOCAL_ADMISSION]:
 - import `jupytext` at boundary scope only.
-- each conversion contributes the `ArtifactReceipt.Report` case through the runtime `ReceiptContributor` port, carrying source extension, resolved `format_name`, format options, `nbformat` major/minor, and output byte length.
 - jupytext owns notebook<->text conversion, format detection, paired-path sync, output merge, and pairing config over `nbformat`; `nbformat` owns the node schema, `markdown-it-py`/`mdit-py-plugins` the MyST parse, `nbclient`/`papermill` execution, `nbconvert` export, and jupyter-server the live host.
 
 [RAIL_LAW]:
 - Package: `jupytext`
 - Owns: bidirectional notebook<->text conversion, content-based format detection, per-format lookup and `fmt` normalization, paired-path derivation with timestamp-ordered synchronization, executed-output-into-text merge, round-trip equivalence assertion, metadata-filter projection, traitlets pairing configuration, and jupyter-server paired-file contents managers
-- Accept: notebook<->text pairing, format detection, paired-set sync, output merge, and pairing config feeding the `nbclient`/`papermill` execution and `nbconvert` export owners, each threaded through the universal `Result` rail under a `structlog`+OTel span and folded to `ArtifactReceipt.Report`
-- Reject: a wrapper-rename of the `read`/`reads`/`write`/`writes` quartet; a hand-rolled percent/light/myst parser, `nbformat` round-trip, `.ipynb`<->text sync, or output-zip where `sync_pairs`/`combine_inputs_with_outputs` own it; a string-equality round-trip check where `compare_notebooks` is the oracle; a per-call metadata key list where `metadata_filter_as_dict` projects the config trait; a parallel notebook model or per-format reader/writer type where `fmt` is a call row; a jupytext-specific receipt shape; a notebook executor or HTML renderer jupytext does not own
+- Reject: a wrapper-rename of the `read`/`reads`/`write`/`writes` quartet; a hand-rolled percent/light/myst parser, `nbformat` round-trip, `.ipynb`<->text sync, or output-zip where `sync_pairs`/`combine_inputs_with_outputs` own it; a string-equality round-trip check where `compare_notebooks` is the oracle; a per-call metadata key list where `metadata_filter_as_dict` projects the config trait; a parallel notebook model or per-format reader/writer type where `fmt` is a call row; a notebook executor or HTML renderer jupytext does not own

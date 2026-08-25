@@ -10,7 +10,7 @@
 - [03]-[DESCRIPTOR]: `PluginContact`, `PluginInfo`, `PluginRollRow`, `PluginPresence`, and `PluginProtection` detach the registry record before it leaves the boundary.
 - [04]-[QUERY]: `PluginRead` and `PluginLookup` own the host reads as rows; `PluginQuery` and `PluginAnswer` close the read family and its admission.
 - [05]-[CENSUS]: `PluginCensus.Ask` dispatches every read arm, folds the installed roll, and answers the registry icon as an asset origin.
-- [06]-[ADMISSION]: `PathLoadVerdict`, `PluginAct`, `PluginReceipt`, and `PluginRegistry.Commit` own load and load-protection mutation.
+- [06]-[ADMISSION]: `PathLoadVerdict`, `PluginAct`, `PluginOutcome`, and `PluginRegistry.Commit` own load and load-protection mutation.
 - [07]-[SURFACE_LEDGER]: owner-to-ingress-to-state-to-egress roster across the read entry, the mutation entry, and the vocabularies.
 
 ## [02]-[VOCABULARY]
@@ -413,7 +413,7 @@ public static class PluginCensus {
 - Entry: `PluginRegistry.Commit(PluginAct, Op?)` is the one mutation entry; the two host load overloads are two cases on it, never two entrypoints. `lifecycle#LOAD_ROOT` folds a program's declared `PluginBoot.Prerequisites` through it at plug-in load, which is the only moment a package may load its own dependencies.
 - Law: `PathLoadVerdict` mirrors `LoadPlugInResult` whole — the host publishes exactly `Success`, `SuccessAlreadyLoaded`, and `ErrorUnknown` (`.api/api-rhinocommon-plugins.md:53`) — so "already loaded" stays a distinct success rather than collapsing into the plain success arm.
 - Law: identity-keyed load answers a bare `bool`, so a false answer refuses typed with the requested key as detail; the host publishes no richer reason on that overload.
-- Law: `SetLoadProtection` returns nothing and the host publishes no failure signal, so the receipt reports the assignment the boundary made and a caller wanting the settled state re-reads `PluginRead.Protection`.
+- Law: `SetLoadProtection` returns nothing and the host publishes no failure signal, so `PluginOutcome.Protected` reports the assignment the boundary made and a caller wanting the settled state re-reads `PluginRead.Protection`.
 - Boundary: loading a plug-in runs its `OnLoad` inside this call, so a `Commit` is a host lifecycle event, never a query — this is exactly why the read family carries no load flag.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
 
@@ -447,16 +447,16 @@ public abstract partial record PluginAct {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PluginReceipt {
-    private PluginReceipt() { }
-    public sealed record PathLoaded(PathLoadVerdict Verdict, Option<PluginKey> Plugin) : PluginReceipt;
-    public sealed record KeyLoaded(PluginKey Plugin) : PluginReceipt;
-    public sealed record Protected(PluginKey Plugin, LoadProtection Behavior) : PluginReceipt;
+public abstract partial record PluginOutcome {
+    private PluginOutcome() { }
+    public sealed record PathLoaded(PathLoadVerdict Verdict, Option<PluginKey> Plugin) : PluginOutcome;
+    public sealed record KeyLoaded(PluginKey Plugin) : PluginOutcome;
+    public sealed record Protected(PluginKey Plugin, LoadProtection Behavior) : PluginOutcome;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginRegistry {
-    public static Fin<PluginReceipt> Commit(PluginAct act, Op? key = null) {
+    public static Fin<PluginOutcome> Commit(PluginAct act, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(act)
             .Bind(request => request.Admit(op))
@@ -464,20 +464,20 @@ public static class PluginRegistry {
                 op,
                 loadPath: static (held, row) => held.Catch(() => {
                     LoadPlugInResult native = PlugIn.LoadPlugIn(path: row.Path, plugInId: out Guid loaded);
-                    return held.Row<LoadPlugInResult, PathLoadVerdict>(native).Map<PluginReceipt>(verdict =>
-                        new PluginReceipt.PathLoaded(Verdict: verdict, Plugin: PluginKey.Maybe(loaded)));
+                    return held.Row<LoadPlugInResult, PathLoadVerdict>(native).Map<PluginOutcome>(verdict =>
+                        new PluginOutcome.PathLoaded(Verdict: verdict, Plugin: PluginKey.Maybe(loaded)));
                 }),
                 loadKey: static (held, row) => held.Catch(() => PlugIn.LoadPlugIn(
                         pluginId: row.Plugin.ToValue(),
                         loadQuietly: row.Notice,
                         forceLoad: row.Force)
-                    ? Fin.Succ<PluginReceipt>(value: new PluginReceipt.KeyLoaded(Plugin: row.Plugin))
-                    : Fin.Fail<PluginReceipt>(error: new PluginFault.HostRefused(
+                    ? Fin.Succ<PluginOutcome>(value: new PluginOutcome.KeyLoaded(Plugin: row.Plugin))
+                    : Fin.Fail<PluginOutcome>(error: new PluginFault.HostRefused(
                         Key: held, Member: nameof(PlugIn.LoadPlugIn), Detail: row.Plugin.ToValue().ToString()))),
                 protect: static (held, row) => held
                     .Catch(() => PlugIn.SetLoadProtection(
                         pluginId: row.Plugin.ToValue(), loadSilently: row.Behavior))
-                    .Map<PluginReceipt>(_ => new PluginReceipt.Protected(
+                    .Map<PluginOutcome>(_ => new PluginOutcome.Protected(
                         Plugin: row.Plugin, Behavior: row.Behavior))));
     }
 }
@@ -488,7 +488,7 @@ public static class PluginRegistry {
 | [INDEX] | [OWNER]          | [INGRESS]                    | [STATE]                             | [EGRESS]                             |
 | :-----: | :--------------- | :--------------------------- | :---------------------------------- | :----------------------------------- |
 |  [01]   | `PluginCensus`   | `Ask` · `Icon(key, extent)`  | none — every read is a host static  | `PluginAnswer` · `AssetOrigin`       |
-|  [02]   | `PluginRegistry` | `Commit(PluginAct)`          | the host registry itself            | `PluginReceipt`                      |
+|  [02]   | `PluginRegistry` | `Commit(PluginAct)`          | the host registry itself            | `PluginOutcome`                      |
 |  [03]   | `PluginRead`     | admitted `PluginKey`         | row-owned host read                 | `PluginAnswer` per row               |
 |  [04]   | `PluginLookup`   | admitted text                | row-owned host read                 | `PluginAnswer.Identity`/`.Text`      |
 |  [05]   | `PluginInfo`     | `PluginRead.Descriptor` fold | detached registry record            | traits · presence · rosters          |
@@ -498,7 +498,6 @@ public static class PluginRegistry {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

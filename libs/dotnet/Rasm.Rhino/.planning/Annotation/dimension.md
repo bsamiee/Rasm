@@ -357,8 +357,8 @@ public sealed partial class DimPose {
 - Law: `LengthChannel` couples length-display selection with the matching zero-suppression reset as a row column — the page's rung-3 exemplar: the channel IS the behaviour, so no arm re-tests which of the two host members to call.
 - Law: absence never crosses as `null` — an optional attribute set and the unused history slot both project through the kernel's one host-slot spelling, so the seam states which argument the host reads as "use the document's own".
 - Entry: `Dimensions.Commit` preserves the frozen wire and accepts the shared `DraftPlan<DimOp>` policy owner.
-- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `DraftPlan`, `DraftSpine`, `DraftSlot`), `Document/tables.md` (`TableTarget`, `ResourceRef`), `Domain/rails` (`Op.ToHostSlot`, `Lease<T>`); RhinoCommon `ObjectTable.Add` per `.api/api-rhinocommon-document.md`.
-- Growth: a dimension verb is one case with its arm; the receipt, the spine, and every consumer read it unchanged.
+- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `DraftPlan`, `DraftSpine`), `Document/tables.md` (`TableTarget`, `ResourceRef`), `Domain/rails` (`Op.ToHostSlot`, `Lease<T>`); RhinoCommon `ObjectTable.Add` per `.api/api-rhinocommon-document.md`.
+- Growth: a dimension verb is one case with its arm; the spine and every consumer read it unchanged.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -383,48 +383,46 @@ public abstract partial record DimOp {
     public sealed record Redisplay(TableTarget Target, LengthDisplayRow Display, LengthChannel Channel) : DimOp;
     public sealed record Style(TableTarget Target, AnnotationStyleOp Edit) : DimOp;
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
         place: static (ctx, edit) =>
             from style in edit.Style.Resolve(document: ctx.Document, lens: StyleOp.Lens, key: ctx.Op)
             from minted in edit.Spec.Mint(style: style, op: ctx.Op)
-            from receipt in new Lease<Dimension>.Owned(Value: minted).Use(owned =>
+            from _ in new Lease<Dimension>.Owned(Value: minted).Use(owned =>
                 from _ in edit.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: ctx.Op).Map(static _ => unit)).As()
-                from id in ctx.Op.Catch(() => ResourceId.Admit(ctx.Document.Objects.Add(
+                from __ in ctx.Op.Catch(() => ResourceId.Admit(ctx.Document.Objects.Add(
                     geometry: owned,
                     attributes: Op.ToHostSlot(edit.Attributes),
                     history: Op.ToHostSlot(Option<HistoryRecord>.None),
                     reference: false), ctx.Op))
-                from placed in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id), key: ctx.Op)
-                select placed)
-            select receipt,
-        adjust: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op, DraftSlot.Adjusted,
+                select unit)
+            select unit,
+        adjust: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
             (dimension, key) => edit.Fit.Apply(geometry: dimension, op: key)),
-        repose: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op, DraftSlot.Adjusted,
+        repose: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
             (dimension, key) => edit.Pose.Apply(geometry: dimension, key: key)),
-        restate: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op, DraftSlot.Reformulated,
+        restate: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
             (dimension, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => dimension.UpdateDimensionText(
                 dimension.DimensionStyle,
                 edit.Units.Map(static unit => unit.System).IfNone(ctx.Document.ModelUnitSystem)))))),
-        redisplay: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op, DraftSlot.Restyled,
+        redisplay: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
             (dimension, key) => key.Catch(() => Fin.Succ(value: edit.Channel.Apply(dimension, edit.Display.Host)))),
-        style: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op, DraftSlot.Restyled,
+        style: static (ctx, edit) => Amended(ctx.Document, edit.Target, ctx.Op,
             (dimension, key) => edit.Edit.Apply(annotation: dimension, op: key)));
 
-    private static Fin<DraftReceipt> Amended(
+    private static Fin<Unit> Amended(
         RhinoDoc document,
         TableTarget target,
         Op op,
-        DraftSlot slot,
         Func<Dimension, Op, Fin<Unit>> change) =>
-        TextOp.Reworked(document: document, target: target, op: op, slot: slot,
+        TextOp.Reworked(document: document, target: target, op: op,
             change: (annotation, key) => key.Need(annotation as Dimension)
                 .Bind(dimension => change(dimension, key)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Dimensions {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<DimOp> plan) =>
+    public static Fin<Unit> Commit(DocumentSession session, DraftPlan<DimOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, key) => operation.Apply(document: document, op: key),
             op: Op.Of(name: nameof(Dimensions)));
@@ -732,7 +730,6 @@ public abstract partial record DimAnswer : IDetachedDocumentResult {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

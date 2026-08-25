@@ -98,7 +98,7 @@ public static class Traced {
 
 ## [03]-[PICKING]
 
-- Owner: `WirePick` — the two pick modalities over public host contracts. `At` composes the result-typed `CanvasQuery.Pick(at, PickGates.Wiring, None)` — the receipt arrives as `PickReceipt` directly, so the projection-union ladder this member once paid is gone — and projects the hit through the generated PARTIAL overload: one wire arm, one default, so the four identical `None` arms have no spelling and an unknown future host `Pick` kind still refuses upstream at `PickHit.Of`. `Windowed` folds the host `WindowSelection.Selects(WireShape, float)` overload, retaining the host's crossing-versus-containing law.
+- Owner: `WirePick` — the two pick modalities over public host contracts. `At` composes the result-typed `CanvasQuery.Pick(at, PickGates.Wiring, None)` — the answer arrives as `Picked` directly, so the projection-union ladder this member once paid is gone — and projects the hit through the generated PARTIAL overload: one wire arm, one default, so the four identical `None` arms have no spelling and an unknown future host `Pick` kind still refuses upstream at `PickHit.Of`. `Windowed` folds the host `WindowSelection.Selects(WireShape, float)` overload, retaining the host's crossing-versus-containing law.
 - Law: pick admission is gate policy — whether wires participate in a marquee is `Canvas/canvas.md`'s `SelectAxis` set, and whether a pick verb is allowed is its `ActionGate` rows; this owner resolves geometry and never consults policy.
 - Packages: Grasshopper2 (`WindowSelection`, `WireEnds`), `Canvas/canvas.md` (`CanvasQuery.Pick`, `CanvasOperator.Read`, `PickHit`), kernel `PickGates`, LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new pick modality is one method over an existing host read.
@@ -116,8 +116,8 @@ public static class WirePick {
     public static Fin<Option<WireEnds>> At(PointF at, Op? key = null) {
         Op op = key.OrDefault();
         return from query in CanvasQuery.Pick(at: at, gates: PickGates.Wiring, key: op)
-               from receipt in CanvasOperator.Read(query: query, key: op)
-               select receipt.Hit.SwitchPartially(
+               from picked in CanvasOperator.Read(query: query, key: op)
+               select picked.Hit.SwitchPartially(
                    @default: static _ => Option<WireEnds>.None,
                    wireCase: static wire => Some(wire.Wire));
     }
@@ -131,7 +131,7 @@ public static class WirePick {
 
 - Owner: `EndSelection` `[SmartEnum<int>]` — the four-corner palette correspondence the HOST itself names: `Neither`/`Source`/`Target`/`Both` are the four outcomes of `WireSkin.ResolveColours(sourceSelected, targetSelected, out, out)`, and each row carries that resolve as its column, admitting the two host colours onto the kernel colour owner — the two loose bools and the out-pair lift are one keyed row read. `WirePens` — the resolved ink evidence in PERCEPTUAL colour (`Source`/`Target` ends, required `Outer` edge, optional `Inner` detail edge); the Eto quantization happens once at the executor's pen stock, never on this value.
 - Owner: `WireSkinLens.Styled` — the one derivation fold projecting the corpus `Option` vocabulary onto the host `Modify` nullable-slot fold through the kernel `Op.ToHostNullable` — the six hand `Match(… null)` arms are one owner's projection. `WireSkin.Interpolate`/`Fade` stay host-direct; a perceptual blend between palettes crosses the kernel `Tween.Between`.
-- Owner: `WirePass` — the PLAN PRODUCER: `Plan(skin, wires, detailing)` culls nothing and draws nothing — it answers a `GhPlan` of `GhMark.WireCase` rows (ONE per wire; both present layers ride the row's `Ink`, so the edge is stored once), and `Canvas/paint.md`'s executor draws them under its pass-scoped stock, where at most the palette's four corners per edge mint a pen. Culling, tallies, receipt, and stock custody all arrive from the executor — the hand loop with its `if`-continue cull, manual counter, and float-threshold gate is deleted whole.
+- Owner: `WirePass` — the PLAN PRODUCER: `Plan(skin, wires, detailing)` culls nothing and draws nothing — it answers a `GhPlan` of `GhMark.WireCase` rows (ONE per wire; both present layers ride the row's `Ink`, so the edge is stored once), and `Canvas/paint.md`'s executor draws them under its pass-scoped stock, where at most the palette's four corners per edge mint a pen. Culling, tallies, the settled pass, and stock custody all arrive from the executor — the hand loop with its `if`-continue cull, manual counter, and float-threshold gate is deleted whole.
 - Law: the inner detail edge is a ZUI policy read — a wire row carries `Inner` only when the caller's `detailing` read admits it (the producer CLEARS the slot otherwise), so the detail gate is plan data, not a draw-time branch.
 - Law: selection state arrives as data on the wire rows — the pass never reads document selection; the caller projects selection truth into `EndSelection` rows, keeping the producer pure over its inputs.
 - Packages: Grasshopper2 (`WireSkin`, `EdgeDescription`, `Canvas.ZuiWireDetailingState`), `Rasm.Interaction` (`PaintColor`, `Tween`, `Op.ToHostNullable`), `Rasm.Numerics` (`PerceptualColor`), `Canvas/paint.md` (`GhPlan`, `GhMark.WireCase`), LanguageExt.Core, `Rasm.Domain`.

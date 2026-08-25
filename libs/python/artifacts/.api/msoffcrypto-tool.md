@@ -94,7 +94,6 @@
 - within-lib detect: `exchange/detect#DETECT` routes the `MediaClass.ENCRYPTED`/`OFFICE_LEGACY` verdict here, so this owner reads one routing member and never re-sniffs the bytes.
 - within-lib egress: `document/egress#FINISH` folds the format-discriminated unlock/reseal into its `PROTECT` `EgressStep`; an `expression` Result carries `RuntimeRail[ContentKey]`, the `async_boundary` capsule maps a `DecryptionError`/`FileFormatError` to a `BoundaryFault`, and the `anyio` `lane.offload` seam runs the GIL-releasing decrypt off the event loop.
 - within-lib capsule: `xxhash`-backed `ContentIdentity.of` mints the content key over the decrypted/resealed bytes, `beartype` validates the boundary over a per-finish `BytesIO(egress.source)` handle, and `structlog` excludes key material from every event.
-- receipt: the result rides the `msgspec.Struct` `FinishFact` the egress fold threads through `structs.replace`, contributing one kind-discriminated `ArtifactReceipt` case via the runtime `ReceiptContributor` port; the `Confidentiality` `@tagged_union` (`unlock`/`reseal`) is the closed disposition the `PROTECT` arm matches on.
 
 [LOCAL_ADMISSION]:
 - Unlock reads `OfficeFile(file)` -> `load_key(...)` -> `decrypt(outfile)` over a `BytesIO` source and sink; reseal reads `OOXMLFile.encrypt(password, outfile)`, both gated on `is_encrypted()`.

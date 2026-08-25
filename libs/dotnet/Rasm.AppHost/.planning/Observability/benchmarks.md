@@ -1,27 +1,26 @@
 # [APPHOST_BENCHMARK_RAIL]
 
-One `BenchmarkReceipt` family folds every benchmark outcome into the receipt fan: the corpus benchmark gate the kernel and compute pages cite anchors here as one typed pass-or-regress fold, on-demand deep capture rides the support-bundle contributor seam, and every gated run executes inside a minted span so the profiling rail links its flame graph to the exact case that regressed. Every speed claim in the .NET corpus resolves to a `BenchmarkReceipt` this rail stamped.
+One `Benchmark` value carries every judged run: the corpus benchmark gate the kernel and compute pages cite anchors here as one typed pass-or-regress fold that writes its duration and regression rows at the gate, on-demand deep capture rides the support-bundle contributor seam, and every gated run executes inside a minted span so the profiling rail links its flame graph to the exact case that regressed. Every speed claim in the .NET corpus resolves to a `Benchmark` this rail judged.
 
-Settled composition: `ReceiptSinkPort`, `ReceiptEnvelope`, and the `AppHostWireContext` roster row from Runtime/ports; `HostFingerprint` and its `Current(stamps)` ambient mint from Runtime/determinism#DETERMINISM_KERNEL; `SupportArtifact.EventTrace` and `SupportContributorPort` from Observability/bundles#CAPTURE_PIPELINE; `TelemetryIdentity.Mint` and the `PyroscopeSpanProcessor` profile linkage from Observability/telemetry; `AppHostPoint`/`AppHostFact` and the composed `HookRail` from Observability/hooks#HOOK_RAIL; `ReceiptKind.Benchmark` from Observability/instruments#RECEIPT_PROJECTION; `FaultBand.Benchmark` and `ContentHash.Of` from the kernel. BenchmarkDotNet binds in the branch test and benchmark projects per the Test Stack manifest tier, never this package's csproj; the gate compares against the Persistence reuse index by reference.
+Settled composition: `AppHostMeasure.BenchmarkDuration`/`BenchmarkRegressions` and the composition `InstrumentSet` from Observability/instruments#INSTRUMENT_CATALOG; `HostFingerprint` and its `Current(stamps)` ambient mint from Runtime/determinism#DETERMINISM_KERNEL; `SupportArtifact.EventTrace` and `SupportContributorPort` from Observability/bundles#CAPTURE_PIPELINE; `TelemetryIdentity.Mint` and the `PyroscopeSpanProcessor` profile linkage from Observability/telemetry; `AppHostPoint`/`AppHostFact` and the composed `HookRail` from Observability/hooks#HOOK_ROSTER; `FaultBand.Benchmark` and `ContentHash.Of` from the kernel. BenchmarkDotNet binds in the branch test and benchmark projects per the Test Stack manifest tier, never this package's csproj; the gate compares against the Persistence reuse index by reference.
 
 ## [01]-[INDEX]
 
-- [02]-[BENCHMARK_RECEIPT]: Receipt family, the gated-column roster, breach evidence, and the corpus-gate fold.
+- [02]-[BENCHMARK]: `Benchmark` carries the judged run, gated columns, breach evidence, and corpus-gate fold.
 - [03]-[CAPTURE_SEAM]: Deep-capture contributor rows and the native-symbol lease riding the support-bundle fan.
-- [04]-[PROFILE_CORRELATION]: One gated run driving span, labels, symbol lease, sample capture, and receipt.
-- [05]-[CLAIM_FIELD_MAP]: One family-to-receipt field map admitting every folder claim family, and the corpus gate over the Compute-minted claim wire.
-- [06]-[RESEARCH]: Catalog-blocked external member spellings.
+- [04]-[PROFILE_CORRELATION]: One gated run driving span, labels, symbol lease, sample capture, and judgment.
+- [05]-[CLAIM_FIELD_MAP]: One family-to-`Benchmark` field map admitting every folder claim family, and the corpus gate over the Compute-minted claim wire.
 
-## [02]-[BENCHMARK_RECEIPT]
+## [02]-[BENCHMARK]
 
-- Owner: `BenchmarkReceipt` — the typed run evidence; `BenchMeasurement` the harness-edge carrier over one `Distribution<Elapsed>`; `ReferenceEvidence` the same-run relative baseline; `BenchmarkVerdict` `[SmartEnum<string>]` the gate-disposition vocabulary; `BudgetColumn` `[SmartEnum<string>]` the gated-column roster carrying each column's fresh read, baseline read, and policy budget as delegate columns; `BudgetBreach` the per-column overrun evidence; `BenchmarkFault` `[Union]` deriving through `FaultBand.Benchmark`; `GatePolicy` the admitted threshold row; `BenchmarkGate` — the corpus pass-or-regress fold.
+- Owner: `Benchmark` — the judged run; `BenchMeasurement` the harness-edge carrier over one `Distribution<Elapsed>`; `ReferenceEvidence` the same-run relative baseline; `BenchmarkVerdict` `[SmartEnum<string>]` the gate-disposition vocabulary; `BudgetColumn` `[SmartEnum<string>]` the gated-column roster carrying each column's fresh read, baseline read, and policy budget as delegate columns; `BudgetBreach` the per-column overrun evidence; `BenchmarkFault` `[Union]` deriving through `FaultBand.Benchmark`; `GatePolicy` the admitted threshold row; `BenchmarkGate` — the corpus pass-or-regress fold.
 - Cases: `BenchmarkVerdict` = Unjudged | Pass | Regressed | HostMismatch; `BudgetColumn` = Median | P95 | Allocation, each a ceiling against the held claim's own column; `BenchmarkFault` = GateRegressed | HostMismatch | ReferenceAbsent | PolicyRejected | MeasurementRejected.
-- Entry: `BenchMeasurement.Of(spans, allocatedBytes, operations, key)` admits a bounded materialized span sample into exact order statistics; `BenchmarkReceipt.Of(suite, case, corpus, measured, correlation, stamps, reference, artifact)` is the one fresh mint every folder claim family reaches, stamping `HostFingerprint.Current(stamps)` and holding the verdict at its floor; `GatePolicy.Of(...)` admits finite positive budgets and a finite nonnegative optional speedup floor; `BenchmarkGate.Gate(sink, fresh, claim, policy, key)` judges the fresh run against the held claim, stamps the verdict row, fans the judged receipt through the sink under `ReceiptKind.Benchmark`, and returns the accumulating gate rail; `BenchmarkGate.Judge(...)` is the pure verdict fold the entry composes.
-- Auto: the duration figures are ONE `Distribution<Elapsed>` over an ascending materialized sample — median, interquartile spread, median absolute deviation, and the `Quantiles` roster's p95 all read one sort, so a new figure is a percentile row rather than a second pass or a second carrier; the spread is EVIDENCE rather than a gate input, because a widening distribution under a held median is a stability signal a reviewer reads, not a budget a run fails, and folding it into a budget column fails every legitimately noisier lane; `HostFingerprint.Current(stamps)` stamps machine, OS, architecture, processor count, runtime, and the caller's stamp map with one ordered render, so a claim binds only against a matching host and a cross-host comparison faults as `HostMismatch` rather than a phantom regression; a corpus-bound family stamps its input fingerprint on `Corpus`, so a corpus revision re-baselines structurally — a held claim over a different corpus contributes no budget refusal; `ReferenceEvidence` carries a same-run scalar reference when a family claims relative speed, and `GatePolicy.SpeedupFloor` arms that ratio as its own gate leg; the receipt rides the HLC message envelope like every spine fact, so benchmark history orders causally with the command log; a regressed run still fans, so the Observability/instruments#RECEIPT_PROJECTION benchmark arm projects duration and regression counts off every verdict, never the passing subset alone.
-- Receipt: `BenchmarkReceipt` — suite, case, host fingerprint, corpus identity, the measurement carrier, gate verdict, optional same-run reference evidence, optional artifact key, correlation.
+- Entry: `BenchMeasurement.Of(spans, allocatedBytes, operations, key)` admits a bounded materialized span sample into exact order statistics; `Benchmark.Of(suite, case, corpus, measured, stamps, reference, artifact)` is the one fresh mint every folder claim family reaches, stamping `HostFingerprint.Current(stamps)` and holding the verdict at its floor; `GatePolicy.Of(...)` admits finite positive budgets and a finite nonnegative optional speedup floor; `BenchmarkGate.Gate(signals, fresh, claim, policy, key)` judges the fresh run against the held claim, stamps the verdict row, writes `AppHostMeasure.BenchmarkDuration` and — past budget — `BenchmarkRegressions` through the mounted set, and returns the accumulating gate rail; `BenchmarkGate.Judge(...)` is the pure verdict fold the entry composes.
+- Auto: the duration figures are ONE `Distribution<Elapsed>` over an ascending materialized sample — median, interquartile spread, median absolute deviation, and the `Quantiles` roster's p95 all read one sort, so a new figure is a percentile row rather than a second pass or a second carrier; the spread is EVIDENCE rather than a gate input, because a widening distribution under a held median is a stability signal a reviewer reads, not a budget a run fails, and folding it into a budget column fails every legitimately noisier lane; `HostFingerprint.Current(stamps)` stamps machine, OS, architecture, processor count, runtime, and the caller's stamp map with one ordered render, so a claim binds only against a matching host and a cross-host comparison faults as `HostMismatch` rather than a phantom regression; a corpus-bound family stamps its input fingerprint on `Corpus`, so a corpus revision re-baselines structurally — a held claim over a different corpus contributes no budget refusal; `ReferenceEvidence` carries a same-run scalar reference when a family claims relative speed, and `GatePolicy.SpeedupFloor` arms that ratio as its own gate leg; the durable claim is the Persistence reuse-index row the bench project persists off the judged value, so benchmark history is a persisted domain record and never a second stream; a regressed run still writes, so the duration and regression rows count every verdict, never the passing subset alone.
+- Output: `Benchmark` — suite, case, host fingerprint, corpus identity, the measurement carrier, gate verdict, optional same-run reference evidence, optional artifact key; the run span carries the correlation.
 - Packages: Rasm (`Distribution<Elapsed>`, `Elapsed`, `ContentHash`, `Op`, `FaultBand`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new measured axis is one `BenchMeasurement` column threaded through `Of`; a new gated column is one `BudgetColumn` row with its three delegate columns and its `GatePolicy` budget, breaking neither the fold nor a consumer; a new verdict class is one `BenchmarkVerdict` row paired with its `BenchmarkFault` case; a new claim family is one `[05]-[CLAIM_FIELD_MAP]` row with its own `Of` call, never a positional receipt construction.
-- Boundary: the duration figures are EXACT order statistics over a bounded materialized sample, the form the kernel quantile roster at `Rasm/Domain/stats#ORDER_STATISTICS` admits this carrier under — a sketch estimator crossing into a gate comparison grades a value no run produced, which is why `QuantileSketch` reaches no receipt here; host identity is the spine's own `HostFingerprint` and never a second environment record, so the claim column the Persistence reuse index holds, the Compute claim wire, and this gate all read ONE render and a second host-identity string is the twin this page deleted; this rail is the corpus benchmark gate's owner — a kernel or compute page citing the BenchmarkDotNet gate cites this fold, and a hand-rolled kernel is admitted only after its receipt defeats the library route under `Judge`; the bench project folds raw harness results to receipts at its edge, resolving `ArtifactKey` there off `ExporterBase.GetArtifactFullName(Summary)` — the public path member every shipped exporter inherits, the same path `IExporter.ExportToFiles(Summary, ILogger)` returns after writing — and hands it across as a plain `string`, so the key rides the receipt while no BenchmarkDotNet type crosses into the spine and no libs-tier catalog carries a package no libs project references; the durable claim the gate compares against is the Persistence reuse-index row resolved by content fingerprint — measured facts mint here, the claim store persists them, and neither re-derives the other.
+- Growth: a new measured axis is one `BenchMeasurement` column threaded through `Of`; a new gated column is one `BudgetColumn` row with its three delegate columns and its `GatePolicy` budget, breaking neither the fold nor a consumer; a new verdict class is one `BenchmarkVerdict` row paired with its `BenchmarkFault` case; a new claim family is one `[05]-[CLAIM_FIELD_MAP]` row with its own `Of` call, never a positional construction.
+- Boundary: the duration figures are EXACT order statistics over a bounded materialized sample, the form the kernel quantile roster at `Rasm/Domain/stats#ORDER_STATISTICS` admits this carrier under — a sketch estimator crossing into a gate comparison grades a value no run produced, which is why `QuantileSketch` reaches no `Benchmark` here; host identity is the spine's own `HostFingerprint` and never a second environment record, so the claim column the Persistence reuse index holds, the Compute claim wire, and this gate all read ONE render and a second host-identity string is the twin this page deleted; this rail is the corpus benchmark gate's owner — a kernel or compute page citing the BenchmarkDotNet gate cites this fold, and a hand-rolled kernel is admitted only after its `Benchmark` defeats the library route under `Judge`; the bench project folds raw harness results to `Benchmark` values at its edge, resolving `ArtifactKey` there off `ExporterBase.GetArtifactFullName(Summary)` — the public path member every shipped exporter inherits, the same path `IExporter.ExportToFiles(Summary, ILogger)` returns after writing — and hands it across as a plain `string`, so the key rides the value while no BenchmarkDotNet type crosses into the spine and no libs-tier catalog carries a package no libs project references; the durable claim the gate compares against is the Persistence reuse-index row resolved by content fingerprint — measured facts mint here, the claim store persists them, and neither re-derives the other.
 - Boundary: the three gate legs ACCUMULATE — host identity, the relative claim, and the budget roster are independent evidence, so a host mismatch never masks a co-occurring budget breach and one run reports every reason it failed; each budget refusal names its column, its two values, and its budget as a `BudgetBreach` row, so `GateRegressed` carries structured evidence a reader filters rather than one rendered line a reader parses; an armed speedup floor with no admissible reference REFUSES as `ReferenceAbsent` because a relative claim without its baseline is a missing measurement, never an implicit pass; the verdict derives ONCE, on the fail arm, off the accumulated fault set — `Judge` stamps `Pass` itself and `Gate` re-decides nothing.
 
 ```csharp
@@ -43,19 +42,19 @@ public sealed partial class BenchmarkVerdict {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BudgetColumn {
     public static readonly BudgetColumn Median = new("median",
-        read: static receipt => Some(receipt.Measured.Figures.Median.To()),
+        read: static run => Some(run.Measured.Figures.Median.To()),
         budget: static policy => policy.MedianBudget);
     public static readonly BudgetColumn P95 = new("p95",
-        read: static receipt => receipt.Measured.At(BenchMeasurement.P95).Map(static value => value.To()),
+        read: static run => run.Measured.At(BenchMeasurement.P95).Map(static value => value.To()),
         budget: static policy => policy.P95Budget);
     public static readonly BudgetColumn Allocation = new("allocation",
-        read: static receipt => Some((double)receipt.Measured.AllocatedBytes),
+        read: static run => Some((double)run.Measured.AllocatedBytes),
         budget: static policy => policy.AllocationBudget);
 
-    [UseDelegateFromConstructor] public partial Option<double> Read(BenchmarkReceipt receipt);
+    [UseDelegateFromConstructor] public partial Option<double> Read(Benchmark run);
     [UseDelegateFromConstructor] public partial double Budget(GatePolicy policy);
 
-    public Option<BudgetBreach> Judge(BenchmarkReceipt fresh, BenchmarkReceipt held, GatePolicy policy) =>
+    public Option<BudgetBreach> Judge(Benchmark fresh, Benchmark held, GatePolicy policy) =>
         from measured in Read(fresh)
         from baseline in Read(held)
         where measured > baseline * Budget(policy)
@@ -81,24 +80,22 @@ public readonly record struct BenchMeasurement(Distribution<Elapsed> Figures, lo
         Figures.Percentiles.Find(row => row.Percentile == percentile).Map(static row => row.Value);
 }
 
-public sealed record BenchmarkReceipt(
+public sealed record Benchmark(
     string Suite,
     string Case,
     HostFingerprint Host,
     BenchMeasurement Measured,
     BenchmarkVerdict Verdict,
-    CorrelationId Correlation,
     Option<UInt128> Corpus = default,
     Option<ReferenceEvidence> Reference = default,
     Option<string> ArtifactKey = default) {
 
-    public static BenchmarkReceipt Of(
+    public static Benchmark Of(
         string suite, string @case, Option<UInt128> corpus, BenchMeasurement measured,
-        CorrelationId correlation, FrozenDictionary<string, string> stamps,
+        FrozenDictionary<string, string> stamps,
         Option<ReferenceEvidence> reference = default, Option<string> artifact = default) =>
         new(Suite: suite, Case: @case, Host: HostFingerprint.Current(stamps), Measured: measured,
-            Verdict: BenchmarkVerdict.Unjudged, Correlation: correlation,
-            Corpus: corpus, Reference: reference, ArtifactKey: artifact);
+            Verdict: BenchmarkVerdict.Unjudged, Corpus: corpus, Reference: reference, ArtifactKey: artifact);
 
     public UInt128 ClaimKey =>
         ContentHash.Of(this, static (row, writer) => writer
@@ -165,20 +162,20 @@ public readonly partial struct GatePolicy {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BenchmarkGate {
-    public static Validation<Error, BenchmarkReceipt> Judge(
-        BenchmarkReceipt fresh, Option<BenchmarkReceipt> claim, GatePolicy policy, Op key) =>
+    public static Validation<Error, Benchmark> Judge(
+        Benchmark fresh, Option<Benchmark> claim, GatePolicy policy, Op key) =>
         (Hosts(fresh, claim, policy), Relative(fresh, policy, key), Budgets(fresh, claim, policy, key))
             .Apply(static (_, _, _) => unit)
             .Map(_ => fresh with { Verdict = BenchmarkVerdict.Pass })
             .As();
 
-    static Validation<Error, Unit> Hosts(BenchmarkReceipt fresh, Option<BenchmarkReceipt> claim, GatePolicy policy) =>
+    static Validation<Error, Unit> Hosts(Benchmark fresh, Option<Benchmark> claim, GatePolicy policy) =>
         (policy.SpeedupFloor.IsNone || fresh.Reference.Match(None: static () => true, Some: row => row.Host == fresh.Host))
         && claim.Match(None: static () => true, Some: held => held.Host == fresh.Host)
             ? Validation<Error, Unit>.Success(unit)
             : Validation<Error, Unit>.Fail(new BenchmarkFault.HostMismatch(fresh.Case));
 
-    static Validation<Error, Unit> Relative(BenchmarkReceipt fresh, GatePolicy policy, Op key) =>
+    static Validation<Error, Unit> Relative(Benchmark fresh, GatePolicy policy, Op key) =>
         policy.SpeedupFloor.Match(
             None: static () => Validation<Error, Unit>.Success(unit),
             Some: floor => Admissible(fresh).Match(
@@ -189,28 +186,41 @@ public static class BenchmarkGate {
                         : Validation<Error, Unit>.Fail(new BenchmarkFault.GateRegressed(
                             key, Seq(new BudgetBreach("speedup", measured, baseline.To(), floor))))));
 
-    static Option<Elapsed> Admissible(BenchmarkReceipt fresh) =>
+    static Option<Elapsed> Admissible(Benchmark fresh) =>
         fresh.Reference
             .Filter(row => row.Case == fresh.Case && row.Corpus == fresh.Corpus)
             .Map(static row => row.Median);
 
     static Validation<Error, Unit> Budgets(
-        BenchmarkReceipt fresh, Option<BenchmarkReceipt> claim, GatePolicy policy, Op key) =>
+        Benchmark fresh, Option<Benchmark> claim, GatePolicy policy, Op key) =>
         claim.Filter(held => held.Corpus == fresh.Corpus)
             .Map(held => toSeq(BudgetColumn.Items).Bind(column => column.Judge(fresh, held, policy).ToSeq()).Strict())
             .IfNone(Seq<BudgetBreach>()) is var breaches && breaches.IsEmpty
             ? Validation<Error, Unit>.Success(unit)
             : Validation<Error, Unit>.Fail(new BenchmarkFault.GateRegressed(key, breaches));
 
-    public static IO<Validation<Error, BenchmarkReceipt>> Gate(
-        ReceiptSinkPort sink, BenchmarkReceipt fresh, Option<BenchmarkReceipt> claim, GatePolicy policy, Op key) =>
+    public static IO<Validation<Error, Benchmark>> Gate(
+        InstrumentSet signals, Benchmark fresh, Option<Benchmark> claim, GatePolicy policy, Op key) =>
         from judged in IO.pure(Judge(fresh, claim, policy, key))
         let stamped = fresh with { Verdict = Settled(judged) }
-        from _ in sink.Send(stamped.Correlation, TenantContext.Current, TelemetrySource.AppHost,
-            ReceiptKind.Benchmark.Key, JsonSerializer.SerializeToElement(stamped, SuiteContracts.Host))
-        select judged.Map(_ => stamped).As();
+        let tags = InstrumentSet.Tags(
+            (AppHostSlot.Suite, stamped.Suite),
+            (AppHostSlot.Case, stamped.Case))
+        from observed in IO.lift(() => (
+            signals.Write(AppHostMeasure.BenchmarkDuration.Row, stamped.Measured.Figures.Median.To(), in tags),
+            stamped.Verdict == BenchmarkVerdict.Pass
+                ? Fin.Succ(unit)
+                : signals.Write(AppHostMeasure.BenchmarkRegressions.Row, 1L,
+                    InstrumentSet.Tags(
+                        (AppHostSlot.Suite, stamped.Suite),
+                        (AppHostSlot.Case, stamped.Case),
+                        (AppHostSlot.Verdict, stamped.Verdict.Key))))
+            .Apply(static (_, _) => unit)
+            .ToValidation()
+            .Bind(_ => judged.Map(_ => stamped).As()))
+        select observed;
 
-    static BenchmarkVerdict Settled(Validation<Error, BenchmarkReceipt> judged) =>
+    static BenchmarkVerdict Settled(Validation<Error, Benchmark> judged) =>
         judged.Match(
             Succ: static passed => passed.Verdict,
             Fail: static faults => faults.Exists(static fault => fault is BenchmarkFault.HostMismatch)
@@ -251,14 +261,14 @@ public sealed record PerfMapLease(DiagnosticsClient Client) : IDisposable {
 
 ## [04]-[PROFILE_CORRELATION]
 
-- Owner: `BenchmarkRun` — the ONE gated-run capability, its `Session` composition row and `Case` identity row; `ProfileSignal` `[SmartEnum<string>]` the agent tracking vocabulary realizing `ICapability<ProfileSignal>` with each row's toggle as a delegate column; `ProfileTracking` the root arming fold; `ProfileLabels` the bounded label-scope surface partitioning continuous profiles by the dimensions instruments already carry; `ProfileSample` the correlation-keyed sample the hook rail fans; `ProfileFrameForm` the symbolization posture every sample stamps; `ProfileCapturePolicy` the admitted decode bounds; `ProfileDisposition` `[SmartEnum<string>]` the decode-outcome vocabulary; `ProfileCaptureReceipt` the keyed disposition table; `ProfileCapture` the sample-profiler decode producer and `ProfileCaptureLease` its detaching accounting handle.
-- Cases: `ProfileSignal` = Cpu | Allocation | Exception | Contention; `ProfileFrameForm` = Address | Resolved, the row deriving from whether composition supplied a `ProfileSymbolizer`; `ProfileDisposition` = Published | Unpaired | Rejected | Unattributed | Truncated | Faulted.
-- Entry: `BenchmarkRun.Execute(session, spec, harness, claim, policy)` returns `IO<Validation<Error, BenchmarkReceipt>>` — the ONE gated run: it arms the tracking set, opens the symbol lease and the sample capture under one bracket, runs the harness inside one activity and one label frame, mints the receipt off `HostFingerprint.Current(session.Stamps)`, and folds the gate; `BenchmarkRun.Relative(session, spec, reference, subject, claim, policy)` runs BOTH lanes under one session and mints the `ReferenceEvidence` the relative gate leg reads; `ProfileTracking.Apply(held)` seats the whole tracking set at the profiler root in one fold; `ProfileLabels.Scoped(tenant, command, level, body)` runs one body under one derived label frame; `ProfileCapturePolicy.Of(...)` admits the sample-class set, frame cap, and the weight floor, nominal, and ceiling; `ProfileCapture.Bind(source, policy, rail, attribute, symbolize, key)` subscribes the sample-profiler pair to a source another owner pumps and returns the lease carrying live `ProfileCaptureReceipt` counts.
-- Auto: the run's activity carries suite and case tags at start so they participate in the sampling verdict, and the Observability/telemetry `PyroscopeSpanProcessor` stamps `pyroscope.profile.id` on the run's root span — a regressed case's flame graph is one click from its receipt, keyed by the shared correlation; `LabelsWrapper.Do(labels.Activate() -> body -> reset)` restores the prior frame on every exit, so a nested scope composes and an escaped label is structurally impossible; the tracking set arms by walking `ProfileSignal.Items` against the held capability set, so a signal added to the vocabulary arms and disarms without a fifth setter call; `Bind` pairs the two sample-profiler events by thread — `ThreadSample` parks its instant and class in the pending cell keyed by `ThreadID` and the `ThreadStackWalk` that follows consumes it — so a walk arriving with no parked sample counts `Unpaired` rather than publishing an unweighted stack, and each sample's weight is the elapsed span since that thread's previous sample clamped to the policy band with the first sample taking `Nominal`, so a capture never assumes a cadence the provider row does not state; both composition-supplied delegates cross one guarded invocation that folds a raise onto `Faulted` and answers absence, so a symbolizer fault degrades its frame to the address form and an attribution fault drops its sample as counted evidence rather than escaping the callback and killing the producer session; every disposition lands on ONE keyed table, so a seventh outcome is a `ProfileDisposition` row and no counter column, increment body, or seed literal moves.
-- Receipt: `ProfileCaptureReceipt` — one `HashMap<ProfileDisposition, long>` whose `Ordered` projection publishes the roster's own declaration order, so a byte-deriving reader never enumerates the map; `BenchmarkReceipt` is the run's own evidence and the capture receipt rides the lease beside it.
+- Owner: `BenchmarkRun` — the ONE gated-run capability, its `Session` composition row and `Case` identity row; `ProfileSignal` `[SmartEnum<string>]` the agent tracking vocabulary realizing `ICapability<ProfileSignal>` with each row's toggle as a delegate column; `ProfileTracking` the root arming fold; `ProfileLabels` the bounded label-scope surface partitioning continuous profiles by the dimensions instruments already carry; `ProfileSample` the correlation-keyed sample the hook rail fans; `ProfileFrameForm` the symbolization posture every sample stamps; `ProfileCapturePolicy` the admitted decode bounds; `ProfileCapture` the sample-profiler decode producer.
+- Cases: `ProfileSignal` = Cpu | Allocation | Exception | Contention; `ProfileFrameForm` = Address | Resolved, the row deriving from whether composition supplied a `ProfileSymbolizer`.
+- Entry: `BenchmarkRun.Execute(session, spec, harness, claim, policy)` returns `IO<Validation<Error, Benchmark>>` — the ONE gated run: it arms the tracking set, opens the symbol lease and the sample capture under one bracket, runs the harness inside one activity and one label frame, constructs the benchmark off `HostFingerprint.Current(session.Stamps)`, and folds the gate; `BenchmarkRun.Relative(session, spec, reference, subject, claim, policy)` runs BOTH lanes under one session and mints the `ReferenceEvidence` the relative gate leg reads; `ProfileTracking.Apply(held)` seats the whole tracking set at the profiler root in one fold; `ProfileLabels.Scoped(tenant, command, level, body)` runs one body under one derived label frame; `ProfileCapturePolicy.Of(...)` admits the sample-class set, frame cap, and the weight floor, nominal, and ceiling; `ProfileCapture.Bind(source, policy, rail, attribute, symbolize, key)` subscribes the sample-profiler pair to a source another owner pumps and returns its detacher.
+- Auto: the run's activity carries suite and case tags at start so they participate in the sampling verdict, and the Observability/telemetry `PyroscopeSpanProcessor` stamps `pyroscope.profile.id` on the run's root span; `LabelsWrapper.Do(labels.Activate() -> body -> reset)` restores the prior frame on every exit, so a nested scope composes and an escaped label is structurally impossible; the tracking set arms by walking `ProfileSignal.Items` against the held capability set, so a signal added to the vocabulary arms and disarms without a fifth setter call; `Bind` pairs the two sample-profiler events by thread — `ThreadSample` parks its instant and class in the pending cell keyed by `ThreadID` and the `ThreadStackWalk` that follows consumes it — so a walk arriving with no parked sample publishes nothing, and each sample's weight is the elapsed span since that thread's previous sample clamped to the policy band with the first sample taking `Nominal`, so a capture never assumes a cadence the provider row does not state; both composition-supplied delegates cross one guarded invocation that answers absence on a raise, so a symbolizer fault degrades its frame to the address form and an attribution fault drops its sample without escaping the callback and killing the producer session.
+- Output: `Benchmark` is the judged run; profile samples travel through the existing hook rail.
 - Packages: Pyroscope, Microsoft.Diagnostics.Tracing.TraceEvent, Rasm (`CapabilitySet`, `HookRail`, `Op`, `Dimension`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new run dimension is one tag row at activity start; a new profile dimension is one `Add` row inside `Scoped`, its vocabulary bounded by an owning SmartEnum or the tenant roster; a new tracked signal is one `ProfileSignal` row carrying its toggle; a new sample consumer is one `HookTap` at composition, never a second feed; a new decode bound is one `ProfileCapturePolicy` column its `Of` admits; a new decode outcome is one `ProfileDisposition` row; a symbol source is one `ProfileSymbolizer` supplied on the session, never a second frame projection.
-- Boundary: the seven owners this section declares are the STAGES of one capability — arm, bracket, run, capture, label, measure, receipt — and `BenchmarkRun.Execute` is the only entry that reaches them, so none stands alone and a caller composing them by hand re-decides the bracket order this fold owns; the wrapper composes the minted `Rasm.AppHost` source from `TelemetryIdentity.Mint` — a second `ActivitySource` for benchmarks is the process-static defect the telemetry page forecloses; profile egress stays the service-root Pyroscope seat, so a desktop bench run without a profiler endpoint runs the identical span with the linkage dormant and the label scopes no-op on the absent native agent; label cardinality shares the tenant-cap governor's budget — tenant ids come from the tenant roster, command families come from admitted `CapabilityDescriptor.Surface` values, and degradation levels come from their owning SmartEnum; `SetDynamicTag` never spells at a call site because `Scoped` owns the frame; sample delivery is the composed `HookRail` — a process-static subscription atom beside it is the second fan the hook-seat law deletes, and a tap that raises parks on the rail's own `FaultCell` as an `IsolatedFault` rather than vanishing into a discarded `Fin`; `Bind` subscribes to a source the `[03]-[CAPTURE_SEAM]` `SupportArtifact.EventTrace` row already opens and pumps, so the capture opens no session, calls no `Process()`, and a second `EventPipeEventSource` over one runtime is the deleted form; callbacks reuse one record per event, so every field projects to a value inside the callback and no `TraceEvent` reference outlives its dispatch; `InstructionPointer` yields a raw code address this package never symbolizes, so an absent `ProfileSymbolizer` stamps `ProfileFrameForm.Address` and renders hex — a sample presenting unresolved pointers under the `Resolved` row claims symbolization the run never had, and the `[03]` `PerfMapLease` the run brackets is what a supplied symbolizer reads; `FrameCount` derives from payload length so a truncated record yields a short count, and every read bounds against it beneath the policy cap; frames emit root-first because index 0 is the deepest frame and the AppUi flame fold grafts head-first from the root; AppUi consumes delivered samples through its own tap on the rail, and no profiler reference crosses downstream.
+- Growth: a new run dimension is one tag row at activity start; a new profile dimension is one `Add` row inside `Scoped`, its vocabulary bounded by an owning SmartEnum or the tenant roster; a new tracked signal is one `ProfileSignal` row carrying its toggle; a new sample consumer is one `HookTap` at composition, never a second feed; a new decode bound is one `ProfileCapturePolicy` column its `Of` admits; a symbol source is one `ProfileSymbolizer` supplied on the session, never a second frame projection.
+- Boundary: the seven owners this section declares are the STAGES of one capability — arm, bracket, run, capture, label, measure, and judge — and `BenchmarkRun.Execute` is the only entry that reaches them, so none stands alone and a caller composing them by hand re-decides the bracket order this fold owns; the wrapper composes the minted `Rasm.AppHost` source from `TelemetryIdentity.Mint` — a second `ActivitySource` for benchmarks is the process-static defect the telemetry page forecloses; profile egress stays the service-root Pyroscope seat, so a desktop bench run without a profiler endpoint runs the identical span with the linkage dormant and the label scopes no-op on the absent native agent; label cardinality shares the tenant-cap governor's budget — tenant ids come from the tenant roster, command families come from admitted `CapabilityDescriptor.Surface` values, and degradation levels come from their owning SmartEnum; `SetDynamicTag` never spells at a call site because `Scoped` owns the frame; sample delivery is the composed `HookRail` — a process-static subscription atom beside it is the second fan the hook-seat law deletes, and a tap that raises parks on the rail's own `FaultCell` as an `IsolatedFault` rather than vanishing into a discarded `Fin`; `Bind` subscribes to a source the `[03]-[CAPTURE_SEAM]` `SupportArtifact.EventTrace` row already opens and pumps, so the capture opens no session, calls no `Process()`, and a second `EventPipeEventSource` over one runtime is the deleted form; callbacks reuse one record per event, so every field projects to a value inside the callback and no `TraceEvent` reference outlives its dispatch; `InstructionPointer` yields a raw code address this package never symbolizes, so an absent `ProfileSymbolizer` stamps `ProfileFrameForm.Address` and renders hex — a sample presenting unresolved pointers under the `Resolved` row claims symbolization the run never had, and the `[03]` `PerfMapLease` the run brackets is what a supplied symbolizer reads; `FrameCount` derives from payload length so a truncated record yields a short count, and every read bounds against it beneath the policy cap; frames emit root-first because index 0 is the deepest frame and the AppUi flame fold grafts head-first from the root; AppUi consumes delivered samples through its own tap on the rail, and no profiler reference crosses downstream.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -287,18 +297,6 @@ public sealed partial class ProfileFrameForm {
     public static readonly ProfileFrameForm Resolved = new("resolved");
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ProfileDisposition {
-    public static readonly ProfileDisposition Published = new("published");
-    public static readonly ProfileDisposition Unpaired = new("unpaired");
-    public static readonly ProfileDisposition Rejected = new("rejected");
-    public static readonly ProfileDisposition Unattributed = new("unattributed");
-    public static readonly ProfileDisposition Truncated = new("truncated");
-    public static readonly ProfileDisposition Faulted = new("faulted");
-}
-
 public delegate Option<string> ProfileSymbolizer(ulong instructionPointer);
 
 public delegate Option<CorrelationId> ProfileAttribution(int threadId, Instant at);
@@ -312,21 +310,6 @@ public readonly record struct ProfileSample(
     ImmutableArray<string> Frames,
     long WeightMillis,
     Instant At);
-
-public readonly record struct ProfileCaptureReceipt(HashMap<ProfileDisposition, long> Counts) {
-    public static readonly ProfileCaptureReceipt Empty =
-        new(toSeq(ProfileDisposition.Items).ToHashMap(static row => row, static _ => 0L));
-    public long this[ProfileDisposition slot] => Counts.Find(slot).IfNone(0L);
-    public Seq<(ProfileDisposition Slot, long Count)> Ordered =>
-        toSeq(ProfileDisposition.Items).Map(row => (Slot: row, Count: this[row])).Strict();
-    public ProfileCaptureReceipt Bump(ProfileDisposition slot, long by = 1L) =>
-        new(Counts.AddOrUpdate(slot, held => held + by, by));
-}
-
-public sealed record ProfileCaptureLease(Atom<ProfileCaptureReceipt> Counts, Action Detach) : IDisposable {
-    public ProfileCaptureReceipt Receipt => Counts.Value;
-    public void Dispose() => Detach();
-}
 
 // --- [POLICIES] ------------------------------------------------------------------------
 [ComplexValueObject]
@@ -381,11 +364,10 @@ public static class ProfileLabels {
 }
 
 public static class ProfileCapture {
-    public static ProfileCaptureLease Bind(
+    public static Action Bind(
         EventPipeEventSource source, ProfileCapturePolicy policy,
         HookRail<AppHostPoint, AppHostFact, TelemetrySource> rail,
         ProfileAttribution attribute, Option<ProfileSymbolizer> symbolize, Op key) {
-        var counts = Atom(ProfileCaptureReceipt.Empty);
         var pending = Atom(HashMap<int, (Instant At, ClrThreadSampleType Kind)>());
         var seen = Atom(HashMap<int, Instant>());
         var form = symbolize.Match(None: static () => ProfileFrameForm.Address, Some: static _ => ProfileFrameForm.Resolved);
@@ -393,63 +375,59 @@ public static class ProfileCapture {
 
         void OnSample(ClrThreadSampleTraceData e) {
             var (thread, at, kind) = (e.ThreadID, Instant.FromDateTimeUtc(e.TimeStamp.ToUniversalTime()), e.Type);
-            ignore(policy.Admits.Contains(kind)
-                ? pending.Swap(held => held.AddOrUpdate(thread, (at, kind)))
-                : Count(counts, ProfileDisposition.Rejected));
+            if (policy.Admits.Contains(kind))
+                ignore(pending.Swap(held => held.AddOrUpdate(thread, (at, kind))));
         }
 
         void OnWalk(ClrThreadStackWalkTraceData e) {
             var thread = e.ThreadID;
             ignore(pending.Value.Find(thread).Match(
-                None: () => Count(counts, ProfileDisposition.Unpaired),
-                Some: parked => Publish(counts, seen, policy, rail, attribute, form, key,
-                    thread, parked, e.FrameCount, Frames(counts, e, policy, symbolize))));
+                None: static () => unit,
+                Some: parked => Publish(seen, policy, rail, attribute, form, key,
+                    thread, parked, Frames(e, policy, symbolize))));
             ignore(pending.Swap(held => held.Remove(thread)));
         }
 
         parser.ThreadSample += OnSample;
         parser.ThreadStackWalk += OnWalk;
-        return new ProfileCaptureLease(counts, () => {
+        return () => {
             parser.ThreadSample -= OnSample;
             parser.ThreadStackWalk -= OnWalk;
-        });
+        };
     }
 
     static ImmutableArray<string> Frames(
-        Atom<ProfileCaptureReceipt> counts, ClrThreadStackWalkTraceData walk, ProfileCapturePolicy policy, Option<ProfileSymbolizer> symbolize) {
+        ClrThreadStackWalkTraceData walk, ProfileCapturePolicy policy, Option<ProfileSymbolizer> symbolize) {
         var depth = Math.Min(walk.FrameCount, policy.FrameCap.Value);
         var frames = ImmutableArray.CreateBuilder<string>(depth);
         for (var index = depth - 1; index >= 0; index--) {
             var pointer = walk.InstructionPointer(index);
-            frames.Add(Guarded(counts, () => symbolize.Bind(resolve => resolve(pointer)))
+            frames.Add(Guarded(() => symbolize.Bind(resolve => resolve(pointer)))
                 .IfNone(() => string.Create(CultureInfo.InvariantCulture, $"0x{pointer:x}")));
         }
         return frames.MoveToImmutable();
     }
 
-    static Option<T> Guarded<T>(Atom<ProfileCaptureReceipt> counts, Func<Option<T>> call) =>
+    static Option<T> Guarded<T>(Func<Option<T>> call) =>
         Op.Of().Catch(() => Fin.Succ(call())).Match(
             Succ: static held => held,
-            Fail: _ => (Count(counts, ProfileDisposition.Faulted), Option<T>.None).Item2);
+            Fail: static _ => Option<T>.None);
 
     static Unit Publish(
-        Atom<ProfileCaptureReceipt> counts, Atom<HashMap<int, Instant>> seen, ProfileCapturePolicy policy,
+        Atom<HashMap<int, Instant>> seen, ProfileCapturePolicy policy,
         HookRail<AppHostPoint, AppHostFact, TelemetrySource> rail, ProfileAttribution attribute,
         ProfileFrameForm form, Op key,
-        int thread, (Instant At, ClrThreadSampleType Kind) parked, int available, ImmutableArray<string> frames) =>
-        Guarded(counts, () => attribute(thread, parked.At)).Match(
-            None: () => Count(counts, ProfileDisposition.Unattributed),
+        int thread, (Instant At, ClrThreadSampleType Kind) parked, ImmutableArray<string> frames) =>
+        Guarded(() => attribute(thread, parked.At)).Match(
+            None: static () => unit,
             Some: correlation => {
                 var weight = Weight(seen, policy, thread, parked.At);
                 ignore(seen.Swap(held => held.AddOrUpdate(thread, parked.At)));
                 AppHostFact fact = new AppHostFact.Profile(new ProfileSample(
                     correlation, thread, parked.Kind, form, frames,
                     weight.ToTimeSpan().Ticks / TimeSpan.TicksPerMillisecond, parked.At));
-                return rail.Fire(at: fact.At, fact: fact, key: key).Match(
-                    Succ: _ => available > frames.Length
-                        ? Count(counts, ProfileDisposition.Truncated, ProfileDisposition.Published)
-                        : Count(counts, ProfileDisposition.Published),
-                    Fail: _ => Count(counts, ProfileDisposition.Faulted));
+                ignore(rail.Fire(at: fact.At, fact: fact, key: key));
+                return unit;
             });
 
     static Duration Weight(Atom<HashMap<int, Instant>> seen, ProfileCapturePolicy policy, int thread, Instant at) =>
@@ -461,15 +439,13 @@ public static class ProfileCapture {
                 var elapsed => elapsed,
             });
 
-    static Unit Count(Atom<ProfileCaptureReceipt> counts, params ProfileDisposition[] slots) =>
-        ignore(counts.Swap(held => toSeq(slots).Fold(held, static (table, slot) => table.Bump(slot))));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class BenchmarkRun {
     public sealed record Session(
         ActivitySource Source,
-        ReceiptSinkPort Sink,
+        InstrumentSet Instruments,
         HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail,
         CapabilitySet<ProfileSignal> Signals,
         ProfileCapturePolicy Capture,
@@ -485,36 +461,35 @@ public static class BenchmarkRun {
         TenantContext Tenant,
         CapabilityDescriptor Command,
         DegradationLevel Level,
-        CorrelationId Correlation,
         Option<UInt128> Corpus = default,
         Option<string> Artifact = default);
 
-    public static IO<Validation<Error, BenchmarkReceipt>> Execute(
+    public static IO<Validation<Error, Benchmark>> Execute(
         Session session, Case spec, Func<Fin<BenchMeasurement>> harness,
-        Option<BenchmarkReceipt> claim, GatePolicy policy, Op key) =>
+        Option<Benchmark> claim, GatePolicy policy, Op key) =>
         Braced(session, spec, harness, key)
             .Bind(measured => measured.Match(
                 Succ: figures => BenchmarkGate.Gate(
-                    session.Sink,
-                    BenchmarkReceipt.Of(spec.Suite, spec.Name, spec.Corpus, figures, spec.Correlation,
+                    session.Instruments,
+                    Benchmark.Of(spec.Suite, spec.Name, spec.Corpus, figures,
                         session.Stamps, artifact: spec.Artifact),
                     claim, policy, key),
-                Fail: fault => IO.pure(Validation<Error, BenchmarkReceipt>.Fail((BenchmarkFault)fault))));
+                Fail: fault => IO.pure(Validation<Error, Benchmark>.Fail((BenchmarkFault)fault))));
 
-    public static IO<Validation<Error, BenchmarkReceipt>> Relative(
+    public static IO<Validation<Error, Benchmark>> Relative(
         Session session, Case spec, Func<Fin<BenchMeasurement>> reference, Func<Fin<BenchMeasurement>> subject,
-        Option<BenchmarkReceipt> claim, GatePolicy policy, Op key) =>
+        Option<Benchmark> claim, GatePolicy policy, Op key) =>
         from baseline in Braced(session, spec with { Name = $"{spec.Name}#reference" }, reference, key)
         from measured in Braced(session, spec, subject, key)
         from gated in (baseline, measured).Apply(static (held, fresh) => (Held: held, Fresh: fresh)).As().Match(
             Succ: pair => BenchmarkGate.Gate(
-                session.Sink,
-                BenchmarkReceipt.Of(spec.Suite, spec.Name, spec.Corpus, pair.Fresh, spec.Correlation, session.Stamps,
+                session.Instruments,
+                Benchmark.Of(spec.Suite, spec.Name, spec.Corpus, pair.Fresh, session.Stamps,
                     reference: Some(new ReferenceEvidence(spec.Name,
                         HostFingerprint.Current(session.Stamps), pair.Held.Figures.Median, spec.Corpus)),
                     artifact: spec.Artifact),
                 claim, policy, key),
-            Fail: faults => IO.pure(Validation<Error, BenchmarkReceipt>.Fail(faults)))
+            Fail: faults => IO.pure(Validation<Error, Benchmark>.Fail(faults)))
         select gated;
 
     static IO<Validation<Error, BenchMeasurement>> Braced(
@@ -522,10 +497,10 @@ public static class BenchmarkRun {
         IO.Bracket(
             Use: IO.lift(() => Opened(session)),
             Catch: static error => IO.pure(Validation<Error, BenchMeasurement>.Fail(error)),
-            Fin: static held => IO.lift(() => (held.Capture.Iter(static lease => lease.Dispose()), held.Symbols.Dispose(), unit).Item3))
+            Fin: static held => IO.lift(() => (held.Capture.Iter(static detach => detach()), held.Symbols.Dispose(), unit).Item3))
         .Bind(held => IO.lift(() => Traced(session, spec, harness)));
 
-    static (PerfMapLease Symbols, Option<ProfileCaptureLease> Capture) Opened(Session session) {
+    static (PerfMapLease Symbols, Option<Action> Capture) Opened(Session session) {
         ignore(ProfileTracking.Apply(session.Signals));
         return (PerfMapLease.Open(session.Symbols),
             session.Trace.Map(source => ProfileCapture.Bind(
@@ -547,26 +522,25 @@ public static class BenchmarkRun {
 
 ## [05]-[CLAIM_FIELD_MAP]
 
-- Owner: the claim-family field map — one admission table mapping every task-named folder claim family onto the `BenchmarkReceipt` fields; a family admits by one registered row and never mints a sibling verdict grammar. This section is the corpus GATE for the benchmark wire family and nothing more: `BenchmarkClaimWire` MINTS at `Rasm.Compute` `Runtime/claims#TS_PROJECTION` under `libs/contracts/manifest.json` `BENCHMARK_CLAIM`, so this branch grades claims against the rows below and declares no wire record of its own — a second minter would fork the shape both ends already decode.
-- Cases: admitted kernel `BenchClaim`, Bim `BimBenchReceipt`, Fabrication `FabricationBenchClaims` rows, Rhino `BenchEvidence`, Persistence `BenchmarkRow`, Materials `BenchWorkload`, Compute `BenchmarkClaim`, and the two Grasshopper breach families.
+- Owner: the claim-family field map — one admission table mapping every task-named folder claim family onto the `Benchmark` fields; a family admits by one registered row and never mints a sibling verdict grammar. This section is the corpus GATE for the benchmark wire family and nothing more: `BenchmarkClaimWire` MINTS at `Rasm.Compute` `Runtime/claims#TS_PROJECTION` under `libs/contracts/manifest.json` `BENCHMARK_CLAIM`, so this branch grades claims against the rows below and declares no wire record of its own — a second minter forks the shape both ends already decode.
+- Cases: admitted kernel `BenchClaim`, Fabrication `FabricationBenchClaims` rows, Rhino `BenchEvidence`, Persistence `BenchmarkRow`, Materials `BenchWorkload`, Compute `BenchmarkClaim`, and the two Grasshopper breach families.
 - Law: host identity binds whole through `HostFingerprint` — machine, OS, architecture, processor count, runtime, and the ordered stamp map — never a bare host name; a custody column holding host identity as a string carries `HostFingerprint.ToString()`, the ONE render every claim store, claim wire, and gate comparison reads, so no row picks between two renders and no pair of rows disagrees about one host.
 - Law: `Verdict` and `Correlation` never persist — judging is the gate fold's per run and correlation is the run message envelope's, so custody rows carry measurement and identity columns only and a persisted verdict is a stale-truth defect.
-- Law: a relative claim carries `ReferenceEvidence` on the fresh receipt and its threshold through `GatePolicy.SpeedupFloor`; missing reference evidence refuses as `ReferenceAbsent`, never an implicit pass.
+- Law: a relative claim carries `ReferenceEvidence` on the fresh benchmark and its threshold through `GatePolicy.SpeedupFloor`; missing reference evidence refuses as `ReferenceAbsent`, never an implicit pass.
 - Law: a single-sample family hands `BenchMeasurement.Of` its one measured span and its bound as `ReferenceEvidence.Median`, so a breach grades as a relative claim under `GatePolicy.SpeedupFloor` and no adapter fabricates a distribution one judgment never produced; the resulting `Iqr` is zero because a one-sample distribution HAS zero spread — a measured fact of that sample, not an absent measurement wearing a zero.
-- Law: a divergent family field re-cuts at its family root instead of surviving as a sibling grammar — `Corpus` entered the receipt because the Bim family binds claims to input identity, and `ReferenceEvidence` entered because `BenchClaim` binds vectorized and reference lanes.
+- Law: a divergent family field re-cuts at its family root instead of surviving as a sibling grammar — `Corpus` entered `Benchmark` because the Bim family binds claims to input identity, and `ReferenceEvidence` entered because `BenchClaim` binds vectorized and reference lanes.
 - Law: `BudgetBreach` DECLARES here as the branch's typed gate-overrun evidence — the Grasshopper capture and budget families, Materials, Fabrication, and AppUi all grade an overrun against a bound, so the row set is one vocabulary and a per-folder breach record is the twin this declaration forecloses.
 
-| [INDEX] | [FAMILY]                 | [RECEIPT_PROJECTION]                                                                             |
+| [INDEX] | [FAMILY]                 | [BENCHMARK_FIELDS]                                                                               |
 | :-----: | :----------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `BenchClaim`             | `Claim` → case; lanes → fresh/reference cases; `SpeedupFloor` → policy                           |
-|  [02]   | `BimBenchReceipt`        | claim → case; corpus fingerprint → corpus; the measured spans fold through `BenchMeasurement.Of` |
-|  [03]   | `FabricationBenchClaims` | `BenchClaim.Claim` keys `{Suite}/{Case}`; harness result supplies measurements; corpus is absent |
-|  [04]   | `BenchEvidence`          | operation → case; batch spans → figures; allocation and host map directly                        |
-|  [05]   | `BenchmarkRow`           | key splits suite/case; custody keeps measures, corpus, artifact, host, and route                 |
-|  [06]   | `BenchWorkload`          | `BenchKernel.Suite` → suite; `MaterialsBench.CaseOf` → case; `ContentKey` → corpus               |
-|  [07]   | `BenchmarkClaim`         | `Key` → suite/case; band rungs → figures; corpus, artifact, route → custody; host render → host  |
-|  [08]   | `BudgetBreach`           | `Column` → case; `Fresh` → the measured span; `Held` → reference median; corpus is absent        |
-|  [09]   | `CaptureBreach`          | `Operation` → case; `Lag` → the measured span; `Bound` → reference median; `Drawn` → operations  |
+|  [01]   | `BenchClaim`             | `Claim` → case; lanes → fresh/reference cases; `Corpus` slug → corpus fingerprint; `SpeedupFloor` → policy |
+|  [02]   | `FabricationBenchClaims` | `BenchClaim.Claim` keys `{Suite}/{Case}`; harness result supplies measurements; corpus is absent |
+|  [03]   | `BenchEvidence`          | operation → case; batch spans → figures; allocation and host map directly                        |
+|  [04]   | `BenchmarkRow`           | key splits suite/case; custody keeps measures, corpus, artifact, host, and route                 |
+|  [05]   | `BenchWorkload`          | `BenchKernel.Suite` → suite; `MaterialsBench.CaseOf` → case; `ContentKey` → corpus               |
+|  [06]   | `BenchmarkClaim`         | `Key` → suite/case; band rungs → figures; corpus, artifact, route → custody; host render → host  |
+|  [07]   | `BudgetBreach`           | `Column` → case; `Fresh` → the measured span; `Held` → reference median; corpus is absent        |
+|  [08]   | `CaptureBreach`          | `Operation` → case; `Lag` → the measured span; `Bound` → reference median; `Drawn` → operations  |
 
 Grasshopper feeds two claim families and both carry their producing bound — the budget row's own bound and the two-period capture window — so each adapter grades overrun off the row it holds and re-derives no threshold from a policy it never sees.
 
@@ -574,7 +548,6 @@ Grasshopper feeds two claim families and both carry their producing bound — th
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

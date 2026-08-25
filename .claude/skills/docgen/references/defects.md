@@ -107,8 +107,8 @@ Prose preserves a shape because an old caller, persisted reader, or predecessor 
 Wording freezes the current shape against ground-up rebuild: sealed, frozen, final, legislated counts, never-re-opened clauses, per-member byte-identical chants. Such prose ages the instant the shape legitimately grows, and it orders a rebuild agent to treat a rebuildable fence as untouchable.
 
 - Detection: Flag freeze vocabulary, a count legislated rather than derivable, and any prohibition on re-opening.
-- [REJECTED]: The frozen twenty-column receipt: field names, types, and order are byte-identical wire law.
-- [ACCEPTED]: Receipt key order binds the persisted decode contract; growth is trailing-append.
+- [REJECTED]: The frozen twenty-column row: field names, types, and order are byte-identical wire law.
+- [ACCEPTED]: Row key order binds the persisted decode contract; growth is trailing-append.
 - Reason: Wire contracts state once at the owning declaration; a design-shape freeze deletes outright, the current shape stated as the best collapse.
 - Reframe: State the partition principle; the cardinality is a consequence the reader counts, and a count is reported, never legislated.
 

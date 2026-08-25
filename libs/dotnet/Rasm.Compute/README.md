@@ -2,7 +2,7 @@
 
 `Rasm.Compute` is the measured-execution engine and discipline-assessment authority over the `ElementGraph`: a solver farm engineering failure as rigorously as success, every verdict and failure a content-keyed fact with retry policy. Screening loops re-solve thousands of variants, so failure caching, keyed reuse, and dispatchable sweeps are load-bearing, and a declared discipline Compute cannot answer is a coverage defect.
 
-One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary.
+One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and `ComputeOutput` returns the selected lane's value. Producing lanes retain their own results while instruments observe them directly.
 
 ## [01]-[ROUTER]
 
@@ -59,10 +59,8 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [40]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
 - [41]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
 - [42]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
-- [43]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union — the payload spine, telemetry projection, and fold projections.
 - [44]-[CLAIMS](.planning/Runtime/claims.md): Measured gate on every performance-motivated route — a winning claim whose fingerprint and class match.
 - [45]-[LEDGER](.planning/Runtime/ledger.md): Cost algebra, rate policy, and the tenant chargeback egress.
-- [46]-[BOARD](.planning/Runtime/board.md): One dashboard-and-reliability pack travelling to the composing root as data rows, never as rendered JSON.
 - [47]-[WIRE](.planning/Runtime/wire.md): Proto vocabulary, `ParseGuard` admission, the served progress stream, and the client fault rail.
 - [48]-[CHANNELS](.planning/Runtime/channels.md): Channel mechanics — transport rows, call policy, and the artifact-frame law.
 - [49]-[INGEST](.planning/Runtime/ingest.md): Foreign-delivery boundary for sensor and dictionary material — bytes this process never controls.
@@ -190,7 +188,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 
 [RUNTIME_INBOX]:
 - `System.Net.Http` — `SocketsHttpHandler` policy the remote transport binds beneath its gRPC channel and probe legs.
-- `System.Text.Json` — Generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on receipt and evidence lanes.
+- `System.Text.Json` — Generated contexts and hand-written `Utf8JsonWriter` codecs beside protobuf on result and evidence lanes.
 
 [TEST_SUBSTRATE]: Rows bind in branch test and benchmark projects, never the package csproj.
 - `BenchmarkDotNet`

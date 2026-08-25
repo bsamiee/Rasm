@@ -1,11 +1,11 @@
 # [PY_COMPUTE]
 
-`compute` is the Python branch's terminal evidence plane: host-free scientific computation whose evidence lands under receipts, admits against governed ceilings, keys over canonical bytes, and emits self-describing so a consumer decodes without re-derivation. It imports no host runtime and re-owns no peer interior, and a study resumes from history under provably equal keys.
+`compute` is the Python branch's terminal evidence plane: host-free scientific computation whose evidence lands as typed results, admits against governed ceilings, keys over canonical bytes, and emits self-describing so a consumer decodes without re-derivation. It imports no host runtime and re-owns no peer interior, and a study resumes from history under provably equal keys.
 
 ## [01]-[ROUTER]
 
 [SOLVERS]:
-- [01]-[RECEIPT](.planning/solvers/receipt.md): `SolverReceipt` every solve route folds its method-discriminated evidence onto.
+- [01]-[SOLVE](.planning/solvers/solve.md): `Solve` method-discriminated result every route returns, beside the `SolveStatus` vocabulary.
 - [02]-[LINEAR](.planning/solvers/linear.md): `LinearIntent` route over dense, sparse, and eigen solves beside the C#-paired exchange containers.
 - [03]-[NONLINEAR](.planning/solvers/nonlinear.md): `NonlinearIntent` routing root, minimise, fixed-point, and least-squares solves over `Provider`.
 - [04]-[QUADRATURE](.planning/solvers/quadrature.md): `QuadratureIntent` route over quadrature, interpolation, and the weak-form FEM fold.

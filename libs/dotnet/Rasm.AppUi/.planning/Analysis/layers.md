@@ -2,7 +2,7 @@
 
 Result layers are the analysis plane's scene surface: a sealed study output mounts as one `ResultLayer` stacking unbounded over the model, every layer carries the study, the input digest, and the run history that produced it, every layer resolves its own colormap and legend from one `ResultDomain`, and every layer answers one probe coordinate. `LayerStack` is the ordered owner — per-layer visibility and opacity, one projection onto the render passes, one projection onto the visibility channel, one projection onto the scene legend set, and the ONE construction site the run queue's `analysis.layer.adopt` verb reaches. `ProbeChannel` broadcasts a single world point to every mounted layer and answers one reading per layer, pinnable as a labelled marker and exportable as a table. `BakeVerb` is the closed vocabulary of what a layer becomes when it leaves the scene — a viewpoint, a frame, a board tile, a report.
 
-Values are RECEIPT PROJECTIONS: a layer carries what a sealed study computed and this plane computes no analysis of its own. `SimField`, `SimVisual`, `RenderPass`, `TransferFunction`, and `FieldSites` arrive settled from `Render/pipeline#SIM_VISUAL` and `#RENDER_GRAPH`; `Viewpoint`, `ViewCamera`, `SectionBox`, `VisibilityOverride`, `VisibilityAction`, and `HighlightChannel` from `Render/viewpoint#VIEWPOINT_CODEC`; `RenderReceipt` from `Render/capture#ENCODE_IDENTITY`; `Colormap`, `PaintRole`, and the ONE `Severity` ladder from `Theme/tokens#TOKEN_CATALOG`; `LegendSpec`, `LegendDomain`, `LegendDock`, and `LegendRender` from `Charts/grammar#LEGEND_VOCABULARY` with the render dispatch at `Charts/grammar#LEGEND_FOLD`; `ThresholdList` from `Charts/ink#THRESHOLD_FAMILY`; `VisualStroke`, `StrokeStyle`, `CustomVisual`, and `CustomVisualStyle` from `Charts/custom#SKIA_KINDS`; `DashboardTile` and `TileSource` from `Charts/tiles#TILE_SPINE`; `OutputRow`, `OutputState`, and `RunQueueSurface.AdoptIntent` from `Shell/queue#QUEUE_MODELS` and `#QUEUE_SURFACE`; `ScreenProgram`, `StateLens`, `SlotKey<T>`, and `ProductScreen` from `Shell/screens#SCREEN_CATALOG`; `EvidenceReceipt`, `ReceiptSinkPort`, and the instrument mechanism from `Diagnostics/evidence#RECEIPT_UNION` and `#TELEMETRY_SPINE`; `FidelityTier` from `Analysis/context#BUDGET_METER`; `StudySubmission` from `Editing/forms#STUDY_FORM`; `ReportBlock` from `Document/export#FLOW_REPORT`; `MeasureRole` and `ResolvedLocale` from `Theme/locale#MEASUREMENT_FORMAT`. `AnalysisFault` carries each failure through a direct generated union case.
+Layers carry settled study values and this plane computes no analysis of its own. `SimField`, `SimVisual`, `RenderPass`, `TransferFunction`, and `FieldSites` arrive settled from `Render/pipeline#SIM_VISUAL` and `#RENDER_GRAPH`; `Viewpoint`, `ViewCamera`, `SectionBox`, `VisibilityOverride`, `VisibilityAction`, and `HighlightChannel` from `Render/viewpoint#VIEWPOINT_CODEC`; `VisualArtifact` from `Render/capture#ENCODE_IDENTITY`; `Colormap`, `PaintRole`, and the ONE `Severity` ladder from `Theme/tokens#TOKEN_CATALOG`; `LegendSpec`, `LegendDomain`, `LegendDock`, and `LegendRender` from `Charts/grammar#LEGEND_VOCABULARY` with the render dispatch at `Charts/grammar#LEGEND_FOLD`; `ThresholdList` from `Charts/ink#THRESHOLD_FAMILY`; `VisualStroke`, `StrokeStyle`, `CustomVisual`, and `CustomVisualStyle` from `Charts/custom#SKIA_KINDS`; `DashboardTile` and `TileSource` from `Charts/tiles#TILE_SPINE`; `OutputRow`, `OutputState`, and `RunQueueSurface.AdoptIntent` from `Shell/queue#QUEUE_MODELS` and `#QUEUE_SURFACE`; `ScreenProgram`, `StateLens`, `SlotKey<T>`, and `ProductScreen` from `Shell/screens#SCREEN_CATALOG`; `AppUiPoint`, `AppUiFact`, and the instrument mechanism from `Diagnostics/evidence#EVIDENCE_UNION` and `#TELEMETRY_SPINE`; `FidelityTier` from `Analysis/context#BUDGET_METER`; `StudySubmission` from `Editing/forms#STUDY_FORM`; `ReportBlock` from `Document/export#FLOW_REPORT`; `MeasureRole` and `ResolvedLocale` from `Theme/locale#MEASUREMENT_FORMAT`. `AnalysisFault` carries each failure through a direct generated union case.
 
 ## [01]-[INDEX]
 
@@ -17,14 +17,13 @@ Values are RECEIPT PROJECTIONS: a layer carries what a sealed study computed and
 - Cases: `ResultKind` = mesh-scalar · grid · section · dome; `ResultTrait` = topology | structured; `ResultDomain` = Continuous | Stepped | Coded; `AveragingPosture` = per-sample · per-face · smooth; `AnalysisFault` = PayloadRejected | KindMismatch | ProbeOutside | AdoptRejected | BakeRejected | DomainRejected | ProvenanceMissing | StackRejected.
 - Entry: `public static Fin<ResultPayload> Of(Seq<ResultSample> samples, Seq<(int A, int B, int C)> faces, SimField field, (double Low, double High) extent)` on `ResultPayload` — the payload gate proving extent, sample finiteness, and face ordinals TOGETHER on one accumulating rail; `internal static Fin<ResultLayer> Of(...)` on `ResultLayer` — the mint `AnalysisLayers.Adopt` is the one public door to; `public Fin<RenderPass> Pass(ResultRuntime runtime)` on `ResultLayer` — the executable render pass the stack collects; `public LegendSpec Legend(string key, Option<MeasureRole> measure, int segments)` on `ResultDomain` — the legend declaration; `public double Position(double value)` on `ResultDomain` — the unit interval a value samples the ramp at; `public string Unit(ResolvedLocale locale)` on `ResultLayer` — the elected unit abbreviation every chip, column header, and caption reads.
 - Auto: the domain DERIVES the colormap class and the legend arm from one declaration, so a coded raster never ramps and a continuous field never renders as a swatch list; `TransferFunction.Of` composes the layer's own ramp with its extent and opacity, so the scene ramp and the legend ramp are one generation read twice; `AveragingPosture` folds the sample values a face draws with — per-face takes the face's own mean, smooth takes each vertex's incident-face mean, per-sample takes the vertex value untouched — so a sensor grid and a continuous daylight mesh differ by one row rather than by two draw paths; a coded domain orders and ranks its codes ONCE at construction, so the per-face ramp read is a lookup rather than a scan; provenance is a HISTORY seq newest-first and `AnalysisLayers.Land` is its producer — a second landing of one study key re-runs the mounted layer in place and appends, so the prior reading stays addressable.
-- Receipt: a mount is `AnalysisFact.Mounted`, whose `Evidence` projection is the `EvidenceReceipt.Effect` case under plane `analysis` carrying the layer key, the kind and tier, the visibility flag, the sample count, and the input digest; the seal itself is composition-bound at the adopt arrow (`[03]`), so this section produces the typed fact and never reaches a sink.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, UnitsNet, Rasm (project — `FaultBand`/`[FaultCase]`/`Fault`, `CapabilitySet`, `ContentHash`, `UnitInterval`, `EpsilonPolicy`), Rasm.Compute (project — the sealed field receipt), BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, UnitsNet, Rasm (project — `FaultBand`/`[FaultCase]`/`Fault`, `CapabilitySet`, `ContentHash`, `UnitInterval`, `EpsilonPolicy`), Rasm.Compute (project — the sealed field result), BCL inbox
 - Growth: a new sealed output class is one `ResultKind` row naming the traits it demands and its render fold; a new payload demand is one `ResultTrait` row carrying its own proof, which every kind that needs it holds as one set member and `Admit` reads with no edit; a new value axis is one `ResultDomain` arm with its legend projection and its position fold, which the union's own total dispatch breaks every reader on until each states it; a new smoothing is one `AveragingPosture` row; a new fault case is one `[FaultCase]` leaf; zero new surface.
 - Boundary:
-  - A layer VALUE is a projection of a sealed receipt and never an in-plane computation. This plane runs no solver, no re-sampling of physics, and no unit conversion of its own: `Rasm.Compute` owns the solve, `Rasm` owns the ephemeris, and `Theme/locale` owns the elected unit. The one arithmetic this page performs is the DISPLAY read the probe and the averaging posture need — a barycentric weight inside a face the payload already declares and a mean over faces the payload already connects — and both are reads of the sealed sample set rather than derivations that could disagree with it.
+  - A layer VALUE projects a sealed result and never performs an in-plane computation. This plane runs no solver, no re-sampling of physics, and no unit conversion of its own: `Rasm.Compute` owns the solve, `Rasm` owns the ephemeris, and `Theme/locale` owns the elected unit. The one arithmetic this page performs is the DISPLAY read the probe and the averaging posture need — a barycentric weight inside a face the payload already declares and a mean over faces the payload already connects — and both are reads of the sealed sample set rather than derivations that could disagree with it.
   - ONE payload carries every kind and ONE gate admits it, and the gate ACCUMULATES: a malformed payload names its bad extent, its non-finite sample, and its out-of-range ordinal together, which is what makes the completeness bar structural rather than asserted. Three readers index `Samples` by a face ordinal — the smooth posture, the barycentric probe, and the shaded stroke walk — so the ordinal bound is proved at the mint, ahead of every rail this plane declares, and the adjacency fold that depends on it runs only behind that proof.
   - The admission columns are a DEMAND SET, not a bool pair: a kind states which `ResultTrait` rows its payload must satisfy and each row carries its own proof, so a fifth kind demanding both a triangle roster and a lattice is one row and `Admit` never grows an arm. The three shaded kinds stay plural because their discriminant is the SEALED ARTIFACT'S OWN KIND KEY — `Shell/queue#QUEUE_MODELS` `OutputRow.Kind` is a wire vocabulary this plane resolves and does not choose, and `Charts/climate.md` reads `dome` as a distinct projection — so the identical display columns are a coincidence of measurement geometry rather than a missing discriminant.
-  - `SimVisual` is the ONE field-visualization owner and this plane ENTERS its pass rather than seating a second one: `ResultVisuals.Shaded` supplies the `MeshQuality` row's `Shade` fold, `ResultVisuals.Volumetric` seats the `Volume` row over the ray-march arrow the render graph's own lease supplies, and both enter the owner's own pass with the layer's own field. The march arrow, the world-to-raster projection, and the resolved band width all ride `ResultRuntime`, because a projection authored here would be a second camera no viewpoint receipt could capture, a march minted here would be a device call on a page holding no lease, and a width authored here would be a second metric authority the density flip never re-seeds.
+  - `SimVisual` is the ONE field-visualization owner and this plane ENTERS its pass rather than seating a second one: `ResultVisuals.Shaded` supplies the `MeshQuality` row's `Shade` fold, `ResultVisuals.Volumetric` seats the `Volume` row over the ray-march arrow the render graph's own lease supplies, and both enter the owner's own pass with the layer's own field. The march arrow, the world-to-raster projection, and the resolved band width all ride `ResultRuntime`, because a projection authored here would be a second camera absent from the captured viewpoint, a march minted here would be a device call on a page holding no lease, and a width authored here would be a second metric authority the density flip never re-seeds.
   - `TransferFunction` is the one scene ramp and `LegendSpec` the one legend declaration, both derived from the layer's own `ResultDomain` — a layer-local stop table, a layer-local swatch list, and a scene ramp that disagrees with its key are three deleted forms the single derivation forecloses.
   - The extent a layer carries is the sealed payload's own measured range unless the domain PINS one: a pinned extent is what makes two layers of one study comparable, and re-deriving the extent per layer would make an option comparison read as a magnitude difference that is entirely a scaling artefact.
   - Provenance is required at mint, never optional: a layer with no study, no digest, and no correlation is a picture nobody can reproduce, so `ProvenanceMissing` refuses at construction rather than rendering an unattributable field.
@@ -372,19 +371,17 @@ internal static class ResultVisuals {
 | [INDEX] | [KIND]      | [DEMANDS]  | [RENDER_FOLD] | [SEALED_OUTPUT_CLASS]                          |
 | :-----: | :---------- | :--------- | :------------ | :--------------------------------------------- |
 |  [01]   | mesh-scalar | topology   | shaded        | per-vertex scalars over an analysis mesh       |
-|  [02]   | grid        | structured | volumetric    | a structured sensor lattice as a field receipt |
+|  [02]   | grid        | structured | volumetric    | a structured sensor lattice as a field result  |
 |  [03]   | section     | topology   | shaded        | a planar cut carrying its own sample mesh      |
 |  [04]   | dome        | topology   | shaded        | a hemispherical patch field over the sky       |
 
 ## [03]-[LAYER_STACK]
 
-- Owner: `AnalysisFact` `[Union]` — the plane's one evidence vocabulary and its seal; `LayerStack` — the ordered unbounded stack with its toggle, dim, reorder, and drop verbs and its three viewport projections; `AnalysisLayers` — the plane constants, the instrument rows, the adoption and landing folds, the seated stack screen, and the one observation.
-- Cases: `AnalysisFact` = Mounted | Baked — a mount and a bake are two arms of ONE fact stream, so a deliverable and the layer it came from carry one correlation and neither arm can be forgotten at a call site.
-- Entry: `public Fin<LayerStack> Mount(ResultLayer layer)` — the append; `public Fin<LayerStack> Reseat(ResultLayer layer)` — the in-place rewrite a re-run lands through; `public Fin<LayerStack> Toggle(string key)` / `Dim(string key, UnitInterval opacity)` / `Raise(string key, int by)` / `Drop(string key)` — the display verbs; `public (Seq<RenderPass> Drawn, Seq<Error> Refused) Passes(ResultRuntime runtime)` — the ordered render projection; `public Seq<LegendSpec> Legends` — the scene legend projection; `public Seq<VisibilityOverride> Ground(Seq<string> scene)` — the model-dimming projection; `public static Fin<ResultLayer> Adopt(OutputRow output, LayerProvenance provenance, Func<string, Fin<ResultPayload>> read, ResultDomain domain, Option<MeasureRole> measure, AveragingPosture averaging)` — the ONE construction site the `analysis.layer.adopt` verb reaches; `public static Fin<(LayerStack Stack, AnalysisFact Fact)> Land(...)` — adopt-or-re-run folded with the stack write; `public static ScreenProgram Program(ScreenComposition composition)` and `public static ControlIntent Body(LayerStack stack, ProbeReading reading, VirtualWindowSpec window)` — the seated screen and the surface it projects; `public static Fin<Unit> Observe(InstrumentSet set, LayerStack stack, Option<string> study, ProbeReading reading)` — the plane's one observation.
+- Owner: `LayerStack` — the ordered unbounded stack with its toggle, dim, reorder, and drop verbs and its three viewport projections; `AnalysisLayers` — the plane constants, the instrument rows, the adoption and landing folds, the seated stack screen, and the one observation.
+- Entry: `public Fin<LayerStack> Mount(ResultLayer layer)` — the append; `public Fin<LayerStack> Reseat(ResultLayer layer)` — the in-place rewrite a re-run lands through; `public Fin<LayerStack> Toggle(string key)` / `Dim(string key, UnitInterval opacity)` / `Raise(string key, int by)` / `Drop(string key)` — the display verbs; `public (Seq<RenderPass> Drawn, Seq<Error> Refused) Passes(ResultRuntime runtime)` — the ordered render projection; `public Seq<LegendSpec> Legends` — the scene legend projection; `public Seq<VisibilityOverride> Ground(Seq<string> scene)` — the model-dimming projection; `public static Fin<ResultLayer> Adopt(OutputRow output, LayerProvenance provenance, Func<string, Fin<ResultPayload>> read, ResultDomain domain, Option<MeasureRole> measure, AveragingPosture averaging)` — the ONE construction site the `analysis.layer.adopt` verb reaches; `public static Fin<LayerStack> Land(..., HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)` — adopt-or-re-run folded with the stack write and its settled fact firing; `public static ScreenProgram Program(ScreenComposition composition)` and `public static ControlIntent Body(LayerStack stack, ProbeReading reading, VirtualWindowSpec window)` — the seated screen and the surface it projects; `public static Fin<Unit> Observe(InstrumentSet set, LayerStack stack, Option<string> study, ProbeReading reading)` — the plane's one observation.
 - Auto: order is DECLARATION order and the stack draws bottom-first, so a raise is an index move rather than a z-column every layer would carry and disagree about; a hidden layer contributes no visual and still answers the probe, because an operator who hid a layer to see the one beneath it still reads both in the probe table; the ground projection ghosts the model through `VisibilityAction.Xray` exactly once whenever any layer is visible, so two mounted layers do not double-dim the scene they sit over; `Passes` PARTITIONS rather than short-circuits, so one layer whose pass refused costs that layer and not the frame; the screen body reads the stack through the composition's own surface-scoped arrow, so the panel renders the live ordered stack rather than a copy it would then have to keep in step; `Land` discriminates on whether the output's key is already mounted, so adoption and re-run are one door and the history column has a producer.
-- Receipt: mounting, dropping, adopting, and probing all fold through ONE `Observe` over the plane's three `InstrumentSpec` rows on the `AppUiTelemetry.Contribute` spine — the mounted level, the adoption count keyed by study, and one probe count per answering layer — so a stack that grew unbounded, an adoption that refused, and a probe an operator dragged across a scene each read as data rather than as unattributed frame cost. The evidence half is `AnalysisFact.Sealed`, the composition-bound projection the adopt and bake arrows bind onto the one `ReceiptSinkPort`; this owner mints the typed fact and never names a sink.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm (project — the fault floor, `CapabilitySet`), BCL inbox
-- Growth: a new display verb is one member on `LayerStack` beside its intent const and its deck row; a new adoption source is one `OutputRow` kind the handler's own kind lookup admits; a new plane fact is one `AnalysisFact` arm the union's total dispatch breaks every projection on; a new row column is one child in the row template; zero new surface.
+- Growth: a new display verb is one member on `LayerStack` beside its intent const and its deck row; a new adoption source is one `OutputRow` kind the handler's own kind lookup admits; a new row column is one child in the row template; zero new surface.
 - Boundary:
   - `Shell/queue#QUEUE_SURFACE` RAISES `RunQueueSurface.AdoptIntent` and this owner answers it: the queue names what was sealed and `Adopt` decides what it becomes, so a sealed study reaches the scene through exactly ONE construction site — `ResultLayer.Of` and `ResultLayer.Rerun` are INTERNAL, so the one-door law is a compile fact rather than a convention, and the queue's own `OutputState` union is re-read here by its total dispatch so an adoption path that skipped the queue has no unsealed corner to enter through.
   - The payload arrives through an INJECTED read arrow keyed by the output's artifact key, so this plane names no store, no blob lane, and no file: `Rasm.Persistence` serves the sealed artifact exactly as it serves every other content-keyed payload, and a layer that opened an artifact itself would be a second read path the evidence timeline could contradict.
@@ -392,41 +389,6 @@ internal static class ResultVisuals {
   - The stack ORDERS and never composites: each layer's own pass is entered at `Render/pipeline#SIM_VISUAL` and seated in the render graph's own pass DAG exactly as the section manipulator's overlay rows are, so blending, depth, and resolve stay `Render/pipeline#RENDER_GRAPH`'s and an analysis-local compositor is the deleted form. `Passes`, `Ground`, and `Legends` are the THREE viewport projections and none has an in-page caller by design — the render composition reads all three off one stack value, so a panel that rebuilt any of them would be a second projection over the one ordered stack.
   - Ground dimming is published as a POSTURE on the one override channel, so the viewport folds a live hover over it through `HighlightChannel.Over` and a hovered element still reads at full opacity above a dimmed model — a layer plane that concatenated its own seq with the hover's would publish two rows per element and leave the renderer to pick by arrival order.
   - Every verb the row template raises is a key this owner DECLARES and the boot-frozen deck already holds — toggle, dim, raise, drop, expand, and the four bake rows — so a control resolving a verb it could never be invoked through is unspellable and an unrostered key is a dead SCREEN rather than a dead button. The opacity slider carries its value slot AND its verb, because a dim is both a number the operator drags and a stack rewrite this plane must fold.
-
-```csharp
-// --- [MODELS] --------------------------------------------------------------------------
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record AnalysisFact {
-    private AnalysisFact() { }
-
-    public sealed record Mounted(ResultLayer Layer, LayerProvenance Provenance) : AnalysisFact;
-    public sealed record Baked(BakeVerb Verb, ResultLayer Layer, LayerProvenance Provenance, BakeProduct Product) : AnalysisFact;
-
-    public EvidenceReceipt Evidence => Switch(
-        mounted: static fact => (EvidenceReceipt)new EvidenceReceipt.Effect(
-            Plane: AnalysisLayers.Plane,
-            Key: fact.Layer.Key,
-            Outcome: $"{fact.Layer.Kind.Key}/{fact.Provenance.Tier.Key}",
-            Flag: fact.Layer.Visible,
-            Count: checked((uint)fact.Layer.Payload.Samples.Count),
-            Measure: new EffectMeasure.Digest(fact.Provenance.Digest)),
-        baked: static fact => new EvidenceReceipt.Effect(
-            Plane: AnalysisLayers.Plane,
-            Key: $"{fact.Layer.Key}/{fact.Verb.Key}",
-            Outcome: $"{fact.Verb.Key}/{fact.Product.Carries}",
-            Flag: fact.Layer.Visible,
-            Count: checked((uint)fact.Layer.Payload.Samples.Count),
-            Measure: new EffectMeasure.Digest(fact.Provenance.Digest)));
-
-    public LayerProvenance Run => Switch(
-        mounted: static fact => fact.Provenance,
-        baked: static fact => fact.Provenance);
-
-    public IO<ReceiptEnvelope> Sealed(ReceiptSinkPort sink, TenantContext tenant) =>
-        Evidence.Seal(sink, Run.Correlation, tenant);
-}
-```
 
 ```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -605,14 +567,15 @@ public static class AnalysisLayers {
                 from layer in ResultLayer.Of(output.Key, kind, payload, domain, measure, averaging, provenance)
                 select layer);
 
-    public static Fin<(LayerStack Stack, AnalysisFact Fact)> Land(
+    public static Fin<LayerStack> Land(
         LayerStack stack,
         OutputRow output,
         LayerProvenance provenance,
         Func<string, Fin<ResultPayload>> read,
         ResultDomain domain,
         Option<MeasureRole> measure,
-        AveragingPosture averaging) =>
+        AveragingPosture averaging,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
         from fresh in Adopt(output, provenance, read, domain, measure, averaging)
         from seated in stack.Find(fresh.Key).Match(
             Some: held =>
@@ -620,7 +583,18 @@ public static class AnalysisLayers {
                 from stacked in stack.Reseat(rerun)
                 select (Stack: stacked, Layer: rerun),
             None: () => stack.Mount(fresh).Map(stacked => (Stack: stacked, Layer: fresh)))
-        select (seated.Stack, (AnalysisFact)new AnalysisFact.Mounted(seated.Layer, provenance));
+        from landed in rail.Fire(
+            at: AppUiPoint.Effect,
+            fact: new AppUiFact.Effect(
+                Plane,
+                seated.Layer.Key,
+                $"{seated.Layer.Kind.Key}/{provenance.Tier.Key}",
+                seated.Layer.Visible,
+                checked((uint)seated.Layer.Payload.Samples.Count),
+                new EffectMeasure.Digest(provenance.Digest)),
+            key: Op.Of(name: RunQueueSurface.AdoptIntent),
+            body: _ => Fin.Succ(seated.Stack))
+        select landed;
 
     public static Fin<Unit> Observe(InstrumentSet set, LayerStack stack, Option<string> study, ProbeReading reading) =>
         from _ in set.Level(Mounted, stack.Layers.Count)
@@ -645,7 +619,7 @@ config:
 ---
 flowchart LR
     accTitle: Sealed study output to mounted result layer
-    accDescr: The run queue raising the adoption verb over a sealed output row, the one landing fold reading the gated artifact and minting or re-running a result layer whose domain elects both its transfer function and its legend, the stack projecting ordered render passes beside one ground x-ray and one legend set, and the mount fact sealing onto the evidence sink.
+    accDescr: The run queue raising the adoption verb over a sealed output row, the one landing fold reading the gated artifact and minting or re-running a result layer whose domain elects both its transfer function and its legend, the stack projecting ordered render passes beside one ground x-ray and one legend set, and the settled mount firing its typed fact.
     OutputRow -->|analysis.layer.adopt| Land
     Land --> Adopt
     Adopt --> ResultLayer
@@ -657,8 +631,7 @@ flowchart LR
     ResultLayer -->|Pass| SimVisual
     SimVisual --> RenderPass
     Land --> LayerStack
-    Land --> AnalysisFact
-    AnalysisFact --> ReceiptSinkPort
+    Land --> AppUiFact
     LayerStack -->|Passes| RenderPass
     LayerStack -->|Legends| LegendSpec
     LayerStack -->|Ground| VisibilityOverride
@@ -669,7 +642,6 @@ flowchart LR
 - Owner: `ProbeHit` — one layer's answer at one coordinate; `ProbeReading` — the broadcast product with its refusal ledger; `ProbeMarker` — a pinned labelled reading; `ProbeChannel` — the broadcast, the pin cell and its three verbs, the live table, and the export projection.
 - Entry: `public static ProbeReading Read(LayerStack stack, Vector3 at, double radius, ResolvedLocale locale, IClock clock)` — the one broadcast; `public static Fin<ProbeHit> Sample(ResultLayer layer, Vector3 at, double radius, ResolvedLocale locale)` — the per-layer read, which spells its own value once; `public static ControlIntent Table(ProbeReading reading, VirtualWindowSpec window)` — the live table; `public static Unit Pin(ProductScreen screen, ProbeMarker marker)` / `Clear(ProductScreen screen)` / `Export(ProductScreen screen, ResolvedLocale locale)` — the three verbs the deck's `analysis.probe.*` rows bind, each a rewrite of the ONE pin cell; `public static Seq<ReportBlock> Blocks(Seq<ProbeMarker> pins, ResolvedLocale locale)` — the export projection.
 - Auto: a probe reads EVERY mounted layer including the hidden ones, so an operator who hid a layer to see the one beneath it still reads both values at one point; a layer carrying triangle topology answers the barycentric interpolation inside the containing face and a layer without it answers its nearest sample, so a sensor lattice and a continuous mesh give the reading each honestly supports; a coordinate outside every face and beyond the admitted radius answers ABSENT rather than the nearest far sample, and the absence is EVIDENCE — the refusals ride the reading's own `Silent` column so a table can distinguish "no coverage here" from "no layers mounted"; the nearest read is the kernel bounded selection rather than a hand accumulator, so no candidate is re-probed against the incumbent.
-- Receipt: each broadcast rides `AnalysisLayers.Observe`, which counts one probe reading per ANSWERING layer behind the listener gate, so a board reads which studies an operator actually interrogates rather than one undifferentiated broadcast count.
 - Packages: LanguageExt.Core, NodaTime, UnitsNet, Rasm (project — `Ranked`, `EpsilonPolicy`), BCL inbox
 - Growth: a new pinned column is one `ProbeMarker` field; a new export shape is one `ReportBlock` row the projection emits; a new pin verb is one member beside its intent const and its deck row; zero new surface.
 - Boundary:
@@ -677,7 +649,7 @@ flowchart LR
   - The admitted RADIUS is what makes absence honest. A nearest-sample read with no bound answers something at every coordinate in the universe, so a probe dropped on an unanalysed façade would print the value of a sensor on the roof; the radius is the layer's own sampling pitch handed down by the caller, so a coarse grid admits a wider read than a dense mesh and neither invents a value.
   - A pinned marker is SURFACE state and not scene geometry: the roster lives in the screen's own `Pins` cell, so it survives a dock move, a re-materialize, and a re-run, and it renders through the overlay pass rather than as elements the model would carry into an export nobody asked for. It does NOT survive a session checkpoint — `Shell/screens#SCREEN_STATE` `ScreenState` carries selection, expansion, scroll, filter, and canvas and no marker column — so a durable pin is a `ScreenState` field its owner has to seat, not a claim this page can make.
   - Every printed value crosses the resolved locale under the layer's own `MeasureRole`, so a probe reading, its legend bound, and the axis tick on a chart of the same field print one elected unit and one decimal separator — a probe-local formatter is the deleted form. A unit the role cannot build a quantity in DEGRADES to the numeric axis format rather than swallowing the refusal silently, and the degradation is the same one arm a role-less layer takes.
-  - The barycentric weight is the one arithmetic this plane performs, and it is a READ: the weights sum to one over three sealed sample values, so the interpolated reading lies inside the range the receipt already carries and can never be a value the study did not produce.
+  - The barycentric weight is the one arithmetic this plane performs, and it is a READ: the weights sum to one over three sealed sample values, so the interpolated reading lies inside the sealed payload's range and can never be a value the study did not produce.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -815,12 +787,11 @@ public static class ProbeChannel {
 
 - Owner: `BakeProduct` `[Union]` — the four sealed artifacts and the one key every reader names them by; `BakeContext` — the bound arrows one bake reads; `BakeVerb` `[SmartEnum<string>]` — the closed vocabulary of what a layer leaves behind, each row carrying its own fold behind ONE sealing door; `BakeFolds` — the four folds.
 - Cases: `BakeVerb` = view · frame · tile · report; `BakeProduct` = View | Capture | Tile | Blocks.
-- Entry: `public IO<Fin<AnalysisFact>> Bake(ResultLayer layer, LayerStack stack, BakeContext context)` on `BakeVerb` — the ONE door, answering the deliverable and its evidence together; `public IO<Fin<BakeProduct>> Fold(ResultLayer layer, LayerStack stack, BakeContext context)` — the row's own arm, which the door composes.
-- Auto: every bake composes a settled owner and mints nothing — the view row folds through `Viewpoint.Capture` so a baked view is the same receipt a shared BCF link carries, the frame row defers to the capture plane's own colour-managed encode, the tile row seats a `DashboardTile.Custom` over the legend the layer already declares so a baked tile is a board tile rather than a picture of one, and the report row emits `ReportBlock` rows the export plane paginates. The whole dispatch answers `IO` because ONE arm is genuinely effectful: three pure folds lift, and a rail that hid the capture's effect behind a synchronous signature would have run it at whichever call site happened to force it.
-- Receipt: `Bake` answers an `AnalysisFact.Baked`, whose `Evidence` projection names the verb, the product, the layer, and the run — so a deliverable is traceable to the exact layer and run that produced it and no fold can answer a product without one. The seal itself is `AnalysisFact.Sealed`, composition-bound at the bake arrow.
+- Entry: `public IO<Fin<BakeProduct>> Bake(ResultLayer layer, LayerStack stack, BakeContext context, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)` on `BakeVerb` — the ONE door, returning the deliverable and firing its settled fact; `public IO<Fin<BakeProduct>> Fold(ResultLayer layer, LayerStack stack, BakeContext context)` — the row's own arm, which the door composes.
+- Auto: every bake composes a settled owner and mints nothing — the view row folds through `Viewpoint.Capture` so a baked view is the same value a shared BCF link carries, the frame row defers to the capture plane's own colour-managed encode, the tile row seats a `DashboardTile.Custom` over the legend the layer already declares so a baked tile is a board tile rather than a picture of one, and the report row emits `ReportBlock` rows the export plane paginates. `IO` belongs on the door because capture alone is effectful; the three pure folds lift into that one honest signature.
 - Packages: LanguageExt.Core, NodaTime, SkiaSharp, Thinktecture.Runtime.Extensions
 - Growth: a new deliverable is one `BakeVerb` row carrying its fold and one `BakeProduct` arm naming what it carries; zero new surface.
-- Boundary: a bake READS the layer and never edits it — nothing here writes the scene, mutates the stack, or re-runs a study, so a baked artifact and the layer it came from cannot diverge. The verbs are `Shell/commands#INTENT_TABLE` rows raised by key under `AnalysisLayers.BakeIntent`, so a bake reachable from a panel is reachable from the palette and from a remote call with no second surface. A bake of a layer whose provenance is absent refuses at the door rather than producing an unattributable deliverable — the one case the mint already forecloses, re-proven here because a bake crosses out of the process and an unattributable export is the failure that survives longest. `BakeContext.Grab` TRANSFERS custody of its image to the caller, so the frame bake — which keeps only the receipt — brackets and releases it on every path, while the compare plane's contact sheet keeps the tile it places; a fold that simply dropped the handle was the leak neither owner named.
+- Boundary: bake READS the layer and never edits it — nothing here writes the scene, mutates the stack, or re-runs a study, so its artifact cannot diverge from its layer. `Shell/commands#INTENT_TABLE` raises each verb by key under `AnalysisLayers.BakeIntent`, making the panel, palette, and remote call one surface. Missing provenance refuses at the door because an unattributable export survives beyond the process. `BakeContext.Grab` TRANSFERS image custody to the caller: frame releases the tile after retaining the encoded artifact, while compare retains the tile it places; dropping the handle leaks it.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -828,8 +799,8 @@ public static class ProbeChannel {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BakeProduct {
     private BakeProduct() { }
-    public sealed record View(Viewpoint Receipt) : BakeProduct;
-    public sealed record Capture(RenderReceipt Receipt) : BakeProduct;
+    public sealed record View(Viewpoint State) : BakeProduct;
+    public sealed record Capture(VisualArtifact Artifact) : BakeProduct;
     public sealed record Tile(DashboardTile Placed) : BakeProduct;
     public sealed record Blocks(Seq<ReportBlock> Rows) : BakeProduct;
 
@@ -844,7 +815,7 @@ public sealed record BakeContext(
     ViewCamera Camera,
     Option<SectionBox> Section,
     Seq<string> Scene,
-    Func<LayerStack, IO<Fin<(RenderReceipt Receipt, SKImage Tile)>>> Grab,
+    Func<LayerStack, IO<Fin<(VisualArtifact Artifact, SKImage Tile)>>> Grab,
     ChartInk Ink,
     CustomVisualStyle Style,
     ResolvedLocale Locale,
@@ -863,10 +834,25 @@ public sealed partial class BakeVerb {
     [UseDelegateFromConstructor]
     public partial IO<Fin<BakeProduct>> Fold(ResultLayer layer, LayerStack stack, BakeContext context);
 
-    public IO<Fin<AnalysisFact>> Bake(ResultLayer layer, LayerStack stack, BakeContext context) =>
+    public IO<Fin<BakeProduct>> Bake(
+        ResultLayer layer,
+        LayerStack stack,
+        BakeContext context,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
         (from provenance in FinT.lift<IO, LayerProvenance>(layer.Provenance)
          from product in FinT.liftIO(Fold(layer, stack, context))
-         select (AnalysisFact)new AnalysisFact.Baked(this, layer, provenance, product))
+         from settled in FinT.lift<IO, BakeProduct>(rail.Fire(
+             at: AppUiPoint.Effect,
+             fact: new AppUiFact.Effect(
+                 AnalysisLayers.Plane,
+                 $"{layer.Key}/{Key}",
+                 $"{Key}/{product.Carries}",
+                 layer.Visible,
+                 checked((uint)layer.Payload.Samples.Count),
+                 new EffectMeasure.Digest(provenance.Digest)),
+             key: Op.Of(name: Intent),
+             body: _ => Fin.Succ(product)))
+         select settled)
         .runFin.As();
 
     public string Intent => $"{AnalysisLayers.BakeIntent}.{Key}";
@@ -881,15 +867,15 @@ public static class BakeFolds {
         IO.pure(
             from provenance in layer.Provenance
             let key = $"{AnalysisLayers.Plane}.{layer.Key}@{provenance.Correlation}"
-            from receipt in Viewpoint.Capture(
+            from view in Viewpoint.Capture(
                 key, context.Revision(key),
                 context.Camera, context.Section, stack.Ground(context.Scene),
                 Seq<string>(), Seq<ViewMeasurement>(), context.Clock.GetCurrentInstant())
-            select (BakeProduct)new BakeProduct.View(receipt));
+            select (BakeProduct)new BakeProduct.View(view));
 
     public static IO<Fin<BakeProduct>> Frame(ResultLayer layer, LayerStack stack, BakeContext context) =>
         context.Grab(stack).Bracket(
-            static read => IO.pure(read.Map(static shot => (BakeProduct)new BakeProduct.Capture(shot.Receipt))),
+            static read => IO.pure(read.Map(static shot => (BakeProduct)new BakeProduct.Capture(shot.Artifact))),
             static read => IO.lift(() => ignore(read.Map(static shot => { shot.Tile.Dispose(); return unit; }))));
 
     public static IO<Fin<BakeProduct>> Tile(ResultLayer layer, LayerStack stack, BakeContext context) =>

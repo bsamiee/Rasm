@@ -161,13 +161,12 @@ public sealed record VisualMount(Visual Element, CompositionVisual Backing) {
 
 ## [03]-[ANIMATION_MINT]
 
-- Owner: `ComposeSpan` `[Union]` the one reduce-and-bound resolution; `ComposeTrack` `[ComplexValueObject]` the admitted slot-and-frames animation spec; `RunOutcome` the posture a run seals under; `ComposeReceipt` the evidence row.
+- Owner: `ComposeSpan` `[Union]` the one reduce-and-bound resolution; `ComposeTrack` `[ComplexValueObject]` the admitted slot-and-frames animation spec; `RunOutcome` the posture a run seals under.
 - Cases: `ComposeSpan` = Collapsed | Running; `RunOutcome` = animated | assigned.
 - Law: `KeyFrameAnimation.Duration` validates the field it OVERWRITES rather than the incoming value, so a single `TimeSpan.Zero` assignment lands silently and the NEXT assignment of any value at all throws — the floor clamp is therefore the condition under which the property remains assignable, and its real upper bound is one day whatever the diagnostic claims. `ComposeSpan.Of` is the page's ONE duration admission and every timing path crosses it: the explicit run, the implicit trigger, and the render-thread tick, because a second clamp spelled at one of them keeps the floor and loses the ceiling.
 - Law: reduction, the duration bound, and the overshoot refusal resolve TOGETHER at one owner. The three paths differ only in what they do with a collapse — assign the terminal value, refuse the trigger map, or halt the tick — so the fold answers the closed decision and each caller takes its own arm; three copies of the protocol were three chances for the arms to disagree with nothing stating why.
-- Entry: `public static Fin<ComposeSpan> Of(MotionToken token)` — the one resolution; `public Fin<ComposeSpan> Admits(MotionAxis axis)` — the clamping-channel refusal, keyed on the axis a caller executes; `public static Fin<ComposeTrack> Of(ComposeSlot slot, Seq<(float Cue, ComposeValue Value)> frames)` — the track admission; `public Fin<ComposeReceipt> Start(VisualMount mount, MotionToken token)` — mint, clamp, start, and answer the receipt; reduced-motion resolution happens INSIDE, so a caller cannot start an unreduced run.
+- Entry: `public static Fin<ComposeSpan> Of(MotionToken token)` — the one resolution; `public Fin<ComposeSpan> Admits(MotionAxis axis)` — the clamping-channel refusal, keyed on the axis a caller executes; `public static Fin<ComposeTrack> Of(ComposeSlot slot, Seq<(float Cue, ComposeValue Value)> frames)` — the track admission; `public Fin<Unit> Start(VisualMount mount, MotionToken token, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail, Op key)` — mint, clamp, start, and publish the settled run through the AppUi effect point; reduced-motion resolution happens INSIDE, so a caller cannot start an unreduced run.
 - Auto: frames admit SORTED, non-empty, cue-domain-bounded, and shape-agreeing at construction, so `Terminal` is a last read rather than a sort per collapse and `Mint` needs no per-frame pairing check; the token's curve reaches the render thread through `MotionEasing`, so a composition keyframe and a styled transition evaluate the same kernel curve; a plan-driven run reads `MotionPlan.EnterToken`/`ExitToken`, which have already folded the reduction at their own owner.
-- Receipt: `ComposeReceipt` — slot key, resolved token key, run posture, host reduction flag, frame count — projected onto `EvidenceReceipt.Effect` under plane `compose` by `Diagnostics/evidence#RECEIPT_UNION` `EvidenceMap.ToEvidence(receipt)`, so the proof lane reads which runs collapsed on each host rather than inferring reduction from frame timings; `Start` ANSWERS the receipt and the composition seals it, so no timing path mints evidence nothing reads.
 - Packages: Avalonia, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `Op`, `UnitInterval`)
 - Growth: a new animated surface is one `ComposeTrack` value over existing slots; a new run posture is one `RunOutcome` row; zero new surface.
 - Boundary: reduced motion COLLAPSES to a value assignment, never to a zero-duration animation — assigning the slot cancels any running animation on it and lands the terminal value in one write, where a zero-length run would arm the duration trap and still pay a composition batch. A stopped run must leave what a collapse assigns, so `Settle` is a declared constant rather than a per-track knob: a track that reversed or left the current value would let a reduced host and an unreduced host end on different state, and a reversed run is a fresh track over reversed frames.
@@ -237,18 +236,32 @@ public sealed partial class ComposeTrack {
             _ => Fin.Fail<ComposeTrack>(new ComposeFault.TrackRefused($"{slot.Key}: unadmitted track")),
         };
 
-    public Fin<ComposeReceipt> Start(VisualMount mount, MotionToken token) =>
+    public Fin<Unit> Start(
+        VisualMount mount,
+        MotionToken token,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Op key) =>
         from span in ComposeSpan.Of(token).Bind(resolved => resolved.Admits(Slot.Axis))
-        from receipt in span switch {
+        from outcome in span switch {
             ComposeSpan.Running run => Run(mount, run),
-            var collapsed => Slot.Write(mount.Backing, Terminal).Map(_ => Sealed(collapsed, RunOutcome.Assigned)),
+            _ => Slot.Write(mount.Backing, Terminal).Map(static _ => RunOutcome.Assigned),
         }
-        select receipt;
+        from fired in rail.Fire(
+            at: AppUiPoint.Effect,
+            fact: new AppUiFact.Effect(
+                Plane: "compose",
+                Key: Slot.Key,
+                Outcome: outcome.Key,
+                Flag: span.Reduced,
+                Count: (uint)Frames.Count,
+                Measure: new EffectMeasure.Coordinate(span.Resolved.Key)),
+            key: key)
+        select unit;
 
-    Fin<ComposeReceipt> Run(VisualMount mount, ComposeSpan.Running span) =>
+    Fin<RunOutcome> Run(VisualMount mount, ComposeSpan.Running span) =>
         Mint(mount.Compositor, new MotionEasing(span.Resolved.Curve))
             .Bind(animation => Started(mount, animation, span.Span))
-            .Map(_ => Sealed(span, RunOutcome.Animated));
+            .Map(static _ => RunOutcome.Animated);
 
     public Fin<KeyFrameAnimation> Mint(Compositor compositor, IEasing easing) =>
         Slot.Shape.Mint(compositor).Bind(animation =>
@@ -261,9 +274,6 @@ public sealed partial class ComposeTrack {
             animation.Target = Slot.Key;
             mount.Backing.StartAnimation(Slot.Key, animation);
         });
-
-    ComposeReceipt Sealed(ComposeSpan span, RunOutcome outcome) =>
-        new(Slot: Slot.Key, Resolved: span.Resolved.Key, Outcome: outcome, Reduced: span.Reduced, Frames: Frames.Count);
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref ComposeSlot slot, ref Seq<(float Cue, ComposeValue Value)> frames) {
@@ -284,8 +294,6 @@ public sealed partial class ComposeTrack {
     static Validation<Error, Unit> Held(bool holds, string requirement) =>
         holds ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComposeFault.TrackRefused(requirement));
 }
-
-public readonly record struct ComposeReceipt(string Slot, string Resolved, RunOutcome Outcome, bool Reduced, int Frames);
 ```
 
 ## [04]-[IMPLICIT_TRIGGERS]
@@ -353,7 +361,7 @@ public static class ImplicitPlan {
 - Law: the handler's transitions ANSWER what they retired (folder RULINGS `[02]:136`). `VfxState.Apply` and `VfxState.Tick` return kernel `Transition<VfxStep>` whose payload carries the post-state beside the run it displaced, so a retarget arriving mid-run states the run it cut short instead of returning `Unit` and leaving the fact unrecoverable.
 - Entry: `public override void OnRender(ImmediateDrawingContext context)` — the one draw callback, reaching Skia through the same lease an in-tree operation takes; `public override void OnAnimationFrameUpdate()` — the per-frame advance, re-arming itself; `public static Fin<VfxMessage> Advancing(MotionToken token)` — the admitted mint every advance crosses before it reaches the render thread; `public static Fin<VfxSurface> Mount(Visual element, VfxHandler handler, HostSink sink)` — the mount capsule every product surface takes.
 - Auto: `RegisterForNextAnimationFrameUpdate` arms exactly ONE frame, so a running term re-arms from inside the update and a settled term simply stops arming; the armed run is ONE cell carrying its token, its bounded span, and the monotonic stamp it was armed at, so a retarget mid-run re-reads one subtraction rather than accumulating per-frame deltas that drift with every dropped frame; a host that suspends and resumes stops the arming and resumes past the run's own end, so the resumed frame reads the terminal value and disarms; every callback that carries no rail collapses onto the composition-minted kernel `FaultCell` through `HostSink`, so a lease-less backend and a foreign payload are counted evidence rather than a discarded frame.
-- Receipt: the tick contributes no receipt of its own — a per-frame receipt is a per-frame write — and the surface's material and tile receipts seal at their own owners.
+- Boundary: the tick emits no per-frame event; material and tile owners publish their settled draw facts.
 - Packages: Avalonia, Avalonia.Skia, SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project — `MonotonicTimeline`, `MonotonicStamp`, `Transition`, `Custody`, `FaultCell`, `HookId`, `UnitInterval`, `Op`)
 - Growth: a new render-thread effect surface is one `VfxSurface` mount over existing material and program rows; a new message is one `VfxMessage` case with one `Apply` arm; zero new surface.
 - Boundary: `EffectiveSize`, `Invalidate`, and `RegisterForNextAnimationFrameUpdate` throw before the handler attaches to a compositor, and the two render-clip probes throw outside `OnRender`, so every one of them reads inside its own callback and a constructor-time read is the deleted form. Messages cross through `SendHandlerMessage(object)`, which is a HOST-OWNED untyped channel — a `Channel<VfxMessage>` cannot replace it, so the union closes what the estate SENDS and the else-arm faults by name rather than dropping a foreign payload silently; the union ADMITS at its own mint, on the thread that still has a rail, so a reduced token arrives already collapsed to a halt and an unbounded span never reaches a thread with nowhere to report it.

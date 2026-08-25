@@ -40,7 +40,7 @@
 - `contracts publish` resolves the credential before the gate; absence reads identically either way, so a blind lookup elects `--create` unproven.
 - `BUF_TOKEN` outranks `~/.netrc` while set non-empty and reads as logged out when unusable; an empty export falls through to the file.
 - Bootstrap rides `buf push --create`, creating and committing under one authorization; create-then-push strands a name no rename reclaims.
-- `contracts publish` believes the push once `main` reads the returned coordinate back; a label on another commit faults with the push receipted.
+- `contracts publish` believes the push once `main` reads the returned coordinate back; a label on another commit faults with the push result.
 - `--git-metadata` never rides the push — it mints one label per git tag and branch at the head, and a minted label archives but never deletes.
 - `dotnet test` loses the MTP run floor — `-- --minimum-expected-tests 1` exits 5 with zero tests, so the rail dispatches `dotnet run --project`.
 - Nx owns the .NET graph and assay owns every .NET invocation; `nx.json` refuses each inferred target whose job an assay claim already holds.

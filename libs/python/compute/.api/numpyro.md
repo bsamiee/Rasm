@@ -37,4 +37,4 @@
 - Package: `numpyro`
 - Owns (as admitted): the `"numpyro"` NUTS-backend string PyMC dispatches to, with `chain_method`/`postprocessing_backend`/`nuts_kwargs` as the accelerator-lever `nuts_sampler_kwargs`
 - Accept: `pm.sample(nuts_sampler="numpyro", nuts_sampler_kwargs={"chain_method": ...})` inside a `pm.Model()` study, graduated through `az.summary`/`az.rhat` on the returned `DataTree`
-- Reject: any `import numpyro` in compute; a numpyro model, distribution, handler, SVI, or diagnostic call; a posterior claim without the PyMC-returned `InferenceData`/`DataTree` receipt; catalog re-authoring of the declined surfaces
+- Reject: any `import numpyro` in compute; a numpyro model, distribution, handler, SVI, or diagnostic call; a posterior claim without the PyMC-returned `InferenceData`/`DataTree`; catalog re-authoring of the declined surfaces

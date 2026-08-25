@@ -37,7 +37,7 @@ Aging stays lawful without rewriting: the log is append-only forever, so this pa
 - Law: declaration and lift are operator acts running under the maintenance-plane posture — a `Retain.Hold` carries subject keys whose tenants a single pin's check arm refuses, and a lift answers owners across every tenant a matter touched; the subject-face reads inside a pinned erase see exactly the declaring tenant's rows, which is the read that gate needs.
 - Law: the hold gate rides every subject-scoped closer — a `_GROOMS` row naming a `held` subject column composes `Retain.holding.subject` in BOTH renderings, so the scheduled statement and the in-process sweep honour one suspension; relations carrying no subject column hold nothing, which is `operational`'s standing degrade; `erase` refuses a held subject with the typed `RetainHold` naming its live matters, because a destroyed key is the one closer no lift recovers; the object plane composes `Retain.holding.owner` at its retag fold and `lift` answers the lifted owner roster the maintenance seam re-tags.
 - Law: the partition drop carries NO hold gate and never can — children are keyed by the sequence spine and carve no subject, so a gate there refuses a whole boundary for one held subject and stalls compaction estate-wide; preservation is COLLECTION AT DECLARATION instead — `Retain.hold` lands each held subject's journal slice into object custody through the handed `Preserve` port inside the declaration's own unit of work, and the hold row commits FIRST so the landing's reference row re-derives its tag against a live hold and takes the object plane's `held` posture with no second write and no window a sweep reads it unheld. The fact plane needs none of it: `_GROOMS.facts` composes the subject gate directly, so this leg covers exactly the plane no gate reaches.
-- Law: preservation lands the RAW envelope slice — `Retain.slice` renders the same rows the export decodes, verbatim as newline-delimited bytes, because evidence a matter rests on cannot depend on a family the next re-mint reshapes; the slice is therefore evidence OF the generation that produced it, joining the live log through the custody receipt rather than through a decode, and the collection is ONE owner with two renderings exactly as the groom roster is, so an export and a preservation can never disagree about what a subject's history was.
+- Law: preservation lands the RAW envelope slice — `Retain.slice` renders the same rows the export decodes, verbatim as newline-delimited bytes, because evidence a matter rests on cannot depend on a family the next re-mint reshapes; the slice is therefore evidence OF the generation that produced it, joining the live log through the custody row rather than through a decode, and the collection is ONE owner with two renderings exactly as the groom roster is, so an export and a preservation can never disagree about what a subject's history was.
 - Law: the landing is a HANDED port exactly as `RefRead` is — this page declares `Preserve` and the object plane satisfies it, so the journal stratum names no store and the identity fold, the conditional put, and the reference row stay owned where they already are; the port carries its own error and requirement parameters because a byte landing is not a relational read and a concrete channel here would name the object plane's fault family.
 
 ```typescript
@@ -364,7 +364,7 @@ const _heldMatters = (key: SubjectKey) =>
 - Owner: `SubjectKey`, the `(app, tenant, subject)` custody identity; the `subject_key` ledger holding one `WrappedKey` per key; the `seal`/`open` folds composing the security `Shredder` envelope algebra; and `erase`, destroying the wrapped key material and marking the tombstone in one statement.
 - Packages: `@rasm/security` (`Shredder`, `WrappedKey`, `SealedEnvelope` — the one direct `data → security` edge); `effect` (`Effect`, `Option`, `Schema`).
 - Entry: an app seals subject-bearing fields at construction — `Retain.seal(key, bytes)` before the payload enters the publish transaction; reads meeting sealed fields call `Retain.open(key, envelope)` and receive `Option<bytes>` — `none` IS the erased state, folded by the consumer into its redaction marker.
-- Receipt: `erase` returns `Option<{ subject: SubjectKey, destroyedAt }>` — some is the auditable tombstone the fact stream records, none means no live key existed; the log bytes remain, provably unreadable either way. A subject under a live hold refuses with the typed `RetainHold` naming its matters, never a silent none a caller reads as already-erased — key destruction is the one closer no lift recovers.
+- Output: `erase` returns `Option<{ subject: SubjectKey, destroyedAt }>` — some is the auditable tombstone the fact stream records, none means no live key existed; the log bytes remain, provably unreadable either way. A subject under a live hold refuses with the typed `RetainHold` naming its matters, never a silent none a caller reads as already-erased — key destruction is the one closer no lift recovers.
 - Law: the hold gate is re-evaluated INSIDE the destroying statement — the `NOT EXISTS` arm rides the UPDATE's own predicate, so a hold landing after any sibling read still refuses at the write; the miss path disambiguates on key liveness, because a guard refusal over a live key is a hold verdict even when a racing lift empties the matters read, and a pre-check can only supply evidence for the fault, never the gate.
 - Growth: a new custody posture (a KMS-held KEK) is a security-side construction row — this ledger stores whatever `WrappedKey` the Shredder wraps, so custody changes never touch this page.
 - Law: custody is tenant-scoped structurally — every lookup, upsert, erase, subject-index row, and DSAR scan keys on `(app, tenant, subject)`; equal subject strings in two tenants never share key material or export rows, and no ambient RLS setting substitutes for the composite identity.
@@ -554,9 +554,9 @@ const _subjectIndexDdl: Capability.Ensure = {
 
 const _slot = <A>(subjects: (event: A) => ReadonlyArray<Retain.Subject>): Journal.Slot<A> => ({
   keys: () => Live.merged([]),
-  project: (stream, events, receipt) =>
+  project: (stream, events, appended) =>
     Effect.flatMap(SqlClient.SqlClient, (sql) => {
-      const rows = Array.flatMap(Array.zip(events, receipt.rows), ([event, row]) =>
+      const rows = Array.flatMap(Array.zip(events, appended.rows), ([event, row]) =>
         Array.map(subjects(event), (subject) => ({
           app: stream.app,
           tenant: stream.tenant,
@@ -652,7 +652,6 @@ export { Retain, RetainHold, SubjectKey }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

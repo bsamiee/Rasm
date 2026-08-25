@@ -1,15 +1,14 @@
 # [RASM_RHINO_RENDER_REGISTRY]
 
-`ContentUuidCatalog` owns built-in type, instance, and CCI seed data, `ContentSerializer` owns explicit read transfer and multi-load reporting, and `Registry.Run` closes registration and mutation. `Registry.Read` preserves typed query correlation, icons retain bitmap custody across every verified icon modality, and static content events fold into detached facts with no live `RenderContent` escape. Every consequence this page publishes rides the Document spine's fact stream, every bounded journal is the kernel ring, and every refusal codes on the Display page's `RenderFault` family.
+`ContentUuidCatalog` owns built-in type, instance, and CCI seed data, `ContentSerializer` owns explicit read transfer and multi-load reporting, and `Registry.Run` closes registration and mutation. `Registry.Read` preserves typed query correlation, icons retain bitmap custody across every verified icon modality, and static content events fold into detached facts with no live `RenderContent` escape. Every bounded journal is the kernel ring, and every refusal codes on the Display page's `RenderFault` family.
 
 ## [01]-[INDEX]
 
 - [02]-[FACTORY_REGISTRY]: `ContentTypeInfo`, plug-in registration, the `ContentSerializer` adapter, the `ShellRow`/`RenderShell` render-editor seating, and the `EditorBridge` payload seam.
 - [03]-[OPERATION_FAMILY]: `ContentAdmission`, `ContentMutation`, and identity-discriminated `ContentOp` dispatch.
 - [04]-[COMMIT_AND_QUERY]: `ContentTransaction`, typed query programs, and the `Registry` rails.
-- [05]-[RECEIPTS]: `ContentBodyKind`, `ContentSlot`, `ContentBody`, and the `ContentReceipt` instantiation of the spine's stream.
-- [06]-[EVENTS]: `ContentPulse`, `ContentSignal`, `ContentFact`, and the `ContentStream` observation capsule.
-- [07]-[SURFACE_LEDGER]: page owner table.
+- [05]-[EVENTS]: `ContentPulse`, `ContentSignal`, `ContentFact`, and the `ContentStream` observation capsule.
+- [06]-[SURFACE_LEDGER]: page owner table.
 
 ## [02]-[FACTORY_REGISTRY]
 
@@ -680,7 +679,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
 - Law: graph surgery is one target mutation — `TreeMutation` discriminates graft, prune, and slot state under its own `ChangeReason`; graft and parented admission prove `IsContentTypeAcceptableAsChild` before `SetChild`, and slot-state admission rejects an empty patch.
 - Law: an object-reference roster acquires on the rail, not in a counter loop. The assignment arm minted a fixed array, tracked a seat counter, and released in a `finally` that discarded its own refusals; each `ObjRef` is now a `Lease` acquired through a fold that rolls the already-held set back on the first refusal, and the assignment body releases through the package's both-arms fold so a release fault appends to the assignment's.
 - Law: field, parameter, and texture writes compose their owners; material assignment resolves `TableTarget`, contains every `ObjRef` lifetime, and carries native assignment choices.
-- Law: every address column takes its spine owner — a content or object identity is `ResourceId` and a write target is a `DocumentPath` — so a host member reporting failure as an empty guid or a relative path cannot seat a receipt fact the reader then treats as a real consequence.
+- Law: every address input takes its spine owner — a content or object identity is `ResourceId` and a write target is a `DocumentPath` — so an empty guid or relative path refuses before host mutation.
 - Growth: a new admission path is one `ContentAdmission` case; a new target concern is one `ContentMutation` case with its `UndoPolicy` column; `ContentOp` keeps its identity-derived cases.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.Create`, `SetChild`, `DeleteChild`, `DeleteAllChildren`, `SetChildSlotOn`, `SetChildSlotAmount`, `IsContentTypeAcceptableAsChild`, `SetName`, `Replace`, `SaveToFile`, `MakeGroupInstance`, `Ungroup`, `UngroupRecursive`, `SmartUngroupRecursive`, `ExtraRequirementsSetContexts`, `EmbedFilesChoice`); `api-rhinocommon-render.md` (`RenderMaterial.AssignTo`, `AssignToSubFaceChoices`, `AssignToBlockChoices`); `api-rhinocommon-objects.md` (`ObjRef`); kernel `Domain/rails` (`Lease<T>.Acquire`, `Op.Catch`, `Op.Confirm`), `Domain/validation` (`Op.Row`); `Render/content.md` (`ContentKind`, `ContentRef`, `ChangeReason`, `ChangeScope`, `ContentIo`), `Render/fields.md` (`ContentValue`, `ParamScope`), `Render/kinds.md` (`TextureConfig`, `MaterialMint`, `TextureMint`, `EnvironmentState`, `TextureExport`); `Document/tables.md` (`ResourceId`, `TableTarget`), `Document/session.md` (`DocumentPath`), kernel `Domain/rails` (`Custody`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
@@ -708,7 +707,7 @@ public abstract partial record ContentAdmission {
         texture: static _ => ContentKind.Texture,
         environment: static _ => ContentKind.Environment);
 
-    internal Fin<ContentReceipt> Apply(RhinoDoc document, ChangeReason reason, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, ChangeReason reason, Op op) =>
         Switch(
             context: (Document: document, Reason: reason, Op: op),
             factory: static (context, source) =>
@@ -721,18 +720,18 @@ public abstract partial record ContentAdmission {
                     select (Content: live, Slot: slot)).As()
                 from lease in Lease<RenderContent>.Acquire(
                     mint: () => RenderContent.Create(context.Document, type.ToValue()), key: context.Op)
-                from receipt in Transfer(
+                from transferred in Transfer(
                     expected: kind,
                     lease: lease,
                     document: context.Document,
                     parent: parent,
                     reason: context.Reason,
                     op: context.Op)
-                select receipt,
+                select transferred,
             serialized: static (context, source) =>
                 from kind in context.Op.Need(source.Kind)
-                from receipt in Adopted(kind, source.Source, static (io, ctx) => io.Mint(document: ctx.Document, key: ctx.Op), context)
-                select receipt,
+                from adopted in Adopted(kind, source.Source, static (io, ctx) => io.Mint(document: ctx.Document, key: ctx.Op), context)
+                select adopted,
             material: static (context, source) =>
                 Adopted(ContentKind.Material, source.Source, static (mint, ctx) => mint.Mint(document: ctx.Document, key: ctx.Op), context),
             texture: static (context, source) =>
@@ -740,25 +739,24 @@ public abstract partial record ContentAdmission {
             environment: static (context, source) =>
                 Adopted(ContentKind.Environment, source.State, static (state, ctx) => state.Mint(document: ctx.Document, key: ctx.Op), context));
 
-    private static Fin<ContentReceipt> Adopted<TSource>(
+    private static Fin<Unit> Adopted<TSource>(
         ContentKind expected,
         TSource? source,
         Func<TSource, (RhinoDoc Document, ChangeReason Reason, Op Op), Fin<Lease<RenderContent>>> mint,
         (RhinoDoc Document, ChangeReason Reason, Op Op) context) where TSource : class =>
         from active in context.Op.Need(source)
         from lease in mint(active, context)
-        from receipt in Transfer(
+        from transferred in Transfer(
             expected: expected, lease: lease, document: context.Document,
             parent: Option<(RenderContent, string)>.None, reason: context.Reason, op: context.Op)
-        select receipt;
+        select transferred;
 
-    private static Fin<ContentReceipt> Transfer(
+    private static Fin<Unit> Transfer(
         ContentKind expected, Lease<RenderContent> lease, RhinoDoc document,
         Option<(RenderContent Content, string Slot)> parent, ChangeReason reason, Op op) =>
         (from actual in ContentKind.Of(lease.Resource, op)
          from _ in guard(actual == expected, (Error)new KernelFault.InvalidValue(nameof(ContentKind), expected.ToString())).ToFin()
-         from id in ResourceId.Admit(value: lease.Resource.Id, key: op)
-         from __ in parent.Case switch {
+         from transferred in parent.Case switch {
              (RenderContent content, string slot) =>
                  from _acceptable in TreeMutation.Accepts(
                      parent: content, child: lease.Resource, slot: slot, op: op)
@@ -768,9 +766,7 @@ public abstract partial record ContentAdmission {
                  select unit,
              _ => expected.Attach(document: document, content: lease.Resource, key: op),
          }
-         from minted in ContentReceipt.Content(slot: ContentSlot.Minted, id: id, key: op)
-         from adopted in ContentReceipt.Content(slot: ContentSlot.Adopted, id: id, key: op)
-         select minted + adopted)
+         select transferred)
         .Rollback(release: () => op.Catch(() => Fin.Succ(value: lease.Dispose())), key: op);
 }
 
@@ -781,7 +777,7 @@ public abstract partial record TreeMutation {
     public sealed record Prune(Option<string> Slot, ChangeReason Reason) : TreeMutation;
     public sealed record Slot(string Name, Option<bool> On, Option<double> Amount, ChangeReason Reason) : TreeMutation;
 
-    internal Fin<ContentReceipt> Apply(RenderContent parent, RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RenderContent parent, RhinoDoc document, Op op) =>
         Switch(
             context: (Parent: parent, Document: document, Op: op),
             graft: static (ctx, edit) =>
@@ -792,9 +788,7 @@ public abstract partial record TreeMutation {
                 from _acceptable in Accepts(parent: ctx.Parent, child: child, slot: slot, op: ctx.Op)
                 from _ in ChangeScope.Write(content: ctx.Parent, reason: reason, key: ctx.Op,
                     body: live => ctx.Op.Catch(() => ctx.Op.Confirm(success: live.SetChild(renderContent: child, childSlotName: slot))))
-                from id in ResourceId.Admit(value: ctx.Parent.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.Grafted, id: id, key: ctx.Op)
-                select receipt,
+                select unit,
             prune: static (ctx, edit) =>
                 from reason in ctx.Op.Need(edit.Reason)
                 from slot in edit.Slot.Traverse(value => ctx.Op.AcceptText(value: value)).As()
@@ -803,9 +797,7 @@ public abstract partial record TreeMutation {
                         string name => ctx.Op.Catch(() => ctx.Op.Confirm(success: live.DeleteChild(name, reason.Native))),
                         _ => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => live.DeleteAllChildren(reason.Native)))),
                     })
-                from id in ResourceId.Admit(value: ctx.Parent.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.Pruned, id: id, key: ctx.Op)
-                select receipt,
+                select unit,
             slot: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
                 from reason in ctx.Op.Need(edit.Reason)
@@ -818,9 +810,7 @@ public abstract partial record TreeMutation {
                         ignore(edit.On.Iter(on => live.SetChildSlotOn(name, on, reason.Native)));
                         ignore(edit.Amount.Iter(amount => live.SetChildSlotAmount(name, amount, reason.Native)));
                     }))))
-                from id in ResourceId.Admit(value: ctx.Parent.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.SlotSet, id: id, key: ctx.Op)
-                select receipt);
+                select unit);
 
     internal static Fin<Unit> Accepts(RenderContent parent, RenderContent child, string slot, Op op) =>
         op.Catch(() => op.Confirm(success: parent.IsContentTypeAcceptableAsChild(
@@ -831,23 +821,19 @@ public abstract partial record TreeMutation {
 [SmartEnum<string>]
 public sealed partial class Grouping {
     public static readonly Grouping Make = new("make", static (content, op) =>
-        from grouped in op.Catch(() => Optional(content.MakeGroupInstance()).ToFin(Fail: op.InvalidResult()))
-        from id in ResourceId.Admit(value: grouped.Id, key: op)
-        from receipt in ContentReceipt.Content(slot: ContentSlot.Grouped, id: id, key: op)
-        select receipt);
+        from _ in op.Catch(() => Optional(content.MakeGroupInstance()).ToFin(Fail: op.InvalidResult()))
+        select unit);
     public static readonly Grouping Ungroup = new("ungroup", Undone(static content => content.Ungroup()));
     public static readonly Grouping Recursive = new("recursive", Undone(static content => content.UngroupRecursive()));
     public static readonly Grouping Smart = new("smart", Undone(static content => content.SmartUngroupRecursive()));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<ContentReceipt> Apply(RenderContent content, Op op);
+    internal partial Fin<Unit> Apply(RenderContent content, Op op);
 
-    private static Func<RenderContent, Op, Fin<ContentReceipt>> Undone(Func<RenderContent, bool> route) =>
+    private static Func<RenderContent, Op, Fin<Unit>> Undone(Func<RenderContent, bool> route) =>
         (content, op) =>
             from _ in op.Catch(() => op.Confirm(success: route(content)))
-            from id in ResourceId.Admit(value: content.Id, key: op)
-            from receipt in ContentReceipt.Content(slot: ContentSlot.Ungrouped, id: id, key: op)
-            select receipt;
+            select unit;
 }
 
 [SmartEnum<bool>]
@@ -921,53 +907,43 @@ public abstract partial record ContentMutation {
     public sealed record Group(Grouping Mode) : ContentMutation(UndoPolicy.Record);
     public sealed record Export(ContentExport Output) : ContentMutation(UndoPolicy.Skip);
 
-    internal Fin<ContentReceipt> Apply(RenderContent content, RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RenderContent content, RhinoDoc document, Op op) =>
         Switch(
             context: (Content: content, Document: document, Op: op),
             detach: static (ctx, _) =>
                 from kind in ContentKind.Of(ctx.Content, ctx.Op)
                 from _ in kind.Detach(document: ctx.Document, content: ctx.Content, key: ctx.Op)
-                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.Detached, id: id, key: ctx.Op)
-                select receipt,
+                select unit,
             rename: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
                 from reason in ctx.Op.Need(edit.Reason)
                 from policy in ctx.Op.Need(edit.Policy)
                 from _ in ChangeScope.Write(ctx.Content, reason, live => ctx.Op.Catch(() =>
                     Fin.Succ(value: Op.Side(() => live.SetName(name, renameEvents: true, ensureNameUnique: policy.Key)))), ctx.Op)
-                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.Renamed, id: id, key: ctx.Op)
-                select receipt,
+                select unit,
             tree: static (ctx, edit) =>
                 from change in ctx.Op.Need(edit.Edit)
-                from receipt in change.Apply(parent: ctx.Content, document: ctx.Document, op: ctx.Op)
-                select receipt,
+                from changed in change.Apply(parent: ctx.Content, document: ctx.Document, op: ctx.Op)
+                select changed,
             field: static (ctx, edit) =>
                 from name in ctx.Op.AcceptText(value: edit.Name)
                 from value in ctx.Op.Need(edit.Value)
                 from reason in ctx.Op.Need(edit.Reason)
                 from _ in ChangeScope.Write(ctx.Content, reason, live => value.Write(live.Fields, name, ctx.Op), ctx.Op)
-                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.FieldSet, id: id, key: ctx.Op)
-                select receipt,
+                select unit,
             param: static (ctx, edit) =>
                 from scope in ctx.Op.Need(edit.Scope)
                 from value in ctx.Op.Need(edit.Value)
                 from reason in ctx.Op.Need(edit.Reason)
                 from context in ctx.Op.Need(edit.Context)
                 from _ in scope.Write(ctx.Content, value, reason, context.Native, ctx.Op)
-                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.FieldSet, id: id, key: ctx.Op)
-                select receipt,
+                select unit,
             texture: static (ctx, edit) =>
                 from texture in ctx.Op.Need(ctx.Content as RenderTexture)
                 from config in ctx.Op.Need(edit.Config)
                 from reason in ctx.Op.Need(edit.Reason)
                 from _ in config.Apply(texture, reason, ctx.Op)
-                from id in ResourceId.Admit(value: ctx.Content.Id, key: ctx.Op)
-                from receipt in ContentReceipt.Content(slot: ContentSlot.Configured, id: id, key: ctx.Op)
-                select receipt,
+                select unit,
             assign: static (ctx, edit) =>
                 from material in ctx.Op.Need(ctx.Content as RenderMaterial)
                 from objects in ctx.Op.Need(edit.Objects)
@@ -983,48 +959,43 @@ public abstract partial record ContentMutation {
                         references.Map(static held => held.Resource).ToArray(),
                         subFaces.Native, blocks.Native, bInteractive: false)))
                     .Settled(held: references, release: Release, key: ctx.Op)
-                from receipt in ContentReceipt.Objects(slot: ContentSlot.Assigned, ids: ids, key: ctx.Op)
-                select receipt,
+                select unit,
             replace: static (ctx, edit) =>
                 from source in ctx.Op.Need(edit.Source)
                 from lease in source.Mint(document: ctx.Document, key: ctx.Op)
-                from receipt in ReplaceWith(target: ctx.Content, lease: lease, op: ctx.Op)
-                select receipt,
+                from replaced in ReplaceWith(target: ctx.Content, lease: lease, op: ctx.Op)
+                select replaced,
             group: static (ctx, edit) =>
                 from mode in ctx.Op.Need(edit.Mode)
-                from receipt in mode.Apply(content: ctx.Content, op: ctx.Op)
-                select receipt,
+                from grouped in mode.Apply(content: ctx.Content, op: ctx.Op)
+                select grouped,
             export: static (ctx, edit) =>
                 from output in ctx.Op.Need(edit.Output)
-                from receipt in output.Switch(
+                from exported in output.Switch(
                     context: (Content: ctx.Content, Op: ctx.Op),
                     archive: static (state, archive) =>
                         from embed in state.Op.Need(archive.Embed)
                         from path in state.Op.Need(archive.Path)
                         from _ in state.Op.Catch(() => state.Op.Confirm(
                             success: state.Content.SaveToFile(path.ToValue(), embed.Native)))
-                        from receipt in ContentReceipt.Path(slot: ContentSlot.Exported, path: path, key: state.Op)
-                        select receipt,
+                        select unit,
                     textureImage: static (state, image) =>
                         from texture in state.Op.Need(state.Content as RenderTexture)
                         from path in state.Op.Need(image.Path)
                         from _ in TextureExport.Export(
                             texture: texture, path: path.ToValue(),
                             width: image.Extent.Width, height: image.Extent.Height, depth: image.Depth, key: state.Op)
-                        from receipt in ContentReceipt.Path(slot: ContentSlot.Exported, path: path, key: state.Op)
-                        select receipt)
-                select receipt);
+                        select unit)
+                select exported);
 
     private static Fin<Unit> Release(Lease<ObjRef> held) => Fin.Succ(value: held.Dispose());
 
-    private static Fin<ContentReceipt> ReplaceWith(RenderContent target, Lease<RenderContent> lease, Op op) =>
+    private static Fin<Unit> ReplaceWith(RenderContent target, Lease<RenderContent> lease, Op op) =>
         (from targetKind in ContentKind.Of(target, op)
          from replacementKind in ContentKind.Of(lease.Resource, op)
          from _ in guard(targetKind == replacementKind, (Error)new KernelFault.InvalidValue(nameof(ContentKind), targetKind.ToString())).ToFin()
          from __ in op.Catch(() => op.Confirm(success: target.Replace(newcontent: lease.Resource)))
-         from id in ResourceId.Admit(value: lease.Resource.Id, key: op)
-         from receipt in ContentReceipt.Content(slot: ContentSlot.Swapped, id: id, key: op)
-         select receipt)
+         select unit)
         .Rollback(release: () => op.Catch(() => Fin.Succ(value: lease.Dispose())), key: op);
 }
 
@@ -1038,28 +1009,28 @@ public abstract partial record ContentOp {
         admit: static _ => UndoPolicy.Record,
         mutate: static edit => edit.Change.Undo);
 
-    internal Fin<ContentReceipt> Apply(RhinoDoc document, ContentKind scope, ChangeReason reason, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, ContentKind scope, ChangeReason reason, Op op) =>
         Switch(
             context: (Document: document, Scope: scope, Reason: reason, Op: op),
             admit: static (ctx, edit) =>
                 from source in ctx.Op.Need(edit.Source)
                 from _ in guard(source.Expected == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString())).ToFin()
-                from receipt in source.Apply(document: ctx.Document, reason: ctx.Reason, op: ctx.Op)
-                select receipt,
+                from admitted in source.Apply(document: ctx.Document, reason: ctx.Reason, op: ctx.Op)
+                select admitted,
             mutate: static (ctx, edit) =>
                 from target in ctx.Op.Need(edit.Target)
                 from change in ctx.Op.Need(edit.Change)
                 from content in target.Resolve(document: ctx.Document, key: ctx.Op)
                 from kind in ContentKind.Of(content, ctx.Op)
                 from _ in guard(kind == ctx.Scope, (Error)new KernelFault.InvalidValue(nameof(ContentKind), ctx.Scope.ToString())).ToFin()
-                from receipt in change.Apply(content: content, document: ctx.Document, op: ctx.Op)
-                select receipt);
+                from changed in change.Apply(content: content, document: ctx.Document, op: ctx.Op)
+                select changed);
 }
 ```
 
 ## [04]-[COMMIT_AND_QUERY]
 
-- Owner: `RegistryCommand` closes content registration, serializer registration, shell arming, and document mutation; `RegistryResult` keeps each receipt distinct; `Registry.Run` is the sole change entry.
+- Owner: `RegistryCommand` closes content registration, serializer registration, shell arming, and document mutation; `RegistryResult` keeps each outcome distinct; `Registry.Run` is the sole change entry.
 - Owner: `RegistryQuery<T>` closes target reads, rosters, current environments, and the two-tier factory census; `Registry.Read<T>` preserves result correlation through `IDetachedDocumentResult`.
 - Owner: `IconModality` carries each verified host icon route as one bind row and `IconRequest` pairs it with an extent; `KindScope` closes what a kind list holds and `CollectionTrait` carries the collection's switches.
 - Law: the spine is the one bracket owner — the whole mutation runs inside one `Demand` window, the undo record opens through the document `UndoBracket` only when the plan records, the plan's kind opens its table change scope around the fold through `ContentKind.Table`, redraw suppression restores prior state, and the bracket's `Seal` rolls a failed owned record back before the fault leaves. `ContentKind.Table` owns that window, never this page — it carries the `Lease<TableScope>` custody and the aggregating close, so an open/body/close triple spelled here is a second window whose close refusal REPLACES the body's fault instead of appending to it.
@@ -1393,7 +1364,7 @@ public abstract partial record RegistryResult : IDetachedDocumentResult {
     public sealed record Registered(Seq<Type> Types) : RegistryResult;
     public sealed record SerializerRegistered : RegistryResult;
     public sealed record ShellArmed(int Rows) : RegistryResult;
-    public sealed record Changed(ContentReceipt Receipt) : RegistryResult;
+    public sealed record Changed : RegistryResult;
 }
 
 public sealed record ContentTypeCensus(
@@ -1447,7 +1418,7 @@ public static class Registry {
                        from _ in RenderShell.Arm(program: program, op: state)
                        select (RegistryResult)new RegistryResult.ShellArmed(Rows: program.Rows.Count),
                    change: static (state, request) => Commit(request.Session, request.Transaction, state)
-                       .Map(static receipt => (RegistryResult)new RegistryResult.Changed(receipt)))
+                       .Map(static _ => (RegistryResult)new RegistryResult.Changed()))
                select result;
     }
 
@@ -1488,7 +1459,7 @@ public static class Registry {
                 .Map(static types => toSeq(types)))
         select registered;
 
-    private static Fin<ContentReceipt> Commit(DocumentSession session, ContentTransaction plan, Op op) =>
+    private static Fin<Unit> Commit(DocumentSession session, ContentTransaction plan, Op op) =>
         from activeSession in op.Need(session)
         from active in op.Need(plan)
         from kind in op.Need(active.Kind)
@@ -1500,13 +1471,13 @@ public static class Registry {
             !active.Operations.IsEmpty && active.Operations.ForAll(static operation => operation is not null),
             (Error)new KernelFault.InvalidValue(nameof(ContentTransaction), "a non-empty operation set")).ToFin()
         let admitted = active with { Kind = kind, Reason = reason, Redraw = redraw, Undo = undo, Name = name }
-        from receipt in activeSession.Demand(
+        from changed in activeSession.Demand(
             use: document => Change(document: document, plan: admitted, op: op),
             key: op,
             needs: SessionNeed.Mutation(undo: admitted.Records, redraw: admitted.Redraw).ToArray())
-        select receipt;
+        select changed;
 
-    private static Fin<ContentReceipt> Change(RhinoDoc document, ContentTransaction plan, Op op) =>
+    private static Fin<Unit> Change(RhinoDoc document, ContentTransaction plan, Op op) =>
         DocumentCommit.Sealed(
             document: document,
             name: plan.Name,
@@ -1517,12 +1488,8 @@ public static class Registry {
                 reason: plan.Reason,
                 body: scoped => plan.Operations.TraverseM(operation => operation.Apply(
                         document: scoped, scope: plan.Kind, reason: plan.Reason, op: op)).As()
-                    .Map(static receipts => receipts.Fold(ContentReceipt.Empty, static (state, value) => state + value)),
+                    .Map(static _ => unit),
                 key: op),
-            stamp: static (receipt, serial) => receipt.Stamped(
-                slot: ContentSlot.Undo,
-                record: static value => new ContentBody.Record(Serial: value),
-                serial: serial),
             project: Fin.Succ,
             op: op);
 
@@ -1569,108 +1536,7 @@ public static class Registry {
 }
 ```
 
-## [05]-[RECEIPTS]
-
-- Owner: `ContentBodyKind` is the body-kind capability vocabulary; `ContentSlot` `[SmartEnum<int>] : IFactSlot<ContentBody, ContentBodyKind>` is the consequence vocabulary declaring its emitted kinds as ONE set column; `ContentBody` `[Union] : IFactBody<ContentBodyKind>` is the payload family answering its own kind; `ContentReceipt` is the closed instantiation of the spine's stream and `ContentReceipts` this page's mint and projection surface.
-- Entry: the three static mints — `Content`, `Objects`, `Path` — are the fact ingress, the undo stamp rides the stream's own projection, and every projection reads by body kind off `Project`.
-- Law: the stream MACHINERY is not this page's. The accumulation, the cross-product gate, the undo projection, and the slot-keyed readers live once on `Document/facts.md`; a page-local receipt struct, fact row, gate, or projection beside that owner is the deleted form, and the same two declarations are all a third mutation folder needs to join.
-- Law: admission is a READABLE SET, not a shape the mints happen to respect. Each slot declares the body kinds it emits and the kinded contract derives `Admits`, so a census or a receipt printer enumerates the cross product off the rows and a mint pairing an object body with a path slot refuses at the gate.
-- Law: every address column takes its spine owner — `ResourceId` for content and object identity, `DocumentPath` for an export target, `UndoSerial` for a record. The prior mints filtered the empty guid on the object arm and NOT on the content arm, so a "created" fact naming nothing was publishable and no reader distinguished it from a real one; admission at the mint closes both directions and the empty-guid filter disappears with the sentinel.
-- Law: the undo stamp is a projection on the stream, not a rail — `DocumentCommit.Sealed` stamps every sealed receipt, an unrecorded program's serial is zero, `UndoSerial` refuses zero, so no fact claims record zero and the total `(receipt, serial) -> receipt` shape holds. The prior stamp compared the raw serial to zero at each of two call sites.
-- Law: the projection family is TOTAL over the payload-bearing body kinds — one reader per kind, and a one-hop projection of another projection is not an arm at all.
-- Growth: a new consequence is one `ContentSlot` row naming its kind set; a new payload is one `ContentBody` case, one `ContentBodyKind` row, and one projection arm.
-- Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/tables.md` (`ResourceId`), `Document/session.md` (`DocumentPath`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
-
-```csharp
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ContentBodyKind : ICapability<ContentBodyKind> {
-    public static readonly ContentBodyKind Content = new(key: "content");
-    public static readonly ContentBodyKind Object = new(key: "object");
-    public static readonly ContentBodyKind Path = new(key: "path");
-    public static readonly ContentBodyKind Record = new(key: "record");
-}
-
-[SmartEnum<int>]
-public sealed partial class ContentSlot : IFactSlot<ContentBody, ContentBodyKind> {
-    private static readonly CapabilitySet<ContentBodyKind> Addressed = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Content);
-    private static readonly CapabilitySet<ContentBodyKind> Instanced = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Object);
-    private static readonly CapabilitySet<ContentBodyKind> Filed = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Path);
-    private static readonly CapabilitySet<ContentBodyKind> Stamped = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Record);
-
-    public static readonly ContentSlot Minted = new(key: 0, bodies: Addressed);
-    public static readonly ContentSlot Adopted = new(key: 1, bodies: Addressed);
-    public static readonly ContentSlot Detached = new(key: 2, bodies: Addressed);
-    public static readonly ContentSlot Renamed = new(key: 3, bodies: Addressed);
-    public static readonly ContentSlot Grafted = new(key: 4, bodies: Addressed);
-    public static readonly ContentSlot Pruned = new(key: 5, bodies: Addressed);
-    public static readonly ContentSlot SlotSet = new(key: 6, bodies: Addressed);
-    public static readonly ContentSlot FieldSet = new(key: 7, bodies: Addressed);
-    public static readonly ContentSlot Configured = new(key: 8, bodies: Addressed);
-    public static readonly ContentSlot Assigned = new(key: 9, bodies: Instanced);
-    public static readonly ContentSlot Swapped = new(key: 10, bodies: Addressed);
-    public static readonly ContentSlot Grouped = new(key: 11, bodies: Addressed);
-    public static readonly ContentSlot Ungrouped = new(key: 12, bodies: Addressed);
-    public static readonly ContentSlot Exported = new(key: 13, bodies: Filed);
-    public static readonly ContentSlot Undo = new(key: 14, bodies: Stamped);
-    public static readonly ContentSlot Mapped = new(key: 15, bodies: Instanced);
-
-    public CapabilitySet<ContentBodyKind> Bodies { get; }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ContentBody : IFactBody<ContentBodyKind> {
-    private ContentBody() { }
-    public sealed record Content(ResourceId Id) : ContentBody;
-    public sealed record Object(ResourceId Id) : ContentBody;
-    public sealed record Path(DocumentPath Value) : ContentBody;
-    public sealed record Record(UndoSerial Serial) : ContentBody;
-
-    public ContentBodyKind Kind => Map(
-        content: ContentBodyKind.Content,
-        @object: ContentBodyKind.Object,
-        path: ContentBodyKind.Path,
-        record: ContentBodyKind.Record);
-}
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-global using ContentFactRow = Rasm.Rhino.Document.Fact<Rasm.Rhino.Render.ContentSlot, Rasm.Rhino.Render.ContentBody>;
-global using ContentReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Render.ContentSlot, Rasm.Rhino.Render.ContentBody>;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ContentReceipts {
-    extension(ContentReceipt) {
-        public static Fin<ContentReceipt> Content(ContentSlot slot, ResourceId id, Op key) =>
-            ContentReceipt.Of(slot: slot, body: new ContentBody.Content(Id: id), key: key);
-
-        public static Fin<ContentReceipt> Objects(ContentSlot slot, Seq<ResourceId> ids, Op key) =>
-            ContentReceipt.All(
-                slot: slot,
-                bodies: ids.Distinct().Map(static id => (ContentBody)new ContentBody.Object(Id: id)),
-                key: key);
-
-        public static Fin<ContentReceipt> Path(ContentSlot slot, DocumentPath path, Op key) =>
-            ContentReceipt.Of(slot: slot, body: new ContentBody.Path(Value: path), key: key);
-    }
-
-    extension(ContentReceipt receipt) {
-        public Seq<ResourceId> Contents(ContentSlot slot) =>
-            receipt.Project(slot, static body => body is ContentBody.Content row ? Some(row.Id) : None);
-
-        public Seq<ResourceId> Ids(ContentSlot slot) =>
-            receipt.Project(slot, static body => body is ContentBody.Object row ? Some(row.Id) : None);
-
-        public Seq<DocumentPath> Paths(ContentSlot slot) =>
-            receipt.Project(slot, static body => body is ContentBody.Path row ? Some(row.Value) : None);
-
-        public Seq<UndoSerial> Records =>
-            receipt.Project(ContentSlot.Undo, static body => body is ContentBody.Record row ? Some(row.Serial) : None);
-    }
-}
-```
-
-## [06]-[EVENTS]
+## [05]-[EVENTS]
 
 - Owner: `ContentPulse` carries each catalogued static event as one bind row beside its `ScopeAffinity` column; `ContentSignal` closes detached payloads; `ContentObservation` is the ask a binder hands in; `ContentStream` owns transactional attach, document gating, symmetric release, and a bounded `Ring<ContentStreamFailure>`.
 - Entry: `ContentStream.Of(observation, key)` is the ONE mint — the observation IS the parameter set, so the six-argument entry that re-spelled its columns is gone and the hook binding forwards the ask untouched.
@@ -2049,7 +1915,7 @@ public sealed class ContentStream : IDisposable {
 }
 ```
 
-## [07]-[SURFACE_LEDGER]
+## [06]-[SURFACE_LEDGER]
 
 | [INDEX] | [CONCERN]       | [OWNER]                            | [FORM]                            | [ENTRY]                 |
 | :-----: | :-------------- | :--------------------------------- | :-------------------------------- | :---------------------- |
@@ -2061,22 +1927,20 @@ public sealed class ContentStream : IDisposable {
 |  [06]   | typed reads     | `RegistryQuery<T>`                 | result-correlated programs        | `Registry.Read<T>`      |
 |  [07]   | collection read | `ContentCollectionEvidence`        | leased set, kind scope, traits    | `Collection`            |
 |  [08]   | icon routes     | `IconModality` / `IconRequest`     | six host routes, one custody hop  | `ContentQuery.Icon`     |
-|  [09]   | receipts        | `ContentSlot` / `ContentBody`      | the spine's stream, undo-stamped  | `ContentReceipts`       |
-|  [10]   | content events  | `ContentPulse`                     | verified event rows               | `ContentStream.Of`      |
-|  [11]   | event evidence  | `ContentSignal`                    | detached payload family           | `ContentStream.Of`      |
-|  [12]   | observation ask | `ContentObservation`               | the one admitted parameter set    | `ContentObservation.Of` |
-|  [13]   | hook point      | `ContentHooks`                     | `rasm.rhino.render.content` mount | `ContentHooks.Mount`    |
-|  [14]   | shell rows      | `RenderShellProgram` / `ShellRow`  | keyed panel and side-pane rows    | `Registry.Run`          |
-|  [15]   | shell gate      | `ShellGate` / `RenderShell`        | one-shot host-callback seating    | `RenderShell.Drain`     |
-|  [16]   | shell resolve   | `ShellSeat<TBody>`                 | seated body plus side-pane id     | `RenderShell.Resolve`   |
-|  [17]   | editor payloads | `EditorBridge` / `EditorProvider`  | provider-keyed borrow and commit  | `EditorBridge.Of`       |
-|  [18]   | editor facts    | `EditorFacts`                      | renderer, view, and size facts    | `Registry.Read`         |
+|  [09]   | content events  | `ContentPulse`                     | verified event rows               | `ContentStream.Of`      |
+|  [10]   | event evidence  | `ContentSignal`                    | detached payload family           | `ContentStream.Of`      |
+|  [11]   | observation ask | `ContentObservation`               | the one admitted parameter set    | `ContentObservation.Of` |
+|  [12]   | hook point      | `ContentHooks`                     | `rasm.rhino.render.content` mount | `ContentHooks.Mount`    |
+|  [13]   | shell rows      | `RenderShellProgram` / `ShellRow`  | keyed panel and side-pane rows    | `Registry.Run`          |
+|  [14]   | shell gate      | `ShellGate` / `RenderShell`        | one-shot host-callback seating    | `RenderShell.Drain`     |
+|  [15]   | shell resolve   | `ShellSeat<TBody>`                 | seated body plus side-pane id     | `RenderShell.Resolve`   |
+|  [16]   | editor payloads | `EditorBridge` / `EditorProvider`  | provider-keyed borrow and commit  | `EditorBridge.Of`       |
+|  [17]   | editor facts    | `EditorFacts`                      | renderer, view, and size facts    | `Registry.Read`         |
 
-## [08]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

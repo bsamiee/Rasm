@@ -258,7 +258,6 @@ public static partial class Spec {
         });
     }
 
-    // --- [RECEIPT_ALGEBRA]
     public static void Causal<T>(Gen<T> gen, Func<T, T> advance, Func<T, long> physical, Func<T, ulong> logical, (T Before, T After) refutingWitness,
         string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: advance);

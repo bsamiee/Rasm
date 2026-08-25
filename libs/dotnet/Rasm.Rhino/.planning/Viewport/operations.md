@@ -1,6 +1,6 @@
 # [RASM_RHINO_CAMERA_OPERATIONS]
 
-Camera mutation splits by payload TIMING, not by case. `CameraOp` is the static vocabulary `Cameras.Apply` executes inside one `ViewportLease` borrow, answering one `CameraReceipt` whose every summary column derives from a per-row evidence stream; `CameraDrive` is the paced request `Cameras.Drive` prepares once and hands to `MotionPump`, answering the running `MotionLease` itself. One union carried both and therefore spelled a case its own dispatch refused unconditionally, guarded out before the switch — the split makes that arm a compile fact.
+Camera mutation splits by payload TIMING, not by case. `CameraOp` is the static vocabulary `Cameras.Apply` executes inside one `ViewportLease` borrow, answering one `CameraRun` whose every summary column derives from a per-row evidence stream; `CameraDrive` is the paced request `Cameras.Drive` prepares once and hands to `MotionPump`, answering the running `MotionLease` itself. One union carried both and therefore spelled a case its own dispatch refused unconditionally, guarded out before the switch — the split makes that arm a compile fact.
 
 Gesture, projection, stack, framing, named-view, clipping, convention, and pose rows own their own admission and their own host lowering, so `CameraOp`'s factories lift an already-admitted request rather than re-walking it. The sampling algebra is the kernel's whole: `MotionScript`, `MotionSample`, and `MotionDrive.Step` arrive from `Rasm.Parametric`, `CameraTrack` composes `VectorIntent.Pose`, and this page computes no motion value.
 
@@ -9,7 +9,7 @@ Gesture, projection, stack, framing, named-view, clipping, convention, and pose 
 - [02]-[GESTURE_ROWS]: `KeyGesture`, `GestureAxis`, `DragGesture`, `ScreenDrag`, `GestureRequest` — the keyboard and mouse vocabularies as delegate-column rows over the host verb families.
 - [03]-[PROJECTION_AND_STACK]: `ProjectionChange` with the `DefinedView` and `IsoQuadrant` host-ordinal rows; `StackVerb` and the `StackMove` evidence the host's benign `false` carries.
 - [04]-[NAMED_AND_CLIP]: `NamedViewOp` with the `RestorePace`/`RestoreCadence` pair; `ClipLink` and the shared `CommitPosture`; `RestoreScope` over the process-global defined-view facets.
-- [05]-[OPERATION_RAIL]: `CameraOp` and `CameraDrive`, `ApplyPolicy` with its `ActiveBinding` row, `CameraStage` the prepared drive, the `CameraReceipt` evidence stream, and the two entries on `Cameras`.
+- [05]-[OPERATION_RAIL]: `CameraOp` and `CameraDrive`, `ApplyPolicy` with its `ActiveBinding` row, `CameraStage` the prepared drive, the `CameraRun` evidence stream, and the two entries on `Cameras`.
 
 ## [02]-[GESTURE_ROWS]
 
@@ -18,7 +18,7 @@ Gesture, projection, stack, framing, named-view, clipping, convention, and pose 
 - Law: a gesture is a row carrying a payload, so seven mouse verbs and three keyboard verbs are ten declarations with two delegate columns; a per-verb union case with a second dispatch is the collapsed form and a new host gesture member is one row.
 - Law: the `Apply` column answers the RAIL. Each row's delegate funnels the host `bool` through `Op.Confirm` inside the row itself, so a call site cannot receive a raw verdict and forget to funnel it — the discipline the two `Apply` sites previously carried by convention is now the column's type.
 - Law: `GestureAxis` is a two-row vocabulary over ONE host parameter three verbs share, so the axis cannot own the write the way `OffsetOrigin` does; the named lowering is the whole point and the `bool` reaches exactly one place, the delegate's own argument list.
-- Boundary: gestures are relative host edits with no meaningful inverse value; their receipt evidence is the post-edit `ChangeCounter` delta, not a pose echo.
+- Boundary: gestures are relative host edits with no meaningful inverse value; their `RowEvidence` is the post-edit `ChangeCounter` delta, not a pose echo.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -137,7 +137,7 @@ public abstract partial record GestureRequest {
 - Law: the two-point change reuses the live camera up when it is valid and falls to `Vector3d.Zero` (the host's re-derive sentinel) otherwise — the up-vector is bound ONCE per arm, not read twice inside one expression — and BOTH perspective rows carry `Option<double> TargetDistance` lowered to `RhinoMath.UnsetValue` at the call, so absence stays typed until the host edge and no caller loses a distance the perspective sibling accepts.
 - Law: `LensAngle` is the full vertical view angle and the host slot holds its HALF, the convention `Viewport/camera` states and the pose seat writes; a 1:1 assignment here doubles the field of view.
 - Law: `IsoQuadrant` and `DefinedView` are the Rhino 9 axonometric seam — `SetProjection(projection:, viewName:, updateConstructionPlane:)` — carried as first-class rows so an iso or axon view is a request value, never a command-script fallback.
-- Law: the stack verdict is EVIDENCE, not a discard. `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` both at the stack boundary AND when the popped projection equals the current one, so the host CONFLATES two causes it never separates; `StackMove` names exactly what the host answers — `Moved`, or `Held` carrying both causes in one case — and the receipt publishes it. A third case derived from the `ChangeCounter` delta fabricates a distinction the host does not make, since a held pop advances no counter under either cause.
+- Law: the stack verdict is EVIDENCE, not a discard. `PopViewProjection`/`NextViewProjection`/`PreviousViewProjection`/`PopConstructionPlane` return `false` both at the stack boundary AND when the popped projection equals the current one, so the host CONFLATES two causes it never separates; `StackMove` names exactly what the host answers — `Moved`, or `Held` carrying both causes in one case — and `CameraRun.Moves` publishes it. A third case derived from the `ChangeCounter` delta fabricates a distinction the host does not make, since a held pop advances no counter under either cause.
 - Boundary: every stack arm runs inside `Op.Catch`, so a host throw rides the rail the arm's own `Fin<StackMove>` promises; the stack DEPTH is host state this rail never mirrors.
 
 ```csharp
@@ -521,10 +521,10 @@ public sealed partial class RestoreScope {
 
 ## [05]-[OPERATION_RAIL]
 
-- Owner: factory-only `CameraOp` owns every STATIC mutation; `CameraDrive` owns the paced request; `CameraTrack` parameterizes the pose continuum while refusing projection changes, which stay explicit `ProjectionChange` operations; `ApplyPolicy` owns redraw, detail commit, and the `ActiveBinding` row deciding what an address resolved once means later; `CameraStage` owns the prepared drive; `RowEvidence` and `CameraOutcome` are the per-row facts and `CameraReceipt` the stream over them.
-- Entry: `Cameras.Apply(session, target, operation, policy?, key?) : Fin<CameraReceipt>` resolves and mutates inside one `ViewportLease` set borrow, commits detail changes, and performs the terminal redraw before native handles leave scope; `Cameras.Drive(session, target, drive, timeline, policy?, key?) : Fin<MotionLease>` prepares the stage once and hands `MotionPump` an apply closure.
-- Auto: every `CameraReceipt` summary DERIVES from its row stream — `Applied` is the row count, `Serials` the counter pairs, `ClipCensus` the clipped rows' planes, `Moves` the stacked rows' verdicts — so a stored count beside the rows it counts, and a census column three quarters of the arms fill with an empty sequence, both have no successor.
-- Law: the two entries are split by PAYLOAD TIMING, and the split is the point. `Cameras.Apply` answers evidence that exists the moment the borrow returns; `Cameras.Drive` answers a handle whose evidence arrives over frames. The prior union carried both, so its `Execute` dispatch held one arm returning an unconditional failure and `Apply` pre-dispatch-guarded that arm out — an arm that is unconditionally failing is never defensive coverage. NAMED LOSS: `CameraOp` stops being the single vocabulary covering motion, and `CameraReceipt` stops being a union; bought back twice — the unreachable arm is now a type error, and `CameraPose.Write`'s `receipt.Serials.Last` reads the derived column directly where it previously had to match a case first. WITNESS: `Viewport/camera.md` `CameraPose.Write` composes `Cameras.Apply(session:, target:, operation: CameraOp.Pose(pose), key:)` and reads `receipt.Serials.Last` unchanged.
+- Owner: factory-only `CameraOp` owns every STATIC mutation; `CameraDrive` owns the paced request; `CameraTrack` parameterizes the pose continuum while refusing projection changes, which stay explicit `ProjectionChange` operations; `ApplyPolicy` owns redraw, detail commit, and the `ActiveBinding` row deciding what an address resolved once means later; `CameraStage` owns the prepared drive; `RowEvidence` and `CameraOutcome` are the per-row facts and `CameraRun` the stream over them.
+- Entry: `Cameras.Apply(session, target, operation, policy?, key?) : Fin<CameraRun>` resolves and mutates inside one `ViewportLease` set borrow, commits detail changes, and performs the terminal redraw before native handles leave scope; `Cameras.Drive(session, target, drive, timeline, policy?, key?) : Fin<MotionLease>` prepares the stage once and hands `MotionPump` an apply closure.
+- Auto: every `CameraRun` summary DERIVES from its row stream — `Applied` is the row count, `Serials` the counter pairs, `ClipCensus` the clipped rows' planes, `Moves` the stacked rows' verdicts — so a stored count beside the rows it counts, and a census column three quarters of the arms fill with an empty sequence, both have no successor.
+- Law: the two entries are split by PAYLOAD TIMING, and the split is the point. `Cameras.Apply` answers evidence that exists the moment the borrow returns; `Cameras.Drive` answers a handle whose evidence arrives over frames. The prior union carried both, so its `Execute` dispatch held one arm returning an unconditional failure and `Apply` pre-dispatch-guarded that arm out — an arm that is unconditionally failing is never defensive coverage. NAMED LOSS: `CameraOp` stops being the single vocabulary covering motion, and `CameraRun` stops being a union; bought back twice — the unreachable arm is now a type error, and `CameraPose.Write`'s `outcome.Serials.Last` reads the derived column directly where it previously had to match a case first. WITNESS: `Viewport/camera.md` `CameraPose.Write` composes `Cameras.Apply(session:, target:, operation: CameraOp.Pose(pose), key:)` and reads `outcome.Serials.Last` unchanged.
 - Law: admission belongs to the family, not to the factory. `ProjectionChange`, `StackVerb`, `NamedViewOp`, and `ClipLink` each answer `Admit(Op)` the way `GestureRequest` always has, so `CameraOp`'s eight factories are each one lift and the four inner `Switch` ladders — twenty-six arms re-walking payloads the case owner already understands — have no successor.
 - Law: a paced drive is PREPARED once — `CameraStage.Of` runs the address census, mints one lease per resolved row, and derives the per-frame policy before the first tick, so the tick body carries the pose alone and pays one borrow per row. Replaying the whole entry rail per frame spends admission work on inputs the drive proved at preparation.
 - Law: an address resolved BEFORE the write it serves binds explicitly. `ActiveBinding.Pinned` keeps the viewport that was active at preparation and refuses with `InvalidContext` once it stops being active; `Following` re-resolves the live active view per frame. `StagedRow.Of` reads the `(binding, address)` PRODUCT as one pattern, because a computed flag branched twice is the joint discriminant spelled apart.
@@ -713,7 +713,7 @@ public sealed partial class ApplyPolicy {
 
 public readonly record struct RowEvidence(uint Before, uint After, CameraOutcome Outcome);
 
-public sealed record CameraReceipt(CameraOp Operation, Seq<RowEvidence> Rows, RedrawWhat Redrew) : IDetachedDocumentResult {
+public sealed record CameraRun(CameraOp Operation, Seq<RowEvidence> Rows, RedrawWhat Redrew) : IDetachedDocumentResult {
     public int Applied => Rows.Count;
     public Seq<(uint Before, uint After)> Serials => Rows.Map(static row => (row.Before, row.After));
     public Seq<ResourceId> ClipCensus => Rows.Bind(static row =>
@@ -782,7 +782,7 @@ internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> Pinn
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Cameras {
-    public static Fin<CameraReceipt> Apply(
+    public static Fin<CameraRun> Apply(
         DocumentSession session,
         ViewportTarget target,
         CameraOp operation,
@@ -794,8 +794,8 @@ public static class Cameras {
                from admitted in op.Need(value: operation)
                let plan = policy.IfNone(ApplyPolicy.Default)
                from lease in ViewportLease.Of(session: owner, target: address, key: op)
-               from receipt in Execute(lease: lease, operation: admitted, plan: plan, key: op)
-               select receipt;
+               from outcome in Execute(lease: lease, operation: admitted, plan: plan, key: op)
+               select outcome;
     }
 
     public static Fin<MotionLease> Drive(
@@ -824,7 +824,7 @@ public static class Cameras {
                select lease;
     }
 
-    private static Fin<CameraReceipt> Execute(ViewportLease lease, CameraOp operation, ApplyPolicy plan, Op key) =>
+    private static Fin<CameraRun> Execute(ViewportLease lease, CameraOp operation, ApplyPolicy plan, Op key) =>
         from rows in lease.Use(
             borrow: (document, row) =>
                 from before in Fin.Succ(row.Viewport.ChangeCounter)
@@ -865,7 +865,7 @@ public static class Cameras {
             terminal: (document, count) => Fin.Succ(value: plan.Redraw.Terminal(document: document, count: count)),
             mode: ViewportBorrowMode.Mutate,
             key: key)
-        select new CameraReceipt(Operation: operation, Rows: rows, Redrew: plan.Redraw);
+        select new CameraRun(Operation: operation, Rows: rows, Redrew: plan.Redraw);
 
     private static Fin<UnitInterval> Progressed(MotionSample sample, Op key) =>
         key.AcceptValidated<UnitInterval>(candidate: double.Clamp(
@@ -890,7 +890,7 @@ config:
 ---
 flowchart LR
     accTitle: Rhino camera operation rail
-    accDescr: Two entries split by payload timing — a static apply that borrows a viewport lease, lands gesture, projection, stack, named, clip, and convention rows on the host viewport, commits detail changes, and returns one row-evidence receipt; and a paced drive that stages the rows once, samples the kernel motion drive, and returns the running motion lease.
+    accDescr: Two entries split by payload timing — a static apply that borrows a viewport lease, lands gesture, projection, stack, named, clip, and convention rows on the host viewport, commits detail changes, and returns one row-evidence outcome; and a paced drive that stages the rows once, samples the kernel motion drive, and returns the running motion lease.
     Consumer["command / panel / GH2 node"] -->|CameraOp| Rail["Cameras.Apply"]
     Consumer -->|"CameraDrive + MonotonicTimeline"| Paced["Cameras.Drive"]
     Rail -->|ViewportTarget| Lease["ViewportLease — camera.md borrow"]
@@ -898,7 +898,7 @@ flowchart LR
     Rail -->|"gesture / projection / stack / named / clip rows"| Viewport["RhinoViewport · NamedViewTable · ClippingPlaneObject"]
     Rail -->|"ApplyPolicy.CommitDetail"| Detail["DetailViewObject"]
     Rail -->|"one policy redraw"| Redraw["RhinoView.Redraw · RhinoDoc.Views.Redraw"]
-    Rail -->|"CameraReceipt — RowEvidence stream"| Consumer
+    Rail -->|"CameraRun — RowEvidence stream"| Consumer
     Paced -->|"CameraStage.Of — prepare once"| Staged["StagedRow leases"]
     Kernel["Rasm.Parametric MotionDrive.Step · MotionScript"] -->|MotionSample| Pump["MotionPump.Drive"]
     Paced --> Pump
@@ -910,7 +910,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

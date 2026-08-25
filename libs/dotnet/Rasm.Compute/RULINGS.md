@@ -13,7 +13,7 @@
 - `StageSession` binds tensor lanes to ROLE keys and the request carries no output roster — ordinal binding couples two versioned rosters.
 - ONE `TilePlan` grid carries every product a forward pass emits — a flow per output name re-infers the whole image once per produced plane.
 - `Model/providers#EP_AXIS` rows own each wire spelling as a `WireKey` column — a later row crosses by declaring one string, never a translation map.
-- `ExecutionProvider` degrades to the floor and `ModelPrecision` refuses — the consuming record reports what RAN, else run and receipt fork.
+- `ExecutionProvider` degrades to the floor and `ModelPrecision` refuses — the consuming record reports what RAN, else run and result fork.
 - `FieldMask` unions, normalizes, validates, and merges at `FrameEdge.Patch` alone — `Normalize` never sorts, so no mask carries an order.
 - Modal solve condenses onto the inertia-bearing rows before this lane's dense `Evd` — no eigensolver reaches a pencil with singular inertia.
 - Condensation is EXACT, never an approximation of a better route — a lumped-mass frame has no rotary inertia, so condensed rows hold exact zeros.
@@ -43,11 +43,10 @@
 - `StatusRail` is the CLIENT fold `StatusCode → WireFault`, the inverse of AppHost's producer `FaultWire.Status` — it packs no detail.
 - Stage crossings admit generated `rasm.contracts.stage` through `ParseGuard`; the descriptor remains the sole roster and digest authority.
 - `ProgressStream` serves `ProgressService.Watch`; `typescript:core` alone dials it, and the app root binds the service base.
-- `ComputeReceipt` remains the STJ in-process union; only its header projection crosses runtimes, so the corpus mints no receipt family.
 - Policy keys carry `ReadOnlyMemory<double>`; the identity fold stores vectors in static closure state without capturing spans.
 - Closed C# vocabularies cross `compute.proto` as KEY text or a `[SmartEnum<int>]` value — a proto enum owes an `_UNSPECIFIED` arm none holds.
 - `Analysis/daylight` `SurveyRay` is the ONE survey-frame narrowing into the clash float coordinate — a per-ray `(float)` cast forks the floor.
-- Integration's floor is the kernel's and Compute holds only the layer above — the adaptive driver, the scaled error norm, the receipt projection.
+- Integration's floor is the kernel's and Compute holds only the layer above — the adaptive driver, the scaled error norm, the result projection.
 - Kernel `Norm` reads the delta alone, so scale rides a carrier re-minted per accept — one minted from the initial state reverts to absolute control.
 - `ElementClass` declares a reference domain and integration ORDER, not a rule constant — `ReferenceElement` elects the smallest rule at or above it.
 - Numeric posture is a `CapabilitySet` under a corner law — three adjacent bools left five products representable that no runtime executes.
@@ -67,7 +66,7 @@
 - Digital filtering is an INGESTED corpus — python-fitted banks arrive through the field codec, and a local design lane deletes onto it.
 - Hypothesis testing owns no Compute seat — the CDF-read kernels retired at zero consumers, and a rule needing one re-enters WITH its consumer.
 - One residual ring: `ResidualWindow` is the folder's bounded residual carrier — a `TwinWindow`-class local ring beside it is the deleted form.
-- Estimator selection spells `CriterionPolicy` — the receipt axis `SelectionMode` keeps the selection word, `SelectionPolicy` retired.
+- Estimator selection spells `CriterionPolicy` — the result axis `SelectionMode` keeps the selection word, `SelectionPolicy` retired.
 
 ## [04]-[STRUCTURE]
 
@@ -76,10 +75,6 @@
 - Each `libs/contracts/proto/rasm/contracts/<family>/` directory owns one package descriptor source, preserving path-keyed tool identity.
 - Service names carry the `Service` suffix — the corpus `buf` gate holds `SERVICE_SUFFIX` unwaived, so no sibling reads by a different rule.
 - Compute's payload messages carry NO `Wire` suffix — nothing co-resident collides, so a suffix binds a name `compute.proto` never mints.
-- Wire messages spell `<Verb>Request`/`<Verb>Receipt` and the domain shape keeps its name — a rename moves a wire name and forks the roster.
+- Wire messages spell `<Verb>Request`/`<Verb>Result` and the domain shape keeps its name — a rename moves a wire name and forks the roster.
 - TypeScript consumes the generated `@rasm\/contracts` schemas — no Compute page mints a TS interface, alias, or method-shape roster.
 - `ContractGuard`/`ContractSurface`/`ContractDrift` do NOT re-enter — `Discovery`'s generation compare owns agreement, peers regenerating one shape.
-
-## [05]-[PROCESS]
-
-- (none)

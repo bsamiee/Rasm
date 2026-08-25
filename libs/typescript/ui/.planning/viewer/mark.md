@@ -374,19 +374,19 @@ const _pin = (topic: Wire.BcfTopic, viewpoint: Option.Option<Wire.BcfViewpoint>,
 ## [06]-[VIEWPOINT_RESTORE]
 
 [VIEWPOINT_RESTORE]:
-- Owner: `Mark.restore(viewpoint, resident, millis)` admits `BcfViewpointWire` bytes through `Wire.decode`, then folds two outputs and one receipt: the wire's optional camera block (position/direction/up and the `lens` oneof — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` where present — eye from the position rows, target from position and direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive`, and answers `Option.none` on a camera-less viewpoint (a selection-only anchor `review#ECHO_ROWS` frames); the `selectedGlobalIds` array mints the existing `Selection.Op.Replace` case directly; and the anchor receipt reports which ids resolved against the live model — the partial-failure evidence the operator reads.
+- Owner: `Mark.restore(viewpoint, resident, millis)` admits `BcfViewpointWire` bytes through `Wire.decode`, then folds one `Mark.Restored`: the wire's optional camera block (position/direction/up and the `lens` oneof — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` where present — eye from the position rows, target from position and direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive`, and answers `Option.none` on a camera-less viewpoint (a selection-only anchor `review#ECHO_ROWS` frames); the `selectedGlobalIds` array mints the existing `Selection.Op.Replace` case directly over the ids resident in the live model; and `missing` carries the ids that resolved against nothing — the partial-failure evidence the operator reads.
 - Law: restore never re-derives — no view geometry computes beyond coordinate adaptation; the viewpoint IS the proof, and a restore that corrects the camera is the drift defect.
-- Law: the receipt is data — `{ requested, resolved, missing }` counts and the missing id list; it renders as an evidence row (`Message` plural forms), never throws; a fully-missing selection still restores a carried camera, and a camera-less viewpoint restores selection alone.
+- Law: `missing` is the one fact the op cannot carry — the resolved ids ride the op itself and every count derives at render (`Message` plural forms over `missing.length` beside the op's ids), never a stored tally; a fully-missing selection still restores a carried camera, and a camera-less viewpoint restores selection alone.
 - Boundary: which elements are resident is `scene`'s graft ledger fact; intent dispatch is `geo#CAMERA`'s; the selection fold is `[2]`'s.
 
 ```typescript
 import { Array, HashSet, Option, pipe } from "effect"
 import { Camera } from "./geo.ts"
 
-declare namespace Restore {
-  type Receipt = {
-    readonly requested: number
-    readonly resolved: number
+declare namespace Mark {
+  type Restored = {
+    readonly intent: Option.Option<Camera.Intent>
+    readonly op: Selection.Op
     readonly missing: ReadonlyArray<GlobalId>
   }
 }
@@ -397,20 +397,17 @@ const _restore = (
   viewpoint: Uint8Array,
   resident: HashSet.HashSet<GlobalId>,
   millis: number,
-): Effect.Effect<
-  { readonly intent: Option.Option<Camera.Intent>; readonly op: Selection.Op; readonly receipt: Restore.Receipt },
-  Wire.Fault | ParseResult.ParseError
-> =>
+): Effect.Effect<Mark.Restored, Wire.Fault | ParseResult.ParseError> =>
   Effect.map(
     Wire.decode("BcfViewpointWire", viewpoint),
     (admitted) =>
       pipe(
         Array.partition(_ids(admitted.selectedGlobalIds), (id) => HashSet.has(resident, id)),
-        ([missing, resolved]) => ({
+        ([missing, resolved]): Mark.Restored => ({
           intent: Option.map(Option.flatMap(Option.fromNullable(admitted.camera), _framed), (frame) =>
             Camera.Intent.LookAt({ eye: frame.eye, target: frame.target, millis })),
           op: _Op.Replace({ ids: resolved }),
-          receipt: { requested: admitted.selectedGlobalIds.length, resolved: resolved.length, missing },
+          missing,
         }),
       ),
   )
@@ -688,7 +685,6 @@ export { Mark, Selection }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

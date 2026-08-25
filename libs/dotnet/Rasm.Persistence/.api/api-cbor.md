@@ -122,7 +122,7 @@ CBOR owns the self-describing, schema-free blob/snapshot leg, `MessagePack` the 
 
 [LOCAL_ADMISSION]:
 - CBOR is a codec inside blob/snapshot profiles, never public Persistence vocabulary; conformance mode and tag usage are profile data.
-- Receipt projection over every stored CBOR body carries codec, conformance mode, and compression/redaction class, matching the `MessagePack` payload contract.
+- Every stored CBOR body carries codec, conformance mode, and compression/redaction class, matching the `MessagePack` payload contract.
 - `CborReader` is buffer-resident: a body larger than memory is framed into items by the store layer (`api-objectstore`), never streamed through one reader.
 - Canonical determinism binds wherever bytes feed content identity; `Lax`/`Strict` are read-time validation choices and never key a `ContentKey`.
 

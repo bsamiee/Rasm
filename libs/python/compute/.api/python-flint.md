@@ -216,7 +216,7 @@
 - `mpmath`(`.api/mpmath.md`): `mpmath` is the unrigorous fast floor; re-evaluate its closed form through `arb`/`acb` under `flint.good` to promote a heuristic special-function value to a certified bound, `rad()` the error the `mpmath` value lacks.
 - `sympy`(`.api/sympy.md`): lower a symbolic polynomial or matrix to `fmpz_poly`/`fmpq_poly`/`fmpz_mat` for the FLINT exact kernels (factorization, `resultant`, `roots`, HNF/SNF/LLL, `charpoly`), then lift the exact result back; `fmpz_mpoly_vec` and the mpoly context own Gröbner and lattice work.
 - `uncertainties`(`.api/uncertainties.md`): dual error models — `uncertainties` for first-order Gaussian propagation, `arb` for worst-case certified enclosure; `arb` owns any requirement for a guaranteed enclosure over a `1σ` estimate.
-- within-lib: an `arb`/`acb` result is its own receipt — `mid()` the value, `rad()` the certified error, `rel_accuracy_bits()` the precision evidence; the algorithm receipt captures `ctx.prec`/`ctx.dps` and the final `rad()` over an external tolerance.
+- within-lib: an `arb`/`acb` result is its own certificate — `mid()` the value, `rad()` the certified error, `rel_accuracy_bits()` the precision evidence; `Enclosure` retains that certificate for graduation.
 
 [LOCAL_ADMISSION]:
 - Integer and rational constants in solver kernels stay `fmpz`/`fmpq`, converting to float only at the boundary.

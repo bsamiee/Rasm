@@ -4,7 +4,7 @@ Machine-readable-mark operation owner. `Mark` owns the closed `MarkOp` family ac
 
 Every provider boundary maps named raises into `MarkFault`. `_QR_BANDS` selects the exact QR factory shape, `_CLASS_BANDS` covers the linear, matrix, and writer families; admitted bands deep-freeze before entering cached operation payloads. `Mark.of(lane)` fans independent operations through one `anyio.create_task_group`, preserving input order through task handles while each case declares its own `KernelTrait` row.
 
-Every operation answers a `Block[RasterFact]`, one fact per ADDRESSED member: a structured-append span is N separately scannable documents, so it fans into N facts and N `ArtifactWork` nodes — each node storing its member-keyed content key and `work` coroutine, whose `_emit` settles that member's extent, position, and receipt — while a lone symbol is the one-member case of that fold. Construction knows the count because `QrSequenceMake.symbol_count` is REQUIRED on the `graphic/marks/mark#MARK` band, where the version/EC solve runs inside the worker long after the plan minted its nodes.
+Every operation answers a `Block[RasterFact]`, one fact per ADDRESSED member: a structured-append span is N separately scannable documents, so it fans into N facts and N `ArtifactWork` nodes, while a lone symbol is the one-member case of that fold. Construction knows the count because `QrSequenceMake.symbol_count` is REQUIRED on the `graphic/marks/mark#MARK` band, where the version/EC solve runs inside the worker long after the plan minted its nodes.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@ Every operation answers a `Block[RasterFact]`, one fact per ADDRESSED member: a 
 - Law: `MarkFault` carries provider, admission, geometry, scan, contract, and `unscannable` causes on one rail; `options` accumulates every `ValidationError` location.
 - Law: `Content.raw` preserves `str | bytes`, so segno and zxing receive binary payloads without a lossy text round trip while the text-only python-barcode arm refuses bytes at ingress. Structured `wifi`/`geo`/`email` and full `vcard`/`mecard` cases fold to canonical QR text once. `Content.epc(EpcPayment)` carries segno's full public EPC helper axis as a frozen per-mode payload; `make_epc_qr` fixes QR error/version policy, and verify refuses EPC because no public canonical-text twin exists for byte-equality evidence.
 - Entry: `Mark.over` normalizes singular and iterable request shapes. `of(lane)` launches each independent request in one task group; `_trait` selects `RELEASING` for encode and pixel scans, `HOSTILE` for raster scans and verify, and deterministic codec work carries no caller retry beyond the trait row. `emit(lane)` mints one node per addressed member off `_arity`, which reads the declared `symbol_count` — the one axis where a request's node count exceeds one.
-- Receipt: each ADDRESSED member folds into its own `RasterFact` and projects to `ArtifactReceipt.Preview(key, width, height, bytes_, scores)` keyed over THAT member's emitted bytes, threading `len(RasterFact.data)` and `RasterFact.score` onto the shared receipt — one artifact identity per scannable product, never one receipt standing for a span. Every encode arm measures its real extent off the produced symbol, and `_segno_score` stamps `MarkFact` evidence with `INDEX`/`COUNT` naming the member's position; verify reports the scanned raster dimensions and stamps `VERIFIED`/`DPI` with the member's own `INDEX`/`COUNT` position pair beside native numeric scan facts, its verdict graded over the WHOLE span because a member carries only a fragment of the payload.
+- Output: each addressed member returns its own `RasterFact`. Every encode arm measures its produced extent, and `_segno_score` stamps the member position; verify preserves the scanned dimensions and span-wide verdict in that fact.
 - Growth: a new segno symbol kind is one `_QR_ROWS` row; a new structured payload one `Content` case plus one `_resolved_content` arm, a richer existing payload one more field on its case; a new linear or 2D-matrix symbology one `Symbology` member plus one `TAXONOMY` row on the mark floor — no dispatch edit here; a new fault cause one `MarkFault` case; a new evidence fact one `MarkFact` member the owning arm stamps; a new option knob one key on the owning per-class band; a new operation one `MarkOp` case plus one `_performed` arm plus one `_trait` row, beside one `_arity` arm where it addresses more than one member; a data-URI or per-module `matrix_iter` render one segno growth axis on the qr arm; zero new surface.
 
 ```python
@@ -40,9 +40,8 @@ from expression.extra.result import traverse
 from msgspec import Struct
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.layer import LayerNode
 from rasm.artifacts.graphic.marks.decode import DecodeScope, DecodedSymbol, ScopeKind
 from rasm.artifacts.graphic.marks.mark import (
@@ -64,6 +63,7 @@ from rasm.artifacts.graphic.vector.region import RegionOp, RenderPolicy, applied
 from rasm.runtime.faults import FAULT_CONF, TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import barcode
@@ -546,7 +546,7 @@ class Mark(Struct, frozen=True):
             handles = tuple(group.start_soon(_offloaded, lane, op) for op in self.ops)
         return Block.of_seq(handle.return_value for handle in handles)
 
-    def emit(self, lane: LanePolicy, /) -> Iterable[ArtifactWork]:
+    def emit(self, lane: LanePolicy, /) -> Iterable[ArtifactWork[RasterFact]]:
         return tuple(
             ArtifactWork(
                 key=ContentIdentity.key(f"mark-{op.tag}", _CANON.encode((op.encode if op.tag == "encode" else op.verify, member))),
@@ -561,13 +561,20 @@ class Mark(Struct, frozen=True):
         )
 
     @staticmethod
-    async def _emit(op: MarkOp, member: int, lane: LanePolicy, /) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(op: MarkOp, member: int, lane: LanePolicy, /) -> RuntimeRail[RasterFact]:
         fact = await lane.offload(Kernel.of(_performed, _trait(op)), op)
-        return fact.bind(
-            lambda res: res.map(lambda members: members.item(member))
-            .map(lambda f: ArtifactReceipt.Preview(ContentIdentity.key(f"mark-{op.tag}", f.data), f.width, f.height, len(f.data), f.score))
-            .map_error(lambda fault: BoundaryFault(domain=(MARK_ENCODE.subject, fault)))
+        settled = fact.bind(
+            lambda res: res.map(lambda members: members.item(member)).map_error(
+                lambda fault: BoundaryFault(domain=(MARK_ENCODE.subject, fault))
+            )
         )
+        match settled:
+            case Result(tag="ok", ok=result):
+                key = ContentIdentity.key(f"mark-{op.tag}", result.data)
+                Metrics.record({BYTE_VOLUME: float(len(result.data))}, domain=DOMAIN, kind="preview", scope=lane.scope)
+                return Ok(result)
+            case refused:
+                return Error(refused.error)
 
     def layered(self, name: str, /) -> Result[Block[LayerNode], MarkFault]:
         encodes = tuple(op.encode for op in self.ops if op.tag == "encode")
@@ -601,7 +608,7 @@ config:
 ---
 flowchart LR
     accTitle: Mark encode, decode, and verify dispatch
-    accDescr: The mark lane and work emitter both entering one total operation match whose encode arm dispatches by taxonomy class onto the QR, linear, and matrix writers, whose decode arm composes the scan scope one hop, and whose verify arm rasterizes its own carrier back through the scan for a span-wide grade, every arm answering a block of one fact per addressed member that the emitter selects into a per-member receipt.
+    accDescr: The mark lane and work emitter enter one total operation match whose encode arm dispatches by taxonomy class, whose decode arm composes the scan scope, and whose verify arm rasterizes its carrier through the scan; every arm answers one RasterFact per addressed member.
     Over["Mark.over (MarkOp | Iterable)"] --> Of["Mark.of(lane): task-group fan-out + per-op trait + flattened MarkRail"]
     Over --> Emit["Mark.emit(lane): one ArtifactWork per ADDRESSED member (_arity off declared symbol_count)"]
     Of --> Perf["_performed: total match over MarkOp -> Block[RasterFact]"]
@@ -616,7 +623,7 @@ flowchart LR
     Bar --> Fact
     Zx --> Fact
     Ver --> Fact
-    Fact -->|"member MarkFault -> member rail fault"| Receipt["per-member RuntimeRail[ArtifactReceipt.Preview] keyed over that member's bytes"]
+    Fact -->|"member MarkFault -> member rail fault"| Rail["per-member RuntimeRail[RasterFact]"]
     Fact -.->|"SVG fragment per member"| Compose["composition/compose#COMPOSE / export/layered#LAYERED"]
 ```
 

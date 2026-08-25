@@ -1,8 +1,8 @@
 # [PY_COMPUTE_DIFFERENTIAL]
 
-Differential-equations route of the one numeric solver. `DifferentialIntent` discriminates initial-value `Ode`, stochastic `Sde`, and controlled `Cde` integration over `diffrax.diffeqsolve` on the JAX/Equinox floor — adaptive step control, steady-state and root-finding events, dense interpolated output, adjoint-differentiable solves — folding the integration diagnostics into the one `SolverReceipt`. It is the trajectory-integration peer of the scalar-integral `solvers/quadrature#QUADRATURE` route: this owner integrates a vector field, that one a scalar integrand.
+Differential-equations route of the one numeric solver. `DifferentialIntent` discriminates initial-value `Ode`, stochastic `Sde`, and controlled `Cde` integration over `diffrax.diffeqsolve` on the JAX/Equinox floor — adaptive step control, steady-state and root-finding events, dense interpolated output, adjoint-differentiable solves — folding the integration diagnostics into the one `Solve`. It is the trajectory-integration peer of the scalar-integral `solvers/quadrature#QUADRATURE` route: this owner integrates a vector field, that one a scalar integrand.
 
-This solve is adjoint-differentiable, so a parametric study reads sensitivities through the integration; the batched-sweep path runs the initial-state sweep under `AdjointMode.FORWARD`, the regime `solvers/sensitivity#SENSITIVITY` differentiates through. Vector field, drift, diffusion, and control are JAX pytrees carried as one `FieldFn`/`Pytree`/`ControlPath` vocabulary, never weak `object`/`np.ndarray` slots. One frozen `SolveEngine` folds the gated `dfx`/`eqx`/`jnp`/`jtu`/`jr` handles behind one `gated()` import that runs `jax_enable_x64` — the discipline `solvers/nonlinear#NONLINEAR` and `solvers/sensitivity#SENSITIVITY` share, floating the `1e-8` tolerance and stiff/adjoint solves to float64. Resolved `SolverReceipt` (`solvers/receipt#RECEIPT`) rides the hub `evidence_run` weave's fenced contributor harvest, its status mapped through the receipt-owned shared `verdict` fold; the x64-gated family declares the `HOSTILE` trait (`x64` is process-global native state), isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing owner.
+This solve is adjoint-differentiable, so a parametric study reads sensitivities through the integration; the batched-sweep path runs the initial-state sweep under `AdjointMode.FORWARD`, the regime `solvers/sensitivity#SENSITIVITY` differentiates through. Vector field, drift, diffusion, and control are JAX pytrees carried as one `FieldFn`/`Pytree`/`ControlPath` vocabulary, never weak `object`/`np.ndarray` slots. One frozen `SolveEngine` folds the gated `dfx`/`eqx`/`jnp`/`jtu`/`jr` handles behind one `gated()` import that runs `jax_enable_x64` — the discipline `solvers/nonlinear#NONLINEAR` and `solvers/sensitivity#SENSITIVITY` share, floating the `1e-8` tolerance and stiff/adjoint solves to float64. Resolved `Solve` (`solvers/solve#SOLVE`) stamps its `attributes` on the hub `evidence_run` span, its status mapped through the `Solve`-owned shared `verdict` fold; the x64-gated family declares the `HOSTILE` trait (`x64` is process-global native state), isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing owner.
 
 ## [01]-[INDEX]
 
@@ -12,11 +12,11 @@ This solve is adjoint-differentiable, so a parametric study reads sensitivities 
 
 - Owner: `DifferentialIntent` — `Ode`/`Sde`/`Cde` cases on the one solver over `diffrax.diffeqsolve`. Solver class, Levy-area level, term-shape, Brownian-path generator, and the step/adjoint/save/event policy are orthogonal table and policy selections; the single `match intent` in `_terms` binds the `(terms, residual)` pair and is the only equation-shaped branch, every other axis a data cell. Policy rows carry every remaining variation — steady-state target, contact crossing, step-clamped stiff march, order-1 fixed-step Milstein solve, Langevin sampler, and memory-checkpointed reverse-mode adjoint alike — never branches.
 - Cases: four orthogonal tables own selection. `_SOLVER` maps each `OdeSolver`/`SdeSolver` member to its diffrax class — total, no hardcoded `Tsit5()`, no dead solver; `IMPLICIT_EULER` is the order-1 A-B-L-stable DIRK floor beneath the Kvaerno/KenCarp SDIRK ladder, adaptive through its embedded order-2 Heun estimate, its Chord root-find riding the same optimistix/lineax implicit-step seam. `step_ts`/`jump_ts`/`rejected_revisit` wrap the PID controller in `ClipStepSizeController` — forced exact step times, known-discontinuity stepping, and the SDE rejected-step revisit that keeps noncommutative-noise Levy distributions honest; the wrap admits adaptive controllers alone, so the triple stays inert on the fixed-step path and a dt RANGE bound stays `dtmin`/`dtmax` on the PID row, never the clip wrap. `_LEVY` keys each strong-order/Langevin solver to the Levy-area level its path must supply (`_LEVY_CLASS` resolves it into `levy_area=`) and doubles as the SDE adaptivity witness: an order-1 solver is absent from `_LEVY`, carries no error estimate, and so `_forced_pid` floors it to `ConstantStepSize` and arms no event — a mis-paired path and an adaptive controller on a fixed-step solver are both unrepresentable. `_LANGEVIN` membership selects the `UnderdampedLangevin*Term` pair over a `(x, v)` state keyed by `gamma`/`langevin_u`, where the plain SDE family builds `MultiTerm(ODETerm, ControlTerm)` — one cell, never a fourth case. `BrownianPath` selects the generator, floored to the reproducible `VirtualBrownianTree` under `AdjointMode.BACKSOLVE` — a backsolve adjoint reconstructs the path at backward time-points the forward-only `UnsafeBrownianPath` cannot supply, so `(UNSAFE, BACKSOLVE)` is unsatisfiable by construction, never a solve-time fault.
-- Entry: `DifferentialIntent.solve(lane)` composes `lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self)` under `evidence_run`; isolation, band, and worker-death retry derive at the runtime `Kernel` crossing owner from the trait row. `_diffrax_receipt` runs one `diffeqsolve(..., throw=False)` — the load-bearing knob: the `True` default raises on any non-`successful` result, which the weave's own fence then converts to a `BoundaryFault` that dead-codes the status fold, so `throw=False` keeps a `max_steps_reached`/`event_occurred`/`dt_min_reached` solve a first-class verdict. When jaxlib is absent the ODE case falls to `_euler_floor` (fixed-step explicit-Euler over numpy on the policy's `init_steps` grid, `result=None`, residual-vs-tolerance adjudicates); the SDE/CDE/Langevin cases hold no floor because the gated integrator IS the capability.
-- Auto: `AdjointMode` selects the differentiable solve — checkpoint/backsolve/implicit/direct reverse modes for the few-outputs/many-parameters regime, `ForwardMode` for the many-outputs/few-parameters and batched-sweep regime. `IntegratePolicy.batched` reads `y0`'s leading axis as an initial-state sweep mapped through `filter_vmap` under `AdjointMode.FORWARD` inside the compiled solve; the receipt folds the per-row residual to its `jnp.max` worst and the per-row result to the worst-case termination, never a Python loop. `SaveKind.DENSE` backs a non-`None` `Solution.interpolation` the sensitivity route resamples through the adjoint while the receipt carries only the terminal verdict.
-- Receipt: `SolverReceipt.Iterative` folds the worst residual, step count, `rtol`, and the mapped `RESULTS` member name as adjudicated status. Every residual is the one `engine.tree_norm` per-leaf sum-of-squares total over a structured terminal pytree — the ODE steady-state field `‖f(t1, y_T)‖`, the SDE/CDE/Langevin terminal state, the Langevin `(x, v)` pair — where a bare `jnp.linalg.norm` assumes a single array leaf and breaks a multi-leaf state. `SolveEngine.verdict` recovers the member name off the `Solution.result._value` code (an `EnumerationItem` carries no `.name`) through the receipt-owned shared fold; the batched path reduces per-row `_value` codes by `jnp.max`, not `RESULTS.promote` (inheritance-widening, not a vmap combine).
-- Packages: `diffrax` (the `diffeqsolve` driver, the solver/term/path/adjoint/event families), `equinox` (`filter_jit` field thunks and per-row solve; `filter_vmap` batched sweep), `jax` (`jax_enable_x64` floats the gated solve to float64 so the `1e-8` `rtol`/`atol` clear float32 eps; `tree_util` per-leaf lift/terminal/norm over a structured pytree; `random.split` for the Brownian seed lineage), `numpy` (the explicit-Euler floor), `expression` (`tagged_union` union, `Map` table rail), `msgspec` (`Struct` policy), `jaxtyping`+`beartype` (`jaxtyped(typechecker=beartype(conf=FAULT_CONF))` shape/dtype fence on `_diffrax_receipt` — a bare `object` state on this JAX-gated route is the rejected form). Seams: `solvers/receipt#RECEIPT` owns `SolverReceipt` and the `verdict` fold; hub `evidence_run` owns span/fence/harvest; runtime owns the `LanePolicy`/`Kernel`/`KernelTrait` offload crossing.
-- Growth: a deterministic solver is one `OdeSolver`+`_SOLVER` row; a stochastic solver adds one `SdeSolver`+`_SOLVER` row, a strong-order-1.5/Langevin solver one `_LEVY` row admitting it to the adaptive controller, and a Langevin solver one `_LANGEVIN` member — never a fourth equation case. Each new equation class lands one `DifferentialIntent` case and one `_terms` arm; a new step controller/adjoint/save/event/path is one enum member with its row or ternary; a new integration scalar is one `IntegratePolicy` field; a new termination class is one `_STATUS` row on the receipt owner; a new gated module is one `SolveEngine` field and one `gated()` import line.
+- Entry: `DifferentialIntent.solve(lane)` composes `lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self)` under `evidence_run`; isolation, band, and worker-death retry derive at the runtime `Kernel` crossing owner from the trait row. `_diffrax_solve` runs one `diffeqsolve(..., throw=False)` — the load-bearing knob: the `True` default raises on any non-`successful` result, which the weave's own fence then converts to a `BoundaryFault` that dead-codes the status fold, so `throw=False` keeps a `max_steps_reached`/`event_occurred`/`dt_min_reached` solve a first-class verdict. When jaxlib is absent the ODE case falls to `_euler_floor` (fixed-step explicit-Euler over numpy on the policy's `init_steps` grid, `result=None`, residual-vs-tolerance adjudicates); the SDE/CDE/Langevin cases hold no floor because the gated integrator IS the capability.
+- Auto: `AdjointMode` selects the differentiable solve — checkpoint/backsolve/implicit/direct reverse modes for the few-outputs/many-parameters regime, `ForwardMode` for the many-outputs/few-parameters and batched-sweep regime. `IntegratePolicy.batched` reads `y0`'s leading axis as an initial-state sweep mapped through `filter_vmap` under `AdjointMode.FORWARD` inside the compiled solve; the `Solve` folds the per-row residual to its `jnp.max` worst and the per-row result to the worst-case termination, never a Python loop. `SaveKind.DENSE` backs a non-`None` `Solution.interpolation` the sensitivity route resamples through the adjoint while the `Solve` carries only the terminal verdict.
+- Output: `Solve.Iterative` retains the native `diffrax.Solution` — including dense interpolation when requested — beside worst residual, step count, `rtol`, and mapped `RESULTS` status; the Euler floor carries its terminal array. Residuals use the one `engine.tree_norm` over the structured terminal pytree, and a batched verdict reduces per-row codes by `jnp.max`.
+- Packages: `diffrax` (the `diffeqsolve` driver, the solver/term/path/adjoint/event families), `equinox` (`filter_jit` field thunks and per-row solve; `filter_vmap` batched sweep), `jax` (`jax_enable_x64` floats the gated solve to float64 so the `1e-8` `rtol`/`atol` clear float32 eps; `tree_util` per-leaf lift/terminal/norm over a structured pytree; `random.split` for the Brownian seed lineage), `numpy` (the explicit-Euler floor), `expression` (`tagged_union` union, `Map` table rail), `msgspec` (`Struct` policy), `jaxtyping`+`beartype` (`jaxtyped(typechecker=beartype(conf=FAULT_CONF))` shape/dtype fence on `_diffrax_solve` — a bare `object` state on this JAX-gated route is the rejected form). Seams: `solvers/solve#SOLVE` owns `Solve` and the `verdict` fold; hub `evidence_run` owns span/fence/harvest; runtime owns the `LanePolicy`/`Kernel`/`KernelTrait` offload crossing.
+- Growth: a deterministic solver is one `OdeSolver`+`_SOLVER` row; a stochastic solver adds one `SdeSolver`+`_SOLVER` row, a strong-order-1.5/Langevin solver one `_LEVY` row admitting it to the adaptive controller, and a Langevin solver one `_LANGEVIN` member — never a fourth equation case. Each new equation class lands one `DifferentialIntent` case and one `_terms` arm; a new step controller/adjoint/save/event/path is one enum member with its row or ternary; a new integration scalar is one `IntegratePolicy` field; a new termination class is one `_STATUS` row on the `Solve` owner; a new gated module is one `SolveEngine` field and one `gated()` import line.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -24,7 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import reduce
-from typing import Final, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 
 import numpy as np
 from beartype import beartype
@@ -33,13 +33,16 @@ from expression.collections import Map
 from jaxtyping import Array, Float, PyTree, jaxtyped
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, evidence_run
-from rasm.compute.solvers.receipt import Provider, SolverReceipt, graduate, verdict
+from rasm.compute.graduation.handoff import EvidenceScope, Graduation, evidence_run
+from rasm.compute.solvers.solve import Provider, Solve, graduate, verdict
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
+
+if TYPE_CHECKING:
+    import diffrax as dfx
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -194,17 +197,20 @@ class DifferentialIntent:
     ) -> "DifferentialIntent":
         return DifferentialIntent(cde=(vector_field, control, y0, span, solver, policy))
 
-    async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
-        async def dispatch() -> RuntimeRail[SolverReceipt]:
+    async def solve(
+        self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[Solve[dfx.Solution | np.ndarray]]":
+        async def dispatch() -> "RuntimeRail[Solve[dfx.Solution | np.ndarray]]":
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self, key)
 
         return await evidence_run(EvidenceScope.DIFFERENTIAL, f"solve.{self.tag}", dispatch, facts={"equation": self.tag}, composition=composition)
 
     def graduates(
-        self, receipt: SolverReceipt, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> "RuntimeRail[GraduationReceipt]":
+        self, solve: "Solve[dfx.Solution | np.ndarray]", ceiling: dict[str, float] | None = None,
+        *, composition: ScopeKey = DEFAULT_SCOPE,
+    ) -> "RuntimeRail[Graduation]":
         return graduate(
-            EvidenceScope.DIFFERENTIAL.value, f"solve.{self.tag}", receipt.content_key, receipt, ceiling or dict(_CEILING.items()),
+            EvidenceScope.DIFFERENTIAL.value, f"solve.{self.tag}", solve.content_key, solve, ceiling or dict(_CEILING.items()),
             composition=composition,
         )
 
@@ -339,26 +345,26 @@ def _EVENT(dfx: object, policy: IntegratePolicy) -> Map[EventKind, Callable[[], 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _dispatch(intent: DifferentialIntent, key: ContentKey) -> SolverReceipt:
+def _dispatch(intent: DifferentialIntent, key: ContentKey) -> "Solve[dfx.Solution | np.ndarray]":
     match intent:
         case DifferentialIntent(tag="ode", ode=(field, y0, (t0, t1), solver, policy)):
             try:
-                return _diffrax_receipt(key, intent, solver, y0, t0, t1, policy)
+                return _diffrax_solve(key, intent, solver, y0, t0, t1, policy)
             except ImportError:
                 return _euler_floor(key, field, np.asarray(y0), t0, t1, policy)
         case (
             DifferentialIntent(tag="sde", sde=(_, _, y0, (t0, t1), solver, policy))
             | DifferentialIntent(tag="cde", cde=(_, _, y0, (t0, t1), solver, policy))
         ):
-            return _diffrax_receipt(key, intent, solver, y0, t0, t1, policy)
+            return _diffrax_solve(key, intent, solver, y0, t0, t1, policy)
         case _ as unreachable:
             assert_never(unreachable)
 
 
 @jaxtyped(typechecker=beartype(conf=FAULT_CONF))
-def _diffrax_receipt(
+def _diffrax_solve(
     key: ContentKey, intent: DifferentialIntent, solver: OdeSolver | SdeSolver, y0: Pytree, t0: float, t1: float, policy: IntegratePolicy
-) -> SolverReceipt:
+) -> "Solve[dfx.Solution]":
     engine = SolveEngine.gated()
     terms, residual = _terms(engine, intent, solver, y0, t0, t1, policy)
     cls, controller = _SOLVER(engine.dfx)[solver](), engine.controller(intent.tag, solver, policy)
@@ -387,12 +393,12 @@ def _diffrax_receipt(
             engine.jnp.max(engine.jnp.asarray(per_row))
         )
         steps = int(engine.jnp.max(engine.jnp.asarray(solutions.stats["num_steps"])))
-        return SolverReceipt.Iterative(key, worst, steps, Provider.GATED, policy.rtol, engine.verdict(solutions.result))
+        return Solve.Iterative(solutions, key, worst, steps, Provider.GATED, policy.rtol, engine.verdict(solutions.result))
     solution = run(
         engine.lift(y0)
     )
-    return SolverReceipt.Iterative(
-        key, float(residual(engine.terminal(solution))), int(solution.stats["num_steps"]), Provider.GATED, policy.rtol,
+    return Solve.Iterative(
+        solution, key, float(residual(engine.terminal(solution))), int(solution.stats["num_steps"]), Provider.GATED, policy.rtol,
         engine.verdict(solution.result),
     )
 
@@ -431,10 +437,12 @@ def _terms(
             assert_never(unreachable)
 
 
-def _euler_floor(key: ContentKey, field: FieldFn, y0: np.ndarray, t0: float, t1: float, policy: IntegratePolicy) -> SolverReceipt:
+def _euler_floor(key: ContentKey, field: FieldFn, y0: np.ndarray, t0: float, t1: float, policy: IntegratePolicy) -> "Solve[np.ndarray]":
     grid = np.linspace(t0, t1, policy.init_steps + 1)
     terminal = reduce(lambda y, lo: y + (grid[1] - grid[0]) * np.asarray(field(float(lo), y)), grid[:-1], y0)
-    return SolverReceipt.Iterative(key, float(np.linalg.norm(np.asarray(field(t1, terminal)))), int(grid.size - 1), Provider.FLOOR, policy.rtol, None)
+    return Solve.Iterative(
+        terminal, key, float(np.linalg.norm(np.asarray(field(t1, terminal)))), int(grid.size - 1), Provider.FLOOR, policy.rtol, None
+    )
 ```
 
 ## [03]-[RESEARCH]

@@ -200,7 +200,7 @@ Streaming sinks pull execution incrementally so an out-of-core result never full
 - `read_*` is the lazy scan rail keyed by format and lakehouse backend, threading `io_config` for credentials and `hive_partitioning`/`partition_col` for pruning; `from_*` ingests in-memory and framework objects zero-copy where the source admits.
 - `set_runner_native`/`set_runner_ray` select the backend as a runner row, not a parallel frame type — the same plan runs single-node or on Ray; `Session`/`Catalog`/`Identifier` resolve catalog-scoped tables, and `sql`/`sql_expr` address the plan the builder addresses.
 - `udf(return_dtype=...)` decorates a callable into a partition UDF carrying `num_cpus`/`num_gpus`/`memory_bytes`/`concurrency` resource rows, and `Expression.apply` is the element-wise row; every UDF declares `return_dtype`.
-- Each plan captures the resolved `Schema`, partition count, runner backend, scan source and format, pushdown predicates, and executed row count as a dataframe receipt.
+- Each plan and executed frame expose the resolved `Schema`, partition count, runner backend, scan source and format, pushdown predicates, and row count directly.
 
 [STACKING]:
 - `connectorx`(`.api/connectorx.md`): daft `read_sql(partition_col=, num_partitions=)` owns the lazy distributed SQL scan and `connectorx.read_sql` owns the eager in-process parallel pull — the distributed and in-process halves of one SQL-ingest concern.

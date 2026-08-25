@@ -32,9 +32,15 @@ const _standIn = (body: string) =>
 describe('hermetic corpus', () => {
     it.effect('every route projects a full secure-context document', () =>
         Effect.sync(() => {
-            const documents = Array.getSomes(Array.map(Hermetic.routes, Hermetic.page));
+            const documents = Array.getSomes(
+                Array.map(Hermetic.routes, Hermetic.page),
+            );
             expect(documents).toHaveLength(Hermetic.routes.length);
-            expect(Array.every(documents, (doc) => doc.startsWith('<!doctype html><html lang="en">'))).toBe(true);
+            expect(
+                Array.every(documents, (doc) =>
+                    doc.startsWith('<!doctype html><html lang="en">'),
+                ),
+            ).toBe(true);
             expect(Hermetic.origin.startsWith('https://')).toBe(true);
             expect(Hermetic.wire.startsWith('wss://')).toBe(true);
         }),
@@ -47,63 +53,101 @@ describe('hermetic corpus', () => {
     );
 });
 
-describe('k6 summary receipt', () => {
-    it.effect('both gate spellings decode and gated metrics are exactly the thresholded ones', () =>
-        Effect.gen(function* () {
-            const summary = yield* _decoded(_SUMMARY);
-            expect([...summary.gated].sort()).toEqual(['probe_ms', 'vus']);
-        }),
+describe('k6 summary', () => {
+    it.effect(
+        'both gate spellings decode and gated metrics are exactly the thresholded ones',
+        () =>
+            Effect.gen(function* () {
+                const summary = yield* _decoded(_SUMMARY);
+                expect([...summary.gated].sort()).toEqual(['probe_ms', 'vus']);
+            }),
     );
 
     it.effect('a malformed summary refutes the decode at the seam', () =>
         Effect.gen(function* () {
-            const fault = yield* Effect.flip(_decoded('{"metrics":{"probe_ms":{"thresholds":{"p(95)<1000":"yes"}}}}'));
+            const fault = yield* Effect.flip(
+                _decoded(
+                    '{"metrics":{"probe_ms":{"thresholds":{"p(95)<1000":"yes"}}}}',
+                ),
+            );
             expect(fault._tag).toBe('ParseError');
         }),
     );
 
-    it.effect('a breached verdict and a passed verdict are distinct arms of one family', () =>
-        Effect.gen(function* () {
-            const summary = yield* _decoded(_SUMMARY);
-            expect(K6.Verdict.$is('Breached')(K6.Verdict.Breached({ summary }))).toBe(true);
-            expect(K6.Verdict.$is('Breached')(K6.Verdict.Passed({ summary }))).toBe(false);
-            expect(new K6Fault({ reason: 'crashed', detail: 'exit 1' })._tag).toBe('K6Fault');
-        }),
+    it.effect(
+        'a breached verdict and a passed verdict are distinct arms of one family',
+        () =>
+            Effect.gen(function* () {
+                const summary = yield* _decoded(_SUMMARY);
+                expect(
+                    K6.Verdict.$is('Breached')(
+                        K6.Verdict.Breached({ summary }),
+                    ),
+                ).toBe(true);
+                expect(
+                    K6.Verdict.$is('Breached')(K6.Verdict.Passed({ summary })),
+                ).toBe(false);
+                expect(
+                    new K6Fault({ reason: 'crashed', detail: 'exit 1' })._tag,
+                ).toBe('K6Fault');
+            }),
     );
 });
 
 layer(NodeContext.layer)('k6 subprocess contract', (it) => {
-    it.effect('a threshold-breach exit with a written summary folds to the Breached arm', () =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const lane = yield* _standIn(
-                    `for arg in "$@"; do case "$arg" in --summary-export=*) printf '%s' '${_SUMMARY}' > "\${arg#--summary-export=}";; esac; done\nexit 99`,
-                );
-                const verdict = yield* K6.run({ script: '/dev/null', summary: lane.summary, binary: lane.binary });
-                expect(K6.Verdict.$is('Breached')(verdict)).toBe(true);
-            }),
-        ),
+    it.effect(
+        'a threshold-breach exit with a written summary folds to the Breached arm',
+        () =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const lane = yield* _standIn(
+                        `for arg in "$@"; do case "$arg" in --summary-export=*) printf '%s' '${_SUMMARY}' > "\${arg#--summary-export=}";; esac; done\nexit 99`,
+                    );
+                    const verdict = yield* K6.run({
+                        script: '/dev/null',
+                        summary: lane.summary,
+                        binary: lane.binary,
+                    });
+                    expect(K6.Verdict.$is('Breached')(verdict)).toBe(true);
+                }),
+            ),
     );
 
-    it.effect('a crash exit reports the crash, never a masking summary-read fault over the file the crash prevented', () =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const lane = yield* _standIn('exit 7');
-                const fault = yield* Effect.flip(K6.run({ script: '/dev/null', summary: lane.summary, binary: lane.binary }));
-                expect(fault).toBeInstanceOf(K6Fault);
-                expect(fault.reason).toBe('crashed');
-                expect(fault.detail).toBe('exit 7');
-            }),
-        ),
+    it.effect(
+        'a crash exit reports the crash, never a masking summary-read fault over the file the crash prevented',
+        () =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const lane = yield* _standIn('exit 7');
+                    const fault = yield* Effect.flip(
+                        K6.run({
+                            script: '/dev/null',
+                            summary: lane.summary,
+                            binary: lane.binary,
+                        }),
+                    );
+                    expect(fault).toBeInstanceOf(K6Fault);
+                    expect(fault.reason).toBe('crashed');
+                    expect(fault.detail).toBe('exit 7');
+                }),
+            ),
     );
 
-    it.effect('a clean exit whose summary never landed is a typed summary fault', () =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const lane = yield* _standIn('exit 0');
-                const fault = yield* Effect.flip(K6.run({ script: '/dev/null', summary: lane.summary, binary: lane.binary }));
-                expect(fault.reason).toBe('summary');
-            }),
-        ),
+    it.effect(
+        'a clean exit whose summary never landed is a typed summary fault',
+        () =>
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const lane = yield* _standIn('exit 0');
+                    const fault = yield* Effect.flip(
+                        K6.run({
+                            script: '/dev/null',
+                            summary: lane.summary,
+                            binary: lane.binary,
+                        }),
+                    );
+                    expect(fault.reason).toBe('summary');
+                }),
+            ),
     );
 });

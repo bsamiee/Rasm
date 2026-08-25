@@ -1,6 +1,6 @@
 # [PY_COMPUTE_API_PINT]
 
-`pint` owns the physical-unit registry, dimensional quantities, measurement uncertainty, and unit conversion for the compute units rail. One shared `UnitRegistry` mints the vocabulary, and every array-admission and study-result claim rides as a `Quantity` whose magnitude is any array-protocol object, so units thread through `numpy` ufuncs over the same array the compute array rail folds. A dimensional claim captured off the `Quantity` feeds the study receipt, and a dimension mismatch is the boundary reject signal.
+`pint` owns the physical-unit registry, dimensional quantities, measurement uncertainty, and unit conversion for the compute units rail. One shared `UnitRegistry` mints the vocabulary, and every array-admission and study-result claim rides as a `Quantity` whose magnitude is any array-protocol object, so units thread through `numpy` ufuncs over the same array the compute array rail folds. A dimensional claim captured off the `Quantity` feeds the `Measurement`, and a dimension mismatch is the boundary reject signal.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -109,7 +109,7 @@
 [STACKING]:
 - `numpy` (`.api/numpy.md`, substrate tier): a `Quantity` magnitude is the same array the array rail folds; `force_ndarray_like=True` coerces every magnitude to a NumPy/array-API container, and `numpy` ufuncs/`__array_function__` thread units through it in place of unwrap-operate-rewrap.
 - `uncertainties` (`.api/uncertainties.md`): `Quantity.plus_minus`/`UnitRegistry.Measurement` build a `Measurement` carrying magnitude-plus-error, the unit-bearing mirror of the uncertainty rail's correlation graph, so a study magnitude carries unit and uncertainty in one carrier.
-- `arviz` (`.api/arviz.md`) / `pandera` (`libs/python/data/.api/pandera.md`): the captured `dimensionality` (`UnitsContainer`) and base-unit `convert` factor are the unit claim on a study receipt, and a dimensionality mismatch is the boundary rail's reject signal.
+- `arviz` (`.api/arviz.md`) / `pandera` (`libs/python/data/.api/pandera.md`): the captured `dimensionality` (`UnitsContainer`) and base-unit `convert` factor are the unit claim on a `Measurement`, and a dimensionality mismatch is the boundary rail's reject signal.
 - `compute` units rail: `wraps`/`check` decorate the offline study function to assert argument and return units at the Python boundary, and a magnitude crossing into a numerical kernel is base-unit-normalized via `m_as`/`to_base_units` so the kernel sees raw arrays.
 
 [LOCAL_ADMISSION]:

@@ -221,25 +221,21 @@ end repeat
 Record labels are compile-time identifiers resolved against the active terminology, not runtime string keys.
 
 ```applescript
-set receipt to {ok:true, value:42, diagnostics:{}}
-set valueCell to a reference to value of receipt
+set row to {value:42, diagnostics:{}}
+set valueCell to a reference to value of row
 set contents of valueCell to 43
 ```
 
 Dynamic keyed data belongs in a Cocoa dictionary reached through AppleScriptObjC.
 
-## [10]-[ERROR_RECEIPTS]
+## [10]-[ERROR_PROPAGATION]
 
 An `on error` clause binds each slot the raising `error` statement set, and a domain fault raised inside a handler sets those slots directly.
 
 ```applescript
 on guardedDivide(x, y)
-    try
-        if y = 0 then error "zero divisor" number 9001 from x to y partial result {x}
-        return {ok:true, value:x / y}
-    on error message number n from source to target partial result partial
-        return {ok:false, number:n, source:source, target:target, partial:partial, message:message}
-    end try
+    if y = 0 then error "zero divisor" number 9001 from x to y partial result {x}
+    return x / y
 end guardedDivide
 ```
 
@@ -310,7 +306,7 @@ tell application id "com.apple.finder"
 end tell
 ```
 
-`osadecompile` emits chevron literals for any compiled script referencing terminology the current dictionary no longer defines; a compile/decompile round-trip against a target whose `.sdef` changed surfaces every unresolved term as a raw code, a version-drift receipt rather than corruption. A rail that must survive dictionary churn pins its load-bearing verbs as chevron literals rather than terms a future OS release may retire.
+`osadecompile` emits chevron literals for any compiled script referencing terminology the current dictionary no longer defines; a compile/decompile round-trip against a target whose `.sdef` changed surfaces every unresolved term as a raw code, a version-drift signal rather than corruption. A rail that must survive dictionary churn pins its load-bearing verbs as chevron literals rather than terms a future OS release may retire.
 
 Text is a sequenced container with a fixed element vocabulary — `characters`, `words`, `paragraphs`, and `text items` — and every element form takes `every`, `item N`, `items X thru Y`, negative indices, `first`, `last`, `middle`, and `some`; word and paragraph segmentation is Unicode-aware and locale-influenced, while `text items` alone is delimiter-driven and deterministic against `text item delimiters`.
 
@@ -366,7 +362,7 @@ set row to {|id|:7, |class|:"widget", |name|:"gadget"}
 
 ## [15]-[COMPOSITION_PATTERN]
 
-A dense language module owns one script object carrying policy rows, constructor handlers, and receipt-shaped errors in a single surface.
+A dense language module owns one script object carrying policy rows, constructor handlers, and native errors in a single surface.
 
 ```applescript
 script TextRail
@@ -387,10 +383,10 @@ script TextRail
                 set resultValue to text items of t
             end if
             set AppleScript's text item delimiters to oldDelimiters
-            return {ok:true, value:resultValue}
+            return resultValue
         on error message number n from source to target partial result partial
             set AppleScript's text item delimiters to oldDelimiters
-            return {ok:false, number:n, source:source, target:target, partial:partial, message:message}
+            error message number n from source to target partial result partial
         end try
     end split
 end script

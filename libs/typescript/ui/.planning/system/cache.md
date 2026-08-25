@@ -7,7 +7,7 @@ Cache keys durable browser-resident bands by `Digest.Key<"content">`, verifies e
 - [02]-[BAND_LEDGER]: Cache holds the band roster, leaf address, Schema-coded ledger, and store Tag composition obligation; `Cache`.
 - [03]-[INTEGRITY_GATE]: per-leaf digest verification, the keyed-band identity law, the typed refusal family; `CacheFault`.
 - [04]-[RESIDENCY_ENTRY]: `Cache.resident` — the one get-or-mint entry and its two-phase commit; `Cache`.
-- [05]-[QUOTA_SWEEP]: Cache sweeps under the pressure table, victim order, and the measured reclaim receipt; `Cache`.
+- [05]-[QUOTA_SWEEP]: Cache sweeps under the pressure table, victim order, and the measured `Cache.Reclaim`; `Cache`.
 
 ## [02]-[BAND_LEDGER]
 
@@ -382,7 +382,6 @@ export { Cache, CacheFault }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

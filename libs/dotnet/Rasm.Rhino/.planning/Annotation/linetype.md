@@ -311,7 +311,7 @@ public static class StrokeStandard {
 - Law: `Undelete` alone resolves through the deleted-inclusive id, name, and index lens; every active operation retains the active-only lens, and `WithPolicy` is the one row-driven factory both memoized lenses instantiate.
 - Law: the table publishes a `.lin` READER and no writer, so the grip states `Ingest` and leaves `Emit` absent — a `TableOp.Export` against this table refuses typed rather than compiling against a writer that does not exist.
 - Entry: `Linetypes.Commit` preserves the frozen wire and accepts `DraftPlan<LinetypeOp>` with shared redraw and undo policy.
-- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `DraftPlan`, `DraftSpine`, `DraftSlot`, `DraftComponentKind`, `DraftCount`), `Document/commit.md` (`HostInteraction`), `Document/tables.md` (`ResourceLens`, `ResourceRef`, `ResourceIndex`), `Domain/rails` (`Custody`); RhinoCommon `LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
+- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagEdit`, `DraftPlan`, `DraftSpine`, `DraftCount`), `Document/commit.md` (`HostInteraction`), `Document/tables.md` (`ResourceLens`, `ResourceRef`, `ResourceIndex`), `Domain/rails` (`Custody`); RhinoCommon `LinetypeTable` per `.api/api-rhinocommon-drafting-resources.md`.
 - Growth: a verb every component table shares lands on `TableOp`; a linetype-only verb is one case here.
 
 ```csharp
@@ -360,7 +360,7 @@ public abstract partial record LinetypeOp {
             : null);
 
     internal static readonly TableGrip<Linetype, StrokeDef> Grip = new(
-        Lens, DraftComponentKind.Linetype,
+        Lens,
         Named: static def => def.Name,
         Title: static (linetype, key) => key.AcceptValidated<ResourceName>(candidate: linetype.Name),
         Index: static linetype => linetype.LinetypeIndex,
@@ -392,7 +392,7 @@ public abstract partial record LinetypeOp {
             .Map(static values => toSeq(values).Strict())
             .ToFin(Fail: key.InvalidResult())));
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
         table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
         authorPattern: static (context, edit) =>
@@ -400,55 +400,44 @@ public abstract partial record LinetypeOp {
             from built in context.Op.Catch(() => Optional(Linetype.CreateFromPatternString(
                     patternString: edit.Pattern.Value, millimeters: edit.Measure.Key))
                 .ToFin(Fail: context.Op.InvalidResult()))
-            from receipt in new Lease<Linetype>.Owned(Value: built).Use(owned =>
-                from __ in context.Op.Catch(() => Fin.Succ(value: Op.Side(() => owned.Name = edit.Name.Value)))
-                from ___ in new TagEdit.Replace(Tags: edit.Tags).Apply(owner: StrokeDef.Surface(owned), op: context.Op)
-                from index in Grip.Seat(context.Document, owned, context.Op)
-                from authored in DraftReceipt.Component(
-                    slot: DraftSlot.Authored, componentKind: DraftComponentKind.Linetype, index: index, key: context.Op)
-                select authored)
-            select receipt,
+            from __ in new Lease<Linetype>.Owned(Value: built).Use(owned =>
+                from ___ in context.Op.Catch(() => Fin.Succ(value: Op.Side(() => owned.Name = edit.Name.Value)))
+                from ____ in new TagEdit.Replace(Tags: edit.Tags).Apply(owner: StrokeDef.Surface(owned), op: context.Op)
+                from _____ in Grip.Seat(context.Document, owned, context.Op)
+                select unit)
+            select unit,
         authorReference: static (context, edit) =>
             from definition in edit.Source.Resolve(document: context.Document, lens: Lens, key: context.Op)
             from name in context.Op.AcceptValidated<ResourceName>(candidate: definition.Name)
             from _ in guard(!Grip.Occupied(context.Document, name), context.Op.InvalidInput()).ToFin()
-            from index in context.Op.Catch(() =>
+            from __ in context.Op.Catch(() =>
                 ResourceIndex.Admit(context.Document.Linetypes.AddReferenceLinetype(linetype: definition), context.Op))
-            from receipt in DraftReceipt.Component(
-                slot: DraftSlot.Authored, componentKind: DraftComponentKind.Linetype, index: index, key: context.Op)
-            select receipt,
+            select unit,
         relist: static (context, edit) =>
             from _ in guard(!edit.Edits.IsEmpty, context.Op.InvalidInput()).ToFin()
-            from receipt in Grip.Revised(
-                target: edit.Target, document: context.Document, slot: DraftSlot.Amended,
+            from __ in Grip.Revised(
+                target: edit.Target, document: context.Document,
                 interaction: edit.Interaction, op: context.Op,
                 revise: (copy, key) => edit.Edits
                     .TraverseM(row => row.Apply(surface: Run(copy), op: key)).As().Map(static _ => unit))
-            select receipt,
+            select unit,
         revert: static (context, edit) =>
             from linetype in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
             from _ in context.Op.Confirm(success: context.Document.Linetypes.UndoModify(index: linetype.LinetypeIndex))
-            from receipt in DraftReceipt.Component(
-                slot: DraftSlot.Amended, componentKind: DraftComponentKind.Linetype,
-                index: ResourceIndex.Create(linetype.LinetypeIndex), key: context.Op)
-            select receipt,
+            select unit,
         reset: static (context, edit) =>
-            Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Amended,
+            Grip.Revised(target: edit.Target, document: context.Document,
                 interaction: edit.Interaction, op: context.Op,
                 revise: static (copy, key) => key.Catch(() => Fin.Succ(value: Op.Side(copy.Default)))),
         undelete: static (context, edit) =>
             from linetype in edit.Target.Resolve(document: context.Document, lens: ReviveLens, key: context.Op)
             from _ in context.Op.Confirm(success: context.Document.Linetypes.Undelete(index: linetype.LinetypeIndex))
-            from receipt in DraftReceipt.Component(
-                slot: DraftSlot.Revived, componentKind: DraftComponentKind.Linetype,
-                index: ResourceIndex.Create(linetype.LinetypeIndex), key: context.Op)
-            select receipt,
+            select unit,
         loadDefaults: static (context, edit) =>
             from count in context.Op.Catch(() => Fin.Succ(value: context.Document.Linetypes.LoadDefaultLinetypes(
                 ignoreDeleted: edit.Policy.Key)))
-            from tally in context.Op.AcceptValidated<DraftCount>(candidate: count)
-            from receipt in DraftReceipt.Tally(slot: DraftSlot.Loaded, count: tally, key: context.Op)
-            select receipt);
+            from _ in guard(count >= 0, context.Op.InvalidResult()).ToFin()
+            select unit);
 
     private static ListSurface<SegmentRow> Run(Linetype linetype) => new(
         Count: () => linetype.SegmentCount,
@@ -466,7 +455,7 @@ public abstract partial record LinetypeOp {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Linetypes {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<LinetypeOp> plan) =>
+    public static Fin<Unit> Commit(DocumentSession session, DraftPlan<LinetypeOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, key) => operation.Apply(document: document, op: key),
             op: Op.Of(name: nameof(Linetypes)));
@@ -622,7 +611,6 @@ public abstract partial record LinetypeAnswer : IDetachedDocumentResult {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

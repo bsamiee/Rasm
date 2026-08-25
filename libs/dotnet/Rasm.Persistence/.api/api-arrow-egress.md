@@ -52,7 +52,7 @@
 |  [04]   | `AdbcConnection.GetObjectsDepth` | nested enum      | `All` \| `Catalogs` \| `DbSchemas` \| `Tables` filter |
 |  [05]   | `AdbcStatement`                  | statement root   | SQL or Substrait queries, updates, prepared bind      |
 |  [06]   | `QueryResult`                    | result value     | `long RowCount` + `IArrowArrayStream? Stream`         |
-|  [07]   | `UpdateResult`                   | result value     | `long AffectedRows` row-count receipt                 |
+|  [07]   | `UpdateResult`                   | result value     | `long AffectedRows` row count                         |
 |  [08]   | `PartitionedResult`              | result value     | partition descriptors for distributed reads           |
 |  [09]   | `PartitionDescriptor`            | partition handle | opaque partition token for `ReadPartition`            |
 |  [10]   | `BulkIngestMode`                 | ingest enum      | `Create` \| `Append` \| `Replace` \| `CreateAppend`   |

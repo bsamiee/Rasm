@@ -43,7 +43,7 @@
 |  [03]   | `SvgSceneDocument`                     | retained document | source and scene graph         |
 |  [04]   | `SvgSceneNode`                         | retained node     | element mutation target        |
 |  [05]   | `SvgSceneResource`                     | retained resource | addressable definition         |
-|  [06]   | `SvgSceneMutationResult`               | mutation receipt  | dirty-region render result     |
+|  [06]   | `SvgSceneMutationResult`               | mutation result   | dirty-region render result     |
 |  [07]   | `SvgTextSelectionRange`                | readonly struct   | selection and caret extents    |
 |  [08]   | `SvgTextSelectionDirection`            | enum              | selection direction            |
 |  [09]   | `SKSvgDrawEventArgs`                   | event args        | `OnDraw` payload               |
@@ -180,7 +180,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `SKSvg` owns incremental render through the retained scene graph: `TryEnsureRetainedSceneGraph` builds the `SvgSceneDocument` (source document, asset loader, element-addressable `SvgSceneNode` graph), and `TryApplyRetainedSceneMutationAndRender(element|addressKey, changedAttributes, out SvgSceneMutationResult)` re-records only the affected subtree and returns the dirty-region receipt a viewport invalidation keys on. Every single-element and attribute edit routes through the mutation API, never a full `Load` that drops and rebuilds the graph.
+- `SKSvg` owns incremental render through the retained scene graph: `TryEnsureRetainedSceneGraph` builds the `SvgSceneDocument` (source document, asset loader, element-addressable `SvgSceneNode` graph), and `TryApplyRetainedSceneMutationAndRender(element|addressKey, changedAttributes, out SvgSceneMutationResult)` re-records only the affected subtree and returns the dirty-region result a viewport invalidation keys on. Every single-element and attribute edit routes through the mutation API, never a full `Load` that drops and rebuilds the graph.
 - `Sync` is the engine render-lock: a producer mutating the scene off the render thread takes `lock (skSvg.Sync)`, so a concurrent `Draw` never observes a half-applied mutation.
 - `SourceDocument` is the parsed `SvgDocument` the engine retains beside the recorded `SKPicture?` `Model`: a re-parameterized or recolored `SvgSource.LoadFromSvgDocument(SvgDocument, SvgParameters?)` binds `SourceDocument`, and `RefreshFromSourceDocument()` re-records the picture from it in place — the picture-typed `Model` binds neither.
 - `Svg` and `SvgImage` each fold their style overrides into one `SvgParameters.Css` string, space-joining the non-blank layers in `source-css -> Css -> CurrentCss` order and resolving `CurrentColor` as host value, then `SvgParameters.CurrentColor`, then `SvgSource.CurrentColor`.

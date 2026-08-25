@@ -2,7 +2,7 @@
 
 `Capability` owns characteristic-scoped process evidence from admission through control-state, distribution, measurement-system, tolerance-stack, history, and plan-gate projection. Variable and attribute studies share one assessment rail, and every report preserves the evidence that makes its verdict reproducible.
 
-`CapabilityIdentity`, `ToleranceChain`, `ProcedureReceipt`, `Stat`, `CapabilityVerdict`, and `FabricationFault` remain the seam owners. `CapabilityReport` is the terminal specification receipt, while `CapabilityHistory` carries its validity-bounded ledger projection into `Gate` and `Achievable`.
+`CapabilityIdentity`, `ToleranceChain`, `ProcedureAssessment`, `Stat`, `CapabilityVerdict`, and `FabricationFault` remain the seam owners. `CapabilityReport` is the terminal specification result, while `CapabilityHistory` carries its validity-bounded ledger projection into `Gate` and `Achievable`.
 
 ## [01]-[INDEX]
 
@@ -886,7 +886,7 @@ public sealed partial class CapabilityTolerance {
     public DistributionPolicy Distribution { get; }
     public ControlPolicy Control { get; }
     public MeasurementEvidence Measurement { get; }
-    public Option<ProcedureReceipt> Procedure { get; }
+    public Option<ProcedureAssessment> Procedure { get; }
     public Option<StackupPolicy> Stackup { get; }
     public Instant At { get; }
 
@@ -911,7 +911,7 @@ public sealed partial class CapabilityTolerance {
         ref DistributionPolicy distribution,
         ref ControlPolicy control,
         ref MeasurementEvidence measurement,
-        ref Option<ProcedureReceipt> procedure,
+        ref Option<ProcedureAssessment> procedure,
         ref Option<StackupPolicy> stackup,
         ref Instant at) {
         bool finite = lowerSpec.ForAll(static value => double.IsFinite(value.Millimeters))
@@ -948,14 +948,13 @@ public sealed partial class CapabilityTolerance {
 - Law: contribution shares are CORRELATED shares. The simulation loads every contributor on the same shared factors, so a term's share is its covariance with the assembled response over the response variance — an independence fraction under a correlated model hands a shared factor's spread to whichever term carries the largest loading.
 - Law: one out-of-control EPISODE is one violation. A run longer than a rule's window breaches at every offset inside it, so overlapping and adjacent breach windows merge into the maximal span they cover and the excursion is the worst standardized point in that span.
 - Law: `Achievable` returns the qualifying row's band beside the evidence that earned it — grade, index, and effective sample size — so a consumer grading confidence reads the support behind the projection rather than assigning a constant trust to the word history.
-- Entry: `Capability.Assess`, `Capability.Gate`, and `Capability.Achievable` parameterize assessment, ledger selection, and tolerance projection without ambient state; `Assess` takes the trailing `FabricationTap?` the run spine hands it, so the fact fires where the receipt settles and every estimation fold stays tap-free.
+- Entry: `Capability.Assess`, `Capability.Gate`, and `Capability.Achievable` parameterize assessment, ledger selection, and tolerance projection without ambient state; `Assess` takes the trailing optional instrument set the run spine hands it, so observation stays at the settled result and every estimation fold stays observation-free.
 - Auto: `Validation` accumulates independent request and gate faults under distinct errors; `Stat<Scalar>` owns variable moments and `Distribution<Scalar>` the simulation tail; `Distance.Pearson` derives the autocorrelation spectrum; `Fit.Line` derives drift; `SpecialFunctions.GammaLn` and `Gamma` own distribution functions; `Traverse`, `Choose`, and `Fold` own collection flow.
-- Receipt: `CapabilityReport` carries moment and percentile indices or attribute rates, per-metric confidence intervals, pointwise control limits, merged rule windows, the fitted distribution, effective sample size, measurement and procedure evidence, the optional stackup assessment with both analytic evaluations and its covariance shares, the control-evidence set, and the admitted `CapabilityVerdict`. `FabricationFact.Capability.Of` projects the index rows and violation count onto `rasm.fabrication.capability.index` and `rasm.fabrication.capability.violations` through `Process/telemetry#FACT_PROJECTION` as kind `capability`.
+- Result: `CapabilityReport` carries moment and percentile indices or attribute rates, per-metric confidence intervals, pointwise control limits, merged rule windows, the fitted distribution, effective sample size, measurement and procedure evidence, the optional stackup assessment with both analytic evaluations and its covariance shares, the control-evidence set, and the admitted `CapabilityVerdict`. `Capability.Assess` writes index rows, the study verdict, and violation count through the mounted `FabricationInstruments` set.
 - Packages: MathNet.Numerics owns fitted distributions, roots, regression, correlation, and batch sampling; `Rasm.Domain` owns `Stat<TCarrier>`, `Distribution<TCarrier>`, `MomentNormalizer`, `QuantileRule`, the `Tolerance` band carrier, and the `CapabilitySet`/`ICapability` axis; `Rasm.Element` owns the `AdmissionSlots` gate and accumulate fold; `System.Numerics.Tensors` owns numeric reductions; CommunityToolkit.HighPerformance owns pooled and partitioned trial execution; UnitsNet owns specification lengths, achievable tolerance, and probability ratios; `ToolEvidence` carries MTConnect operating state decoded at `Tooling/magazine`; Thinktecture and LanguageExt own generated values and the accumulated rail.
 - Boundary: `CapabilityReport` never enters `FabricationResult`, and only `CapabilityVerdict` crosses the plan seam.
 
 ```csharp
-// --- [RECEIPTS] ------------------------------------------------------------------------
 public sealed record CapabilitySeries(
     Arr<double> ResidualMm,
     Seq<Arr<double>> Groups,
@@ -1007,8 +1006,8 @@ public abstract partial record StackupVerdict {
 }
 
 public sealed record StackupAssessment(
-    Receipt<ChainEvidence> Analytic,
-    Receipt<ChainEvidence> Arithmetic,
+    ChainEvidence Analytic,
+    ChainEvidence Arithmetic,
     double MeanMm,
     double SigmaMm,
     double TailMm,
@@ -1017,7 +1016,7 @@ public sealed record StackupAssessment(
     Seq<StackContribution> Contributions,
     StackupVerdict Verdict) {
     public ContentKey Source => Analytic.Key;
-    public double BoundMm => Analytic.Evidence.BoundMm;
+    public double BoundMm => Analytic.BoundMm;
 
     public Option<StackContribution> Dominant => Contributions.Fold(Option<StackContribution>.None,
         static (best, row) => best.Filter(held => held.Share >= row.Share).IfNone(row));
@@ -1035,7 +1034,7 @@ public sealed record CapabilityReport(
     CapabilityDependence Dependence,
     DriftRow Drift,
     MeasurementEvidence Measurement,
-    Option<ProcedureReceipt> Procedure,
+    Option<ProcedureAssessment> Procedure,
     Option<StackupAssessment> Stackup,
     CapabilitySet<ControlEvidence> Control,
     CapabilityVerdict Verdict,
@@ -1066,13 +1065,20 @@ public static class Capability {
     public static Fin<CapabilityReport> Assess(
         CapabilityStudy study,
         CapabilityTolerance tolerance,
-        FabricationTap? tap = null) =>
+        Option<InstrumentSet> set = default) =>
         from _ in Admit(study, tolerance)
         from report in study.Switch(
             state: tolerance,
             variables: static (demand, evidence) => Variables(evidence.Samples, demand),
             attributes: static (demand, evidence) => Attributes(evidence.Samples, demand))
-        let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Capability.Of(report))
+        from _indices in report.Rows
+            .TraverseM(row => set.Write(FabricationInstruments.CapabilityIndex, row.Value,
+                (FabricationInstruments.MetricSlot, row.Metric.Key))).As()
+        from _study in set.Write(FabricationInstruments.CapabilityStudies, 1d,
+            (FabricationInstruments.VerdictSlot, report.Violations.IsEmpty
+                ? FabricationInstruments.Pass
+                : FabricationInstruments.Fail))
+        from _violations in set.Write(FabricationInstruments.CapabilityViolations, report.Violations.Count)
         select report;
 
     public static Fin<CapabilityVerdict> Gate(CapabilityIdentity identity, ItGrade grade, Instant at, Seq<CapabilityHistory> history) =>
@@ -1449,17 +1455,17 @@ public static class Capability {
                let covariance = Covariances(policy, spread, independent, shared, trials, mean)
                let variance = double.Max(TensorPrimitives.Sum<double>(covariance), double.Epsilon)
                let contributions = Contributions(policy, spread, covariance, variance, tail)
-               let analytic = policy.Chain.Evaluate(stamped)
+               let analytic = policy.Chain.Evaluate()
                select new StackupAssessment(
                    analytic,
-                   policy.Chain.Evaluate(StackMethod.WorstCase, stamped),
+                   policy.Chain.Evaluate(StackMethod.WorstCase),
                    mean,
                    spreadStat.Summary.Deviation(MomentNormalizer.Sample),
                    tail,
                    policy.RandomSeed,
                    factors,
                    contributions,
-                   StackupVerdict.Of(tail, analytic.Evidence.BoundMm,
+                   StackupVerdict.Of(tail, analytic.BoundMm,
                        contributions.Fold(Option<StackContribution>.None,
                            static (best, row) => best.Filter(held => held.Share >= row.Share).IfNone(row))));
     }
@@ -1520,9 +1526,9 @@ public static class Capability {
     private static CapabilitySet<CapabilityAttestation> Attested(bool procedure, bool measurement) =>
         Held((CapabilityAttestation.Procedure, procedure), (CapabilityAttestation.Measurement, measurement));
 
-    private static bool ProcedureQualified(ProcessKind process, Option<ProcedureReceipt> procedure) =>
+    private static bool ProcedureQualified(ProcessKind process, Option<ProcedureAssessment> procedure) =>
         procedure.Match(
-            Some: receipt => receipt.Process == process && receipt.Qualified,
+            Some: result => result.Process == process && result.Qualified,
             None: () => process.Modality.Class != ModalityClass.Joined);
 
     private static Seq<SpcLimitRow> Points(SpcChart chart, Arr<double> values, double center, double sigma, Instant at, double width) =>
@@ -1541,7 +1547,7 @@ public static class Capability {
                 variables: static (minimum, evidence) => evidence.Samples.Count >= minimum,
                 attributes: static (minimum, evidence) => evidence.Samples.Count >= minimum), UnderpoweredStudy),
             Check(study is CapabilityStudy.Variables || tolerance.Stackup.IsNone, StackupUnsupported),
-            Check(tolerance.Procedure.ForAll(receipt => receipt.At <= tolerance.At), ProcedureNotYetIssued))
+            Check(tolerance.Procedure.ForAll(result => result.At <= tolerance.At), ProcedureNotYetIssued))
             .Apply(static (_, _, _, _) => unit)
             .As()
             .ToFin();
@@ -1668,7 +1674,6 @@ public static class CapabilitySlots {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

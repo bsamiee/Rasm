@@ -13,6 +13,12 @@
           "Google.Protobuf": "3.31.1"
         }
       },
+      "CloudNative.CloudEvents": {
+        "type": "Direct",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "Qh8/MS3YBI78Q5+AVXN/hNQZkhFW5OyDHdn4Wi05ZzlylKOsTypBiQQ1u0U8iOZ24HMe8Hc0VH2CIwnY4YTGEA=="
+      },
       "CommunityToolkit.HighPerformance": {
         "type": "Direct",
         "requested": "[8.4.2, )",
@@ -219,12 +225,6 @@
           "Newtonsoft.Json": "13.0.1",
           "System.CodeDom": "8.0.0"
         }
-      },
-      "CloudNative.CloudEvents": {
-        "type": "CentralTransitive",
-        "requested": "[2.9.0, )",
-        "resolved": "2.9.0",
-        "contentHash": "Qh8/MS3YBI78Q5+AVXN/hNQZkhFW5OyDHdn4Wi05ZzlylKOsTypBiQQ1u0U8iOZ24HMe8Hc0VH2CIwnY4YTGEA=="
       },
       "CloudNative.CloudEvents.Avro": {
         "type": "CentralTransitive",

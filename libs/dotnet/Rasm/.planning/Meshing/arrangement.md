@@ -2,20 +2,20 @@
 
 `Rasm.Meshing` owns the exact mesh-and-polygon arrangement: ONE `ArrangementOp` `[Union]` — `MeshBoolean`, `PlanarOverlay`, `CellComplex` — folded by ONE `Arrangement.Apply` entry over the shared subdivide → classify → keep → weld algebra, `BooleanOp` the region-predicate vocabulary keep and flip derive from, four booleans as four data rows over one classification. Managed exactness is the ONE correctness rail, `manifoldc` the tier-3 scale companion behind the finite `ScaleCeiling`, an over-ceiling call with no per-RID native asset failing typed on the `GeometryFault` union.
 
-Rebuilding composes each floor from its owner: the crossing lattice from `Intersection.Apply` (`CrossLattice`), per-face constrained re-triangulation from `Tessellation.Build` (`Conform.Crossing` rows, `CrossKey`-interned `Implicit` vertices), the batched inside/outside scalar from ONE `SpatialQuery.Winding` per operand, soup and weld from `MeshEdit.Of` + `Kernels.WeldDuplicates`, and both graph products — component severance and rim decomposition — from the ONE admitted QuikGraph walk family. `BooleanOp`, `BooleanReceipt`, and its `ManifoldEvidence`/`ManifoldProvenance` evidence records mint here; `Processing/receipts` composes `BooleanReceipt` as the heal-session payload, `Processing/repair`'s `HealOp.Boolean` delegates to `Arrangement.Apply`, and an `Analysis` `Eff<Env, T>` pipeline descending into this synchronous fold seats its governance through `ArrangementPolicy.Governed` at the crossing — the descent is one-way and `Analysis` gains no `Meshing` reference.
+Rebuilding composes each floor from its owner: the crossing lattice from `Intersection.Apply` (`CrossLattice`), per-face constrained re-triangulation from `Tessellation.Build` (`Conform.Crossing` rows, `CrossKey`-interned `Implicit` vertices), the batched inside/outside scalar from ONE `SpatialQuery.Winding` per operand, soup and weld from `MeshEdit.Of` + `Kernels.WeldDuplicates`, and both graph products — component severance and rim decomposition — from the ONE admitted QuikGraph walk family. `BooleanOp`, `BooleanCensus`, and its `ManifoldEvidence`/`ManifoldProvenance` evidence records mint here; `Processing/session` composes `BooleanCensus` as the heal-session payload, `Processing/repair`'s `HealOp.Boolean` delegates to `Arrangement.Apply`, and an `Analysis` `Eff<Env, T>` pipeline descending into this synchronous fold seats its governance through `ArrangementPolicy.Governed` at the crossing — the descent is one-way and `Analysis` gains no `Meshing` reference.
 
 ## [01]-[INDEX]
 
-- [02]-[ARRANGEMENT]: `Arrangement.Apply` folds the subdivide → classify → keep → weld algebra over `BooleanOp` region-predicate rows; `PatchStore` arena and frozen `CellSet`; `BooleanReceipt` over census, guarantee, and provenance with typed `BooleanRoute`; the `AbandonWitness`/`Operand` governance and side bands both routes read; the `manifoldc` tier-3 scale gate.
+- [02]-[ARRANGEMENT]: `Arrangement.Apply` folds the subdivide → classify → keep → weld algebra over `BooleanOp` region-predicate rows; `PatchStore` arena and frozen `CellSet`; `BooleanCensus` over census, guarantee, and provenance with typed `BooleanRoute`; the `AbandonWitness`/`Operand` governance and side bands both routes read; the `manifoldc` tier-3 scale gate.
 - [03]-[DENSITY_BAR]: one owner per axis with its return rail and case count.
 
 ## [02]-[ARRANGEMENT]
 
-- Owner: `BooleanOp` `[SmartEnum<int>]` (`Union`/`Difference`/`Intersection`/`Xor`) — each row carries the `[UseDelegateFromConstructor]` `Region` predicate column and the `Native` `ManifoldOpType` ordinal (`Xor` carries −1: `ManifoldOpType` has no symmetric difference, so the scale lane decomposes it); `Keep` and `Flip` DERIVE over `Region`, one classification never four keep bodies; `PolygonFill` `[SmartEnum<int>]` (`NonZero`/`EvenOdd`/`Positive`/`Negative`) the fill-rule rows whose `Inside` delegate classifies the overlay's signed winding count; `BooleanRoute` `[SmartEnum<string>]` (`managed`/`native`) the typed route evidence; `BooleanReceipt` the one typed boolean evidence over three axes — the summing census columns, the `Option<ManifoldEvidence>` native guarantee, and the `Option<ManifoldProvenance>` run attribution — beside its `Option<int> ShellCount` severance census, every optional slot spelling absence where an arm took no measure; `ManifoldProvenance` the operand-seated run windows, run ids, and per-triangle face ids with the one `OperandOf` join; the `Numerics/faults` `AbandonWitness` roster the governance band reads, each row declaring its own completed fraction and being exactly what the abandonment fault carries; `Operand` the keyless-wire `[SmartEnum<int>]` side vocabulary whose key IS the lattice side ordinal and whose columns carry the subdivision stage and the cut's facing-face projector, so no fold re-derives a side from a flag; `ArrangementPolicy` the policy row binding GWN accuracy, winding admission, the fill rule, the finite `ScaleCeiling`, the constrained `Substrate`, spatial/intersect policies, the weld `Arena`, and the execution-governance band BOTH routes read (`Cancel` token, `Progress` sink, the `Governed` seat projecting them down from the ambient `Env`); `PatchStore` the single-writer patch arena (triangle corners, operand origin, per-operand inside bits) with its frozen `CellSet` projection; `ArrangementOp`/`ArrangementResult` the request/result unions; `Arrangement` the static surface.
+- Owner: `BooleanOp` `[SmartEnum<int>]` (`Union`/`Difference`/`Intersection`/`Xor`) — each row carries the `[UseDelegateFromConstructor]` `Region` predicate column and the `Native` `ManifoldOpType` ordinal (`Xor` carries −1: `ManifoldOpType` has no symmetric difference, so the scale lane decomposes it); `Keep` and `Flip` DERIVE over `Region`, one classification never four keep bodies; `PolygonFill` `[SmartEnum<int>]` (`NonZero`/`EvenOdd`/`Positive`/`Negative`) the fill-rule rows whose `Inside` delegate classifies the overlay's signed winding count; `BooleanRoute` `[SmartEnum<string>]` (`managed`/`native`) the typed route evidence; `BooleanCensus` the one typed boolean evidence over three axes — the summing census columns, the `Option<ManifoldEvidence>` native guarantee, and the `Option<ManifoldProvenance>` run attribution — beside its `Option<int> ShellCount` severance census, every optional slot spelling absence where an arm took no measure; `ManifoldProvenance` the operand-seated run windows, run ids, and per-triangle face ids with the one `OperandOf` join; the `Numerics/faults` `AbandonWitness` roster the governance band reads, each row declaring its own completed fraction and being exactly what the abandonment fault carries; `Operand` the keyless-wire `[SmartEnum<int>]` side vocabulary whose key IS the lattice side ordinal and whose columns carry the subdivision stage and the cut's facing-face projector, so no fold re-derives a side from a flag; `ArrangementPolicy` the policy row binding GWN accuracy, winding admission, the fill rule, the finite `ScaleCeiling`, the constrained `Substrate`, spatial/intersect policies, the weld `Arena`, and the execution-governance band BOTH routes read (`Cancel` token, `Progress` sink, the `Governed` seat projecting them down from the ambient `Env`); `PatchStore` the single-writer patch arena (triangle corners, operand origin, per-operand inside bits) with its frozen `CellSet` projection; `ArrangementOp`/`ArrangementResult` the request/result unions; `Arrangement` the static surface.
 - Cases: `BooleanOp` 4 (`Union`/`Difference`/`Intersection`/`Xor`), `PolygonFill` 4, `BooleanRoute` 2 (`managed`/`native`), `Operand` 2 (`A`/`B`), `ArrangementOp` 3 (`MeshBoolean`/`PlanarOverlay`/`CellComplex`), `ArrangementResult` 3 (`Boolean`/`Overlay`/`Complex`); the fence carries every roster. `MeshBoolean` carries its operands as one `Seq<MeshSpace>` — a pair is the two-element case, an N-solid fold one request — and `Boolean` returns `Seq<MeshSpace> Shells` so a severed result expresses its components on BOTH routes, the managed rail decomposing its welded terminal through the one graph-walk owner and the native rail reading its `manifold_decompose` vector. `PlanarOverlay` admits ring sets directly (the `Meshing/offset` self-overlap seam); `CellComplex` retains the classified arrangement un-welded for the `Rasm.Bim` solid classifier.
 - Entry: one polymorphic `[BoundaryAdapter] Apply` discriminating on the op case; no `MeshBool`/`PolygonBool`/`BuildComplex` sibling statics, and every interior static takes the resolved `Op` outright. `Fin` routes `GeometryFault.DegenerateInput` on an empty mesh operand or an open/degenerate/non-finite overlay ring (rings arrive raw and admit here once; mesh operands carry the `MeshSpace` admission's evidence, the interior never re-validating), `DegenerateArrangement` on a degenerate classification soup or a substrate failure re-mapped with its face witness, `RunAbandoned` EXACTLY when the governance token cancels — the native engine's `MANIFOLD_CANCELLED` status and the managed fold's stage reads lower the ONE case over the ONE `AbandonWitness` roster, carrying the fraction the abandoning stage measured, never a vocabulary per route — and `NativeAssetMissing` EXACTLY when combined operand faces exceed `ScaleCeiling` and the per-RID native asset does not resolve — under the ceiling the managed body serves every workload and the gate is never consulted; an over-ceiling `CellComplex` refuses TYPED with an actionable witness, the native engine emitting no classified cell set so the caller raises the revisable `ScaleCeiling` row for a managed run. Both volumetric cases share ONE fold with ONE soup admission per operand — gate, subdivision, classification, native raise, and emission read the same two arenas. `PlanarOverlay` returns oriented loops (outer CCW / holes CW) on intersect's chain vocabulary.
 - Auto: `MeshBoolean`/`CellComplex` run the shared `Arrange` fold — (1) `Intersection.Apply(IntersectOp.MeshMesh(a, b, policy.Narrow), key)` yields the frozen `CrossLattice` (defining-entity crossing rows, per-face segments, coplanar constraint rows recorded on BOTH operand faces so the two surfaces split coherently on their shared curve); (2) per operand face, `lattice.OnFace` + `lattice.CoplanarOnFace` drive the subdivision — an un-cut face passes whole as one patch, a cut face builds `Tessellation.Build(TessellationOp.Points(...))` whose vertex rows are the three explicit corners and each crossing endpoint's `Implicit` construction interned by its `CrossKey`, piercing conforms `Conform.Crossing` rows carrying the OTHER operand's face plane and coplanar sub-segments the perpendicular plane `(S, T, S + ê)` through their carrier edge, the sub-triangles read back through `Triangles()` as corners beside face indices; (3) classification batches every patch probe (centroid nudged along the patch normal by the operand context's own `ToleranceLane.Offset` read) into ONE `SpatialQuery.Winding(probes, otherSoup, BetaSquared)` per operand, `QueryResult.Field` scalars crossing `WindingThreshold` into the per-operand inside bits; (4) `MeshBoolean` keeps patches where `op.Keep(fromA, insideOther)`, flips winding where `op.Flip(...)` holds, and welds through `MeshEdit.Of` + `Kernels.WeldDuplicates` + `ToSpace`; `CellComplex` stops after (3) and freezes the full `CellSet`. `PlanarOverlay` is the SAME algebra on rings: all ring vertices enter ONE constrained `Tessellation.Build` with every ring edge a `Conform.Edge`, each triangle's centroid gathers its exact SIGNED winding count against each operand's ring set (upward crossings +1 / downward −1, exact signs with no epsilon band), the policy's `PolygonFill` row classifies the raw count — `NonZero` canonical, so a self-overlapping cycle set resolves to its true covered region, with even-odd and one-sided fills the same walk under different rows — the region keeps per `op.Region(inA, inB)` directly, and the kept-region rim decomposes into oriented `Chain` loops through the folder's ONE `ChainWalk` owner over the substrate's own corner ordinals. Each managed stage — the two subdivision walks, the batched classification, the weld — OPENS by publishing its declared `AbandonWitness.Done` fraction and reading `policy.Cancel`, the subdivision walk re-reading the bare token per face, and the terminal welded result then decomposes into connected shells through the one QuikGraph component walk. Its native lane raises every operand ONCE and re-seats it through `manifold_as_original` so the result's runs name an operand the kernel declared, packs the operands into ONE `manifold_manifold_vec` and folds them in ONE `manifold_batch_boolean` call — `Xor` decomposing as union-minus-intersection over the same seated handles — then attaches the execution context to the RESULT, because a deferred batch op ignores an operand-attached context and returns one carrying none: `manifold_status` on that bound copy is the single eager force, the one point where `Cancel` reaches the evaluation and the progress read has anything to report. It reads the genus/census/volume/area guarantee off that forced handle, the run windows, run ids, and per-triangle face ids off its `meshgl64` as the attribution axis, and decomposes a severed result into shells.
-- Receipt: `BooleanReceipt` — the classified-patch census, keep survivor count, weld vertex-collapse count, typed `BooleanRoute`, and three slots absent wherever the arm took no measure: `Option<int> ShellCount` the terminal severance census, `None` on an intermediate pairwise leg that decomposes nothing; `Option<ManifoldEvidence>` the native lane's genus, V/E/F triple, volume, and area read off the forced result handle — the manifoldness guarantee the tier-3 route is bought for, witnessed rather than asserted; and `Option<ManifoldProvenance>` the run attribution, separately absent because a native run whose operands were never seated carries guarantee with nothing to attribute. Patch-count delta with route is the boolean evidence `Processing/receipts` carries as the heal-session payload, and the provenance axis is the source key `Rasm.Bim` reconstruction joins an output face back to its operand on.
+- Output: `BooleanCensus` — the classified-patch census, keep survivor count, weld vertex-collapse count, typed `BooleanRoute`, and three slots absent wherever the arm took no measure: `Option<int> ShellCount` the terminal severance census, `None` on an intermediate pairwise leg that decomposes nothing; `Option<ManifoldEvidence>` the native lane's genus, V/E/F triple, volume, and area read off the forced result handle — the manifoldness guarantee the tier-3 route is bought for, witnessed rather than asserted; and `Option<ManifoldProvenance>` the run attribution, separately absent because a native run whose operands were never seated carries guarantee with nothing to attribute. Patch-count delta with route is the boolean evidence `Processing/session` carries as the heal-session payload, and the provenance axis is the source key `Rasm.Bim` reconstruction joins an output face back to its operand on.
 - Law: every `ArrangementPolicy` column is a guarded value object — `PositiveMagnitude` accuracy and nudge, `UnitInterval` admission, `Dimension` ceiling — so a nonpositive or out-of-band policy is unrepresentable and the record carries no evidence fold; the interior reads `.Value` and never re-guards.
 - Exemption: mutable tables live inside one statement kernel and never freeze — `PatchStore`'s four SoA columns (the arena itself), `slotOf` per face build, `dense` per shell re-index, the QuikGraph `label` sink (the algorithm's own out-parameter shape), and the `rim` cancellation set per overlay. None survives its enclosing fold, and no fold publishes one.
 - Packages: `Rasm.Meshing` (`Intersection.Apply`, `CrossLattice`/`CrossKey`/`Chain` — the crossing lattice, composed), `Rasm.Meshing` delaunay owners (`Tessellation.Build`, `TessellationOp.Points`, `Conform.Edge`/`Conform.Crossing`, `TessellationPolicy.Constrained`, `Triangles()` — the constrained substrate, composed), `Rasm.Spatial` (`Spatial.Apply` + `SpatialQuery.Winding` batched GWN + `SpatialOp.Build` — composed, never re-built), `Rasm.Meshing` (`MeshEdit.Of`, `Kernels.WeldDuplicates`, `ArenaPolicy` — the soup and weld owners), `Rasm.Numerics` (`Predicate`/`Implicit`/`Sign`/`Axis` — the parity classification signs; `Dimension`/`PositiveMagnitude`/`UnitInterval` the policy bands), `Rasm.Numerics` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `Context`, `ValidityClaim`), `Rasm.Meshing` (`MeshSpace`), `Rhino.Geometry` (`Point3d`/`Polyline`), `manifoldc` (in-house P/Invoke, `api-manifold.md` — the tier-3 scale companion; NO NuGet pin), `Rasm.Meshing` intersect owners (`ChainWalk` — the folder's ONE oriented-edge decomposition, composed by the overlay rim), QuikGraph (`UndirectedGraph`/`SEdge` + `ConnectedComponents` — the shell labeller, the one graph product this page mints directly), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`NativeLibrary`, `RuntimeInformation`, `FrozenDictionary`).
@@ -141,12 +141,12 @@ public sealed record ManifoldProvenance(int[] OperandIds, uint[] RunIds, (int Fr
     }
 }
 
-public sealed record BooleanReceipt(
+public sealed record BooleanCensus(
     long Classified, long Kept, long Welded, BooleanRoute Route, Option<int> ShellCount = default,
     Option<ManifoldEvidence> Native = default, Option<ManifoldProvenance> Source = default) {
-    public static readonly BooleanReceipt Empty = new(0L, 0L, 0L, BooleanRoute.Managed);
+    public static readonly BooleanCensus Empty = new(0L, 0L, 0L, BooleanRoute.Managed);
 
-    public static BooleanReceipt operator +(BooleanReceipt left, BooleanReceipt right) =>
+    public static BooleanCensus operator +(BooleanCensus left, BooleanCensus right) =>
         new(left.Classified + right.Classified, left.Kept + right.Kept, left.Welded + right.Welded,
             right.Route, Last(left.ShellCount, right.ShellCount), Last(left.Native, right.Native),
             Last(left.Source, right.Source));
@@ -217,9 +217,9 @@ public abstract partial record ArrangementOp {
 public abstract partial record ArrangementResult {
     private ArrangementResult() { }
 
-    public sealed record Boolean(Seq<MeshSpace> Shells, BooleanReceipt Receipt) : ArrangementResult;
-    public sealed record Overlay(Seq<Chain> Loops, BooleanReceipt Receipt) : ArrangementResult;
-    public sealed record Complex(CellSet Cells, BooleanReceipt Receipt) : ArrangementResult;
+    public sealed record Boolean(Seq<MeshSpace> Shells, BooleanCensus Census) : ArrangementResult;
+    public sealed record Overlay(Seq<Chain> Loops, BooleanCensus Census) : ArrangementResult;
+    public sealed record Complex(CellSet Cells, BooleanCensus Census) : ArrangementResult;
 }
 
 public static class Arrangement {
@@ -237,15 +237,15 @@ public static class Arrangement {
             (true, BooleanOp op) => ManifoldGate.Boolean(operands, op, operands.Head.Tolerance, policy, key),
             (true, _) => Fin.Fail<ArrangementResult>(new GeometryFault.DegenerateArrangement(policy.ScaleCeiling.Value, ArrangementWitness.NoNativeCellComplex)),
             (false, BooleanOp op) => operands.Tail
-                .Fold(Fin.Succ((Solid: operands.Head, Receipt: BooleanReceipt.Empty)),
+                .Fold(Fin.Succ((Solid: operands.Head, Census: BooleanCensus.Empty)),
                     (acc, next) => acc.Bind(state => Pairwise(state.Solid, next, op, policy, key)
-                        .Map(step => (step.Solid, Receipt: state.Receipt + step.Receipt))))
+                        .Map(step => (step.Solid, Census: state.Census + step.Census))))
                 .Bind(final => Severed(final.Solid, policy, key).Map(shells =>
-                    (ArrangementResult)new ArrangementResult.Boolean(shells, final.Receipt with { ShellCount = Some(shells.Count) }))),
+                    (ArrangementResult)new ArrangementResult.Boolean(shells, final.Census with { ShellCount = Some(shells.Count) }))),
             (false, _) => Complex(operands, policy, key),
         });
 
-    static Fin<(MeshSpace Solid, BooleanReceipt Receipt)> Pairwise(MeshSpace a, MeshSpace b, BooleanOp op, ArrangementPolicy policy, Op key) {
+    static Fin<(MeshSpace Solid, BooleanCensus Census)> Pairwise(MeshSpace a, MeshSpace b, BooleanOp op, ArrangementPolicy policy, Op key) {
         using MeshEdit ea = MeshEdit.Of(a);
         using MeshEdit eb = MeshEdit.Of(b);
         return Arrange(a, b, ea, eb, policy, key).Bind(store => KeepAndWeld(store, op, a.Tolerance, policy, key));
@@ -256,7 +256,7 @@ public static class Arrangement {
         using MeshEdit eb = MeshEdit.Of(operands[1]);
         return Arrange(operands.Head, operands[1], ea, eb, policy, key).Map(store =>
             (ArrangementResult)new ArrangementResult.Complex(
-                store.Freeze(), BooleanReceipt.Empty with { Classified = store.Count, Kept = store.Count }));
+                store.Freeze(), BooleanCensus.Empty with { Classified = store.Count, Kept = store.Count }));
     }
 
     static Fin<BooleanRoute> Gate(Seq<MeshSpace> operands, ArrangementPolicy policy) {
@@ -409,8 +409,8 @@ public static class Arrangement {
     }
 
     // --- [KEEP_AND_WELD]
-    static Fin<(MeshSpace Solid, BooleanReceipt Receipt)> KeepAndWeld(PatchStore store, BooleanOp op, Context context, ArrangementPolicy policy, Op key) {
-        if (Opened(AbandonWitness.Weld, policy).Case is Error head) { return Fin.Fail<(MeshSpace, BooleanReceipt)>(head); }
+    static Fin<(MeshSpace Solid, BooleanCensus Census)> KeepAndWeld(PatchStore store, BooleanOp op, Context context, ArrangementPolicy policy, Op key) {
+        if (Opened(AbandonWitness.Weld, policy).Case is Error head) { return Fin.Fail<(MeshSpace, BooleanCensus)>(head); }
         List<Point3d> vertices = new(3 * store.Count);
         List<(int, int, int)> faces = new(store.Count);
         int kept = 0;
@@ -426,7 +426,7 @@ public static class Arrangement {
         int before = edit.VertexCount;
         Kernels.WeldDuplicates(edit);
         return edit.ToSpace(key).Map(solid =>
-            (solid, new BooleanReceipt(store.Count, kept, before - edit.VertexCount, BooleanRoute.Managed)));
+            (solid, new BooleanCensus(store.Count, kept, before - edit.VertexCount, BooleanRoute.Managed)));
     }
 
     // --- [PLANAR_OVERLAY]
@@ -458,7 +458,7 @@ public static class Arrangement {
                         op.Policy.Fill.Inside(winding: Winding(probe, op.B, op.Plane)));
                 }
                 return BoundaryLoops(tris, region).Map(loops => (ArrangementResult)new ArrangementResult.Overlay(
-                    loops, new BooleanReceipt(tris.Faces.Count, region.Count(static r => r), 0, BooleanRoute.Managed)));
+                    loops, new BooleanCensus(tris.Faces.Count, region.Count(static r => r), 0, BooleanRoute.Managed)));
             });
     }
 
@@ -570,7 +570,7 @@ file static partial class ManifoldGate {
             return status switch {
                 0 => Shells(observed, context, policy, key)
                         .Map(shells => (Shells: shells, Evidence: Evidence(observed), Source: Provenance(observed, seated)))
-                        .Map(read => (ArrangementResult)new ArrangementResult.Boolean(read.Shells.Solids, new BooleanReceipt(
+                        .Map(read => (ArrangementResult)new ArrangementResult.Boolean(read.Shells.Solids, new BooleanCensus(
                             Classified: classified, Kept: read.Evidence.Triangles, Welded: 0,
                             Route: BooleanRoute.Native, ShellCount: Some(read.Shells.ShellCount),
                             Native: Some(read.Evidence), Source: Some(read.Source)))),
@@ -691,7 +691,7 @@ flowchart LR
     PatchStore -->|ONE batched Winding per operand| GWN["Spatial.Apply(Winding)"]
     GWN -->|inside bits| Keep["BooleanOp.Region derivation"]
     Keep -->|kept + flipped patches| Weld["MeshEdit + WeldDuplicates"]
-    Weld -->|ConnectedComponents split + ToSpace freeze| MeshSpaceOut["Seq&lt;MeshSpace&gt; Shells + BooleanReceipt"]
+    Weld -->|ConnectedComponents split + ToSpace freeze| MeshSpaceOut["Seq&lt;MeshSpace&gt; Shells + BooleanCensus"]
     PatchStore -->|Freeze un-welded| CellSet
     ArrangementOp -->|rings| Overlay["PlanarOverlay: parity + ChainWalk rim"]
     ArrangementOp -.->|over ceiling, RID asset| ManifoldGate
@@ -707,8 +707,8 @@ flowchart LR
 |  [01]   | Arrangement        | `ArrangementOp`      | `Arrangement.Apply → Fin<ArrangementResult>` |    3    |
 |  [02]   | Boolean vocabulary | `BooleanOp`          | policy rows (repair delegates)               |    4    |
 |  [03]   | Fill rule          | `PolygonFill`        | policy rows (`Inside` delegate)              |    4    |
-|  [04]   | Route evidence     | `BooleanRoute`       | receipt field                                |    2    |
-|  [05]   | Boolean evidence   | `BooleanReceipt`     | carrier (census, guarantee, provenance)      |    —    |
+|  [04]   | Route evidence     | `BooleanRoute`       | census column                               |    2    |
+|  [05]   | Boolean evidence   | `BooleanCensus`     | carrier (census, guarantee, provenance)      |    —    |
 |  [06]   | Source attribution | `ManifoldProvenance` | `OperandOf → Option<int>`                    |    —    |
 |  [07]   | Managed governance | `AbandonWitness`     | fault-owner rows (`Done` fraction)           |    5    |
 |  [08]   | Operand side       | `Operand`            | policy rows (`Stage`/`Facing` columns)       |    2    |
@@ -719,7 +719,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

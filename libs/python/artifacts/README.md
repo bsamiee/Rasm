@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS]
 
-`artifacts` is a publication and print-production engine carrying the AEC documentation plane on top. It folds data, compute, geometry, and any structured payload into layer-clean files, each returning one kind-discriminated `ArtifactReceipt`.
+`artifacts` is a publication and print-production engine carrying the AEC documentation plane on top. It folds data, compute, geometry, and structured payloads into layer-clean files while each producer returns its canonical domain value.
 
 ## [01]-[ROUTER]
 
@@ -24,7 +24,7 @@
 - [15]-[DIAGRAM_SOLAR](.planning/visualization/diagram/solar.md): pvlib SPA solar-ephemeris and generated sun-path furniture owner.
 
 [DRAWING]:
-- [16]-[REGIME](.planning/drawing/regime.md): Closed drafting vocabulary and BIND substrate every drawing consumer reads; mints no receipt.
+- [16]-[REGIME](.planning/drawing/regime.md): Closed drafting vocabulary and BIND substrate every drawing consumer reads.
 - [17]-[STANDARD](.planning/drawing/standard.md): `Standard` ezdxf symbol-table lowering of the regime onto a DXF document.
 - [18]-[DIMENSION](.planning/drawing/dimension.md): `Dimension` ISO 129-1 + ISO 1101 GD&T dimensioning producer dual-lowered per target.
 - [19]-[SYMBOL](.planning/drawing/symbol.md): `Symbol` AEC drawing-symbol owner dual-lowered to drawsvg groups and ezdxf blocks.
@@ -75,7 +75,7 @@
 
 [EXPORT]:
 - [54]-[LAYERED](.planning/export/layered.md): `LayeredExport` editable layered-export owner over every layered container target.
-- [55]-[INDESIGN](.planning/export/indesign.md): `Idml` SimpleIDML template-mutation hand-off; contributes the Office receipt.
+- [55]-[INDESIGN](.planning/export/indesign.md): `Idml` SimpleIDML template-mutation hand-off returning `IdmlFact`.
 - [56]-[DXF](.planning/export/dxf.md): `Dxf` ezdxf CAD-exchange owner over the DXF-op family and the geospatial bridge.
 
 [EXCHANGE]:
@@ -103,15 +103,14 @@
 [CORE]:
 - [73]-[PLAN](.planning/core/plan.md): `ArtifactPipeline` content-keyed sub-graph-elision plan over the runtime session lane.
 - [74]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` constructing owner folding producer emit sets into the pipeline and the lane drive.
-- [75]-[RECEIPT](.planning/core/receipt.md): `ArtifactReceipt` one receipt union every producer contributes one case to.
-- [76]-[HOOKS](.planning/core/hooks.md): `ArtifactsLeg` raise-leg roster and the `ArtifactHook` production-fact point table.
-- [77]-[BENCH](.planning/core/bench.md): `CORPUS` producer benchmark entries and their deterministic-input recipes over the runtime bench tier.
+- [75]-[HOOKS](.planning/core/hooks.md): `ArtifactsLeg` raise-leg roster, production observation, and the `ArtifactHook` point table.
+- [76]-[BENCH](.planning/core/bench.md): `CORPUS` producer benchmark entries and their deterministic-input recipes over the runtime bench tier.
 
 [PACKAGE]:
-- [78]-[BUNDLE](.planning/package/bundle.md): `Bundle` shared package-plane vocabulary and port floor; mints no receipt.
-- [79]-[CODEC](.planning/package/codec.md): `Codec` single-blob ZSTD/LZ4/BROTLI/GZIP compression producer composing the bundle.
-- [80]-[ARCHIVE](.planning/package/archive.md): `Archive` multi-file 7z/ZIP archive half and the reproducible-ZIP owner.
-- [81]-[DELTA](.planning/package/delta.md): `Delta` detools binary diff/patch arm over parent-keyed delta nodes.
+- [77]-[BUNDLE](.planning/package/bundle.md): `Bundle` shared package-plane vocabulary and port floor.
+- [78]-[CODEC](.planning/package/codec.md): `Codec` single-blob ZSTD/LZ4/BROTLI/GZIP compression producer composing the bundle.
+- [79]-[ARCHIVE](.planning/package/archive.md): `Archive` multi-file 7z/ZIP archive half and the reproducible-ZIP owner.
+- [80]-[DELTA](.planning/package/delta.md): `Delta` detools binary diff/patch arm over parent-keyed delta nodes.
 
 ## [02]-[DOMAIN_PACKAGES]
 

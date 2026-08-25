@@ -104,7 +104,7 @@ Each row is a `FILTER_*` constant (prefix dropped below) placed in a `filters=[{
 - crypto axis: `password=` with `header_encryption=True` and a `FILTER_CRYPTO_AES256_SHA256` chain entry encrypt content and header; `set_encrypted_header(True)`/`set_encoded_header_mode(…)` tune header protection — never a separate encryptor.
 - streamed-extraction axis: `extract`/`extractall` take a `WriterFactory` whose `create(name) -> Py7zIO` returns a per-entry sink, so a large entry decodes straight into a capped `io.BytesIOFactory(limit)` (`get(name)` retrieves the buffer), a streaming `io.HashIOFactory()` (content-identity seam), a discarding `io.NullIOFactory`, or a custom sink — never a temp-file round-trip; `ExtractCallback` rides the same call for progress and `ArchiveCallback` mirrors it on write.
 - safety axis: `max_extract_size=` bounds total decoded size and raises `DecompressionBombError`; a traversal entry name raises `AbsolutePathError`; a CRC mismatch raises `CrcError` — the zip-bomb, path-traversal, and corruption guards on an untrusted upload, mapped at the boundary, never a post-extract re-check.
-- evidence: each op captures entry count (`list()` length), the `FileInfo` per-entry fields (`compressed`/`uncompressed`/`crc32`/`is_directory`/`is_symlink`/`creationtime`), the `ArchiveInfo` container fields (`method_names`/`solid`/`blocks`/`header_size`), encryption + header-encryption state, integrity-check kind, and the `max_extract_size` bound as a compression receipt.
+- evidence: `BundleEvidence` carries byte and entry counts; archive inspection returns native `FileInfo` and `ArchiveInfo` values directly.
 - boundary: `py7zr` owns the 7z container; raw single-stream codecs route to `zstandard`/`lz4`/`brotli`, zip/tar to `shutil`/stdlib; entry hashing for content identity rides the `HashIOFactory` sink; live UI stays outside this package.
 
 [STACKING]:
@@ -112,7 +112,6 @@ Each row is a `FILTER_*` constant (prefix dropped below) placed in a `filters=[{
 - `zstandard`(`.api/zstandard.md`)/`brotli`(`.api/brotli.md`)/`lz4`: the raw single-stream codec split under the same `CompressionAlgo` discriminant — a lone payload routes to a raw codec, a multi-entry container to `py7zr`; `py7zr`'s own `FILTER_ZSTD`/`FILTER_BROTLI` chain entries compress inside the 7z container, distinct from the sibling raw-frame owners.
 - within-lib rail: the extract/write body offloads off the event loop through `anyio.to_thread.run_sync` (`mp=True` spanning subprocess decode) onto the shared `expression.Result[…, ArchiveError]` rail, so an `ArchiveError` subtype becomes an `Error` case at the seam.
 - within-lib identity: the `HashIOFactory` sink feeds the shared `xxhash.xxh3_128` `ContentIdentity.key` fold — the same 16-byte digest the `stream-unzip` member arm yields, so a 7z entry's content key stays uniform across every codec path.
-- within-lib receipt: the entry/`FileInfo`/`ArchiveInfo` evidence with encryption and integrity-check kind folds into the `core/receipt#RECEIPT` `ArtifactReceipt` case over the shared `structlog`/OpenTelemetry span.
 
 [RAIL_LAW]:
 - Package: `py7zr`

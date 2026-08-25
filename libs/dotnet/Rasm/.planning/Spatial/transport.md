@@ -15,7 +15,7 @@ Estimators ride a `TransportEstimator` row, never a debias flag; the iteration b
 ## [02]-[TRANSPORT_POLICY]
 
 - Owner: `CloudTransportPolicy` columns span the balanced/unbalanced/debiased product in one record; `CouplingCutoff` is the single sparsification floor below which a coupling entry carries no correspondence.
-- Cases: `TransportEstimator` rows name WHICH divergence the solve reports — `Entropic` the raw regularized cost, `Debiased` the Sinkhorn divergence that subtracts both self-transport halves — so the two-solve leg is a row the fold switches on rather than a boolean the reader re-interprets at every site. `SinkhornResidualKind` derives from `MassRelaxation`, never a caller flag — the marginal test is meaningless under relaxation — and `SinkhornStopKind` is the `(residual kind × converged)` PRODUCT of that derivation, minted only through `Of` so the stop cannot disagree with the residual it reports; budget exhaustion therefore reads as a partial plan the caller retries under a wider budget, never a failure. NAMED LOSS: the receipt no longer re-derives convergence from its own residual pair, because `Advance` is the single comparison site and a second derivation was the second authority the mirror existed to police.
+- Cases: `TransportEstimator` rows name WHICH divergence the solve reports — `Entropic` the raw regularized cost, `Debiased` the Sinkhorn divergence that subtracts both self-transport halves — so the two-solve leg is a row the fold switches on rather than a boolean the reader re-interprets at every site. `SinkhornResidualKind` derives from `MassRelaxation`, never a caller flag — the marginal test is meaningless under relaxation — and `SinkhornStopKind` is the `(residual kind × converged)` PRODUCT of that derivation, minted only through `Of` so the stop cannot disagree with the residual it reports; budget exhaustion therefore reads as a partial plan the caller retries under a wider budget, never a failure. NAMED LOSS: the summary no longer re-derives convergence from its own residual pair, because `Advance` is the single comparison site and a second derivation was the second authority the mirror existed to police.
 - Law: the two floors are `Domain/context` lanes, not page constants — `ToleranceLane.Convergence` sets the residual target and `ToleranceLane.Neglect` the coupling cutoff, so a model that tightens either tightens this solve with no second knob.
 
 ```csharp
@@ -102,9 +102,9 @@ public readonly record struct CloudTransportPolicy(
 - Owner: `CloudTransport` owns the solve; `SinkhornPlan` carries the solved plan behind its ONE `Project<TOut>` egress.
 - Entry: `Sinkhorn<TOut>` solves once and the requested `TOut` selects the projection row, so every projection caller shares one entry and one solve. `policy.Estimator` selects the debias leg through a generated `Switch`, so the two-solve arm is a case rather than a branch on a flag.
 - Auto: log-domain scalings iterate under a max-shifted `LogSumExp`, so a fully-improbable row degrades to `−∞` gracefully; a non-finite distance or residual faults the solve. `Range.FoldUntil` owns the exact iteration budget and stops on the step's settled case.
-- Law: the budget is bounded and its exhaustion is EVIDENCE, not silence — a run that stops on the schedule leaves `SinkhornStep.Advance` and the plan publishes `SinkhornStopKind.*StoppedWithoutConvergence`. Because that evidence rides the receipt alone, `Project<TOut>` REFUSES the evidence-free rows — `double`, `Matrix`, `CloudCorrespondenceSet`, `VectorCloud` — on an unconverged plan, since handing a bare cost out of an exhausted run is exactly the success-shaped fall-through that certifies unconverged as converged. `SinkhornReceipt` admits it, because that shape carries the stop.
-- Packages: RhinoCommon `Point3d.DistanceToSquared` is the cost kernel; System.Numerics.Tensors `TensorPrimitives` folds the LSE rows, the coupling emission, and the entropic-cost reduction; CommunityToolkit.HighPerformance `Memory2D<T>`/`Span2D<T>.GetRowSpan` addresses both `(m, n)` planes, so no stride arithmetic and no stride argument survive; `Rasm.Domain` `Stat<Scalar>`/`Distribution<Scalar>` own every moment and order statistic the receipts publish; LanguageExt.Core carries the rails, value objects, and bounded fold; Thinktecture.Runtime.Extensions carries the generated vocabularies.
-- Growth: a new transport mode is one `TransportEstimator` row and one arm over the same kernel and receipt vocabulary, never a second solver body; a new stop species is one `SinkhornStopKind` row.
+- Law: the budget is bounded and its exhaustion is EVIDENCE, not silence — a run that stops on the schedule leaves `SinkhornStep.Advance` and the plan publishes `SinkhornStopKind.*StoppedWithoutConvergence`. Because that evidence rides the summary alone, `Project<TOut>` REFUSES the evidence-free rows — `double`, `Matrix`, `CloudCorrespondenceSet`, `VectorCloud` — on an unconverged plan, since handing a bare cost out of an exhausted run is exactly the success-shaped fall-through that certifies unconverged as converged. `SinkhornSummary` admits it, because that shape carries the stop.
+- Packages: RhinoCommon `Point3d.DistanceToSquared` is the cost kernel; System.Numerics.Tensors `TensorPrimitives` folds the LSE rows, the coupling emission, and the entropic-cost reduction; CommunityToolkit.HighPerformance `Memory2D<T>`/`Span2D<T>.GetRowSpan` addresses both `(m, n)` planes, so no stride arithmetic and no stride argument survive; `Rasm.Domain` `Stat<Scalar>`/`Distribution<Scalar>` own every moment and order statistic the summary publishes; LanguageExt.Core carries the rails, value objects, and bounded fold; Thinktecture.Runtime.Extensions carries the generated vocabularies.
+- Growth: a new transport mode is one `TransportEstimator` row and one arm over the same kernel and summary vocabulary, never a second solver body; a new stop species is one `SinkhornStopKind` row.
 - Boundary: the two `(m, n)` planes are the named statement kernel with a `Fin` rail at both edges, confined to the solve body — ONE rental each, addressed through the `Memory2D<T>` view, so the flat buffer serves only the whole-plane `TensorPrimitives` reductions and no site re-derives an offset; the coupling leaves only as a `matrix.md` `Matrix` through its projection row; `MinPositiveNormal` is THE underflow anchor and `LogUnderflowFloor` derives from it, so an ad-hoc `Math.Exp` on an unfloored exponent re-introduces the silent-zero defect; `typeof(TOut)` resolution routes `ProjectionRow` entries through `atoms.md` `AtomProjection.Rows`, never a reflection ladder.
 
 ```csharp
@@ -236,7 +236,7 @@ internal sealed record SinkhornPlan(
             self.Stop.Converged ? row() : Fin.Fail<T>(error: key.InvalidResult(detail: $"sinkhorn-unconverged:{self.Iterations}"));
         return AtomProjection.Rows<SinkhornPlan, TOut>(self: self, key: key, owner: typeof(VectorCloud),
             ProjectionRow.Of<double>(() => Settled(() => key.AcceptValue(value: distance))),
-            ProjectionRow.Of<SinkhornReceipt>(() => self.ReceiptOf(source: source, target: target, distance: distance,
+            ProjectionRow.Of<SinkhornSummary>(() => self.SummaryOf(source: source, target: target, distance: distance,
                 sourceBias: sourceBias, targetBias: targetBias, policy: policy, key: key)),
             ProjectionRow.Of<CloudCorrespondenceSet>(() => Settled(() => Correspondences.OfCoupling(source: source, target: target,
                 coupling: self.Plane, cutoff: self.CouplingCutoff, key: key))),
@@ -245,7 +245,7 @@ internal sealed record SinkhornPlan(
             ProjectionRow.Of<VectorCloud>(() => Settled(() => self.BarycentricImage(target: target, key: key))));
     }
 
-    internal Fin<SinkhornReceipt> ReceiptOf(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance,
+    internal Fin<SinkhornSummary> SummaryOf(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance,
         Option<double> sourceBias, Option<double> targetBias, CloudTransportPolicy policy, Op key) {
         Seq<Scalar> retained = toSeq(Coupling.Where(entry => entry > CouplingCutoff).Select(static entry => (Scalar)entry));
         return from census in retained.IsEmpty
@@ -253,7 +253,7 @@ internal sealed record SinkhornPlan(
                    : Stat<Scalar>.Of(values: retained, key: key).Map(Some)
                from pairs in Correspondences.OfCoupling(source: source, target: target, coupling: Plane,
                    cutoff: CouplingCutoff, key: key)
-               from receipt in key.AcceptValue(value: new SinkhornReceipt(
+               from summary in key.AcceptValue(value: new SinkhornSummary(
                    Distance: distance, RawDistance: policy.Estimator.Equals(TransportEstimator.Debiased) ? Some(Distance) : Option<double>.None,
                    SourceBiasDistance: sourceBias, TargetBiasDistance: targetBias,
                    Regularization: policy.Regularization.Value, MassRelaxation: policy.MassRelaxation.Map(static l => l.Value),
@@ -261,7 +261,7 @@ internal sealed record SinkhornPlan(
                    NumericStatus: UnderflowFloored ? SinkhornNumericStatus.UnderflowFloored : SinkhornNumericStatus.FiniteAccepted,
                    SourceConvergenceResidual: SourceConvergenceResidual, TargetConvergenceResidual: TargetConvergenceResidual,
                    Iterations: Iterations, Stop: Stop, Coupling: census, Correspondences: pairs))
-               select receipt;
+               select summary;
     }
 
     internal Fin<VectorCloud> BarycentricImage(VectorCloud.ClusterCase target, Op key) {
@@ -279,7 +279,7 @@ internal sealed record SinkhornPlan(
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SinkhornReceipt(
+public readonly record struct SinkhornSummary(
     double Distance, Option<double> RawDistance, Option<double> SourceBiasDistance, Option<double> TargetBiasDistance,
     double Regularization, Option<double> MassRelaxation, double ConvergenceTolerance, double CouplingCutoff,
     TransportEstimator Estimator, SinkhornNumericStatus NumericStatus,
@@ -393,7 +393,6 @@ internal static class Correspondences {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

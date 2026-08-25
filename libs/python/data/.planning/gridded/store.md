@@ -2,19 +2,19 @@
 
 One dense chunked N-D array store over one `TensorBackend` engine axis: `TensorStore` owns the `zarr` v3 array — chunk grid, three-slot codec pipeline, orthogonal region write — with `ZARR` the pure-Python sync engine and `TENSORSTORE` the async engine opening the IDENTICAL Zarr v3 chunk grid over a native `KvStore` backend. Out-of-core is not a backend but the `cubed` plan over either store, and the versioned and ragged dimensions live on their own `gridded/virtual` and `gridded/ragged` owners, never as backend tags here.
 
-Its backend is recovered from the store URL scheme through the `runtime/transport/roots#STORE`-owned `StoreBackend` row family — `OBJECT_STORE_SCHEMES` names the remote residence and the row's own `kvstore` column names the native driver the async engine opens under it, so config is a domain value carrying its `create`/`write`/`read` behaviour and this page holds no second scheme roster, driver map, or `engine=` flag set. BOTH engines address a cloud residence: the async one through its kvstore driver, the sync one through `zarr.storage.ObjectStore` over the branch `store_handle` fold, so residence names the preference and reach decides the engine rather than a floor marker on one distribution refusing the whole remote plane. `TensorReceipt` and `PlanReceipt` key by one runtime `ContentIdentity`; the plan receipt carries the `allowed_mem` budget beside the peak its executor measured, absent where the executor measured none.
+Its backend is recovered from the store URL scheme through the `runtime/transport/roots#STORE`-owned `StoreBackend` row family — `OBJECT_STORE_SCHEMES` names the remote residence and the row's own `kvstore` column names the native driver the async engine opens under it, so config is a domain value carrying its `create`/`write`/`read` behaviour and this page holds no second scheme roster, driver map, or `engine=` flag set. BOTH engines address a cloud residence: the async one through its kvstore driver, the sync one through `zarr.storage.ObjectStore` over the branch `store_handle` fold, so residence names the preference and reach decides the engine rather than a floor marker on one distribution refusing the whole remote plane. Region writes return their `ContentKey`; `Materialization` carries the plan budget beside the peak its executor measured, absent where the executor measured none.
 
 ## [01]-[INDEX]
 
-- [02]-[STORE]: the `TensorStore` dense store over the `TensorBackend` axis — create/region-write/read, the `TensorChunking` grid, the `TensorCodec` pipeline, the content-keyed `TensorReceipt`.
-- [03]-[PLAN]: the bounded-memory `cubed` plan over the same store — one `PlanOp` dispatch, the `PlanReceipt` budget-vs-peak evidence.
+- [02]-[STORE]: the `TensorStore` dense store over the `TensorBackend` axis — create/region-write/read, the `TensorChunking` grid, the `TensorCodec` pipeline, and content-keyed writes.
+- [03]-[PLAN]: the bounded-memory `cubed` plan over the same store — one `PlanOp` dispatch and the measured `Materialization` result.
 
 ## [02]-[STORE]
 
 - Owner: `TensorStore` — one frozen store; one `create`/`write_region`/`read_region` entrypoint family owns all modalities by the recovered backend and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal. Every I/O leg opens its `_TRACER` span — trace parity with the sibling spatial and egress I/O legs, the runtime fence marking a failed leg's span — off the faults-owned `scoped` stamp carrying the version and semconv triple, its `kind` reading residence off `TensorBackend.span_kind(ref)` so an object-store leg publishes the client boundary a distributed trace joins on and a local-path leg stays `INTERNAL` whichever engine serves it.
 - Law: `TensorBackend.reached` is the ONE gate `create` crosses and it proves TWO conditions in one read — `_UNREACHED`, the import-time `find_spec` row over `_ENGINE_MODULE`, so an engine the manifest holds below the interpreter floor answers `TENSOR_FLOOR` naming the absent module instead of raising `ModuleNotFoundError` from a lazy provider import mid-leg; then `_TS_DRIVER`, so a residence the async engine addresses no kvstore driver for answers `TENSOR_DRIVER` naming the missing driver by scheme instead of raising mid-leg from a spec builder. Both rows carry their own subject, so the `subject: str` the gate once threaded across three hops deletes. `for_ref` reads residence for the PREFERENCE and reach for the engine, so an unnamed remote ref lands on whichever engine this floor resolves while a caller-NAMED engine below the floor still refuses by module name — the verbatim-selection law holds exactly where a caller made a selection to honour. `write_region`/`read_region` ride the `self.backend` construction already proved, which is exactly what makes the driver read total below the gate.
 - Law: `write_region` crosses the owner's `ResourceGuard` before any region lands — one guard per opened store, composition-bound — so two same-process apps racing one array refuse typed at the guard as `concurrent-write` instead of interleaving regions mid-snapshot; the guard spans the whole staged write, nothing queues behind it, and cross-process coordination stays the chunk grid's own per-chunk atomicity, which the guard never substitutes for.
-- Law: both mutation legs land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and the read leg lands none — an operational `AuditFact` carrying the coordinate that leg moved, plus a `STORAGE` `MeterFact` where bytes landed, so arming records without metering and a region write records both. Both legs are already awaitable, which is what makes them the seat under the runtime producer-seam law; the facts mint off the settled outcome so none names a write the store refused, and the record rail binds into each verdict. The receipt fan keeps the series and the journal keeps the fact — neither re-mints the other's number.
+- Law: both mutation legs land durable evidence on the `python:runtime/observability/journal#LEDGER` plane and the read leg lands none — an operational `AuditFact` carries the coordinate that leg moved, and a `STORAGE` `MeterFact` carries bytes landed. Both legs are awaitable, so the facts mint from the settled outcome and the record rail binds into each verdict.
 - Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor, digest, or byte reordering is one `_BYTES` row and its `BytesStage` case, reachable at any position of any tail with no other edit; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row and one `_ENGINE_MODULE` floor row, `span_kind` deriving from residence with no per-engine arm at all; a new cloud backend is one `StoreBackend` row at the runtime owner that `_TS_DRIVER` picks up with zero edits here; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.STORE` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
 - Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import. Deleted forms: a codec row spelling a knob its provider does not carry, which arms the store and then raises from inside the codec at the first chunk write while the same unreadable key already sits in the metadata document; a two-case `compress|raw` serializer, which spells compression or a digest and never both, and reaches only the two knobs its positional pair carries; an engine selected with no floor gate ahead of its lazy import; a hardcoded `LocalStore` on the sync arm, which wrote a local directory for a cloud residence and left the async distribution as the only remote path; a `span_kind` keyed on the engine, which mislabels a sync-engine cloud leg `INTERNAL`; and a bare `trace.get_tracer(scope)` beside the faults-owned `scoped` stamp.
 
@@ -43,8 +43,7 @@ from rasm.data.tabular.interop import DataLeg
 from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.roots import OBJECT_STORE_SCHEMES, STORE_BACKENDS, ResourceRef, store_handle
 
 if TYPE_CHECKING:
@@ -302,40 +301,6 @@ class TensorBackend(StrEnum):
         return _READ[self]
 
 
-class TensorReceipt(Struct, frozen=True):
-    backend: TensorBackend
-    shape: Shape
-    chunks: ChunkGrid
-    dtype: DType
-    codec: str
-    filters: tuple[str, ...]
-    bytes_stored: int
-    content_key: ContentKey
-    shards: ChunkGrid | None = None
-
-    def contribute(self) -> Iterable[Receipt]:
-        Metrics.record({"rasm.tensor.byte_volume": float(self.bytes_stored)}, domain=DOMAIN, kind=self.backend.value)
-        return (
-            Receipt.of(
-                DOMAIN,
-                (
-                    "emitted",
-                    self.backend.value,
-                    {
-                        "domain": DOMAIN,
-                        "kind": self.backend.value,
-                        "key": self.content_key.hex,
-                        "shape": "x".join(map(str, self.shape)),
-                        "codec": self.codec,
-                        "filters": ",".join(self.filters),
-                        "stored": self.bytes_stored,
-                        **({"shards": "x".join(map(str, self.shards))} if self.shards else {}),
-                    },
-                ),
-            ),
-        )
-
-
 class TensorStore(Struct, frozen=True):
     backend: TensorBackend
     ref: ResourceRef
@@ -378,7 +343,7 @@ class TensorStore(Struct, frozen=True):
                 case unreachable:
                     assert_never(unreachable)
 
-    async def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeRail[TensorReceipt]":
+    async def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeRail[ContentKey]":
         match writes:
             case (TensorRegion(), _) as lone:
                 staged: tuple[Write, ...] = (lone,)
@@ -403,14 +368,10 @@ class TensorStore(Struct, frozen=True):
                     written = await async_boundary(TENSOR_WRITE, _write, catch=_STORE_RAISES)
             except BusyResourceError:
                 return Error(TENSOR_CONCURRENT.raised())
-            match written.bind(
-                lambda stored: ContentIdentity.of(DOMAIN, tuple(block.tobytes() for _, block in staged)).map(
-                    lambda key: _receipt(self, stored, key)
-                )
-            ):
-                case Result(tag="ok", ok=receipt):
-                    landed = _evidence(self, "write", (Assigned(path="/content", next=receipt.content_key.hex),), receipt.bytes_stored)
-                    return (await Journal.record(landed, scope=self.scope)).map(lambda _landed: receipt)
+            match written.bind(lambda stored: ContentIdentity.of(DOMAIN, tuple(block.tobytes() for _, block in staged)).map(lambda key: (stored, key))):
+                case Result(tag="ok", ok=(stored, key)):
+                    landed = _evidence(self, "write", (Assigned(path="/content", next=key.hex),), stored)
+                    return (await Journal.record(landed, scope=self.scope)).map(lambda _landed: key)
                 case refused:
                     return Error(refused.error)
 
@@ -569,18 +530,6 @@ def _evidence(store: "TensorStore", operation: str, change: "tuple[Assigned, ...
     return Block.of_seq((audited, metered) if stored else (audited,))
 
 
-def _receipt(store: TensorStore, bytes_stored: int, key: ContentKey) -> TensorReceipt:
-    return TensorReceipt(
-        backend=store.backend,
-        shape=store.shape,
-        chunks=store.chunking.chunks,
-        dtype=store.dtype,
-        codec=store.codec.name,
-        filters=tuple(f.tag for f in store.codec.filters),
-        bytes_stored=bytes_stored,
-        content_key=key,
-        shards=store.chunking.shards,
-    )
 ```
 
 ```mermaid
@@ -593,7 +542,7 @@ config:
 ---
 flowchart LR
     accTitle: Tensor store engine flow
-    accDescr: ResourceRef scheme recovery into the backend delegates, codec pipeline lowering, the async rail, and the content-keyed receipt.
+    accDescr: ResourceRef scheme recovery into the backend delegates, codec pipeline lowering, the async rail, and content-keyed write settlement.
     Ref["ResourceRef scheme"] --> Backend["TensorBackend.for_ref"]
     Backend -->|local| Zarr["zarr awaitable delegate filters/serializer/compressors"]
     Backend -->|cloud| TS["tensorstore.open zarr3 + KvStore + Transaction"]
@@ -601,16 +550,16 @@ flowchart LR
     Codec --> TS
     Zarr --> Rail["async_boundary on the caller's loop"]
     TS --> Rail
-    Rail --> Receipt["TensorReceipt ContentIdentity.of"]
+    Rail --> Key["ContentIdentity.of"]
 ```
 
 ## [03]-[PLAN]
 
 - Owner: the bounded-memory `cubed` plan over the same `TensorStore` module — the out-of-core dimension of the store, not a fifth backend tag; one owner module carries the dense store and its plan, never a parallel `CubedStore` class.
 - Cases: the `linalg` arm's factor tuple persists whole at materialization, so a `svd`/`qr` never drops a factor.
-- Receipt: the plan emits no receipt while lazy — it builds a graph; materialization folds one `PlanReceipt` as budget-vs-peak evidence, and the materialized store re-enters through `[02]-[STORE]` as a fresh content-keyed `TensorReceipt`. `facts` is the one flat projection the materialize span and the durable row both read, and the measured peak rides `Posture` because an executor that fills no `peak_measured_mem_end` leaves a run with no measurement rather than a zero-byte one.
+- Law: the lazy plan builds a graph; materialization returns one `Materialization` carrying budget, measured peak, task and operation counts, target, and arity. `facts` is the one flat projection the materialize span reads, and `Posture` leaves an unmeasured executor peak absent rather than fabricating zero.
 - Growth: a new reduction is one `Reduction` literal the Array API namespace answers; a new factorization one `_LINALG` row; a new executor one `Executor` literal; a new execution dimension (`executor_options`, `zarr_compressor`) is one `PlanBudget` field with `plan`'s signature untouched; a new measured fact is one field off the `Callback` lifecycle plus one `facts` column; zero new surface and never a `cubed` backend tag on `TensorBackend`.
-- Boundary: `data` emits a bounded-memory plan plus its typed peak-memory receipt, never a runtime compute graph, and a consumer selects its own substrate off that receipt.
+- Boundary: `data` emits a bounded-memory plan and returns its measured materialization, never a runtime compute graph.
 
 ```python
 from collections.abc import Callable, Iterable
@@ -624,7 +573,6 @@ from expression.collections import Map
 from msgspec import Struct
 
 from rasm.runtime.faults import FAULT_CONF, Catch, Posture, RuntimeRail, boundary
-from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
     import numpy as np
@@ -710,7 +658,7 @@ class MemoryProbe(cubed.Callback):
         self.peak = Posture(declared=max(self.peak.option().default_value(0), int(event.peak_measured_mem_end)))
 
 
-class PlanReceipt(Struct, frozen=True):
+class Materialization(Struct, frozen=True):
     op: Op
     executor: Executor
     allowed_mem: int
@@ -737,10 +685,6 @@ class PlanReceipt(Struct, frozen=True):
         }
         return columns | self.peak_mem.option().map(lambda peak: {"peak_mem": peak}).default_value({})
 
-    def contribute(self) -> Iterable[Receipt]:
-        return (Receipt.of(DOMAIN, ("planned", self.op, self.facts())),)
-
-
 @beartype(conf=FAULT_CONF)
 def plan(store: "TensorStore", work_dir: "ResourceRef", *, budget: PlanBudget = DEFAULT_BUDGET) -> "RuntimeRail[cubed.Array]":
     def _open() -> "cubed.Array":
@@ -751,15 +695,15 @@ def plan(store: "TensorStore", work_dir: "ResourceRef", *, budget: PlanBudget = 
     return boundary(TENSOR_PLAN, _open, catch=_PLAN_RAISES)
 
 
-def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "RuntimeRail[PlanReceipt]":
-    def _run() -> PlanReceipt:
+def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "RuntimeRail[Materialization]":
+    def _run() -> Materialization:
         result = op.apply(graph)
         outputs = result if isinstance(result, tuple) else (result,)
         spec = outputs[0].spec
         probe = MemoryProbe()
         targets = [f"{target.path}/{op.tag}.{index}" for index in range(len(outputs))]
         cubed.store(list(outputs), targets, callbacks=[probe])
-        receipt = PlanReceipt(
+        result = Materialization(
             op=op.tag,
             executor=spec.executor_name,
             allowed_mem=int(spec.allowed_mem),
@@ -771,8 +715,8 @@ def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "Run
             peak_mem=probe.peak,
             target=str(target.path),
         )
-        trace.get_current_span().set_attributes(receipt.facts())
-        return receipt
+        trace.get_current_span().set_attributes(result.facts())
+        return result
 
     with _TRACER.start_as_current_span(f"tensor.materialize.{op.tag}"):
         return boundary(TENSOR_MATERIALIZE, _run, catch=_PLAN_RAISES)
@@ -788,12 +732,12 @@ config:
 ---
 flowchart LR
     accTitle: Bounded-memory plan flow
-    accDescr: The dense store lifted into a cubed plan, the PlanOp dispatch, materialization under the memory probe, and the budget-versus-peak receipt.
+    accDescr: The dense store lifted into a cubed plan, the PlanOp dispatch, and materialization under the memory probe.
     Store["TensorStore"] --> From["cubed.from_zarr Spec + measure_reserved_mem"]
     From --> Op["PlanOp.apply reduce/linalg/blockwise/gufunc/rechunk"]
     Op --> Mat["cubed.store over all factors + MemoryProbe Callback"]
     Mat --> Peak["TaskEndEvent peak + operation/task counts"]
-    Peak --> Receipt["PlanReceipt budget vs peak + arity"]
+    Peak --> Result["Materialization budget vs peak + arity"]
     Mat --> Restore["[02]-[STORE] TensorStore.create"]
 ```
 

@@ -2,7 +2,7 @@
 
 `TablePlan` is the publication-and-schedule tabular-artifact owner — the missing third artifact pillar beside documents and charts — graded at once as a journal-grade publication primitive and an ISO-drafting schedule/QTO primitive. One owner over great-tables (bring-your-own-DataFrame, polars first-class through `DataFrame.style`) admits a settled frame or the C# `Rasm.Bim` QTO/schedule wire over `data/tabular`, shapes it to its display cross-tab through the closed `Reshape` polars pre-pass, then styles it into journal output — spanners, scientific formatting, uncertainty merges, substitution, configured nanoplots, data-driven coloring, footnote marks, and `opt_*` theme identity — exported host-free to HTML/LaTeX and gated PDF. Every option axis is typed: the format verbs share one closed `FmtOptions` payload, cell styling rides the per-kind `TextStyleKwds`/`FillStyleKwds`/`BorderStyleKwds`/`CssStyleKwds` vocabulary, nanoplots the closed `NanoOptions` roster, and data coloring the `DataColorKwds` bundle — no case carries an open `Any` bag, so a misspelled provider argument fails at type-check, never inside the render.
 
-Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys it, never authoring the data, re-opening the lazy engine, or re-implementing a `data`-owned transform. `data/tabular/profile#PROFILE`'s `QualityProfile` frame enters through `TablePlan.of` exactly like any settled frame — the profile owner authors quality facts, this owner styles them. Measured results and BIM quantity takeoffs both render as formatted tables feeding `document/report#REPORT` and `document/emit#DOCUMENT`; `drawing/schedule#SCHEDULE` lowers its AEC templates into this owner and composes the same `build()` bytes fact to mint its own `ArtifactReceipt.Schedule`, so a schedule lowers in with no private-method reach. Flat HTML/SVG egress hands to `composition/compose#COMPOSE` for placement beside sibling graphics.
+Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys it, never authoring the data, re-opening the lazy engine, or re-implementing a `data`-owned transform. `data/tabular/profile#PROFILE`'s `QualityProfile` frame enters through `TablePlan.of` exactly like any settled frame — the profile owner authors quality facts, this owner styles them. Measured results and BIM quantity takeoffs both render as formatted tables feeding `document/report#REPORT` and `document/emit#DOCUMENT`; `drawing/schedule#SCHEDULE` lowers its AEC templates into this owner and composes the same `build()` bytes. Flat HTML/SVG egress hands to `composition/compose#COMPOSE` for placement beside sibling graphics.
 
 ## [01]-[INDEX]
 
@@ -12,11 +12,10 @@ Frame arrives settled; `TablePlan` reshapes-to-display, styles, and content-keys
 
 - Owner: `TablePlan` discriminates export format over the closed `TableFormat` (`HTML`/`LATEX`/`PDF`); `Reshape` and `TableOp` are `expression.tagged_union` families each carrying one typed payload per case — `Reshape` folded `pl.DataFrame -> pl.DataFrame` before `.style`, `TableOp` folded onto the great-tables `GT` builder — dispatched by one total `match`, never a parallel `dict[str, Callable]` catalogue or a per-feature `reduce`. `Theme` is the closed `opt_*` stylize vocabulary carried as the table's named publication identity, its `FootnoteMarks` axis selecting numeric, alphabetic, or symbol mark sequences.
 - Cases: `Reshape` rows land the display cross-tab a raw QTO/schedule frame is not yet in — `Select`/`Filter`/`Sort`/`Rename`/`Cast`/`Head`/`Slice`/`With`, `GroupAgg` quantity rollup, `Pivot` (the door/window/room-finish cross-tab), `Unpivot`, `TopK`, and `Derive` (a display column the frame did not carry) — each a `pl.Expr`-carrying case folded by one total `_shape` match, so a schedule rollup is one row and never a Python loop over cells. `TableOp` folds the full publication surface — structure, column control, spanners, `Fmt` value format over the `FmtKind` table, `Nanoplot`, column merges, substitutions, cell transforms, aggregation, data-driven `Color`, and raw `Css` — each arm composing the verified `GT` member directly. One `Fmt` case carrying a `FmtKind` discriminant collapses every `fmt_*` verb plus the arbitrary `fmt(fns, is_substitution)` custom verb onto one fold over `FMT_TABLE`, since every member shares the `(columns, rows, FmtOptions)` boundary shape and `FmtOptions` is the closed union of every verb's admitted keywords, `_frozen` sealing each payload to an immutable band at storage.
-- Law: ONE primary correspondence keys the render: `_seed` emits the canonical FIELD SET for every render-affecting input, framed by the runtime `IdentitySource.parts` fold at its one owner — the frame schema plus `hash_rows` digest, each `Reshape` and `TableOp` through the `_sealed` per-value canon (a `pl.Expr` through `Expr.meta.serialize(format="binary")`, a callable through its `module:qualname`, marshalled code, defaults, keyword defaults, closure cells, bound-instance state, and one-hop referenced-global facets — an opaque `__call__` instance refuses), the format, theme, seam knobs, and emit knobs — and `_key = ContentIdentity.key(...)` over those chunks feeds the `ArtifactWork` node, the receipt (`receipt.slot == node.key`), and the derived CSS id, so no second identity mint exists and equal keys imply equal render behavior.
-- Entry: `TablePlan.of` admits raw material exactly once — a settled `pl.DataFrame` passes through, an Arrow-C-stream / interchange capsule (the C# `Rasm.Bim` QTO/schedule egress over `data/tabular`, or any `data` producer) normalizes through `pl.from_dataframe` zero-copy where the layout permits — so the interior sees only a settled frame, never re-validated inward, and one parameterized `[WIRE]` edge sources across providers without touching the interior. `emit()` returns the `ArtifactWork` node with a PRE-RUN input key; `build()` is the synchronous bytes seam a composing AEC owner renders through directly, so `drawing/schedule#SCHEDULE` mints its own receipt off the same single render with no private-method reach.
+- Law: ONE primary correspondence keys the render: `_seed` emits the canonical FIELD SET for every render-affecting input, framed by the runtime `IdentitySource.parts` fold at its one owner — the frame schema plus `hash_rows` digest, each `Reshape` and `TableOp` through the `_sealed` per-value canon (a `pl.Expr` through `Expr.meta.serialize(format="binary")`, a callable through its `module:qualname`, marshalled code, defaults, keyword defaults, closure cells, bound-instance state, and one-hop referenced-global facets — an opaque `__call__` instance refuses), the format, theme, seam knobs, and emit knobs — and `_key = ContentIdentity.key(...)` over those chunks feeds the `ArtifactWork` node and derived CSS id, so equal keys imply equal render behavior.
+- Entry: `TablePlan.of` admits raw material exactly once — a settled `pl.DataFrame` passes through, an Arrow-C-stream / interchange capsule (the C# `Rasm.Bim` QTO/schedule egress over `data/tabular`, or any `data` producer) normalizes through `pl.from_dataframe` zero-copy where the layout permits — so the interior sees only a settled frame, never re-validated inward, and one parameterized `[WIRE]` edge sources across providers without touching the interior. `emit()` returns the `ArtifactWork` node with a PRE-RUN input key; `build()` is the synchronous bytes seam `drawing/schedule#SCHEDULE` and other composing owners invoke directly.
 - Auto: `build` is one `pl.Config` scope over an ordered fold — `_shape` reshapes the frame to its cross-tab, `Theme.apply` seeds the `opt_*` identity, each `TableOp` case folds its one `GT` member; `_bridged` detects a group-scoped `summary` op and enters the `GT` through `shaped.to_pandas()` because great-tables' group resolver faults on a polars frame (`IndexError`), the one verified provider gap the bridge closes. `maintain_order=True`/`sort_columns=True` on the group/pivot rows fix row/column order and the fold runs inside the render scope, so a float-to-display `Derive` renders at fixed precision and the display frame is byte-reproducible for the content key. CSS-scope ids derive from the content key — great-tables mints `random_id()` when `id` is `None`, drifting the rendered bytes every render, so `build` stamps `gt{key:032x}` unless the caller pinned `table_id`. `_place` is one `LOC_TABLE` projection from `StubLoc` to the verified per-selector arg-arity through the `LocArity` discriminant, never a branch on which location admits `columns`/`rows`/`ids`/`groups`; `_font` discriminates the closed `FontFace` payloads and passes the bounded `FontStackName` straight to `opt_table_font(stack=)`; the `Color` arm derives text color from background luminance via `autocolor_text=True`; `NanoSpec.fold` owns `fmt_nanoplot`, while standalone value formatting and unit grammar use `vals.fmt_*` and `define_units` directly.
-- Receipt: each render contributes the shared `core/receipt#RECEIPT` `ArtifactReceipt.Table(key, format, bytes)` — the node's own content key, `TableFormat` value, and byte count off the one `build()` render — through the runtime `ReceiptContributor` port, the LEAF-producer pattern where the receipt IS the return, mirroring the sibling chart and raster producers rather than the `composition/compose#COMPOSE` placement-owner's `of()` plus separate `contribute()`. `drawing/schedule#SCHEDULE` composes the same `build` bytes fact to mint its own `ArtifactReceipt.Schedule` (single-fact: one render, one content key). `_emit` awaits `Journal.record` over `receipt.evidence()` for the `OPERATIONAL` fact and its `STORAGE` charge, seated at that awaitable fold and never inside `_railed` — that leg runs in a worker process where nothing suspends and no journal custody is bound, so a record there sheds exactly what it claims to land.
-- Packages: `great-tables` (the `GT` builder and its full `tab_*`/`cols_*`/`fmt_*`/`sub_*`/`text_*`/`opt_*`/`data_color`/`vals.fmt_*` surface plus the `loc.*` selectors, `style.*` constructors, and `nanoplot_options`/`define_units`/`from_column`/`google_font` helpers), `polars` (the `DataFrame.style -> GT` seam, the `Reshape` frame ops, `pl.from_dataframe` interchange ingress, `polars.selectors` for the `Cols` dtype-class selector, `pl.Config` render scope, `hash_rows` and `Expr.meta.serialize` the identity seeds, `PolarsError` the `_FAULTS` base), runtime (`ContentIdentity`/`ContentKey`, `RuntimeRail`/`boundary`, `Journal` the durable seat's one writer, `LanePolicy`/`Kernel`/`KernelTrait`), `core/receipt#RECEIPT` (`ArtifactReceipt.Table`).
+- Packages: `great-tables` (the `GT` builder and its full `tab_*`/`cols_*`/`fmt_*`/`sub_*`/`text_*`/`opt_*`/`data_color`/`vals.fmt_*` surface plus the `loc.*` selectors, `style.*` constructors, and `nanoplot_options`/`define_units`/`from_column`/`google_font` helpers), `polars` (the `DataFrame.style -> GT` seam, the `Reshape` frame ops, `pl.from_dataframe` interchange ingress, `polars.selectors` for the `Cols` dtype-class selector, `pl.Config` render scope, `hash_rows` and `Expr.meta.serialize` the identity seeds, `PolarsError` the `_FAULTS` base), runtime (`ContentIdentity`/`ContentKey`, `RuntimeRail`/`boundary`, `LanePolicy`/`Kernel`/`KernelTrait`).
 - Growth: a new frame-shaping transform is one `Reshape` case plus one `_shape` arm; a new export format is one `TableFormat` row; a new format verb is one `FmtKind` row in `FMT_TABLE` plus its `FmtOptions` keys (and one `VALS_TABLE` row where the standalone Series formatter exists); a new structural, merge, substitution, transform, or aggregation feature is one `TableOp` case plus one `match` arm; a new emit knob is one `TablePlan` policy field; a new location target is one `StubLoc` row in `LOC_TABLE`; a new theme axis is one `Theme` field; a new footnote-mark family is one `FootnoteMarks` member; a new font source is one `FontFace` row; a new provider ingress is one `FrameSource` arm in `of`; a new provider keyword is one `NotRequired` key on the owning options TypedDict; an unrowed package call is one `Pipe` `GT -> GT`.
 - Boundary: no raw data interchange authoring (that stays at `data`) — the frame arrives settled over the `data/tabular` wire and `_shape` only re-projects/rolls-up/cross-tabs it for display, `_seam` keeping the `DataFrame.style` accessor as the default path and falling to the explicit `GT(...)` constructor only when `rowname_col`/`groupname_col`/`locale`/`auto_align` diverges. Summary fns split by path: `grand_summary` on the polars-native path evaluates `pl.Expr` fns, while a bridged plan (any group-scoped `summary` op) evaluates only the per-column callable form — a `pl.Expr` fn under the bridge raises `TypeError`, folded onto the boundary rail — so a plan mixing both keeps every summary fn callable. HTML and LaTeX emit knobs ride `TablePlan` policy fields so every emit literal traces to a field default, both host-free no-driver byte paths; the emitted HTML/SVG is the flat handoff `composition/compose#COMPOSE` reads, re-rendering nothing. PDF `save` rides a host-coupled Chrome/Selenium WebDriver rounded through a temp file — gated optional, never the default, the one remaining gated host path, a host-free PDF instead routing this owner's HTML through `document/emit#DOCUMENT`; the driver lifecycle owns the wedge kill through its own page-load timeout, because a worker-level `Enforcement.TERMINAL` orphans chromedriver. great-tables' `random_id()` default, a per-feature method chain, a per-cell imperative loop, a Python row loop where a `Reshape` expr shapes the frame, a re-opened lazy engine, a parallel format/style/location catalogue, a branch on location kind, an `Any`-typed option bag, and a second identity mint beside `_key` are the rejected forms.
 
@@ -34,7 +33,7 @@ from typing import Literal, NotRequired, Protocol, Self, TypedDict, Unpack, asse
 import polars as pl
 import polars.selectors as cs
 from builtins import frozendict
-from expression import Error, Result, case, tag, tagged_union
+from expression import Error, Ok, Result, case, tag, tagged_union
 from great_tables import GT, google_font, loc, md, nanoplot_options, style, vals
 from great_tables._helpers import FontStackName
 from great_tables._locations import Loc
@@ -42,12 +41,12 @@ from great_tables._styles import CellStyle, ColumnExpr
 from msgspec import Struct, json
 from polars.exceptions import PolarsError
 
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy from selenium.common.exceptions import WebDriverException
@@ -788,7 +787,7 @@ class TablePlan(Struct, frozen=True):
             config=config,
         )
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[bytes]:
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
@@ -822,21 +821,21 @@ class TablePlan(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"table-{self.fmt}", IdentitySource(parts=self._seed))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[bytes]:
         match (await self.lane.offload(Kernel.of(partial(self._railed, key), KernelTrait.RELEASING))).bind(lambda inner: inner):
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=data):
+                Metrics.record({BYTE_VOLUME: float(len(data))}, domain=DOMAIN, kind="table", scope=self.lane.scope)
+                return Ok(data)
             case refused:
                 return Error(refused.error)
 
-    def _railed(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+    def _railed(self, key: ContentKey, /) -> RuntimeRail[bytes]:
         return boundary(
             f"table.{self.fmt}", partial(self._rendered, key), catch=(*_FAULTS, WebDriverException) if self.fmt is TableFormat.PDF else _FAULTS
         )
 
-    def _rendered(self, key: ContentKey, /) -> ArtifactReceipt:
-        data = self.build(key)
-        return ArtifactReceipt.Table(key, self.fmt.value, len(data))
+    def _rendered(self, key: ContentKey, /) -> bytes:
+        return self.build(key)
 
     @property
     def _seam(self) -> bool:

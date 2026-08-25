@@ -156,7 +156,7 @@ The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionSc
 - georeference axis: `get_helmert_transformation_parameters` is the single extraction seam every conversion reads, so an `IfcMapConversion`, an `IfcMapConversionScaled` with its three scale factors, an `IfcRigidOperation`, and the IFC2X3 `ePSet_MapConversion` all resolve to ONE nine-field `HelmertTransformation` and no consumer branches on schema or coordinate-operation subtype. A `None` return means the model carries no georeference, and every `auto_*` entry answers its input unchanged rather than raising, so the ungeoreferenced case is the identity transform. `should_return_in_map_units`/`is_specified_in_map_units` select whether the scale factor is applied on the way out, so a project-unit and a map-unit consumer share one entry — a caller re-dividing by `scale` outside is the deleted form.
 - tessellation axis: one `geom.settings` knob bag (`mesher-linear-deflection`, `mesher-angular-deflection`, `precision`, `dimensionality`, `weld-vertices`, `use-world-coords`, `apply-default-materials`, `generate-uvs`, `disable-opening-subtractions`) and a `geometry_library` kernel feed `geom.iterator`/`iterate`/`create_shape`; `serializer_settings.set("use-element-guids", bool)` owns serialized node identity. Iterator `include`/`exclude` are mutually exclusive lists of entity instances or GlobalId strings, so element/type scope binds at construction rather than a post-mesh filter. `geom.has_occ` flags OpenCASCADE and falls back to CGAL. `TriangulationElement` verts/faces/materials feed the mesh/GLB seam, never the `BRepElement`.
 - analysis axis: `util.element` resolves property sets, containment, and decomposition; `util.selector.filter_elements` runs the selector grammar; results stay `entity_instance` values.
-- evidence: each model op captures schema version, instance count, and edited-entity count; each tessellation captures element/vertex/face counts and kernel as an ifc receipt.
+- evidence: each model result carries schema version, instance count, and edited-entity count; each tessellation result carries element/vertex/face counts and kernel.
 - boundary: ifcopenshell owns IFC parse and tessellation; mesh post-processing routes to `trimesh`, point clouds to `open3d`, glTF authoring to the artifacts owner; live UI stays outside.
 
 [STACKING]:
@@ -168,7 +168,7 @@ The georeference band is pure Python over `IfcMapConversion`/`IfcMapConversionSc
 - `ifctester`(`.api/ifctester.md`): validates a `file` against IDS facets.
 - `ifccsv`(`.api/ifccsv.md`): `util.selector.filter_elements` selects the element set and `util.element` reads its attribute/pset values for tabular export.
 - `bcf-client`(`.api/bcf-client.md`): `file.by_type`/`by_guid` `entity_instance` GUIDs drive BCF viewpoint selection and visibility.
-- `geometry:ifc` owner: composes `ifcopenshell.open`, the `by_id`/`by_guid`/`by_type` query, the direct `ifcopenshell.api.<module>.<action>` authoring callables, and `geom.iterate`/`create_shape` into the ifc rail, capturing an ifc receipt.
+- `geometry:ifc` owner: composes `ifcopenshell.open`, the `by_id`/`by_guid`/`by_type` query, the direct `ifcopenshell.api.<module>.<action>` authoring callables, and `geom.iterate`/`create_shape` into typed IFC results.
 
 [LOCAL_ADMISSION]:
 - `geometry:ifc` owner admits `ifcopenshell.open`, the query/authoring/tessellation surface, and `util` analysis as the ifc rail: a path opens the model, the usecase vocabulary authors it, and `geom` meshes it under a `geometry_library` kernel.

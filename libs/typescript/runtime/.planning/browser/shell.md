@@ -149,7 +149,7 @@ class Manifest extends Schema.Class<Manifest>("Manifest")({
 - Law: the `waiting` arm reads the event's own refinement flags — `Waiting.update` holds `isUpdate === true || wasWaitingBeforeRegister === true`, so a first-install wait and a genuine update are distinct facts in the phase cell and `Install.fresh` gates on the flag, never on the bare phase.
 - Law: the apply order is load-bearing — `apply` sets `Reloading` and only then calls `messageSkipWaiting`, so the `controlling` arm observes the intent and a `controllerchange` arriving for any other reason never reloads.
 - Law: `unsupported` short-circuits at construction — a host without `navigator.serviceWorker` yields the service in its inert posture (`Unregistered` forever, `register` answering the typed fault) so every consumer folds capability absence as data.
-- Receipt: `register` yields `boolean` — controlled now or awaiting first load — and the phase cell carries everything else; no consumer touches the registration object.
+- Output: `register` yields `boolean` — controlled now or awaiting first load — and the phase cell carries everything else; no consumer touches the registration object.
 - Boundary: the refresh affordance is `[6]`'s read; the worker asset, precache manifest, and offline shell are the app build's, emitted through `workbox-build`'s `injectManifest` over the authored SW.
 
 ```typescript
@@ -433,7 +433,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
 - Law: the prompt capture is the module's platform-forced statement seam — `beforeinstallprompt` is nonstandard (absent from `WindowEventMap`, spelled here once as the `_PromptEvent` boundary refinement) and its `preventDefault` runs synchronously inside the native handler or the browser consumes the prompt; the capture bridge therefore attaches its own listener under `Stream.asyncScoped`, deferring and emitting in the same synchronous frame, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_prompts`' first line.
 - Law: stance is evidence-ordered — the standalone display-mode probe (seeded from `matchMedia`, advanced by its `change` events) and the `appinstalled` event both fold to their stance directly; running standalone is terminal for the session, so no later fold demotes it.
 - Law: the update affordance is a derivation, not a state — `fresh` maps the worker phase feed through the `Waiting` refinement AND its `update` flag, so a first-install wait renders nothing, install and update read one truth, and the ui wave binds both through its atom bridge at app composition; this module exposes no second phase cell.
-- Receipt: `ask` yields the fold's stance so the caller renders the outcome without re-reading the cell.
+- Output: `ask` yields the fold's stance so the caller renders the outcome without re-reading the cell.
 - Boundary: the worker phase and the apply handshake are `[3]`'s; the affordance rendering is the ui wave's through the app-composed port.
 - Packages: `effect` (`Data`, `Effect`, `Option`, `Schema`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/core` (`Fault.Class`).
 
@@ -551,7 +551,6 @@ export { Install, InstallFault, InstallStance, Manifest, Sw, SwFault, SwLifecycl
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

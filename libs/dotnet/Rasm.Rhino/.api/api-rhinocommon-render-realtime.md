@@ -135,7 +135,7 @@
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document.md` and `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-geometry.md`: `ViewInfo`/`ViewportInfo`/`RhinoDoc` bind the queue and engine, and `Rhino.Geometry.Mesh`/`Light`/`Transform`/`Plane`/`Vector2d`/`BoundingBox` are the geometry carriers a payload exposes.
 
 [LOCAL_ADMISSION]:
-- A change enters through the subclass `Apply*` hook or a `GetQueue*` pull; a payload stays inside the hook grant, and downstream code receives a detached value record, a resolved content reference, or a projected receipt, never a live payload escaping the hook.
+- A change enters through the subclass `Apply*` hook or a `GetQueue*` pull; a payload stays inside the hook grant, and downstream code receives a detached value record, a resolved content reference, or a detached fact, never a live payload escaping the hook.
 
 [RAIL_LAW]:
 - Surface: `Rhino.Render.ChangeQueue` + `Rhino.Render` realtime slice

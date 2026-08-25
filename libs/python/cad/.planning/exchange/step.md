@@ -192,4 +192,4 @@ def sealed(shape: TopoDS_Shape, path: Path, /) -> CadRail[StepProtocol]:
 
 ## [04]-[RESEARCH]
 
-- [SCHEMA_ROSTER]-[OPEN]: does OCCT emit any AP242 `FILE_SCHEMA` token beyond the MIM_LF spelling under `write.step.schema=5`; verify by writing one solid and reading `SchemaIdentifiersValue(1)` back off the emitted model.
+(none)

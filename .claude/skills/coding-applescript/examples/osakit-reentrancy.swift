@@ -13,8 +13,6 @@ private let renderVerb = AEEventID(0x526E_6472)
 /// registry keyword carries it.
 private let reentrantKey = AEKeyword(0x5265_6E74)
 
-/// Host-domain fault numbers stay out of the Apple Event Manager's negative range, so a receipt never
-/// reads a host refusal as a transport status.
 private enum HostFault {
     static let depthExceeded: Int32 = 9300
     static let suspensionUnavailable: Int32 = 9301

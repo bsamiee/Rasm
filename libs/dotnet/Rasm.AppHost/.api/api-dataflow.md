@@ -72,7 +72,7 @@
 [TOPOLOGY]:
 - Every block is `ITargetBlock<T>`, `ISourceBlock<T>`, or both through `IPropagatorBlock<TInput,TOutput>`; `LinkTo` wires a source into a target.
 - Bounded blocks back-pressure at `BoundedCapacity`: `SendAsync` awaits a slot, `Post` refuses when full, `Unbounded = -1` opts out.
-- Both offer verbs answer their refusal as a RETURNED value — `Post` a `false`, `SendAsync` a `Task<bool>` completing `false` on a declining or completed target — so a discarded return is unreceipted loss.
+- Both offer verbs answer their refusal as a RETURNED value — `Post` a `false`, `SendAsync` a `Task<bool>` completing `false` on a declining or completed target — so a discarded return is unaccounted loss.
 - `BroadcastBlock<T>` bounds its own INPUT alone: a bounded target that declines an offer is overwritten by the next value rather than queued, and the block reports that decline to no source, so a fan-out row's per-target loss is unobservable at the offer and accounts by conservation at the two ends instead.
 - Completion flows down a link only under `DataflowLinkOptions.PropagateCompletion`; `Completion` faults when the block faults.
 - Each message offer resolves to `DataflowMessageStatus` under a `DataflowMessageHeader` identity; a source reservation runs reserve, consume, release.
@@ -83,9 +83,9 @@
 - `Wire/topics.md`: `Topic` and `Subscription` compose the `Runtime/resources` `DrainSurface` builders — `BroadcastBlock` topic fan, one bounded `ActionBlock` as both subscription intake and consumer, `JoinBlock` correlate, `BatchedJoinBlock` coalesce — never a raw block.
 
 [LOCAL_ADMISSION]:
-- Background work enters bounded blocks; drain awaits `Completion` and faults the AppHost receipt rail on block failure.
-- Blocks stay internal implementation; public ports expose runtime intent and receipts, never a block.
-- Grouping blocks enter only when batch or join semantics ride the runtime receipt.
+- Background work enters bounded blocks; drain awaits `Completion` and faults the owning operation rail on block failure.
+- Blocks stay internal implementation; public ports expose runtime intent and outcomes, never a block.
+- Grouping blocks enter only when batch or join semantics ride the operation result.
 
 [RAIL_LAW]:
 - Package: `System.Threading.Tasks.Dataflow`

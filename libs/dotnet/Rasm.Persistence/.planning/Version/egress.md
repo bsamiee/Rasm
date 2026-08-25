@@ -4,21 +4,21 @@
 
 ## [01]-[INDEX]
 
-- [02]-[EGRESS_PUMP]: `EgressPump` drains one fold past each subscription cursor — profile lane gate, advance law, dead-letter and replay rows, `EgressReceipt` floor, 8270 band.
+- [02]-[EGRESS_PUMP]: `EgressPump` drains one fold past each subscription cursor — profile lane gate, advance law, dead-letter and replay rows, `Settlement` floor, 8270 band.
 - [03]-[EGRESS_SINK]: `Egress.Envelope` mints the envelope every `Subscription` delivers, the `Binding` roster and its `ProtocolSettings` admission, and the `DeliveryAck` fold beside its `KafkaAck` boundary owner under the dedup, settlement-contract, retry-owner, and in-flight-bound columns.
 - [04]-[SUBSCRIPTION_FILTER]: `FilterDialect` the seven-dialect delivery predicate, `Cesql` the table-driven expression owner, and the accumulating `CesqlFault` rail its evaluation returns.
 
 ## [02]-[EGRESS_PUMP]
 
-- Owner: `EgressPump` owns feed, drain, envelope mint, delivery, acknowledgement, replay, and flushing close. `DrainLane` is one bounded subscription channel. `DeadLetterRow` is the typed quarantine document; Store coordination owns the sole `QuarantineAndAdvance` transaction. `EgressReceipt`, `EgressFault`, and `EgressPorts` own evidence, refusal, and composition.
+- Owner: `EgressPump` owns feed, drain, envelope mint, delivery, acknowledgement, replay, and flushing close. `DrainLane` is one bounded subscription channel. `DeadLetterRow` is the typed quarantine document; Store coordination owns the sole `QuarantineAndAdvance` transaction. `Settlement`, `EgressFault`, and `EgressPorts` own the drain's settled outcome, refusal, and composition.
 - Entry: `Lane` is the profile token; `Partition` publishes the quarantine mapping; `Offer`, `Drain`, and `Close` own the bounded delivery lifecycle. Store coordination's `Coordinate.QuarantineAndAdvance` stores the letter only after the fenced advance verdict succeeds, then commits both through the same session. `EgressPorts.QuarantineAndAdvance` is the composition-bound arrow AppHost maps. `Replay` reuses the delivery fold; `Reletter` updates only an already-advanced row.
-- Auto: the feed half and the delivery half meet on ONE bounded lane per subscription, so a lagging sink backpressures its own reader rather than stalling the shared feed or buffering the outbox in memory, and the fold hands rows to each leg in sequence order so a mid-batch refusal never advances past unconfirmed work. Rows the subscription's own filters withhold settle as delivered-and-filtered rather than as an ack, because a predicate answering false is a routing decision the receipt counts and never a transport outcome; an envelope the branch owner REFUSES to mint is poison by construction and letters, since a malformed grammar value cannot become well-formed on a later attempt. Wake arrives on the coordination `pg_notify` channel through `NpgsqlConnection.WaitAsync`, with the bounded poll as the correctness FLOOR — a missed NOTIFY costs latency, never a lost row, because the cursor law owns correctness.
+- Auto: the feed half and the delivery half meet on ONE bounded lane per subscription, so a lagging sink backpressures its own reader rather than stalling the shared feed or buffering the outbox in memory, and the fold hands rows to each leg in sequence order so a mid-batch refusal never advances past unconfirmed work. Rows the subscription's own filters withhold settle as delivered-and-filtered rather than as an ack, because a predicate answering false is a routing decision the settlement counts and never a transport outcome; an envelope the branch owner REFUSES to mint is poison by construction and letters, since a malformed grammar value cannot become well-formed on a later attempt. Wake arrives on the coordination `pg_notify` channel through `NpgsqlConnection.WaitAsync`, with the bounded poll as the correctness FLOOR — a missed NOTIFY costs latency, never a lost row, because the cursor law owns correctness.
 - Auto: what a binding preserves is its own engine's answer, not the envelope's — `partitionkey` reaches a real routing key on Kafka (`Message.Key`) and Pulsar (`MessageMetadata.Key`/`OrderingKey`), while NATS orders per subject, RabbitMQ per queue, MQTT per topic, and AMQP per link, none of which expose a key member at all, so per-entity order on those rows holds only where one entity's rows share one subject, queue, topic, or link (`#EGRESS_SINK`) and a blanket per-entity-order claim over the whole family reads as a guarantee those engines never made. Row `http` reconciles `DeliveryUnconfirmed` by re-reading `net._http_response` by request-id on the NEXT drain, so a PENDING response resolves without a dedicated poller; a crash between delivery and advance re-drains the suffix and every binding's dedup column states what absorbs it. Dead-letter replay decrements nothing: the conservation fold proves `delivered + filtered + held + deadLettered == drained` on every drain.
-- Receipt: a drain rides `store.egress.drain` carrying the sink, the from/through sequences, and the delivered/duplicate/held/dead-lettered counts; a dead-letter rides `store.egress.deadletter` carrying the content key and the fault; a replay rides `store.egress.replay`; each settled drain receipt fires the `rasm.persistence.egress.delivered` observe point (`Store/observability#HOOK_RAIL`) as a composition-root tap on the drain outcome, never an emit call inside the fold.
+- Output: `Settlement` — the sink, the window, and the drained/delivered/duplicate/filtered/held/dead-lettered counts; the fold writes `Store/observability#STORE_INSTRUMENTS` `EgressDeliveries` by sink, lane, and outcome, `EgressDrainDuration` by sink and lane, and `EgressDeadLetterAttempts` by sink at the site each figure settles; each `Settlement` fires the `rasm.persistence.egress.delivered` observe point (`Store/observability#HOOK_RAIL`) as a composition-root tap on the drain outcome, never an emit call inside the fold.
 - Packages: Npgsql (`NpgsqlConnection.Notification`/`WaitAsync` — the pump wake), Marten (`IDocumentSession.Store`/`SaveChangesAsync` — the dead-letter document; `StoreOptions.Schema.For<T>().PartitionOn` through `RollingWindow.Declare` — its rolling window), Rasm.Contracts (`Fault.FaultObservation`), Rasm (`IValidityEvidence`/`ValidityClaim`), Microsoft.Extensions.Compliance.Redaction (`IRedactorProvider.GetRedactor(DataClassificationSet)` — the classified-field gate before the boundary), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new delivery target is one `Subscription` value over an existing `Binding` row and one `outbox_cursor` row minted on first drain — zero pump edits and zero new types; a new transport is one `Binding` row carrying its modes, prefix, routing member, `protocolsettings` roster, and `dataref` policy; a new drain policy (batch width, wake channel, payload arrow) is one `EgressPorts`/subscription value; zero new surface — a per-sink pump, a second delivery path for replay, a fire-and-forget HTTP post, a presence row in the CDC drain, a lane gate seated at a caller instead of these two entries, or a CDC poller beside the changefeed is the deleted form because the pump is one fold, replay is the same fold, the advance law owns the cursor, and the durable lanes are the only drain source.
 - Boundary: the pump drains only durable rows. `Wait` is the sole full mode and close flushes. Delivered prefixes use `OutboxAdvance`; a first terminal row uses only `QuarantineAndAdvance`, never `DeadLetter` followed by `OutboxAdvance`. Replay may `Reletter` because its cursor was advanced by the first terminal commit. Cursor sequence and the CloudEvents `D20` `OutboxOrdinal` are the same non-negative store-local position; neither is an HLC or portable causal coordinate.
-- Boundary: the payload arrow redacts and frames BEFORE the mint (`ErasingRedactor` the fail-closed fallback), so an out-of-authority payload crosses masked rather than raw and the grade it answers is the `dataclassification` the mint stamps. Caller cancellation passes through untyped; the wire-native row hands bytes to the AppHost `OutboundHop` keyed pipeline and reads its delivery-honesty policy, so Persistence never owns that channel. Letters retire by PARTITION DROP, not by row sweep, so a letter neither `Retire` nor `Replay` ever consumed leaves at its window's trailing edge as one receipted `Version/retention#SWEEP_AND_GC` `DropPartition` and an unbounded letter table has no reachable state.
+- Boundary: the payload arrow redacts and frames BEFORE the mint (`ErasingRedactor` the fail-closed fallback), so an out-of-authority payload crosses masked rather than raw and the grade it answers is the `dataclassification` the mint stamps. Caller cancellation passes through untyped; the wire-native row hands bytes to the AppHost `OutboundHop` keyed pipeline and reads its delivery-honesty policy, so Persistence never owns that channel. Letters retire by PARTITION DROP, not by row sweep, so a letter neither `Retire` nor `Replay` ever consumed leaves at its window's trailing edge as one tallied `Version/retention#SWEEP_AND_GC` `DropPartition` and an unbounded letter table has no reachable state.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -76,7 +76,7 @@ public sealed record DrainLane(SinkKey Sink, Channel<OpLogEntry> Rows) {
 public sealed record EgressPorts(
     StoreProfile Profile,
     Func<IO<Unit>> Wait,
-    Func<CoordinationOp, Option<LeaseToken>, IO<Fin<CoordinationReceipt>>> Coordinate,
+    Func<CoordinationOp, Option<LeaseToken>, IO<Fin<CoordinationOutcome>>> Coordinate,
     Func<ReplayWindow, IO<Seq<OpLogEntry>>> Feed,
     Func<OpLogEntry, PayloadFrame> Frame,
     Func<PayloadFrame, IO<Uri>> Reside,
@@ -92,10 +92,12 @@ public abstract partial record EgressWindow {
     private EgressWindow() { }
     public sealed record Cursor(long From, long Through) : EgressWindow;
     public sealed record Replay : EgressWindow;
+
+    public string Lane => this.Switch(cursor: static _ => "drain", replay: static _ => "replay");
 }
 
-public sealed record EgressReceipt(SinkKey Sink, EgressWindow Window, int Drained, int Delivered, int Duplicates,
-    int Filtered, int Held, int DeadLettered, Duration Elapsed, Instant At, CorrelationId Correlation) : IValidityEvidence {
+public sealed record Settlement(SinkKey Sink, EgressWindow Window, int Drained, int Delivered, int Duplicates,
+    int Filtered, int Held, int DeadLettered) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Window.Switch(cursor: static row => row.Through >= row.From, replay: static _ => true),
         ValidityClaim.CountExactly(Delivered + Filtered + Held + DeadLettered, Drained),
@@ -136,11 +138,6 @@ public abstract partial record EgressFault : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class EgressPump {
-    public static readonly StoreSlot DrainSlot = StoreSlot.Create("store.egress.drain");
-    public static readonly StoreSlot DeadLetterSlot = StoreSlot.Create("store.egress.deadletter");
-    public static readonly StoreSlot ReplaySlot = StoreSlot.Create("store.egress.replay");
-    public static readonly Seq<StoreSlot> Slots = Seq(DrainSlot, DeadLetterSlot, ReplaySlot);
-
     public const string Lane = "egress";
 
     static IO<Fin<T>> Unrealizable<T>(SinkKey sink) =>
@@ -157,22 +154,21 @@ public static class EgressPump {
               select Fin<long>.Succ(rows.Last.Map(static row => row.Sequence).IfNone(cursor.Sequence))
             : IO.pure(Fin<long>.Fail(new EgressFault.LaneUnrealizable(sink.Bind.Key, Lane)));
 
-    public static IO<Fin<EgressReceipt>> Drain(Subscription sink, OutboxCursor cursor, DrainLane lane, EgressPorts ports, ProjectionContext frame) =>
+    public static IO<Fin<Settlement>> Drain(Subscription sink, OutboxCursor cursor, DrainLane lane, EgressPorts ports, ProjectionContext frame) =>
         ports.Profile.Admits(Lane)
             ? Drained(sink, cursor, lane, ports, frame)
-            : Unrealizable<EgressReceipt>(sink.Bind.Key);
+            : Unrealizable<Settlement>(sink.Bind.Key);
 
-    public static IO<Fin<EgressReceipt>> Close(Subscription sink, OutboxCursor cursor, DrainLane lane, EgressPorts ports, ProjectionContext frame) =>
+    public static IO<Fin<Settlement>> Close(Subscription sink, OutboxCursor cursor, DrainLane lane, EgressPorts ports, ProjectionContext frame) =>
         ports.Profile.Admits(Lane)
             ? Closed(sink, cursor, lane, ports, frame)
-            : Unrealizable<EgressReceipt>(sink.Bind.Key);
+            : Unrealizable<Settlement>(sink.Bind.Key);
 
-    static IO<Fin<EgressReceipt>> Closed(
+    static IO<Fin<Settlement>> Closed(
         Subscription sink, OutboxCursor cursor, DrainLane lane, EgressPorts ports, ProjectionContext frame) =>
         from _ in lane.Flush()
         from rows in IO.lift(() => Take(lane, int.MaxValue))
-        from receipt in Settled(sink, cursor, rows, ports, frame)
-        select receipt;
+        select Settled(sink, cursor, rows, ports, frame);
 
     static Seq<OpLogEntry> Take(DrainLane lane, int batch) {
         Seq<OpLogEntry> held = Seq<OpLogEntry>();
@@ -180,12 +176,11 @@ public static class EgressPump {
         return held;
     }
 
-    static IO<Fin<EgressReceipt>> Drained(Subscription sink, OutboxCursor cursor, DrainLane lane, EgressPorts ports, ProjectionContext frame) =>
+    static IO<Fin<Settlement>> Drained(Subscription sink, OutboxCursor cursor, DrainLane lane, EgressPorts ports, ProjectionContext frame) =>
         from rows in IO.lift(() => Take(lane, sink.Bind.Batch.Value))
-        from receipt in Settled(sink, cursor, rows, ports, frame)
-        select receipt;
+        select Settled(sink, cursor, rows, ports, frame);
 
-    static IO<Fin<EgressReceipt>> Settled(
+    static IO<Fin<Settlement>> Settled(
         Subscription sink, OutboxCursor cursor, Seq<OpLogEntry> rows, EgressPorts ports, ProjectionContext frame) =>
         from mark in IO.lift(frame.Mark)
         from folded in rows.FoldM(
@@ -217,10 +212,23 @@ public static class EgressPump {
         from advance in folded.Through > folded.Committed
             ? ports.Coordinate(new CoordinationOp.OutboxAdvance(sink.Bind.Key, folded.Through), sink.Bind.Held).Map(static result => result.Map(static _ => unit))
             : IO.pure(Fin<Unit>.Succ(unit))
-        let receipt = new EgressReceipt(sink.Bind.Key, new EgressWindow.Cursor(cursor.Sequence, folded.Through),
-            rows.Count, folded.Delivered, folded.Duplicates, folded.Filtered, folded.Held, folded.Dead,
-            frame.Elapsed(mark), frame.Now(), frame.Correlation)
-        select advance.Match(Succ: _ => Fin<EgressReceipt>.Succ(receipt), Fail: error => Fin<EgressReceipt>.Fail(error));
+        let settled = new Settlement(sink.Bind.Key, new EgressWindow.Cursor(cursor.Sequence, folded.Through),
+            rows.Count, folded.Delivered, folded.Duplicates, folded.Filtered, folded.Held, folded.Dead)
+        from _measured in Measured(settled, frame.Elapsed(mark), frame)
+        select advance.Map(_ => settled);
+
+    static IO<Unit> Measured(Settlement settled, Duration elapsed, ProjectionContext frame) =>
+        IO.liftFin(
+            from carrier in Fin.Succ(InstrumentSet.Tags((StoreInstruments.SinkSlot, settled.Sink.Value), (StoreInstruments.LaneSlot, settled.Window.Lane)))
+            from _ in Seq((StoreInstruments.DeliveredOutcome, settled.Delivered), (StoreInstruments.DuplicateOutcome, settled.Duplicates),
+                    (StoreInstruments.HeldOutcome, settled.Held), (StoreInstruments.DeadOutcome, settled.DeadLettered))
+                .TraverseM(row => frame.Instruments.Write(StoreInstruments.EgressDeliveries.Spec, row.Item2, [.. carrier, new(StoreInstruments.OutcomeSlot, row.Item1)])).As()
+            from done in frame.Instruments.Write(StoreInstruments.EgressDrainDuration.Spec, elapsed.TotalSeconds, carrier)
+            select done);
+
+    static IO<Unit> Attempted(SinkKey sink, int attempts, ProjectionContext frame) =>
+        IO.liftFin(frame.Instruments.Write(StoreInstruments.EgressDeadLetterAttempts.Spec, attempts,
+            InstrumentSet.Tags((StoreInstruments.SinkSlot, sink.Value))));
 
     static IO<Fin<OutboxCursor>> Lettered(
         OpLogEntry row, Subscription sink, EgressPorts ports, ProjectionContext frame, Error fault) =>
@@ -228,19 +236,27 @@ public static class EgressPump {
             new DeadLetterRow(
                 row.ContentKey, sink.Bind.Key, row.Sequence,
                 Observation(row.ContentKey, sink.Bind.Key, ports, fault), Attempts: 1, frame.Now()),
-            sink.Bind.Held);
+            sink.Bind.Held)
+        .Bind(committed => Attempted(sink.Bind.Key, 1, frame).Map(_ => committed));
+
+    static IO<Unit> Relettered(DeadLetterRow letter, EgressPorts ports, ProjectionContext frame, Error fault) =>
+        ports.Reletter(letter with {
+            Fault = Observation(letter.ContentKey, letter.Sink, ports, fault),
+            Attempts = letter.Attempts + 1,
+            At = frame.Now(),
+        }).Bind(_ => Attempted(letter.Sink, letter.Attempts + 1, frame));
 
     static global::Rasm.Contracts.Fault.FaultObservation Observation(
         UInt128 contentKey, SinkKey sink, EgressPorts ports, Error cause) =>
         ports.ObserveFault(new EgressFault.DeadLetter(contentKey, sink, cause));
 
-    public static IO<Fin<EgressReceipt>> Replay(
+    public static IO<Fin<Settlement>> Replay(
         Subscription sink, EgressPorts ports, ProjectionContext frame) =>
         ports.Profile.Admits(Lane)
             ? Replayed(sink, ports, frame)
-            : Unrealizable<EgressReceipt>(sink.Bind.Key);
+            : Unrealizable<Settlement>(sink.Bind.Key);
 
-    static IO<Fin<EgressReceipt>> Replayed(Subscription sink, EgressPorts ports, ProjectionContext frame) =>
+    static IO<Fin<Settlement>> Replayed(Subscription sink, EgressPorts ports, ProjectionContext frame) =>
         from mark in IO.lift(frame.Mark)
         from letters in ports.Letters(sink.Bind.Key, sink.Bind.Batch.Value)
         from folded in letters.FoldM(
@@ -250,28 +266,21 @@ public static class EgressPump {
                 let found = rows.Filter(r => r.ContentKey == letter.ContentKey).Head
                 from next in found.Match(
                     Some: row => Egress.Envelope(row, sink, ports).Bind(minted => minted.Match(
-                        Fail: error => ports.Reletter(letter with {
-                            Fault = Observation(letter.ContentKey, letter.Sink, ports, error),
-                            Attempts = letter.Attempts + 1,
-                            At = frame.Now(),
-                        }).Map(_ => state with { Dead = state.Dead + 1 }),
+                        Fail: error => Relettered(letter, ports, frame, error).Map(_ => state with { Dead = state.Dead + 1 }),
                         Succ: envelope => !sink.Matches(envelope).Holds
                             ? ports.Retire(letter).Map(_ => state with { Filtered = state.Filtered + 1 })
                             : from ack in sink.Deliver(envelope, row)
                               from settled in ack.Switch(
                                 persisted:     p  => ports.Retire(letter).Map(_ => state with { Delivered = state.Delivered + 1, Duplicates = state.Duplicates + (p.Duplicate ? 1 : 0) }),
                                 indeterminate: _  => IO.pure(state with { Held = state.Held + 1 }),
-                                refused:       rf => ports.Reletter(letter with {
-                                    Fault = Observation(letter.ContentKey, letter.Sink, ports,
-                                        new EgressFault.SinkRefused(sink.Bind.Key, rf.Detail)),
-                                    Attempts = letter.Attempts + 1,
-                                    At = frame.Now(),
-                                }).Map(_ => state with { Dead = state.Dead + 1 }))
+                                refused:       rf => Relettered(letter, ports, frame, new EgressFault.SinkRefused(sink.Bind.Key, rf.Detail)).Map(_ => state with { Dead = state.Dead + 1 }))
                               select settled)),
                     None: () => ports.Retire(letter).Map(_ => state with { Held = state.Held + 1 }))
                 select next).As()
-        select Fin<EgressReceipt>.Succ(new EgressReceipt(sink.Bind.Key, new EgressWindow.Replay(), letters.Count,
-            folded.Delivered, folded.Duplicates, folded.Filtered, folded.Held, folded.Dead, frame.Elapsed(mark), frame.Now(), frame.Correlation));
+        let settled = new Settlement(sink.Bind.Key, new EgressWindow.Replay(), letters.Count,
+            folded.Delivered, folded.Duplicates, folded.Filtered, folded.Held, folded.Dead)
+        from _measured in Measured(settled, frame.Elapsed(mark), frame)
+        select Fin<Settlement>.Succ(settled);
 }
 ```
 
@@ -283,7 +292,7 @@ public static class EgressPump {
 |  [04]   | wake          | `WaitAsync` on `rasm_outbox` + bounded poll    | NOTIFY is latency; the poll floor owns correctness               |
 |  [05]   | payload arrow | `Frame` before the mint                        | fail-closed `ErasingRedactor`; grade, media, and schema as data  |
 |  [06]   | filter        | the subscription's own AND-set, post-mint      | a withheld row settles and advances; it is no transport outcome  |
-|  [07]   | receipt floor | conservation `ValidityClaim.All` fold          | delivered + filtered + held + dead == drained, once              |
+|  [07]   | settled floor | conservation `ValidityClaim.All` fold          | delivered + filtered + held + dead == drained, once              |
 
 ## [03]-[EGRESS_SINK]
 
@@ -296,7 +305,7 @@ public static class EgressPump {
 - Auto: the completed generated `Extensions` value crosses the kernel's descriptor-total contract once; that bridge validates before projection. Generated `sequence` is invariant `D20` unsigned decimal, so lexical order agrees with `uint64` order.
 - Auto: content mode is the binding row's own capability set and the subscription's settings selection within it, never a per-leg literal — every header-bearing transport reaches binary so a broker filters on the prefixed attribute names without parsing the body, and each row's prefix (`ce-` HTTP/NATS/RabbitMQ, `ce_` Kafka, `cloudEvents_` AMQP, UNPREFIXED MQTT) is a column rather than a spelling each leg repeats. Serdes-governed Kafka bodies own the `Data` bytes and their schema-id framing beside the `ce_*` headers with zero key collision, because the payload arrow frames them over one registry client BEFORE the envelope — the Avro and JSON-Schema serdes alone, since the durable payload is lane-codec bytes and never an `IMessage<T>` — so envelope codec and body codec never share a `JsonSerializerOptions`.
 - Auto: the `http` row's multi-row drain encodes ONE batch body only under a receiving contract that advertises the batch media type, never on the transport's own say-so: `net.http_post` hands back one id, `net._http_response` stores ONE status against it, and the CloudEvents batch binding defines no per-event response element — so a receiver settling per REQUEST answers N envelopes with a single status and the drain reports a merged tally that cannot tell zero redelivery from a wedged retry. `PerRequest` is therefore the pg_net floor and its cursor-advancing drain posts SINGLE-row bodies. `PerEnvelope` admits batching only when the receiver returns each disposition with its exact `(source,id)`; correlation rebuilds offer order from identity after the response and refuses missing, duplicate, or foreign keys, so batch position and intermediary reframing carry no settlement meaning.
-- Receipt: per-subscription delivery evidence rides the drain receipt (`#EGRESS_PUMP`); a subscription names its cursor row through `SinkBinding.Key` and its transport through the `Binding` row, never a free string.
+- Law: a subscription names its cursor row through `SinkBinding.Key` and its transport through the `Binding` row, never a free string; its delivery figures are the drain's `Settlement` (`#EGRESS_PUMP`).
 - Packages: Rasm.Contracts (`event.Extensions`), Celly.Protovalidate, Rasm (CloudEvents mechanics and interior handling policy), CloudNative.CloudEvents with Kafka and AMQP bindings, Pidgin, NATS.Net, Confluent.Kafka, Confluent.SchemaRegistry, OpenTelemetry.Instrumentation.ConfluentKafka, RabbitMQ.Client, MQTTnet, DotPulsar, StackExchange.Redis, AMQPNetLite.Core, System.Threading.Channels, ClickHouse.Driver, pg_net, BCL inbox.
 - Growth: a new delivery target is one `Subscription` value; a new transport one `Binding` row; a new extension changes `event.proto`, while this producer adds only the value it actually supplies.
 - Boundary: the envelope is the single cross-consumer, cross-language vocabulary — the AppHost outbox relay and the durable-orchestration dispatch drain the SAME projection as their hop payload, so a per-consumer re-pack is the drift defect. `id` is the OPERATION identity and `subject` the content key, so replay dedup reads `(source, id)` and a broker sequence keys nothing. Row `http` NEVER fire-and-forgets: `net.http_post` enqueues and the response reconciliation is the only advance authority.
@@ -660,7 +669,7 @@ Recovery coordinates — where a re-drive resumes, what bounds in-flight work, t
 - Auto: the grammar is a PRECEDENCE TABLE folded through `ExpressionParser.Build`, never a recursive-descent ladder over mutable state — one ordered row set per precedence level, `Rec` at the one self-reference the parenthesised sub-expression needs, `Try` at every alternation whose branches share a prefix, and `Labelled` on every terminal so a refusal reports the grammar's own vocabulary rather than a character class.
 - Law: pushdown is the `Binding` row's own `Pushdown` column and never a dialect property — MQTT resolves a topic filter at the broker on SUBSCRIBE, AMQP through a link-source filter, NATS through a subject wildcard, while Kafka has no server-side filtering and HTTP no native mechanism, so an `exact` or `prefix` dialect on those two rows costs a delivered-then-discarded message. `sql` is consumer-side on every row, since no broker in the roster evaluates it.
 - Law: a compiled expression is a VALUE built once and held for the subscription's life — parsers are immutable values and a grammar constructed per evaluation rebuilds the whole expression graph on every event, which is the difference between a per-event allocation and none.
-- Receipt: accumulated faults ride the drain's own `rasm.persistence.egress.delivered` observe point beside the filtered count (`#EGRESS_PUMP`), so an expression quietly erroring on every event is visible as a rate rather than as silence.
+- Law: accumulated faults ride the drain's own `rasm.persistence.egress.delivered` observe point beside the filtered count (`#EGRESS_PUMP`), so an expression quietly erroring on every event is visible as a rate rather than as silence.
 - Packages: Pidgin, Rasm (`Fault`), CloudNative.CloudEvents (`CloudEvent.GetAttribute`, `CloudEventAttribute.Format`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new dialect is one `FilterDialect` case and one `Evaluate` arm; a new CESQL function is one `CesqlFunction` row carrying its arity and its total body, and the parser, the cast matrix, and the evaluator read it untouched; a new operator is one precedence-table row.
 - Boundary: filters decide DELIVERY and never mutate an envelope, so an expression is a pure read over admitted attributes; the attribute vocabulary an expression may name is the branch owner's declared roster, so an unrostered name answers `MissingAttributeError` rather than reaching an untyped string a producer happened to set; subscription persistence, the management API, and the `protocolsettings` roster seat at `#EGRESS_SINK`.

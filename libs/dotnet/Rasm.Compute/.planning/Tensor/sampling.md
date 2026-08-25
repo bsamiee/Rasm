@@ -14,8 +14,8 @@ Rasm.Compute owned-build numeric lane for quasi-Monte-Carlo sampling and scatter
 - Owner: `LowDiscrepancy` the seed-explicit state-serializable carrier folding `SequenceFamily` over the per-construction table each CASE holds, a per-draw counter, and a per-dimension `ShiftSeed` key vector; `Scramble` the `[SmartEnum<string>]` randomization policy carrying its generated binary and digit columns; `SequenceFamily` the `[Union]` family discriminant carrying each leg's own table; `ReplicatePolicy` the replicate-count, confidence, net-quality, and discrepancy-sample gate; `ReplicateFamily` the RQMC estimate carrier; `JoeKuo` the direction-number recurrence over the embedded HDF5 primitive-polynomial resource; `HaltonBases` the demand-sieved prime owner.
 - Cases: `SequenceFamily` cases `Sobol(uint[,] Directions)`, `Halton(int[] Bases)`, `Independent(ulong Stream)` (3 — each case IS its generation law and holds the table that law reads); `Scramble` rows none, digital-shift, owen (3).
 - Entry: `Draw()` folds the `SequenceFamily` case through the generated total `Switch`; `public (LowDiscrepancy Next, NetPlane Points) Net(int count)` is the bulk draw every consumer takes — a rectangular `[count, dimensions]` plane over one granted rent, published because six consumer sites re-derived the same `(generator, point) = generator.Draw()` accumulator by hand and each re-derivation was a place the counter could drift; `LatinHypercube` draws one joint Sobol net and rank-stratifies each dimension into one point per stratum; `Replicates(LowDiscrepancy, ReplicatePolicy, Func<ReadOnlyMemory<double>, double>, Option<CorpusSink>)` runs the campaign, the sink case selecting whether the response corpus lands through `Runtime/archive#HDF_ARCHIVE`.
-- Auto: `Replicates` draws exactly `2^BlockExponent` points per replicate, rejects non-finite estimator output, folds the per-replicate means through the kernel `Rasm/Domain/stats#MOMENTS` `Stat<Scalar>` receipt, and admits the Student bound and the Warnock figures through `ReplicatePolicy`; the corpus-bearing case lands one `[Replicates, 2^BlockExponent]` chunked dataset, one chunk per replicate written through the session's OWN cursor (replicate ordinal is chunk ordinal, so write-once is structural rather than an ordering argument the fold has to hold), the regenerating state (family, dimensions, seed, scramble, block exponent, replicate count) riding as scalar attributes so the corpus re-derives from its attributes alone and serializes no generator state.
-- Receipt: `ReplicateFamily(Mean, CrossReplicateVariance, StudentBound, StarDiscrepancy, WorstProjection)` because a single equidistributed estimate carries no recoverable spread, and the net-quality fields make a gate reject on discrepancy rather than slow convergence; `WorstProjection` is `Option<double>` because a one-dimensional net has NO two-dimensional projection and a zero there reads as perfect uniformity on an axis pair that does not exist.
+- Auto: `Replicates` draws exactly `2^BlockExponent` points per replicate, rejects non-finite estimator output, folds the per-replicate means through the kernel `Rasm/Domain/stats#MOMENTS` `Stat<Scalar>` result, and admits the Student bound and the Warnock figures through `ReplicatePolicy`; the corpus-bearing case lands one `[Replicates, 2^BlockExponent]` chunked dataset, one chunk per replicate written through the session's OWN cursor (replicate ordinal is chunk ordinal, so write-once is structural rather than an ordering argument the fold has to hold), the regenerating state (family, dimensions, seed, scramble, block exponent, replicate count) riding as scalar attributes so the corpus re-derives from its attributes alone and serializes no generator state.
+- Result: `ReplicateFamily(Mean, CrossReplicateVariance, StudentBound, StarDiscrepancy, WorstProjection)` because a single equidistributed estimate carries no recoverable spread, and the net-quality fields make a gate reject on discrepancy rather than slow convergence; `WorstProjection` is `Option<double>` because a one-dimensional net has NO two-dimensional projection and a zero there reads as perfect uniformity on an axis pair that does not exist.
 - Packages: MathNet.Numerics (`StudentT.InvCDF`), System.Numerics.Tensors, CommunityToolkit.HighPerformance, PureHDF (through the archive capsule), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `Deterministic` the ONE draw owner), BCL inbox
 - Growth: a new family is one `SequenceFamily` case carrying its own table with one `Fill*` kernel; a new scramble is one `Scramble` row; a new net-quality figure is one `ReplicateFamily` field with one kernel; zero new surface — a `SobolGenerator`/`HaltonGenerator`/`LatinHypercubeSampler` sibling family collapses onto the one `LowDiscrepancy` carrier.
 - Boundary — the Sobol leg owns the Joe-Kuo recurrence over the embedded primitive-polynomial set: an all-zero direction table collapses every point to the origin, and the unscaled-`m` recurrence omitting the per-term bit-scaling yields wrong direction numbers and a plausible-looking broken net; both are rejected. The dimension ceiling is READ off the resource's own `/degree` dataspace rather than asserted as a constant beside it, so a resource regenerated at a different width refuses a request past its real extent instead of passing an assertion and faulting inside the hyperslab.
@@ -102,14 +102,7 @@ public sealed record NetPlane(MemoryOwner<double> Backing, int Count, int Dimens
     public void Dispose() => Backing.Dispose();
 }
 
-public sealed record ReplicateFamily(double Mean, double CrossReplicateVariance, double StudentBound, double StarDiscrepancy, Option<double> WorstProjection) {
-    public ComputeReceipt.Sampling Receipt(LowDiscrepancy generator, ReplicatePolicy policy, WorkLane lane, CorrelationId correlation, Duration elapsed) =>
-        new(Family: generator.Family.Key, Dimensions: generator.Dimensions,
-            Points: (long)policy.Replicates << policy.BlockExponent, Replicates: policy.Replicates,
-            StarDiscrepancy: StarDiscrepancy, WorstProjection: WorstProjection.ToNullable()) {
-            Scope = new ReceiptScope.Execution(correlation, lane, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
-        };
-}
+public sealed record ReplicateFamily(double Mean, double CrossReplicateVariance, double StudentBound, double StarDiscrepancy, Option<double> WorstProjection);
 
 public sealed record CorpusSink(Stream Sink, HdfArchivePolicy Archive);
 
@@ -128,10 +121,6 @@ public sealed record ReplicatePolicy(int BlockExponent, int Replicates, double C
 
     private static Validation<Error, Unit> Gate<T>(bool held, string site, T value) where T : notnull =>
         held ? unit : TensorReason.PolicyInvalid.Fault(site, Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
-}
-
-public abstract partial record ComputeReceipt {
-    public sealed record Sampling(string Family, int Dimensions, long Points, int? Replicates, double? StarDiscrepancy, double? WorstProjection) : ComputeReceipt;
 }
 
 [Equatable]
@@ -496,7 +485,7 @@ public static class JoeKuo {
 - Cases: the radial rows are the kernel's — gaussian · inverse-multiquadric · wendland (strictly positive-definite, `PolynomialOrder` 0) · multiquadric (constant tier 1) · polyharmonic-cubic · thin-plate-spline (linear tier 2, conditionally positive-definite) beside the compact-support weight rows the reconstruction never selects.
 - Entry: `public static Fin<RbfDesign> Design(Matrix<double> centres, Matrix<double> samples, KernelKind kernel, double radius)` builds the augmented radial-basis-plus-polynomial design; `public static Fin<Matrix<double>> Reconstruct(Matrix<double> design, Matrix<double> response, TolerancePolicy tol)` solves a matrix-valued response through one held SVD into the `RankRevealing` route; `public static Fin<RbfFit> Fit(Matrix<double> centres, Matrix<double> samples, Matrix<double> response, KernelKind kernel, double radius, TolerancePolicy tol)` composes design and solve into a fitted field, `RbfFit.Evaluate` projecting a query batch.
 - Auto: `Design` builds the `Φ` block `Φ_ij = kernel.Weight(‖xᵢ − cⱼ‖, radius)` and, for a conditionally-positive-definite kernel (`PolynomialOrder ≥ 1`), augments to the saddle system `[Φ P; Pᵀ 0]` over the monomial reproduction basis up to total degree `PolynomialOrder − 1`; every `RadialFit` MathNet boundary is captured and finite-gated; `Reconstruct` decomposes the design once through `Tensor/blas#DENSE_ALGEBRA` `DenseOps.Decompose(design, FactorizationKind.Svd)`, solves every response column through the held `ISolver<double>.Solve(Matrix<double>)`, and witnesses the Frobenius residual against the original design; `Fit` pads the response with polynomial side-constraint zero rows and splits the one solution into RBF weights and polynomial coefficients.
-- Receipt: the numeric decomposition rides the `Tensor/blas#DENSE_ALGEBRA` `Factorization` `ComputeReceipt` evidence the held SVD stamps, while the FIT itself projects `RbfFit.Receipt` onto the `ComputeReceipt.Sampling` case `[02]-[OWNED_BUILDS]` declares — the centres are its point set, the radial row its stated family, and every RQMC column reports absence; the `RbfFit` carries the centres, kernel, shape, weights, and polynomial coefficients, and its content key is the `Rasm/Domain/identity#CONTENT_KEY` `ContentHash.Of` digest over that carrier's own canonical bytes, so the "content-keyable" claim has a producer rather than a promise.
+- Result: `RbfFit` carries centres, kernel, shape, weights, polynomial coefficients, and its canonical content key; `ReplicateFamily` carries randomized-estimate spread.
 - Packages: MathNet.Numerics, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project, `KernelKind` the one radial-profile vocabulary, `ContentHash` the one digest owner), BCL inbox
 - Growth: a new radial kernel is one `KernelKind` row at the kernel owner, reaching this lane with zero edit here; zero new surface — a per-kernel design function family collapses onto the one `RadialFit.Design`.
 - Boundary — naming: this owner is `RadialFit`, not `Scatter`. Three unrelated "scatter" senses met inside one folder namespace — the tensor-lane `TensorOpFamily.Scatter` structural write, the model-lane `TileScatter` tile fan-out, and this radial reconstruction — and none of the three was the others' caller, so the one whose noun was least earned takes the name its domain already has.
@@ -514,12 +503,6 @@ public sealed record RbfFit(Matrix<double> Centres, KernelKind Kernel, double Ra
         ContentHash.Of(MemoryMarshal.AsBytes<double>([
             .. Centres.ToColumnMajorArray(), Radius,
             .. Weights.ToColumnMajorArray(), .. PolynomialCoefficients.ToColumnMajorArray()]));
-
-    public ComputeReceipt.Sampling Receipt(WorkLane lane, CorrelationId correlation, Duration elapsed) =>
-        new(Family: Kernel.Key, Dimensions: Centres.ColumnCount, Points: Centres.RowCount,
-            Replicates: null, StarDiscrepancy: null, WorstProjection: null) {
-            Scope = new ReceiptScope.Execution(correlation, lane, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
-        };
 
     public Fin<Matrix<double>> Evaluate(Matrix<double> queries) =>
         queries.RowCount == 0 || queries.ColumnCount != Centres.ColumnCount
@@ -629,11 +612,3 @@ public static class RadialFit {
     }
 }
 ```
-
-## [04]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

@@ -1,14 +1,14 @@
 # [APPUI_VISUALS_OFFSCREEN]
 
-Offscreen visuals are the package's raster rail: one `DrawSource` capsule projects every Skia canvas — host-leased or owned — through a `Fin`-railed `Use`, thumbnail and preview rows materialize as `SKImage` through host-agnostic capture arrows, one codec surface encodes and decodes with content-keyed `RenderReceipt` evidence, one narrowed `SKDocument` surface carries the pure-visual vector-print arm over the kernel sheet and plot owners, and one FFmpeg muxer drains a frame stream into H.264/MP4. Ownership spans the draw capsule, the capture row families, the encode axis with the ONE `ColorPolicy` gamut/transfer family, the vector-print arm, the video encode rows, and the `RenderReceipt` family the render-hash proof lanes and the AppHost telemetry spine consume. Document/Office/print export is `Document/export.md`'s — this page only rasters, encodes, and prints vectors. SkiaSharp behind Avalonia.Skia leases, AsyncImageLoader display, and PanAndZoom preview navigation form the package spine; HUD and viewport overlay drawing stays host-side.
+Offscreen visuals are the package's raster rail: one `DrawSource` capsule projects every Skia canvas — host-leased or owned — through a `Fin`-railed `Use`, thumbnail and preview rows materialize as `SKImage` through host-agnostic capture arrows, one codec surface encodes and decodes with content-keyed `VisualArtifact` evidence, one narrowed `SKDocument` surface carries the pure-visual vector-print arm over the kernel sheet and plot owners, and one FFmpeg muxer drains a frame stream into H.264/MP4. Ownership spans the draw capsule, the capture row families, the encode axis with the ONE `ColorPolicy` gamut/transfer family, the vector-print arm, the video encode rows, and the `VisualArtifact` family the render-hash proof lanes and the AppHost telemetry spine consume. Document/Office/print export is `Document/export.md`'s — this page only rasters, encodes, and prints vectors. SkiaSharp behind Avalonia.Skia leases, AsyncImageLoader display, and PanAndZoom preview navigation form the package spine; HUD and viewport overlay drawing stays host-side.
 
 Kernel vocabulary arrives whole and is composed, never re-spelled: `ContentHash`/`CanonicalWriter` (`Domain/identity`), `MonotonicTimeline` (`Parametric/projections`), `Custody`/`RedrivePolicy`/`Redrive`/`FaultBand`/`[FaultCase]`/`Fault` (`Domain/rails`), `PerceptualColor` with `RgbProfile`/`RgbTransfer`/`GamutPolicy` (`Numerics/atoms`), and the sheet estate `SheetSize`/`SheetOrientation`/`SheetMargin`/`SheetFrame`/`PlotPolicy`/`PenCode`/`LineWidth`/`LineGroup`/`TextHeight`/`PdfTrait` (`Drawing/sheet`).
 
 ## [01]-[INDEX]
 
 - [02]-[DRAW_CAPSULE]: Borrowed and owned Skia canvas projection on one `Fin` rail; the FX vocabulary, the typed draw-role address, and the one token-resolve paint catalog.
-- [03]-[THUMBNAIL_PIPELINE]: Host-agnostic capture rows, receipt-to-path preview rows, the blob-backed durable cache, async display.
-- [04]-[ENCODE_IDENTITY]: Codec axis, the one gamut/transfer family over the kernel colour rows, content-keyed receipts.
+- [03]-[THUMBNAIL_PIPELINE]: Host-agnostic capture rows, result-to-path preview rows, the blob-backed durable cache, async display.
+- [04]-[ENCODE_IDENTITY]: Codec axis, the one gamut/transfer family over the kernel colour rows, content-keyed artifacts.
 - [05]-[VECTOR_PRINT]: Narrowed pure-visual `SKDocument` vector-print arm over the kernel sheet and plot policy.
 - [06]-[VIDEO_ENCODE]: FFmpeg mux/encode rows — an async frame stream to H.264/MP4.
 
@@ -340,15 +340,15 @@ Every row below is minted by `FxRow.Build` at token resolve and bound by `PaintC
 
 ## [03]-[THUMBNAIL_PIPELINE]
 
-- Owner: `VisualRuntime` — the injected boundary row every arm on this page threads; `ThumbnailUse` and `DisplayScale` — the two axes of the variant product; `ThumbnailVariant` — their derived product; `ThumbnailIntake` — the durable-cache posture; `ThumbnailSource`; `ThumbnailRow` — the capture row and the ONE authority for its blob address; `BackplateRow`; `PreviewRow<TReceipt>`; `PreviewSurfaces` — the page's `PaintSpec` rows.
+- Owner: `VisualRuntime` — the injected boundary row every arm on this page threads; `ThumbnailUse` and `DisplayScale` — the two axes of the variant product; `ThumbnailVariant` — their derived product; `ThumbnailIntake` — the durable-cache posture; `ThumbnailSource`; `ThumbnailRow` — the capture row and the ONE authority for its blob address; `BackplateRow`; `PreviewRow<TValue>`; `PreviewSurfaces` — the page's `PaintSpec` rows.
 - Cases: `ThumbnailUse` = list | gallery, each carrying its base pixel extent; `DisplayScale` = standard | retina, each carrying its factor; `ThumbnailIntake` = reuse | rebuild; `BackplateRow` = checkerboard | solid | transparent.
-- Entry: `public IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailVariant variant)` — the forced capture-and-encode on the IO rail; `public IO<ReadOnlyMemory<byte>> Bytes(VisualRuntime runtime, ThumbnailVariant variant, ThumbnailIntake intake)` — the durable-cache read whose miss folds to `Refresh`; `public string BlobKey(ThumbnailVariant variant)` — the ONE blob-address authority; `public Fin<SKImage> Render(PaintCatalog paints, TReceipt receipt, SKImageInfo info)` — the preview raster on the Fin rail; `public ThumbnailRow Row(DrawRole key, ThumbnailSource source, TReceipt receipt, PaintCatalog paints, EncodeRow encode, DataClassification classification)` — the preview-to-capture wire, so a Compute receipt preview IS a gallery thumbnail rather than a second raster path.
+- Entry: `public IO<VisualArtifact> Refresh(VisualRuntime runtime, ThumbnailVariant variant)` — the forced capture-and-encode on the IO rail; `public IO<ReadOnlyMemory<byte>> Bytes(VisualRuntime runtime, ThumbnailVariant variant, ThumbnailIntake intake)` — the durable-cache read whose miss folds to `Refresh`; `public string BlobKey(ThumbnailVariant variant)` — the ONE blob-address authority; `public Fin<SKImage> Render(PaintCatalog paints, TValue value, SKImageInfo info)` — the preview raster on the Fin rail; `public ThumbnailRow Row(DrawRole key, ThumbnailSource source, TValue value, PaintCatalog paints, EncodeRow encode, DataClassification classification)` — the preview-to-capture wire, so a Compute result preview IS a gallery thumbnail rather than a second raster path.
 - Auto: a capture arrow is bound per host at the app root — the rhino row binds `ViewCapture.CaptureToBitmap`, the gh2 row the host canvas snapshot, and the owned row `PreviewRow.Render` through `DrawSource.Owned`; display binds `AdvancedImage` to the runtime `Loader` with `FallbackImage` resolved from the row's placeholder and error keys; variant selection picks the product member whose `Scale` matches the mounted surface's scale fact; `PixelSize` DERIVES as the use's base extent times the scale factor, so a retuned base moves both variants and no row re-states the multiplication; zoomable previews mount inside `ZoomBorder` with `AutoFit` on load and `ZoomToRectangle` bound to the gesture rows.
 - Law: the blob address has ONE producer. `BlobKey` composes the source, the row key, the variant key, the derived pixel extent, and the encode row's OWN extension — so the `.png` literal beside `EncodeRow.Png` and every consumer-side re-spelling of the same path delete onto it.
-- Receipt: every refresh lands one `RenderReceipt` of kind `ArtifactKind.Thumbnail` carrying the blob artifact key as its destination.
+- Output: every refresh lands one `VisualArtifact` of kind `ArtifactKind.Thumbnail` carrying the blob artifact key as its destination.
 - Packages: AsyncImageLoader.Avalonia, SkiaSharp, PanAndZoom, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), Rasm (project — `MonotonicTimeline`, `RedrivePolicy`), LanguageExt.Core, NodaTime
 - Growth: one thumbnail row admits a new visual family; one `ThumbnailUse` row retunes a base extent and one `DisplayScale` row a factor, the product following both; a new preview family is one `PreviewRow` binding its Project fold; a new ground is one `BackplateRow` value plus its one `PaintSpec`; zero new surface.
-- Boundary: the memory cache is the `RamCachedWebImageLoader`-backed `Loader` and the durable cache is the blob lane behind `BlobWrite`/`BlobRead` — the read is the cache-first arm `Bytes` takes, so the durable half is REACHED rather than declared, and admitting `DiskCachedWebImageLoader` creates a second durable owner and is rejected. A durable MISS is `Option.None`, not an IO failure — absence and a broken lane are two facts and a rail that fused them made every cold thumbnail read as an error. Host bitmaps convert to `SKImage` exactly once at the port edge, and no Eto or RhinoCommon bitmap type crosses into rows. `Render` is the named path-scope boundary capsule — the projected `SKPath` is using-scoped and never outlives the fold; the ground and the stroke are CATALOG reads, so a preview mints no paint and no effect at draw time and the transparent row draws nothing rather than filling with a sentinel colour; HUD and viewport overlays stay host-side, and TReceipt stays generic so no Compute receipt shape is re-modeled here. `VisualRuntime` carries the kernel `MonotonicTimeline` and never an AppHost `ClockPolicy` — that record is an APP-stratum value whose own owner forbids it on a platform signature, and its `Mark`/`Elapsed` members do not exist; `BlobWrite`, `BundleWrite`, `Sink`, and `Measure` bind durable artifacts, support evidence, receipt delivery, and named duration to the existing AppHost ports, and `Redrive` is the one policy value the boundary writes on this page re-drive under.
+- Boundary: the memory cache is the `RamCachedWebImageLoader`-backed `Loader` and the durable cache is the blob lane behind `BlobWrite`/`BlobRead` — the read is the cache-first arm `Bytes` takes, so the durable half is REACHED rather than declared, and admitting `DiskCachedWebImageLoader` creates a second durable owner and is rejected. A durable MISS is `Option.None`, not an IO failure — absence and a broken lane are two facts and a rail that fused them made every cold thumbnail read as an error. Host bitmaps convert to `SKImage` exactly once at the port edge, and no Eto or RhinoCommon bitmap type crosses into rows. `Render` is the named path-scope boundary capsule — the projected `SKPath` is using-scoped and never outlives the fold; the ground and the stroke are CATALOG reads, so a preview mints no paint and no effect at draw time and the transparent row draws nothing rather than filling with a sentinel colour; HUD and viewport overlays stay host-side, and `TValue` stays generic so no Compute result shape is re-modeled here. `VisualRuntime` carries the kernel `MonotonicTimeline`, the AppUi fact rail, and the producer `Op`; `BlobWrite`, `BundleWrite`, and `Measure` bind durable artifacts, support evidence, and named duration to the existing AppHost ports, and `Redrive` is the one policy value the boundary writes on this page re-drive under.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -419,7 +419,7 @@ public sealed record ThumbnailRow(
     public string BlobKey(ThumbnailVariant variant) =>
         $"thumbnails/{Source.Key}/{Key}/{variant.Key}@{variant.PixelSize}{Encode.Extension}";
 
-    public IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailVariant variant) =>
+    public IO<VisualArtifact> Refresh(VisualRuntime runtime, ThumbnailVariant variant) =>
         Capture(variant).Bracket(
             image => VisualCodec.Encode(runtime, image, Encode, ArtifactKind.Thumbnail, BlobKey(variant)),
             static image => IO.lift(() => { image.Dispose(); return unit; }));
@@ -435,13 +435,13 @@ public sealed record ThumbnailRow(
         select bytes;
 }
 
-public sealed record PreviewRow<TReceipt>(
+public sealed record PreviewRow<TValue>(
     DrawRole Key,
-    Func<TReceipt, Fin<SKPath>> Project,
+    Func<TValue, Fin<SKPath>> Project,
     BackplateRow Backplate,
     DrawRole Stroke) {
-    public Fin<SKImage> Render(PaintCatalog paints, TReceipt receipt, SKImageInfo info) =>
-        Project(receipt).Bind(path => {
+    public Fin<SKImage> Render(PaintCatalog paints, TValue value, SKImageInfo info) =>
+        Project(value).Bind(path => {
             using SKPath scoped = path;
             return paints.Paint(Stroke).Bind(stroke => new DrawSource.Owned(info).Materialize(canvas =>
                 Backplate.Role
@@ -457,9 +457,9 @@ public sealed record PreviewRow<TReceipt>(
                     })));
         });
 
-    public ThumbnailRow Row(string key, ThumbnailSource source, TReceipt receipt, PaintCatalog paints, EncodeRow encode, DataClassification classification) =>
+    public ThumbnailRow Row(string key, ThumbnailSource source, TValue value, PaintCatalog paints, EncodeRow encode, DataClassification classification) =>
         new(key, source,
-            variant => IO.lift(() => Render(paints, receipt, Info(paints, variant))),
+            variant => IO.lift(() => Render(paints, value, Info(paints, variant))),
             encode, classification, PlaceholderKey: $"{Key}/placeholder", ErrorKey: $"{Key}/error");
 
     private static SKImageInfo Info(PaintCatalog paints, ThumbnailVariant variant) =>
@@ -477,8 +477,19 @@ public sealed record VisualRuntime(
     Func<string, ReadOnlyMemory<byte>, IO<string>> BlobWrite,
     Func<string, IO<Option<ReadOnlyMemory<byte>>>> BlobRead,
     Func<string, DataClassification, ReadOnlyMemory<byte>, IO<string>> BundleWrite,
-    Func<RenderReceipt, IO<Unit>> Sink,
-    Func<InstrumentSpec, string, Duration, IO<Unit>> Measure);
+    HookRail<AppUiPoint, AppUiFact, TelemetrySource> Facts,
+    Op FactOp,
+    Func<InstrumentSpec, string, Duration, IO<Unit>> Measure) {
+    public IO<VisualArtifact> Publish(VisualArtifact artifact) =>
+        IO.lift(() => Facts.Fire(
+                at: AppUiPoint.Render,
+                fact: new AppUiFact.Render(
+                    artifact.Kind.Value, artifact.Format, artifact.FrameHash, artifact.DrawHash, artifact.Pixels,
+                    (ulong)artifact.Bytes, artifact.Elapsed, artifact.ColorSpace, artifact.Destination),
+                key: FactOp))
+            .Bind(static fired => IO.lift(fired))
+            .Map(_ => artifact);
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class PreviewSurfaces {
@@ -503,36 +514,34 @@ config:
 ---
 flowchart LR
     accTitle: Thumbnail capture flow
-    accDescr: Host capture or a preview row produces an image that encodes into a receipt and a durable blob the display cache reads.
+    accDescr: Host capture or a preview row produces an image that encodes into a content-keyed artifact and a durable blob the display cache reads.
     PreviewRow -->|Row| ThumbnailRow
     ThumbnailRow -->|Capture| SKImage
     DrawSource -->|Materialize| SKImage
     SKImage -->|Encode| VisualCodec
     VisualCodec -->|BlobWrite| VisualRuntime
-    VisualCodec -->|Sink| RenderReceipt
+    VisualCodec --> VisualArtifact
+    VisualArtifact -->|HookRail.Fire| AppUiFact
     ThumbnailRow -->|Bytes| VisualRuntime
     VisualRuntime -->|Loader| IAsyncImageLoader
 ```
 
 ## [04]-[ENCODE_IDENTITY]
 
-- Owner: `ArtifactKind` — the typed artifact-kind address every producer's receipt carries; `RenderReceipt` with its ONE mint; `PixelIdentity`; `NativeAssetFact`; `VisualCodec` — the encode/decode axis; `ColorFrame` and `ColorPolicy` — the suite gamut-and-transfer family over the kernel colour rows; `ToneMap`; `EncodeRow`; `DecodePlan`.
+- Owner: `ArtifactKind` — the typed artifact-kind address every produced artifact carries; `VisualArtifact` with its ONE mint; `PixelIdentity`; `NativeAssetFact`; `VisualCodec` — the encode/decode axis; `ColorFrame` and `ColorPolicy` — the suite gamut-and-transfer family over the kernel colour rows; `ToneMap`; `EncodeRow`; `DecodePlan`.
 - Cases: `ColorFrame` = Rostered | Icc — a kernel `(RgbProfile, RgbTransfer)` coordinate or the profile BYTES that are their own space; `DecodePlan` = Frame | Incremental.
-- Entry: `public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, ArtifactKind kind, string key, Option<SKPicture> record = default)` — IO rail, the optional sealed record the one draw-hash ingress; `public static IO<SKImage> Decode(ReadOnlyMemory<byte> payload, Option<int> frame = default)` — the inverse on the same rail, frame index the modality; `public Fin<SKColorF> Resolve(PerceptualColor pigment)` and its `Color` token twin — the one pigment egress every paint reads; `public static RenderReceipt Of(ArtifactKind kind, string format, ReadOnlySpan<byte> payload, …)` — the ONE receipt mint, which hashes the payload it is handed.
-- Receipt: `FrameHash` is the kernel `UInt128` content key over the encoded artifact bytes, minted INSIDE `RenderReceipt.Of` so no producer can seal a receipt whose key is of other bytes.
-- Receipt: `DrawHash` keys sealed `SKPicture.Serialize` bytes when a recording exists.
-- Receipt: `Pixels` identifies tight top-left RGBA8 sRGB straight-alpha rows independently of encoding, framed by the kernel `CanonicalWriter`.
-- Receipt: `ColorSpace` retains encode-row provenance beside normalized pixel identity.
+- Entry: `public static IO<VisualArtifact> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, ArtifactKind kind, string key, Option<SKPicture> record = default)` — IO rail, the optional sealed record the one draw-hash ingress; `public static IO<SKImage> Decode(ReadOnlyMemory<byte> payload, Option<int> frame = default)` — the inverse on the same rail, frame index the modality; `public Fin<SKColorF> Resolve(PerceptualColor pigment)` and its `Color` token twin — the one pigment egress every paint reads; `public static VisualArtifact Of(ArtifactKind kind, string format, ReadOnlySpan<byte> payload, …)` — the ONE artifact mint, which hashes the payload it is handed.
+- Output: `FrameHash` is the kernel `UInt128` content key over the encoded artifact bytes, minted INSIDE `VisualArtifact.Of` so no producer can return a key over different bytes; `DrawHash` keys sealed `SKPicture.Serialize` bytes when a recording exists; `Pixels` identifies tight top-left RGBA8 sRGB straight-alpha rows independently of encoding; `ColorSpace` retains encode-row provenance beside normalized pixel identity.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, System.IO.Hashing, Rasm.AppHost (project), Rasm (project — `ContentHash.Of`/`CanonicalWriter` under `EpsilonPolicy.ZeroTolerance`, the `RgbProfile`/`RgbTransfer`/`GamutPolicy` rows every `ColorFrame` names, the `PerceptualColor.OfRgb`/`ToRgb(profile, gamut, transfer)` admission-and-egress pair, `MonotonicTimeline`, `Redrive`), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row is a `(profile, transfer, domain, surface, tone)` coordinate over the kernel rows, so a gamut the kernel roster lacks lands THERE first; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorFrame.Icc` value from a profile-byte source — zero new surface.
-- Boundary: Decode and Encode are the named native-disposal boundary capsules — Decode admits through the `SKCodec.Create` result taxonomy (`Info`-gated allocation, `IncompleteInput` as partial success gated on the incremental arm's own rows-decoded count, the frame arm through `SKCodecOptions.FrameIndex` alone) and never an eager whole-image `SKBitmap.Decode`; `PriorFrame` is a PROMISE that the destination already holds that frame and this buffer is minted per call, so the codec resolves its own required-frame chain and a caller-named prior frame is the deleted form that composites over uninitialized memory; the intermediate `SKBitmap`, the minted reprojection, and the encoded `SKData` are scope-released so a failing later clause never leaks a native handle; Encode BORROWS the caller's image, disposing only the projection `Reproject` mints and never the pass-through original, so a walkthrough frame encoded per-frame survives to its later clip mux; per-format exporter classes are deleted with the encode rows as the absorbing axis; the receipt's `Elapsed` reads a kernel `MonotonicTimeline` span and its `Bytes` and `FrameHash` project onto the AppHost telemetry spine through the runtime `Sink` bound to `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; the blob write re-drives under the runtime's own `RedrivePolicy`, so a transient lane fault costs a bounded re-offer rather than a lost artifact and a terminal one refuses once; render-hash proof lanes compare `FrameHash` values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
+- Boundary: Decode and Encode are the named native-disposal boundary capsules — Decode admits through the `SKCodec.Create` result taxonomy (`Info`-gated allocation, `IncompleteInput` as partial success gated on the incremental arm's own rows-decoded count, the frame arm through `SKCodecOptions.FrameIndex` alone) and never an eager whole-image `SKBitmap.Decode`; `PriorFrame` is a PROMISE that the destination already holds that frame and this buffer is minted per call, so the codec resolves its own required-frame chain and a caller-named prior frame is the deleted form that composites over uninitialized memory; the intermediate `SKBitmap`, the minted reprojection, and the encoded `SKData` are scope-released so a failing later clause never leaks a native handle; Encode BORROWS the caller's image, disposing only the projection `Reproject` mints and never the pass-through original, so a walkthrough frame encoded per-frame survives to its later clip mux; per-format exporter classes are deleted with the encode rows as the absorbing axis; `VisualArtifact.Elapsed`, `Bytes`, and `FrameHash` project through `VisualRuntime.Publish` onto `AppUiFact.Render` at `AppUiPoint.Render`, so the producer returns the artifact while the hook rail owns durable observation; the blob write re-drives under the runtime's own `RedrivePolicy`, so a transient lane fault costs a bounded re-offer rather than a lost artifact and a terminal one refuses once; render-hash proof lanes compare `FrameHash` values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
 - Color law, float end to end:
   - A policy row is a COORDINATE in the kernel's already-declared space, transfer, and domain axes (`Numerics/atoms.md` binds AppUi by name): `Working` and `Output` are each a `ColorFrame`, `Domain` is the `GamutPolicy` row bounding every egress, and the Skia `SKColorSpace` values DERIVE from one profile-to-primaries correspondence — the two `Func<SKColorSpace>` columns the prior shape carried WERE the fourth axis that law forbids.
   - Every pigment egress names its transfer AND its domain: `ToRgb` defaults to `RgbTransfer.Encoded` under `GamutPolicy.Perceptual`, so the prior one-argument call silently companded and perceptually bounded every wide-gamut pigment, defeating this page's own float law at the exact rows that needed `Linear` under `Unbounded`.
   - `SKColorSpace.Equal` is the only color-space identity test — reference equality passes distinct handles describing one space, and a null space means passthrough, fast and exactly wrong for evidence; an untagged source is INTERPRETED in the row's working space rather than assumed sRGB.
   - Ownership is the result shape: `Reproject` returns `Fin<Option<SKImage>>` where `None` states the caller's image is already conformant and stays caller-owned while `Some` carries the minted projection its consumer owns and disposes, so the identity arm can never route a borrowed image into an owned-resource `using`.
   - Byte `SKColor` paths that assume sRGB and quantize before conversion are the deleted form; the byte token edge is a typed REFUSAL, never a widen — an Avalonia `Color` carries 8-bit sRGB display-referred channels by construction, so widening one into `DisplayP3`, `Rec2020`, or `Rec2100Pq` would label a quantized sRGB shadow as wide-gamut colour.
-  - `ColorPolicy` is THE single suite-wide gamut/transfer vocabulary — the six rows are the one family; the custom-visual rail reads the rows DIRECTLY through its style's `EncodeRow` (`Charts/custom.md` deleted its keyed `ColorSpaceAxis` projection onto this family), never a parallel enum with divergent membership; the `RenderReceipt.ColorSpace` tag is one of the family keys so a cross-host byte swap is attributable to the exact gamut.
+  - `ColorPolicy` is THE single suite-wide gamut/transfer vocabulary — the six rows are the one family; the custom-visual rail reads the rows DIRECTLY through its style's `EncodeRow` (`Charts/custom.md` deleted its keyed `ColorSpaceAxis` projection onto this family), never a parallel enum with divergent membership; the `VisualArtifact.ColorSpace` tag is one of the family keys so a cross-host byte swap is attributable to the exact gamut.
   - HDR tone-mapping is the `Option<ToneMap>` column — the `Aces`/`Reinhard`/`HableFilmic` curves are pure float operators sampled ONCE per row into a 256-entry table bound onto the reproject paint through `SKColorFilter.CreateTable`, so a scene-referred Rec.2020-PQ render tone-maps to the SDR output gamut in one filter pass; absence is the option, so the identity curve no arm invokes has no row to be misread from.
   - Two forms delete beside that column: a per-pixel managed tone-map loop and a second display-mapping owner; the `HdrPq` row carries the `Aces` operator so an HDR baseline keys distinctly and its SDR projection is reproducible.
   - `ColorFrame.Icc` owns ICC profile management — the row retains the immutable profile BYTES rather than one shared space, so working and output each mint an independently owned `SKColorSpace` its own consumer disposes and a display-calibrated profile drives the reproject without a seventh roster row; an unparseable profile folds to the `icc-invalid` row rather than a silent sRGB fallback, and the ICC lane names no kernel profile at all, so `Resolve` refuses there instead of projecting through a nearest-declared-row fiction. An ICC-bound working space crosses to the perceptual owner as those same bytes through `IccConfiguration(byte[], Intent, name)`, the one currency both runtimes admit.
@@ -561,7 +570,7 @@ public abstract partial record DecodePlan {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record RenderReceipt(
+public sealed record VisualArtifact(
     ArtifactKind Kind,
     string Format,
     UInt128 FrameHash,
@@ -572,7 +581,7 @@ public sealed record RenderReceipt(
     CorrelationId Correlation,
     Option<string> Destination,
     string ColorSpace) {
-    public static RenderReceipt Of(
+    public static VisualArtifact Of(
         ArtifactKind kind, string format, ReadOnlySpan<byte> payload, Option<UInt128> draw, Option<PixelIdentity> pixels,
         Duration elapsed, CorrelationId correlation, Option<string> destination, string colorSpace) =>
         new(kind, format, ContentHash.Of(payload), draw, pixels, payload.Length, elapsed, correlation, destination, colorSpace);
@@ -790,18 +799,18 @@ public static class VisualCodec {
             return ContentHash.Of(ops.Span);
         });
 
-    public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, ArtifactKind kind, string key, Option<SKPicture> record = default) =>
+    public static IO<VisualArtifact> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, ArtifactKind kind, string key, Option<SKPicture> record = default) =>
         from opened in IO.lift(() => runtime.Line.Capture(EncodeOp))
         from pixels in IO.lift(() => EncodeOp.Catch(() => PixelIdentity.Of(image)))
         from bytes in IO.lift(() => Encoded(image, row))
-        from artifact in Redrive.Run(runtime.Redrive, runtime.BlobWrite(key, bytes))
+        from destination in Redrive.Run(runtime.Redrive, runtime.BlobWrite(key, bytes))
         from closed in IO.lift(() => runtime.Line.Capture(EncodeOp))
         from elapsed in IO.lift(() => runtime.Line.Elapsed(opened, closed, EncodeOp))
-        let receipt = RenderReceipt.Of(
+        let artifact = VisualArtifact.Of(
             kind, row.Key, bytes, DrawOf(record), Some(pixels),
-            Duration.FromTimeSpan(elapsed), runtime.Correlation, Optional(artifact), row.Color.Key)
-        from _ in runtime.Sink(receipt)
-        select receipt;
+            Duration.FromTimeSpan(elapsed), runtime.Correlation, Optional(destination), row.Color.Key)
+        from published in runtime.Publish(artifact)
+        select published;
 
     static Fin<byte[]> Encoded(SKImage image, EncodeRow row) =>
         EncodeOp.Catch(() => row.Color.Reproject(image).Bind(minted => {
@@ -819,13 +828,13 @@ public static class VisualCodec {
 ## [05]-[VECTOR_PRINT]
 
 - Owner: `PrintFormat` — the format policy row carrying its own document-open delegate; `SheetPage` — the per-page seam every page fold draws through; `VisualExportSpec` and `VisualExport` — the pure-visual vector-print arm.
-- Entry: `public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail.
+- Entry: `public static IO<VisualArtifact> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail.
 - Auto: page geometry, orientation, margins, line group, plot styles, resolution, layer emission, and PDF conformance ALL derive from the one kernel `PlotPolicy` the spec carries — `PlotPolicy.Issue(size)` mints it from the size's own standard's `IssuePosture`, and `SheetFrame.For(standard).Margin(size)` yields the binding-aware insets the page rectangle is inset by, both projected into printer points through `SheetSize.In`; a page fold receives a `SheetPage` and reads its stroke widths off `LineWidth.For(pen)` under the sheet's own `LineGroup` and its lettering off `TextHeight.For(size)`, so an authored pen and an authored height are standard rungs rather than call-site floats; delivery rides the `Document/export#EXPORT_DESTINATIONS` `VisualDestination` union under the runtime's own re-drive policy.
 - Law: this arm holds NO page-geometry vocabulary of its own. The prior `float PageWidth`/`float PageHeight` pair and the four-row a4/letter point table were a sheet twin no fence read; `SheetSize`, `SheetOrientation`, `SheetMargin`, and `SheetFrame` are the kernel owners and the extent DERIVES from them at one site.
-- Receipt: one `RenderReceipt` of kind `ArtifactKind.Document` per export, keyed over the whole payload and carrying the delivered destination key.
+- Output: one `VisualArtifact` of kind `ArtifactKind.Document` per export, keyed over the whole payload and carrying the delivered destination key.
 - Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), Rasm (project — `SheetSize`/`SheetOrientation`/`SheetMargin`/`SheetFrame`/`PlotPolicy`/`PenCode`/`LineWidth`/`TextHeight`/`PdfTrait`, `ModelUnit`, `Custody.Bracket`, `MonotonicTimeline`, `Redrive`), NodaTime, LanguageExt.Core
 - Growth: a new sheet extent is a kernel `SheetSeries` row or a `SheetSize.Custom` value, never a row here; a new document format is one `PrintFormat` row; a new conformance claim is one kernel `PdfTrait` row the policy's `CapabilitySet<PdfTrait>` admits; zero new surface.
-- Boundary: this arm is NARROWED to pure-visual vector printing — flow pagination, running bands, Office output, PDF security/signatures/AcroForms/UA, and print color are `Document/export.md`'s owners, and the hand-rolled `FlowBlock`/`FlowFold`/`HeaderFooterBand`/`BreakRule` pagination engine is DELETED for the MigraDoc flow DOM; the kernel `Interaction/chrome#PRINT` job model (`PrintSpec`/`PrintPage`/`PrintPageFact`/`PrintReceipt`/`PrintPlan`) drives an Eto `PrintDocument` against a physical printer and takes `PaintProgram`/`PrintPageEventArgs` values this Skia arm cannot produce, so the two stay disjoint by CARRIER and this arm composes that owner's geometry half (`SheetSize`/`SheetMargin`/`SheetOrientation` through `PlotPolicy`) rather than its page half; `Paged` and `Deliver` are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery, the document acquired under kernel `Custody.Bracket` so disposal is unconditional while `Close` versus `Abort` stays the fold's own verdict; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps row folds to the `XpsUnavailable` row and pdf is the proven format on macOS and Linux profiles — the format is the `PrintFormat` row whose `Open` delegate IS the behaviour, so a free-string format token or an else-to-PDF fallback arm cannot exist; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; text drawn onto a page composes the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster; cross-reference decoration is `Document/export#PDF_POLICY` `PdfAnnotations.Decorate`, whose returned fold composes straight into `VisualExportSpec.Pages`, so this arm mints no annotation surface.
+- Boundary: this arm is NARROWED to pure-visual vector printing — flow pagination, running bands, Office output, PDF security/signatures/AcroForms/UA, and print color are `Document/export.md`'s owners, and the hand-rolled `FlowBlock`/`FlowFold`/`HeaderFooterBand`/`BreakRule` pagination engine is DELETED for the MigraDoc flow DOM; the kernel `Interaction/chrome#PRINT` job model (`PrintSpec`/`PrintPage`/`PrintPageFact`/`PrintOutcome`/`PrintPlan`) drives an Eto `PrintDocument` against a physical printer and takes `PaintProgram`/`PrintPageEventArgs` values this Skia arm cannot produce, so the two stay disjoint by CARRIER and this arm composes that owner's geometry half (`SheetSize`/`SheetMargin`/`SheetOrientation` through `PlotPolicy`) rather than its page half; `Paged` and `Deliver` are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery, the document acquired under kernel `Custody.Bracket` so disposal is unconditional while `Close` versus `Abort` stays the fold's own verdict; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps row folds to the `XpsUnavailable` row and pdf is the proven format on macOS and Linux profiles — the format is the `PrintFormat` row whose `Open` delegate IS the behaviour, so a free-string format token or an else-to-PDF fallback arm cannot exist; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; text drawn onto a page composes the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster; cross-reference decoration is `Document/export#PDF_POLICY` `PdfAnnotations.Decorate`, whose returned fold composes straight into `VisualExportSpec.Pages`, so this arm mints no annotation surface.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -864,17 +873,17 @@ public static class VisualExport {
     static readonly Op ExportOp = Op.Of(name: "appui.visuals.export");
     public static readonly VisualFault XpsUnavailable = new VisualFault.XpsUnavailable();
 
-    public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec) =>
+    public static IO<VisualArtifact> Export(VisualRuntime runtime, VisualExportSpec spec) =>
         from opened in IO.lift(() => runtime.Line.Capture(ExportOp))
         from payload in IO.lift(() => ExportOp.Catch(() => Paged(spec)))
         from destination in Redrive.Run(runtime.Redrive, ExportDelivery.Deliver(runtime, spec.Destination, payload))
         from closed in IO.lift(() => runtime.Line.Capture(ExportOp))
         from elapsed in IO.lift(() => runtime.Line.Elapsed(opened, closed, ExportOp))
-        let receipt = RenderReceipt.Of(
+        let artifact = VisualArtifact.Of(
             ArtifactKind.Document, spec.Format.Key, payload, None, None,
             Duration.FromTimeSpan(elapsed), runtime.Correlation, Optional(destination), spec.Format.Color.Key)
-        from _ in runtime.Sink(receipt)
-        select receipt;
+        from published in runtime.Publish(artifact)
+        select published;
 
     static Fin<PageGeometry> Frame(PlotPolicy plot) =>
         from unit in ModelUnit.Of(value: UnitSystem.PrinterPoints, key: ExportOp)
@@ -919,13 +928,13 @@ public static class VisualExport {
 ## [06]-[VIDEO_ENCODE]
 
 - Owner: `VideoEncodeRow` — the codec/container policy row; `ClipMuxer` — the native-context capsule; `ClipEncoder` — the in-process FFmpeg mux surface an asynchronous frame stream drains through.
-- Entry: `public static IO<RenderReceipt> Mux(VisualRuntime runtime, VideoEncodeRow row, IAsyncEnumerable<Fin<SKImage>> frames, VisualDestination destination, CancellationToken cancel = default)` — IO rail; one clip per drain; the FIRST successful frame fixes the geometry and colour type every later frame is admitted against, while a failed row terminates on its exact rail without reminting an exception.
+- Entry: `public static IO<VisualArtifact> Mux(VisualRuntime runtime, VideoEncodeRow row, IAsyncEnumerable<Fin<SKImage>> frames, VisualDestination destination, CancellationToken cancel = default)` — IO rail; one clip per drain; the FIRST successful frame fixes the geometry and colour type every later frame is admitted against, while a failed row terminates on its exact rail without reminting an exception.
 - Auto: frames convert RGBA -> `Yuv420p` through one `sws_getContext`/`sws_scale` pair constructed once per clip; the codec context configures H.264 through `avcodec_find_encoder`/`avcodec_alloc_context3`/`avcodec_open2`; the container muxes MP4 through `avformat_alloc_output_context2`/`avformat_new_stream`/`avformat_write_header`/`av_interleaved_write_frame`/`av_write_trailer`; the send/receive loop is `avcodec_send_frame`/`avcodec_receive_packet` with the flush-on-null terminal; the animation walkthrough's flythrough composes THESE rows past its frame-sequence terminal — the encode is capture's row, animation keeps the frame sequence (`Render/animation#WALKTHROUGH`), and the tour clip render rides the same route.
 - Law: a clip is a STREAM, never a materialized seq. `Seq<SKImage>` held every frame's native image in memory before the first packet was written, and the two whole-sequence pre-passes traversed that materialization twice; the muxer now pulls one `Fin<SKImage>` at a time, stops on an exact refusal, and disposes each successful frame after the push, so a ten-minute walkthrough costs one frame of native pixels. The typed asynchronous seam lets the producer report expected failure without throwing through the channel, and the native contexts live in FIELDS on `ClipMuxer` rather than locals in the drain — a raw pointer cannot survive an `await`, which is exactly why the unsafe kernel is a capsule instead of one statement body. The supplied token reaches both async enumeration and `Op.Catch`, so only that requested token becomes `KernelFault.Cancelled`.
-- Receipt: one `RenderReceipt` of kind `ArtifactKind.Clip` per mux, keyed over the whole payload; per-frame keys stay animation's walkthrough proof.
+- Output: one `VisualArtifact` of kind `ArtifactKind.Clip` per mux, keyed over the whole payload; per-frame keys stay animation's walkthrough proof.
 - Packages: FFmpeg.AutoGen, SkiaSharp, Rasm.AppHost (project), Rasm (project — `MonotonicTimeline`, `Redrive`), LanguageExt.Core, NodaTime
 - Growth: a new codec or container is one `VideoEncodeRow` — the seven columns are earned by `ClipMuxer` reading every one of them and by the source-format table the row already carries, not by a second row existing; zero new surface.
-- Boundary: FFmpeg binds through `DynamicallyLoadedBindings` with the native FFmpeg shipped as LGPL-configured dynamic-linked libraries (the catalog boundary fact); every native context (`AVFormatContext`, `AVCodecContext`, `AVFrame`, `AVPacket`, `SwsContext`) allocates in `Open` and frees in `Dispose`, so a failing clause never leaks a native handle and the drain's own `using` is the one release site; every native status stays on `Fin` and unforeseen wrapper raises cross the preserving `Op.Catch` funnel, so no expected encode refusal is thrown and re-captured; a second video pipeline, a shell-out to an ffmpeg binary, a per-consumer encoder, and a temp-file mux round trip are the deleted forms — the container muxes into FFmpeg's own dynamic memory buffer, so this owner is in-process end to end and needs no writable-path policy; the SOURCE pixel format derives from the frame's own `SKColorType` through the row's table, and the row carries the working `ColorPolicy` its receipt stamps, so a wide-gamut clip cannot mux half-float pixels as 8-bit RGBA nor seal an sRGB tag over them.
+- Boundary: FFmpeg binds through `DynamicallyLoadedBindings` with the native FFmpeg shipped as LGPL-configured dynamic-linked libraries (the catalog boundary fact); every native context (`AVFormatContext`, `AVCodecContext`, `AVFrame`, `AVPacket`, `SwsContext`) allocates in `Open` and frees in `Dispose`, so a failing clause never leaks a native handle and the drain's own `using` is the one release site; every native status stays on `Fin` and unforeseen wrapper raises cross the preserving `Op.Catch` funnel, so no expected encode refusal is thrown and re-captured; a second video pipeline, a shell-out to an ffmpeg binary, a per-consumer encoder, and a temp-file mux round trip are the deleted forms — the container muxes into FFmpeg's own dynamic memory buffer, so this owner is in-process end to end and needs no writable-path policy; the SOURCE pixel format derives from the frame's own `SKColorType` through the row's table, and the row carries the working `ColorPolicy` its artifact stamps, so a wide-gamut clip cannot mux half-float pixels as 8-bit RGBA nor return an sRGB tag over them.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1122,7 +1131,7 @@ public sealed unsafe class ClipMuxer : IDisposable {
 public static class ClipEncoder {
     static readonly Op MuxOp = Op.Of(name: "appui.visuals.mux");
 
-    public static IO<RenderReceipt> Mux(
+    public static IO<VisualArtifact> Mux(
         VisualRuntime runtime,
         VideoEncodeRow row,
         IAsyncEnumerable<Fin<SKImage>> frames,
@@ -1133,11 +1142,11 @@ public static class ClipEncoder {
         from delivered in Redrive.Run(runtime.Redrive, ExportDelivery.Deliver(runtime, destination, payload))
         from closed in IO.lift(() => runtime.Line.Capture(MuxOp))
         from elapsed in IO.lift(() => runtime.Line.Elapsed(opened, closed, MuxOp))
-        let receipt = RenderReceipt.Of(
+        let artifact = VisualArtifact.Of(
             ArtifactKind.Clip, row.Key, payload, None, None,
             Duration.FromTimeSpan(elapsed), runtime.Correlation, Optional(delivered), row.Color.Key)
-        from _ in runtime.Sink(receipt)
-        select receipt;
+        from published in runtime.Publish(artifact)
+        select published;
 
     static IO<byte[]> Drained(VideoEncodeRow row, IAsyncEnumerable<Fin<SKImage>> frames, CancellationToken cancel) =>
         IO.liftVAsync(() => MuxOp.Catch(async token => {

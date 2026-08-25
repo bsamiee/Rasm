@@ -251,7 +251,7 @@ class ArtifactIdentity(_Divergence[bytes]):
 @final
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ArtifactReference(_Divergence[ArtifactRef | None]):
-    """A frame or receipt carries a reference the stream never declared."""
+    """A frame or reply carries a reference the stream never declared."""
 
 
 @final
@@ -984,7 +984,7 @@ async def _unwrapped[E](envelopes: AsyncIterator[E], envelope: _ArtifactEnvelope
 
 
 def put_frames(requests: AsyncIterator[PutRequest], /) -> AsyncGenerator[ArtifactFrame]:
-    """Unwrap a generated Put request stream for frame-centric receipt proof.
+    """Unwrap a generated Put request stream for frame-centric custody proof.
 
     Returns:
         The unwrapped frame stream.
@@ -993,7 +993,7 @@ def put_frames(requests: AsyncIterator[PutRequest], /) -> AsyncGenerator[Artifac
 
 
 def fetch_frames(responses: AsyncIterator[FetchResponse], /) -> AsyncGenerator[ArtifactFrame]:
-    """Unwrap a generated Fetch response stream for frame-centric receipt proof.
+    """Unwrap a generated Fetch response stream for frame-centric custody proof.
 
     Returns:
         The unwrapped frame stream.
@@ -1006,7 +1006,7 @@ def fetch_frames(responses: AsyncIterator[FetchResponse], /) -> AsyncGenerator[A
 - Owner: `ArtifactTransfer` composes the generated client with custody — `put` stages and publishes, `publish` streams and confirms, `fetch` receives.
 - Law: `_budget` projects `anyio.current_effective_deadline` onto `timeout_ms` as remaining milliseconds per dial, `None` where no scope bounds it.
 - Law: no window is re-threaded through a signature — the caller's enclosing `fail_after` or `move_on_after` is the budget every dial reads live.
-- Law: `publish` rails `ArtifactReference` when the receipt carries no reference and `confirm`s the peer's reference against the staged one.
+- Law: `publish` rails `ArtifactReference` when the reply carries no reference and `confirm`s the peer's reference against the staged one.
 - Law: `fetch` dials `FetchRequest(sha256=...)` alone and hands the expected reference to `receive` as its claim, so both axes prove on arrival.
 - Entry: `ArtifactTransfer(client)`; `put(source, *, claim=None)`, `publish(artifact)`, and `fetch(artifact)` as an async context yielding the rail.
 - Packages: `anyio` (`current_effective_deadline`, `current_time`), `rasm.contracts` (`FetchRequest`), stdlib `math`.
@@ -1066,7 +1066,7 @@ class ArtifactTransfer:
         """Publish and confirm an artifact already held in helper-owned custody.
 
         Returns:
-            The confirmed reference, or the law the receipt broke.
+            The confirmed reference, or the law the reply broke.
         """
         async with put_requests(artifact) as requests:
             response = await self._client.put(requests, timeout_ms=_budget())

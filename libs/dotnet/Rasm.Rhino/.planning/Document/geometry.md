@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[CUSTODY]: `GeometryCrc`, `CustodyPosture`, `CrossingMode`, `HandleState`, `HandleRelease`, `GeometryHandle`, `GeometryCrossing` — the crossing policy rows, the one-atom custody state, and the leased handle.
-- [03]-[PROGRAM]: `GeometryComparison`, `OpTrait`, `BoundsFidelity`, `BoundsFrame`, `GeometryBounds`, `BoundsEvidence`, `NativeBounds`, `GeometryMotion`, `MotionReceipt`, `TagOp`, `TagResult`, `GeometryOp`, `GeometryResult`, `GeometryTrait`, `GeometryFacts`, `GeometryReceipt` — the single-lease operation family and its typed evidence.
+- [03]-[PROGRAM]: `GeometryComparison`, `OpTrait`, `BoundsFidelity`, `BoundsFrame`, `GeometryBounds`, `BoundsEvidence`, `NativeBounds`, `GeometryMotion`, `AppliedMotion`, `TagOp`, `TagResult`, `GeometryOp`, `GeometryResult`, `GeometryTrait`, `GeometryFacts`, `GeometryOutcome` — the single-lease operation family and its typed evidence.
 - [04]-[CLIPPING]: `FieldOverride<T>`, `ClipSet`, `ClippingPlaneSeed`, `ClipScope`, `ViewportOp`, `ClipOp`, `ClipState`, `ClipTransition` — clipping-plane scope, depth, viewport, and style transitions over one retained seed.
 
 ## [02]-[CUSTODY]
@@ -111,17 +111,17 @@ public sealed class GeometryHandle : IDisposable {
     public CrossingMode Mode => mode;
     public HandleRelease Release => state.Value.Release;
 
-    public Fin<GeometryReceipt> Apply(GeometryOp operation, Op? key = null) {
+    public Fin<GeometryOutcome> Apply(GeometryOp operation, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(operation).Bind(request => Operate(operation: request, key: op));
     }
 
-    public Fin<GeometryReceipt> Compare(GeometryHandle other, GeometryComparison policy, Op? key = null) {
+    public Fin<GeometryOutcome> Compare(GeometryHandle other, GeometryComparison policy, Op? key = null) {
         Op op = key.OrDefault();
         return from target in op.Need(other)
                from rule in op.Need(policy)
-               from receipt in Matched(other: target, policy: rule, key: op)
-               select receipt;
+               from outcome in Matched(other: target, policy: rule, key: op)
+               select outcome;
     }
 
     public Fin<Seq<TOut>> Measure<TOut>(Rasm.Analysis.Bounds request, Context context, Op? key = null) where TOut : notnull {
@@ -160,25 +160,25 @@ public sealed class GeometryHandle : IDisposable {
         }
     }
 
-    private Fin<GeometryReceipt> Operate(GeometryOp operation, Op key) =>
+    private Fin<GeometryOutcome> Operate(GeometryOp operation, Op key) =>
         operation.Trait == OpTrait.Mutates
             ? Change(operation: operation, key: key)
             : With(key: key, project: geometry =>
                 from result in Evaluate(geometry: geometry, operation: operation, key: key)
                 let crc = GeometryCrc.Of(geometry: geometry)
-                select new GeometryReceipt(Result: result, Before: crc, After: crc, CleanupFaults: Seq<Error>()));
+                select new GeometryOutcome(Result: result, Before: crc, After: crc, CleanupFaults: Seq<Error>()));
 
-    private Fin<GeometryReceipt> Matched(GeometryHandle other, GeometryComparison policy, Op key) {
-        Fin<GeometryReceipt> EvaluateActive() =>
+    private Fin<GeometryOutcome> Matched(GeometryHandle other, GeometryComparison policy, Op key) {
+        Fin<GeometryOutcome> EvaluateActive() =>
             key.Catch(() => {
                 HandleState left = state.Value;
                 HandleState right = other.state.Value;
                 return !left.Release.Active || !right.Release.Active
-                    ? Fin.Fail<GeometryReceipt>(error: key.InvalidInput())
+                    ? Fin.Fail<GeometryOutcome>(error: key.InvalidInput())
                     : from first in key.AcceptInput(value: left.Lease.Resource)
                       from second in key.AcceptInput(value: right.Lease.Resource)
                       let before = GeometryCrc.Of(geometry: first)
-                      select new GeometryReceipt(
+                      select new GeometryOutcome(
                           Result: new GeometryResult.Compared(Policy: policy, Equal: policy.Compare(left: first, right: second)),
                           Before: before,
                           After: before,
@@ -198,11 +198,11 @@ public sealed class GeometryHandle : IDisposable {
         }
     }
 
-    private Fin<GeometryReceipt> Change(GeometryOp operation, Op key) {
+    private Fin<GeometryOutcome> Change(GeometryOp operation, Op key) {
         lock (gate) {
             HandleState held = state.Value;
             if (!held.Release.Active) {
-                return Fin.Fail<GeometryReceipt>(error: key.InvalidInput());
+                return Fin.Fail<GeometryOutcome>(error: key.InvalidInput());
             }
             return from _ in mode.Posture.AdmitMutation(op: key)
                    from prepared in key.Catch(() =>
@@ -210,28 +210,28 @@ public sealed class GeometryHandle : IDisposable {
                        let before = GeometryCrc.Of(geometry: active)
                        from working in CrossingMode.Copy(duplicate: active.Duplicate, key: key)
                        select (Working: working, Before: before))
-                   from receipt in key.Catch(() => Evaluate(geometry: prepared.Working.Resource, operation: operation, key: key)).Match(
+                   from outcome in key.Catch(() => Evaluate(geometry: prepared.Working.Resource, operation: operation, key: key)).Match(
                        Succ: result => Commit(working: prepared.Working, before: prepared.Before, result: result, key: key),
-                       Fail: error => Fin.Fail<GeometryReceipt>(error: Retain(candidate: prepared.Working, key: key)
+                       Fail: error => Fin.Fail<GeometryOutcome>(error: Retain(candidate: prepared.Working, key: key)
                            .Fold(error, static (primary, cleanup) => primary + cleanup)))
-                   select receipt;
+                   select outcome;
         }
     }
 
-    private Fin<GeometryReceipt> Commit(Lease<GeometryBase> working, GeometryCrc before, GeometryResult result, Op key) =>
+    private Fin<GeometryOutcome> Commit(Lease<GeometryBase> working, GeometryCrc before, GeometryResult result, Op key) =>
         key.AcceptValue(value: working.Resource).Match(
             Succ: admitted => {
                 GeometryCrc after = GeometryCrc.Of(geometry: admitted);
                 Lease<GeometryBase> previous = state.Value.Lease;
                 ignore(Cell.Commit(state, held => held with { Lease = working, Pending = held.Pending.Add(value: previous) }));
                 Seq<Error> cleanup = Sweep(key: key);
-                return Fin.Succ(value: new GeometryReceipt(
+                return Fin.Succ(value: new GeometryOutcome(
                     Result: result,
                     Before: before,
                     After: after,
                     CleanupFaults: cleanup));
             },
-            Fail: error => Fin.Fail<GeometryReceipt>(error: Retain(candidate: working, key: key)
+            Fail: error => Fin.Fail<GeometryOutcome>(error: Retain(candidate: working, key: key)
                 .Fold(error, static (primary, cleanup) => primary + cleanup)));
 
     private Seq<Error> Retain(Lease<GeometryBase> candidate, Op key) {
@@ -309,10 +309,10 @@ public static class GeometryCrossing {
 
 ## [03]-[PROGRAM]
 
-- Owner: `GeometryOp` owns the single-lease host-operation family and `GeometryReceipt` preserves its typed result, content-key transition, and every losing-lease cleanup fault; `OpTrait` rows name whether a case observes or mutates so the routing reads one column; `GeometryMotion` admits each motion at its FACTORY under the ambient `Context`, so `Apply` is total on admitted values; `GeometryTrait` is the custody capability vocabulary `GeometryFacts` carries as one set.
+- Owner: `GeometryOp` owns the single-lease host-operation family and `GeometryOutcome` preserves its typed result, content-key transition, and every losing-lease cleanup fault; `OpTrait` rows name whether a case observes or mutates so the routing reads one column; `GeometryMotion` admits each motion at its FACTORY under the ambient `Context`, so `Apply` is total on admitted values; `GeometryTrait` is the custody capability vocabulary `GeometryFacts` carries as one set.
 - Entry: `GeometryHandle.Apply` discriminates by operation shape; `Compare` takes a second handle under ordinal-ordered dual gates, and `Measure<TOut>` retains the typed kernel projection — both are the operations whose shape cannot inhabit the single-lease closed-result family, so neither is a `GeometryOp` case forcing a dead dispatch arm.
 - Law: each case carries only its required evidence. Host-native translation, scale, rotation, and kernel-built transformation occupy one `GeometryMotion` family instead of forcing unrelated operations to carry `Context`, and each motion factory ADMITS its payload once — a finite vector, a direction proved by the kernel claim, a scale factor above the neglect band — so no arm re-guards inside the fold.
-- Law: each native motion derives its exact inverse request, while a kernel-built matrix preserves an inverse only when `TryGetInverse` proves one and captures the host decomposition classifications. The three decompositions are the host's OWN parameter vocabulary verbatim — similarity answers `(translation, dilation, rotation)` under a tolerance, rigidity answers `(translation, rotation)` under a tolerance and classifies as `TransformRigidType`, and the four-argument affine answers `(translation, rotation, orthogonal, diagonal)`; renaming a column locally makes the receipt claim a factorization the host never computed. Both decomposition tolerances read `context.For(ToleranceLane.ScaleUniformity)` off the Matrix case's own `Context`, so no bare `RhinoMath.ZeroTolerance` survives.
+- Law: each native motion derives its exact inverse request, while a kernel-built matrix preserves an inverse only when `TryGetInverse` proves one and captures the host decomposition classifications. The three decompositions are the host's OWN parameter vocabulary verbatim — similarity answers `(translation, dilation, rotation)` under a tolerance, rigidity answers `(translation, rotation)` under a tolerance and classifies as `TransformRigidType`, and the four-argument affine answers `(translation, rotation, orthogonal, diagonal)`; renaming a column locally makes `AppliedMotion` claim a factorization the host never computed. Both decomposition tolerances read `context.For(ToleranceLane.ScaleUniformity)` off the Matrix case's own `Context`, so no bare `RhinoMath.ZeroTolerance` survives.
 - Law: bounds admit every host-returned `BoundingBox` through the shared result oracle before preserving raw and inflated world, transformed, or framed evidence, including corners, edges, center, diagonal, and inverse motion where the host proves one; the inflation vector admits at the `GeometryBounds` factory, so `BoundsEvidence` re-checks nothing.
 - Law: inspection carries native validity and its diagnostic only when invalid; the custody bits ride one `CapabilitySet<GeometryTrait>` rather than two loose bools, and the record folds `IValidityEvidence` off the host's own verdict.
 - Law: tag clearing snapshots once, invokes the host's atomic bag clear, and proves the resulting bag empty.
@@ -475,7 +475,7 @@ public abstract partial record GeometryMotion {
                select (GeometryMotion)new Rotation(angleRadians: angle, axis: axis, center: center);
     }
 
-    internal Fin<MotionReceipt> Apply(GeometryBase geometry, Op key) => Switch(
+    internal Fin<AppliedMotion> Apply(GeometryBase geometry, Op key) => Switch(
         (Geometry: geometry, Op: key),
         matrix: static (state, edit) =>
             from domain in Optional(edit.Domain).ToFin(Fail: state.Op.MissingContext())
@@ -502,7 +502,7 @@ public abstract partial record GeometryMotion {
                 diagonal: out Vector3d diagonal)
                 ? Some((Translation: affineTranslation, Rotation: affineRotation, Orthogonal: orthogonal, Diagonal: diagonal))
                 : Option<(Vector3d Translation, global::Rhino.Geometry.Transform Rotation, global::Rhino.Geometry.Transform Orthogonal, Vector3d Diagonal)>.None
-            select (MotionReceipt)new MotionReceipt.Matrix(
+            select (AppliedMotion)new AppliedMotion.Matrix(
                 Value: value,
                 Inverse: inverse,
                 Similarity: similarity,
@@ -515,12 +515,12 @@ public abstract partial record GeometryMotion {
                 Affine: affine),
         translation: static (state, edit) =>
             from _ in state.Op.Confirm(success: state.Geometry.Translate(translationVector: edit.Vector))
-            select (MotionReceipt)new MotionReceipt.Native(
+            select (AppliedMotion)new AppliedMotion.Native(
                 Value: edit,
                 Reverse: new Translation(vector: -edit.Vector)),
         uniformScale: static (state, edit) =>
             from _ in state.Op.Confirm(success: state.Geometry.Scale(scaleFactor: edit.Factor))
-            select (MotionReceipt)new MotionReceipt.Native(
+            select (AppliedMotion)new AppliedMotion.Native(
                 Value: edit,
                 Reverse: new UniformScale(factor: 1.0 / edit.Factor)),
         rotation: static (state, edit) =>
@@ -528,7 +528,7 @@ public abstract partial record GeometryMotion {
                 angleRadians: edit.AngleRadians,
                 rotationAxis: edit.Axis,
                 rotationCenter: edit.Center))
-            select (MotionReceipt)new MotionReceipt.Native(
+            select (AppliedMotion)new AppliedMotion.Native(
                 Value: edit,
                 Reverse: new Rotation(
                     angleRadians: -edit.AngleRadians,
@@ -537,8 +537,8 @@ public abstract partial record GeometryMotion {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MotionReceipt {
-    private MotionReceipt() { }
+public abstract partial record AppliedMotion {
+    private AppliedMotion() { }
     public sealed record Matrix(
         global::Rhino.Geometry.Transform Value,
         Option<global::Rhino.Geometry.Transform> Inverse,
@@ -549,8 +549,8 @@ public abstract partial record MotionReceipt {
         TransformRigidType Rigidity,
         Vector3d RigidTranslation,
         global::Rhino.Geometry.Transform RigidRotation,
-        Option<(Vector3d Translation, global::Rhino.Geometry.Transform Rotation, global::Rhino.Geometry.Transform Orthogonal, Vector3d Diagonal)> Affine) : MotionReceipt;
-    public sealed record Native(GeometryMotion Value, GeometryMotion Reverse) : MotionReceipt;
+        Option<(Vector3d Translation, global::Rhino.Geometry.Transform Rotation, global::Rhino.Geometry.Transform Orthogonal, Vector3d Diagonal)> Affine) : AppliedMotion;
+    public sealed record Native(GeometryMotion Value, GeometryMotion Reverse) : AppliedMotion;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -643,7 +643,7 @@ public abstract partial record GeometryResult {
     public sealed record Compared(GeometryComparison Policy, bool Equal) : GeometryResult;
     public sealed record Hashed(GeometryCrc Value) : GeometryResult;
     public sealed record Tagged(TagResult Value) : GeometryResult;
-    public sealed record Transformed(MotionReceipt Motion) : GeometryResult;
+    public sealed record Transformed(AppliedMotion Motion) : GeometryResult;
     public sealed record Bounded(NativeBounds Value) : GeometryResult;
     public sealed record Clipped(ClipTransition Value) : GeometryResult;
 }
@@ -676,7 +676,7 @@ public sealed record GeometryFacts(
     }
 }
 
-public sealed record GeometryReceipt(
+public sealed record GeometryOutcome(
     GeometryResult Result,
     GeometryCrc Before,
     GeometryCrc After,
@@ -945,7 +945,6 @@ public readonly record struct ClipTransition(ClipState Before, ClipState After);
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

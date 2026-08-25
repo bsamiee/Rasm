@@ -127,7 +127,6 @@ Events index and slice as a list; a slice is type-checked and a non-`SSAEvent` r
 [TOPOLOGY]:
 - Every subtitle production folds through one `expression.tagged_union` `SubtitleOp` dispatched by a total `match`/`case` closed by `assert_never`, returning `RuntimeRail[ContentKey]` keyed over the produced bytes — one polymorphic owner, never a `convert_srt`/`retime`/`burn` function family.
 - `formats.FORMAT_IDENTIFIERS` folds into one `SubtitleDialect` `StrEnum` carried in the op payload, never a free `format_` string re-validated at each arm.
-- Each production contributes the single `ArtifactReceipt.Media` case; `SubtitleEvidence` carries no provider handle and the receipt owner imports no `pysubs2` type.
 
 [STACKING]:
 - `av`(`.api/av.md`): the `Mux` arm mints a timed-text stream via `add_stream("ass"|"srt")`/`add_stream_from_template` and muxes the serialized bytes through `OutputContainer.mux`/`mux_one` beside the video/audio streams; the `BurnIn` arm composites rendered RGBA onto the rgb24 frame via `VideoFrame.from_bytes(data, w, h, format="rgba")`; the seam is the serialized byte stream and the `av` handle never crosses back.
@@ -144,5 +143,3 @@ Events index and slice as a list; a slice is type-checked and a non-`SSAEvent` r
 [RAIL_LAW]:
 - Package: `pysubs2`
 - Owns: the subtitle/caption DOCUMENT model — multi-dialect parse + autodetect + convert, the `SSAEvent`/`SSAStyle` record model, constant-shift and framerate-rescale retiming, style rename/import/merge, override-aware plaintext/styled-fragment projection, millisecond/frame time arithmetic, and the Whisper transcript bridge.
-- Accept: editing a timed-text track as `SubtitleOp` arms — `Convert`/`Retime`/`Restyle` in-process on the worker band, `Mux` feeding serialized bytes to an `av` `SubtitleStream` passthrough, `BurnIn` feeding `plaintext`/`parse_tags` runs to the `typography`+`graphic` RGBA render composited via `av` `VideoFrame.from_bytes`, and the Whisper segment ingress — under one `async_boundary` contributing the single `ArtifactReceipt.Media` case.
-- Reject: a hand-rolled per-dialect parser/serializer, the SubStation override-tag grammar, or the timestamp codec the module owns; a `convert_srt`/`retime_track`/`burn_subtitles` accessor family over the one `SubtitleOp` discriminant; subtitle packetization/muxing or container framing the `av` `SubtitleStream`/`OutputContainer.mux` layer owns; the text rasterization the `typography/shape#SHAPE`+`graphic/raster/process#PROCESS` path owns; the raw `SSAFile`/`SSAEvent` handle crossing the owner boundary; a second receipt rail beside `ArtifactReceipt.Media`.

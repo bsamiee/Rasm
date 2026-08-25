@@ -13,7 +13,7 @@ Rasm.Fabrication/
 │   ├── Physics.cs           # Material identity carrying per-modality physics and the removal budget
 │   ├── Faults.cs            # FabricationFault union over the FaultBand.Fabrication band
 │   ├── Derivation.cs        # Derivation.Plan Run(Derive) lowering; DerivePolicy.Admit gates duplicates and preference conflicts
-│   └── Telemetry.cs         # Settled-receipt projections alone: fact-union arms, contributor port, span band, board-pack descriptor rows
+│   └── Telemetry.cs         # Instrument roster, site-write operators, span band, hook rail, board-pack descriptor rows
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
 │   ├── Magazine.cs          # Provider-detached ToolAssembly owner, correspondence tables, typed-shortfall kitting, and ordered life scheduling
 │   ├── CuttingData.cs       # Kienzle regime resolution: material seeds with operation factors, the evidence-domain guard, one force model
@@ -31,7 +31,7 @@ Rasm.Fabrication/
 │   ├── Motion.cs            # Cam fold over EngagementPolicy's admitted sub-owners; the modality-strategy cross-product closes here
 │   ├── Surface.cs           # OpenCAMLib cutter positioning over kernel on-mesh path layout
 │   ├── Partition.cs         # Site-field decomposition: boundary-clipped diagram, cell topology, spanning traversal, the complex gate
-│   ├── Guard.cs             # Fail-closed motion admission from one aggregate request; GuardReceipt retains every hazard and severity
+│   ├── Guard.cs             # Fail-closed motion admission from one aggregate request; GuardVerdict retains every hazard and severity
 │   ├── Skeleton.cs          # SkeletonDemand walk: kernel SkeletonGraph clearance radii under WalkStrategy motion grammars
 │   ├── Turning.cs           # TurnRequest generation; TurnStep spindle-side binding, TurnProgram channel barriers and sync preservation
 │   ├── Wire.cs              # WireEdm.Generate demand admission; context-keyed pass law, guide registration, simultaneous WireBlock rows
@@ -66,7 +66,7 @@ Rasm.Fabrication/
 │   ├── Removal.cs           # VerifyPolicy stock materialization through the shared voxel runtime; setup-framed sweep folds
 │   ├── Probing.cs           # Probe.Inspect post-cycle metrology; InspectPolicy target generation, stylus compensation, registration
 │   ├── Simulate.cs          # Simulate.Execute over the admitted MotionSource; the authoritative SimulationLedger clock
-│   ├── Estimation.cs        # EstimateEvidence closed union, the Locus correlation key, Receipt<CostEvidence> on the spine
+│   ├── Estimation.cs        # EstimateEvidence closed union, the Locus correlation key, and CostEstimate
 │   └── Audit.cs             # Audit.Preflight rasterized build-frame labeling; void escape and risk evidence before commit
 ├── Spec/                    # Production specs
 │   ├── Tolerance.cs         # Quantity-admitted specification values; typed derivation and the parameterized wire projection
@@ -74,7 +74,7 @@ Rasm.Fabrication/
 │   └── Manufacturability.cs # Rule-evaluated producibility evidence; remediation, requirement ranking, one settled verdict fold
 ├── Documentation/           # Shop documentation
 │   ├── Projection.cs        # Kernel multi-view projection — hidden-line, silhouette, outline, and section runs over a watertight source
-│   ├── Traveler.cs          # DAG-normalized content-keyed traveler over the typed receipt corpus
+│   ├── Traveler.cs          # DAG-normalized content-keyed traveler over TravelerCorpus
 │   ├── Report.cs            # Sampled inspection, EN 10204, NDT, NCR lifecycle, calibration recall, and shop schedules
 │   └── Passport.cs          # QualityReport.Seal quorum gate; credentialed signers proven against published attestation demands
 ├── Forming/                 # Sheet-stock, tube, and roll forming
@@ -95,7 +95,7 @@ Sub-domain dependencies are acyclic, and motion never reads fleet policy. Shared
 Strata order the sub-domains; split-package ledger nodes preserve one direction: `Process` places atoms at the floor and `Derivation` beside the CAM plane, while `Kinematics` places motion at S1 and its consuming fleet at S3; every cross-stratum consumption edge points down.
 
 - S0 `Process/atoms` — the one vocabulary floor; every plane reads it, and it reads no sibling.
-- S0 run rail — `Process/owner` is the dispatch and receipt spine every flagship terminates through, and the rail reads atoms alone.
+- S0 run dispatch — `Process/owner` admits each policy and returns its canonical domain result from atoms alone.
 - S0 payload atoms — plane payloads admit at construction behind their factories, so `Move`, directives, and envelopes carry no plane behaviour.
 - S0 equipment axes — decoded equipment facts seat beside the canon and quantity arrows, so no plane re-decodes a machine.
 - S1 `Geometry2D` — substrate lanes over the atoms alone, so the 2D algebra reads no consumer and every plane composes one geometry truth.
@@ -108,10 +108,10 @@ Strata order the sub-domains; split-package ledger nodes preserve one direction:
 - S4 `Toolpath` — the CAM plane composes tools, kinematics, and keep-outs, and nothing below reads a toolpath fact.
 - S4 `Process/Derivation` — the `Derivation`/`FabricationProjector` terminal aggregator over the downstream plans.
 - S5 co-seat — `Verify` parses the AST `Posting` emits as a same-stratum FACT, so emission and truth share the rank without an order edge.
-- S5 `Documentation` — the shop documents and the `QualityReport` release seal that signs them; documentation reads receipts, never planners.
-- S5 `Process` telemetry — the `FabricationFact` fan projects settled receipts onto the `rasm.fabrication.*` instruments.
+- S5 `Documentation` — the shop documents and the `QualityReport` release seal that signs them; documentation reads results, never planners.
+- S5 `Process` telemetry — each producer projects its measured facts onto the `rasm.fabrication.*` instruments.
 - S5→S3 — verification consumes planning EVIDENCE (`DatumLineage`, capability reports, machine matches) as values, never a planner owner.
-- S5→S0 — the fact fan reads settled receipts off the atoms floor, so telemetry projects and never re-derives a plane's truth.
+- S5→S0 — instrument writes read canonical domain values from the atoms floor and never re-derive a plane's truth.
 
 ```mermaid
 ---
@@ -156,8 +156,8 @@ flowchart TB
     end
     Verify e1@-->|"[IMPORT]: DatumLineage"| Fixturing
     Verify e2@-->|"[IMPORT]: CellPosedStation"| Motion
-    Verify e3@-->|"[IMPORT]: SupportPlan, Receipt&lt;BuildEvidence&gt;"| Additive
-    Verify e4@-->|"[IMPORT]: ToolChangeEvidence, WearReceipt"| Tooling
+    Verify e3@-->|"[IMPORT]: SupportPlan, BuildOutcome"| Additive
+    Verify e4@-->|"[IMPORT]: ToolChangeEvidence, WearVerdict"| Tooling
     Verify e5@-->|"[IMPORT]: MachineMatch"| Fleet
     Documentation e6@-->|"[IMPORT]: CapabilityReport"| Spec
     Toolpath e7@-->|"[IMPORT]: ToolAssembly"| Tooling
@@ -178,10 +178,10 @@ flowchart TB
     Ingress e22@-->|"[IMPORT]: AdmittedComponent"| Atoms
     Motion e23@-->|"[IMPORT]: MachineAxis"| Atoms
     Fleet e24@-->|"[IMPORT]: SlotMap"| Tooling
-    Documentation e25@-->|"[IMPORT]: ProcedureReceipt, HoldRelease"| Joining
+    Documentation e25@-->|"[IMPORT]: ProcedureAssessment, HoldRelease"| Joining
     Posting e26@-->|"[IMPORT]: WcsSlot"| Fixturing
     Posting e27@-->|"[IMPORT]: MotionDynamics"| Motion
-    Telemetry e28@-->|"[IMPORT]: WearReceipt"| Tooling
+    Telemetry e28@-->|"[IMPORT]: WearVerdict"| Tooling
     Telemetry e29@-->|"[IMPORT]: MachineMatch"| Fleet
     Telemetry e30@-->|"[IMPORT]: CapabilityReport"| Spec
     Telemetry e31@-->|"[IMPORT]: RunEvidence"| Atoms
@@ -218,10 +218,9 @@ flowchart LR
     Ingress e3@<-->|"[SHAPE]: MaterialComposition + MaterialPropertySet"| Element
     Process e4@<-->|"[SHAPE]: DetailSchema + PropertyCategory"| Element
     Spec e5@-->|"[WIRE]: FeatureControl"| Artifacts
-    Telemetry e6@-->|"[RECEIPT]: FabricationFact"| AppHost
-    AppHost e7@-->|"[PORT]: TelemetryContributorPort"| Telemetry
+    Telemetry e6@-->|"[PORT]: TelemetryContributorPort"| AppHost
     Telemetry e8@-->|"[PORT]: FabricationHooks"| AppHost
-    AppHost e9@-->|"[RECEIPT]: MachineObservationWire"| Kinematics
+    AppHost e9@-->|"[SHAPE]: MachineObservationIngress"| Kinematics
     Nesting e10@-->|"[PROJECTION]: NestYield"| Compute
 ```
 
@@ -261,10 +260,10 @@ flowchart LR
     Rasm e7@-->|"[WIRE]: VectorIntent"| Kinematics
     Rasm e8@-->|"[PROJECTION]: ChartAtlas"| Nesting
     Rasm e9@-->|"[WIRE]: Stat"| Spec
-    Rasm e10@-->|"[WIRE]: FitReceipt"| Verify
+    Rasm e10@-->|"[WIRE]: Fitted"| Verify
     Rasm e11@-->|"[PROJECTION]: DrawingProjection"| Documentation
     Posting e12@-->|"[WIRE]: ToolpathPath"| Rasm
-    Documentation e13@-->|"[RECEIPT]: HiddenLineResult"| AppUi
+    Documentation e13@-->|"[WIRE]: HiddenLineResult"| AppUi
     Rasm e14@-->|"[SHAPE]: SpatialIndex"| Toolpath
     Rasm e15@-->|"[SHAPE]: CellLattice + SpectralArena"| Additive
     Rasm e16@-->|"[SHAPE]: CellLattice"| Geometry2D
@@ -276,7 +275,7 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-`Toolpath/guard` owns every PicoGK voxel lease, and `Kinematics/cell` owns every Rhino3dm robot adapter; downstream receipts carry evidence and no native handle.
+`Toolpath/guard` owns every PicoGK voxel lease, and `Kinematics/cell` owns every Rhino3dm robot adapter; downstream results carry evidence and no native handle.
 
 ```mermaid
 ---
@@ -334,22 +333,21 @@ flowchart LR
 - Runtime-carried `HybridCache` replays NFP pair polygons under `PairTable.Key` identities in process.
 - Durable memo tier federates at the Persistence cache seam beside the benchmark index.
 - Speed claims resolve against Persistence `BenchmarkRow` claims through the kernel `BenchClaim` keys `Toolpath/guard` mints.
-- `AcceptedBenchmarkClaim` binds one result to the `BenchmarkReceipt.ClaimKey` digest its pass stamped, judgment arriving as a seam AppHost mints.
+- `AcceptedBenchmarkClaim` binds one result to the `Benchmark.ClaimKey` digest its pass stamped, judgment arriving as a seam AppHost mints.
 - `ProbeRoute.Measured` authorizes its parallel substrate only against an accepted claim, never against a roster row alone.
-- Program delivery closes chain-of-custody by value: `ProgramDelivery`'s cell drive receipt re-mints a content key from the controller-bound records.
-- `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality; the delivery fact rides the tap onto the receipt rail.
-- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` message envelopes.
-- Settled verify receipts fire their own fact through that tap, which defaults silent so a headless caller emits nothing and branches nowhere.
+- Program delivery closes chain-of-custody by value: `ProgramDelivery`'s cell drive result re-mints a content key from the controller-bound records.
+- `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality and writes its custody verdict through the mounted instrument set.
+- Producing folds write mounted instruments directly from their settled typed results.
 - Money and carbon stay parallel dimensions on parallel instruments, and `ClockAttribution` names the clock's own source rather than a default.
 - `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster and board pack inward at composition; the mounting root proves both.
-- `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms.
+- `FabricationInstruments.Telemetry` supplies the package's instrument bindings to AppHost.
 - Classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
 - Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried kernel rail's own `Points` census.
 - One `HookRail<FabricationPoint, FabricationHookFact, TelemetrySource>` carries every spine point; the folder declares roster and fact union alone.
 - Hook modality and payload close at declaration; subscribers attach only at app roots.
 - Solver spans ride `FabricationTrace.Scopes` — one `TraceScope` per `FabricationEngine` row — admitted into the composing root's kernel `SpanBand`.
 - Meter scope stays `TelemetrySource.Fabrication`, and neither the meter grammar nor the `SpanBand` trace grammar derives from the other.
-- Every traced lane takes the band as a trailing nullable parameter beside its `FabricationTap`.
+- Every observed lane takes optional mounted instruments and spans as trailing parameters.
 - Trace-based exemplars join the fabrication histograms to their solve traces.
 - `FabricationDescriptors` binds one kernel `BoardPack` the contributor port carries to the AppHost alert rail and deploy-plane dashboard compile.
 - Indicator, severity, panel, and burn vocabularies stay the kernel signal capsule's and cross as values, never re-decided here.

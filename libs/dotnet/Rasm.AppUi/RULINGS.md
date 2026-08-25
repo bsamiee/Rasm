@@ -13,7 +13,7 @@
 Each row binds every surface of its kind this folder grows, never the one instance that earned it.
 
 - Value crossing an ACTION-shaped marshal rides a completion gate — `SurfaceScheduler.Marshal` answers `Unit`, so a value-returning lambda drops it.
-- Durable counterparts to an evidence fold are SOURCES — `EvidenceSource` hands one `ReceiptEnvelope` live or resident, so accrual stays one body.
+- Durable evidence counterparts are SOURCES — `EvidenceSource` hands one `RasmEvent<Extensions>` shape live or resident, so accrual stays one body.
 - Device caches carry a BYTE ceiling, a least-touched release, and a generation floor eviction respects — `ResidencyBudget` counts bytes.
 - `AssetCache` keeps the ceiling and INVERTS the generation floor — retention is a consumer holding the value, not a live generation.
 - `AssetCache` rotation owns unlink-then-release and every edge filling the queue drains it — a cohort grace spans the sweep, pressure one eviction.
@@ -25,7 +25,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Unions a foreign backend closes carry no open arm — `PdfAnnotation`'s silent-drop path makes that arm a no-op wearing a capability's name.
 - `OptionsInspector<TDraft, TValue>` splits draft from record — one type parameter leaves "persist the rebuild, never the draft" unenforceable.
 - Editors receive their write channel BOUND from `EditorRowFactory` — the factory path carries the command mint, veto edge, and undo enqueue.
-- Receipt sealing is double-count-proof by construction — a running-total scan seals the per-delta cell and two producers seal DISTINCT outcomes.
+- Event publication counts once — a running-total scan publishes the per-delta cell, and two producers publish DISTINCT outcomes.
 - `SessionPresence` is a HINT and `MemberRegister` AUTHORITY — admission reads membership alone, so a forged frame costs a cursor alone.
 - Foreign narrows lift a fresh handle and leave the wrapper standing — `CollabRegister.Read`/`Level` scope both, so `Get(key)?.As*()` leaks.
 - `RoutedCommandExecutingEventArgs` extends its executed args, so a veto edge narrows to the DERIVED type — a base-typed probe never reaches cancel.
@@ -63,7 +63,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Floating chrome takes the `MotionLane` of transform and opacity ALONE — animating extent re-enters layout for the plane beneath on every frame.
 - LAYERED capability ladders answer per row at the WEAKEST rung — a `DockableRow` override outranks every policy above, leaving dead configuration.
 - Frameworks deserializing their own graph rehydrate through the locator seam published — an unbound `ContextLocator` yields a context-less layout.
-- Substrates DEGRADING silently are measured, never inferred from a channel they never write — `LayoutReceipt` reads each row's post-solve violation.
+- Silent substrate DEGRADATION is measured, never inferred from an unwritten channel — the layout result reads each row's post-solve violation.
 - Per-surface admission matrices are a COLUMN on `ChromeSlot` — N rows re-deriving it are N chances to disagree, while a row predicate never widens.
 - Persisted carriers restore in the DEPENDENCY ORDER of their keys, `RegionProgram` first — each later carrier keys on a surface the earlier mints.
 - Stored state DECODE-ADMITS at ONE stable key with its generation inside the parcel — a stale payload refuses on content and no shape move re-keys.
@@ -95,7 +95,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - Contested-resource ownership has ONE oracle answering `ShortcutRow`'s CLAIMANT LIST — two computations ship an assignment the next freeze rejects.
 - Every key a surface raises is a frozen `CommandRow` naming its owner's constant — the fold aborts, so an unlifted roster is a dead SCREEN.
 - `CommandRow` holds PRESENTATION columns alone and `ToIntent` mints per raise — payload and caller are invocation facts a frozen row cannot hold.
-- Deck evidence and refusal spell `DeckReceipt`/`DeckFault` — a presentation type wearing AppHost's spelling reads as the suite's own record.
+- Deck execution returns `DeckOutcome` and refusal stays `DeckFault` — presentation owns its command state without mirroring AppHost's algebra.
 - `FamilyRow` is the ONE deck registration shape and its `Mint` the ONE `CommandRow` construction — a positional mint strands every later column.
 - View TOGGLES between two projections preserve the framed extent, so toggling twice is the identity — `2·d·tan(f/2)` is the orthographic height.
 - `SectionHandle` COMMITS through the settled model it manipulates — a private copy lets a saved view restore a state the user already dragged away.
@@ -114,7 +114,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `FlameView` and every settled-instrument surface SEAL nothing — every fact is on the message-envelope stream, so they own projection alone.
 - `WedgeSpans` serves every reading of one value tree in UNIT FRACTIONS with a source index per span — two folds diverge on the first repair.
 - Golden captures pin scale, gamut, and posture as `CaptureRow` COLUMNS — an unpinned raster input diffs a golden against its own capture panel.
-- Surfaces that DISPLAY a `ResultPayload` compute none of it — the only arithmetic admitted is a read provably inside the sealed receipt's own range.
+- Surfaces that DISPLAY a `ResultPayload` compute none of it — the only arithmetic admitted is a read provably inside the payload's own range.
 - `AnalysisContext` is the ONE environmental-coordinate owner publishing PROJECTIONS — a scrub track, an absolute range, and a bounded variable.
 - `ContextChannel` easing is LINEAR by construction — a curved playhead accelerates the sun through midday and every derived shadow inherits it.
 - Bounded ROW partitions fold their residual into one member and a bounded `CompareGrid` truncates — nothing draws the whole option union.
@@ -123,7 +123,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `CompareLink` carries each channel's fold on its own row — a fold-less row decides nothing per tick and homes as an ADMISSION elsewhere.
 - Coordinates whose POLICY column shifts a reading publish a SECOND projection — a mutated `ClimateScenario` primary moves the sun with a pathway.
 - `ThreeWayHunk` runs cross an owner boundary as `Seq<string>` — joining collapses the empty and the one-empty-element sequence a fold tells apart.
-- Sealed receipts are no `BatchEdit.Landed` — rejected, cancelled, rolled-back, and compensated runs each seal their typed outcome.
+- `BatchEdit.Landed` is not the whole edit result — rejected, cancelled, rolled-back, and compensated runs each return their typed outcome.
 - `TimelineKey` addresses and DOMAIN ordinals are TWO spaces once disclosure, grouping, or a band enters it — they agree while nothing expands.
 - READ-ONLY seats over a shared editing chrome bind `HunkBands.Attach` to a NAVIGATION arrow — taking the caller's opens a mutation channel inward.
 - Tiled payloads ride the carrier their PAYLOAD ARITY admits — a raster tile layer answers ONE `GeoOverlayRow` per tile and drops every attribute.
@@ -141,14 +141,14 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `LayerStack.Passes` and every projection into a settled render or pass owner answer its EXECUTABLE form — a bare case hands a value nothing enters.
 - `TelemetryRow` binds its handle at the type the declared form names — a narrower write takes the type-mismatch verdict under a live rail.
 - Owners holding a LIVE mutable cell are sealed classes whose transitions ANSWER what they retired — a record copy shares the cell by reference.
-- COUNT instruments read what happened since the previous receipt and LEVELS what stands now, so `ShaderAsset`'s count cell DRAINS at its own seal.
+- COUNT instruments read what happened since the previous collection and LEVELS what stands now, so `ShaderAsset`'s count cell DRAINS when observed.
 - Bound surfaces publish their PRODUCT beside lifecycle through one `TileRender` union keyed by surface — a per-class callback drops the empty cases.
 - Totals re-read the BASIS `MetricRow` already carries and never invert a derived column — a ratio divided back out answers NaN on a legitimate zero.
 - `GraphBinding` latches guarding a WHOLE-STATE reconcile HAND the refused arrival to the holder — an arrival after the read names an unseen state.
 - `RedlineOrigin.Stroke` and every DEFERRED commit carry the frame their samples were taken under — the mounted camera displaces by whatever moved.
 - `MercatorFilter.Inverse` is admitted on its own DOMAIN — a cylindrical axis WRAPS because a pan past the seam names a place, an asymptote REFUSES.
 - Durable REMOVALS prove their target existed at the ONE `RedlineSurface` site the verb and every routed erase cross, or undo restores nothing.
-- Vocabularies a boot-frozen registry reads declare on a NON-GENERIC owner like `ConflictIntent` — the freeze precedes every receipt type.
+- Vocabularies a boot-frozen registry reads declare on a NON-GENERIC owner like `ConflictIntent` — the freeze precedes every operation result.
 - `ClimateFeed.Arc` is the turn less the WIDEST gap between sorted bearings — plain extremes over a corner set answer the COMPLEMENT across the seam.
 - Foreign named defaults bind from the container's registered accessor — `LineType.Continuous` mints a fresh unregistered entry on every read.
 - Composition timing reduces and bounds ONCE — `KeyFrameAnimation.Duration` validates the field it OVERWRITES, so a zero poisons every later write.
@@ -160,7 +160,7 @@ Each row binds every surface of its kind this folder grows, never the one instan
 - `BoardContext` carries ONE delta-discriminated push and ONE projection per reader class — a per-field mutator re-states the gate in every arm.
 - Operator vocabularies varying only in OPERAND COUNT are one row — the predicate folds `Exists` and reads alike at one operand and at twenty.
 - Filtering and highlighting are ONE `TileSource` channel at two intensities — a source tile drops from its own FILTER, never its own HIGHLIGHT.
-- Absolute moves over a stepwise algebra are N single steps under a posture row, receipt TOTAL — a `Fin` discards the prefix a halt already applied.
+- Absolute moves over a stepwise algebra are N steps under a posture row, returning the applied prefix — a bare `Fin` discards what a halt applied.
 - `SelectionGesture` rows live on the MODEL holding their own state custody — five planes handling gestures apart are five readings of shift-click.
 - Two readings of one payload are two rows only where the FOLDS differ — `CustomVisuals.Comfort` serves both charts, which differ in skew and zones.
 - Instances a swap re-writes take ONE `ChromeInk` body over mint and swap and CLEAR every unset ink slot — a held effect decorates an unasking row.

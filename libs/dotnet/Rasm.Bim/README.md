@@ -1,8 +1,8 @@
 # [RASM_BIM]
 
-`Rasm.Bim` owns host-neutral openBIM semantics over the IFC vocabularies, model readers, 4D/5D delivery networks, IDS/BCF/clash/diff review, content-addressed versioning, energy-model exchange, and geospatial site context. Its bar is round-trip fidelity at coordination grade: a foreign model lowers onto the seam graph without semantic loss, re-emits as legal IFC through the per-token admission gate, and every review verdict lands as a typed receipt the issue board and review planes consume directly.
+`Rasm.Bim` owns host-neutral openBIM semantics over the IFC vocabularies, model readers, 4D/5D delivery networks, IDS/BCF/clash/diff review, content-addressed versioning, energy-model exchange, and geospatial site context. Its bar is round-trip fidelity at coordination grade: a foreign model lowers onto the seam graph without semantic loss, re-emits as legal IFC through the per-token admission gate, and every review verdict is a typed value the issue board and review planes read directly.
 
-Every carrier sub-domain lowers its foreign format to seam-graph, content-key, or receipt currency.
+Every carrier sub-domain lowers its foreign format to seam-graph or content-key currency.
 
 ## [01]-[ROUTER]
 
@@ -49,7 +49,7 @@ Every carrier sub-domain lowers its foreign format to seam-graph, content-key, o
 - [32]-[EXCHANGE](.planning/Energy/exchange.md): `EnergyExchange.Apply` folding raise, lower, and translate onto content-keyed document carriers.
 - [33]-[PROJECTOR](.planning/Energy/projector.md): `EnergyProjector` raise landing every energy format in the shape the Compute runner reads.
 - [34]-[DERIVE](.planning/Energy/derive.md): BIM-to-BEM lowering — honeybee envelope, dragonfly massing, and the OSM translation matrix.
-- [35]-[RESULTS](.planning/Energy/results.md): `EnergyResults.Admit` landing a run's typed receipt as producer-authored result bags on the graph.
+- [35]-[RESULTS](.planning/Energy/results.md): `EnergyResults.Admit` landing a Compute run's typed results as result bags on the graph.
 
 [REVIEW]:
 - [36]-[VALIDATION](.planning/Review/validation.md): Three-tier model-QA verdict — composed seam audit beneath template baseline and IDS facet folds.

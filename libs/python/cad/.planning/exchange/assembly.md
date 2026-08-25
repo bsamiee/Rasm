@@ -110,7 +110,7 @@ def admitted(request: TessellateRequest, path: Path, /) -> CadRail[Assembly]:
 - Law: `GetShape_s` on an assembly label returns the compound with every component location already applied, so the flatten preserves instance placement and the measured volume counts each instance once.
 - Law: `GetReferredShape_s` and `GetLocation_s` stay uncomposed — `GetShape_s` already returns located geometry, so walking the instance tree rebuilds the same shapes as a second authority.
 - Law: a null root label seats no geometry and is skipped by count; a document whose every free shape is null refuses on `CAF_ROOTS` instead of meshing an empty compound.
-- Law: per-part identity reaches no receipt — `TessellateResponse` carries counts, one `BrepKernelReceipt`, and one `ArtifactRef`, and holds no part roster field to project a label onto.
+- Law: per-part identity reaches no reply yet — `TessellateResponse.parts` is its wire seat, and until the label walk lands here the reply carries counts, one `BrepMeasure`, and one `ArtifactRef` alone.
 - Law: instance count is read back from the emitted GLB at `metrology/census`, so a native label-tree count here is a parallel model of one number rather than new evidence.
 - Growth: carrying part identity forward is a wire change first — one repeated part message on `TessellateResponse` — and only then one label walk seated on this owner.
 - Boundary: triangulation, budget preflight, and the glTF writer belong to `tessellation/mesh` and `tessellation/emission`; this owner hands them the document and the root and stops.
@@ -144,5 +144,4 @@ def _rooted(document: TDocStd_Document, /) -> CadRail[Assembly]:
 
 ## [04]-[RESEARCH]
 
-- [PART_IDENTITY]-[OPEN]: which wire shape carries per-part name, colour, layer, and instance transform onto `TessellateResponse` without duplicating the GLB node graph; settle it at the contracts owner before any label walk lands here.
-- [GLTF_CHANNELS]-[OPEN]: does `RWGltf_CafWriter.Perform` emit XCAF layer assignments into glTF, or only colour and name; write one layered document and read the emitted node extras back.
+(none)

@@ -2,26 +2,26 @@
 
 Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQualityOp` discriminates decimate/subdivide/smooth/metrics on one polymorphic entrypoint, `MeshQualityResult` mirrors the op case, and `QualityMetrics` is the one shape/validity/topology grade — never a metric-per-method family. Tessellation, scan-reconstruction, and STEP hops compose this primitive to coarsen, refine, denoise, and grade a surface before it crosses a downstream rail; the surface arrives and returns as in-memory `trimesh.Trimesh` across the `mesh ← data/spatial` seam, and this owner never opens or writes a mesh file.
 
-`closure_fold` is this owner's PUBLIC exact-closure truth — the one watertight/euler/volume/area/components fold `scan/reconstruction` and `scan/deviation` compose downward, never a per-consumer re-computation — and `ArmOutcome`/`armed` its PUBLIC receipt cross-cut, the one payload-beside-evidence carrier `mesh/spatial` imports rather than re-spelling. `manifold3d` exact-topology enrichment builds through repair's public `to_manifold` (repair is the chartered `manifold3d` owner — no `Mesh`/`Mesh64` selection and no capability probe re-spelled here); the CPU-bound kernels ride `LanePolicy.offload` on the `HOSTILE` trait, because the `trimesh`/`manifold3d` band imports under no isolated subinterpreter and the warm process pool is the one substrate that composes. This owner mints no `GeometrySubject`: it is the read-and-condition primitive, and the graduating subject belongs to the repair and reconstruction owners that emit the conditioned solid.
+`closure_fold` is the public exact-closure truth composed by reconstruction and deviation. The exact topology enrichment builds through repair's public `to_manifold`, and CPU-bound kernels use the runtime HOSTILE lane. `QualityMetrics` retains topology and cell-distribution facts directly.
 
 ## [01]-[INDEX]
 
-- [02]-[QUALITY]: decimate, subdivide, smooth, and metrics on one tagged union over the `trimesh`/`numpy` spine with the `manifold3d` exact-topology enrichment, returning one `MeshQualityResult` union over the shared `ArmOutcome` cross-cut.
+- [02]-[QUALITY]: decimate, subdivide, smooth, and metrics on one tagged union over the `trimesh`/`numpy` spine with the `manifold3d` exact-topology enrichment, returning one `MeshQualityResult` union.
 
 ## [02]-[QUALITY]
 
-- Owner: `MeshQuality` — the boundary capsule over the four arms; `SmoothKind` makes the smoothing filter family one row on the `Smooth` case, never three parallel entrypoints; `ArmOutcome[R, E]` pairs one arm's payload with the leaf evidence its body already built and `armed` is the ONE cross-cut that lands the evidence and returns the payload, so a new case writes only the geometry body producing the pair and the `mesh/spatial#SPATIAL` capsule composes the same two symbols instead of forking a second `Outcome` struct under the same name.
+- Owner: `MeshQuality` — the boundary capsule over the four arms; `SmoothKind` makes the smoothing filter family one row on the `Smooth` case, never three parallel entrypoints; a new case writes only the geometry body producing its `MeshQualityResult` arm.
 - Cases: `Decimate` coarsens mesh topology for a downstream geometry op — render-time decimation for display is the artifacts figures owner's, and an LOD/display-budget arm here trespasses that boundary; `Subdivide` densifies before a curvature-sensitive metric pass; `Smooth` denoises before a deviation pass; `Metrics` is the gate the daemon and the clash/deviation hops read before trusting a surface.
-- Law: an arm that took no measurement records absence, never a zero — `worst_aspect_ratio`, `worst_skewness`, `genus`, and the exact-tier flag ride `Option` and are `Nothing` on every conditioning arm, dropping out of the fact projection there, so a support bundle reads a decimate row as three unmeasured slots rather than as a perfect-aspect degenerate-genus grade; the same law reaches INSIDE the grade, since a face-less triangulation has no cell distribution and a vertex-less one no curvature — both quantile summaries and both defect moments answer `Nothing` there, `worst` answers `Nothing` with them, and the frame OMITS the columns rather than publishing a five-zero summary a gate reads as the best surface it has ever seen; the harvest itself yields nothing before the first arm runs, since an empty contributor stream IS the diagnosis a synthetic zero-filled receipt erases.
-- Law: `_metrics_outcome` records the mesh genus/aspect charter rows through the graduation `charter_record` derivation at the producing fold — parent-side, `boundary`-fenced, never in a worker kernel, spellings derived, never hand-picked, and stamped with the capsule's own composition key — and `QualityMetrics.frame` projects the whole grade as one `EvidenceFrame` row whose `GeometrySubject` and content key the graduating owner supplies, so one metrics pass feeds the dashboard histograms and the data plane's columnar tier from one fold. The frame carries BOTH cell distributions in full beside the topology census, because the receipt already owns the tail verdict a gate thresholds on and a frame publishing only that extremum lets no consumer separate a mesh with one degenerate cell from a mesh degenerate throughout — the distribution is the row-grain evidence the columnar tier exists to hold, and the receipt keeps the census.
+- Law: a grade that took no measurement records absence, never a zero — a face-less triangulation has no cell distribution and a vertex-less one no curvature, so both quantile summaries and both defect moments answer `Nothing`, `worst` answers `Nothing` with them, and the frame OMITS the columns rather than publishing a five-zero summary a gate reads as the best surface it has ever seen; a conditioning arm writes ONE `structlog` line at the capsule — face count before and after beside the watertight verdict — bound to the composition logger, so a decimate pass reads as its own census rather than as a grade it never took.
+- Law: `_metrics_outcome` records the mesh genus/aspect charter rows at the producing fold. `QualityMetrics.frame` projects the complete topology census and cell distributions through `EvidenceFrame` using the caller's actual subject and key.
 - Auto: the exact-topology fold is enrichment over the always-available Euler-characteristic spine, gated on watertightness alone — `manifold3d` carries no interpreter marker, so a tier branch over a probe that cannot fail is a dead arm, and the honest conditional path is the watertight precondition the exact kernel needs. One offloaded build yields the exact genus (summed over `decompose()` components), the exact counts, and the kernel mass superseding the `trimesh` measure in a single fold.
-- Packages: `trimesh` (the conditioning filters, cached validity/mass axes, `vertex_defects`), `numpy` (the half-edge incidence fold and per-cell shape statistics), `manifold3d` (the exact tier, reached through repair's `to_manifold` over one module-scope `lazy import` for the `Error` status vocabulary alone), `expression` (`Option` the whole absence axis, `Block.choose` the omit-fold both projections share), `msgspec`, geometry graduation (`EvidenceFrame`/`charter_record`, the charter measure authority, and `GeometryLeg` the folder roster this page's `FaultRow` rows anchor on), and the runtime rails per the fence imports.
-- Growth: a new conditioning op is one `MeshQualityOp` case, its mirrored `MeshQualityResult` arm, one `ArmOutcome`-producing body, and one `FaultRow` row in `_ARM_RAISED` where the arm fences; a new smoothing filter is one `SmoothKind` row; a new exact-geometry provider is one `ManifoldTier` row at `mesh/repair#MESH`, never a probe minted here.
+- Packages: `trimesh` (the conditioning filters, cached validity/mass axes, `vertex_defects`), `numpy` (the half-edge incidence fold and per-cell shape statistics), `manifold3d` (the exact tier, reached through repair's `to_manifold` over one module-scope `lazy import` for the `Error` status vocabulary alone), `expression` (`Option` the whole absence axis), `msgspec`, `structlog` through the runtime `logger`, geometry graduation (`EvidenceFrame`/`charter_record`, the charter measure authority, and `GeometryLeg` the folder roster this page's `FaultRow` rows anchor on), and the runtime rails per the fence imports.
+- Growth: a new conditioning op is one `MeshQualityOp` case, its mirrored `MeshQualityResult` arm, one body producing it, and one `FaultRow` row in `_ARM_RAISED` where the arm fences; a new smoothing filter is one `SmoothKind` row; a new exact-geometry provider is one `ManifoldTier` row at `mesh/repair#MESH`, never a probe minted here.
 - Boundary: watertight repair, hole-fill, boolean CSG, and the `ManifoldTier` capability probe are `mesh/repair`'s; proximity, ray, contains, and sampling queries are `mesh/spatial`'s; registration and reconstruction are `scan/registration`+`scan/reconstruction`'s; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Sequence
 from enum import StrEnum
 from typing import Final, Literal, assert_never, overload
 
@@ -36,7 +36,7 @@ from rasm.geometry.mesh.repair import to_manifold
 from rasm.runtime.faults import TERMINAL, Catch, Disposition, FaultRow, RuntimeRail, boundary, rostered, traversed
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey, logger
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import manifold3d
@@ -77,11 +77,6 @@ _ARM_RAISED: Final[Map[OpKind, FaultRow[GeometryLeg]]] = Map.of_seq([("subdivide
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class ArmOutcome[R, E](Struct, frozen=True):
-    result: R
-    evidence: E
 
 
 class QualityMetrics(Struct, frozen=True):
@@ -143,30 +138,6 @@ class ExactTopology(Struct, frozen=True, gc=False):
     components: int
     volume: float
     area: float
-
-
-class MeshQualityReceipt(Struct, frozen=True, gc=False):
-    op: OpKind
-    faces_before: int
-    faces_after: int
-    watertight: bool
-    exact: Option[bool] = Nothing
-    worst_aspect_ratio: Option[float] = Nothing
-    worst_skewness: Option[float] = Nothing
-    genus: Option[int] = Nothing
-
-    def fact(self) -> tuple[Phase, OpKind, dict[str, object]]:
-        phase: Phase = "emitted" if self.watertight else "admitted"
-        measured: Block[tuple[str, Option[object]]] = Block.of_seq([
-            ("exact", self.exact), ("worst_aspect_ratio", self.worst_aspect_ratio), ("worst_skewness", self.worst_skewness), ("genus", self.genus)
-        ])
-        facts: dict[str, object] = {"faces_before": self.faces_before, "faces_after": self.faces_after, "watertight": self.watertight} | dict(
-            measured.choose(lambda slot: slot[1].map(lambda held: (slot[0], held)))
-        )
-        return phase, self.op, facts
-
-
-type QualityArm = ArmOutcome[MeshQualityResult, MeshQualityReceipt]
 
 
 @tagged_union(frozen=True)
@@ -239,11 +210,6 @@ class QualityFault(Exception):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def armed[R, E](hold: Callable[[E], object], out: ArmOutcome[R, E], /) -> R:
-    hold(out.evidence)
-    return out.result
 
 
 def _quantiles(values: np.ndarray) -> Option[Quantiles]:
@@ -319,7 +285,6 @@ class MeshQuality:
         self._mesh = mesh
         self._lane = lane
         self._composition = composition
-        self._last: MeshQualityReceipt | None = None
         self._exact: ExactTopology | None = None
 
     @overload
@@ -339,14 +304,12 @@ class MeshQuality:
             case MeshQualityOp(tag="decimate", decimate=target_faces):
                 before = len(self._mesh.faces)
                 offloaded = await self._lane.offload(Kernel.of(_decimate_kernel, KernelTrait.HOSTILE), self._mesh, target_faces)
-                return offloaded.map(lambda out: armed(self._held, self._conditioned(op, MeshQualityResult.Decimate(self._adopt(out)), before)))
+                return offloaded.map(lambda out: self._conditioned(op, MeshQualityResult.Decimate(self._adopt(out)), before))
             case MeshQualityOp(tag="metrics"):
                 exact = await self._exact_topology() if bool(self._mesh.is_watertight) else Ok(Nothing)
-                return exact.bind(
-                    lambda held: boundary(QUALITY_METRICS, lambda: armed(self._held, self._metrics_outcome(held)), catch=_TRIMESH_RAISES)
-                )
+                return exact.bind(lambda held: boundary(QUALITY_METRICS, lambda: self._metrics(held), catch=_TRIMESH_RAISES))
             case MeshQualityOp(tag="subdivide" | "smooth") as arm:
-                return boundary(_ARM_RAISED[arm.tag], lambda: armed(self._held, self._spine(arm)), catch=_TRIMESH_RAISES)
+                return boundary(_ARM_RAISED[arm.tag], lambda: self._spine(arm), catch=_TRIMESH_RAISES)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -365,19 +328,13 @@ class MeshQuality:
         self._exact = None
         return mesh
 
-    def _held(self, receipt: MeshQualityReceipt) -> None:
-        self._last = receipt
+    def _conditioned(self, op: MeshQualityOp, result: MeshQualityResult, before: int) -> MeshQualityResult:
+        logger(self._composition).info(
+            "quality.conditioned", op=op.tag, faces_before=before, faces_after=len(self._mesh.faces), watertight=bool(self._mesh.is_watertight)
+        )
+        return result
 
-    def _conditioned(self, op: MeshQualityOp, result: MeshQualityResult, before: int) -> QualityArm:
-        out = self._mesh
-        return ArmOutcome(result, MeshQualityReceipt(op.tag, before, len(out.faces), bool(out.is_watertight)))
-
-    def contribute(self) -> Iterable[Receipt]:
-        if self._last is None:
-            return
-        yield Receipt.of("rasm.geometry.mesh.quality", self._last.fact())
-
-    def _spine(self, op: MeshQualityOp) -> QualityArm:
+    def _spine(self, op: MeshQualityOp) -> MeshQualityResult:
         before = len(self._mesh.faces)
         match op:
             case MeshQualityOp(tag="subdivide", subdivide=(max_edge, iterations)):
@@ -404,22 +361,15 @@ class MeshQuality:
             case unreachable:
                 assert_never(unreachable)
 
-    def _metrics_outcome(self, exact: Option[ExactTopology]) -> QualityArm:
+    def _metrics(self, exact: Option[ExactTopology]) -> MeshQualityResult:
         metrics = closure_fold(self._mesh, exact)
-        worst = metrics.worst
         charter_record(
             GeometrySubject.MESH_ALGEBRA,
-            {"genus": metrics.genus} | worst.map(lambda tail: {"worst_aspect_ratio": tail[0]}).default_value({}),
+            {"genus": metrics.genus} | metrics.worst.map(lambda tail: {"worst_aspect_ratio": tail[0]}).default_value({}),
             composition=self._composition,
         )
-        before = len(self._mesh.faces)
-        return ArmOutcome(
-            MeshQualityResult.Metrics(metrics),
-            MeshQualityReceipt(
-                "metrics", before, before, metrics.watertight, Some(exact.is_some()),
-                worst.map(lambda tail: tail[0]), worst.map(lambda tail: tail[1]), Some(metrics.genus),
-            ),
-        )
+        return MeshQualityResult.Metrics(metrics)
+
 ```
 
 ## [03]-[RESEARCH]

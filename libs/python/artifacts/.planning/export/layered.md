@@ -1,20 +1,16 @@
 # [PY_ARTIFACTS_LAYERED]
 
-`LayeredExport` owns the editable named-layer export close — it authors the separable, toggleable, lockable layer structure an external editor re-orders and re-colors, the inverse of the `document/egress#FINISH` `FINISHERS` table that strips the layers this owner authors. One owner discriminates the editor family over the closed `ExportTarget` vocabulary, each target a `LayerEngine` row in `ENGINES` binding one `LayerFact` arm and its crossing `KernelTrait`. `LayerFact` separates `preview` and `egress` payloads, so receipt dispatch reads the fact without a boolean or default-filled cross-mode record. Placement, scaling, and rasterization stay upstream. `BlendMode` composes from `graphic/color/derive#DERIVE`; its value derives SVG, and its name derives both `psd_tools.constants.BlendMode` and `psdtags.PsdBlendMode` off one shared correspondence.
+`LayeredExport` owns the editable named-layer export close — it authors the separable, toggleable, lockable layer structure an external editor re-orders and re-colors, the inverse of the `document/egress#FINISH` `FINISHERS` table that strips the layers this owner authors. One owner discriminates the editor family over the closed `ExportTarget` vocabulary, each target a `LayerEngine` row in `ENGINES` binding one `LayerFact` arm and its crossing `KernelTrait`. `LayerFact` separates `preview` and `egress` payloads, so output dispatch reads the fact without a boolean or default-filled cross-mode record. Placement, scaling, and rasterization stay upstream. `BlendMode` composes from `graphic/color/derive#DERIVE`; its value derives SVG, and its name derives both `psd_tools.constants.BlendMode` and `psdtags.PsdBlendMode` off one shared correspondence.
 
-Admission is trusted layer material plus one optional untrusted blob: `Layer.issue` rejects empty identity/source, degenerate bounds, and invalid opacity; `LayeredExport.of` rejects an empty layer set, duplicate names, and PSD/PSB dimensions outside the selected container. `ExportPayload` and `TypeAdapter` admit the external `base` PDF. Each arm crosses `self.lane.offload(Kernel.of(engine.arm, engine.trait), self)`; SVG/PDF ride the `RELEASING` thread arm, and ORA/PSD/PSB/TIFF the `HOSTILE` process pool. Runtime lanes own capacity and fault conversion. `LayeredExport.emit` is the `ArtifactWork.work` coroutine and threads the pre-run `_key` into `ArtifactReceipt.Preview` or `ArtifactReceipt.Egress`.
 
 ## [01]-[INDEX]
 
-- [02]-[LAYERED]: the one editable named-layer export owner — `LayeredExport` discriminating the editor family over the closed `ExportTarget` (`SVG`/`PDF`/`ORA`/`PSD`/`PSB`/`TIFF`) keyed to the `ENGINES` modality-dispatched table, each arm authoring the layer structure the flat egress omits and returning `ArtifactReceipt.Preview` or `ArtifactReceipt.Egress`.
 
 ## [02]-[LAYERED]
 
 - Owner: `LayeredExport` discriminates the editor family over the closed `ExportTarget` keyed to the `ENGINES` policy table binding each arm's `LayerFact` body and crossing `KernelTrait`. `LayerFact.preview` carries named-document bytes, viewport, and layer count; `LayerFact.egress` carries PDF bytes, page count, and authored-layer count. `Layer` is the row every visual producer constructs — `name`/`source`/`bbox` positional, the editor-panel axis (`visible`/`locked`/`opacity`/`blend`/`intent`/`group`/`color`) defaulting after `bbox`; `group` is a folder label projected to all editors, never a parent-layer-name reference. `Layer.renamed` is the ONE rename projection the `composition/compose#COMPOSE`, `composition/sheet#SHEET`, and `composition/imposition#IMPOSE` placement owners compose for their `layers(names)` egress — a positional override roster over its prefix, each uncovered row keeping its own name, and a blank name — supplied override and own name alike — falling to a `layer-{index}` synthetic reserved against every projected name, since a blank is the one name this owner's duplicate and identity refusals both reject. `OcgIntent` absorbs the producer vocabulary and lowers every editorial semantic onto one OCG usage row. `LayerPolicy` is the trusted save-policy bundle; `BlendMode` is `graphic/color/derive#DERIVE`'s canonical vocabulary whose value is the SVG `mix-blend-mode` token and whose name derives the Photoshop members.
 - Cases: each `ExportTarget` is a `LayerEngine` row with its editability ruling — `SVG` uses named `drawsvg` layer groups, `PDF` uses `pymupdf` OCG placement plus `pikepdf` `/OCProperties`, `ORA` uses `pyvips`/`lxml`/`stream-zip`, `PSD`/`PSB` use `psd-tools` native channel stacks — the one owner authoring the document and re-proving the finished bytes — and `TIFF` uses `psdtags`/`tifffile`. `_PSB_FLOOR` refuses a target on the wrong side of the PSD dimension bound, `PSDImage.new` derives the container version off that same bound, and one record-tier save tail serves both containers, so the target needs no version knob and no second save path. Illustrator consumes the named-layer `SVG`; renamed OCG PDF does not create Illustrator layer-panel structure.
-- Auto: `_emit` resolves `engine = ENGINES[self.target]`, crosses `self.lane.offload(Kernel.of(engine.arm, engine.trait), self)` so the arm runs on the thread arm or the warm process pool, never inline on the event loop, and maps the returned rail onto the `preview`-discriminated `ArtifactReceipt` threading the PRE-RUN `_key` — key-over-INPUT (`ContentIdentity.key` over the deterministic-msgpack `target ⊕ layers ⊕ base ⊕ policy` bytes), never a key over authored bytes, so `receipt.slot == node.key` and the plan's sub-graph elision short-circuits before the arm runs. `_svg` folds each `Layer` into one leaf `Group(**layer.svg_attrs())` nested under one `<g inkscape:groupmode=layer>` folder minted per distinct `group`. `_pdf` opens the `pymupdf` document in a `with` that closes the native handle (never GC-reaped), mints one `add_ocg` xref per layer, places each source in a nested `with`, drives the visibility/lock partitions through `set_layer`, then `_enriched` folds the per-layer `/Usage` sub-dict and `/Order` folder tree onto the `pikepdf` `/OCProperties` catalog. `_ora` scales alpha by `opacity` and stacks the visible layers through the native `composite(modes)` under their `_vips_blend` modes for a FAITHFUL `mergedimage.png`, authors `stack.xml` through `lxml`, and frames the ZIP through `stream_zip`; the ORA/TIFF alpha-scale-embed-composite stack is the one shared `_flattened` fold, never a per-arm copy. `_tiff_rows` projects `group` onto the flat layered-TIFF grammar — a `PsdSectionDividerSetting` `BOUNDING_SECTION_DIVIDER` row below the members and a named `OPEN_FOLDER` row above them at the group's first paint position — so every editor family reads the same folder structure.
 - Output: `LayerFact` is the closed bytes-plus-evidence family every arm returns; each case carries only its mode's required payload, with no null or default ghost fields.
-- Receipt: `_emit` totally matches `LayerFact`. `preview` maps to `ArtifactReceipt.Preview` with layer count and target in `scores`; `egress` maps to `ArtifactReceipt.Egress` with authored layers in `overlays`. Layered export adds no receipt case.
 - Growth: a new editable-export target is one `ExportTarget` member, one `LayerEngine` row, and one arm over the engine algebra. A new layer attribute is one `Layer` field threaded into each projection. A compositing mode extends `graphic/color/derive#DERIVE`, and each lowering derives the provider member by value or name; Photoshop-only modes remain outside the CSS contract. Codec, OCG usage, lane, save, admission, and untrusted-payload growth extend their existing closed owners.
 - Boundary: a per-producer export class family, parallel name/source/flag lists, hand-emitted SVG groups, hand-written PDF OCG streams, local `BlendMode` twins, per-format blend tables, lossy flattening, class-qualified offload, inline native work, unbracketed document handles, duplicate names, and module batch entrypoints are rejected. `psd-tools` alone authors PSD/PSB and re-proves its own output; no second native writer rides the interpreter. The PSD/PSB arms author the display-referred 8-bit RGBA family — `PixelLayer.frompil` admits pixels only across the PIL seam, which carries no multichannel plane past 8 bits — so bit depth follows the plane's referent and every deep plane stays with the TIFF/ORA/EXR owners. `psdtags`/`tifffile` own TIFF. Rasterization stays graphic-owned, placement stays composition-owned, and PDF/A/PAdES/flat egress stay their close owners.
 
@@ -36,11 +32,12 @@ from pydantic import TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import RuntimeRail
 
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.color.derive import BlendMode
 from rasm.artifacts.graphic.layer import FlatLayer, LayerFault, LayerPlan, flattened as graphic_flattened
 
@@ -305,33 +302,25 @@ class LayeredExport(Struct, frozen=True):
             return Error(ExportFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
         return Ok(cls(target=target, layers=layers, lane=lane, base=payload.get("base", b""), policy=policy))
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[LayerFact]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.layers) or 1))
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"export-{self.target}", _CANON.encode((self.target, self.layers, self.base, self.policy)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[LayerFact]:
         engine = ENGINES[self.target]
         crossed = await self.lane.offload(Kernel.of(engine.arm, engine.trait), self)
-
-        def receipt(fact: LayerFact, /) -> ArtifactReceipt:
-            match fact:
-                case LayerFact(tag="preview", preview=(data, width, height, layers)):
-                    return ArtifactReceipt.Preview(
-                        self._key,
-                        width,
-                        height,
-                        len(data),
-                        frozendict({"layers": float(layers), "target": self.target.value}),
-                    )
-                case LayerFact(tag="egress", egress=(data, pages, layers)):
-                    return ArtifactReceipt.Egress(self._key, len(data), pages, 0, 0, layers)
-                case unreachable:
-                    assert_never(unreachable)
-
-        return crossed.map(receipt)
+        match crossed:
+            case Result(tag="ok", ok=LayerFact(tag="preview", preview=(data, _width, _height, _layers)) as fact):
+                Metrics.record({BYTE_VOLUME: float(len(data))}, domain=DOMAIN, kind="preview", scope=self.lane.scope)
+                return Ok(fact)
+            case Result(tag="ok", ok=LayerFact(tag="egress", egress=(data, _pages, _layers)) as fact):
+                Metrics.record({BYTE_VOLUME: float(len(data))}, domain=DOMAIN, kind="egress", scope=self.lane.scope)
+                return Ok(fact)
+            case refused:
+                return Error(refused.error)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

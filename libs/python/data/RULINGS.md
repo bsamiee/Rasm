@@ -27,9 +27,8 @@
 - Method-keyed foreign impact containers pin their characterization before any member read — one member name spells different quantities per key.
 - Foreign edges omitting a fact admit through ONE posture owner — declared, defaulted-by-source, absent — a sentinel fuses declared with absent.
 - Partition identity fills TOTAL from the producer — `domain`, `kind`, and `key` spell into facts and `Metrics.record`; an omission is unprunable.
-- Non-transactional planes enter as a FORMAT row whose unreached cells refuse — a second writer drifts from the gate, veto, retry, span, and receipt.
-- Evidence-plane writes take the receipt-free half answering landed files — a scan-plane receipt there enters the stream as a foreign-domain row.
-- Commit receipts report the operation's OWN churn off the commit log — a current-file listing counts the whole table, so one append prices it.
+- Non-transactional planes enter as a FORMAT row whose unreached cells refuse — a second writer drifts from the gate, veto, retry, and span.
+- Commit results report the operation's own churn from the provider commit log — a current-file listing prices one append as the whole table.
 - Residence commits prove the SUBJECT they write — `kind` rides the opened handle, so a stream admitted on format alone lands in a foreign table.
 - Durable-plane rebuild folds COLUMN-WISE at the provider — a row-wise decode allocates an object per row, and one projection serves both readers.
 - Durable planes declare columns ONCE and derive schema, builder, struct, and reader — four transcriptions compile with any three edited.
@@ -37,15 +36,15 @@
 - Cross-process writers carry the generation the format stamps — an in-process guard answers re-entry and reads a held fence as no contention.
 - Evidence sinks take tenancy and instant REQUIRED from their drain — a commit-clock default stamps the write where the observation was owed.
 - Independent admissions ACCUMULATE into one fault naming every casualty — a joined breach string erases the column a consumer keys recovery on.
-- Commit lineage seats as `Generation` and never `lineage` — the query receipt already holds that word for value attribution over source columns.
+- Commit lineage seats as `Generation`; query lineage names value attribution over source columns.
 - Reachability walks publish the hop distance their layering computed — a flatten position standing in for a measured distance asserts a value.
-- Receipt slots a source leg never measures read ABSENT, never zero — a statistics quadruple no import runs grades that import perfectly linked.
+- Source measurements a leg never takes read ABSENT, never zero — a statistics quadruple no import runs cannot grade that import perfectly linked.
 - Layout crosses as ONE transform vocabulary each arm projects onto its provider — a transform a format cannot spell refuses by name, never vanishes.
 - Profile harvests carry each PROVIDER's payload into one decoder — an engine instrumenting no fact defaults it by NAME, a withheld key reads absent.
 - `ResidenceRow` extends the estate consumption descriptor with SUBJECT columns — `kind`, `table_format`, and `domain` name what the residence holds.
 - `Ledger` relations declare their spine role at open — `residence=None` discriminates nothing, so a commit owner reads that plane before it records.
-- Durable evidence and the receipt fan fold one operation twice — a manifest commit meters referenced BYTES durably and the COUNT on its series.
-- Consumers compose the owner and read its receipt payload — re-opening the provider beneath it forks a reader and strands every format it arms.
+- Manifest commits meter referenced bytes durably and observe reference count on their series, both projected once at the producing operation.
+- Consumers compose the owner and read its canonical result — re-opening the provider beneath it forks a reader and strands every format it arms.
 - Registry provenance rides one `IngestPolicy` value on the one ingest generator — a per-registry arm forks the record the contract freezes.
 - Illegal foreign corners refuse at construction, never inside the fold — a fold-guarded corner stays representable and crosses the offload first.
 

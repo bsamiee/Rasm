@@ -38,9 +38,9 @@ Every reopen predicate rides the license gate.
 - `ClearanceNode` spans 2D medial and 3D skeleton — `Meshing/offset` mints, `Meshing/skeleton` composes verbatim; growth is one column.
 - Every policy scalar rides a guarded value-object column — an evidence fold guards only the claims no band already holds.
 - Every tri-valued classifier lands as a closed `[SmartEnum]` whose rows carry their consequence — `bool?` strands the third case in `case null`.
-- Every `SolveReceipt` is READ — a consumer mapping it away to the solution alone discards the solver evidence the receipt exists to carry.
+- Every `LinearSolution` is READ whole — a consumer mapping it away to the vector alone discards the stop and residual it carries.
 - `IntersectOp.PlaneMesh` is the ONE mesh-plane section — a native contour beside it forks the class; interval sweep and surface iso stay native.
-- `SampleAssurance` is the ONE guarantee column on the sample receipt — parallel bool flags leave illegal corners the roster forecloses.
+- `SampleAssurance` is the ONE guarantee column on `SampleAlgorithm` — parallel bool flags leave illegal corners the roster forecloses.
 - Solver residuals floor on `EpsilonPolicy.SqrtEpsilon` and lane through `ResidualCap.In` — a bare epsilon forks it; `Relative` is a model percent.
 - Residual-band `ToleranceLane` rows DERIVE `EpsilonPolicy.SqrtEpsilon`, never the model percent — a percent of a percent lands under the band floor.
 - Tolerance MODE is the lane's `Band` fact — identity elections read `ToleranceLane.Identity`, probe steps `ToleranceLane.Probe`, no page epsilon.
@@ -52,7 +52,7 @@ Every reopen predicate rides the license gate.
 - `MinimumSpanningTreePrim` is single-component — a spanning forest over a labelled multi-component graph takes `MinimumSpanningTreeKruskal`.
 - Host-extensible fact families land an interface floor a non-generic `[SmartEnum]` roster realizes — a boundary extends by realizing that floor.
 - `EvidenceDrain` is the ONE ordinal minter — every source serializes through its stamp, so a second counter hands two events one `UiEvent.Ordinal`.
-- `MatrixKernel` funnels factorization, solve, eigen, transform — a raw reach skips receipt and residual witness; MathNet utilities stay page-local.
+- `MatrixKernel` funnels factorization, solve, eigen, transform — a raw reach skips the stop and residual witness; MathNet utilities stay page-local.
 - Every `ILmModel` Jacobian arm is EXACT — closed form or forward-mode duals alone; FD halves the 106-bit objective and stays a test oracle.
 - `Lm.Minimize` is the ONE damped iterate, `Schedule.recurs` its sole budget authority — a private loop forks the singular guard and accept order.
 - `ArrangementResult.Boolean` carries TRUE shells on BOTH routes — one `MeshSpace` lies about a severed result; intermediate legs stay undecomposed.
@@ -100,7 +100,9 @@ Every reopen predicate rides the license gate.
 - `Op.Row` decoupled arms carry every cross-typed column resolve — column equality rides the `match` argument, never a re-keyed roster or index.
 - `ICapability.Rank` derives from declaration order through the vocabulary's index — a domain rank overrides at its owner, never a hand ordinal.
 - Capability-read failure posture is the consumer seam's — `Require` refuses with `Missing` evidence, the law row settling emptiness at construction.
-- `Evidence<T>` is the ONE probe receipt — `Measured(T)`/`Refused(Error)`/`Absent` — `Quality` grades trust on a PRESENT reading, never occurrence.
+- `Evidence<T>` is the ONE probe verdict — `Measured(T)`/`Refused(Error)`/`Absent` — `Quality` grades trust on a PRESENT reading, never occurrence.
+- `Hlc.Stamp` is the ONE causal stamp and `RasmEventEnvelope.Publish` the ONE door a durable kernel fact crosses — a sink or fan beside them forks.
+- Kernel hook facts are `SignalFact.Fault` and `SignalFact.Cost` alone — a result returns on the rail with its `IValidityEvidence`, never as a fact.
 - Semantic `IClock` and `MonotonicTimeline` never fuse — no joint invariant binds a wall instant to a monotonic mark, so a crossing takes both.
 - QuikGraph results leave as frozen SoA columns — a graph-typed member re-couples consumers to mutable topology; views project from columns on read.
 - `QuadratureRule` prism and conical rows derive order from the WEAKER leg — a wedge or pyramid rung is earned only by raising that leg.

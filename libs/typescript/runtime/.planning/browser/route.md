@@ -130,7 +130,7 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
 - Law: `fallback` is restricted to `Router.StaticKey<Rows>` because fallback construction has no segment evidence; a parameterized row cannot become the unmatched destination. `go` accepts one tagged `Router.Travel` carrier, so push versus replacement is an explicit input case rather than an optional history knob with a hidden default.
 - Law: last-good query continuity rides `persist#DOMAIN_ROWS`'s `route` domain as write-or-drop — a commit with a non-empty search persists it under the row key, an empty search DROPS the key (an explicit clear is a decision, not a memory), and the persist leg's fault logs without blocking the commit; at construction, an entry arriving with an empty query whose key holds a last-good replays it through one `replace` navigation, a poisoned row folding to a cold start — an explicit URL always wins, restoration never overrides it.
 - Law: the correlated location construction is the page's marked kernel — a dynamic table's key/row pairing is evidence the checker cannot carry across the distributed union, so `_located` and `_fallback` assert the proven pairing to its element and the implementer carries the `// BOUNDARY ADAPTER` mark on each; with `[2]`'s segment-capture assertion, the pinned boundary refinements, and the listener's event pin these are the module's only assertion sites, and the cast algebra stays one-directional.
-- Receipt: the Tag's `Shape` annotation is the whole consumer contract — cells, `href`, `go`, `back`, `forward` — readable without the body; the ui wave binds the cells through its atom bridge at app composition.
+- Boundary: the ui wave binds the cells through its atom bridge at app composition.
 - Boundary: scroll restoration rides the intercept's own `scroll` option; view transitions are the ui wave's composition over the commit, never authored here.
 
 ```typescript
@@ -292,7 +292,7 @@ const Router: {
 - Law: the stamped pair reads ONE `CookieSpec.csrf` row on both axes — the cookie under `name`, the echo header under `header` — because the two halves of a double-submit are one field spelling and `serve/route#CEREMONY_ROWS`'s gate reads that same row; reusing the cookie name as the header name is the fork that fails every mutation closed while both ends type-check.
 - Law: the pending flow is single-use and time-bounded — `land` drops the record before acting on it, so a replayed callback finds nothing and folds to `replay`; a record older than `spec.grace` folds to `lapsed`, while a minted instant ahead of the observed clock folds to `skew` instead of turning an absolute distance into a plausible age; the state echo, when the record carries one, equals the callback's or folds to `replay` — defense in depth beside the server-side single-use stash `security/authn/oauth` owns. The departure commit is the module's platform-forced statement seam — `location.assign` unloads the document, nothing sequences after it, and the implementer carries the `// BOUNDARY ADAPTER` mark on `_departed`'s first line.
 - Law: passkey ceremonies stay out of this plane — `security/authn/webauthn`'s `Passkeys` owns the `navigator.credentials` invocation and the ui wave owns the option/response POST-back legs; this plane owns only the phase cell those legs drive through the transitions.
-- Receipt: `land` yields the flow's `returnTo` beside the established session so the traversal owner restores the interrupted destination; `csrf` yields the ready `[name, value]` header pair.
+- Output: `land` yields the flow's `returnTo` beside the established session so the traversal owner restores the interrupted destination; `csrf` yields the ready `[name, value]` header pair.
 - Growth: a new phase is one case on the enum plus its `$match` arms breaking loudly; a new cross-tab fact is one `_Signal` member; a new continuity guard is one reason on the `FlowFault` family mint, which derives the type and the class projection together.
 - Boundary: `security/authn/session` owns the server-side `Session`/`TokenPair` truth and the cookie attribute table; the refresh and exchange endpoints are app data the composition root supplies; this owner never dials. Cross-tab MUTUAL EXCLUSION is not this channel's concern — a tab needing an exclusive claim (one refresher elected structurally, one exporter per origin) composes `net/coordinate`'s Web-Locks row; the session channel carries facts, never locks.
 
@@ -526,7 +526,6 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
 - Law: the command arm folds the core lattice — `Evidence.Availability.admits(snapshot, command)` answers total over the level fallbacks, so a command absent from the snapshot's map still lands a verdict and the guard never re-derives posture the lattice already decides.
 - Law: the `beforeunload` arm and its synchronous registry read are the module's platform-forced statement seam — the native handler decides within its dispatch, so it reads the dirty cell through the captured runtime's sync run (the sanctioned callback-seam spelling) and prevents default only while work is held; the implementer carries the `// BOUNDARY ADAPTER` mark on the `beforeunload` bracket's first line.
 - Law: policy is data on the route row — `[2]`'s `Row.policy` carries this value, the app's admission wiring reads the departing and arriving rows, and no parallel policy registry exists; gate targets are hrefs minted by the router, so a divert target is typed at its mint site and the guard never assembles URLs.
-- Receipt: `resolve`'s annotation states the whole read surface — `Router.Admission` out, no fault channel, requirement-free by construction.
 - Entry: the app's composition maps the router's endpoint pair onto its rows — `(from, to) => guard.resolve(Option.some(rows[from.key].policy), rows[to.key].policy)` — one line in `main.ts`, zero lib coupling between the two clusters.
 - Growth: a tenant gate, a capability gate, or a quota gate is one `Option` field plus one chain arm.
 - Boundary: what a flag verdict means is its serving surface's law; what availability means is `core/state/evidence`'s lattice; the confirm ceremony renders behind the ui-satisfied `Confirm` Tag; this cluster owns only the fold order.
@@ -661,7 +660,6 @@ export { Confirm, FlowFault, Guard, RouteFault, Router, SessionStatus, Vault }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

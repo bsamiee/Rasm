@@ -44,7 +44,7 @@ Each `ifc5Dspreadsheet` writer constructs `(file, output, cost_schedule=None)` t
 
 [STACKING]:
 - `ifcopenshell`(`.api/ifcopenshell.md`): `qto.quantify` consumes an `ifcopenshell.file` and its `entity_instance` element set; the per-`IfcCostItem` resource rollup preceding export is `ifcopenshell.api.cost.calculate_cost_item_resource_value(file, cost_item)`, owned there at `[03]` usecase [15], its result read back through `IfcCostItem.CostValues` `IfcCostValue.AppliedValue`.
-- `ifc/costing.md`: gates the `quantify` selector through the shared `IfcSelector` grammar, folds the `ResultsDict` into typed lifecycle rows, and binds a `CostReport`-selected `ifc5Dspreadsheet` writer subclass onto the receipt subject, deferring the columnar `.write()` to the `python:data/spatial` boundary.
+- `ifc/costing.md`: gates the `quantify` selector through the shared `IfcSelector` grammar, folds the `ResultsDict` into typed lifecycle rows, and selects an `ifc5Dspreadsheet` writer subclass from `CostReport`, deferring the columnar `.write()` to the `python:data/spatial` boundary.
 
 [LOCAL_ADMISSION]:
 - Geometry's ifc-analysis 5D owner composes `ifc5d.qto` and `ifc5d.ifc5Dspreadsheet` directly; quantity measurement and cost-schedule rendering never re-derive against a local pset fold.

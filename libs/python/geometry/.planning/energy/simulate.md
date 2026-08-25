@@ -2,11 +2,11 @@
 
 `Simulation` owns the simulation egress — where an admitted building model becomes engine input, a recipe run, and typed result frames. Three concerns, one owner, strict seams: `translate` is the OpenStudio translation pair — one in-process/subprocess concept, never parallel translators; `simulate` is the recipe BINDING — runtime owns execution, geometry owns which recipe runs with which typed inputs; `results` decodes `eplusout.sql` and the recipe's own product roster into SELF-DESCRIBING columnar frames crossing the data seam. `honeybee-openstudio`, the runtime recipe owner, and `ladybug`/`honeybee-energy` own every OSM/IDF object mapping, gbXML writer, luigi scheduler, and SQL schema parse. The AGPL-3.0 band those names carry rides the standing companion-lane charter, and its import site is a LICENSE fact rather than a cost one: a static audit reads the LEXICAL import graph, so any module-scope binding — `lazy` included, the soft keyword being module-scope by design — would mark every importer of this module AGPL-coupled. Each band name therefore stays inside its boundary seam under a terse `AGPL isolation` marker, while a permissively-licensed native takes the deferral dialect instead.
 
-Frame discipline is load-bearing: `FRAME_SCHEMA` is the one column-and-dtype correspondence, `FRAME_COLUMNS` derives from it, and a frame is a DECLARED roster beside sealed arrays — so the physical crossing is the data admitting pair — `tabular/columnar` `arrow_columns(columns, table)` then the `tabular/interop` `arrow_bytes` fold — with the transpose living at the producer where the roster is authored and no hand-rolled admission around the entry the data owner declares by name. Run identity chains: the model's HBJSON `ContentKey` seeds the simulation spec, the runtime recipe key covers the handled inputs, and the frame key covers the crossing bytes — the `Rasm.Persistence` reuse ledger dedupes at every tier, and the artifacts chart/table suites consume the same frames downstream. AGPL posture unchanged: every band binding stays a function-local boundary import, because a license audit reads the LEXICAL import graph — a module-scope binding marks every importer of this module AGPL-coupled, and a `lazy` statement is module-scope by design, so the deferred dialect cannot serve this ban — while the function-local form confines that coupling to the seam function itself; document bytes across the wire; evidence graduates under `GeometrySubject.BUILDING_ENERGY`. Permissively licensed natives carry no such ban and bind module-scope `lazy` as everywhere else, `trimesh` the one on this page.
+Frame discipline is load-bearing: `FRAME_SCHEMA` owns the column/dtype correspondence, and `ResultFrame` carries sealed arrays through the data-owned Arrow entries. Run identity chains from the model key through the runtime recipe key to the emitted frame key. AGPL bindings remain function-local; document bytes cross the wire.
 
 ## [01]-[INDEX]
 
-- [02]-[SIMULATE]: one simulation owner — the parent-woven format-row translate offload, the recipe-parameterized runtime binding, the columnar result decode with the declared Arrow crossing, and the captured-scene descriptor decode — under one `SimulationReceipt`.
+- [02]-[SIMULATE]: one simulation owner — the parent-woven format-row translate offload, the recipe-parameterized runtime binding, the columnar result decode with the declared Arrow crossing, and the captured-scene descriptor decode — beside one `SimulationCensus`.
 
 ## [02]-[SIMULATE]
 
@@ -14,10 +14,10 @@ Frame discipline is load-bearing: `FRAME_SCHEMA` is the one column-and-dtype cor
 - Law: fidelity GRADES, never guesses — the shared generated `TessellationPolicy` declares the linear deflection, angular tolerance, and triangle budget the capture used; `_graded` refuses `shading_fidelity` when the declared linear deflection crosses the consuming model's own tolerance or the delivered triangle count crosses the declared budget. `UNITS_TOLERANCES` is honeybee's own per-unit floor and this page reads it rather than pinning a literal.
 - Law: `authored` sun and `sited` sun answer two different questions — a manual-control sun carries angles and no site, so a point-in-time sky admits it and any recipe demanding a `Site:Location` refuses `authored_sun` by name instead of back-solving coordinates from an altitude and an azimuth.
 - Law: irradiance never rides the descriptor — the host document holds no `W/m2`, so `sky` mints the angle-only CIE arm by default and the climate-based arm only where the caller hands the EPW's own direct-normal and diffuse-horizontal pair; a sky synthesized from `intensity_scale` fabricates radiation.
-- Law: incomplete and wrong split — a photometric web no consuming engine reads and a light whose power carries `relative-scale` both COUNT onto the receipt and neither refuses, since a daylight study needs neither, while a coarse mesh and a siteless annual run both make results wrong and refuse.
-- Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact. The weave runs on the PARENT floor around `lane.offload`, so the crossing carries a span, a cost band, and an evidence row; the kernel itself is bare and raises into the lane's own fence. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log; `RunSpec.recipe` selects which catalog row runs, so annual energy, daylight, and the three comfort-map workflows ride the one shape. `job()` is queenbee schema only, zero execution — the submission document for a consumer submitting to the Pollination API rather than running locally. `results` is one polymorphic decode over `ResultQuery`, each case carrying its OWN source: the four EnergyPlus arms address a `.sql`, the `matrix` arm addresses a recipe product. `scene` resolves `SceneDescriptor.shading.artifact` through the injected `ArtifactTransfer`, holds its verified `OwnedArtifact` only while the path-based GLB decode runs, and returns one `SceneContext` of engine-ready values. Sun angles project STRAIGHT onto the sky, never back through `Sunpath`: the producer solved them on the kernel almanac and a second ephemeris here answers a different number for the same instant. Shading becomes `ShadeMesh` rows over `Mesh3D`, which is the population `Model.shade_meshes` holds and `Model.shades` never counts — the two are disjoint, so a receipt reading `len(model.shades)` reports zero context on a fully contextualized model.
-- Auto: `simulate`/`job` delegate to the runtime owner's own span and receipt — never a doubled page-level weave over the delegated leg; the translate crossing declares `idempotent=False`, dropping the `HOSTILE` trait's `WORKER` retry default — deterministic translation owns no transiency AND the kernel writes artifacts, so a worker death rails typed instead of re-running the write, while the runtime recipe owner retries its own engine gate; `DetailedHVAC` models route through the OpenStudio measure path by construction, and the pure-EnergyPlus IDF row rejects one with a typed fault; the `outputs` census is the router — a requested name absent from the census is the band's `EnergyFault.unknown_output` case carrying the missing names beside the census size, and a recipe output the product never resolved is `unresolved_output` at the `matrix` arm, one closed refusal family either way and never a guessed address; the CLI translate fall-through refuses its unserved target through the same family, so a consumer matches one tag rather than parsing three coordinate strings.
-- Receipt: `results` returns `(frame, receipt)` built inside the fold off the frame it just sealed, so no caller hand-asserts a row count or a frame key. `spec` is the evidence subject — the model key beside the recipe and the query — and `graduates` derives its own `ContentKey` from it. Total EUI is the measured graduation fact against the caller's compliance ceiling, and only the `eui` arm measures it: every other query OMITS the key so the spine reports `unmeasured:eui` and refuses honestly rather than crossing clean on a zero that reads as a zero-energy building. That same arm records the total onto the `rasm.geometry.energy.eui` charter distribution at the producing fold.
+- Law: incomplete and wrong split — a photometric web no consuming engine reads and a light whose power carries `relative-scale` both COUNT onto the scene census and neither refuses, since a daylight study needs neither, while a coarse mesh and a siteless annual run both make results wrong and refuse.
+- Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact. The weave runs on the PARENT floor around `lane.offload`, so the crossing carries a span, a cost band, and an evidence row; the kernel itself is bare and raises into the lane's own fence. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log; `RunSpec.recipe` selects which catalog row runs, so annual energy, daylight, and the three comfort-map workflows ride the one shape. `job()` is queenbee schema only, zero execution — the submission document for a consumer submitting to the Pollination API rather than running locally. `results` is one polymorphic decode over `ResultQuery`, each case carrying its OWN source: the four EnergyPlus arms address a `.sql`, the `matrix` arm addresses a recipe product. `scene` resolves `SceneDescriptor.shading.artifact` through the injected `ArtifactTransfer`, holds its verified `OwnedArtifact` only while the path-based GLB decode runs, and returns one `SceneContext` of engine-ready values. Sun angles project STRAIGHT onto the sky, never back through `Sunpath`: the producer solved them on the kernel almanac and a second ephemeris here answers a different number for the same instant. Shading becomes `ShadeMesh` rows over `Mesh3D`, which is the population `Model.shade_meshes` holds and `Model.shades` never counts — the two are disjoint, so a census reading `len(model.shades)` reports zero context on a fully contextualized model.
+- Auto: `simulate`/`job` delegate to the runtime owner's own span and result — never a doubled page-level weave over the delegated leg; the translate crossing declares `idempotent=False`, dropping the `HOSTILE` trait's `WORKER` retry default — deterministic translation owns no transiency AND the kernel writes artifacts, so a worker death rails typed instead of re-running the write, while the runtime recipe owner retries its own engine gate; `DetailedHVAC` models route through the OpenStudio measure path by construction, and the pure-EnergyPlus IDF row rejects one with a typed fault; the `outputs` census is the router — a requested name absent from the census is the band's `EnergyFault.unknown_output` case carrying the missing names beside the census size, and a recipe output the product never resolved is `unresolved_output` at the `matrix` arm, one closed refusal family either way and never a guessed address; the CLI translate fall-through refuses its unserved target through the same family, so a consumer matches one tag rather than parsing three coordinate strings.
+- Output: `results` returns `(frame, census)` built at the producing fold. Total EUI remains on the `eui` result and records onto the charter there; other query arms do not fabricate it.
 - Packages: `honeybee-openstudio` wraps the BSD `openstudio` SDK behind the `find_spec` gate; `honeybee-energy` carries the CLI pair, the `SimulationParameter` family, and the result parsers; ladybug `SQLiteResult` is the ONLY EnergyPlus SQL decode path; `queenbee` is MIT schema only — outside the AGPL band, so it binds `lazy` at module scope like the MIT `trimesh` GLB reader the shading decode calls; runtime `transport/artifact` owns verified ArtifactService fetch lifecycle and temporary-path custody; `numpy` seals the frame columns and the data `arrow_columns` (columnar) / `arrow_bytes` (interop) pair is the one serialization, so no `pyarrow` symbol appears on this page at all.
 - Growth: a new translation format is one `WRITERS` row; a new output family one `SimPar` policy row over its `add_*` method; a new result decode is one `ResultQuery` case — `loadbalance`/`emissions`/`generation`/`component_sizes` the named next rows over their `honeybee_energy.result` parsers; a new workflow is one `RunSpec.recipe` value over the runtime catalog, zero page edits; a cloud submission consumes `job()` when a consumer names it.
 - Boundary: execution is the runtime `execution/recipe` owner's; model semantics are `energy/model`'s, weather algebra `energy/climate`'s; a result frame whose table diverges from `FRAME_SCHEMA` is the deleted form — the C# decoder can neither attribute nor dedupe it.
@@ -49,20 +49,18 @@ from rasm.data.tabular.columnar import arrow_columns
 from rasm.data.tabular.interop import arrow_bytes
 from rasm.contracts import AdmissionError
 from rasm.runtime.transport.artifact import ArtifactError, ArtifactTransfer
-from rasm.geometry.energy.climate import ENERGY_REGIMES, EnergyFault, EnergyRegime, LateBound, RegimeKey
+from rasm.geometry.energy.climate import EnergyFault, LateBound
 from rasm.geometry.energy.model import BuildingModel
 from rasm.geometry.graduation import (
     EvidenceScope,
-    GeometryHandoff,
     GeometrySubject,
     charter_record,
-    evidence_key,
     evidence_run,
 )
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.recipe import RECIPES, RecipeExecution, RecipeName, RecipeProduct, RecipeSpec
 from rasm.runtime.shapes import remote_fault
 from protobuf import Oneof
@@ -180,7 +178,7 @@ class SceneContext(Struct, frozen=True):
     lighting: tuple[SceneLighting, ...] = ()
 
 
-class SceneReceipt(Struct, frozen=True):
+class SceneCensus(Struct, frozen=True):
     descriptor_key: str
     derivation: str
     shade_meshes: int
@@ -189,25 +187,8 @@ class SceneReceipt(Struct, frozen=True):
     unranked_lights: int
     unrouted_webs: int
 
-    def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of(
-            "rasm.geometry.energy.simulate",
-            (
-                "emitted",
-                f"scene:{self.derivation}",
-                {
-                    "descriptor_key": self.descriptor_key,
-                    "shade_meshes": self.shade_meshes,
-                    "triangles": self.triangles,
-                    "lights": self.lights,
-                    "unranked_lights": self.unranked_lights,
-                    "unrouted_webs": self.unrouted_webs,
-                },
-            ),
-        )
 
-
-class SimulationReceipt(Struct, frozen=True):
+class SimulationCensus(Struct, frozen=True):
     operation: str
     discriminant: str
     model_key: ContentKey
@@ -215,31 +196,6 @@ class SimulationReceipt(Struct, frozen=True):
     rows: int
     frame_key: ContentKey
     eui_total: Option[float] = Nothing
-
-    def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of(
-            "rasm.geometry.energy.simulate",
-            (
-                "emitted",
-                f"{self.operation}:{self.discriminant}",
-                {
-                    "rows": self.rows,
-                    "recipe": self.recipe,
-                    "model_key": self.model_key.hex,
-                    "frame_key": self.frame_key.hex,
-                    **self.eui_total.map(lambda total: {"eui": total}).default_value({}),
-                },
-            ),
-        )
-
-    def spec(self) -> bytes:
-        return b"|".join((self.model_key.memory, self.recipe.encode(), self.operation.encode(), self.discriminant.encode()))
-
-    def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.BUILDING_EUI]) -> GeometryHandoff:
-        measured = self.eui_total.map(lambda total: {"eui": total}).default_value({}) | {"rows": float(self.rows)}
-        subject = GeometrySubject.BUILDING_ENERGY
-        return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"eui": regime.bar()})
-
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -297,12 +253,12 @@ class Simulation(Struct, frozen=True):
         projected = await self.recipes.interface(RecipeSpec(recipe=run.recipe))
         return projected.map(lambda interface: _job(interface, run, model, source))
 
-    def results(self, query: ResultQuery) -> "RuntimeRail[tuple[ResultFrame, SimulationReceipt]]":
-        def fold() -> tuple[ResultFrame, SimulationReceipt]:
+    def results(self, query: ResultQuery) -> "RuntimeRail[tuple[ResultFrame, SimulationCensus]]":
+        def fold() -> tuple[ResultFrame, SimulationCensus]:
             rows, discriminant, recipe, eui = _decoded(query)
             eui.map(lambda total: charter_record(GeometrySubject.BUILDING_ENERGY, {"eui_total": total}, composition=self.composition))
             frame = _tabled(rows)
-            return frame, self._receipt(f"results.{query.tag}", discriminant, recipe, frame, eui)
+            return frame, self._census(f"results.{query.tag}", discriminant, recipe, frame, eui)
 
         return evidence_run(EvidenceScope.ENERGY_SIMULATE, f"results.{query.tag}", fold, composition=self.composition)
 
@@ -313,10 +269,10 @@ class Simulation(Struct, frozen=True):
         sky: SkySource = SkySource(cie=0),
         *,
         units: str = "Meters",
-    ) -> "RuntimeRail[tuple[SceneContext, SceneReceipt]]":
+    ) -> "RuntimeRail[tuple[SceneContext, SceneCensus]]":
         try:
             async with self.artifacts.fetch(descriptor.shading.artifact) as owned:
-                def fold() -> tuple[SceneContext, SceneReceipt]:
+                def fold() -> tuple[SceneContext, SceneCensus]:
                     derivation, angles, site, north = _derived_sun(sun=descriptor.sun, recipe=run.recipe)
                     shades, triangles = _shades(glb=owned.path, identifier=descriptor.key.hex())
                     _graded(
@@ -336,7 +292,7 @@ class Simulation(Struct, frozen=True):
                         site=site,
                         lighting=lighting,
                     )
-                    return context, SceneReceipt(
+                    return context, SceneCensus(
                         descriptor_key=descriptor.key.hex(),
                         derivation=derivation,
                         shade_meshes=len(shades),
@@ -367,8 +323,9 @@ class Simulation(Struct, frozen=True):
             composition=self.composition,
         )
 
-    def _receipt(self, operation: str, discriminant: str, recipe: str, frame: ResultFrame, eui: Option[float]) -> SimulationReceipt:
-        return SimulationReceipt(
+    def _census(self, operation: str, discriminant: str, recipe: str, frame: ResultFrame, eui: Option[float]) -> SimulationCensus:
+        return SimulationCensus(
+
             operation=operation,
             discriminant=discriminant,
             model_key=self.building.content_key,

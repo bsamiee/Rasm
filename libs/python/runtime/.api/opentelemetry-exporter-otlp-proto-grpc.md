@@ -59,7 +59,7 @@
 [LOCAL_ADMISSION]:
 - One exporter per signal, built at the composition root and handed to the matching SDK processor through the telemetry install's exporter-factory seam.
 - Forking-worker crossings (loky/pebble) stay on proto-http; the gRPC channel dies at `fork()`.
-- Every row PINS `retryable_error_codes` at construction. `observability/telemetry#TELEMETRY` rules a constructor slot the place a conformance-relevant behavior binds precisely because it holds against every deployment value, and an empty slot hands that decision to an environment variable the package marks unstable and no receipt reports.
+- Every row PINS `retryable_error_codes` at construction. `observability/telemetry#TELEMETRY` rules a constructor slot the place a conformance-relevant behavior binds precisely because it holds against every deployment value, and an empty slot hands that decision to an environment variable the package marks unstable and no conformance row reports.
 - Pinning HOLDS the specification set rather than narrowing it — the pin denies a deployment its vote over a running pipeline's re-drive policy and settles nothing about which codes OTLP calls retryable, since a narrowed roster forks a client behavior every conforming peer already agrees on.
 - Every row states `timeout`, since that one value bounds the entire retry window and an absent slot yields it to `OTEL_EXPORTER_OTLP_TIMEOUT`.
 - `Telemetry.shutdown` runs the drain, so the exporter's shutdown-abort is the flush contract's second half: the queue flushes first and a pending backoff preempts rather than outliving it.

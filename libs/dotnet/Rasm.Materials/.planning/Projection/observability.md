@@ -6,7 +6,7 @@ MATERIALS signal evidence starts with the closed `MaterialsFact` family. `Materi
 
 Settled composition draws every mechanism from the kernel signal capsule — hook rail with its seats, veto folding, replay retention, detach custody, and bounded `FaultCell`; instrument set with its bucket advice, tag projection, and level cells; package-identity band; tenancy frame; SLO algebra.
 
-Fact payloads compose Component, Appearance, Properties, and seam receipts. Instrument names run dotted `rasm.materials.<domain>.<measure>` with UCUM units under the `TelemetrySource.Materials` scope the composing app admits by name, every work row carrying the kernel `rasm.tenant` partition.
+Fact payloads compose Component, Appearance, Properties, and seam results. Instrument names run dotted `rasm.materials.<domain>.<measure>` with UCUM units under the `TelemetrySource.Materials` scope the composing app admits by name, every work row carrying the kernel `rasm.tenant` partition.
 
 ## [01]-[INDEX]
 
@@ -19,12 +19,12 @@ Fact payloads compose Component, Appearance, Properties, and seam receipts. Inst
 ## [02]-[FACT_FAMILY]
 
 - Owner: `MaterialsFact` — the closed evidence union every tap fires and every projection folds, its `At` column projecting the `[03]` roster row that owns each case.
-- Cases: `CatalogueAdmit` (the row a veto gate transforms or refuses pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityReceipt`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `CaptureProvenance` receipt, wall duration), `WireMint` (material, `WireProvenance` receipt), `ProjectionGate` (the `GraphDelta` a veto refuses or admits pre-merge), `TexturePress` (the lifted `PressReceipt` and the material it baked for), `TileSynth` (strategy, guide channel, and the lifted `TileReceipt` — the guide rides beside the receipt for the reason `StageInfer` carries its request: an unmeasured run still names the channel it ran against), `TileGrade` (strategy, the `Evidence<TileProof>` probe outcome the gate's `Fin` lifts through `Evidence.Of`, wall duration — its own case because a grade runs without synthesis and an ingested set earns its proof having passed no synthesizer), `PyramidBuild` (channel, mip policy, level count, texel census, fold duration — the one texture construction every press, ingest, and decode pays per channel), `SetIngest` (the claimed-stem census, the typed refusal rows, and the resolved convention), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest` and the lifted `StageResult` — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
+- Cases: `CatalogueAdmit` (the row a veto gate transforms or refuses pre-freeze), `SectionSolve` (profile case, solved section, wall duration), `CapacityCheck` (the lifted `CapacityLift`, the `Utilisation` verdict, wall duration), `GraphCompile` (material, ordered node count, wall duration), `AcquisitionFit` (the measured `CaptureProvenance`, wall duration), `WireMint` (material, `WireProvenance`), `ProjectionGate` (the `GraphDelta` a veto refuses or admits pre-merge), `TexturePress` (the lifted `PressRun` and the material it baked for), `TileSynth` (strategy, guide channel, and the lifted `TileRun` — the guide rides beside the run for the reason `StageInfer` carries its request: an unmeasured run still names the channel it ran against), `TileGrade` (strategy, the `Evidence<TileProof>` probe outcome the gate's `Fin` lifts through `Evidence.Of`, wall duration — its own case because a grade runs without synthesis and an ingested set earns its proof having passed no synthesizer), `PyramidBuild` (channel, mip policy, level count, texel census, fold duration — the one texture construction every press, ingest, and decode pays per channel), `SetIngest` (the claimed-stem census, the typed refusal rows, and the resolved convention), `PlaneCodec` (container row, direction, stored bytes, wall duration), `StageInfer` (the issued `StageRequest` and the lifted `StageResult` — the request rides so the tap can see a provider DEGRADATION, which the result alone cannot show), `EnvironmentPrefilter` (light key, sky model, level count, wall duration).
 - Entry: each composition-root decorator fires one case through `rail.Fire(fact.At, fact, key)`; veto cases fire before catalogue freeze or graph merge.
 - Auto: `At` is the PRIMARY CORRESPONDENCE between this union and the `[03]` roster — the generated total `Map` breaks at compile time on a case with no row or a row with no case, so no call site names a point and the pairing cannot drift. Elapsed columns derive from one injected clock at the decorator boundary.
 - Packages: Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new evidence shape is one `MaterialsFact` case, one `MaterialsPoint` row with its `At` arm, and one projection arm at `[04]`.
-- Boundary: facts carry receipts the owning pages already mint — `CapacityReceipt`, `CaptureProvenance`, `WireProvenance`, `ComputedSection`, `PressReceipt`, `TileReceipt`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own receipt, a tiling run's two independent signals off the gate's own score, and an inference's provider, partition count, and golden residual off the executor's own result. `PlaneCodec` and `EnvironmentPrefilter` own no receipt, so each carries the four columns its arm reads and nothing more. `SetIngest` carries the manifest's own three columns because `SetManifest` is an accumulating monoid rather than a receipt, and its refusal rows cross TYPED — a formatted token keys a counter on file stems and hands the roster an unbounded dimension it cannot close.
+- Boundary: facts carry the results the owning pages already mint — `CapacityLift`, `CaptureProvenance`, `WireProvenance`, `ComputedSection`, `PressRun`, `TileRun`, `StageResult` — and never re-derive their scalars, so a bake's texel census, backend, and elapsed millisecond come off the press's own run, a tiling run's two independent signals off the gate's own score, and an inference's provider, partition count, and golden residual off the executor's own result. `PlaneCodec` and `EnvironmentPrefilter` own no result record, so each carries the four columns its arm reads and nothing more. `SetIngest` carries the manifest's own three columns because `SetManifest` is an accumulating monoid rather than a result record, and its refusal rows cross TYPED — a formatted token keys a counter on file stems and hands the roster an unbounded dimension it cannot close.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -49,14 +49,14 @@ public abstract partial record MaterialsFact : IHookFact<MaterialsPoint> {
 
     public sealed record CatalogueAdmit(ComponentRow Row) : MaterialsFact;
     public sealed record SectionSolve(Op Key, string Profile, ComputedSection Section, Duration Elapsed) : MaterialsFact;
-    public sealed record CapacityCheck(Op Key, CapacityReceipt Receipt, Utilisation Verdict, Duration Elapsed) : MaterialsFact;
+    public sealed record CapacityCheck(Op Key, CapacityLift Lift, Utilisation Verdict, Duration Elapsed) : MaterialsFact;
     public sealed record GraphCompile(Op Key, MaterialId Material, int Nodes, Duration Elapsed) : MaterialsFact;
-    public sealed record AcquisitionFit(Op Key, CaptureProvenance Receipt, Duration Elapsed) : MaterialsFact;
-    public sealed record WireMint(Op Key, MaterialId Material, WireProvenance Receipt) : MaterialsFact;
+    public sealed record AcquisitionFit(Op Key, CaptureProvenance Provenance, Duration Elapsed) : MaterialsFact;
+    public sealed record WireMint(Op Key, MaterialId Material, WireProvenance Provenance) : MaterialsFact;
     public sealed record ProjectionGate(GraphDelta Delta) : MaterialsFact;
 
-    public sealed record TexturePress(Op Key, Option<MaterialId> Material, PressReceipt Receipt) : MaterialsFact;
-    public sealed record TileSynth(Op Key, TileStrategy Strategy, TextureChannel Guide, TileReceipt Receipt) : MaterialsFact;
+    public sealed record TexturePress(Op Key, Option<MaterialId> Material, PressRun Run) : MaterialsFact;
+    public sealed record TileSynth(Op Key, TileStrategy Strategy, TextureChannel Guide, TileRun Run) : MaterialsFact;
     public sealed record TileGrade(Op Key, TileStrategy Strategy, Evidence<TileProof> Proof, Duration Elapsed) : MaterialsFact;
     public sealed record PyramidBuild(Op Key, TextureChannel Channel, MipPolicy Policy, int Levels, long Texels, Duration Elapsed) : MaterialsFact;
     public sealed record SetIngest(Op Key, int Claimed, Seq<(IngestRefusal Reason, string Detail)> Unresolved, Option<NormalConvention> Convention) : MaterialsFact;
@@ -157,14 +157,14 @@ public static class MaterialsHooks {
 - Owner: `MaterialsInstrument` — the closed `rasm.materials.*` roster, a `[SmartEnum<string>]` whose every row CARRIES its kernel `InstrumentSpec` (kind, measurement form, UCUM unit, kernel `Buckets` advice, the closed dimension set) beside the one dotted slot and outcome-value block both the metric writes and the `[05]` pivots spell; `MaterialsTap` — the fact-to-write projection and the level-probe binder over the `InstrumentSet` the composing root materializes.
 - Cases: the roster below IS the case list, and restating each row's dimensions here publishes a second roster that drifts on the first column edit. Rows split three ways by what produces them: PUSHED rows the `[02]` fact arms write on every occurrence; the two composition-supplied POPULATION levels a frozen catalogue and its material library answer; and the three RAIL-ANSWERED rows the evidence cell probes, since a shielded subscriber failure fires no fact and so has no write site at all.
 - Entry: `MaterialsInstrument.Telemetry(version)` — the one contributor port, carrying the `[06]` board pack beside these rows so board and reliability policy travel downward with the roster they name; `MaterialsTap.Tap(set)` returns the ONE unscoped `MaterialsObserver` the composing root hands `MaterialsHooks.Live`; `MaterialsTap.Levels(set, rail, key, supplied)` binds every pulled row — the rail's own probes from `RailLevels` and the composition's catalogue and library readers from the span — and returns the scopes that retire them.
-- Auto: `Rows` DERIVES from `Items` and construction proves each row's name against its key, so the const-name roster and the hand-listed sequence that mirrored it are ONE declaration; every write addresses the row (`InstrumentSet.Write(row.Row, …)`, the kernel's own write law) rather than a name, so an unmounted row and a form mismatch surface as typed refusals; every histogram row binds its named kernel `Buckets` row as explicit-bucket advice under the base2-exponential wire default, so no bound array is spelled here; every write materializes its tag set through `InstrumentSet.Tags`, which returns the stack-allocated `TagList` the kernel's `in TagList` overload consumes and folds the ambient `TenantContext` partition in beside the arm's own slots — an arm widening a shared set does it by COPY-THEN-ADD through the page's one `Keyed` widening, never by materializing a heap `KeyValuePair<string, object?>[]`; a multi-write arm reads `Enabled` ahead of its tag mint and ahead of any receipt-collection walk, and an unmounted name reads enabled so the gate never absorbs the refusal a write owes; each share indicator's outcome verdict rides the same write that counts the occurrence, so a good half can never miss an occurrence its denominator recorded.
+- Auto: `Rows` DERIVES from `Items` and construction proves each row's name against its key, so the const-name roster and the hand-listed sequence that mirrored it are ONE declaration; every write addresses the row (`InstrumentSet.Write(row.Row, …)`, the kernel's own write law) rather than a name, so an unmounted row and a form mismatch surface as typed refusals; every histogram row binds its named kernel `Buckets` row as explicit-bucket advice under the base2-exponential wire default, so no bound array is spelled here; every write materializes its tag set through `InstrumentSet.Tags`, which returns the stack-allocated `TagList` the kernel's `in TagList` overload consumes and folds the ambient `TenantContext` partition in beside the arm's own slots — an arm widening a shared set does it by COPY-THEN-ADD through the page's one `Keyed` widening, never by materializing a heap `KeyValuePair<string, object?>[]`; a multi-write arm reads `Enabled` ahead of its tag mint and ahead of any per-channel walk, and an unmounted name reads enabled so the gate never absorbs the refusal a write owes; each share indicator's outcome verdict rides the same write that counts the occurrence, so a good half can never miss an occurrence its denominator recorded.
 - Packages: Rasm, LanguageExt.Core, BCL inbox (`System.Diagnostics.Metrics`).
 - Growth: a histogram policy change is one kernel `Buckets` row reference; a new instrument is one `MaterialsInstrument` row carrying its own UCUM unit — `{texel}`, `By`, `{partition}`, `{inference}`, `{tile}`, `{stem}`, `{channel}` — and one write in the owning `Switch` arm, a new fact case breaking the tap at compile time; a new tileability signal is one `ScoreComponents` row and no arm edit; a new rail-answered level is one `RailLevels` row and a new supplied level one `Level` row with its reader at the call site, never a signature edit.
 - Law: throughput rides MONOTONE COUNTERS in UCUM units and latency rides the histograms — a bake spans four orders of magnitude between a preview and a production plane, so a bucket ladder over texel or byte volume grades nothing while the counter's own derivative is exactly the rate a board reads.
 - Law: a REFUSAL is counted and never measured — an unmeasured run enters its counter's own verdict partition while every histogram gates on the evidence that proves a measurement was taken, because a sentinel admitted into a distribution reads to a board as the best value in it.
 - Law: `Levels` proves the supply a BIJECTION against the roster's own pulled column minus the rail-answered rows — a name outside that set refuses, a pulled row with no reader refuses, and a name supplied twice refuses before its second bind shadows the first. NAMED LOSS from composing the kernel probe: `InstrumentSet.Bind` takes `Func<double>` and the mounted row saturates each reading into its declared carrier at collection, so the folder's own whole-number domain gate deletes and a starved reader publishes a saturated value rather than refusing at bind.
 - Law: NAMED LOSS on the fault series — the kernel `FaultCell` is a bounded ring publishing `Parked`, `Shed`, and `Lost` and raising no change event, so the monotone count the rail's evidence once pushed has no producer. One level probes total parked Materials-owned depth beside two monotone ring tallies, and the ever-parked total reads as depth summed with shed rather than as a counter nothing writes.
-- Boundary: `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on typed receipts, never on a metric series. Tenancy is the kernel `TenantContext` projection every work-row write folds, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled POPULATION rows stay untenanted on ownership alone: a frozen catalogue and its material library are process-scoped reference data no tenant owns, so a tenant column there declares a key no reader can emit. Every projection arm returns the kernel write rail and subscribes through the rail's shielded tap, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists. Instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter.
+- Boundary: `MaterialId` and the solved `ComputedSection` stay fact evidence with no arm — material identity is identifier-grade and belongs on typed results, never on a metric series. Tenancy is the kernel `TenantContext` projection every work-row write folds, so this page holds no tenant key, no baggage read, and no zero sentinel, while the two pulled POPULATION rows stay untenanted on ownership alone: a frozen catalogue and its material library are process-scoped reference data no tenant owns, so a tenant column there declares a key no reader can emit. Every projection arm returns the kernel write rail and subscribes through the rail's shielded tap, so a refused write parks as `IsolatedFault` beside every other tap fault and no folder-local lift aspect exists. Instrument custody stays the composing app's — this spine binds and subscribes against a mounted `InstrumentSet` and mints no meter.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -251,7 +251,7 @@ public sealed partial class MaterialsInstrument {
     public static readonly MaterialsInstrument CapacityChecks = new(
         "rasm.materials.capacity.checks",
         InstrumentSpec.Create("rasm.materials.capacity.checks", InstrumentKind.Count, MeasureForm.Whole, "{check}",
-            "capacity checks by receipt kind, governing action, and adequacy verdict",
+            "capacity checks by lift kind, governing action, and adequacy verdict",
             Seq(TenantContext.TenantSlot, KindSlot, GoverningSlot, AdequacySlot), None, None, None));
 
     public static readonly MaterialsInstrument CapacityUtilisation = new(
@@ -510,7 +510,7 @@ public static class MaterialsTap {
                 InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.ProfileSlot, f.Profile))),
             capacityCheck: static (bind, f) => {
                 TagList scope = InstrumentSet.Tags(bind.Tenant,
-                    (MaterialsInstrument.KindSlot, f.Receipt.Kind),
+                    (MaterialsInstrument.KindSlot, f.Lift.Kind),
                     (MaterialsInstrument.GoverningSlot, f.Verdict.Governing.Key));
                 return bind.Rows.Write(MaterialsInstrument.CapacityChecks.Row, 1L,
                         Keyed(scope, MaterialsInstrument.AdequacySlot,
@@ -523,8 +523,8 @@ public static class MaterialsTap {
                 MaterialsInstrument.GraphNodes, f.Nodes, MaterialsInstrument.GraphDuration, f.Elapsed,
                 InstrumentSet.Tags(bind.Tenant)),
             acquisitionFit: static (bind, f) => {
-                TagList method = InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Receipt.Method.Key));
-                return f.Receipt.Assessment
+                TagList method = InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Provenance.Method.Key));
+                return f.Provenance.Assessment
                     .Map(assessment => assessment.Switch(
                         state: (Rows: bind.Rows, Method: method),
                         fit: static (state, fit) => state.Rows.Write(MaterialsInstrument.AcquisitionFits.Row, 1L,
@@ -537,7 +537,7 @@ public static class MaterialsTap {
                     .IfNone(Fin.Succ(unit));
             },
             wireMint: static (bind, f) => bind.Rows.Write(MaterialsInstrument.WireMints.Row, 1L,
-                InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Receipt.Method))),
+                InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.MethodSlot, f.Provenance.Method))),
             projectionGate: static (bind, _) => bind.Rows.Write(MaterialsInstrument.ProjectionAdmits.Row, 1L,
                 InstrumentSet.Tags(bind.Tenant)),
             texturePress: static (bind, f) => {
@@ -546,22 +546,22 @@ public static class MaterialsTap {
                         MaterialsInstrument.PressDuration.Row, MaterialsInstrument.PressDowngraded.Row,
                         MaterialsInstrument.PressFaulted.Row, MaterialsInstrument.PressGpuDelta.Row,
                         MaterialsInstrument.PressAgeCoverage.Row))) { return Fin.Succ(unit); }
-                TagList backend = InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.BackendSlot, f.Receipt.Backend.Key));
+                TagList backend = InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.BackendSlot, f.Run.Backend.Key));
                 return bind.Rows.Write(MaterialsInstrument.PressRuns.Row, 1L, backend)
                     .Bind(_ => bind.Rows.Write(MaterialsInstrument.PressTexels.Row,
-                        (long)ulong.Min(f.Receipt.Texels, (ulong)long.MaxValue), backend))
-                    .Bind(_ => bind.Rows.Write(MaterialsInstrument.PressDuration.Row, f.Receipt.ElapsedMs / 1000.0, backend))
-                    .Bind(_ => f.Receipt.Downgraded.TraverseM(channel =>
+                        (long)ulong.Min(f.Run.Texels, (ulong)long.MaxValue), backend))
+                    .Bind(_ => bind.Rows.Write(MaterialsInstrument.PressDuration.Row, f.Run.ElapsedMs / 1000.0, backend))
+                    .Bind(_ => f.Run.Downgraded.TraverseM(channel =>
                         bind.Rows.Write(MaterialsInstrument.PressDowngraded.Row, 1L,
                             Keyed(backend, MaterialsInstrument.ChannelSlot, channel.Key))).As())
-                    .Bind(_ => f.Receipt.Faulted.AsIterable().TraverseM(row =>
+                    .Bind(_ => f.Run.Faulted.AsIterable().TraverseM(row =>
                         bind.Rows.Write(MaterialsInstrument.PressFaulted.Row,
                             (long)ulong.Min(row.Value, (ulong)long.MaxValue),
                             Keyed(backend, MaterialsInstrument.ChannelSlot, row.Key.Key))).As())
-                    .Bind(_ => f.Receipt.GpuDeltaMax.Match(
+                    .Bind(_ => f.Run.GpuDeltaMax.Match(
                         Some: delta => bind.Rows.Write(MaterialsInstrument.PressGpuDelta.Row, delta, backend),
                         None: static () => Fin.Succ(unit)))
-                    .Bind(_ => f.Receipt.Aging.Match(
+                    .Bind(_ => f.Run.Aging.Match(
                         Some: coverage => bind.Rows.Write(MaterialsInstrument.PressAgeCoverage.Row,
                                 coverage.AgeRungsVisited / (double)coverage.AgeRungs,
                                 Keyed(backend, MaterialsInstrument.AxisSlot, "age"))
@@ -573,11 +573,11 @@ public static class MaterialsTap {
             tileSynth: static (bind, f) => {
                 TagList plan = InstrumentSet.Tags(bind.Tenant,
                     (MaterialsInstrument.StrategySlot, f.Strategy.Key), (MaterialsInstrument.ChannelSlot, f.Guide.Key));
-                Option<TileScore> score = f.Receipt.Score.Value();
+                Option<TileScore> score = f.Run.Score.Value();
                 return bind.Rows.Write(MaterialsInstrument.TileRuns.Row, 1L,
                         Keyed(plan, MaterialsInstrument.VerdictSlot,
                             score.IsSome ? MaterialsInstrument.Measured : MaterialsInstrument.Unmeasured))
-                    .Bind(_ => bind.Rows.Write(MaterialsInstrument.TileDuration.Row, f.Receipt.ElapsedMs / 1000.0,
+                    .Bind(_ => bind.Rows.Write(MaterialsInstrument.TileDuration.Row, f.Run.ElapsedMs / 1000.0,
                         InstrumentSet.Tags(bind.Tenant, (MaterialsInstrument.StrategySlot, f.Strategy.Key))))
                     .Bind(_ => score.Match(
                         Some: measured => ScoreComponents.TraverseM(row =>

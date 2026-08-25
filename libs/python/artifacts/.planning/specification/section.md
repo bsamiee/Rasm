@@ -1,13 +1,11 @@
 # [PY_ARTIFACTS_SECTION]
 
-One owner holds the construction-specification production — the CSI/CSC SectionFormat three-part section (`PART 1 GENERAL` / `PART 2 PRODUCTS` / `PART 3 EXECUTION`), its article vocabulary, the four methods of specifying, and the PageFormat numbering. `Spec` admits a raw payload EXACTLY ONCE through the closed `SpecPayload`, validates its MasterFormat section number against `specification/classify#CODE` and its article titles against the owned roster under an accumulating disposition, lowers the validated section INTO a `document/model#NODE` `DocumentNode` tree, and contributes the one new `core/receipt#RECEIPT` `ArtifactReceipt.Spec` case — so a specification section is one schedulable `core/plan#PLAN` `ArtifactWork` producer beside every other artifact, its typeset emission owned downstream by `document/emit#DOCUMENT` folding FROM the tree. This owner authors the section semantics and the numbered node tree; it renders no page and re-authors no IFC — the QTO facts a specification cites arrive from `dotnet:Rasm.Bim` through `visualization/table#TABLE`.
 
 Owned families carry the three-part SectionFormat spine, canonical article roster, subordinate-title checklist, exact-one main-work alternatives, specifying methods, submittal classes, and paragraph roles. `NOTE` guidance strips at issue — the audit counts notes off the source spec and no lowering renders them; accumulating admission retains independent casualties; one audit fold derives ordering, cardinality, histogram, fill-in, checklist, and citation evidence. `NumberScheme.alphanumeric` and `decimal` carry only their own policy payloads, and lowering terminates with `END OF SECTION`.
 
 ## [01]-[INDEX]
 
 - [02]-[PAGE]: `PageFormat` — the CSI PageFormat numbering and page-presentation substrate, `label` projecting one ordinal path to its designation across both numbering modes.
-- [03]-[SECTION]: `Spec` — the CSI SectionFormat producer over the owned article vocabularies, lowering a validated section into the `document/model#NODE` tree and minting the one `ArtifactReceipt.Spec` case.
 
 ## [02]-[PAGE]
 
@@ -15,10 +13,9 @@ Owned families carry the three-part SectionFormat spine, canonical article roste
 - Cases: `NumberScheme` carries `alphanumeric(article_pad)` and tag-only `decimal`; `NumberLevel` carries the eight-level hierarchy; `Alphabet` and `Decoration` carry glyph axes; `PageSize` carries sheet regimes.
 - Entry: `NumberScheme.label(part, path)` normalizes on the path shape — an empty path yields `PART {part}`, a length-1 path the part-prefixed article number, a deeper path the local level glyph (`ALPHANUMERIC` reads `_LEVEL_STYLE[NumberLevel(len(path)-1)]`, `DECIMAL` joins the whole path) — so one entrypoint owns every level and mode, the discriminant the path length and mode, never a `paragraph_label`/`subparagraph_label` method family.
 - Auto: `label` derives every designation from the ONE `_LEVEL_STYLE` correspondence — `_glyph` projecting the ordinal through its alphabet and `_wrap` applying the level's punctuation, both closed by `assert_never`. `page_footer(section, page)` projects the CSI `{section} - {page}` footer, and `end_of_section` the marker CSI PageFormat mandates AFTER the `SCHEDULES` article — the marker `to_document` appends as the tree's terminal block.
-- Receipt: none — `PageFormat` is pure presentation policy; the numbering travels INTO the `Spec` producer's tree and `ArtifactReceipt.Spec` facts, exactly as `specification/classify#CODE` contributes none.
 - Packages: `msgspec` (`Struct(frozen=True)` the value objects, hashable so a shared `PageFormat` keys deterministically); `expression` (`Map` the `_LEVEL_STYLE` correspondence); `enum` (the closed numbering vocabularies). No runtime import.
 - Growth: a new numbering regime adds one `NumberScheme` case and `label` arm; a new nesting level adds one `NumberLevel` and `_LEVEL_STYLE` row; new glyph and punctuation policies add one enum value and total arm.
-- Boundary: this owner authors presentation policy, never bytes or receipts.
+- Boundary: this owner authors presentation policy alone.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -176,12 +173,9 @@ __all__ = ["Alphabet", "CSI_PAGEFORMAT", "Decoration", "NumberLevel", "NumberSch
 
 ## [03]-[SECTION]
 
-- Owner: `Spec` — the CSI SectionFormat producer over a `section: ClassCode` (the MasterFormat number IS the section identity, admitted through `specification/classify#CODE`), a `title`, a `tuple[Article, ...]` in canonical order, the runtime `lane: LanePolicy` the encode offloads on, and its `PageFormat` — lowering the validated section into a `document/model#NODE` `DocumentNode` tree and contributing one `ArtifactReceipt.Spec` case, never a stringly heading tree or a parallel per-part builder. `Article` binds one `SectionPart`, one validated `_ARTICLES` title, and its paragraphs; `Paragraph` is the recursive content node carrying its subordinate heading, text, `ParagraphRole` disposition, optional `SpecMethod`/`SubmittalClass`, `references`, and `children`. No specification library is admitted — the SectionFormat algebra is this owner's composition over the classify, document, and numbering owners.
 - Cases: owned SectionFormat vocabularies are closed families authored to the CSI MP-2-2 published cardinality — `SectionPart` the three-part spine, `_ARTICLES` the primary article roster per part in published order (order IS load-bearing for the `_audited` canonical-order check), `_SUBORDINATE` the paragraph-title checklist each article carries, `_MAIN_WORK` the alternative-main-work set an `EXECUTION` part selects exactly one of — `main_works` counts the selection so zero, one, and multiple are three distinguishable audit outcomes. `SpecMethod` closes the four methods of specifying, `SubmittalClass` the three submittal regimes, `ParagraphRole` the `CONTENT`/`NOTE` editorial disposition. `SpecFault` carries the accumulating fault vocabulary with its `combined` monoid, and `SpecVerdict` carries the QA evidence — tallies, note/fill-in/off-checklist counts, reference and distinct-standard totals, method + submittal histograms, the canonical-order flag, the main-work count, and the accumulated coverage-fault tags.
-- Entry: `Spec.admit(lane, page, /, **payload)` is the one boundary ingress — the `SpecPayload` shape gate through `_PAYLOAD`, then the section-number seam and the article fold composed under one accumulating disposition: the independent checks on one paragraph (depth, role, method, submittal, children) each contribute their casualty to the same `SpecFault.aggregate`, an article's part/title faults join its paragraphs' casualties, and the section-number fault joins the article casualties — a whole malformed section reports EVERY casualty at once, never the first per node. `to_document()` is the lowering entrypoint, `emit()` the schedulable `ArtifactWork`, `contribute()` the receipt, `audit()` the verdict — one polymorphic producer, never a per-part or per-target emit family. `submittal_register(specs)` is the manual-level modality over `Spec | Iterable[Spec]` — the flat CSI submittal-log row stream every `SubmittalClass`-carrying paragraph contributes, the schedule a `visualization/table#TABLE` frame renders and `delivery/register#REGISTER` keys.
+- Entry: `Spec.admit(lane, page, /, **payload)` is the one boundary ingress — the `SpecPayload` shape gate through `_PAYLOAD`, then the section-number seam and the article fold composed under one accumulating disposition: the independent checks on one paragraph (depth, role, method, submittal, children) each contribute their casualty to the same `SpecFault.aggregate`, an article's part/title faults join its paragraphs' casualties, and the section-number fault joins the article casualties — a whole malformed section reports EVERY casualty at once, never the first per node. `to_document()` is the lowering entrypoint, `emit()` the schedulable `ArtifactWork`, `audit()` the verdict — one polymorphic producer, never a per-part or per-target emit family. `submittal_register(specs)` is the manual-level modality over `Spec | Iterable[Spec]` — the flat CSI submittal-log row stream every `SubmittalClass`-carrying paragraph contributes, the schedule a `visualization/table#TABLE` frame renders and `delivery/register#REGISTER` keys.
 - Auto: `to_document` lowers the section in one pass — the `Spec` a level-1 `SectionNode`, each present part a level-2, each article a `PageFormat`-numbered level-3, each paragraph a `BlockNode` recursing its sub-tree with the ordinal PATH threaded down so the numbering is the tree's own structure, and the `end_of_section` marker closing the tree as its terminal block. A `NOTE` paragraph STRIPS at issue — it never enters the issued tree, `BlockKind.ARTIFACT` being tagging semantics rather than elision — so the CONTENT ordinal `_article_node` threads is a running `accumulate` count that never advances over a note — the retained paragraphs number contiguously with no gap where a stripped note sat, the one place a naive producer leaks a numbering hole. `_audited` is ONE seed fold over the `_walk` flattening — the `_Tally` frozen seed carries the paragraph/note/fill-in/reference counts, the depth high-water, the off-checklist count, the method/submittal histograms, and the listed/cited citation partition, each stepped per walked paragraph — with only the per-article order, main-work, and coverage checks reading the article roster beside it, never a per-check re-walk.
-- Receipt: `Spec` contributes the one new `core/receipt#RECEIPT` `ArtifactReceipt.Spec` case — the section number, the `division()` head the `specification/classify#CODE` crosswalk keys on, the present-part and article counts, and the encoded-tree byte count. ONE identity serves `emit`, `contribute`, and the receipt: `_key` derives from the full frozen input spec (`section`, `title`, `articles`, `page`), so two sections sharing a number but differing in content never collide, and the byte count reads off the one encode `contribute` computes — never a second key regime hashing the encoded bytes. `_emit` also awaits `Journal.record` over `receipt.evidence()` — a produced section is `OPERATIONAL` production trail under the case's own retention row, its diff naming the section number, division, and part/article cardinality a later revision compares against; the seat is that awaitable fold, because recording suspends where the synchronous `contribute` twin cannot.
-- Packages: `msgspec` (the `Struct(frozen=True)` value objects and the deterministic node encode); `expression` (`tagged_union` the `SpecFault`; `Block` the accumulating admission fold; the `Result`/`Option` rails); `pydantic` (`TypeAdapter` the `_PAYLOAD` gate over the recursive `SpecPayload`, `ValidationError.errors()` the structured `loc` paths the `invalid_payload` case carries); `frozendict` (the owned vocabulary correspondences and verdict histograms); `re` (`_FILL_IN` the unresolved-fill-in `Pattern`); `itertools.accumulate` (the CONTENT-only ordinal); runtime (`ContentIdentity`/`ContentKey`, `RuntimeRail`/`async_boundary`, `Journal` the durable seat's one writer, `LanePolicy`/`Kernel`/`KernelTrait` the off-loop encode); `specification/classify#CODE` (`ClassCode`), `document/model#NODE` (the `SectionNode`/`BlockNode` tree and `encode`), and `core/receipt#RECEIPT` (`ArtifactReceipt.Spec`), composed never re-authored. No new external library.
 - Growth: a new article is one `_ARTICLES` row; a new subordinate title one `_SUBORDINATE` row; a new main-work title one `_MAIN_WORK` member; a new method/submittal/disposition one `SpecMethod`/`SubmittalClass`/`ParagraphRole` member (a `NOTE` already strips at issue); a new QA rule one `SpecVerdict` field and one `_Tally` step or article check; a new fault cause one `SpecFault` case plus one `combined` member; a new section-number system is already carried by `ClassCode`.
 - Boundary: this owner authors the specification, never the rendered page — `document/emit#DOCUMENT` folds the tree to PDF/Typst/HTML, `PageFormat` owns the numbering, `specification/classify#CODE` owns `ClassCode`, and `dotnet:Rasm.Bim` owns the QTO/IFC a specification cites through `visualization/table#TABLE`.
 
@@ -202,20 +196,16 @@ from msgspec import UNSET, Struct, msgpack
 from pydantic import TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import BlockKind, BlockNode, DocumentNode, NodeMeta, RunNode, SectionNode, encode
 from rasm.artifacts.specification.classify import ClassCode, ClassSystem
 
-
-if TYPE_CHECKING:
-    from rasm.runtime.receipts import Receipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -707,23 +697,19 @@ class Spec(Struct, frozen=True):
     def audit(self) -> SpecVerdict:
         return _audited(self)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[bytes]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"spec-{self.section.render()}", _CANON.encode((self.section, self.title, self.articles, self.page)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        verdict = self.audit()
-        settled = (await async_boundary(SECTION_ENCODE, self._encoded_rail, catch=_FAULTS)).map(
-            lambda payload: ArtifactReceipt.Spec(
-                self._key, self.section.render(), self._division, verdict.parts_present, verdict.articles, len(payload)
-            )
-        )
+    async def _emit(self) -> RuntimeRail[bytes]:
+        settled = await async_boundary(SECTION_ENCODE, self._encoded_rail, catch=_FAULTS)
         match settled:
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=payload):
+                Metrics.record({BYTE_VOLUME: float(len(payload))}, domain=DOMAIN, kind="spec", scope=self.lane.scope)
+                return Ok(payload)
             case refused:
                 return Error(refused.error)
 
@@ -747,12 +733,6 @@ class Spec(Struct, frozen=True):
 
     def _encoded(self) -> bytes:
         return encode(self.to_document())
-
-    def contribute(self) -> "Iterable[Receipt]":
-        payload = self._encoded()
-        verdict = self.audit()
-        receipt = ArtifactReceipt.Spec(self._key, self.section.render(), self._division, verdict.parts_present, verdict.articles, len(payload))
-        yield from receipt.contribute()
 
     def _part_node(self, part: SectionPart, /) -> DocumentNode:
         number = _PART_NUMBER[part]
@@ -815,7 +795,6 @@ __all__ = ["Article", "Paragraph", "ParagraphRole", "SectionPart", "Spec", "Spec
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

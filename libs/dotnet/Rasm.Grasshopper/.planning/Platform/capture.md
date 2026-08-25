@@ -2,7 +2,7 @@
 
 `SessionCapture` is the leased native canvas-recording owner — one ScreenCaptureKit crossing minting display or window capture sessions over the RhinoWIP-bundled `Microsoft.macOS.dll` bindings, folding every delivered frame into a capacity-bounded ring of monotone-stamped evidence, and exporting a detached record for visual paint regression and journal-correlated replay. `MacGate.Demand` admits the crossing, `Lease<T>` carries the session with its exact native inverse chain, and every deferred capture callback records faults instead of throwing through the AppKit pump.
 
-Pixel truth closes the paint loop: a capture session and the paint hooks it audits share one injected `MonotonicTimeline`, so `CaptureFrame.Stamp` and `PaintReceipt.Entered`/`Settled` order on one authority. `PaintProof.Judge` turns a drawn-claiming receipt with no bearing frame into typed breach evidence, and `PaintProof.Correlate` ties exported frames to `Shell/journal.md` rows so a support bundle carries the visual track beside the fact record.
+Pixel truth closes the paint loop: a capture session and the paint hooks it audits share one injected `MonotonicTimeline`, so `CaptureFrame.Stamp` and `PaintPass.Settled` order on one authority. `PaintProof.Judge` turns a drawn-claiming pass with no bearing frame into typed breach evidence, and `PaintProof.Correlate` ties exported frames to `Shell/journal.md` draw rows so a support bundle carries the visual track beside the fact record.
 
 ## [01]-[INDEX]
 
@@ -40,16 +40,16 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 - Law: native enums cross as FIXED contract values here — `SCStreamOutputType.Screen`, `CVPixelFormatType.CV32BGRA`, and `SCContentFilterOption.Exclude` are single-valued page contracts (the copy kernel reads exactly one layout), so no row owner mints for them; a native enum a CONSUMER chooses from earns its row owner the moment a second admitted value exists, per the folder's host-enum idiom.
 - Boundary: recording-to-disk (`SCRecordingOutput`, `SCRecordingOutputConfiguration`) and the system content-sharing picker are app-root modalities over this same surface; the session owns in-process frame evidence only, and serialization of an export is the app root's over the detached record.
 - Packages: Microsoft.macOS (`SCStream` ctor/`AddStreamOutput`/`RemoveStreamOutput`/`StartCapture`/`StopCapture`, `ISCStreamOutput.DidOutputSampleBuffer`, `ISCStreamDelegate.DidStop`, `SCScreenshotManager.CaptureSampleBufferAsync`, `CMSampleBuffer.IsValid`/`GetImageBuffer`, `CVPixelBuffer.Width`/`Height`/`BytesPerRow`/`BaseAddress`/`Lock`/`Unlock`, `CVPixelBufferLock.ReadOnly`, `CVReturn.Success`), Microsoft.Extensions.Logging.Abstractions (`[LoggerMessage]`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`, `Custody`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/telemetry.md` (`GhLog`).
-- Growth: a new frame-evidence axis is one `CaptureFrame` field read in the one projection; a capture metric family is one `Shell/telemetry.md` `GhEvidence` case and its roster row, never a meter call here.
+- Growth: a new frame-evidence axis is one `CaptureFrame` field read in the one projection; a capture metric family is one `Shell/telemetry.md` roster row and write member, never a meter mint here.
 
 ## [05]-[PROOF]
 
-- Owner: `PaintProof` — the regression and correlation projections over already-minted evidence. `Judge(UiEvent<CaptureFrame> frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Option<CaptureBreach>>` — a receipt claiming `Drawn > 0` whose settlement precedes the frame within two pace periods expects a bearing frame; a non-bearing frame there is the breach, carrying the frame ordinal, the receipt operation, the drawn claim, and the measured lag AGAINST its bound as one `GaugedSpan<CaptureLane>` — the kernel's own measured-span carrier (`Lane`, `Work`, `Elapsed`, `Bound`, with `Breached`/`Overrun` DERIVED), the same shape `Canvas/motion.md`'s `BudgetGate` answers, so no local lag/bound field pair survives and the recorded bound is the pace-derived window in force at judgment.
-- Owner: `CaptureTie` — one journal-to-frame pairing: the journal row sequence, the frame sequence, and the settlement-to-frame lag. `Correlate(CaptureExport capture, JournalExport journal, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Seq<CaptureTie>>` pairs every journal row carrying a `JournalFact.EvidenceCase` with a `GhEvidence.PaintCase` receipt to the first exported frame at or after that receipt's settlement inside the window.
-- Law: one timeline is the correlation precondition — `Judge` and `Correlate` compare stamps through `timeline.Elapsed`, so the capture session, the paint mounts it audits, and the judgment share the injected timeline; journal row stamps stay journal-local per `Shell/journal.md` law, and correlation reads the receipt-borne stamps inside the fact, never the row stamp.
+- Owner: `PaintProof` — the regression and correlation projections over already-minted evidence. `Judge(UiEvent<CaptureFrame> frame, PaintPass pass, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Option<CaptureBreach>>` — a pass claiming `Drawn > 0` whose `Settled` stamp precedes the frame within two pace periods expects a bearing frame; a non-bearing frame there is the breach, carrying the frame ordinal, the pass operation, the drawn claim, and the measured lag AGAINST its bound as one `GaugedSpan<CaptureLane>` — the kernel's own measured-span carrier (`Lane`, `Work`, `Elapsed`, `Bound`, with `Breached`/`Overrun` DERIVED), the same shape `Canvas/motion.md`'s `BudgetGate` answers, so no local lag/bound field pair survives and the recorded bound is the pace-derived window in force at judgment.
+- Owner: `CaptureTie` — one journal-to-frame pairing: the journal row sequence, the frame sequence, and the draw-to-frame lag. `Correlate(CaptureExport capture, JournalExport journal, MonotonicTimeline timeline, CapturePace pace, Op? key = null)` → `Fin<Seq<CaptureTie>>` pairs every journal row whose envelope carries `GhFact.CanvasCase` with `CanvasSignal.Draw` to the first exported frame at or after that envelope's `Stamp` inside the window.
+- Law: one timeline is the correlation precondition — `Judge` and `Correlate` compare stamps through `timeline.Elapsed`, so the capture session, the paint mounts it audits, the host draw events the drain stamps, and the judgment share the injected timeline; correlation reads the kernel envelope's own `Stamp`, minted at publication inside the host event.
 - Law: judgment reads, never samples — the proof owns no clock, no host reach, and no mutation; the span carries its producing bound beside its measurement, so the estate benchmark rail consumes capture regressions as typed claims without re-measuring and without re-deriving a threshold from capture policy it never sees.
-- Law: breaches WIRE to telemetry — the composition root routes `Judge` output through `PlatformRoot.Evidence` as `GhEvidence.CaptureCase` (roster row `capture.breach`, landed on `Shell/telemetry.md`), so a visual regression is a counted, attributed stream AND a journal `EvidenceCase` row `Correlate` pairs, never a return value only a test harness reads.
-- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`PaintReceipt` — inert evidence; GH's `PassReceipt.Tally` hands it in), `Shell/journal.md` (`JournalExport`), `Shell/telemetry.md` (`GhEvidence`).
+- Law: breaches WIRE to telemetry — the judging site (the composition root's capture-proof row) writes each `Some(breach)` through `GhInstruments.Proofed` (roster row `capture.breach`, declared on `Shell/telemetry.md`), so a visual regression is a counted, attributed stream, never a return value only a test harness reads.
+- Packages: LanguageExt.Core, `Rasm.Domain` (`Op`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Canvas/paint.md` (`PaintPass` — inert evidence), `Shell/events.md` (`GhFact`, `CanvasSignal`), `Shell/journal.md` (`JournalExport`), `Shell/telemetry.md` (`GhInstruments`).
 - Growth: a new visual claim is one judgment arm over existing evidence; a new correlation family is one fact-pattern filter over the same export pair.
 
 ```csharp
@@ -567,16 +567,16 @@ internal static partial class CaptureMap {
 [BoundaryAdapter]
 public static class PaintProof {
     public static Fin<Option<CaptureBreach>> Judge(
-        UiEvent<CaptureFrame> frame, PaintReceipt receipt, MonotonicTimeline timeline, CapturePace pace, Op? key = null) {
+        UiEvent<CaptureFrame> frame, PaintPass pass, MonotonicTimeline timeline, CapturePace pace, Op? key = null) {
         Op op = key.OrDefault();
-        return from claim in op.AcceptInput(value: receipt)
+        return from claim in op.AcceptInput(value: pass)
                from clock in op.Need(timeline)
                from rate in op.Finite(value: (double)pace)
                from lag in clock.Elapsed(start: claim.Settled, end: frame.Fact.Stamp, key: op)
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
-               let span = new GaugedSpan<CaptureLane>(Lane: CaptureLane.Frame, Work: claim.Op, Elapsed: lag, Bound: window)
-               select lag >= TimeSpan.Zero && lag <= window && claim.Drawn > 0 && !frame.Fact.Bearing
-                   ? Some(new CaptureBreach(FrameSequence: frame.Ordinal, Operation: claim.Op, Drawn: claim.Drawn, Span: span))
+               let span = new GaugedSpan<CaptureLane>(Lane: CaptureLane.Frame, Work: claim.Tally.Operation, Elapsed: lag, Bound: window)
+               select lag >= TimeSpan.Zero && lag <= window && claim.Tally.Drawn.Value > 0 && !frame.Fact.Bearing
+                   ? Some(new CaptureBreach(FrameSequence: frame.Ordinal, Operation: claim.Tally.Operation, Drawn: claim.Tally.Drawn.Value, Span: span))
                    : Option<CaptureBreach>.None;
     }
 
@@ -589,20 +589,20 @@ public static class PaintProof {
                from rate in op.Finite(value: (double)pace)
                from positive in guard(rate > 0.0, op.InvalidInput()).ToFin()
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
-               from ties in rows.TraverseM(row => row.Fact switch {
-                   JournalFact.EvidenceCase { Evidence: GhEvidence.PaintCase paint } =>
-                       FirstTie(frames, row.Sequence, paint.Receipt, clock, window, op),
+               from ties in rows.TraverseM(row => row.Fact.Fact switch {
+                   GhFact.CanvasCase { Signal: var signal } when signal == CanvasSignal.Draw =>
+                       FirstTie(frames, row.Sequence, row.Fact.Stamp, clock, window, op),
                    _ => Fin.Succ(Option<CaptureTie>.None),
                }).As()
                select ties.Choose(identity).Strict();
     }
 
     private static Fin<Option<CaptureTie>> FirstTie(
-        Seq<UiEvent<CaptureFrame>> frames, long row, PaintReceipt receipt,
+        Seq<UiEvent<CaptureFrame>> frames, long row, MonotonicStamp drawn,
         MonotonicTimeline clock, TimeSpan window, Op key) =>
         frames.Fold(Fin.Succ(Option<CaptureTie>.None), (found, frame) => found.Bind(prior => prior.Match(
             Some: _ => Fin.Succ(prior),
-            None: () => clock.Elapsed(start: receipt.Tally.Settled, end: frame.Fact.Stamp, key: key)
+            None: () => clock.Elapsed(start: drawn, end: frame.Fact.Stamp, key: key)
                 .Map(lag => lag >= TimeSpan.Zero && lag <= window
                     ? Some(new CaptureTie(Row: row, Frame: frame.Ordinal, Lag: lag))
                     : Option<CaptureTie>.None))));
@@ -627,11 +627,12 @@ flowchart LR
     Stream["ScreenCaptureKit frame callback"] -->|"stamped fold · shed accounting"| Ring[("bounded frame ring")]
     Target -->|"CaptureSampleBufferAsync"| Still["CaptureStill one-shot"]
     Timeline["shared MonotonicTimeline"] -->|"one stamp authority"| Ring
-    Timeline -->|"PaintReceipt stamps"| Proof["PaintProof.Judge"]
+    Timeline -->|"PaintPass.Settled stamps"| Proof["PaintProof.Judge"]
     Ring -->|"CaptureExport"| Proof
     Ring -->|"CaptureExport"| Tie["PaintProof.Correlate"]
-    Journal["SessionJournal export"] -->|"paint-evidence rows"| Tie
+    Journal["SessionJournal export"] -->|"canvas draw rows"| Tie
     Proof -->|"CaptureBreach evidence"| Regression["estate benchmark rail"]
+    Proof -->|"GhInstruments.Proofed"| Meter[("capture.breach")]
     Tie -->|"CaptureTie pairs"| Replay["journal-correlated replay"]
 ```
 
@@ -648,13 +649,12 @@ flowchart LR
 |  [07]   | journal correlation | `PaintProof.Correlate`           | `Correlate → Fin<Seq<CaptureTie>>`         |    1    |
 |  [08]   | fault emission      | `CaptureLog`                     | three generated `[LoggerMessage]` partials |    3    |
 
-`MacGate`, kernel `EvidenceDrain`/`UiEvent`/`GaugedSpan`, `Op` (async `Catch` included), `Lease<T>`, `FaultCell`, `ValidityClaim`, `MonotonicTimeline`, `GhLog`, `PaintReceipt`, `JournalExport`, and `GhEvidence` are composed upstream owners; the hand frame ring, the per-session `LastFault` atoms, the `Guarded` try/catch funnel, the 6-clause conjunction guard, the hand survey projections, and the local lag/bound breach pair are all deleted; recording-to-disk, the sharing picker, and export serialization compose at the app root over the detached record.
+`MacGate`, kernel `EvidenceDrain`/`UiEvent`/`GaugedSpan`, `Op` (async `Catch` included), `Lease<T>`, `FaultCell`, `ValidityClaim`, `MonotonicTimeline`, `GhLog`, `GhInstruments`, `PaintPass`, and `JournalExport` are composed upstream owners; the hand frame ring, the per-session `LastFault` atoms, the `Guarded` try/catch funnel, the 6-clause conjunction guard, the hand survey projections, and the local lag/bound breach pair are all deleted; recording-to-disk, the sharing picker, and export serialization compose at the app root over the detached record.
 
 ## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

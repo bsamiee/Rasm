@@ -2,25 +2,25 @@
 
 Registration closes point-cloud alignment: two `VectorCloud` clusters enter, one gated `Transform` leaves, and every ICP variant rides one policy record and one solver body — rigid by default, similarity on the Procrustes lane when the policy asks for scale.
 
-Correspondence rides the one `neighbors` substrate `NeighborKernel.GraphOf` and lands in the `transport` `CloudCorrespondenceSet`; every linear solve routes through the `matrix` owners; the GICP inner optimizer instantiates `Solving/solver.md`'s `ILmModel` over `Lm.Minimize`, composed never re-derived; admission and receipt validity fold through `validation`'s `ValidityClaim.All`.
+Correspondence rides the one `neighbors` substrate `NeighborKernel.GraphOf` and lands in the `transport` `CloudCorrespondenceSet`; every linear solve routes through the `matrix` owners; the GICP inner optimizer instantiates `Solving/solver.md`'s `ILmModel` over `Lm.Minimize`, composed never re-derived; admission and evidence validity fold through `validation`'s `ValidityClaim.All`.
 
 ## [01]-[INDEX]
 
-- [02]-[REGISTRATION]: `AlignKind` dispatch, `AlignmentPolicy`, the receipt family, and the `AlignKernel` solver body.
+- [02]-[REGISTRATION]: `AlignKind` dispatch, `AlignmentPolicy`, the `Alignment` evidence, and the `AlignKernel` solver body.
 
 ## [02]-[REGISTRATION]
 
 - Owner: `AlignKind` mints the one dispatcher — each row's `CapabilitySet<AlignNeed>` declares what the estimation pass provisions for it, its delegate owns the inner solve, and one outer fold (correspond → reject → solve step → compose → converge) owns iteration for every row; `AlignNeed` is that provisioning vocabulary and `PoseFit` the rigid/similarity closing lane of the Procrustes seat; `AlignmentPolicy` is the one knob record, admitted monadically before any round runs and carrying LANES where it once carried epsilons — `Fit` picks the Procrustes closing row, `TrimFraction` trims each round's worst correspondences by quantile, and `CoarseLevels` runs a stride-subsampled coarse-to-fine schedule whose row map keeps every per-row array aligned; `AlignBands` resolves every threshold once off the clouds' own bound `Context`.
-- Entry: `AlignDetailed` is the one entry, the variant riding the receiver row and an absent policy seating `AlignmentPolicy.Default`; `VectorIntent.Align` composes it, and `AlignmentReceipt.Project<Transform>` gates on convergence, so a stalled run faults rather than yielding a half-aligned transform.
-- Receipt: `AlignmentReceipt` carries the run's transform, stop, iteration evidence, and final correspondence set with the robust and optimizer sub-receipts nested inside it, projecting through the `AtomProjection` typed rows.
+- Entry: `AlignDetailed` is the one entry, the variant riding the receiver row and an absent policy seating `AlignmentPolicy.Default`; `VectorIntent.Align` composes it, and `Alignment.Project<Transform>` gates on convergence, so a stalled run faults rather than yielding a half-aligned transform.
+- Output: `Alignment` carries the run's transform, stop, iteration evidence, and final correspondence set with `RobustWeights` and `GicpSolve` nested inside it, projecting through the `AtomProjection` typed rows.
 - Packages: TYoshimura.DoubleDouble mints the `ddouble` cost fold, Thinktecture.Runtime.Extensions the smart-enum row vocabulary and its delegate binding, `Rasm.Domain` the `CapabilitySet<AlignNeed>` provisioning column, the `Context`/`ToleranceLane` band derivation, the `Stat<Scalar>`/`Distribution<Scalar>` moment and order-statistic owners, the `Cell.Converge` round driver, and the `Fin`/`Option` rails, LanguageExt.Core the carriers and `Atom`, and System.Numerics.Tensors the mass fold.
 - Law: the three provisioning bools collapsed into ONE `CapabilitySet<AlignNeed>` column read by set algebra at the single provision fold — NAMED LOSS: per-need compile-time exhaustiveness, bought back by the roster's own construction and by the one `Admits` read per need; the scale decision left the policy as a `PoseFit` row so the Procrustes seat carries its own closing arm instead of a ternary on a flag.
-- Law: `FinalDelta` is `Option` — a run that measured no round states its absence rather than reporting an infinity the receipt's own finiteness claim would have to excuse.
+- Law: `FinalDelta` is `Option` — a run that measured no round states its absence rather than reporting an infinity the alignment's own finiteness claim then has to excuse.
 - Law: every threshold on this rail derives from a `ToleranceLane` through `AlignBands`, so no member reaches an `EpsilonPolicy` anchor — the anchor is what a lane derives FROM, and reading it directly bypasses the one tolerance read. The two ROW floors stay named consts because they are ALGEBRAIC, not tolerances: `ProcrustesFloor` is the three correspondences a weighted rotation seat needs, `LinearizedFloor` the six an SE(3) row set needs, and each tracks the closing solve rather than the caller's kind.
-- Law: the ROUND budget rides `Cell.Converge` over one `Atom<Fin<IcpState>>`; the transition's current state is the exact terminal receipt, while the LEVEL fold stays distinct because each level re-derives its own stride and row set.
+- Law: the ROUND budget rides `Cell.Converge` over one `Atom<Fin<IcpState>>`; the transition's current state is the exact terminal state, while the LEVEL fold stays distinct because each level re-derives its own stride and row set.
 - Law: `CloudCorrespondenceSet` is MEASURED or absent — an empty or massless set refuses typed instead of publishing rmse 0, median 0, and max 0, which are the exact figures a caller reads as a perfect alignment. Its order statistics ride ONE `Distribution<Scalar>` column and its weighted moment `Stat<Scalar>`, so no page-local sort forks either definition and no flattened quantile column stands beside the owner that holds it.
 - Growth: a new ICP variant is one `AlignKind` row with its delegate and `Needs` set; a new provisioning demand is one `AlignNeed` row; a new closing lane is one `PoseFit` row; a new rejection rule, robust kernel, or schedule shape is one `AlignmentPolicy` column the standing fold reads; a new band is one `ToleranceLane` column read through `AlignBands` — zero new surfaces.
-- Boundary: source-normal estimation runs once on the raw cluster and the round rotation transports the result — rigid equivariance leaves the two identical up to sign, and both consumers sign-align. GICP precision follows one spectral route: eigenvalues clamp at the ridge floor, the clamp is the nearest-SPD projection and `Regularized` counts it, so one path carries one correctness argument. The optimizer's memo is KEYED on its parameters, so a `Linearize` the ladder reaches without a prior `Norm` rebuilds rather than assembling from another point's field, and a refused model reaches the receipt as `ModelRefused` instead of an exhausted budget. Every increment composes as an exact axis-angle rotation and translation; the Umeyama scale rides the Procrustes lane alone — the small-angle linearized rows and the GICP metric stay rigid, so a scale request never silently changes their model. Members stay behind the kernel owners, the statement kernels excepted as measured numeric hot loops under `Fin` admission, and every failure routes the `Op` rail.
+- Boundary: source-normal estimation runs once on the raw cluster and the round rotation transports the result — rigid equivariance leaves the two identical up to sign, and both consumers sign-align. GICP precision follows one spectral route: eigenvalues clamp at the ridge floor, the clamp is the nearest-SPD projection and `Regularized` counts it, so one path carries one correctness argument. `GicpModel` keys its memo on its parameters, so a `Linearize` the ladder reaches without a prior `Norm` rebuilds rather than assembling from another point's field, and a refused model reaches `GicpSolve` as `ModelRefused` instead of an exhausted budget. Every increment composes as an exact axis-angle rotation and translation; the Umeyama scale rides the Procrustes lane alone — the small-angle linearized rows and the GICP metric stay rigid, so a scale request never silently changes their model. Members stay behind the kernel owners, the statement kernels excepted as measured numeric hot loops under `Fin` admission, and every failure routes the `Op` rail.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -106,7 +106,7 @@ public sealed partial class AlignKind {
     public CapabilitySet<AlignNeed> Needs { get; }
     [UseDelegateFromConstructor] internal partial Fin<AlignmentStep> SolveStep(Seq<Point3d> source, AlignmentMatch match, Transform current, AlignmentPolicy policy, AlignBands bands, Op key);
 
-    public Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, Option<AlignmentPolicy> policy = default, Op? key = null) =>
+    public Fin<Alignment> AlignDetailed(VectorCloud source, VectorCloud target, Option<AlignmentPolicy> policy = default, Op? key = null) =>
         AlignKernel.AlignClouds(kind: this, source: source, target: target, policy: policy.IfNone(AlignmentPolicy.Default), key: key.OrDefault());
 }
 
@@ -139,7 +139,7 @@ public readonly record struct AlignmentPolicy(
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct AlignmentRobustReceipt(double Scale, double MinWeight, double MaxWeight) : IValidityEvidence {
+public readonly record struct RobustWeights(double Scale, double MinWeight, double MaxWeight) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Positive(value: Scale),
         ValidityClaim.Nonnegative(value: MinWeight),
@@ -148,10 +148,10 @@ public readonly record struct AlignmentRobustReceipt(double Scale, double MinWei
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct AlignmentOptimizerReceipt(
+public readonly record struct GicpSolve(
     AlignmentOptimizerStopKind Stop, int Iterations, double InitialCost, double FinalCost, double StepNorm,
     double TerminalLambda, double MeanMahalanobis, double MaxMahalanobis, int RegularizedCovarianceCount, double CovarianceRidge,
-    NeighborhoodPcaReceipt SourcePca, NeighborhoodPcaReceipt TargetPca) : IValidityEvidence {
+    PcaCensus SourcePca, PcaCensus TargetPca) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Stop is not null && Iterations >= 0 && RegularizedCovarianceCount >= 0,
         ValidityClaim.Nonnegative(value: InitialCost),
@@ -171,15 +171,15 @@ internal readonly record struct AlignmentMatch(
     double[] RowMass, int[] TargetIndices, int[] SourceRows, Option<NeighborhoodPcaResult> SourcePca = default, Option<NeighborhoodPcaResult> TargetPca = default);
 
 internal readonly record struct AlignmentStep(
-    Transform Delta, Option<SolveReceipt> Solve = default, Option<AlignmentRobustReceipt> Robust = default,
-    Option<AlignmentOptimizerReceipt> Optimizer = default, Option<AlignmentStopKind> Stop = default,
+    Transform Delta, Option<LinearSolution> Solve = default, Option<RobustWeights> Robust = default,
+    Option<GicpSolve> Optimizer = default, Option<AlignmentStopKind> Stop = default,
     Option<double> Scale = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct AlignmentReceipt(
+public readonly record struct Alignment(
     Transform Transform, AlignKind Kind, AlignmentStopKind Stop, int Iterations, Option<double> FinalDelta,
-    Option<AlignmentRobustReceipt> Robust, CloudCorrespondenceSet Correspondences, Option<SolveReceipt> Solve,
-    Option<AlignmentOptimizerReceipt> Optimizer, Option<double> SimilarityScale) : IValidityEvidence {
+    Option<RobustWeights> Robust, CloudCorrespondenceSet Correspondences, Option<LinearSolution> Solve,
+    Option<GicpSolve> Optimizer, Option<double> SimilarityScale) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Kind is not null && Stop is not null && Transform.IsValid,
         ValidityClaim.CountAtLeast(count: Iterations, floor: 0),
@@ -189,8 +189,8 @@ public readonly record struct AlignmentReceipt(
         ValidityClaim.Evidence(Optimizer),
         SimilarityScale.Map(static scale => double.IsFinite(scale) && scale > 0.0).IfNone(noneValue: true));
     public Fin<TOut> Project<TOut>(Op key) {
-        AlignmentReceipt self = this;
-        return AtomProjection.Rows<AlignmentReceipt, TOut>(self: self, key: key,
+        Alignment self = this;
+        return AtomProjection.Rows<Alignment, TOut>(self: self, key: key,
             ProjectionRow.Of<Transform>(() => self.Stop.Equals(AlignmentStopKind.Converged)
                 ? key.AcceptValue(value: self.Transform)
                 : Fin.Fail<Transform>(key.InvalidResult())));
@@ -207,15 +207,15 @@ internal static class AlignKernel {
     private readonly record struct IcpState(Transform Current, Option<double> FinalDelta, int Iterations, AlignmentStep Step, Option<AlignmentStopKind> Stop);
 
     // --- [OUTER_FOLD]
-    internal static Fin<AlignmentReceipt> AlignClouds(AlignKind kind, VectorCloud source, VectorCloud target, AlignmentPolicy policy, Op key) =>
+    internal static Fin<Alignment> AlignClouds(AlignKind kind, VectorCloud source, VectorCloud target, AlignmentPolicy policy, Op key) =>
         from activePolicy in policy.Admit(key: key)
-        from receipt in (source, target) switch {
+        from alignment in (source, target) switch {
             (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => IcpAlign(source: src, target: tgt, kind: kind, policy: activePolicy, key: key),
-            _ => Fin.Fail<AlignmentReceipt>(error: key.InvalidInput()),
+            _ => Fin.Fail<Alignment>(error: key.InvalidInput()),
         }
-        select receipt;
+        select alignment;
 
-    private static Fin<AlignmentReceipt> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, AlignmentPolicy policy, Op key) =>
+    private static Fin<Alignment> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, AlignmentPolicy policy, Op key) =>
         from bands in Fin.Succ(AlignBands.Of(context: source.Tolerance, policy: policy))
         from neighborhoodPolicy in NeighborhoodPolicy.Of(context: source.Tolerance, key: key)
         from targetNormals in kind.Needs.Admits(AlignNeed.TargetNormals) ? NeighborKernel.OrientNormals(cluster: target, policy: neighborhoodPolicy, key: key).Map(static seq => seq.AsIterable().ToArray()) : Fin.Succ(System.Array.Empty<Vector3d>())
@@ -237,7 +237,7 @@ internal static class AlignKernel {
             }))
         let fullRows = Enumerable.Range(start: 0, count: source.Vertices.Count).ToArray()
         from finalMatch in Correspond(source: source.Vertices, rows: fullRows, sourceMass: sourceMass, target: target, targetMass: targetMass, normals: targetNormals, sourceNormals: sourceNormals, current: final.Current, nearestPolicy: nearestPolicy, sourcePca: sourcePca, targetPca: targetPca, bands: bands, key: key)
-        select new AlignmentReceipt(Transform: final.Current, Kind: kind, Stop: final.Stop.IfNone(AlignmentStopKind.MaxIterationsExhausted), Iterations: final.Iterations, FinalDelta: final.FinalDelta,
+        select new Alignment(Transform: final.Current, Kind: kind, Stop: final.Stop.IfNone(AlignmentStopKind.MaxIterationsExhausted), Iterations: final.Iterations, FinalDelta: final.FinalDelta,
             Robust: final.Step.Robust, Correspondences: finalMatch.Correspondences, Solve: final.Step.Solve, Optimizer: final.Step.Optimizer,
             SimilarityScale: final.Step.Scale);
 
@@ -383,7 +383,7 @@ internal static class AlignKernel {
                let offset = logs.Max()
                let weights = Enumerable.Range(start: 0, count: n).Select(i => rowMass[i] * Math.Exp(d: Math.Max(val1: logs[i] - offset, val2: WelschLogFloor))).ToArray()
                from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, fit: policy.Fit, bands: bands, key: key)
-               select new AlignmentStep(Delta: aligned.Delta, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())), Scale: aligned.Scale);
+               select new AlignmentStep(Delta: aligned.Delta, Robust: Some(new RobustWeights(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())), Scale: aligned.Scale);
     }
 
     internal static Fin<AlignmentStep> SolveNormalWeightedPointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] targetNormals, Vector3d[] sourceNormals, double[] rowMass, Transform current, AlignBands bands, Op key) =>
@@ -413,17 +413,17 @@ internal static class AlignKernel {
             ? result.Iterations == 0 ? AlignmentOptimizerStopKind.StepBelowTolerance : AlignmentOptimizerStopKind.StepAccepted
             : model.LastFault.IsSome ? AlignmentOptimizerStopKind.ModelRefused
             : AlignmentOptimizerStopKind.BudgetExhausted;
-        AlignmentOptimizerReceipt receipt = new(
+        GicpSolve gicp = new(
             Stop: stop, Iterations: result.Iterations, InitialCost: (double)initial.Cost, FinalCost: (double)at.Cost, StepNorm: stepNorm,
             TerminalLambda: result.Lambda, MeanMahalanobis: at.MeanMahalanobis, MaxMahalanobis: at.MaxMahalanobis,
-            RegularizedCovarianceCount: at.RegularizedCount, CovarianceRidge: at.Ridge, SourcePca: sourcePca.Receipt, TargetPca: targetPca.Receipt);
+            RegularizedCovarianceCount: at.RegularizedCount, CovarianceRidge: at.Ridge, SourcePca: sourcePca.Census, TargetPca: targetPca.Census);
         Transform delta = result.Iterations == 0
             ? Transform.Identity
             : ComposeRigidTransform(
                 omega: new Vector3d(x: result.Parameters[0], y: result.Parameters[1], z: result.Parameters[2]),
                 translation: new Vector3d(x: result.Parameters[3], y: result.Parameters[4], z: result.Parameters[5]),
                 bands: bands);
-        return new AlignmentStep(Delta: delta, Optimizer: Some(receipt),
+        return new AlignmentStep(Delta: delta, Optimizer: Some(gicp),
             Stop: !converged ? Some(AlignmentStopKind.OptimizerStopped)
                 : result.Iterations == 0 ? Some(AlignmentStopKind.Converged)
                 : Option<AlignmentStopKind>.None);
@@ -518,10 +518,10 @@ internal static class AlignKernel {
             }
             return Matrix.Of(rows: Dimension.Create(value: n), cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat), key: key)
                 .Bind(design => design.LeastSquaresDetailed(rhs: new Arr<double>(b), key: key))
-                .Bind(receipt => receipt.Solution.Count == 6 && receipt.Solution.ForAll(RhinoMath.IsValidDouble)
+                .Bind(solve => solve.Solution.Count == 6 && solve.Solution.ForAll(RhinoMath.IsValidDouble)
                     ? Fin.Succ(new AlignmentStep(
-                        Delta: ComposeRigidTransform(omega: new Vector3d(x: receipt.Solution[0], y: receipt.Solution[1], z: receipt.Solution[2]), translation: new Vector3d(x: receipt.Solution[3], y: receipt.Solution[4], z: receipt.Solution[5]), bands: bands),
-                        Solve: Some(receipt)))
+                        Delta: ComposeRigidTransform(omega: new Vector3d(x: solve.Solution[0], y: solve.Solution[1], z: solve.Solution[2]), translation: new Vector3d(x: solve.Solution[3], y: solve.Solution[4], z: solve.Solution[5]), bands: bands),
+                        Solve: Some(solve)))
                     : Fin.Fail<AlignmentStep>(key.InvalidResult()));
         });
     }
@@ -695,15 +695,15 @@ config:
 ---
 flowchart LR
     accTitle: Registration dispatch
-    accDescr: Alignment flows through neighborhood correspondence, solver rows, matrix owners, and a gated transform receipt.
+    accDescr: Alignment flows through neighborhood correspondence, solver rows, matrix owners, and a gated transform.
     VectorIntent -->|Align| AlignKind
     AlignKind -->|AlignDetailed| Fold["outer fold: correspond → solve → compose"]
     Fold -->|kNN substrate| Neighbors["neighbors: Nearest / PCA / normals"]
     Fold -->|row delegate| Solvers["6 inner solves"]
     Solvers -->|SVD / LSQ| MatrixOwners["matrix: Matrix / SymmetricMatrix"]
     Solvers -->|"GICP: GicpModel : ILmModel"| Lm["Solving Lm.Minimize λ-ladder"]
-    Fold -->|converged| AlignmentReceipt
-    AlignmentReceipt -->|"Project&lt;Transform&gt; gated on Converged"| Transform
+    Fold -->|converged| Alignment
+    Alignment -->|"Project&lt;Transform&gt; gated on Converged"| Transform
     Fold -.->|Fin fail| Op
 ```
 
@@ -711,7 +711,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

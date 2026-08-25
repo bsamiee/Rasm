@@ -144,7 +144,7 @@ Dimension families ship `1d`/`2d`/`3d` variants over one dimension-parametric ow
 [LOCAL_ADMISSION]:
 - trainables are inexact-array leaves and configuration (sizes, flags, activation choices) is `static_field`/`field(static=True)`, so config never enters tracing.
 - model construction runs once outside the JIT loop with an explicit PRNG `key`; only the `(params, opt_state)` pair flows per step, recombined with the captured `static` inside the loss.
-- training receipt captures the `(model_structure, gradient)` pair with the `optax`/`optimistix` step count; serialization is `tree_serialise_leaves` against a fresh-constructed template.
+- training retains the `(model_structure, gradient)` pair with the `optax`/`optimistix` step count; serialization is `tree_serialise_leaves` against a fresh-constructed template.
 
 [RAIL_LAW]:
 - Package: `equinox`

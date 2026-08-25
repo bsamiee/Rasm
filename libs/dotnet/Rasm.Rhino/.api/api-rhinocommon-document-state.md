@@ -105,7 +105,7 @@ This catalog owns the document-scoped saved-state presets — named construction
 
 [LOCAL_ADMISSION]:
 - a preset enters through the owning table's `Save` or `Add`; restore and update return `bool` outcomes the rail lifts to `Fin`; snapshot participation enters once through `RegisterSnapShotClient`.
-- live `ConstructionPlane`, `Worksession`, and archive-reader handles stay inside the document grant; downstream code receives detached preset values, decoded transforms, or projected receipts.
+- live `ConstructionPlane`, `Worksession`, and archive-reader handles stay inside the document grant; downstream code receives detached preset values, decoded transforms, or detached results.
 
 [RAIL_LAW]:
 - Surface: `Rhino.DocObjects.Tables` named-preset tables + `Rhino.DocObjects` cplane and worksession carriers + `Rhino.DocObjects.SnapShots` participation

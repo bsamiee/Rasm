@@ -115,7 +115,7 @@ One operator vocabulary carries both engine suffixes: `*AsyncLinqToDB` forces th
 
 [LOCAL_ADMISSION]:
 - Bridge surfaces operate on contexts admitted through the store-profile algebra.
-- Bulk-copy options and `BulkCopyRowsCopied` are profile receipts.
+- Bulk-copy options are profile policy and `BulkCopyRowsCopied` reports progress.
 - Interceptors and mapping schemas enter through an explicit `UseLinqToDB` `Action<LinqToDBContextOptionsBuilder>` declaration.
 - Lifted reads stay out of the EF change tracker until `EnableChangeTracker` is set, and `CreateLinqToDBConnectionDetached` is the change-tracker-free path for high-throughput reads.
 

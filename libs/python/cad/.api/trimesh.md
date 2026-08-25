@@ -1,6 +1,6 @@
 # [PY_CAD_API_TRIMESH]
 
-`trimesh` contributes one public glTF decode to the OCCT provider: the emitted GLB is re-read as a scene graph, and its placements, unique mesh faces, closure, and volume become the receipt the unary reply carries. Decode is the whole role here — mesh conditioning, boolean work, and file authoring stay with the geometry branch's own registration of this distribution.
+`trimesh` contributes one public glTF decode to the OCCT provider: the emitted GLB is re-read as a scene graph, and its placements, unique mesh faces, closure, and volume become the census the unary reply carries. Decode is the whole role here — mesh conditioning, boolean work, and file authoring stay with the geometry branch's own registration of this distribution.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -57,7 +57,7 @@
 
 [STACKING]:
 - `cadquery-ocp`(`.api/cadquery-ocp.md`): `RWGltf_CafWriter.Perform` writes the XCAF document to a provider-owned path and `load_scene` re-reads exactly those bytes, so the two meet at the file alone and no OCCT handle crosses.
-- within-lib `metrology/census` owner: folds decode, placement collapse, face sum, weld, and split into the one census both receipts read, so no sibling page opens a scene of its own.
+- within-lib `metrology/census` owner: folds decode, placement collapse, face sum, weld, and split into the one census both native legs read, so no sibling page opens a scene of its own.
 
 [LOCAL_ADMISSION]:
 - `trimesh` is admitted here for emitted-artifact census alone; repair, boolean work, and authoring route to geometry's registration at its own stratum.

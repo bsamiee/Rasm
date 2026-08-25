@@ -145,12 +145,12 @@ def carved(body: TopoDS_Shape, tools: Sequence[TopoDS_Shape], coordinate: str, /
 - Owner: `generated` — one spine from a `PlacedProfile` to one solid: place the faces, run the per-face arm, fold the run through `merged`.
 - Cases: `Extrusion` is that per-face arm, and extrude, revolve, thick, and sweep are four values of it rather than four bodies that each re-spelled place-then-extrude-then-unite.
 - Law: STATED COLLAPSE — primitives and generative sweeps share one identity regime and one page, which LOSES the analytic-versus-generated distinction as a TYPE; after this fold nothing in the type system separates a box from a loft.
-- Law: that discriminant stays recoverable from the value as the `ExecuteRequest.operation` field the arm fold routes on and as the refusal coordinate each arm stamps, so what the collapse costs is a receipt column and never an identity.
+- Law: that discriminant stays recoverable from the value as the `ExecuteRequest.operation` field the arm fold routes on and as the refusal coordinate each arm stamps, so the collapse costs no wire column â the caller holds the operation it asked for, and no reply restates it.
 - Law: a negative thickness walls inward, so the offset sign alone elects which prism bounds the shell; the wire keeps `thickness_m` non-zero, which is what makes that election total without a third arm or a mode flag.
 - Law: the pipe shell fixes corrected-Frenet transport, transformed transitions, no contact, and section correction, which the wire declares non-public kernel vocabulary rather than a knob a caller tunes.
 - Law: a swept face carries its holes as bored pipe shells cut from the outer solid, so a hole survives the sweep instead of collapsing into the body an outer-wire-only sweep returns.
 - Law: `IsDone` alone admits a pipe shell the status still grades as degenerate, so both gates hold before `MakeSolid` and the status ordinal rides the refusal coordinate.
-- Boundary: source-artifact arms, the kernel receipt at `metrology/properties#RECEIPT`, and the seal handoff belong to `brep/operation#ARMS`; every arm here reads parameters and a frame alone.
+- Boundary: source-artifact arms, the kernel measure at `metrology/properties#MEASURE`, and the seal handoff belong to `brep/operation#ARMS`; every arm here reads parameters and a frame alone.
 
 ```python
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -300,7 +300,4 @@ def lofted(op: LoftOp, /) -> CadRail[TopoDS_Shape]:
 
 ## [06]-[RESEARCH]
 
-- [PRIMITIVE_ROSTER]-[OPEN]: does the arm fold read `PRIMITIVE` here the way it reads `BOOLEANS` at its owner, or does a second primitive table stand at `brep/operation#ARMS`; settle one roster before realization.
-- [PARTIAL_PRIMITIVE]-[OPEN]: which angle-bounded `BRepPrimAPI_MakeSphere`/`MakeCylinder`/`MakeCone`/`MakeTorus` overloads exist, so a bounded primitive earns a request shape; census the installed rail and card the wire fields.
-- [RECEIPT_OPERATION]-[OPEN]: does `BrepKernelReceipt` carry the minting operation, so an analytic primitive stays distinguishable from a generated sweep after the fold; route a wire card at the contracts corpus.
-- [SOLID_MEMBERS]-[OPEN]: does the catalogue carry `BRepTools.OuterWire_s`, the `BRepPrimAPI_MakeBox(gp_Ax2, dx, dy, dz)` overload, `BRepOffsetAPI_MakePipeShell.SetMode`/`SetTransitionMode`/`MakeSolid`, and `Precision.Confusion_s`; census the installed rail.
+(none)

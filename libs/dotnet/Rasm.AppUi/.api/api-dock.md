@@ -319,7 +319,7 @@
 |  [08]   | `DockCapabilityResolver.Evaluate(IDockable, DockCapability, IDock?)`   | static   | resolution with provenance  |
 |  [09]   | `DockCapabilityResolver.IsEnabled(IDockable, DockCapability, IDock?)`  | static   | effective `bool` alone      |
 |  [10]   | `DockCapabilityResolver.ResolveOperationDock`/`ResolveDropTargetDock`  | static   | the dock context it reads   |
-|  [11]   | `DockCapabilityEvaluation`                                             | class    | one resolution's receipt    |
+|  [11]   | `DockCapabilityEvaluation`                                             | class    | one resolution result       |
 |  [12]   | `DockCapabilityValueSource`                                            | enum     | which rung decided          |
 
 - `DockCapability` members: `Close` `Pin` `Float` `Drag` `Drop` `DockAsDocument`; `DockCapabilityValueSource` members: `Dockable` `RootPolicy` `DockPolicy` `DockableOverride`.

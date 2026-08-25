@@ -1,8 +1,8 @@
 # [PY_DATA_GRID]
 
-The discrete-global-grid owner, split out of the geospatial claims plane so the DGG plane is governance-visible: `GridSystem` folds cell indexing, measurement, traversal, and hierarchy as vectorized polars expressions over `h3ronpy` Arrow cell ops, with the `polars-st` frame-native geometry vocabulary beside the cell ops so one frame carries geometry AND cells in one vectorized engine. Grid is the terminal tier — it imports `spatial/query` and `tabular/columnar` and is imported by nothing.
+The discrete-global-grid owner, split out of the geospatial claims plane so the DGG plane is governance-visible: `GridSystem` folds cell indexing, measurement, traversal, and hierarchy as vectorized polars expressions over `h3ronpy` Arrow cell ops, with the `polars-st` frame-native geometry vocabulary beside the cell ops so one frame carries geometry AND cells in one vectorized engine. Grid is the terminal tier — it imports `spatial/query` and is imported by nothing.
 
-The two-H3-substrate boundary is law: in-frame vectorized cell algebra lives here, in-DB binning on `spatial/query#SPATIAL`, and `engine_bin` composes that engine downward for columnar input. Cells, vertexes, and edges stay `u64` indexes flowing zero-copy through the Arrow/polars pipeline; every run keys by `ContentIdentity` through the shared `columnar` `QueryReceipt`. `GridScheme.S2` is the standing deferred hold — `xarray-spatial`'s `numba` core is the blocker and numba cp315 the activation — so it holds no row on the served-scheme roster and `GridSystem.of` refuses it at construction.
+The two-H3-substrate boundary is law: in-frame vectorized cell algebra lives here, in-DB binning on `spatial/query#SPATIAL`, and `engine_bin` composes that engine downward for columnar input. Cells, vertexes, and edges stay `u64` indexes flowing zero-copy through the Arrow/polars pipeline. `_SCHEME_ENGINE` admits the served schemes, and `GridSystem.of` refuses any absent row at construction.
 
 ## [01]-[INDEX]
 
@@ -11,10 +11,9 @@ The two-H3-substrate boundary is law: in-frame vectorized cell algebra lives her
 ## [02]-[GRID]
 
 - Owner: `GridSystem` — ONE entry `run(request)` over the `GridRequest` plane axis, whose `cells`/`lift`/`geometry` cases carry the `GridOp`, `GeoLift`, and `GeoFrameOp` vocabularies with exactly the operands each plane takes, so the substrate a request runs on is recoverable from the value instead of from the method a caller picked; every frame-geometry verb is one `_GEO_VERB` row stating the operands it admits and resolved off the `.st` accessor by name, never a per-verb method family, and the `CellKind` axis routes the index-kind prefix once so the three parallel h3ronpy families never grow a parallel `GridOp` row each.
-- Cases: `_plan` is the one dispatch minting a request's whole route — the step the span and receipt name, the kernel that ran it, the provider raise set that kernel spells, and the thunk — so no plane forks a second span, catch, or receipt site; `Metric.of_area(unit)` projects an `AreaUnit` into the matching area row, so there is no parallel `Area` sibling case.
+- Cases: `_plan` is the one dispatch minting a request's whole route — the step, the provider raise set that kernel spells, and the thunk — so no plane forks a second span or catch site; `Metric.of_area(unit)` projects an `AreaUnit` into the matching area row, so there is no parallel `Area` sibling case.
 - Entry: capability refuses at CONSTRUCTION, never inside the fold — `GridSystem.of` admits only a scheme the `_SCHEME_ENGINE` roster serves and hands the admitted system its kernel name as evidence, `GridOp.Boundary` proves its `(form, kind)` corner against the same `_BOUNDARY` roster the fold reads, `GridOp.Rasterize` refuses a non-positive extent, and the `GeoFrameOp` factories refuse through one `_admitted` gate whose comparison closes both halves of every operand corner — a distanceless `dwithin`, a distance on a geometry-only verb, a scalar handed to a nullary measure; the grid boundary then catches the h3ronpy FFI fault family per plane row, never an un-narrowed `Exception`.
 - Auto: the geometry-to-cells leg reads the polars-st WKB `GeoExpr` column directly, so the DGGS index shares the one WKB encoding the `spatial/geospatial#GEO` claims and the `spatial/query#SPATIAL` engine speak; a raster nodata is the CALLER's declaration on the raster factories — the ingress carries `Option[float]` whose `Nothing` masks no pixel and the egress carries a required fill, because the provider's own `nodata_value=0` default writes a real zero over unwritten pixels and a scene holding genuine zeros then cannot tell fill from measurement; `set_failing_to_invalid` keeps array length stable on parse failure, so an invalid cell is a null data row, never a raised exception in the array pipeline; `H3_CRS` and `DEFAULT_CELL_COLUMN` are page-owned anchors with one declaration site, never a per-arm literal; every `arro3` return crosses into polars through `pl.from_arrow` over the Arrow PyCapsule interface, never a positional `pl.Series(name, array)` intake.
-- Receipt: the shared `tabular/columnar` `QueryReceipt.railed` over the result frame, the `engine` carrying the route the plan row named — the scheme's own kernel for a cell request, `polars-st` for the frame-geometry planes; `GridResult` pairs the frame with that receipt, no new receipt rail.
 - Packages: `h3ronpy` and `polars-st` ride the Forge scientific source build band and bind in-process, never across a subprocess seam — each declares ONE module-scope `lazy import`/`lazy from` line and reifies on the first cell operation, so the compiled band costs an unrelated import nothing while the eager module-level form the manifest bans never appears; the `_BOUNDARY` row and the `Containment` mode carry member NAMES resolved at the call seam, because a module-scope cell over a live kernel attribute reifies the whole band at import. The polars-st LGPL-2.1 dynamic-linkage posture stays recorded on `data/.api/polars-st.md`.
 - Growth: a new cell operation is one `GridOp` case; a new request plane is one `GridRequest` case with one `_plan` arm carrying its route, rostered row, catch set, and thunk; a new refusal law is one `FaultRow` row under `DataLeg.GRID` in this module's one `RAISES` table; a new index kind one `CellKind` row; a new scalar metric one `Metric`/`AreaUnit` row; a new coverage policy one `ContainmentMode` row; a new cell egress one `_BOUNDARY` row the construction gate reads free; a new frame-geometry verb one `_GEO_VERB` row beside its literal, the gate and the fold reading it free; a new grid scheme one `GridScheme` member and the `_SCHEME_ENGINE` row that serves it.
 - Boundary: no host coupling, no durable cell store, no lonboard/GeoArrow visualization (`artifacts` owns it); the claims plane is `spatial/geospatial#GEO`, the in-DB engine `spatial/query#SPATIAL`, and never a second WKB geometry encoding or a parallel H3 column owner beside them.
@@ -50,8 +49,7 @@ lazy from h3ronpy import (
 lazy from h3ronpy.raster import nearest_h3_resolution, raster_to_dataframe, rasterize_cells
 lazy from h3ronpy.vector import cells_bounds_arrays, coordinates_to_cells, geometry_to_cells, wkb_to_cells
 
-from rasm.data.spatial.query import SpatialEngine, SpatialQuery, SpatialResult
-from rasm.data.tabular.columnar import QueryReceipt
+from rasm.data.spatial.query import SpatialEngine, SpatialQuery
 from rasm.data.tabular.interop import DataLeg
 from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 
@@ -351,25 +349,17 @@ class GridRequest:
         return GridRequest(geometry=(op, frame))
 
 
-class GridResult(Struct, frozen=True):
-    frame: "pl.DataFrame"
-    receipt: QueryReceipt
-
-
 class _Plan(Struct, frozen=True):
     step: str
-    engine: str
     at: "FaultRow[DataLeg]"
     catch: Catch
     work: Callable[[], "pl.DataFrame"]
 
 
 _SCHEME_ENGINE: Final[Map[GridScheme, str]] = Map.of_seq([(GridScheme.H3, "h3ronpy.h3")])
-_FRAME_ENGINE: Final[str] = "polars-st"
 
 
 class GridSystem(Struct, frozen=True):
-    engine: str
     scheme: GridScheme = GridScheme.H3
     cell_column: str = DEFAULT_CELL_COLUMN
     crs: str = H3_CRS
@@ -380,34 +370,30 @@ class GridSystem(Struct, frozen=True):
     ) -> "RuntimeRail[GridSystem]":
         return _SCHEME_ENGINE.try_find(scheme).to_result_with(
             lambda: GRID_SCHEME.raised(scheme.value)
-        ).map(lambda engine: cls(engine=engine, scheme=scheme, cell_column=cell_column, crs=crs))
+        ).map(lambda _engine: cls(scheme=scheme, cell_column=cell_column, crs=crs))
 
-    def run(self, request: GridRequest) -> "RuntimeRail[GridResult]":
+    def run(self, request: GridRequest) -> "RuntimeRail[pl.DataFrame]":
         plan = self._plan(request)
         subject = f"spatial.grid.{self.scheme.value}.{request.tag}.{plan.step}"
         with _TRACER.start_as_current_span(
             subject, attributes={"rasm.geo.scheme": self.scheme.value, "rasm.geo.plane": request.tag, "rasm.geo.op": plan.step}
         ):
-            return boundary(plan.at, plan.work, catch=plan.catch).bind(
-                lambda frame: QueryReceipt.railed(plan.engine, plan.step, frame.to_arrow()).map(
-                    lambda receipt: GridResult(frame=frame, receipt=receipt)
-                )
-            )
+            return boundary(plan.at, plan.work, catch=plan.catch)
 
-    def engine_bin(self, table: "pa.Table", geometry_view: str, resolution: int) -> "RuntimeRail[SpatialResult]":
+    def engine_bin(self, table: "pa.Table", geometry_view: str, resolution: int) -> "RuntimeRail[pa.Table]":
         return SpatialEngine.of({geometry_view: table}).run(SpatialQuery.H3Bin(geometry_view, resolution))
 
     def _plan(self, request: GridRequest) -> _Plan:
         match request:
             case GridRequest(tag="cells", cells=(op, frame)):
                 return _Plan(
-                    step=op.tag, engine=self.engine, at=GRID_CELLS, catch=(ValueError, KeyError, RuntimeError),
+                    step=op.tag, at=GRID_CELLS, catch=(ValueError, KeyError, RuntimeError),
                     work=lambda: self._grid(op, frame),
                 )
             case GridRequest(tag="lift", lift=lift):
-                return _Plan(step=lift.tag, engine=_FRAME_ENGINE, at=GRID_LIFT, catch=(ValueError, OSError), work=lambda: _lift(lift))
+                return _Plan(step=lift.tag, at=GRID_LIFT, catch=(ValueError, OSError), work=lambda: _lift(lift))
             case GridRequest(tag="geometry", geometry=(op, frame)):
-                return _Plan(step=op.tag, engine=_FRAME_ENGINE, at=GRID_GEOMETRY, catch=(ValueError, KeyError), work=lambda: _geo(op, frame))
+                return _Plan(step=op.tag, at=GRID_GEOMETRY, catch=(ValueError, KeyError), work=lambda: _geo(op, frame))
             case unreachable:
                 assert_never(unreachable)
 

@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [02]-[ARC_VOCABULARY]: `MaterialSide`, `CutSense`, `LeadRole`, `ArcRelation`, `ArcBound`, `ArcForest`, and the `LeadShape`, `ArcProbe`, `ArcProjection`, `ArcOffsetSource`, `ArcOp` request families.
-- [03]-[ARC_EVIDENCE]: `ArcLoopEvidence`, `ArcPairEvidence`, `ArcSelfEvidence`, `ArcReceipt`, `MotionReceipt`, `DensifyEvidence`, `RecoverEvidence`, `ArcInspection`, and the `ArcTrace` egress.
+- [03]-[ARC_EVIDENCE]: `ArcLoopEvidence`, `ArcPairEvidence`, `ArcSelfEvidence`, `ArcEvidence`, `ArcMotionEvidence`, `DensifyEvidence`, `RecoverEvidence`, `ArcInspection`, and the `ArcTrace` egress.
 - [04]-[ARC_EXECUTION]: `ArcAlgebra.Apply`, the frozen `ArcAlgebra.Densify` projection seam, and the native kernels behind them.
 
 ## [02]-[ARC_VOCABULARY]
@@ -206,12 +206,12 @@ public abstract partial record ArcOp {
 
 ## [03]-[ARC_EVIDENCE]
 
-- Owner: `ArcReceipt` owns offset, Boolean, compensation, and cleanup evidence; `MotionReceipt` owns lead and engagement paths with their solver census; `DensifyEvidence` and `RecoverEvidence` own the two projection directions; `ArcInspection` owns exact native measurement; `ArcTrace` owns the one egress family.
-- Cases: `ArcReceipt` discriminates its four lanes without empty pair fields or a stage tag, and `MotionReceipt` discriminates lead paths from engagement paths without default counters. `ArcInspection` returns exact native measurements without flattening distinct query results — arc-exact area, path length, and winding from the admitted loops, `ClosestPointResult` projection carrying its owning loop, and per-loop self-intersection census beside the total.
+- Owner: `ArcEvidence` owns offset, Boolean, compensation, and cleanup evidence; `ArcMotionEvidence` owns lead and engagement paths with their solver census; `DensifyEvidence` and `RecoverEvidence` own the two projection directions; `ArcInspection` owns exact native measurement; `ArcTrace` owns the one egress family.
+- Cases: `ArcEvidence` discriminates its four lanes without empty pair fields or a stage tag, and `ArcMotionEvidence` discriminates lead paths from engagement paths without default counters. `ArcInspection` returns exact native measurements without flattening distinct query results — arc-exact area, path length, and winding from the admitted loops, `ClosestPointResult` projection carrying its owning loop, and per-loop self-intersection census beside the total.
 - Law: every engagement column is MEASURED. `Levels` is how many offset levels the stock actually admitted before it exhausted, `DepthMm` the inward reach those levels attained, and the raw census the provider's own segment, slice, and reachable-vertex counts — a column echoing back a caller's own request argument is false evidence and is the deleted form.
-- Receipt: `DensifyEvidence` retains the provider-enforced error bound, source and output span census, and bounds; `RecoverEvidence` retains requested and sampled achieved error, source and output span census, fit census, and bounds. Neither carries a content key, an evidence band, or a stamp, so neither takes a `*Receipt` name — both ARE the `TEvidence` a settled carrier seats, which is exactly why `ArcReceipt` and `MotionReceipt` keep theirs: those close CASE FAMILIES of per-lane evidence rather than single measurement records.
-- Receipt: `ArcTrace.Lowering` and `ArcTrace.Recovery` are TOTAL projections over the whole family, so both directions read the same way and a widened family breaks at compile time; the `Option`-shaped half-projection that served only the lowering direction left every recovery consumer spelling its own type test.
-- Growth: new provider evidence enriches the existing receipts rather than minting a parallel one.
+- Evidence: `DensifyEvidence` retains the provider-enforced error bound, source and output span census, and bounds; `RecoverEvidence` retains requested and sampled achieved error, source and output span census, fit census, and bounds. `ArcEvidence` and `ArcMotionEvidence` close their operation-specific evidence variants.
+- Result: `ArcTrace.Lowering` and `ArcTrace.Recovery` are TOTAL projections over the whole family, so both directions read the same way and a widened family breaks at compile time; the `Option`-shaped half-projection that served only the lowering direction left every recovery consumer spelling its own type test.
+- Growth: new provider evidence enriches the existing results rather than minting a parallel one.
 
 ```csharp
 // --- [EVIDENCE] ------------------------------------------------------------------------
@@ -228,16 +228,16 @@ public readonly record struct ArcPairEvidence(
 public readonly record struct ArcSelfEvidence(int Loop, int Intersections);
 
 [Union]
-public abstract partial record ArcReceipt {
-    public sealed record Offset(Seq<ArcLoopEvidence> Loops) : ArcReceipt;
-    public sealed record Boolean(Seq<ArcLoopEvidence> Loops, Seq<ArcPairEvidence> Pairs) : ArcReceipt;
-    public sealed record Kerf(Seq<ArcLoopEvidence> Loops) : ArcReceipt;
-    public sealed record Clean(Seq<ArcLoopEvidence> Loops) : ArcReceipt;
+public abstract partial record ArcEvidence {
+    public sealed record Offset(Seq<ArcLoopEvidence> Loops) : ArcEvidence;
+    public sealed record Boolean(Seq<ArcLoopEvidence> Loops, Seq<ArcPairEvidence> Pairs) : ArcEvidence;
+    public sealed record Kerf(Seq<ArcLoopEvidence> Loops) : ArcEvidence;
+    public sealed record Clean(Seq<ArcLoopEvidence> Loops) : ArcEvidence;
 }
 
 [Union]
-public abstract partial record MotionReceipt {
-    public sealed record Lead(Seq<Move> Path) : MotionReceipt;
+public abstract partial record ArcMotionEvidence {
+    public sealed record Lead(Seq<Move> Path) : ArcMotionEvidence;
     public sealed record Engagement(
         Seq<Move> Path,
         int Levels,
@@ -245,16 +245,16 @@ public abstract partial record MotionReceipt {
         int ValidSlices,
         int ReachableVertices,
         int EmittedSpans,
-        double DepthMm) : MotionReceipt;
+        double DepthMm) : ArcMotionEvidence;
 
     public Seq<Move> Moves => Switch(
-        lead: static receipt => receipt.Path,
-        engagement: static receipt => receipt.Path);
+        lead: static result => result.Path,
+        engagement: static result => result.Path);
 }
 
 public sealed record DensifyEvidence(
     Loop Exact,
-    Loop Result,
+    Loop Output,
     double ErrorBound,
     int SourceSpans,
     int OutputSpans,
@@ -262,7 +262,7 @@ public sealed record DensifyEvidence(
 
 public sealed record RecoverEvidence(
     Loop Chords,
-    Loop Result,
+    Loop Output,
     double ErrorBound,
     double AchievedError,
     int SourceSpans,
@@ -284,10 +284,10 @@ public abstract partial record ArcInspection {
 
 [Union]
 public abstract partial record ArcTrace {
-    public sealed record Forest(ArcForest Result, ArcReceipt Receipt) : ArcTrace;
-    public sealed record Paths(Seq<Loop> Result, ArcReceipt Receipt) : ArcTrace;
-    public sealed record Motion(MotionReceipt Receipt) : ArcTrace;
-    public sealed record Inspection(ArcInspection Result) : ArcTrace;
+    public sealed record Forest(ArcForest Geometry, ArcEvidence Evidence) : ArcTrace;
+    public sealed record Paths(Seq<Loop> Geometry, ArcEvidence Evidence) : ArcTrace;
+    public sealed record Motion(ArcMotionEvidence Evidence) : ArcTrace;
+    public sealed record Inspection(ArcInspection Evidence) : ArcTrace;
     public sealed record Densified(DensifyEvidence Evidence) : ArcTrace;
     public sealed record Recovered(RecoverEvidence Evidence) : ArcTrace;
 
@@ -330,14 +330,14 @@ public static class ArcAlgebra {
             forest: source => OffsetForest(
                 source.Value,
                 request.Distance,
-                static loops => new ArcReceipt.Offset(loops)),
+                static loops => new ArcEvidence.Offset(loops)),
             path: source => OffsetPath(source.Value, request.Distance)),
         boolean: static request => Boolean(request.Subject, request.Clip, request.Kind),
         kerf: static request => Admits(request.Width, ArcBound.Positive, "arc-kerf:width").Bind(width =>
             OffsetForest(
                 request.Forest,
                 request.Side.Signed(width / 2.0),
-                static loops => new ArcReceipt.Kerf(loops))),
+                static loops => new ArcEvidence.Kerf(loops))),
         lead: static request => Lead(request),
         adaptive: static request => Adaptive(request),
         inspect: static request => Inspect(request.Forest, request.Probe),
@@ -345,19 +345,19 @@ public static class ArcAlgebra {
 
     public static Fin<ArcTrace> Densify(ArcProjection projection) => projection.Switch(
         lower: static request => Lower(request.Loop, request.Error)
-            .Map<ArcTrace>(static receipt => new ArcTrace.Densified(receipt)),
+            .Map<ArcTrace>(static result => new ArcTrace.Densified(result)),
         recover: static request => Recover(request.Chords, request.Error, request.ProbeFloor)
-            .Map<ArcTrace>(static receipt => new ArcTrace.Recovered(receipt)));
+            .Map<ArcTrace>(static result => new ArcTrace.Recovered(result)));
 
     private static Fin<ArcTrace> OffsetForest(
         ArcForest forest,
         double distance,
-        Func<Seq<ArcLoopEvidence>, ArcReceipt> receipt) =>
+        Func<Seq<ArcLoopEvidence>, ArcEvidence> result) =>
         Admits(distance, ArcBound.Finite, "arc-offset:distance").Bind(value => ForestOf(
             (forest.Loops.IsEmpty ? Shape<double>.Empty() : ShapeOf(forest.Loops))
                 .ParallelOffset(value, ShapeOptions(forest.Tolerance)),
             forest,
-            receipt));
+            result));
 
     private static Fin<ArcTrace> OffsetPath(Loop path, double distance) =>
         from value in Admits(distance, ArcBound.Finite, "arc-offset:distance")
@@ -366,7 +366,7 @@ public static class ArcAlgebra {
                 .Traverse(pline => FromPline(pline, path.Tolerance, path.Plane))
                 .As()
         let loops = paths.ToSeq()
-        select (ArcTrace)new ArcTrace.Paths(loops, new ArcReceipt.Offset(Census(loops)));
+        select (ArcTrace)new ArcTrace.Paths(loops, new ArcEvidence.Offset(Census(loops)));
 
     private static Fin<ArcTrace> Boolean(ArcForest subject, ArcForest clip, BoolKind kind) =>
         Compatible(subject, clip, "arc-boolean").Bind(_ => {
@@ -402,7 +402,7 @@ public static class ArcAlgebra {
                     .Bind(boundary => ForestOf(
                         boundary.IsEmpty ? Shape<double>.Empty() : ShapeOf(boundary),
                         subject,
-                        loops => new ArcReceipt.Boolean(loops, evidence)));
+                        loops => new ArcEvidence.Boolean(loops, evidence)));
         });
 
     private static Fin<Option<Loop>> Boundary(Loop candidate, Seq<Loop> subjects, Seq<Loop> clips, BoolKind kind) {
@@ -442,7 +442,7 @@ public static class ArcAlgebra {
             linear: shape => LinearLead(frame, shape.Length, admitted.Feed, request.Side, request.Role),
             tangent: shape => TangentLead(frame, shape.Radius, shape.Sweep, admitted.Feed, request.Side, request.Role),
             loop: shape => LoopLead(frame, shape.Radius, admitted.Feed, request.Side, request.Role))
-        select (ArcTrace)new ArcTrace.Motion(new MotionReceipt.Lead(path));
+        select (ArcTrace)new ArcTrace.Motion(new ArcMotionEvidence.Lead(path));
 
     private static Fin<ArcTrace> Adaptive(ArcOp.Adaptive request) =>
         request.Stock.Loops.IsEmpty
@@ -470,7 +470,7 @@ public static class ArcAlgebra {
                let emitted = pathMoves.Bind(static moves => moves).ToSeq()
                from trace in emitted.IsEmpty
                    ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-adaptive:no-valid-slices"))
-                   : Fin.Succ<ArcTrace>(new ArcTrace.Motion(new MotionReceipt.Engagement(
+                   : Fin.Succ<ArcTrace>(new ArcTrace.Motion(new ArcMotionEvidence.Engagement(
                        emitted,
                        family.Levels,
                        family.Census.RawSegments,
@@ -596,7 +596,7 @@ public static class ArcAlgebra {
                 : Fin.Succ(loop)))
         .As()
         .Bind(rows => ArcForest.Admit(rows.ToSeq(), forest.Tolerance, forest.Plane))
-        .Map<ArcTrace>(clean => new ArcTrace.Forest(clean, new ArcReceipt.Clean(Census(clean.Loops))));
+        .Map<ArcTrace>(clean => new ArcTrace.Forest(clean, new ArcEvidence.Clean(Census(clean.Loops))));
 
     private static Polyline<double> Reduced(Loop loop) {
         double epsilon = loop.Tolerance.Absolute.Value;
@@ -737,12 +737,12 @@ public static class ArcAlgebra {
     private static Fin<ArcTrace> ForestOf(
         Shape<double> shape,
         ArcForest source,
-        Func<Seq<ArcLoopEvidence>, ArcReceipt> receipt) {
+        Func<Seq<ArcLoopEvidence>, ArcEvidence> result) {
         Seq<OffsetLoop<double>> native = toSeq(shape.CcwPlines).Concat(toSeq(shape.CwPlines));
         return native.Map(static row => row.IndexedPline.Polyline)
             .Traverse(pline => FromPline(pline, source.Tolerance, source.Plane)).As()
             .Bind(loops => ArcForest.Admit(loops.ToSeq(), source.Tolerance, source.Plane))
-            .Map<ArcTrace>(forest => new ArcTrace.Forest(forest, receipt(
+            .Map<ArcTrace>(forest => new ArcTrace.Forest(forest, result(
                 native.Zip(forest.Loops).Map(static pair => new ArcLoopEvidence(
                     pair.Second,
                     pair.First.ParentLoopIdx,
@@ -949,7 +949,6 @@ public static class ArcAlgebra {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

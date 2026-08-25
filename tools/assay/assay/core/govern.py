@@ -30,27 +30,12 @@ from upath import UPath
 from assay.composition.settings import Ssh
 from assay.composition.store import ArtifactScope
 from assay.core.aspect import ring_recent
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    Check,
-    Claim,
-    Completed,
-    Fault,
-    Mode,
-    RailStatus,
-    Runner,
-)
+from assay.core.model import Artifact, ArtifactKind, Check, Claim, Completed, Fault, Mode, RailStatus, Runner
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Coroutine, Generator, Mapping
 
-    from anyio.abc import (
-        ByteReceiveStream,
-        ObjectReceiveStream,
-        ObjectSendStream,
-        Process,
-    )
+    from anyio.abc import ByteReceiveStream, ObjectReceiveStream, ObjectSendStream, Process
     import asyncssh
 
     from assay.composition.settings import AssaySettings
@@ -174,9 +159,7 @@ class _LoadInfo:
     load1_percent: float | None
 
     def to_rows(self) -> dict[str, float]:
-        mem_rows = (
-            {} if self.mem is None else {"sys.mem_available_bytes": self.mem[0], "sys.mem_percent": self.mem[1], "sys.swap_percent": self.mem[2]}
-        )
+        mem_rows = {} if self.mem is None else {"sys.mem_available_bytes": self.mem[0], "sys.mem_percent": self.mem[1], "sys.swap_percent": self.mem[2]}
         load_rows = {} if self.load1_percent is None else {"sys.load1_percent": self.load1_percent}
         return {**mem_rows, **load_rows}
 
@@ -251,13 +234,7 @@ class _ConcurrencyPressure:
 
     def slot_note(self, index: int, started: float) -> tuple[str, ...]:
         wait_ms = (time.monotonic() - started) * 1000.0
-        return (
-            (
-                f"dotnet.slot index={index} wait_ms={wait_ms:.0f} slots={self.slots} "
-                f"foreign_dotnet={self.foreign_dotnet} mem_percent={self.mem_percent:.1f} "
-                f"original_concurrency={self.original} reduced_concurrency={self.reduced}"
-            ),
-        )
+        return ((f"dotnet.slot index={index} wait_ms={wait_ms:.0f} slots={self.slots} foreign_dotnet={self.foreign_dotnet} mem_percent={self.mem_percent:.1f} original_concurrency={self.original} reduced_concurrency={self.reduced}"),)
 
 
 @dataclass(frozen=True, slots=True)
@@ -297,9 +274,7 @@ def _spilled(path: str, total: int, spill_cap: int) -> bool:
     return bool(path) and total > spill_cap
 
 
-async def drain_stream(
-    recv: ByteRecv, *, tail_cap: int, spill_cap: int, kind: str = "err", sink: WriteSink | None = None, path: str = "", notes: list[str] | None = None
-) -> Captured:
+async def drain_stream(recv: ByteRecv, *, tail_cap: int, spill_cap: int, kind: str = "err", sink: WriteSink | None = None, path: str = "", notes: list[str] | None = None) -> Captured:
     """Drain an async byte source to EOF, carrying the full stdout payload or a bounded stderr preview.
 
     Unterminated final bytes count as one logical line.
@@ -311,7 +286,7 @@ async def drain_stream(
         kind: ``"out"`` retains the full stdout payload (spilling past ``spill_cap``); any other value keeps the stderr preview window.
         sink: Optional disk sink receiving every chunk; when present a spilled stdout payload survives on disk while the bytearray stops.
         path: Artifact path recorded on the resulting capture and consulted by ``Captured.read`` on the spilled path.
-        notes: Optional receipt-note sink; a sink-less stdout overflow appends one ``capture.truncated`` note here.
+        notes: Optional outcome-note sink; a sink-less stdout overflow appends one ``capture.truncated`` note here.
 
     Returns:
         Capture carrying the inline stdout payload or spill marker, the stderr preview, artifact path, byte size, and line count.
@@ -335,14 +310,7 @@ async def drain_stream(
                 body += read
             case _:
                 preview = (preview + read)[-tail_cap:]
-    return Captured(
-        full=b"" if spilled else bytes(body),
-        spilled=spilled,
-        preview=preview,
-        path=path,
-        size=total,
-        lines=lines + (1 if total and last != b"\n" else 0),
-    )
+    return Captured(full=b"" if spilled else bytes(body), spilled=spilled, preview=preview, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
 
 
 def recv_anyio(stream: ByteReceiveStream | None, chunk: int) -> ByteRecv:
@@ -401,9 +369,7 @@ def _write_sink(sink: WriteSink | None, payload: bytes) -> None:
             sink.write(payload)
 
 
-async def drain_pair(
-    plan: ExecPlan, out: ByteRecv, err: ByteRecv, wait: Callable[[], Awaitable[object]], notes: list[str] | None = None
-) -> dict[str, Captured]:
+async def drain_pair(plan: ExecPlan, out: ByteRecv, err: ByteRecv, wait: Callable[[], Awaitable[object]], notes: list[str] | None = None) -> dict[str, Captured]:
     """Drain a process's out/err pair concurrently under the plan's caps, waiting the process to exit.
 
     Returns:
@@ -419,9 +385,7 @@ async def drain_pair(
                     streams[name] = await drain_stream(recv, tail_cap=plan.tail_cap, spill_cap=plan.spill_cap, kind=name, path=path, notes=notes)
                 case _:
                     with handle as sink:
-                        streams[name] = await drain_stream(
-                            recv, tail_cap=plan.tail_cap, spill_cap=plan.spill_cap, kind=name, sink=sink, path=path, notes=notes
-                        )
+                        streams[name] = await drain_stream(recv, tail_cap=plan.tail_cap, spill_cap=plan.spill_cap, kind=name, sink=sink, path=path, notes=notes)
 
         _ = tg.start_soon(_tee, "out", out)
         _ = tg.start_soon(_tee, "err", err)
@@ -487,12 +451,7 @@ def _stall_sample(pid: int) -> StalledProcess:
         return _safe_call(lambda: float(proc.num_ctx_switches().involuntary), 0.0)
 
     tree = _proc_tree(pid)
-    return StalledProcess(
-        cpu_s=sum(_cpu(proc) for proc in tree),
-        invol=sum(_invol(proc) for proc in tree),
-        status=_safe_call(tree[0].status, "") if tree else "",
-        procs=len(tree),
-    )
+    return StalledProcess(cpu_s=sum(_cpu(proc) for proc in tree), invol=sum(_invol(proc) for proc in tree), status=_safe_call(tree[0].status, "") if tree else "", procs=len(tree))
 
 
 def _stall_verdict(first: StalledProcess, second: StalledProcess) -> str:
@@ -559,7 +518,7 @@ async def resource_monitor(pid: int, last_output: list[float], samples: list[tup
     """Append one resource sample per tick until cancelled.
 
     The first tick runs shielded, so a child that exits before the thread hop completes still
-    lands exactly one sampled row and its ``resource.sample`` event — the receipt telemetry
+    lands exactly one sampled row and its ``resource.sample`` event — the result telemetry
     contract is at-least-one, never best-effort racing the process lifetime.
     """
 
@@ -599,17 +558,7 @@ def stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, check
         case None:
             return ()
         case ArtifactScope():
-            return tuple(
-                Artifact(
-                    id=f"{check.tool.name}-{Path(captured.path).parent.name}-{name}",
-                    kind=ArtifactKind.PROCESS,
-                    path=captured.path,
-                    bytes=captured.size,
-                    lines=captured.lines,
-                )
-                for name, captured in streams.items()
-                if captured.path and captured.size
-            )
+            return tuple(Artifact(id=f"{check.tool.name}-{Path(captured.path).parent.name}-{name}", kind=ArtifactKind.PROCESS, path=captured.path, bytes=captured.size, lines=captured.lines) for name, captured in streams.items() if captured.path and captured.size)
 
 
 def captured_outputs(plan: ExecPlan, stdout: bytes, stderr: bytes) -> dict[str, Captured]:
@@ -630,14 +579,7 @@ def _capture_payload(plan: ExecPlan, name: str, payload: bytes) -> Captured:
             path = store.write_bytes(payload, *_process_parts(plan, name))
         case None:
             pass
-    return Captured(
-        full=payload if not _spilled(path, len(payload), plan.spill_cap) else b"",
-        spilled=_spilled(path, len(payload), plan.spill_cap),
-        preview=payload[-plan.tail_cap :],
-        path=path,
-        size=len(payload),
-        lines=line_count(payload),
-    )
+    return Captured(full=payload if not _spilled(path, len(payload), plan.spill_cap) else b"", spilled=_spilled(path, len(payload), plan.spill_cap), preview=payload[-plan.tail_cap :], path=path, size=len(payload), lines=line_count(payload))
 
 
 def line_count(payload: bytes) -> int:
@@ -679,11 +621,7 @@ def _safe_call[T](fn: Callable[[], T], default: T) -> T:
 def _load_info() -> _LoadInfo:
     def _mem() -> tuple[float, float, float]:
         mem, swap = psutil.virtual_memory(), psutil.swap_memory()
-        return (
-            _safe_call(lambda: float(mem.available), -1.0),
-            _safe_call(lambda: float(mem.percent), -1.0),
-            _safe_call(lambda: float(swap.percent), -1.0),
-        )
+        return (_safe_call(lambda: float(mem.available), -1.0), _safe_call(lambda: float(mem.percent), -1.0), _safe_call(lambda: float(swap.percent), -1.0))
 
     def _load() -> float:
         load1 = os.getloadavg()[0]  # ty: ignore[possibly-missing-attribute]
@@ -789,11 +727,7 @@ async def dotnet_slot(check: Check, settings: AssaySettings, deadline: float | N
         contended = 0
         for index in range(pressure.slots):
             stack = contextlib.ExitStack()
-            held = stack.enter_context(
-                exclusive_lease(
-                    f"dotnet-slot-{index}", settings.run_id, settings=settings, project=check.tool.name, mode="dotnet-slot", scope=LeaseScope.MACHINE
-                )
-            )
+            held = stack.enter_context(exclusive_lease(f"dotnet-slot-{index}", settings.run_id, settings=settings, project=check.tool.name, mode="dotnet-slot", scope=LeaseScope.MACHINE))
             match held:
                 case Result(tag="ok"):
                     note = pressure.slot_note(index, started)
@@ -811,9 +745,7 @@ async def dotnet_slot(check: Check, settings: AssaySettings, deadline: float | N
         waited = True
         wait_ms = (time.monotonic() - started) * 1000.0
         _LOG.info("dotnet.slot_wait", contended=contended, slots=pressure.slots, wait_ms=round(wait_ms, 1))
-        trace.get_current_span().add_event(
-            "dotnet.slot_wait", attributes={"slot.contended": contended, "slot.slots": pressure.slots, "slot.wait_ms": wait_ms}
-        )
+        trace.get_current_span().add_event("dotnet.slot_wait", attributes={"slot.contended": contended, "slot.slots": pressure.slots, "slot.wait_ms": wait_ms})
         left = remaining(deadline)
         if left is not None and left <= _DOTNET_SLOT_POLL_S:
             yield Error(Fault((check.tool.name,), status=RailStatus.TIMEOUT, message="dotnet slot wait deadline exceeded"))
@@ -834,40 +766,16 @@ def _concurrency_pressure(settings: AssaySettings, checks: tuple[Check, ...]) ->
     reduced = max(1, original // 2) if mem_pressure or dotnet_pressure else original
     if reduced < original:
         _LOG.info("concurrency.pressure", original=original, reduced=reduced, foreign_dotnet=foreign, mem_percent=round(mem_percent, 1))
-        trace.get_current_span().add_event(
-            "concurrency.pressure",
-            attributes={
-                "pressure.original": original,
-                "pressure.reduced": reduced,
-                "pressure.foreign_dotnet": foreign,
-                "pressure.mem_percent": mem_percent,
-            },
-        )
-    return _ConcurrencyPressure(
-        slots=slots,
-        original=original,
-        reduced=reduced,
-        foreign_dotnet=foreign,
-        mem_percent=mem_percent,
-        mem_pressure=mem_pressure,
-        dotnet_pressure=dotnet_pressure,
-    )
+        trace.get_current_span().add_event("concurrency.pressure", attributes={"pressure.original": original, "pressure.reduced": reduced, "pressure.foreign_dotnet": foreign, "pressure.mem_percent": mem_percent})
+    return _ConcurrencyPressure(slots=slots, original=original, reduced=reduced, foreign_dotnet=foreign, mem_percent=mem_percent, mem_pressure=mem_pressure, dotnet_pressure=dotnet_pressure)
 
 
 def _slot_waits(notes: tuple[str, ...]) -> tuple[float, ...]:
-    return tuple(
-        float(part.removeprefix("wait_ms="))
-        for note in notes
-        if note.startswith("dotnet.slot ")
-        for part in note.split()
-        if part.startswith("wait_ms=") and part.removeprefix("wait_ms=").replace(".", "", 1).isdigit()
-    )
+    return tuple(float(part.removeprefix("wait_ms=")) for note in notes if note.startswith("dotnet.slot ") for part in note.split() if part.startswith("wait_ms=") and part.removeprefix("wait_ms=").replace(".", "", 1).isdigit())
 
 
-def resource_projection(
-    settings: AssaySettings, checks: tuple[Check, ...] = (), *, notes: tuple[str, ...] = (), receipts: tuple[Completed, ...] = ()
-) -> tuple[tuple[str, float], ...]:
-    """Project static resource telemetry from engine pressure, receipts, and process notes.
+def resource_projection(settings: AssaySettings, checks: tuple[Check, ...] = (), *, notes: tuple[str, ...] = (), completed: tuple[Completed, ...] = ()) -> tuple[tuple[str, float], ...]:
+    """Project static resource telemetry from engine pressure, completed processes, and notes.
 
     Returns:
         Sorted key/value telemetry rows suitable for ``StaticRun.resources`` and fault diagnostics.
@@ -884,21 +792,11 @@ def resource_projection(
         "memory.pressure": float(pressure.mem_pressure),
         "dotnet.slot_wait_ms.max": max(waits, default=0.0),
         "proc.stall.count": float(sum(1 for note in notes if note.startswith("proc.stall "))),
-        "process.duration_ms.total": float(sum(done.duration_ms for done in receipts)),
-        "process.duration_ms.max": max((done.duration_ms for done in receipts), default=0.0),
+        "process.duration_ms.total": float(sum(done.duration_ms for done in completed)),
+        "process.duration_ms.max": max((done.duration_ms for done in completed), default=0.0),
     }
-    for key in (
-        "proc.children",
-        "proc.children_rss_bytes",
-        "proc.tree_rss_bytes",
-        "proc.dotnet.count",
-        "proc.csc.count",
-        "proc.last_output_age_s",
-        "sys.mem_percent",
-        "sys.swap_percent",
-        "sys.load1_percent",
-    ):
-        values = tuple(value for done in receipts for name, value in done.resources if name == key)
+    for key in ("proc.children", "proc.children_rss_bytes", "proc.tree_rss_bytes", "proc.dotnet.count", "proc.csc.count", "proc.last_output_age_s", "sys.mem_percent", "sys.swap_percent", "sys.load1_percent"):
+        values = tuple(value for done in completed for name, value in done.resources if name == key)
         if values:
             resources[f"{key}.max"] = max(values)
     return tuple(sorted(resources.items()))
@@ -984,15 +882,7 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
     pressure = _concurrency_pressure(settings, checks)
     match pressure.mem_pressure or pressure.dotnet_pressure:
         case True:
-            _LOG.warning(
-                "concurrency.backpressure",
-                sys_mem_percent=pressure.mem_percent,
-                foreign_dotnet=pressure.foreign_dotnet,
-                mem_pressure=pressure.mem_pressure,
-                dotnet_pressure=pressure.dotnet_pressure,
-                limit=pressure.original,
-                backpressure_limit=pressure.reduced,
-            )
+            _LOG.warning("concurrency.backpressure", sys_mem_percent=pressure.mem_percent, foreign_dotnet=pressure.foreign_dotnet, mem_pressure=pressure.mem_pressure, dotnet_pressure=pressure.dotnet_pressure, limit=pressure.original, backpressure_limit=pressure.reduced)
             return pressure.reduced
         case False:
             return pressure.original
@@ -1071,10 +961,7 @@ def _busy_fault(resource: str, refusal: _Contention) -> Fault:
     match refusal:
         case _Contention(phantom=True, owner=owner):
             record = f"pid {owner.pid}, run {owner.run_id}" if owner is not None else "corrupt owner block"
-            message = (
-                f"{resource} flock held past its stale recorded owner ({record}); an inherited fd — typically a dotnet"
-                " build-server or msbuild worker node — still holds the lock: run `dotnet build-server shutdown` and retry"
-            )
+            message = f"{resource} flock held past its stale recorded owner ({record}); an inherited fd — typically a dotnet build-server or msbuild worker node — still holds the lock: run `dotnet build-server shutdown` and retry"
         case _:
             message = f"{resource} held by a live process"
     return Fault((), status=RailStatus.BUSY, message=message)
@@ -1124,24 +1011,12 @@ def _write_block(fd: int, block: _LeaseOwner) -> _LeaseOwner:
 def _write_owner(fd: int, resource: str, spec: _ClaimSpec) -> _LeaseOwner:
     proc = psutil.Process(os.getpid())
     with proc.oneshot():
-        block = _LeaseOwner(
-            resource=resource,
-            run_id=spec.run_id,
-            pid=proc.pid,
-            create_time=proc.create_time(),
-            cwd=spec.cwd,
-            project=spec.project,
-            mode=spec.mode,
-            started_at=time.time(),
-            target=spec.target,
-        )
+        block = _LeaseOwner(resource=resource, run_id=spec.run_id, pid=proc.pid, create_time=proc.create_time(), cwd=spec.cwd, project=spec.project, mode=spec.mode, started_at=time.time(), target=spec.target)
     return _write_block(fd, block)
 
 
 @contextlib.contextmanager
-def exclusive_lease(
-    resource: str, run_id: str, *, settings: AssaySettings, project: str = "", mode: str = "exclusive", scope: LeaseScope = LeaseScope.REPO
-) -> Generator[Result[_Held, Fault]]:
+def exclusive_lease(resource: str, run_id: str, *, settings: AssaySettings, project: str = "", mode: str = "exclusive", scope: LeaseScope = LeaseScope.REPO) -> Generator[Result[_Held, Fault]]:
     """Acquire a non-blocking local POSIX process lease.
 
     Args:
@@ -1167,18 +1042,7 @@ def exclusive_lease(
     fd = os.open(str(path), _LOCKS_OPEN_FLAGS, _LOCK_MODE)
     claim: _LeaseOwner | _Contention = _Contention()
     try:
-        claim = _claim(
-            fd,
-            resource,
-            _ClaimSpec(
-                run_id=run_id,
-                tolerance=settings.lease_drift_tolerance,
-                target=settings.exec_target.url if isinstance(settings.exec_target, Ssh) else "",
-                cwd=str(settings.root),
-                project=project,
-                mode=mode,
-            ),
-        )
+        claim = _claim(fd, resource, _ClaimSpec(run_id=run_id, tolerance=settings.lease_drift_tolerance, target=settings.exec_target.url if isinstance(settings.exec_target, Ssh) else "", cwd=str(settings.root), project=project, mode=mode))
         match claim:
             case _LeaseOwner() as owner:
                 yield Ok(_Held(owner))
@@ -1191,9 +1055,7 @@ def exclusive_lease(
         os.close(fd)
 
 
-def leased[T](
-    resource: str, action: Callable[[_Held], Result[T, Fault]], *, settings: AssaySettings, run_id: str, project: str = "", mode: str = "exclusive"
-) -> Result[T, Fault]:
+def leased[T](resource: str, action: Callable[[_Held], Result[T, Fault]], *, settings: AssaySettings, run_id: str, project: str = "", mode: str = "exclusive") -> Result[T, Fault]:
     """Run an action only after acquiring a lease.
 
     Returns:

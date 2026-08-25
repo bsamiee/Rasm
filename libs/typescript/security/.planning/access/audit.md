@@ -1,13 +1,13 @@
 # [SECURITY_AUDIT]
 
-Security's evidence rail in one owner: `SecurityFact` closes the folder's loud arms into a wire-carried tagged union whose `_points` registry brands each case with its key, class, and modality; `Witness.publish` is the one seam every arm reaches; `Audit` stamps the app on each record, routes it by class into a lossless breach mailbox or a sliding notice queue behind `AuditJournal`, and fans it to independent subscribers; `AuditTrace` masks subjects through the keyed `Pseudonym` before anything reaches analytics; `pack` and `snapshot` project the deploy feed and the support receipt.
+Security's evidence rail in one owner: `SecurityFact` closes the folder's loud arms into a wire-carried tagged union whose `_points` registry brands each case with its key, class, and modality; `Witness.publish` is the one seam every arm reaches; `Audit` stamps the app on each record, routes it by class into a lossless breach mailbox or a sliding notice queue behind `AuditJournal`, and fans it to independent subscribers; `AuditTrace` masks subjects through the keyed `Pseudonym` before anything reaches analytics; `pack` and `snapshot` project the deploy feed and the support bundle.
 
 ## [01]-[INDEX]
 
 - [02]-[FACT_FAMILY]: the tagged fact vocabulary, the point/class/modality table, the fault shape; `SecurityFact`, `AuditFault`.
 - [03]-[FACT_RAIL]: the journal record, the append-only port, the publish seam, lane policy; `AuditRecord`, `AuditJournal`, `Witness`.
 - [04]-[EGRESS]: the keyed-mac pseudonymizer port and the PII-free analytics projection; `Pseudonym`, `AuditTrace`.
-- [05]-[BOARD]: the snapshot receipt, latency objectives, alert derivation, assembled owner; `Audit`, `Snapshot`.
+- [05]-[BOARD]: the support snapshot, latency objectives, alert derivation, assembled owner; `Audit`, `Snapshot`.
 
 ## [02]-[FACT_FAMILY]
 
@@ -250,13 +250,13 @@ const _egress = (record: AuditRecord): Effect.Effect<AuditTrace, AuditFault, Pse
 ## [05]-[BOARD]
 
 [BOARD]:
-- Owner: `Audit` — the assembled rail owner: the scoped service holds the app-stamped publish fold, the class-routed lanes, the drain fibers, and the polymorphic `subscribe`; the statics carry every projection — `live` (the rail with its `Witness` binding), `egress`, `snapshot`, `objectives`, `alerts`, and `board` — so one import serves arms, subscribers, the support bundle, and the deploy plane. `Snapshot` is the typed support-bundle receipt over `SnapshotRow` rows.
-- Law: `subscribe` is one entrypoint over every consumption modality — no selection streams the whole rail, a class literal (`"breached"`) streams a severity band, a point key streams one arm — discriminated on the input value, never a `subscribeByPoint` sibling; zero-tolerance paging is exactly `subscribe("breached")` routed to the app's notifier at the root, so breach alerting reads receipt-truth, not a lossy rate.
+- Owner: `Audit` — the assembled rail owner: the scoped service holds the app-stamped publish fold, the class-routed lanes, the drain fibers, and the polymorphic `subscribe`; the statics carry every projection — `live` (the rail with its `Witness` binding), `egress`, `snapshot`, `objectives`, `alerts`, and `board` — so one import serves arms, subscribers, the support bundle, and the deploy plane. `Snapshot` is the typed support bundle over `SnapshotRow` rows.
+- Law: `subscribe` is one entrypoint over every consumption modality — no selection streams the whole rail, a class literal (`"breached"`) streams a severity band, a point key streams one arm — discriminated on the input value, never a `subscribeByPoint` sibling; zero-tolerance paging is exactly `subscribe("breached")` routed to the app's notifier at the root, so breach alerting reads the lossless breach mailbox, never a lossy rate.
 - Law: the pack payload derives from the objectives, never from a literal — the core security pack renders one quantile panel per graded metric, and the metrics it grades are exactly the `_OBJECTIVES` rows, so the roster folds off those rows and dedups and an objective moving a quantile moves its panel in the same edit; a quantile spelled at the `pack` call forks the board away from the alert it illustrates on the first tuning, and an objective row landing here without its panel at the core owner is a half-landed indicator.
 - Law: tenant grouping stays governed at the core pack owner — a security panel groups only through `Convention.rasm.tenant` and its pack-owned variable; this page neither mints a local query nor forks a variable family.
 - Law: `pack` is the folder's whole deploy-plane surface — one encoded value carrying `wire` beside the boards and burn specs `board` and `alerts` already decided, so the deploy tuple admits this producer by its own minted key and the compile leg tags what arrived rather than decoding a security-specific census; `wire` lives here because a provenance key spelled at the consuming tier alone forks the moment either end edits it.
 - Law: encoding happens once, at this seam — `pack` seals the decoded model through the core owner's own encode so the deploy plane ingests wire values and never a live class, and a root re-encoding downstream mints a second projection of one board.
-- Receipt: `Snapshot` — app, instant, and one `SnapshotRow` per live security series with its declared kind, labels, the reading where one exists, and the frequency occurrence map when the instrument carries one.
+- Output: `Snapshot` — app, instant, and one `SnapshotRow` per live security series with its declared kind, labels, the reading where one exists, and the frequency occurrence map when the instrument carries one.
 - Growth: a new objective is one `_OBJECTIVES` row over an instrument-qualified Convention metric; a new subscriber posture is a selection value, never a new member.
 - Boundary: pack dispatch and panel vocabulary are the core board owner's; burn rows and severity routing are the core slo owner's; rule and dashboard compilation is the iac observe leg's over the encoded values `pack` hands it; the runtime export lane owns the OTLP path the snapshot bypasses.
 - Entry: `Audit.pack(board)` at the app's deploy-feed seam beside `Audit.board(board)` — a pure value mint over the context the root already holds, never a Layer and never a second board.

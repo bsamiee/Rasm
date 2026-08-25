@@ -1,12 +1,12 @@
 # [RASM_RHINO_PERSISTENCE_USERDATA]
 
-`ArchiveIo` owns schema and integrity framing for every `ArchiveMap` crossing, and `IArchiveCodec` is the ONE codec root every archive participant conforms — `TypedUserData<TSelf>` on the host's `UserData` seam and `ParticipantSpec.Codec` on the snapshot seam. `Custody` moves attached user data on the document's own mutation spine: reads answer detached facts, mutations run inside `DocumentCommit.Sealed` and settle as `FactStream<UserDataSlot, UserDataBody>`. Every fallible host crossing rides the kernel `Op.Catch` funnel onto typed faults.
+`ArchiveIo` owns schema and integrity framing for every `ArchiveMap` crossing, and `IArchiveCodec` is the ONE codec root every archive participant conforms — `TypedUserData<TSelf>` on the host's `UserData` seam and `ParticipantSpec.Codec` on the snapshot seam. `Custody` answers detached snapshots and moves attached user data inside `DocumentCommit.Sealed`. Every fallible host crossing rides the kernel `Op.Catch` funnel onto typed faults.
 
 ## [01]-[INDEX]
 
 - [02]-[ARCHIVE_FRAME]: `ArchiveVersion`, `ArchiveSchema`, `ArchiveIntegrity`, `ArchiveEnvelope`, `ArchiveIo`, `IArchiveCodec` — the chunk frame, its integrity evidence, the direction-typed crossings, and the codec root.
 - [03]-[TYPED_PARTICIPATION]: `TypedUserData<TSelf>` — the sealed `UserData` override lifecycle over one linearized payload cell.
-- [04]-[CUSTODY_ALGEBRA]: `DisposalPolicy`, `TransferPlacement`, `WritePosture`, `SharedOrigin`, `CustodyPresence`, `UserDataFact`, `UserDataKind`, `UserDataSlot`, `UserDataBody`, `UserDataReceipt`, `CustodyQuery`, `CustodyAnswer`, `CustodyStep`, `CustodyProgram`, `Custody` — the roster reads and the spine-routed custody mutations.
+- [04]-[CUSTODY_ALGEBRA]: `DisposalPolicy`, `TransferPlacement`, `WritePosture`, `SharedOrigin`, `CustodyPresence`, `UserDataSnapshot`, `CustodyQuery`, `CustodyAnswer`, `CustodyStep`, `CustodyProgram`, `Custody` — the roster reads and custody mutations.
 
 ## [02]-[ARCHIVE_FRAME]
 
@@ -316,23 +316,19 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 
 ## [04]-[CUSTODY_ALGEBRA]
 
-- Owner: `Custody` — the one attached-user-data entry, split by custody side: `Ask` answers detached roster facts and shared payloads, `Commit` runs a `CustodyProgram` inside the document's sealed record; `UserDataSlot`/`UserDataBody` — the folder's fact vocabulary; `UserDataReceipt` — the closed `FactStream` instantiation every mutation settles into.
-- Entry: a mutation program names its steps and its redraw posture; `Custody.Commit` demands the session's mutation capability, opens ONE `DocumentCommit.Sealed` record, folds every step's facts, and stamps the undo serial through the stream's own projection.
-- Law: user-data custody IS a document mutation — attaching, removing, purging, transferring, and replacing a shared dictionary all reshape resident objects the host records — so it runs on the ONE host-mutation path `ARCHITECTURE.md` declares and mints no second commit envelope, no second receipt timing class, and no local undo bracket.
-- Law: the receipt is `FactStream<UserDataSlot, UserDataBody>` — commit-scoped, sealed by the undo stamp — and NOT a build receipt, because these facts are consequences inside one commit rather than evidence bound to a produced value. A `CustodyReceipt` beside it was the third receipt timing class the fact-stream owner's own law names deleted.
-- Law: a post-mutation failure is a `Residue` FACT beside the roster fact, never a rail failure — the mutation already landed, so the removal's failed disposal, the move's failed placement, and a failed closing census each report while the step's own landing stands; `Fin.Fail` is reserved for a refusal BEFORE committed mutation, and the sealed record rolls the whole program back on one.
+- Owner: `Custody` — the one attached-user-data entry, split by custody side: `Ask` answers detached roster snapshots and shared payloads, while `Commit` runs a `CustodyProgram` inside the document's sealed record.
+- Entry: a mutation program names its steps and its redraw posture; `Custody.Commit` demands the session's mutation capability and opens one `DocumentCommit.Sealed` record.
+- Law: user-data custody is a document mutation, so every step runs on the host-mutation path and a failure remains on the typed rail for the commit envelope to settle.
 - Law: `DisposalPolicy` belongs to removal alone. Decompile-proven: `UserDataList.Purge` is `ON_UserData_PurgeUserData` on the parent, and the native delete fires `UserData.OnDelete` — it zeroes `m_native_pointer`, suppresses the finalizer, and drops the runtime-list entry, so `UserData.Dispose(true)` early-returns on the zero pointer and a purge-side policy names a choice the host does not publish. `Remove` does not release, because `ON_Object_DetachUserData` hands custody back to the caller.
 - Law: the attach gate is ACCESSIBILITY, not nesting — `Type.IsPublic` is FALSE for a nested public type, so testing it refuses a participant the host itself accepts; `IsVisible` is the whole gate, public and publicly enclosed at every level, beside the parameterless-constructor requirement `UserDataList.Add` enforces by throwing.
 - Law: shared-dictionary replacement avoids `ReplaceContentsWith` and its exact-runtime-type reflection fault: it captures the prior map, clears, writes typed, re-detaches, proves the postcondition, and restores on any failure — detaching and releasing a carrier the read itself MINTED, or rewriting a pre-existing carrier's prior map — riding the kernel `Custody.Rollback` delegate arm, which appends the rollback fault onto the primary.
 - Law: an id-keyed containment probe answers a typed `CustodyPresence`, never a fact, because `UserDataList.Contains(Guid)` answers `bool` and `UserData` publishes no readable id — the type-keyed `Describe` is the arm that can answer a description.
 - Boundary: custody on geometry that has not entered the document belongs to the Modeling lease (`ModelGate`), not this owner — this owner moves custody on document-resident objects under the record that makes it undoable.
-- Growth: a new custody verb is one `CustodyStep` case beside its `UserDataSlot` row; a new fact is one `UserDataBody` case with its kind, and every reader breaks loudly.
-- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` accumulation, `TraverseM`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Custody.Rollback`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Document/facts` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`), `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`); `Persistence/dictionary` (`ArchiveMap`, `ArchiveChange`, `ArchiveMerge`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserDataList.Add`/`Remove`/`Find`/`Contains`/`Purge`/`Count`, `UserData.Copy`/`MoveUserDataFrom`/`MoveUserDataTo`/`Dispose`, `CommonObject.UserData`/`UserDictionary`, `ArchivableDictionary.ParentUserData`/`Clear`).
+- Growth: a new custody verb is one `CustodyStep` case and one interpreter arm.
+- Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` accumulation, `TraverseM`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Custody.Rollback`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`); `Persistence/dictionary` (`ArchiveMap`, `ArchiveMerge`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserDataList.Add`/`Remove`/`Find`/`Contains`/`Purge`, `UserData.Copy`/`MoveUserDataFrom`/`MoveUserDataTo`/`Dispose`, `CommonObject.UserData`/`UserDictionary`, `ArchivableDictionary.ParentUserData`/`Clear`).
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-global using UserDataReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persistence.UserDataSlot, Rasm.Rhino.Persistence.UserDataBody>;
-
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.Collections;
@@ -373,74 +369,8 @@ public sealed partial class CustodyPresence {
     public static readonly CustodyPresence Present = new(key: true);
 }
 
-[SmartEnum<string>]
-public sealed partial class UserDataKind : ICapability<UserDataKind> {
-    public static readonly UserDataKind Roster = new("roster");
-    public static readonly UserDataKind Transfer = new("transfer");
-    public static readonly UserDataKind Shared = new("shared");
-    public static readonly UserDataKind Residue = new("residue");
-    public static readonly UserDataKind Record = new("record");
-}
-
-[SmartEnum<int>]
-public sealed partial class UserDataSlot : IFactSlot<UserDataBody, UserDataKind> {
-    public static readonly UserDataSlot Attached = new(key: 0, bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Roster));
-    public static readonly UserDataSlot Removed = new(
-        key: 1,
-        bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Roster, UserDataKind.Residue));
-    public static readonly UserDataSlot Purged = new(key: 2, bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Roster));
-    public static readonly UserDataSlot Copied = new(key: 3, bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Roster));
-    public static readonly UserDataSlot Moved = new(
-        key: 4,
-        bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Roster, UserDataKind.Transfer, UserDataKind.Residue));
-    public static readonly UserDataSlot Replaced = new(key: 5, bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Shared));
-    public static readonly UserDataSlot Merged = new(key: 6, bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Shared));
-    public static readonly UserDataSlot UndoRecord = new(key: 7, bodies: CapabilitySet<UserDataKind>.Of(UserDataKind.Record));
-
-    public CapabilitySet<UserDataKind> Bodies { get; }
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record UserDataBody : IFactBody<UserDataKind> {
-    private UserDataBody() { }
-
-    public sealed record Roster(int Before, int After) : UserDataBody;
-    public sealed record Transfer(Guid Id) : UserDataBody;
-    public sealed record Shared(
-        ArchiveMap Prior,
-        ArchiveMap Current,
-        Seq<ArchiveChange> Changes,
-        SharedOrigin Origin) : UserDataBody;
-    public sealed record Residue(Error Fault) : UserDataBody;
-    public sealed record UndoRecord(UndoSerial Serial) : UserDataBody;
-
-    public UserDataKind Kind => Switch<UserDataKind>(
-        roster: static _ => UserDataKind.Roster,
-        transfer: static _ => UserDataKind.Transfer,
-        shared: static _ => UserDataKind.Shared,
-        residue: static _ => UserDataKind.Residue,
-        undoRecord: static _ => UserDataKind.Record);
-}
-
-public static class UserDataReceipts {
-    public static UserDataReceipt Stamp(this UserDataReceipt receipt, uint serial) => receipt.Stamped(
-        slot: UserDataSlot.UndoRecord,
-        record: static minted => new UserDataBody.UndoRecord(Serial: minted),
-        serial: serial);
-
-    public static Seq<Error> Residue(this UserDataReceipt receipt, UserDataSlot slot) => receipt.Project(
-        slot: slot,
-        select: static body => body is UserDataBody.Residue residue ? Some(residue.Fault) : Option<Error>.None);
-
-    public static Option<UndoSerial> Serial(this UserDataReceipt receipt) => receipt
-        .Project(
-            slot: UserDataSlot.UndoRecord,
-            select: static body => body is UserDataBody.UndoRecord undo ? Some(undo.Serial) : Option<UndoSerial>.None)
-        .HeadOrNone();
-}
-
-public sealed record UserDataFact(string RuntimeType, string Description, WritePosture Posture, Transform Transform);
+public sealed record UserDataSnapshot(string RuntimeType, string Description, WritePosture Posture, Transform Transform);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UserDataRef {
@@ -463,9 +393,9 @@ public abstract partial record CustodyQuery {
 public abstract partial record CustodyAnswer {
     private CustodyAnswer() { }
 
-    public sealed record CensusCase(Seq<UserDataFact> Values) : CustodyAnswer;
+    public sealed record CensusCase(Seq<UserDataSnapshot> Values) : CustodyAnswer;
     public sealed record PresenceCase(CustodyPresence Presence) : CustodyAnswer;
-    public sealed record DescriptionCase(Option<UserDataFact> Value) : CustodyAnswer;
+    public sealed record DescriptionCase(Option<UserDataSnapshot> Value) : CustodyAnswer;
     public sealed record SharedCase(ArchiveMap Payload, SharedOrigin Origin) : CustodyAnswer;
 }
 
@@ -481,23 +411,6 @@ public abstract partial record CustodyStep {
     public sealed record ReplaceCase(CommonObject Target, ArchiveMap Payload) : CustodyStep;
     public sealed record MergeCase(CommonObject Target, ArchiveMap Payload, ArchiveMerge Merge) : CustodyStep;
 
-    internal UserDataSlot Slot => Switch<UserDataSlot>(
-        attachCase: static _ => UserDataSlot.Attached,
-        removeCase: static _ => UserDataSlot.Removed,
-        purgeCase: static _ => UserDataSlot.Purged,
-        copyCase: static _ => UserDataSlot.Copied,
-        moveCase: static _ => UserDataSlot.Moved,
-        replaceCase: static _ => UserDataSlot.Replaced,
-        mergeCase: static _ => UserDataSlot.Merged);
-
-    internal CommonObject Subject => Switch<CommonObject>(
-        attachCase: static row => row.Target,
-        removeCase: static row => row.Target,
-        purgeCase: static row => row.Target,
-        copyCase: static row => row.Destination,
-        moveCase: static row => row.Destination,
-        replaceCase: static row => row.Target,
-        mergeCase: static row => row.Target);
 }
 
 public sealed record CustodyProgram(Seq<CustodyStep> Steps, RedrawPolicy Redraw, Option<string> RecordName);
@@ -523,7 +436,7 @@ public static class Custody {
                         .Map<CustodyAnswer>(map => new CustodyAnswer.SharedCase(map, opened.Origin)))));
     }
 
-    public static Fin<UserDataReceipt> Commit(DocumentSession session, CustodyProgram program, Op? key = null) {
+    public static Fin<Unit> Commit(DocumentSession session, CustodyProgram program, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(program)
             .Bind(request => Admit(request, op))
@@ -536,10 +449,7 @@ public static class Custody {
                     run: () => admitted.Steps
                         .TraverseM(step => Land(step, op))
                         .As()
-                        .Map(static receipts => receipts.Fold(
-                            UserDataReceipt.Empty,
-                            static (state, value) => state + value)),
-                    stamp: static (receipt, serial) => receipt.Stamp(serial: serial),
+                        .Map(static _ => unit),
                     project: Fin.Succ,
                     op: op),
                 key: op,
@@ -617,62 +527,26 @@ public static class Custody {
                 ? Fin.Succ(value: active)
                 : Fin.Fail<UserData>(error: op.InvalidInput()));
 
-    private static Fin<UserDataReceipt> Land(CustodyStep step, Op op) => step.Switch<Op, Fin<UserDataReceipt>>(
+    private static Fin<Unit> Land(CustodyStep step, Op op) => step.Switch<Op, Fin<Unit>>(
         state: op,
-        attachCase: static (op, attach) => Rostered(
-            step: attach,
-            commit: () => op.Catch(() => op.Confirm(success: attach.Target.UserData.Add(attach.Value))).Map(static _ => UserDataReceipt.Empty),
-            op: op),
-        removeCase: static (op, remove) => Rostered(
-            step: remove,
-            commit: () => op.Catch(() => op.Confirm(success: remove.Target.UserData.Remove(remove.Value)))
-                .Bind(_ => remove.Disposal.Key
-                    ? Residue(remove.Slot, op.Catch(remove.Value.Dispose), op)
-                    : Fin.Succ(value: UserDataReceipt.Empty)),
-            op: op),
-        purgeCase: static (op, purge) => Rostered(
-            step: purge,
-            commit: () => op.Catch(() => purge.Target.UserData.Purge()).Map(static _ => UserDataReceipt.Empty),
-            op: op),
-        copyCase: static (op, copy) => Rostered(
-            step: copy,
-            commit: () => op.Catch(() => UserData.Copy(copy.Source, copy.Destination)).Map(static _ => UserDataReceipt.Empty),
-            op: op),
-        moveCase: static (op, move) => Rostered(
-            step: move,
-            commit: () => op.Catch(() => Fin.Succ(value: UserData.MoveUserDataFrom(move.Source)))
-                .Bind(id => id == Guid.Empty
-                    ? Fin.Fail<UserDataReceipt>(error: op.InvalidResult(detail: "User-data move found no transferable custody."))
-                    : from transfer in UserDataReceipt.Of(move.Slot, new UserDataBody.Transfer(id), op)
-                      from placed in Residue(
-                          move.Slot,
-                          op.Catch(() => UserData.MoveUserDataTo(move.Destination, id, move.Placement.Key)),
-                          op)
-                      select transfer + placed),
-            op: op),
+        attachCase: static (op, attach) => op.Catch(() => op.Confirm(success: attach.Target.UserData.Add(attach.Value))),
+        removeCase: static (op, remove) => op.Catch(() => op.Confirm(success: remove.Target.UserData.Remove(remove.Value)))
+            .Bind(_ => remove.Disposal.Key ? op.Catch(remove.Value.Dispose) : Fin.Succ(value: unit)),
+        purgeCase: static (op, purge) => op.Catch(() => purge.Target.UserData.Purge()),
+        copyCase: static (op, copy) => op.Catch(() => UserData.Copy(copy.Source, copy.Destination)),
+        moveCase: static (op, move) =>
+            from id in op.Catch(() => Fin.Succ(value: UserData.MoveUserDataFrom(move.Source)))
+            from _present in guard(id != Guid.Empty, op.InvalidResult(detail: "User-data move found no transferable custody.")).ToFin()
+            from _placed in op.Catch(() => UserData.MoveUserDataTo(move.Destination, id, move.Placement.Key))
+            select unit,
         replaceCase: static (op, replace) => Open(replace.Target, op)
-            .Bind(opened => Reseat(replace.Slot, opened, replace.Payload, op)),
+            .Bind(opened => Reseat(opened, replace.Payload, op)),
         mergeCase: static (op, merge) => Open(merge.Target, op)
             .Bind(opened => ArchiveMap.Detach(opened.Dictionary, op)
                 .Bind(current => current.Merge(merge.Payload, merge.Merge, op))
-                .Bind(payload => Reseat(merge.Slot, opened, payload, op))));
+                .Bind(payload => Reseat(opened, payload, op))));
 
-    private static Fin<UserDataReceipt> Rostered(CustodyStep step, Func<Fin<UserDataReceipt>> commit, Op op) =>
-        from before in op.Catch(() => Fin.Succ(value: step.Subject.UserData.Count))
-        from tail in commit()
-        from rostered in op.Catch(() => Fin.Succ(value: step.Subject.UserData.Count)).Match(
-            Succ: after => UserDataReceipt.Of(step.Slot, new UserDataBody.Roster(before, after), op),
-            Fail: fault => from seed in UserDataReceipt.Of(step.Slot, new UserDataBody.Roster(before, before), op)
-                           from missed in Residue(step.Slot, Fin.Fail<Unit>(fault), op)
-                           select seed + missed)
-        select rostered + tail;
-
-    private static Fin<UserDataReceipt> Residue(UserDataSlot slot, Fin<Unit> outcome, Op op) => outcome.Match(
-        Succ: static _ => Fin.Succ(value: UserDataReceipt.Empty),
-        Fail: fault => UserDataReceipt.Of(slot, new UserDataBody.Residue(fault), op));
-
-    private static Fin<UserDataReceipt> Reseat(
-        UserDataSlot slot,
+    private static Fin<Unit> Reseat(
         (CommonObject Target, ArchivableDictionary Dictionary, SharedOrigin Origin) opened,
         ArchiveMap payload,
         Op op) =>
@@ -682,15 +556,10 @@ public static class Custody {
             from _clear in op.Catch(opened.Dictionary.Clear)
             from _write in payload.WriteTo(opened.Dictionary, op)
             from current in ArchiveMap.Detach(opened.Dictionary, op)
-            from changes in prior.Diff(current, op)
             from _proof in guard(
                 current.SameContent(payload),
                 op.InvalidResult(detail: "Shared user dictionary postcondition failed.")).ToFin()
-            from receipt in UserDataReceipt.Of(
-                slot,
-                new UserDataBody.Shared(prior, current, changes, opened.Origin),
-                op)
-            select receipt)
+            select unit)
             .Rollback(() => RestoreShared(opened, prior, op))
         select settled;
 
@@ -717,19 +586,10 @@ public static class Custody {
                 : Fin.Succ(value: (target, dictionary, (SharedOrigin)(target.UserData.Count > before)));
         });
 
-    private static UserDataFact Describe(UserData value) => new(
+    private static UserDataSnapshot Describe(UserData value) => new(
         value.GetType().AssemblyQualifiedName ?? value.GetType().FullName ?? value.GetType().Name,
         value.Description,
         (WritePosture)value.ShouldWrite,
         value.Transform);
 }
 ```
-
-## [05]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

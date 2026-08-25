@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_VEGAFUSION]
 
-`vegafusion` owns the Rust-backed server-side Vega transform engine (embedded Apache DataFusion) for the charts rail: a module-level `runtime` singleton whose `pre_transform_*` family server-evaluates a spec's transforms — aggregation, join, binning, filtering — before render, a `ChartState` maintaining the interactive server/client split, the `vegafusion.utils` planner diagnostic and referenced-column analyzer, and a `transformer` submodule serializing frames to Arrow IPC. Two disjoint consumer planes divide it: the chart-render pre-pass (`visualization/chart/export#PREPASS` folds `runtime.pre_transform_spec` for the static spec, `runtime.new_chart_state(...).get_transformed_spec()` for the host-free interactive HTML row, the reduction inlining INSIDE one self-contained spec) and the columnar egress plane (`pre_transform_extract` `(name, scope, table)` tuples, `transformer` serializers, `get_column_usage`) owned by `data/tabular/columnar#SCAN`. Each pre-pass folds onto the universal rails: one `msgspec` charts receipt under one `structlog` event inside an `opentelemetry` span, a malformed spec or `PreTransformWarning` onto the `expression.Result` rail, the native pre-pass crossing the subprocess seam via `anyio` `to_process`.
+`vegafusion` owns the Rust-backed server-side Vega transform engine over the module-level `runtime` singleton. Chart pre-pass uses `pre_transform_spec` or `ChartState.get_transformed_spec`; columnar egress uses `pre_transform_extract`, the transformer serializers, and `get_column_usage`. Native work crosses `anyio.to_process`, returns `PrePassEvidence`, and binds that evidence to one event and span.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -77,13 +77,13 @@ Module `__all__` exports exactly `runtime` (the singleton `VegaFusionRuntime` *i
 - `build_pre_transform_spec_plan` is the diagnostic projection of that same plan — one row, never a parallel planning engine.
 - resource: `worker_threads`/`cache_capacity`/`memory_limit` setters `reset()` the pool only on a changed value, `clear_cache` reclaims without dropping, `size`/`total_memory` introspect — caps tune the singleton, never a fresh runtime per transform.
 - columnar egress: `pre_transform_datasets` returns explicitly named server-computed tables as native frames in `dataset_format`, tz-normalized to `local_tz`; `pre_transform_extract` splits inline tables `>= extract_threshold` rows as `(name, scope, DATA)` following `extracted_format` (`arro3`/`pyarrow` table, `arrow-ipc` bytes, `arrow-ipc-base64` str); these cross to the `data/tabular/columnar#SCAN` owner, tz-normalized, never the renderer.
-- evidence: each pre-pass captures spec identity, row limit, transformed/inlined dataset count, timezone, worker/cache state, and the `PreTransformWarning` list as one charts receipt.
+- evidence: `PrePassEvidence` carries the row limit, dataset counts, timezone, cache state, and warning partitions.
 
 [STACKING]:
 - `altair`(`altair.md`): `altair.Chart.to_dict()` yields the Vega-Lite spec the pre-pass consumes; `VegaTransform.apply` (`visualization/chart/export#PREPASS`) folds `runtime.pre_transform_spec(spec)` (the `Inline` arm) or `runtime.new_chart_state(spec).get_transformed_spec()` (the `State` arm).
 - `vl-convert-python`(`vl-convert-python.md`): renders the ONE reduced self-contained spec to static bytes; the no-external-feed constraint that forces the in-spec reduction is owned there.
 - `anyio`(`../../.api/anyio.md`): the gated native pre-pass crosses the subprocess seam via `to_process.run_sync` under one `CapacityLimiter` (GIL-releasing DataFusion core).
-- universal rails: one `msgspec`(`../../.api/msgspec.md`) charts receipt under one `structlog`(`../../.api/structlog.md`) event inside an `opentelemetry`(`../../.api/opentelemetry-api.md`) span; a malformed spec or a `ValueError` from `_import_inline_datasets` folds onto the `expression.Result`(`../../.api/expression.md`) rail.
+- universal rails: one `structlog` event and OpenTelemetry span bind `PrePassEvidence`; malformed specs and `_import_inline_datasets` `ValueError` values fold onto the `expression.Result` rail.
 - within-lib: a polars/pandas frame the `data` tier produces enters `inline_datasets` directly as a `DataFrameLike` (narwhals resolves interchange, the owner never branches on source library); `get_column_usage(spec)` drives pre-flight pruning before `pre_transform_extract(extracted_format='arrow-ipc')` hands `bytes` to the columnar owner.
 
 [LOCAL_ADMISSION]:

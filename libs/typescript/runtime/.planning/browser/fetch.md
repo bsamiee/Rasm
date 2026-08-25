@@ -311,20 +311,20 @@ class PoolFault extends Schema.TaggedError<PoolFault>()("PoolFault", {
   }
 }
 
-const _ArtifactReceipt = Schema.Struct({
+const _Verified = Schema.Struct({
   key: Wire.Artifact.identity,
   extent: Shape.Refined.OrdinalKey,
 })
 
 class Redeem extends Schema.TaggedRequest<Redeem>()("Redeem", {
   payload: { key: Wire.Artifact.identity, extent: Shape.Refined.OrdinalKey, payloads: Schema.Array(Transferable.Uint8Array) },
-  success: Schema.Struct({ ..._ArtifactReceipt.fields, octets: Transferable.Uint8Array }),
+  success: Schema.Struct({ ..._Verified.fields, octets: Transferable.Uint8Array }),
   failure: PoolFault,
 }) {}
 
 class VerifyArtifact extends Schema.TaggedRequest<VerifyArtifact>()("VerifyArtifact", {
   payload: { key: Wire.Artifact.identity, extent: Shape.Refined.OrdinalKey, octets: Transferable.Uint8Array },
-  success: _ArtifactReceipt,
+  success: _Verified,
   failure: PoolFault,
 }) {}
 
@@ -504,7 +504,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
                 extent: Number(reference.artifactBytes),
                 octets: band,
               })).pipe(
-                Effect.map((receipt) => Option.some([receipt, band] as const)),
+                Effect.map((verified) => Option.some([verified, band] as const)),
                 Effect.catchTags({
                   PoolFault: (fault) =>
                     Effect.as(
@@ -513,7 +513,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
                         : Effect.void,
                       Option.none(),
                     ),
-                  ParseError: () => Effect.as(Effect.logWarning("browser cache receipt undecodable"), Option.none()),
+                  ParseError: () => Effect.as(Effect.logWarning("browser cache entry undecodable"), Option.none()),
                   WorkerError: () => Effect.as(Effect.logWarning("browser cache verification unavailable"), Option.none()),
                 }),
               ),
@@ -548,7 +548,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
       _gate.withPermits(1)(
         Effect.flatMap(_warmed(reference), (warm) =>
           Option.match(warm, {
-            onSome: ([receipt, octets]) => Effect.succeed([receipt, octets] as const),
+            onSome: ([verified, octets]) => Effect.succeed([verified, octets] as const),
             onNone: () =>
               Stream.runCollect(_payloads(reference, frames)).pipe(
                 Effect.flatMap((held) => pool.executeEffect(new Redeem({
@@ -613,12 +613,12 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
                   }),
                 )
                 const planes = yield* Effect.forEach(HashMap.toEntries(distinct), ([key, reference]) =>
-                  Effect.flatMap(_hauledOne(key, admits, pull(reference.artifact)), ([receipt, octets]) =>
-                    BigInt(receipt.extent) === reference.artifact.artifactBytes
+                  Effect.flatMap(_hauledOne(key, admits, pull(reference.artifact)), ([verified, octets]) =>
+                    BigInt(verified.extent) === reference.artifact.artifactBytes
                       ? Effect.succeed([key, octets] as const)
                       : Effect.fail(new PoolFault({ case: {
                           reason: "parity", detail: `environment-plane-landed-extent:${key}`,
-                          actual: String(receipt.extent), expected: String(reference.artifact.artifactBytes),
+                          actual: String(verified.extent), expected: String(reference.artifact.artifactBytes),
                         } }))), {
                     concurrency: "unbounded",
                   })
@@ -757,7 +757,6 @@ export {}
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

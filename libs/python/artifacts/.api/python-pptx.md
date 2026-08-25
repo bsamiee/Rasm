@@ -164,9 +164,8 @@ Shape rows take `Inches`/`Pt`/`Emu` `Length` position/size and return the create
 - unit: positions and sizes use `Inches`/`Pt`/`Emu`/`Cm`/`Mm`/`Centipoints` value objects reading back as `.emu`/`.pt`/`.inches`/`.cm`/`.mm`; autoshape geometry is `MSO_SHAPE`, connector `MSO_CONNECTOR`, text anchor `MSO_ANCHOR`, alignment `PP_ALIGN`, placeholder `PP_PLACEHOLDER`, underline `MSO_TEXT_UNDERLINE_TYPE`.
 
 [STACKING]:
-- `msgspec`(`.api/msgspec.md`): each presentation op captures slide/shape/image/chart counts, per-embed `Picture.image.sha1`/`size`/`content_type`, and output byte length as a `msgspec.Struct` office receipt — the `core/receipt#RECEIPT` `ArtifactReceipt.Office` case.
-- `structlog`(`.api/structlog.md`) + `opentelemetry-api`(`.api/opentelemetry-api.md`): the build emits one `structlog` event inside one OpenTelemetry span stamping the receipt counts, never re-derived off the bytes by a second reader.
-- `anyio`(`.api/anyio.md`): the build authors on the `anyio.to_process` worker band; only the saved `.pptx` bytes (or a stream) with the typed receipt cross the seam, never a live `Presentation`.
+- `structlog`(`.api/structlog.md`) + `opentelemetry-api`(`.api/opentelemetry-api.md`): the build binds slide and byte counts to one event and span.
+- `anyio`(`.api/anyio.md`): the build authors on the `anyio.to_process` worker band; only `EmitFact` crosses back, never a live `Presentation`.
 - `XlsxWriter`(`.api/xlsxwriter.md`): the chart-data workbook embeds through the in-package `XlsxWriter` writer.
 - `Pillow`(`.api/pillow.md`): sizes embedded images and exposes `Picture.image` evidence.
 - `puremagic`/`python-magic`(`.api/puremagic.md`): `exchange/detect#DETECT` routes `MediaClass.PRESENTATION` here at the ingest gate.

@@ -177,11 +177,11 @@ Print layout rides sheet-state setters available under `constant_memory`; a sett
 - `pydantic`(`.api/pydantic.md`): a column schema admits the frame through a `TypeAdapter` before the write path lands typed cells.
 - `polars`(`.api/polars.md`): a frame streams through `write_row` under `constant_memory` sharing one `add_format` number/date style across the column block, its dtype scalars registered once through `add_write_handler`.
 - `segno`(`.api/segno.md`) / `vl-convert-python`(`.api/vl-convert-python.md`): a QR or chart PNG anchors through `insert_image`/`embed_image`.
-- `opentelemetry-api`(`.api/opentelemetry-api.md`): one span stamps sheet count, row/column extent, `constant_memory` flag, and output byte length onto the spreadsheet receipt.
+- `opentelemetry-api`(`.api/opentelemetry-api.md`): one span binds sheet count, row/column extent, `constant_memory`, and output byte length.
 - `openpyxl`(`.api/openpyxl.md`): openpyxl authors fidelity-preserving workbooks and defers to xlsxwriter for read-free constant-memory bulk exceeding its `write_only` budget; a `BytesIO` passed as `filename` returns the in-memory buffer the artifacts download owner serves.
 
 [LOCAL_ADMISSION]:
-- xlsxwriter owns write-only XLSX/XLSM generation — large datasets under `constant_memory`, custom value-type cells, print-ready reports via the page-setup family, and charts plotting written ranges — while reading or editing an existing workbook routes to the ingest owners. Each workbook seals a receipt of target path/stream, sheet count, row/column extent, streaming mode, zip64 flag, and output byte length.
+- xlsxwriter owns write-only XLSX/XLSM generation for large datasets, custom value cells, print-ready reports, and charts over written ranges; reading and editing route to the ingest owners. `EmitFact` carries the saved bytes.
 
 [RAIL_LAW]:
 - Package: `xlsxwriter`

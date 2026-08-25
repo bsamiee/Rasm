@@ -217,14 +217,14 @@ message Inertia {
   Principal principal = 7 [(buf.validate.field).required = true];
 }
 
-message BrepKernelReceipt {
+message BrepMeasure {
   option (buf.validate.message).cel = {
-    id: "brep_kernel_receipt.volume_delta_presence"
+    id: "brep_measure.volume_delta_presence"
     message: "volume delta is present exactly for watertight tessellations"
     expression: "has(this.volume_delta_m3) == (has(this.watertight) && this.watertight)"
   };
   option (buf.validate.message).cel = {
-    id: "brep_kernel_receipt.inertia_presence"
+    id: "brep_measure.inertia_presence"
     message: "inertia is present exactly where the measured body carries a solid"
     expression: "has(this.inertia) == (this.topology.solids > uint(0))"
   };
@@ -257,16 +257,16 @@ enum HealStepKind {
   HEAL_STEP_KIND_SMALL_EDGES = 4;
 }
 
-message HealStepReceipt {
-  HealStepKind kind = 1 [(buf.validate.field).enum = {
-    defined_only: true
-    not_in: [0]
-  }];
-  bool changed = 2;
-}
-
 // What healing moved: the census, the maximum tolerance, and validity before and after, beside one row per step run.
-message HealingReceipt {
+message Healing {
+  message Step {
+    HealStepKind kind = 1 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    bool changed = 2;
+  }
+
   TopologyCensus before = 1 [(buf.validate.field).required = true];
   TopologyCensus after = 2 [(buf.validate.field).required = true];
   double tolerance_before_m = 3 [(buf.validate.field).double = {
@@ -279,7 +279,7 @@ message HealingReceipt {
   }];
   bool valid_before = 5;
   bool valid_after = 6;
-  repeated HealStepReceipt steps = 7 [(buf.validate.field).repeated.min_items = 1];
+  repeated Step steps = 7 [(buf.validate.field).repeated.min_items = 1];
 }
 
 // --- [TESSELLATION] ---------------------------------------------------------------------
@@ -306,7 +306,7 @@ message TessellateResponse {
 
   uint64 element_count = 2;
   uint64 triangle_count = 3;
-  BrepKernelReceipt kernel = 4 [(buf.validate.field).required = true];
+  BrepMeasure measure = 4 [(buf.validate.field).required = true];
   rasm.contracts.artifact.ArtifactRef artifact = 6 [(buf.validate.field).required = true];
   repeated PartIdentity parts = 7 [(buf.validate.field).repeated.min_items = 1];
 }

@@ -1,6 +1,6 @@
 # [PY_DATA]
 
-`data` is the Python branch's host-free interchange plane, every AEC dataset crossing as a typed, content-keyed, Arrow-carried claim graded on interchange trust: a frame that leaves is self-describing, so a consumer decodes by name and never re-derives attribution. It composes the runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` owners at the boundary and re-mints none, and peer branches meet it only through contract-conforming datasets and plans.
+`data` is the Python branch's host-free interchange plane, every AEC dataset crossing as a typed, content-keyed, Arrow-carried claim graded on interchange trust: a frame that leaves is self-describing, so a consumer decodes by name and never re-derives attribution. It composes the runtime `ContentIdentity` and `TransportResource` owners at the boundary, and peer branches meet it only through contract-conforming datasets and plans.
 
 ## [01]-[ROUTER]
 
@@ -12,8 +12,8 @@
 - [05]-[MATERIALIZE](.planning/tabular/materialize.md): Incremental CDC materialization composing lakehouse, query, and columnar downward.
 - [06]-[CONTRACT](.planning/tabular/contract.md): Data-contract gate folding dataframely covenants and pandera rules onto one `ContractClaim`.
 - [07]-[PROFILE](.planning/tabular/profile.md): Graded data-quality plane over `pointblank` thresholds emitting the `QualityProfile` frame.
-- [08]-[EGRESS](.planning/tabular/egress.md): Native object-store egress receipt owner over the runtime store lane, keyed by content identity.
-- [09]-[COST](.planning/tabular/cost.md): Cost ledger folding the receipt families into one content-keyed, tenant-attributed priced frame.
+- [08]-[EGRESS](.planning/tabular/egress.md): Object-store egress over the runtime store lane with canonical operation results.
+- [09]-[COST](.planning/tabular/cost.md): Cost ledger pricing canonical operation results and durable resource facts under one rate policy.
 - [10]-[JOURNAL](.planning/tabular/journal.md): `FactJournal` Ledger-port implementation landing audit and meter facts over commit and scan.
 
 [SPATIAL]:

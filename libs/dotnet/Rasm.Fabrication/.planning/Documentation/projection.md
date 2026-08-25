@@ -6,7 +6,7 @@
 
 ## [01]-[INDEX]
 
-- [02]-[PROJECTION]: `ViewKey`, source and view families, `ProjectionPolicy` admission over the issued sheet, the boolean composition lineage, and the run, anchor, and receipt shapes `Hlr.Solve` mints.
+- [02]-[PROJECTION]: `ViewKey`, source and view families, `ProjectionPolicy` admission over the issued sheet, the boolean composition lineage, and the run, anchor, and result shapes `Hlr.Solve` mints.
 
 ## [02]-[PROJECTION]
 
@@ -14,7 +14,7 @@
 - Cases: `ProjectionSource.Model` forwards the admitted `FabricationInput.Model` and `.Boolean` folds identified operand rows through `Arrangement.Apply`; `ProjectionView.Projected` composes silhouette, hidden-line, or outline with an authored orientation and `.Section` adds its cut plane, so multiple cuts coexist under distinct keys without reminting a kernel operation vocabulary.
 - Law: the operand ordinal is the position an operand took in its OWN boolean leg — the accumulated model enters at `0` and the operand at `1`, which is exactly what `ManifoldProvenance.OperandOf(face)` returns. A running count across legs makes every leg past the first attribute to nothing, because no leg ever sees an ordinal above one. Attribution therefore walks the legs in REVERSE: the last leg's provenance describes the final faces, an operand-`1` hit names that leg's source, and an operand-`0` hit falls through to the leg that produced the accumulated model.
 - Law: every scalar knob is dimensioned or bounded at admission — `CreaseDihedralRadians` enters as an `Angle`, the spatial leaf as a positive count, and `BetaSquared` as the squared silhouette-tolerance ratio the kernel's own crease test consumes. A bare double angle beside a typed length is the fork this admission deletes.
-- Law: the SHEET facts are one column. `PlotPolicy` carries the size, its standard, the ladder-admitted `DrawingScale`, the frame, the line group, the plot style table, and the PDF conformance in one privately-minted value, so the receipt's `Quadrant` DERIVES off it through `ProjectionAngle.For(standard)` — the kernel's own ISO 128-30 §5 row — and `ScaleLadder.For(standard).Admits(scale)` already ran inside the mint. Scale is read as `Plot.Scale`; an aliasing property beside it would be a rename wrapper over one hop. A local two-row angle table and a free positive `Ratio` were the deleted form: the ratio admitted `1:7.3`, and the local table keyed `first`/`third` where the kernel keys `first-angle`/`third-angle`.
+- Law: the SHEET facts are one column. `PlotPolicy` carries the size, its standard, the ladder-admitted `DrawingScale`, the frame, the line group, the plot style table, and the PDF conformance in one privately-minted value, so the result's `Quadrant` DERIVES off it through `ProjectionAngle.For(standard)` — the kernel's own ISO 128-30 §5 row — and `ScaleLadder.For(standard).Admits(scale)` already ran inside the mint. Scale is read as `Plot.Scale`; an aliasing property beside it would be a rename wrapper over one hop. A local two-row angle table and a free positive `Ratio` were the deleted form: the ratio admitted `1:7.3`, and the local table keyed `first`/`third` where the kernel keys `first-angle`/`third-angle`.
 - Law: broad-phase inflation is the OPERAND's, not the policy's. `IntersectPolicy` carries no inflation column and the sweep band reads `Context.For(ToleranceLane.MeshIntersection)` off the operand's own bound context, so the band scales with the model and a caller wanting a wider sweep widens that context — one authority for the tolerance rather than a per-view scalar every hatch and view leg re-spelled.
 - Law: an anchor is projected evidence, not a cross product. A characteristic anchors in a view only where its locus projects to a FINITE POSITIVE depth in that view's own camera, so a locus behind the camera or on its plane records no anchor rather than a screen point a sheet would place.
 - Law: a balloon anchors at the ARC-LENGTH MIDPOINT of its part's LONGEST visible chain. ISO 6433 §4.4 seats a part reference outside the outlines of the part it names and connects it by a leader terminating against that outline, so the outline stretch a leader wants is the longest one the view draws — the run a neighbouring part's linework crowds least, and the one whose midpoint holds the part at every drawing scale. Chain partition COMPOSES `SuccessorChain.Walk` over the run's own visible set: `ProjectedSegment.Next` indexes within that set, so a per-part filter ahead of the walk strands every ordinal, and a page-local cursor loop beside the kernel's one walk is the deleted twin. Each chain keys on its head's `Part` — a linked run is one source edge's own — length is summed screen distance, ties fall to the lowest first-segment ordinal, and the depth cue INTERPOLATES between the bracketing segment's own endpoint pair rather than reporting an endpoint's.
@@ -22,8 +22,8 @@
 - Law: face-grain attribution reads the SEGMENT — `ProjectedSegment.SourceFace` carries the kernel's classifying face ordinal, which on this single-part solve IS the composed model's own face index, so `ProjectionEvidence.Attribute(segment.SourceFace)` resolves per-segment operand lineage with no side table; `SourceA`/`SourceB` stay source-edge vertex indices the chain walk links on, negative wherever a visibility split landed mid-edge, and a `-1` face (an inter-part seam or section segment) attributes to nothing, the honest answer.
 - Entry: `Fabrication.Run` remains the sole public package entry; `Hlr.Solve` is internal, receives parameterized ingress and egress, and preserves every `ProjectedSegment` field of every requested view through the kernel `DrawingProjection` carrier.
 - Auto: the policy is CONSUMER-AUTHORED per run — a drafting consumer raises its own `ProjectionView` rows from the camera basis it already holds and its `PlotPolicy` from the sheet it is issuing to, minting the whole row through `PlotPolicy.Issue(size, key)` where it holds only the size — so no view, scale, or sheet convention originates inside this owner and admission validates whatever a consumer raises. Requested views enter one `Validation<Error>` traversal, so an unprojectable view reports beside every other failed view rather than masking them.
-- Receipt: `ProjectionEvidence` carries the issued `PlotPolicy`, publishes its `Quadrant` off that sheet's standard, and retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies, and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, the anchor stream carrying its symbol rows, and the per-part balloon stream a parts-list leader seats on.
-- Packages: `Rasm.Drawing` (`View.Apply`, `Hatching.Apply`, `ViewOp`, `ViewKind`, `ViewPolicy`, `ViewConvention`, `ViewPose`, `Camera`, `DrawingProjection`, `ProjectedSegment`, `EdgeHistogram`, `SuccessorChain`, `HatchOp`, `HatchPlan`, `HatchPolicy`, `HatchResult`, `PlotPolicy`, `DrawingScale`, `ScaleLadder`, `ProjectionAngle`, `SheetStandard`), `Rasm.Meshing` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult`, `MeshSpace`, `BooleanReceipt`, `ManifoldProvenance`), `Rasm.Spatial` (`BuildPolicy`, `IntersectPolicy`), `Rasm.Numerics` (`Direction.Of`), `Rasm.Fabrication.Spec` (`FeatureFrame`, `FrameSymbolRow`, `CharacteristicId`).
+- Result: `ProjectionEvidence` carries the issued `PlotPolicy`, publishes its `Quadrant` off that sheet's standard, and retains one keyed `ProjectionRun` per requested view — its `ViewPose`, kernel operation, complete `DrawingProjection` including `EdgeKind`, `Invisibility`, `Next`, `SourceA`, `SourceB`, `Part`, `SourceFace`, the flat and per-part `EdgeHistogram` tallies, and the `Contacts` interference roster, and the `Option<HatchResult>` its hatch row produced — beside every boolean composition, the drafting convention, the anchor stream carrying its symbol rows, and the per-part balloon stream a parts-list leader seats on.
+- Packages: `Rasm.Drawing` (`View.Apply`, `Hatching.Apply`, `ViewOp`, `ViewKind`, `ViewPolicy`, `ViewConvention`, `ViewPose`, `Camera`, `DrawingProjection`, `ProjectedSegment`, `EdgeHistogram`, `SuccessorChain`, `HatchOp`, `HatchPlan`, `HatchPolicy`, `HatchResult`, `PlotPolicy`, `DrawingScale`, `ScaleLadder`, `ProjectionAngle`, `SheetStandard`), `Rasm.Meshing` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult`, `MeshSpace`, `BooleanCensus`, `ManifoldProvenance`), `Rasm.Spatial` (`BuildPolicy`, `IntersectPolicy`), `Rasm.Numerics` (`Direction.Of`), `Rasm.Fabrication.Spec` (`FeatureFrame`, `FrameSymbolRow`, `CharacteristicId`).
 - Boundary: a boolean returns SHELLS, so a severing operand refuses typed mid-fold rather than silently framing one component of a disconnected model; silhouette, crease, and intersection loci are whole-model reads and projecting the first shell would drop geometry the operand legitimately produced.
 
 ```csharp
@@ -86,10 +86,10 @@ public sealed partial class ProjectionCharacteristic {
 
 public readonly record struct BooleanOperand(MeshSpace Other, BooleanOp Operation, ContentKey Source);
 
-public readonly record struct BooleanComposition(ContentKey Source, BooleanReceipt Receipt) {
+public readonly record struct BooleanComposition(ContentKey Source, BooleanCensus Census) {
     public const int OperandSlot = 1;
 
-    public Option<int> OperandOf(int face) => Receipt.Source.Bind(provenance => provenance.OperandOf(face));
+    public Option<int> OperandOf(int face) => Census.Source.Bind(provenance => provenance.OperandOf(face));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -343,7 +343,7 @@ internal static class Hlr {
                         Kind.Mesh, None, "projection:severed-operand"))
                 select new Sourced(
                     solid,
-                    current.Composition.Add(new BooleanComposition(operand.Source, kept.Receipt)))).As());
+                    current.Composition.Add(new BooleanComposition(operand.Source, kept.Result)))).As());
 
     private static Fin<(ViewPose Pose, Camera Camera, ViewPolicy View)> Lower(
         MeshSpace model,
@@ -393,7 +393,6 @@ internal static class Hlr {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -24,15 +24,7 @@ from tomlkit.items import Array
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
-from assay.core.model import (
-    BaseParams,
-    Claim,
-    Completed,
-    Fault,
-    RailStatus,
-    receipt,
-    Report,
-)
+from assay.core.model import BaseParams, Claim, Completed, Fault, RailStatus, Report
 from assay.diagnostics import fold
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -123,9 +115,7 @@ def _member_entries(root: Path) -> Result[tuple[str, ...], Fault]:
 
 
 def _declared_dirs(root: Path, members: tuple[str, ...]) -> frozenset[Path]:
-    return frozenset(
-        path.resolve() for row in members for path in (root.glob(row) if any(ch in row for ch in "*?[") else (root / row,)) if path.is_dir()
-    )
+    return frozenset(path.resolve() for row in members for path in (root.glob(row) if any(ch in row for ch in "*?[") else (root / row,)) if path.is_dir())
 
 
 def _disk_manifests(root: Path) -> tuple[Path, ...]:
@@ -139,31 +129,10 @@ def _census_rows(root: Path, members: tuple[str, ...]) -> tuple[Completed, ...]:
     orphans = tuple(m for m in _disk_manifests(root) if m.parent.resolve() not in declared)
     ghosts = tuple(row for row in members if not any(ch in row for ch in "*?[") and not (root / row / "pyproject.toml").is_file())
     findings = (
-        *(
-            receipt(
-                ("init", "census", str(m.parent.relative_to(root))),
-                1,
-                status=RailStatus.FAILED,
-                notes=(f"{m.relative_to(root)} is not a declared workspace member; add its row to tool.uv.workspace.members",),
-            )
-            for m in orphans
-        ),
-        *(
-            receipt(
-                ("init", "census", row),
-                1,
-                status=RailStatus.FAILED,
-                notes=(f"member row {row!r} resolves to no pyproject.toml on disk; repair or remove the row",),
-            )
-            for row in ghosts
-        ),
+        *(Completed(("init", "census", str(m.parent.relative_to(root))), 1, status=RailStatus.FAILED, notes=(f"{m.relative_to(root)} is not a declared workspace member; add its row to tool.uv.workspace.members",)) for m in orphans),
+        *(Completed(("init", "census", row), 1, status=RailStatus.FAILED, notes=(f"member row {row!r} resolves to no pyproject.toml on disk; repair or remove the row",)) for row in ghosts),
     )
-    covered = receipt(
-        ("init", "census"),
-        0,
-        status=RailStatus.OK,
-        notes=(f"{len(_disk_manifests(root))} manifests across {_LIBS}, {_TOOLS}, {_APPS} all resolve as workspace members",),
-    )
+    covered = Completed(("init", "census"), 0, status=RailStatus.OK, notes=(f"{len(_disk_manifests(root))} manifests across {_LIBS}, {_TOOLS}, {_APPS} all resolve as workspace members",))
     return findings or (covered,)
 
 
@@ -199,7 +168,7 @@ def _write_new(root: Path, target: str, *, app: bool) -> Result[tuple[Completed,
     except OSError as exc:
         return Error(Fault(("init", target), message=f"write failed: {exc}"))
     written = (*(str(destination.relative_to(root)) for destination, _ in writes), *(("pyproject.toml [tool.uv.workspace].members",) if app else ()))
-    return Ok((receipt(("init", target), 0, status=RailStatus.OK, notes=tuple(f"wrote {path}" for path in written)),))
+    return Ok((Completed(("init", target), 0, status=RailStatus.OK, notes=tuple(f"wrote {path}" for path in written)),))
 
 
 def _append_member(root: Path, row: str) -> None:

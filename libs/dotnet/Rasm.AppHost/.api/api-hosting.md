@@ -104,7 +104,7 @@
 [LOCAL_ADMISSION]:
 - Process-backed integrations boot through Generic Host; a hosted service adapts an external lifetime into runtime state transitions through the ordered lifecycle hooks.
 - Host configuration, app configuration, logging, and metrics enter through the builder rail, and AppHost bootstrap captures environment identity and `HostOptions` policy.
-- Host lifetime events feed receipts, never a second runtime state machine.
+- Host lifetime events advance the lifecycle owner, never a second runtime state machine.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Hosting`

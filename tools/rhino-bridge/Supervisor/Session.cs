@@ -18,10 +18,10 @@ internal abstract partial record SessionState {
     internal sealed record Negotiating(LiveHost Host, Handshake Ours) : SessionState;
     internal sealed record Ready(LiveHost Host, Handshake Peer) : SessionState;
     internal sealed record Loading(LiveHost Host, Handshake Peer, CargoManifest Manifest) : SessionState;
-    internal sealed record Running(LiveHost Host, CargoReceipt Cargo, Seq<ScenarioReceipt> Done,
+    internal sealed record Running(LiveHost Host, LoadedCargo Cargo, Seq<ScenarioOutcome> Done,
                                  Seq<ScenarioEntry> Remaining) : SessionState;
     internal sealed record Quitting(LiveHost Host, SessionPhase Rung, long RungStartedMs) : SessionState;
-    internal sealed record Faulted(BridgeFault Fault, SessionPhase At, Seq<ScenarioReceipt> Done) : SessionState;
+    internal sealed record Faulted(BridgeFault Fault, SessionPhase At, Seq<ScenarioOutcome> Done) : SessionState;
     internal sealed record Terminal(SessionEnvelope Envelope) : SessionState;
 }
 
@@ -124,7 +124,7 @@ internal static class SessionKernel {
                     SupervisorVerb.Verify verify => await VerifyAsync(verify: verify).ConfigureAwait(false),
                     SupervisorVerb.Quit => await QuitAsync().ConfigureAwait(false),
                     SupervisorVerb.Redeploy redeploy => Fold(
-                        final: Faulted(new BridgeFault.CapabilityAbsent(Capability: "redeploy.supervisor", ProbeReceipt: $"the direct supervisor does not own redeploy; Assay owns the package cycle for '{redeploy.PackagePath}'"), SessionPhase.Install),
+                        final: Faulted(new BridgeFault.CapabilityAbsent(Capability: "redeploy.supervisor", Detail: $"the direct supervisor does not own redeploy; Assay owns the package cycle for '{redeploy.PackagePath}'"), SessionPhase.Install),
                         spoolTail: Evidence.SpoolTail(reportDir: reportDir)),
                     _ => throw new InvalidOperationException(message: "unknown supervisor verb"),
                 };
@@ -164,7 +164,7 @@ internal static class SessionKernel {
                     string.Equals(a: entry.Key, b: Handshake.ShellContentCapability, comparisonType: StringComparison.Ordinal));
                 if (shellContent.Key is null || shellContent.Outcome != PhaseStatus.Ok) {
                     BridgeFault fault = new BridgeFault.HostDrift(
-                        MissingMember: shellContent.Key is null ? Handshake.ShellContentCapability : $"{Handshake.ShellContentCapability}:{shellContent.Receipt}",
+                        MissingMember: shellContent.Key is null ? Handshake.ShellContentCapability : $"{Handshake.ShellContentCapability}:{shellContent.Detail}",
                         BuiltAgainst: live.Fingerprint,
                         Running: negotiated.Fingerprint);
                     Phase(SessionPhase.Hello, fault.Status, fault: fault);
@@ -184,17 +184,17 @@ internal static class SessionKernel {
                 referenceRoots = stage.ReferenceRoots;
                 evidenceMode = verify.EvidenceMode;
                 Phase(SessionPhase.Stage, PhaseStatus.Ok);
-                CargoReceipt cargo = await machine.RunPhaseAsync(phase: SessionPhase.Load, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
+                LoadedCargo cargo = await machine.RunPhaseAsync(phase: SessionPhase.Load, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
                     rpc: ct => connection.LoadAsync(manifest: manifest, ct: ct)).ConfigureAwait(false);
                 Phase(SessionPhase.Load, PhaseStatus.Ok, durationMs: cargo.SwapMs);
                 ScenarioEntry[] chosen = verify.Selection.Filter(entries: cargo.Scenarios);
                 Seq<ScenarioEntry> selected = toSeq(value: chosen);
-                ScenarioReceipt[] receipts = await machine.RunPhaseAsync(
+                ScenarioOutcome[] outcomes = await machine.RunPhaseAsync(
                     phase: SessionPhase.Execute,
-                    phaseState: new SessionState.Running(Host: negotiated, Cargo: cargo, Done: Seq<ScenarioReceipt>(), Remaining: selected),
+                    phaseState: new SessionState.Running(Host: negotiated, Cargo: cargo, Done: Seq<ScenarioOutcome>(), Remaining: selected),
                     deadline: runtime.Policy.ExecuteBudget(selected: chosen),
                     rpc: ct => connection.RunAsync(selection: verify.Selection, ct: ct)).ConfigureAwait(false);
-                UnloadReceipt unload = await machine.RunPhaseAsync(phase: SessionPhase.Unload, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
+                UnloadOutcome unload = await machine.RunPhaseAsync(phase: SessionPhase.Unload, phaseState: new SessionState.Loading(Host: negotiated, Peer: peer, Manifest: manifest),
                     rpc: ct => connection.UnloadAsync(ct: ct)).ConfigureAwait(false);
                 stream.Add(item: Fact(
                     unload.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked",
@@ -213,8 +213,8 @@ internal static class SessionKernel {
                 await machine.QuiesceAsync(host: negotiated, sessionId: sessionId, prepare: ct => connection.PrepareQuitAsync(ct: ct), publish: stream.Add).ConfigureAwait(false);
                 _ = QuitLadder.Run(host: negotiated, sessionId: sessionId, publish: stream.Add).Run(runtime);
                 return new SessionProjection(
-                    Final: new SessionState.Running(Host: negotiated, Cargo: cargo, Done: toSeq(receipts), Remaining: Seq<ScenarioEntry>()),
-                    SpoolTail: SpoolTail(receipts: receipts));
+                    Final: new SessionState.Running(Host: negotiated, Cargo: cargo, Done: toSeq(outcomes), Remaining: Seq<ScenarioEntry>()),
+                    SpoolTail: SpoolTail(outcomes: outcomes));
             });
 
         private Task<SessionEnvelope> QuitAsync() {
@@ -335,10 +335,10 @@ internal static class SessionKernel {
             BridgeEvent.Fact(key: key, value: value, stamp: Next());
 
         private static SessionState.Faulted Faulted(BridgeFault fault, SessionPhase at) =>
-            new(Fault: fault, At: at, Done: Seq<ScenarioReceipt>());
+            new(Fault: fault, At: at, Done: Seq<ScenarioOutcome>());
 
-        private (long Count, long LastSequence) SpoolTail(ScenarioReceipt[] receipts) {
-            Seq<BridgeEvent> harvested = toSeq(receipts.Select(selector: static receipt => receipt.Scenario).Prepend("probe"))
+        private (long Count, long LastSequence) SpoolTail(ScenarioOutcome[] outcomes) {
+            Seq<BridgeEvent> harvested = toSeq(outcomes.Select(selector: static outcome => outcome.Scenario).Prepend("probe"))
                 .Bind(f: scenario => Evidence.HarvestSpool(reportDir: reportDir, scenario: scenario))
                 .Filter(f: static evt => evt is BridgeEvent.FactCase or BridgeEvent.CaptureCase);
             return (harvested.Count, harvested.Map(f: static evt => evt.Stamp.Sequence)
@@ -371,7 +371,7 @@ internal static class SessionKernel {
         private static BridgeFault FaultOf(Exception error) =>
             error switch {
                 RemoteInvocationException remote when RemoteFault(remote: remote) is { } fault => fault,
-                RemoteMethodNotFoundException missing => new BridgeFault.CapabilityAbsent(Capability: "rpc.method", ProbeReceipt: missing.Message),
+                RemoteMethodNotFoundException missing => new BridgeFault.CapabilityAbsent(Capability: "rpc.method", Detail: missing.Message),
                 TimeoutException timeout => new BridgeFault.ConnectFailed(Detail: timeout.Message, ElapsedMs: 0.0),
                 IOException io => new BridgeFault.ConnectFailed(Detail: io.Message, ElapsedMs: 0.0),
                 ObjectDisposedException disposed => new BridgeFault.ConnectFailed(Detail: disposed.Message, ElapsedMs: 0.0),
@@ -438,7 +438,7 @@ internal static class SessionKernel {
             return await work.ConfigureAwait(false);
         }
 
-        internal Task QuiesceAsync(LiveHost host, Guid sessionId, Func<CancellationToken, Task<QuitPrepareReceipt>> prepare, Action<BridgeEvent> publish) {
+        internal Task QuiesceAsync(LiveHost host, Guid sessionId, Func<CancellationToken, Task<QuitScrub>> prepare, Action<BridgeEvent> publish) {
             _ = cursor.Swap(f: _ => new SessionState.Quitting(Host: host, Rung: SessionPhase.QuitAe, RungStartedMs: clock.GetUtcNow().ToUnixTimeMilliseconds()));
             return QuitPrepare.RunAsync(prepare: prepare, deadline: policy.QuitRungDeadline, clock: clock, sessionId: sessionId, publish: publish, root: root);
         }
@@ -462,8 +462,8 @@ internal static class SessionKernel {
                 At = faulted.At;
             }
 
-            internal PhaseFaultedException() : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: "phase faulted"), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
-            internal PhaseFaultedException(string message) : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: message), At: SessionPhase.Connect, Done: Seq<ScenarioReceipt>())) { }
+            internal PhaseFaultedException() : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: "phase faulted"), At: SessionPhase.Connect, Done: Seq<ScenarioOutcome>())) { }
+            internal PhaseFaultedException(string message) : this(faulted: new SessionState.Faulted(Fault: new BridgeFault.LaunchFailed(Detail: message), At: SessionPhase.Connect, Done: Seq<ScenarioOutcome>())) { }
             internal PhaseFaultedException(string message, Exception innerException) : base(message: message, innerException: innerException) {
                 Fault = new BridgeFault.LaunchFailed(Detail: message);
                 At = SessionPhase.Connect;
@@ -499,7 +499,7 @@ internal static class SessionDispatch {
                 phase: SessionPhase.Hello, deadline: ctx.Policy.HelloDeadline),
             ready: static (_, current) => current,
             loading: static (ctx, current) => CargoPhase(
-                current: current, scenario: CargoLoad, done: Seq<ScenarioReceipt>(),
+                current: current, scenario: CargoLoad, done: Seq<ScenarioOutcome>(),
                 signal: ctx.Signal, policy: ctx.Policy, phase: SessionPhase.Load, deadline: ctx.Policy.LoadDeadline),
             running: static (ctx, current) => CargoPhase(
                 current: current, scenario: InFlight(running: current), done: current.Done,
@@ -531,7 +531,7 @@ internal static class SessionDispatch {
         };
 
     private static SessionState CargoPhase(SessionState current, string scenario,
-        Seq<ScenarioReceipt> done, SessionSignal signal, SessionPolicy policy, SessionPhase phase, TimeSpan deadline) =>
+        Seq<ScenarioOutcome> done, SessionSignal signal, SessionPolicy policy, SessionPhase phase, TimeSpan deadline) =>
         signal switch {
             SessionSignal.HostExited exited =>
                 Fault(fault: new BridgeFault.RhinoCrash(Crash: Crash(pid: exited.Pid, scenario: scenario), Scenario: scenario), at: phase, done: done),
@@ -552,7 +552,7 @@ internal static class SessionDispatch {
             : wedged;
     }
 
-    private static SessionState.Faulted Fault(BridgeFault fault, SessionPhase at, Seq<ScenarioReceipt> done = default) =>
+    private static SessionState.Faulted Fault(BridgeFault fault, SessionPhase at, Seq<ScenarioOutcome> done = default) =>
         new(Fault: fault, At: at, Done: done);
 
     private static CrashFact Crash(int pid, string scenario) =>
@@ -585,7 +585,7 @@ internal static class SessionFold {
         if (final is SessionState.Terminal terminal)
             return terminal.Envelope;
         Seq<BridgeEvent> ordered = toSeq(value: stream.OrderBy(keySelector: static evt => evt.Stamp.AtUnixMs).ThenBy(keySelector: static evt => evt.Stamp.Sequence));
-        Seq<ScenarioReceipt> receipts = Receipts(final: final);
+        Seq<ScenarioOutcome> outcomes = Outcomes(final: final);
         BridgeFault? fault = final is SessionState.Faulted faulted ? faulted.Fault : null;
         Seq<BridgeEvent.PhaseCase> phases = ordered.Choose(selector: static evt => evt is BridgeEvent.PhaseCase phase ? Some(value: phase) : Option<BridgeEvent.PhaseCase>.None);
         Seq<BridgeEvent.PhaseCase> sessionPhases = phases.Filter(f: static phase => phase.Stamp.Scenario is null);
@@ -607,34 +607,34 @@ internal static class SessionFold {
             ? tail.Stamp.AtUnixMs - head.Stamp.AtUnixMs
             : 0.0;
         ReferenceEvidenceResult[] references = verb is SupervisorVerb.Verify
-            ? Evidence.ReferenceResults(mode: evidenceMode ?? EvidenceMode.Verify, roots: referenceRoots ?? [], receipts: receipts, evidence: carried, reportDir: reportDir)
+            ? Evidence.ReferenceResults(mode: evidenceMode ?? EvidenceMode.Verify, roots: referenceRoots ?? [], outcomes: outcomes, evidence: carried, reportDir: reportDir)
             : [];
-        receipts = AttachReferences(receipts: receipts, references: references);
-        PhaseStatus scenarioStatus = receipts.Map(f: static receipt => receipt.ScenarioStatus)
+        outcomes = AttachReferences(outcomes: outcomes, references: references);
+        PhaseStatus scenarioStatus = outcomes.Map(f: static outcome => outcome.ScenarioStatus)
             .Fold(initialState: PhaseStatus.Ok, f: static (accumulator, observed) => accumulator.Worst(other: observed));
         PhaseStatus status = scenarioStatus.Worst(other: sessionStatus);
-        (string firstScenarioFailure, _) = FirstScenarioFailure(receipts: receipts);
+        (string firstScenarioFailure, _) = FirstScenarioFailure(outcomes: outcomes);
         string firstFailure = firstScenarioFailure.Length > 0 ? firstScenarioFailure : firstSessionFault;
-        Evidence.EnsureReportFiles(reportDir: reportDir, receipts: receipts);
+        Evidence.EnsureReportFiles(reportDir: reportDir, outcomes: outcomes);
         ArtifactRef[] artifacts = Evidence.ArtifactRefs(reportDir: reportDir);
         EvidenceCounts counts = Counts(evidence: carried, artifacts: artifacts, references: references);
-        ScenarioCounts scenarioCounts = ScenarioCountsOf(receipts: receipts);
-        PhaseReceipt[] phaseReceipts = [.. phases.Map(f: static phase => new PhaseReceipt(Phase: phase.Phase, Status: phase.Status, DurationMs: phase.DurationMs, Fault: phase.Fault))];
+        ScenarioCounts scenarioCounts = ScenarioCountsOf(outcomes: outcomes);
+        PhaseOutcome[] phaseOutcomes = [.. phases.Map(f: static phase => new PhaseOutcome(Phase: phase.Phase, Status: phase.Status, DurationMs: phase.DurationMs, Fault: phase.Fault))];
         EvidenceCertificate certificate = new(
             RunId: runId, Scenario: "session",
             Status: new StatusBreakdown(ScenarioStatus: scenarioStatus, SessionStatus: sessionStatus, OverallStatus: status),
             Classes: Classes(counts: counts), Counts: counts, Artifacts: artifacts, References: references,
             ObjectManifests: [], GeometryManifests: [], ViewportManifests: [], Gh2CanvasManifests: [],
-            ScratchManifests: [], Phases: phaseReceipts,
+            ScratchManifests: [], Phases: phaseOutcomes,
             FirstFault: firstFailure.Length > 0 ? new FaultSummary(Phase: firstPhase, Fault: fault, Message: firstFailure) : null);
         string certificatePath = Evidence.WriteCertificate(reportDir: reportDir, certificate: certificate);
         return new SessionEnvelope(
             RunId: runId, Verb: verb.Key, Status: status, DurationMs: duration, ReportDir: reportDir,
-            Host: Host(final: final), Capabilities: Capabilities(final: final), Scenarios: [.. receipts],
+            Host: Host(final: final), Capabilities: Capabilities(final: final), Scenarios: [.. outcomes],
             Evidence: [.. carried], FirstFailure: firstFailure, FirstFaultPhase: firstPhase, Fault: fault) {
             ScenarioStatus = scenarioStatus,
             SessionStatus = sessionStatus,
-            PhaseReceipts = phaseReceipts,
+            Phases = phaseOutcomes,
             FirstScenarioFailure = firstScenarioFailure,
             FirstSessionFault = firstSessionFault,
             CertificatePath = certificatePath,
@@ -680,25 +680,25 @@ internal static class SessionFold {
                 ? (Truncate(text: firstPhase.Fault?.Prescription ?? $"{firstPhase.Phase.Key} {firstPhase.Status.Key}"), firstPhase.Phase)
                 : (string.Empty, null);
 
-    private static (string Failure, SessionPhase? Phase) FirstScenarioFailure(Seq<ScenarioReceipt> receipts) =>
-        receipts.Filter(f: static receipt => receipt.ScenarioStatus.ExitCode != 0).Head.Case is ScenarioReceipt firstReceipt
-            ? (Truncate(text: firstReceipt.FirstScenarioFailure.Length > 0
-                ? firstReceipt.FirstScenarioFailure
-                : firstReceipt.Fault?.Prescription ?? $"{firstReceipt.Scenario} {firstReceipt.ScenarioStatus.Key}"), SessionPhase.Execute)
+    private static (string Failure, SessionPhase? Phase) FirstScenarioFailure(Seq<ScenarioOutcome> outcomes) =>
+        outcomes.Filter(f: static outcome => outcome.ScenarioStatus.ExitCode != 0).Head.Case is ScenarioOutcome first
+            ? (Truncate(text: first.FirstScenarioFailure.Length > 0
+                ? first.FirstScenarioFailure
+                : first.Fault?.Prescription ?? $"{first.Scenario} {first.ScenarioStatus.Key}"), SessionPhase.Execute)
             : (string.Empty, null);
 
-    private static Seq<ScenarioReceipt> AttachReferences(Seq<ScenarioReceipt> receipts, ReferenceEvidenceResult[] references) =>
-        receipts.Map(f: receipt => {
-            ReferenceEvidenceResult[] rows = [.. references.Where(predicate: result => string.Equals(a: result.Scenario, b: receipt.Scenario, comparisonType: StringComparison.Ordinal))];
+    private static Seq<ScenarioOutcome> AttachReferences(Seq<ScenarioOutcome> outcomes, ReferenceEvidenceResult[] references) =>
+        outcomes.Map(f: outcome => {
+            ReferenceEvidenceResult[] rows = [.. references.Where(predicate: result => string.Equals(a: result.Scenario, b: outcome.Scenario, comparisonType: StringComparison.Ordinal))];
             ReferenceEvidenceResult? firstFailure = rows.FirstOrDefault(predicate: static result =>
                 !result.Matched && result.Admission != ReferenceAdmission.Candidate && result.Admission != ReferenceAdmission.Unpromoted);
             bool unpromoted = rows.Any(predicate: static result => result.Admission == ReferenceAdmission.Unpromoted);
-            return receipt with {
+            return outcome with {
                 ScenarioStatus = firstFailure is not null ? PhaseStatus.Failed
-                    : unpromoted ? receipt.ScenarioStatus.Worst(other: PhaseStatus.Degraded)
-                    : receipt.ScenarioStatus,
+                    : unpromoted ? outcome.ScenarioStatus.Worst(other: PhaseStatus.Degraded)
+                    : outcome.ScenarioStatus,
                 ReferenceResults = rows,
-                FirstScenarioFailure = firstFailure is null ? receipt.FirstScenarioFailure : firstFailure.Detail,
+                FirstScenarioFailure = firstFailure is null ? outcome.FirstScenarioFailure : firstFailure.Detail,
             };
         });
 
@@ -732,16 +732,16 @@ internal static class SessionFold {
             counts.References > 0 ? EvidenceClass.CertifiedReference : null,
         }.OfType<EvidenceClass>()];
 
-    private static ScenarioCounts ScenarioCountsOf(Seq<ScenarioReceipt> receipts) =>
+    private static ScenarioCounts ScenarioCountsOf(Seq<ScenarioOutcome> outcomes) =>
         new(
-            Total: receipts.Count,
-            Ok: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Ok).Count,
-            Failed: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Failed).Count,
-            Skipped: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Skipped).Count,
-            Unsupported: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Unsupported).Count,
-            Timeout: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Timeout).Count,
-            Busy: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Busy).Count,
-            Degraded: receipts.Filter(f: static receipt => receipt.ScenarioStatus == PhaseStatus.Degraded).Count);
+            Total: outcomes.Count,
+            Ok: outcomes.Filter(f: static outcome => outcome.ScenarioStatus == PhaseStatus.Ok).Count,
+            Failed: outcomes.Filter(f: static outcome => outcome.ScenarioStatus == PhaseStatus.Failed).Count,
+            Skipped: outcomes.Filter(f: static outcome => outcome.ScenarioStatus == PhaseStatus.Skipped).Count,
+            Unsupported: outcomes.Filter(f: static outcome => outcome.ScenarioStatus == PhaseStatus.Unsupported).Count,
+            Timeout: outcomes.Filter(f: static outcome => outcome.ScenarioStatus == PhaseStatus.Timeout).Count,
+            Busy: outcomes.Filter(f: static outcome => outcome.ScenarioStatus == PhaseStatus.Busy).Count,
+            Degraded: outcomes.Filter(f: static outcome => outcome.ScenarioStatus == PhaseStatus.Degraded).Count);
 
     private static HostFingerprint Host(SessionState final) =>
         final switch {
@@ -754,12 +754,12 @@ internal static class SessionFold {
             _ => new HostFingerprint(BundleVersion: string.Empty, RhinoCommonVersion: string.Empty, Grasshopper2Version: string.Empty, RuntimeVersion: string.Empty),
         };
 
-    private static Seq<ScenarioReceipt> Receipts(SessionState final) =>
+    private static Seq<ScenarioOutcome> Outcomes(SessionState final) =>
         final switch {
             SessionState.Running running => running.Done + running.Remaining.Map(f: static entry =>
-                new ScenarioReceipt(Scenario: entry.Name, Status: PhaseStatus.Skipped, DurationMs: 0.0, Fault: null)),
+                new ScenarioOutcome(Scenario: entry.Name, Status: PhaseStatus.Skipped, DurationMs: 0.0, Fault: null)),
             SessionState.Faulted faulted => faulted.Done,
-            _ => Seq<ScenarioReceipt>(),
+            _ => Seq<ScenarioOutcome>(),
         };
 
     private static string Truncate(string text) =>

@@ -247,8 +247,8 @@ Every `BitHelper` operation carries a `uint` and a `ulong` overload; the `ref` f
 [LOCAL_ADMISSION]:
 - Compute staging binds these memory shapes before minting a package-local payload owner.
 - Ref carriers and plane views are implementation material inside a staging owner; domain types carry their own value vocabulary.
-- Parallel entrypoints become a default execution path only on a benchmark receipt.
-- Pooled text is a staging receipt value; a domain value carries its own string.
+- Parallel entrypoints become a default execution path only when the benchmark report admits them.
+- Pooled text is a staging value; a domain value carries its own string.
 - Byte projections declare codec and endianness ownership at the calling rail.
 
 [RAIL_LAW]:

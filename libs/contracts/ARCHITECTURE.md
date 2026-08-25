@@ -21,7 +21,7 @@ contracts/
 │       ├── bcf/                  # BCF topic, comment, and viewpoint wires carrying camera, clipping, visibility · dotnet typescript
 │       ├── benchmark/            # BenchmarkClaimWire rungs and metrics beside the host fingerprint measured on · dotnet typescript
 │       ├── bim/                  # ModelDiffWire element-change shapes over the Element aspect vocabulary · dotnet typescript
-│       ├── binding/              # External-binding state with its coerced-value and write-receipt pair · dotnet typescript
+│       ├── binding/              # External-binding state with its coerced-value and write-outcome pair · dotnet typescript
 │       ├── cad/                  # CadService execute and tessellate over exact-modeling operations and types · python
 │       ├── capability/           # DescriptorPinWire cost estimates and the discovery request-response pair · dotnet python typescript
 │       ├── clock/                # Hlc hybrid logical stamp every stamped family imports · dotnet python typescript
@@ -39,7 +39,6 @@ contracts/
 │       ├── organization/         # Organization entity tree carrying per-view overrides · dotnet python typescript
 │       ├── parity/               # Backend provider capability and artifact-role rows the parity gate reads · dotnet python typescript
 │       ├── patch/                # PatchOp RFC 6902 arms the element edit stream carries · dotnet typescript
-│       ├── receipt/              # ReceiptHeaderWire spine — correlation, tenant, package, stamp, skew · dotnet typescript
 │       ├── render/               # GeometryResidency meshlet streams beside viewpoint and section-box wires · dotnet typescript
 │       ├── scan/                 # GaussianSplatScan splat capture with its format vocabulary · dotnet python
 │       ├── scene/                # SceneDescriptor sited sun, photometry, and shading state for a lit scene · dotnet python
@@ -84,7 +83,6 @@ flowchart TB
         Crdt[crdt]
         Element[element]
         Fault[fault]
-        Receipt[receipt]
         Render[render]
         Scene[scene]
         Sync[sync]
@@ -102,7 +100,7 @@ flowchart TB
     Binding e3@-->|"[IMPORT]: FaultObservation"| Fault
     Ui e4@-->|"[IMPORT]: DegradationLevel"| Compute
     Ui e5@-->|"[IMPORT]: FaultObservation"| Fault
-    Ui e6@-->|"[IMPORT]: ReceiptHeaderWire"| Receipt
+    Ui e6@-->|"[IMPORT]: Hlc"| Clock
     Appearance e7@-->|"[IMPORT]: ArtifactRef"| Artifact
     Bcf e8@-->|"[IMPORT]: Point3"| Spatial
     Cad e9@-->|"[IMPORT]: ArtifactRef"| Artifact
@@ -115,7 +113,6 @@ flowchart TB
     Element e16@-->|"[IMPORT]: ImpactCategory"| Declaration
     Element e17@-->|"[IMPORT]: PatchOp"| Patch
     Fault e18@-->|"[IMPORT]: Hlc"| Clock
-    Receipt e19@-->|"[IMPORT]: Hlc"| Clock
     Sync e25@-->|"[IMPORT]: Hlc"| Clock
     Render e20@-->|"[IMPORT]: ArtifactRef"| Artifact
     Render e21@-->|"[IMPORT]: Point3"| Spatial
@@ -130,9 +127,9 @@ flowchart TB
 - S0: `benchmark`, `board`, `capability`, `credential`, `event`, `fabrication`, `feature`, `organization`, `parity`, `scan`, `stage` import none.
 - S1 composed — every S1 family reaches exactly one rank down, and `cad` is the one family a single lane emits.
 - S1 law — `cad`, `compute`, and `scene` pull `TessellationPolicy` from `geometry`, so tolerance vocabulary keeps one owner and no caller copy forms.
-- S2 composed — `availability`, `bim`, `binding`, and `ui` reach S0 only through an S1 owner, never directly.
-- S2 law — `ui` alone folds three S1 owners — `compute`, `fault`, `receipt` — into one command and evidence surface.
-- S0 closure law — `geometry`, `patch`, `receipt`, and `spatial` enter every lane by closure alone, so dropping the root reaching one deletes it.
+- S2 composed — `availability`, `bim`, and `binding` reach S0 only through an S1 owner; `ui` alone adds the S0 `clock` stamp ordering its timeline.
+- S2 law — `ui` alone folds two S1 owners — `compute` and `fault` — into one command and evidence surface.
+- S0 closure law — `geometry`, `patch`, and `spatial` enter every lane by closure alone, so dropping the root reaching one deletes it.
 - `Rasm.Contracts` seats in the .NET branch as one assembly import root, never a stratum: `ProjectReference` inside, `PackageReference` outside.
 - `rasm.contracts` seats in the Python branch as PEP 420 import-root portions under `gen/python`, never a stratum: the uv member installs them.
 - `@rasm/contracts` seats in the TypeScript branch as one `workspace:*` import root, never a stratum: `./*` resolves each module path.
@@ -178,7 +175,7 @@ flowchart LR
     Dotnet e7@-->|"[CONTRACT]: EntityEditWire + SyncService"| Persistence
     Dotnet e8@-->|"[CONTRACT]: ControlService + FaultDetail"| AppHost
     Dotnet e9@-->|"[CONTRACT]: ComputeService + ProgressService + StageResultWire + BoardPackWire"| Compute
-    Dotnet e10@-->|"[CONTRACT]: EvidenceReceiptWire"| AppUi
+    Dotnet e10@-->|"[CONTRACT]: EvidenceWire"| AppUi
     Dotnet e11@-->|"[CONTRACT]: Set + Material + StageRequestWire"| Materials
     Dotnet e12@-->|"[CONTRACT]: BcfTopicWire"| Bim
     Dotnet e13@-->|"[CONTRACT]: FeatureControl"| Fabrication

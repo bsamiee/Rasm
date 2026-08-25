@@ -1,53 +1,47 @@
 # [PY_COMPUTE_SPATIAL]
 
-One array-native computational-geometry owner rules: `SpatialQuery` discriminates Qhull tessellation, KD-tree proximity, the pairwise/condensed distance matrix, the rotation-and-alignment algebra, and the alpha-shape boundary fold over a point set, and `resolve` folds every case to a `SpatialEvidence` outcome the `SpatialReceipt` carries whole. This owner emits point-set evidence as compute-native receipts and never re-owns the geometry-branch `trimesh` mesh surface; the graduation direction is closed one-way — geometry's reconstruction plane mints `reconstructed-mesh`, the alpha-shape `Boundary` stays a compute-native receipt product, and an outward crossing requires a named consumer and a compute-owned axis case, never the geometry case.
+`SpatialQuery` returns the computed neighbour, distance, Qhull, boundary, or alignment product directly. Geometry retains the `trimesh` mesh surface, while compute owns these array-native point-set products.
 
-Each point set admits through `numerics/array#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the query-owned `identity_parts` fold handed to `IdentitySource(parts=...)`, so the count-and-length framing runs at the identity owner and two different queries over one point set never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.spatial` is not Array-API-aware, so the point set is the numpy `np.ndarray` the Qhull/KD-tree/BLAS backends bind under the `RELEASING` trait, isolation and band deriving at the runtime `Kernel` crossing. The direct native kernel enters through `LanePolicy.whole`, and the resulting `LaneGrant.width` is the KD-tree scan width threaded through the kernel — never an allocator-total read or the unbounded `workers=-1` team that multiplies inner and outer parallelism.
+Each point set admits through `numerics/array#PAYLOAD`. `LanePolicy.whole` threads the admitted width into SciPy's KD-tree calls.
 
 ## [01]-[INDEX]
 
-- [02]-[SPATIAL]: the `SpatialQuery` cases over one point set, evidence discriminated over `SpatialEvidence`, the two KD-tree routes degrading through the data-driven `NEIGHBOUR_FLOOR`.
+- [02]-[SPATIAL]: `SpatialQuery` dispatch over one point set returning each native product.
 
 ## [02]-[SPATIAL]
 
-- Owner: `SpatialQuery` — one owner discriminated by the geometric question, never a `Neighbours`/`Hull`/`Triangulate` method family. `Align` is a paired correspondence fit — `source` and `target` carry the same row count, `procrustes` raising `ValueError` on a mismatch, the fault converting on the `boundary` fence. `AlphaShape` folds its boundary locally because no `scipy.spatial` alpha-shape primitive exists; `_circumradius` stays private to that kernel, never a module-level sibling of the dispatch.
-- Output: `SpatialEvidence` parameterizes the result per case, and the `Complex` `cardinality` is the primitive count its `kind` string discriminates — hull facets, Delaunay simplices, Voronoi ridges, halfspace vertices, distance pairs — so a distance summary never wears a `simplices` label and four outcome vocabularies never smuggle through two overloaded columns. Adding a query writes only its geometry body returning a `SpatialEvidence`; `assert_never` closes the dispatch.
-- Faults: one `SPATIAL_RESOLVE` fence row spans every query — the tag is a span fact, never nine subject spellings — and its `catch` admits `QhullError` through its `RuntimeError` base, since naming the attribute would reify the lazy proxy and defeat the floor. `_proximity` scopes its `try` to the import dereference ALONE, so a raise out of a live KD-tree query is the defect the fence converts rather than a silent demotion to floor evidence.
-- Packages: `scipy.spatial`, `numpy`, `expression`, and `msgspec` per the fence imports; `scipy.spatial` and `optimize.linprog` bind once each as module-scope `lazy` names that defer both trees to the first kernel body, so `resolve` stays a pure tag-dispatch and `linprog` costs nothing until the halfspace Chebyshev-centre interior point asks for it.
-- Growth: a new spatial query is one `SpatialQuery` case with one `resolve` arm and one `identity_parts` arm; a new evidence shape is one `SpatialEvidence` case with its `facts()` arm — the receipt carries the evidence whole and needs no edit; a new distance metric is one `Metric` row; a new tessellation backend is one `Tessellation` row; a new degrading route is one `NEIGHBOUR_FLOOR` row.
+- Owner: `SpatialQuery` discriminates the geometric question and resolves its native product. `AlphaShape` owns its local Delaunay boundary fold.
+- Output: Each query returns KD-tree distances and indices, radius hit indices, pair indices, a distance array, SciPy's Qhull object, alpha boundary facets, or the provider alignment values.
+- Faults: `SPATIAL_RESOLVE` fences provider and numeric failures. `_proximity` selects the array floor only when SciPy's tree cannot load.
+- Packages: `scipy.spatial` owns KD-tree, Qhull, distance, Procrustes, and rotation products; `numpy` owns the array products.
+- Growth: add one `SpatialQuery` case and one `resolve` arm.
 
 ```python
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from enum import StrEnum
 from itertools import combinations
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import numpy as np
-from expression import Nothing, Option, Some, case, tag, tagged_union
-from expression.collections import Block, Map
-from msgspec import Struct
-
+from expression import case, tag, tagged_union
+from expression.collections import Block
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
-from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import scipy.spatial as sp
 lazy from scipy.optimize import linprog
 
 if TYPE_CHECKING:
-    from scipy.spatial import cKDTree
+    from scipy.spatial import ConvexHull, Delaunay, HalfspaceIntersection, SphericalVoronoi, Voronoi, cKDTree
+    from scipy.spatial.transform import Rotation
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Tag = Literal["neighbours", "radius", "pairs", "distances", "hull", "triangulate", "tessellate", "alpha_shape", "align"]
-type NeighbourReduction = Callable[[np.ndarray, np.ndarray, float], "SpatialEvidence"]
-type KdReduction = Callable[["cKDTree"], "SpatialEvidence"]
-
-
 class Metric(StrEnum):
     EUCLIDEAN = "euclidean"
     CITYBLOCK = "cityblock"
@@ -60,75 +54,6 @@ class Tessellation(StrEnum):
     VORONOI = "voronoi"
     SPHERICAL = "spherical"
     HALFSPACE = "halfspace"
-
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-@tagged_union(frozen=True)
-class SpatialEvidence:
-    tag: Literal["proximity", "complex_", "boundary", "alignment"] = tag()
-    proximity: tuple[int, Option[float], Option[float]] = case()
-    complex_: tuple[str, int, float] = case()
-    boundary: tuple[int, float] = case()
-    alignment: tuple[float, float] = case()
-
-    @staticmethod
-    def Proximity(count: int, mean_distance: Option[float] = Nothing, radius: Option[float] = Nothing) -> "SpatialEvidence":
-        return SpatialEvidence(proximity=(count, mean_distance, radius))
-
-    @staticmethod
-    def Complex(kind: str, cardinality: int, measure: float) -> "SpatialEvidence":
-        return SpatialEvidence(complex_=(kind, cardinality, measure))
-
-    @staticmethod
-    def Boundary(facets: int, total_radius: float) -> "SpatialEvidence":
-        return SpatialEvidence(boundary=(facets, total_radius))
-
-    @staticmethod
-    def Alignment(rmsd: float, disparity: float) -> "SpatialEvidence":
-        return SpatialEvidence(alignment=(rmsd, disparity))
-
-    def facts(self) -> dict[str, object]:
-        match self:
-            case SpatialEvidence(tag="proximity", proximity=(count, mean_distance, radius)):
-                return {
-                    "count": count,
-                    **mean_distance.map(lambda mean: {"mean_distance": mean}).default_value({}),
-                    **radius.map(lambda r: {"radius": r}).default_value({}),
-                }
-            case SpatialEvidence(tag="complex_", complex_=(kind, cardinality, measure)):
-                return {"kind": kind, "cardinality": cardinality, "measure": measure}
-            case SpatialEvidence(tag="boundary", boundary=(facets, total_radius)):
-                return {"facets": facets, "total_radius": total_radius}
-            case SpatialEvidence(tag="alignment", alignment=(rmsd, disparity)):
-                return {"rmsd": rmsd, "disparity": disparity}
-            case _ as unreachable:
-                assert_never(unreachable)
-
-
-class SpatialReceipt(Struct, frozen=True):
-    query: str
-    points: int
-    lineage: Provenance
-    evidence: SpatialEvidence
-
-    @staticmethod
-    def of(tag: Tag, points: int, lineage: Provenance, evidence: SpatialEvidence) -> "SpatialReceipt":
-        return SpatialReceipt(tag, points, lineage, evidence)
-
-    @property
-    def content_key(self) -> ContentKey:
-        return self.lineage.produced
-
-    def contribute(self) -> Iterable[Receipt]:
-        facts = {"query": self.query, "points": self.points, **self.evidence.facts()}
-        yield Receipt.of(
-            EvidenceScope.SPATIAL.value,
-            ("emitted", self.query, facts),
-            key=Some(self.lineage.produced),
-            provenance=Some(self.lineage),
-        )
 
 
 @tagged_union(frozen=True)
@@ -201,29 +126,6 @@ class SpatialQuery:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def identity_parts(self, operand_key: ContentKey) -> tuple[bytes, ...]:
-        row: tuple[object, ...]
-        match self:
-            case SpatialQuery(tag="neighbours", neighbours=(_, _, k)):
-                row = (k,)
-            case SpatialQuery(tag="radius", radius=(_, _, r)) | SpatialQuery(tag="pairs", pairs=(_, r)):
-                row = (r,)
-            case SpatialQuery(tag="distances", distances=(_, _, metric)):
-                row = (metric.value,)
-            case SpatialQuery(tag="tessellate", tessellate=(_, kind, r)):
-                row = (kind.value, r)
-            case SpatialQuery(tag="alpha_shape", alpha_shape=(_, alpha)):
-                row = (alpha,)
-            case SpatialQuery(tag="hull") | SpatialQuery(tag="triangulate") | SpatialQuery(tag="align"):
-                row = ()
-            case _ as unreachable:
-                assert_never(unreachable)
-        return (
-            self.tag.encode(),
-            operand_key.project("hex").encode(),
-            *(cell.encode() if isinstance(cell, str) else np.float64(cell).tobytes() for cell in row),
-        )
-
     @property
     def cardinality(self) -> int:
         match self:
@@ -237,31 +139,39 @@ class SpatialQuery:
             case _:
                 return int(self.points.shape[0])
 
-    def resolve(self, workers: int) -> SpatialEvidence:
+    def resolve(
+        self, workers: int
+    ) -> (
+        "np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
+        " | ConvexHull | Delaunay | Voronoi | SphericalVoronoi | HalfspaceIntersection"
+    ):
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(pts, qs, k)):
                 if k < 1 or pts.shape[0] == 0:
                     raise ValueError(f"neighbours requires k >= 1 and a non-empty reference set, got k={k}, points={int(pts.shape[0])}")
                 kth = min(k, int(pts.shape[0]))
-                return _proximity(
-                    "neighbours", pts, qs, float(kth), lambda tree: _knn_distances(np.asarray(tree.query(qs, k=kth, workers=workers)[0], dtype=float))
-                )
-            case SpatialQuery(tag="radius", radius=(pts, qs, r)):
-                return _proximity(
-                    "radius",
+                distances, indices = _proximity(
                     pts,
-                    qs,
-                    r,
-                    lambda tree: SpatialEvidence.Proximity(int(sum(len(hit) for hit in tree.query_ball_point(qs, r=r, workers=workers))), radius=Some(r)),
+                    lambda tree: tree.query(qs, k=kth, workers=workers),
+                    lambda: _floor_knn(pts, qs, kth),
                 )
+                return np.asarray(distances).reshape(qs.shape[0], -1), np.asarray(indices).reshape(qs.shape[0], -1)
+            case SpatialQuery(tag="radius", radius=(pts, qs, r)):
+                hits = _proximity(
+                    pts,
+                    lambda tree: tree.query_ball_point(qs, r=r, workers=workers, return_sorted=True),
+                    lambda: _floor_radius(pts, qs, r),
+                )
+                return tuple(np.asarray(hit, dtype=np.intp) for hit in hits)
             case SpatialQuery(tag="pairs", pairs=(pts, r)):
-                return _pairs(pts, r)
+                return sp.cKDTree(pts).query_pairs(r, output_type="set")
             case SpatialQuery(tag="distances", distances=(left, right, metric)):
-                return _distances(left, right, metric)
+                pairwise = sp.distance.pdist(left, metric=metric.value) if right is None else sp.distance.cdist(left, right, metric=metric.value)
+                return pairwise
             case SpatialQuery(tag="hull", hull=pts):
-                return _hull(pts)
+                return sp.ConvexHull(pts)
             case SpatialQuery(tag="triangulate", triangulate=pts):
-                return _triangulate(pts)
+                return sp.Delaunay(pts)
             case SpatialQuery(tag="tessellate", tessellate=(pts, kind, radius)):
                 return _tessellate(pts, kind, radius)
             case SpatialQuery(tag="alpha_shape", alpha_shape=(pts, alpha)):
@@ -279,21 +189,15 @@ SPATIAL_RESOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SPATIAL_RESOLVE]))
 
-NEIGHBOUR_FLOOR: Final[Map[Tag, NeighbourReduction]] = Map.of_seq([
-    ("neighbours", lambda pts, qs, k: _floor_knn(pts, qs, int(k))),
-    ("radius", lambda pts, qs, r: _floor_radius(pts, qs, r)),
-])
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _proximity(tag: Tag, pts: np.ndarray, qs: np.ndarray, scale: float, reduce: "KdReduction") -> SpatialEvidence:
+def _proximity[T](pts: np.ndarray, query: Callable[["cKDTree"], T], floor: Callable[[], T]) -> T:
     try:
         tree = sp.cKDTree(pts)
     except ImportError:
-        return NEIGHBOUR_FLOOR[tag](pts, qs, scale)
-    return reduce(tree)
+        return floor()
+    return query(tree)
 
 
 def _pairwise_sq(pts: np.ndarray, qs: np.ndarray) -> np.ndarray:
@@ -301,49 +205,26 @@ def _pairwise_sq(pts: np.ndarray, qs: np.ndarray) -> np.ndarray:
     return np.einsum("qnd,qnd->qn", diff, diff)
 
 
-def _knn_distances(distances: np.ndarray) -> SpatialEvidence:
-    return SpatialEvidence.Proximity(int(distances.size), Some(float(np.mean(distances))) if distances.size else Nothing)
+def _floor_knn(pts: np.ndarray, qs: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+    squared = _pairwise_sq(pts, qs)
+    indices = np.argsort(squared, axis=1)[:, :k]
+    return np.sqrt(np.take_along_axis(squared, indices, axis=1)), indices
 
 
-def _floor_knn(pts: np.ndarray, qs: np.ndarray, k: int) -> SpatialEvidence:
-    kth = min(k, pts.shape[0])
-    return _knn_distances(np.sqrt(np.sort(_pairwise_sq(pts, qs), axis=1)[:, :kth]))
+def _floor_radius(pts: np.ndarray, qs: np.ndarray, r: float) -> tuple[np.ndarray, ...]:
+    return tuple(np.flatnonzero(row) for row in _pairwise_sq(pts, qs) <= r * r)
 
 
-def _floor_radius(pts: np.ndarray, qs: np.ndarray, r: float) -> SpatialEvidence:
-    return SpatialEvidence.Proximity(int(np.count_nonzero(_pairwise_sq(pts, qs) <= r * r)), radius=Some(r))
-
-
-def _pairs(pts: np.ndarray, r: float) -> SpatialEvidence:
-    return SpatialEvidence.Proximity(len(sp.cKDTree(pts).query_pairs(r)), radius=Some(r))
-
-
-def _hull(pts: np.ndarray) -> SpatialEvidence:
-    hull = sp.ConvexHull(pts)
-    return SpatialEvidence.Complex("hull", int(hull.simplices.shape[0]), float(hull.volume))
-
-
-def _triangulate(pts: np.ndarray) -> SpatialEvidence:
-    tri = sp.Delaunay(pts)
-    return SpatialEvidence.Complex("delaunay", int(tri.simplices.shape[0]), float(pts.shape[0]))
-
-
-def _distances(left: np.ndarray, right: np.ndarray | None, metric: Metric) -> SpatialEvidence:
-    pairwise = sp.distance.pdist(left, metric=metric.value) if right is None else sp.distance.cdist(left, right, metric=metric.value)
-    return SpatialEvidence.Complex(f"distance-{metric.value}", int(pairwise.size), float(np.mean(pairwise)))
-
-
-def _tessellate(points: np.ndarray, kind: Tessellation, radius: float) -> SpatialEvidence:
+def _tessellate(
+    points: np.ndarray, kind: Tessellation, radius: float
+) -> "Voronoi | SphericalVoronoi | HalfspaceIntersection":
     match kind:
         case Tessellation.VORONOI:
-            vor = sp.Voronoi(points)
-            return SpatialEvidence.Complex("voronoi", int(vor.ridge_points.shape[0]), float(len(vor.regions)))
+            return sp.Voronoi(points)
         case Tessellation.SPHERICAL:
-            sphere = sp.SphericalVoronoi(points, radius=radius)
-            return SpatialEvidence.Complex("spherical-voronoi", int(sphere.vertices.shape[0]), float(len(sphere.regions)))
+            return sp.SphericalVoronoi(points, radius=radius)
         case Tessellation.HALFSPACE:
-            verts = sp.HalfspaceIntersection(points, _interior_point(points)).intersections
-            return SpatialEvidence.Complex("halfspace", int(verts.shape[0]), float(np.linalg.norm(verts.max(axis=0) - verts.min(axis=0))))
+            return sp.HalfspaceIntersection(points, _interior_point(points))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -357,19 +238,19 @@ def _interior_point(halfspaces: np.ndarray) -> np.ndarray:
     return np.asarray(result.x[:-1], dtype=float)
 
 
-def _align(source: np.ndarray, target: np.ndarray) -> SpatialEvidence:
-    _, rssd = sp.transform.Rotation.align_vectors(target, source)
-    _, _, disparity = sp.procrustes(target, source)
-    return SpatialEvidence.Alignment(float(rssd / np.sqrt(source.shape[0])), float(disparity))
+def _align(source: np.ndarray, target: np.ndarray) -> "tuple[Rotation, float, np.ndarray, np.ndarray, float]":
+    rotation, rssd = sp.transform.Rotation.align_vectors(target, source)
+    standard_target, standard_source, disparity = sp.procrustes(target, source)
+    return rotation, float(rssd), standard_target, standard_source, float(disparity)
 
 
-def _alpha_shape(points: np.ndarray, alpha: float) -> SpatialEvidence:
+def _alpha_shape(points: np.ndarray, alpha: float) -> np.ndarray:
     tri = sp.Delaunay(points)
     radii = np.asarray([_circumradius(simplex) for simplex in points[tri.simplices]])
     retained = tri.simplices[kept := radii < alpha]
     facets = np.sort(np.concatenate([retained[:, list(combo)] for combo in combinations(range(retained.shape[1]), retained.shape[1] - 1)]), axis=1)
     unique, counts = np.unique(facets, axis=0, return_counts=True)
-    return SpatialEvidence.Boundary(int(unique[counts == 1].shape[0]), float(np.sum(radii[kept])))
+    return unique[counts == 1]
 
 
 def _circumradius(simplex: np.ndarray) -> float:
@@ -378,31 +259,44 @@ def _circumradius(simplex: np.ndarray) -> float:
     return float(np.linalg.norm(np.linalg.solve(base, rhs)))
 
 
-def _spatial_kernel(query: SpatialQuery, workers: int) -> "RuntimeRail[SpatialReceipt]":
+def _spatial_kernel(
+    query: SpatialQuery, workers: int
+) -> (
+    "RuntimeRail[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
+    " | ConvexHull | Delaunay | Voronoi | SphericalVoronoi | HalfspaceIntersection]"
+):
     return ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT).bind(
-        lambda payload: ContentIdentity.of(f"spatial.{query.tag}", IdentitySource(parts=query.identity_parts(payload.content_key))).bind(
-            lambda result_key: boundary(
-                SPATIAL_RESOLVE,
-                lambda: SpatialReceipt.of(
-                    query.tag, query.cardinality,
-                    Provenance(consumed=Block.singleton(payload.content_key), produced=result_key),
-                    query.resolve(workers),
-                ),
-                catch=(np.linalg.LinAlgError, ValueError, RuntimeError),
-            )
+        lambda _: boundary(
+            SPATIAL_RESOLVE,
+            lambda: query.resolve(workers),
+            catch=(np.linalg.LinAlgError, ValueError, RuntimeError),
         )
     )
 
 
-async def solve(query: SpatialQuery, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SpatialReceipt]":
-    async def dispatch() -> RuntimeRail[SpatialReceipt]:
+async def solve(
+    query: SpatialQuery, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE
+) -> (
+    "RuntimeRail[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
+    " | ConvexHull | Delaunay | Voronoi | SphericalVoronoi | HalfspaceIntersection]"
+):
+    async def dispatch() -> (
+        "RuntimeRail[np.ndarray | tuple[np.ndarray | Rotation | float, ...] | set[tuple[int, int]]"
+        " | ConvexHull | Delaunay | Voronoi | SphericalVoronoi | HalfspaceIntersection]"
+    ):
         return (
             await lane.whole(
                 lambda grant: lane.offload(Kernel.of(_spatial_kernel, KernelTrait.RELEASING), query, grant.width)
             )
         ).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.SPATIAL, f"spatial.{query.tag}", dispatch, facts={"query": query.tag, "points": query.cardinality}, composition=composition)
+    return await evidence_run(
+        EvidenceScope.SPATIAL,
+        f"spatial.{query.tag}",
+        dispatch,
+        facts={"query": query.tag, "points": query.cardinality},
+        composition=composition,
+    )
 ```
 
 ## [03]-[RESEARCH]

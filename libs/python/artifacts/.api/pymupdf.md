@@ -234,7 +234,7 @@ Five PDF page boxes: MediaBox (physical sheet), CropBox (visible region), TrimBo
 
 [TOPOLOGY]:
 - One `Document` owns every supported format, `filetype` a row and never a per-format type; `Page.get_pixmap(matrix/dpi/colorspace)` is the single render entry and `Page.get_text(flags=TEXTFLAGS_*)`/`find_tables` the single extraction surface, both replayed over one `get_textpage(flags=)` (`extractDICT`/`extractWORDS`/`search`) rather than re-parsed per mode.
-- Each operation captures page count, render dpi/matrix, colorspace, OCR language/dpi, redaction count, table grid shape (`row_count`×`col_count`), embedded-file count, and output byte length as one pdf receipt.
+- Provider measurements land directly in the owning `EmitFact`, `Introspection`, or table audit; pymupdf adds no cross-operation carrier.
 
 [STACKING]:
 - `pypdf`(`.api/pypdf.md`): pure-Python BSD structural editing (merge/split/prune/AcroForm) for a distributed closed service where AGPL bars pymupdf, meeting at PDF bytes / `tobytes`.

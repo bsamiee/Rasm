@@ -144,7 +144,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 |  [04]   | `RunWithBoundResults(RunOptions, OrtIoBinding)`                    | instance | OrtValue-only bound results            |
 |  [05]   | `CreateIoBinding() -> OrtIoBinding`                                | factory  | binding rooted to the session          |
 |  [06]   | `EndProfiling() -> string`                                         | instance | closes chrome-trace, returns path      |
-|  [07]   | `ProfilingStartTimeNs`                                             | property | trace epoch (receipt-relative)         |
+|  [07]   | `ProfilingStartTimeNs`                                             | property | trace epoch                           |
 |  [08]   | `{InputMetadata, OutputMetadata, OverridableInitializerMetadata}`  | property | I/O shape/dtype introspection          |
 |  [09]   | `{InputNames, OutputNames}`                                        | property | ordered I/O names for binding/zip      |
 |  [10]   | `ModelMetadata`                                                    | property | version/producer/`CustomMetadataMap`   |
@@ -332,7 +332,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 
 - `CreateTensorValueWithData` takes a trailing `(nint dataPtr, long sizeBytes)`; the extended `OrtMemoryInfo` ctor takes `(string, OrtMemoryInfoDeviceType, uint vendorId, int deviceId, OrtDeviceMemoryType, ulong alignment, OrtAllocatorType)`.
 - `GetMemoryType` answers where a slot is pinned relative to the CPU (`CpuInput`/`CpuOutput`/`Cpu`/`Default`) and `GetDeviceMemoryType` answers how the device classes the buffer (`DEFAULT`/`HOST_ACCESSIBLE`); the device-aware descriptor built through the extended ctor reads the second beside `GetVendorId`, and the pinning axis reads the first — one descriptor, two questions, never one substituting for the other.
-- `GetTensorMemoryInfo().Name` is the arena name the `ModelRun` receipt stamps as `ArenaAllocator`; binding amortizes I/O allocation across repeated runs and is the measured hot-loop path.
+- `GetTensorMemoryInfo().Name` reports the arena name; binding amortizes I/O allocation across repeated runs and is the measured hot-loop path.
 
 [ENTRYPOINT_SCOPE]: EP-context model compilation on `OrtModelCompilationOptions`
 
@@ -504,7 +504,7 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 - EP append order is fallback priority; the autoEP loop is `OrtEnv.GetEpDevices()` → device rank → `AppendExecutionProvider(env, devices, …)` → `InferenceSession.GetEpDeviceForInputs()` reading back the device per input. `SetEpSelectionPolicy`/`SetEpSelectionPolicyDelegate` drive enum or callback ranking; `OrtEnv.RegisterExecutionProviderLibrary` admits an out-of-tree EP.
 - bare `"CoreML"` faults `InvalidArgument`; the registered provider name is `"CoreMLExecutionProvider"`.
 - warm-start admissibility is a two-step enum contract: `GetCompatibilityInfoFromModel(modelPath, epType) -> string`, then `GetModelCompatibilityForEpDevices(devices, info) -> OrtCompiledModelCompatibility`; branch on the enum, never a substring.
-- `EP_UNSUPPORTED`/`EP_SUPPORTED_PREFER_RECOMPILATION` force a fresh compile clearing the `ep.context_*` keys, `EP_SUPPORTED_OPTIMAL` keeps the warm-start read, `EP_NOT_APPLICABLE` means the device is not EP-context-aware; a rejected device populates a receipt through `GetHardwareDeviceEpIncompatibilityDetails`.
+- `EP_UNSUPPORTED`/`EP_SUPPORTED_PREFER_RECOMPILATION` force a fresh compile clearing the `ep.context_*` keys, `EP_SUPPORTED_OPTIMAL` keeps the warm-start read, `EP_NOT_APPLICABLE` means the device is not EP-context-aware; `GetHardwareDeviceEpIncompatibilityDetails` explains a rejected device.
 - IO binding amortizes input and output allocation across repeated runs and is the measured hot-loop path; `SynchronizeBoundInputs`/`SynchronizeBoundOutputs` flush device transfers around the bound run.
 - EP-context compilation embeds or side-files a compiled model so a later session loads the precompiled graph, activated through the `ep.context_*` session keys.
 
@@ -516,12 +516,12 @@ Base assets ship the `win-{x64,arm64}` payloads inline; every other RID resolves
 - load rail: `SetLoadCancellationFlag(true)` registered off the caller's cancellation token is the ONLY bound on session construction — the load-time counterpart of `RunOptions.Terminate` — so the registration is owned beside the `SessionOptions` it arms and released before them.
 - provider rail: the `ExecutionProvider` `[SmartEnum<string>]` (Thinktecture) carries each EP's option-table/`ExecutionProviderDevicePolicy`/`OrtHardwareDeviceType`-affinity columns as one polymorphic `Register`, and the two-step compatibility enum verdict is read once and consumed into the warm-start branch.
 - run rail: `OrtValue` carriers admit through a `[Union]` `RunInput`, `OrtIoBinding` amortizes the loop over a `CreateSharedAllocator` arena, `RunOptions.Terminate` latches off the AppHost `CancelScope`, `System.Numerics.Tensors.TensorPrimitives` owns reductions, projections land in a LanguageExt `Fin<T>` inside a native-disposal bracket, and the deterministic result keys through `Microsoft.Extensions.Caching.Hybrid` stamped with `GetVersionString()`.
-- time rail: every receipt carries `NodaTime` `Instant`/`Duration`; profiling chrome-trace (`EndProfiling` + `ProfilingStartTimeNs`) lands as an `ArtifactIndexRow`.
+- time rail: profiling chrome-trace (`EndProfiling` + `ProfilingStartTimeNs`) lands as an `ArtifactIndexRow`.
 
 [LOCAL_ADMISSION]:
 - Compute model execution enters through ONNX Runtime sessions and typed value binding.
 - `OrtValue` memory flow is one-directional — `CreateTensorValueWithData` IMPORTS a caller pointer under an `OrtMemoryInfo` naming the foreign device, and NO member exports a device pointer; egress is the managed `GetTensorDataAsSpan<T>`/`GetTensorMutableDataAsSpan<T>`/`GetTensorMutableRawData` views sized by `GetTensorSizeInBytes`, so a device-to-device handoff to a non-ORT allocator is unrepresentable and crosses as a host copy.
-- Model load, input binding, run policy, output projection, and disposal each emit receipts.
+- Model load returns `ModelIdentity`; run entries return their projected values inside the native-disposal bracket.
 - Provider selection is policy data and never hides inside model-call helpers.
 - Custom operators enter through declared session options and asset evidence.
 

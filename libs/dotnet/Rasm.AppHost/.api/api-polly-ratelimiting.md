@@ -138,7 +138,7 @@ Each options value carries its settable members, and `AutoReplenishment` default
 | :-----: | :----------------------------------------------------- | :-------------------- | :----------------------------------------------- |
 |  [01]   | `RateLimiterStrategyOptions.DefaultRateLimiterOptions` | 1000 permits, 0 queue | admission caps at a thousand and never queues    |
 |  [02]   | `RateLimiterStrategyOptions.Name`                      | `RateLimiter`         | two limiter rows merge into one telemetry series |
-|  [03]   | `RateLimiterStrategyOptions.OnRejected`                | `null`                | rejection reaches the meter, never a receipt     |
+|  [03]   | `RateLimiterStrategyOptions.OnRejected`                | `null`                | rejection reaches the meter directly             |
 |  [04]   | `AddConcurrencyLimiter(permitLimit, queueLimit)`       | queue 0               | an over-limit call refuses instead of waiting    |
 |  [05]   | `ConcurrencyLimiterOptions.QueueProcessingOrder`       | `OldestFirst`         | fairness is FIFO unless a row states otherwise   |
 

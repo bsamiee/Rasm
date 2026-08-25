@@ -160,10 +160,10 @@
 - within-lib: `do`/`observe` chain graph surgery for causal interventions; `CompoundStep` assigns a distinct step method per variable block; `Minibatch` drives stochastic VI through `fit`; `logp`/`logcdf` expose the symbolic densities `Potential` folds back into the joint.
 
 [LOCAL_ADMISSION]:
-- pymc is study-time inference reading into an `xarray.DataTree`: define a model inside `pm.Model()` with named sample sites, sample through `pm.sample`/`sample_smc`/`fit`, and graduate the returned `DataTree` through `arviz` diagnostics before any posterior claim. `Rasm.Compute` consumes that `DataTree` receipt on its C# model rail; no production runtime imports pymc.
+- pymc is study-time inference reading into an `xarray.DataTree`: define a model inside `pm.Model()` with named sample sites, sample through `pm.sample`/`sample_smc`/`fit`, and graduate the returned `DataTree` through `arviz` diagnostics before any posterior claim. `Rasm.Compute` consumes that `DataTree` on its C# model rail; no production runtime imports pymc.
 
 [RAIL_LAW]:
 - Package: `pymc`
 - Owns: PyTensor-backed probabilistic model construction, ~60 distribution families, MCMC/SMC/VI inference with pluggable NUTS backends, causal `do`/`observe` graph surgery, and posterior/prior predictive sampling
-- Accept: a model defined inside a `pm.Model()` context with named sample sites, run through `pm.sample`/`pm.sample_smc`/`pm.fit`, returning a `DataTree` receipt with captured draws, tune steps, chains, and `arviz` convergence checks
-- Reject: hand-rolled distributions or samplers pymc owns; a model outside a `Model()` context; NumPy-eager numerics where a PyTensor graph is required; a posterior claim without a `DataTree` receipt
+- Accept: a model defined inside a `pm.Model()` context with named sample sites, run through `pm.sample`/`pm.sample_smc`/`pm.fit`, returning a `DataTree` with captured draws, tune steps, chains, and `arviz` convergence checks
+- Reject: hand-rolled distributions or samplers pymc owns; a model outside a `Model()` context; NumPy-eager numerics where a PyTensor graph is required; a posterior claim without a `DataTree`

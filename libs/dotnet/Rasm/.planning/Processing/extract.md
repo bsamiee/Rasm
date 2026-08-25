@@ -2,7 +2,7 @@
 
 `ExtractionDomain` owns the extraction/projection rail: one polymorphic `Of` ingress admits raw Rhino geometry or an admitted `CellLattice` into a typed sampling domain, `ContourPolicy` sections every domain through the owner its shape names — RhinoCommon's contour and iso adapters for the multi-plane and surface-iso routes, the `Meshing/intersect` `IntersectOp.PlaneMesh` crossing lattice for a single mesh section, the `reconstruct.md` marching-squares owner for lattice scalar levels — and typed projection rows fold every request shape to any output type. One local marching-triangles kernel serves the per-vertex scalar contouring no owner carries.
 
-Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; receipt validity folds through `Domain/rails.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rails, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this rail re-implements none of them.
+Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; evidence validity folds through `Domain/rails.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rails, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this rail re-implements none of them.
 
 ## [01]-[INDEX]
 
@@ -14,8 +14,8 @@ Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; receipt valid
 - Owner: `ExtractionDomain` `[Union]`, whose polymorphic `Of` ingress discriminates on runtime shape and admits each arm through its own owner; `ContourPolicy` `[Union]`, whose factories admit every section policy through the `Domain/validation.md` vocabulary.
 - Entry: `domain.Contours(policy, …)` is a total `Switch` routing domain then policy to its owner, and every unsupported domain-policy pairing is a typed `Unsupported` fault naming both sides, never a silent empty.
 - Law: a mesh-plane section has ONE owner — `Meshing/intersect`'s `IntersectOp.PlaneMesh`, whose exact straddle signs and oriented `Chain` loops this page emits as polyline curves. Reaching RhinoCommon's single-plane contour beside it spells two answers to one question. Interval sweep (`AxisCase`) and surface iso stay native: RhinoCommon owns a multi-plane sweep and a trim-aware iso curve that no kernel owner carries, and `ExtractionRoute` records which side answered.
-- Auto: the local scalar-isoline kernel triangulates, extracts per-face level crossings under the `Fraction` lane's scale-relative band, welds them through a point key quantized on the `Weld` lane, dedups, and stitches seed polylines end-to-end, recording every branch node rather than guessing through it. Its census is the `IsolineLedger` MONOID the kernels `tell` — one `Writer` run yields curves and receipt together, so no kernel returns-and-reassigns a ledger through its own signature.
-- Receipt: `ScalarIsolineReceipt` carries the full kernel evidence — segment, rejection (plateau, degenerate, and vertex-touch), stitch, and branch counts — folded to one validity claim; `CurveBatch` bundles the accepted curves with the composed `ExtractionReceipt`. Routing is `ExtractionReceipt.Route`'s business alone, so no receipt carries a second routing column.
+- Auto: the local scalar-isoline kernel triangulates, extracts per-face level crossings under the `Fraction` lane's scale-relative band, welds them through a point key quantized on the `Weld` lane, dedups, and stitches seed polylines end-to-end, recording every branch node rather than guessing through it. Its census is the `IsolineCensus` MONOID the kernels `tell` — one `Writer` run yields curves and census together, so no kernel returns-and-reassigns a census through its own signature.
+- Output: `IsolineCensus` carries the full kernel evidence — segment, rejection (plateau, degenerate, and vertex-touch), stitch, and branch counts — folded to one validity claim; `CurveBatch` bundles the accepted curves with the composed `ExtractionTally`. Routing is `ExtractionTally.Route`'s business alone, so no child carries a second routing column.
 - Boundary: native adapters wrap every RhinoCommon call in `Op.Catch` so a host throw converts at the boundary. Scalar-isoline extraction is the named statement-kernel exemption: no owner carries a per-vertex scalar contour, so the kernel follows Rhino's triangulated topology and returns stitched candidates only.
 - Exemption: the stitch frontier stays a BCL `bool[]`/`Dictionary` walk and REFUSES QuikGraph by name — `ConnectedComponents` answers the component set where the whole product here is the polyline's vertex ORDER, and `EulerianTrailAlgorithm` demands a traversal this kernel deliberately refuses, stopping at every branch node and tallying it as `BranchStops` rather than choosing an arm. Every table dies inside the one fold that fills it.
 
@@ -24,10 +24,10 @@ Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; receipt valid
 - Owner: `ExtractionProbe` `[Union]` is the field point-probe; `Extraction` `[Union]` is the public request vocabulary `intent.md` wraps as one case; `SampledExtraction` `[Union]` is the one sampled-mode family over one shared seed generator; `ExtractionTolerance` `[Union]` carries provenance and value as one.
 - Entry: the request factories admit once — probe source and sample gated, domain re-admitted, policy and mode validated through their own `Admit`, iso bounds gated finite and non-degenerate; `extraction.Project<TOut>(…)` is the one egress, each request kind resolving its output through typed projection rows.
 - Law: every union on this page is one `[BoundaryAdapter]` owner, so its factories carry the `Op? key = null` + `OrDefault()` spelling as a type-wide contract rather than a per-member attribute.
-- Auto: `ProjectSamples` is the one sampled spine — evaluate the seeds, fold each through the mode's item arm, mint the receipt, and project through one `Rows` call; item rows gate on zero rejections, so a partial sampled extraction is a typed fault, never a truncated success.
-- Receipt: `ExtractionReceipt` carries the extraction route, attempted and emitted counts with derived rejected and completion, the tolerance carrier, one `ItemFailures` slot, and the optional child receipts, all folded to one validity claim.
+- Auto: `ProjectSamples` is the one sampled spine — evaluate the seeds, fold each through the mode's item arm, mint the tally, and project through one `Rows` call; item rows gate on zero rejections, so a partial sampled extraction is a typed fault, never a truncated success.
+- Output: `ExtractionTally` carries the extraction route, attempted and emitted counts with derived rejected and completion, the tolerance carrier, one `ItemFailures` slot, and the optional child evidence, all folded to one validity claim.
 - Growth: a new section policy is one `ContourPolicy` case and one adapter arm per admitting domain, a new sampled mode one `SampledExtraction` case and one spine arm, a new probe output one `ProjectionRow`, a new ingress shape one `Of` arm.
-- Boundary: owner-first is law — the local kernel never shadows a route another owner carries, and the sampled projection composes the `sample.md`, `flow.md`, and `fields.md` owners rather than re-implementing any. Log-map is the probe's only mesh-band special case; a Hodge probe reads its sampled component vector here while the `HodgeDecompositionReceipt` rides `fields.md`'s tagged vector rail.
+- Boundary: owner-first is law — the local kernel never shadows a route another owner carries, and the sampled projection composes the `sample.md`, `flow.md`, and `fields.md` owners rather than re-implementing any. Log-map is the probe's only mesh-band special case; a Hodge probe reads its sampled component vector here while the `HodgeWitness` rides `fields.md`'s tagged vector rail.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -198,7 +198,7 @@ public abstract partial record ExtractionDomain {
                         : Fin.Fail<CurveBatch>(state.Key.InvalidResult())),
             axisCase: static (state, p) => AcceptNative(curves: Rhino.Geometry.Mesh.CreateContourCurves(meshToContour: state.Space.Native, contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, tolerance: state.Space.Tolerance.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Space.Tolerance.Absolute), key: state.Key),
             meshScalarCase: static (state, p) => ScalarIsolinesDetailed(mesh: state.Space.Native, values: p.Values, levels: p.Levels, context: state.Space.Tolerance, key: state.Key)
-                .Bind(result => AcceptCurves(curves: result.Curves, attempted: result.Receipt.StitchedCandidates, route: ExtractionRoute.Local, tolerance: ExtractionTolerance.FromContext(state.Space.Tolerance.For(ToleranceLane.Weld)), scalarIsoline: Some(result), key: state.Key)),
+                .Bind(result => AcceptCurves(curves: result.Curves, attempted: result.Census.StitchedCandidates, route: ExtractionRoute.Local, tolerance: ExtractionTolerance.FromContext(state.Space.Tolerance.For(ToleranceLane.Weld)), scalarIsoline: Some(result), key: state.Key)),
             surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(Mesh), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
     private static Fin<CurveBatch> CurvesFromSurface(Surface surface, ContourPolicy policy, Op key) =>
         key.Catch(() => policy.Switch(
@@ -250,11 +250,11 @@ public abstract partial record ExtractionDomain {
             .Bind(active => AcceptCurves(curves: toSeq(active), attempted: active.Length, route: ExtractionRoute.Native, tolerance: tolerance, key: key));
     private static Fin<CurveBatch> AcceptCurves(Seq<Curve> curves, int attempted, ExtractionRoute route, ExtractionTolerance tolerance, Op key, Option<ScalarIsolineResult> scalarIsoline = default) {
         Seq<Curve> accepted = curves.Filter(static curve => curve is not null && curve.IsValid);
-        return ExtractionReceipt.Of(
+        return ExtractionTally.Of(
                 route: route, attempted: attempted, emitted: accepted.Count, tolerance: tolerance, key: key,
-                scalarIsoline: scalarIsoline.Map(static result => result.Receipt),
+                scalarIsoline: scalarIsoline.Map(static result => result.Census),
                 itemFailures: route.Failures(attempted: attempted, emitted: accepted.Count))
-            .Map(receipt => new CurveBatch(Curves: accepted, ScalarIsoline: scalarIsoline, Receipt: receipt));
+            .Map(tally => new CurveBatch(Curves: accepted, ScalarIsoline: scalarIsoline, Tally: tally));
     }
 
     private static Fin<ScalarIsolineResult> ScalarIsolinesDetailed(Mesh mesh, Arr<double> values, Seq<double> levels, Context context, Op key) {
@@ -266,29 +266,24 @@ public abstract partial record ExtractionDomain {
         Tolerance band = context.For(ToleranceLane.Fraction);
         Tolerance weld = context.For(ToleranceLane.Weld);
         List<ScalarIsolineSegment> segments = [];
-        Writer<IsolineLedger, Seq<Curve>> run =
+        Writer<IsolineCensus, Seq<Curve>> run =
             from _ in toSeq(Enumerable.Range(start: 0, count: triangulated.Faces.Count))
                 .Filter(f => triangulated.Faces[index: f].IsTriangle)
-                .Fold(Writer.pure<IsolineLedger, Unit>(unit),
+                .Fold(Writer.pure<IsolineCensus, Unit>(unit),
                     (acc, f) => acc.Bind(__ => AddFaceIsolines(mesh: triangulated, face: triangulated.Faces[index: f], values: values, levels: levels, band: band, weld: weld, segments: segments)))
             from deduped in DeduplicateSegments(segments: segments, weld: weld)
             from curves in StitchSegments(segments: deduped, weld: weld)
             select curves;
-        (Seq<Curve> emitted, IsolineLedger ledger) = run.Run();
-        return Fin.Succ(new ScalarIsolineResult(Curves: emitted, Receipt: new ScalarIsolineReceipt(
-            FiniteLevels: levels.Count, RawSegments: ledger.RawSegments, DedupedSegments: ledger.DedupedSegments,
-            DegenerateRejected: ledger.DegenerateRejected, PlateauRejected: ledger.PlateauRejected,
-            VertexTouchRejected: ledger.VertexTouchRejected, StitchedCandidates: ledger.StitchedCandidates,
-            BranchStops: ledger.BranchStops, BranchNodes: ledger.BranchNodes,
-            MaxIncidentSegments: ledger.MaxIncidentSegments, EmittedCurves: ledger.EmittedCurves)));
+        (Seq<Curve> emitted, IsolineCensus census) = run.Run();
+        return Fin.Succ(new ScalarIsolineResult(Curves: emitted, Census: census with { FiniteLevels = levels.Count }));
     }
-    private static Writer<IsolineLedger, Unit> AddFaceIsolines(Mesh mesh, MeshFace face, Arr<double> values, Seq<double> levels, Tolerance band, Tolerance weld, List<ScalarIsolineSegment> segments) {
+    private static Writer<IsolineCensus, Unit> AddFaceIsolines(Mesh mesh, MeshFace face, Arr<double> values, Seq<double> levels, Tolerance band, Tolerance weld, List<ScalarIsolineSegment> segments) {
         Point3d[] points = [mesh.Vertices[index: face.A], mesh.Vertices[index: face.B], mesh.Vertices[index: face.C]];
         double[] scalars = [values[index: face.A], values[index: face.B], values[index: face.C]];
         (int A, int B)[] edges = [(0, 1), (1, 2), (2, 0)];
-        return levels.Fold(Writer.pure<IsolineLedger, Unit>(unit), (acc, level) => acc.Bind(_ => {
+        return levels.Fold(Writer.pure<IsolineCensus, Unit>(unit), (acc, level) => acc.Bind(_ => {
             double epsilon = band.Value * Math.Max(1.0, Math.Max(Math.Abs(value: level), scalars.Max(static value => Math.Abs(value: value))));
-            if (scalars.All(value => Math.Abs(value: value - level) <= epsilon)) { return Writer.tell(IsolineLedger.Plateau); }
+            if (scalars.All(value => Math.Abs(value: value - level) <= epsilon)) { return Writer.tell(IsolineCensus.Plateau); }
             ((int A, int B) Edge, double ADelta, double BDelta)[] cuts = System.Array.ConvertAll(array: edges, converter: edge => (edge, scalars[edge.A] - level, scalars[edge.B] - level));
             ScalarIsolineSegment[] edgeSegments = System.Array.ConvertAll(
                 array: System.Array.FindAll(array: cuts, match: cut => Math.Abs(value: cut.ADelta) <= epsilon && Math.Abs(value: cut.BDelta) <= epsilon),
@@ -305,16 +300,16 @@ public abstract partial record ExtractionDomain {
                 .Where(predicate: static point => point.IsValid)
                 .DistinctBy(keySelector: point => KeyOf(point: point, weld: weld))];
             return unique.Length == 2
-                ? Writer.tell(IsolineLedger.Raw(edgeSegments.Length + 1).Combine(Emit(segments, unique)))
-                : Writer.tell(IsolineLedger.Raw(edgeSegments.Length).Combine(IsolineLedger.VertexTouch));
+                ? Writer.tell(IsolineCensus.Raw(edgeSegments.Length + 1).Combine(Emit(segments, unique)))
+                : Writer.tell(IsolineCensus.Raw(edgeSegments.Length).Combine(IsolineCensus.VertexTouch));
         }));
 
-        static IsolineLedger Emit(List<ScalarIsolineSegment> sink, Point3d[] unique) {
+        static IsolineCensus Emit(List<ScalarIsolineSegment> sink, Point3d[] unique) {
             sink.Add(item: new ScalarIsolineSegment(A: unique[0], B: unique[1]));
-            return IsolineLedger.Empty;
+            return IsolineCensus.Empty;
         }
     }
-    private static Writer<IsolineLedger, Seq<ScalarIsolineSegment>> DeduplicateSegments(List<ScalarIsolineSegment> segments, Tolerance weld) {
+    private static Writer<IsolineCensus, Seq<ScalarIsolineSegment>> DeduplicateSegments(List<ScalarIsolineSegment> segments, Tolerance weld) {
         SegmentKeySet seen = [];
         List<ScalarIsolineSegment> unique = [];
         int degenerate = 0;
@@ -325,9 +320,9 @@ public abstract partial record ExtractionDomain {
             (ScalarIsolinePointKey A, ScalarIsolinePointKey B) edge = a.Compare(other: b) <= 0 ? (a, b) : (b, a);
             if (seen.Add(item: edge)) unique.Add(item: segment);
         }
-        return Writer.write(toSeq(unique), IsolineLedger.Empty with { DegenerateRejected = degenerate, DedupedSegments = unique.Count });
+        return Writer.write(toSeq(unique), IsolineCensus.Empty with { DegenerateRejected = degenerate, DedupedSegments = unique.Count });
     }
-    private static Writer<IsolineLedger, Seq<Curve>> StitchSegments(Seq<ScalarIsolineSegment> segments, Tolerance weld) {
+    private static Writer<IsolineCensus, Seq<Curve>> StitchSegments(Seq<ScalarIsolineSegment> segments, Tolerance weld) {
         ScalarIsolineSegment[] all = [.. segments.AsIterable()];
         bool[] used = new bool[all.Length];
         Dictionary<ScalarIsolinePointKey, List<int>> incident = [];
@@ -340,7 +335,7 @@ public abstract partial record ExtractionDomain {
         (int maxIncident, int branchNodes) = incident.Values.Select(static edges => edges.Count).Aggregate(
             seed: (Max: 0, Branches: 0),
             func: static (state, count) => (Math.Max(val1: state.Max, val2: count), state.Branches + (count > 2 ? 1 : 0)));
-        IsolineLedger ledger = IsolineLedger.Census(branchNodes: branchNodes, maxIncident: maxIncident);
+        IsolineCensus ledger = IsolineCensus.Branched(branchNodes: branchNodes, maxIncident: maxIncident);
         List<Curve> curves = [];
         int attempted = 0;
         for (int i = 0; i < all.Length; i++) {
@@ -352,15 +347,15 @@ public abstract partial record ExtractionDomain {
             attempted++;
             if (polyline.IsValid && polyline.Count >= 2) curves.Add(item: polyline.ToPolylineCurve());
         }
-        return Writer.write(toSeq(curves), ledger.Combine(IsolineLedger.Stitched(attempted: attempted, emitted: curves.Count)));
+        return Writer.write(toSeq(curves), ledger.Combine(IsolineCensus.Stitched(attempted: attempted, emitted: curves.Count)));
     }
-    private static IsolineLedger Extend(List<Point3d> points, ChainEnd end, ScalarIsolineSegment[] all, bool[] used, Dictionary<ScalarIsolinePointKey, List<int>> incident, Tolerance weld) {
-        IsolineLedger ledger = IsolineLedger.Empty;
+    private static IsolineCensus Extend(List<Point3d> points, ChainEnd end, ScalarIsolineSegment[] all, bool[] used, Dictionary<ScalarIsolinePointKey, List<int>> incident, Tolerance weld) {
+        IsolineCensus ledger = IsolineCensus.Empty;
         while (true) {
             ScalarIsolinePointKey at = KeyOf(point: end.Anchor(points), weld: weld);
             if (!incident.TryGetValue(key: at, value: out List<int>? candidates)) { return ledger; }
             Seq<int> open = toSeq(candidates).Filter(candidate => !used[candidate]);
-            if (open.Count > 1) { return ledger.Combine(IsolineLedger.BranchStop); }
+            if (open.Count > 1) { return ledger.Combine(IsolineCensus.BranchStop); }
             if (open.Case is not int index) { return ledger; }
             ScalarIsolineSegment segment = all[index];
             points.Insert(index: end.Slot(points), item: KeyOf(point: segment.A, weld: weld).Equals(at) ? segment.B : segment.A);
@@ -397,15 +392,15 @@ public abstract partial record ExtractionProbe {
             ProjectionRow.Of<TangentLogMapResult>(() => probe.Source is VectorField.TangentLogMapCase log
                 ? GeodesicKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key)
                 : Fin.Fail<TangentLogMapResult>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(TangentLogMapResult)))),
-            ProjectionRow.Of<TangentLogMapReceipt>(() => probe.Source is VectorField.TangentLogMapCase log
-                ? GeodesicKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key).Map(static result => result.Receipt)
-                : Fin.Fail<TangentLogMapReceipt>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(TangentLogMapReceipt)))),
-            ProjectionRow.Of<HodgeDecompositionReceipt>(() => probe.Source is VectorField.HodgeCase hodge
-                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Map(static solved => solved.Receipt)
-                : Fin.Fail<HodgeDecompositionReceipt>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(HodgeDecompositionReceipt)))),
-            ProjectionRow.Of<HarmonicOneFormReceipt>(() => probe.Source is VectorField.HodgeCase hodge
-                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Bind(solved => solved.Receipt.Harmonic.ToFin(state.Key.InvalidResult()))
-                : Fin.Fail<HarmonicOneFormReceipt>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(HarmonicOneFormReceipt)))),
+            ProjectionRow.Of<LogMapTrace>(() => probe.Source is VectorField.TangentLogMapCase log
+                ? GeodesicKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, algorithm: log.Algorithm, trace: log.Trace, windows: log.Windows, key: state.Key).Map(static result => result.Trace)
+                : Fin.Fail<LogMapTrace>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(LogMapTrace)))),
+            ProjectionRow.Of<HodgeWitness>(() => probe.Source is VectorField.HodgeCase hodge
+                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Map(static solved => solved.Witness)
+                : Fin.Fail<HodgeWitness>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(HodgeWitness)))),
+            ProjectionRow.Of<HarmonicCensus>(() => probe.Source is VectorField.HodgeCase hodge
+                ? DecAssembly.HodgeSolutionOf(source: hodge.Source, space: hodge.Space, context: state.Context, key: state.Key).Bind(solved => solved.Witness.Harmonic.ToFin(state.Key.InvalidResult()))
+                : Fin.Fail<HarmonicCensus>(state.Key.Unsupported(inputType: probe.Source.GetType(), outputType: typeof(HarmonicCensus)))),
             ProjectionRow.Of<Vector3d>(() => probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)),
             ProjectionRow.Of<double>(() => probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key).Map(static vector => vector.Length)),
             ProjectionRow.Of<VectorSpan>(() => SpanAt(probe: probe, state: state)),
@@ -495,23 +490,23 @@ public abstract partial record Extraction {
         probeCase: static (state, extraction) => extraction.Source.Project<TOut>(sample: extraction.Sample, context: state.Context, key: state.Key),
         contourCase: static (state, extraction) =>
             from batch in extraction.Domain.Contours(policy: extraction.Policy, context: state.Context, key: state.Key)
-            from output in AtomProjection.Rows<ExtractionReceipt, TOut>(self: batch.Receipt, key: state.Key, owner: typeof(ContourCase),
+            from output in AtomProjection.Rows<ExtractionTally, TOut>(self: batch.Tally, key: state.Key, owner: typeof(ContourCase),
                 ProjectionRow.Of<Seq<Curve>>(() => Fin.Succ(batch.Curves)),
                 ProjectionRow.Of<ScalarIsolineResult>(() => batch.ScalarIsoline.ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineResult)))),
-                ProjectionRow.Of<ScalarIsolineReceipt>(() => batch.ScalarIsoline.Map(static result => result.Receipt).ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineReceipt)))))
+                ProjectionRow.Of<IsolineCensus>(() => batch.ScalarIsoline.Map(static result => result.Census).ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(IsolineCensus)))))
             select output,
         isoSurfaceCase: static (state, extraction) =>
             from result in IsoSurface.Detailed(field: extraction.Field, bounds: extraction.Bounds, resolution: extraction.Resolution.Value,
                 policy: IsoSurfacePolicy.Default with { MaxRootSteps = extraction.MaxRootSteps }, context: state.Context, key: state.Key)
-            from output in AtomProjection.Rows<IsoSurfaceReceipt, TOut>(self: result.Receipt, key: state.Key, owner: typeof(IsoSurfaceCase),
-                ProjectionRow.Of<Mesh>(() => result.Receipt.Valid ? Fin.Succ(result.Mesh) : Fin.Fail<Mesh>(state.Key.InvalidResult())),
-                ProjectionRow.Of<IsoSurfaceResult>(() => result.Receipt.Valid ? Fin.Succ(result) : Fin.Fail<IsoSurfaceResult>(state.Key.InvalidResult())),
-                ProjectionRow.Of<ExtractionReceipt>(() => ExtractionReceipt.Of(
-                    route: result.Receipt.NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local,
-                    attempted: 1, emitted: result.Receipt.Valid ? 1 : 0,
-                    tolerance: result.Receipt.FixedTolerance.Map(ExtractionTolerance.RhinoFixed).IfNone(ExtractionTolerance.RhinoDefault),
+            from output in AtomProjection.Rows<IsoSurfaceRun, TOut>(self: result.Run, key: state.Key, owner: typeof(IsoSurfaceCase),
+                ProjectionRow.Of<Mesh>(() => result.Run.Valid ? Fin.Succ(result.Mesh) : Fin.Fail<Mesh>(state.Key.InvalidResult())),
+                ProjectionRow.Of<IsoSurfaceResult>(() => result.Run.Valid ? Fin.Succ(result) : Fin.Fail<IsoSurfaceResult>(state.Key.InvalidResult())),
+                ProjectionRow.Of<ExtractionTally>(() => ExtractionTally.Of(
+                    route: result.Run.NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local,
+                    attempted: 1, emitted: result.Run.Valid ? 1 : 0,
+                    tolerance: result.Run.FixedTolerance.Map(ExtractionTolerance.RhinoFixed).IfNone(ExtractionTolerance.RhinoDefault),
                     key: state.Key,
-                    isoSurface: Some(result.Receipt), itemFailures: result.Receipt.Valid ? Option<int>.None : Some(1))))
+                    isoSurface: Some(result.Run), itemFailures: result.Run.Valid ? Option<int>.None : Some(1))))
             select output,
         sampledCase: static (state, extraction) => extraction.Mode.Switch(
             state: (Domain: extraction.Domain, Seeds: extraction.Seeds, Context: state.Context, Key: state.Key),
@@ -519,19 +514,19 @@ public abstract partial record Extraction {
                 seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (point, model, op) => ExtractionProbe.Vector(source: mode.Field).Project<VectorSpan>(sample: point, context: model, key: op)
                     .Map(span => new Line(span.Anchor, span.Anchor + (mode.Scale.Value * span.Value))),
-                project: static (glyphs, rejected, receipt, op) => AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: op, owner: typeof(SampledExtraction.GlyphCase),
+                project: static (glyphs, rejected, tally, op) => AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.GlyphCase),
                     Gated<Seq<Line>>(rejected, op, () => Fin.Succ(glyphs)))),
             gridCase: static (s, mode) => ProjectSamples<TOut, (Point3d Point, double Value)>(
                 seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (point, model, op) => mode.Field.SampleScalar(sample: point, context: model, key: op).Map(value => (Point: point, Value: value)),
-                project: static (samples, rejected, receipt, op) => AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: op, owner: typeof(SampledExtraction.GridCase),
+                project: static (samples, rejected, tally, op) => AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.GridCase),
                     Gated<Seq<(Point3d Point, double Value)>>(rejected, op, () => samples.ForAll(static sample => ValidityClaim.Finite(sample.Point) && ValidityClaim.Finite(value: sample.Value))
                         ? Fin.Succ(samples)
                         : Fin.Fail<Seq<(Point3d Point, double Value)>>(op.InvalidResult())))),
             streamBundleCase: static (s, mode) => ProjectSamples<TOut, StreamlineTrace>(
                 seeds: s.Seeds, domain: s.Domain, context: s.Context, key: s.Key,
                 sample: (seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: mode.Field, seed: seed, initialStep: mode.InitialStep, integrator: mode.Integrator, termination: mode.Termination, context: model, key: op),
-                project: static (traces, rejected, receipt, op) => AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: op, owner: typeof(SampledExtraction.StreamBundleCase),
+                project: static (traces, rejected, tally, op) => AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: op, owner: typeof(SampledExtraction.StreamBundleCase),
                     Streamed<StreamlineTrace>(rejected, op, traces),
                     Streamed<Polyline>(rejected, op, traces),
                     Streamed<Curve>(rejected, op, traces))),
@@ -545,11 +540,11 @@ public abstract partial record Extraction {
                       return s.Key.AcceptValue(value: (Projected: projected, Indices: indices));
                   })
                   let covered = toSeq(hits.Indices).Distinct().Count
-                  from receipt in ExtractionReceipt.Of(
+                  from tally in ExtractionTally.Of(
                       route: ExtractionRoute.Native, attempted: samples.Points.Count, emitted: hits.Projected.Length,
                       tolerance: ExtractionTolerance.FromContext(s.Context.Absolute), key: s.Key,
-                      sample: Some(samples.Receipt), itemFailures: Some(samples.Points.Count - covered))
-                  from output in AtomProjection.Rows<ExtractionReceipt, TOut>(self: receipt, key: s.Key, owner: typeof(SampledExtraction.DrapeCase),
+                      sample: Some(samples.Tally), itemFailures: Some(samples.Points.Count - covered))
+                  from output in AtomProjection.Rows<ExtractionTally, TOut>(self: tally, key: s.Key, owner: typeof(SampledExtraction.DrapeCase),
                       ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(toSeq(hits.Projected))),
                       ProjectionRow.Of<Seq<(int Source, Point3d Point)>>(() => Fin.Succ(toSeq(hits.Indices.Zip(hits.Projected, static (source, point) => (Source: source, Point: point))))))
                   select output
@@ -561,19 +556,19 @@ public abstract partial record Extraction {
     private static ProjectionRow Streamed<TShape>(int rejected, Op op, Seq<StreamlineTrace> traces) =>
         Gated<Seq<TShape>>(rejected, op, () => traces.TraverseM(trace => FlowKernel.ProjectTrace<TShape>(trace: trace, key: op)).As());
 
-    private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Op key, Func<Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionReceipt, Op, Fin<TOut>> project) =>
+    private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Op key, Func<Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionTally, Op, Fin<TOut>> project) =>
         from samples in seeds.Evaluate(domain: domain, context: context, key: key)
         let split = samples.Points.Map(point => sample(point, context, key)).Partition()
-        from receipt in ExtractionReceipt.Of(
+        from tally in ExtractionTally.Of(
             route: ExtractionRoute.Local, attempted: samples.Points.Count, emitted: split.Succs.Count,
             tolerance: ExtractionTolerance.NotApplicable, key: key,
-            sample: Some(samples.Receipt), itemFailures: Some(split.Fails.Count))
-        from output in project(split.Succs, split.Fails.Count, receipt, key)
+            sample: Some(samples.Tally), itemFailures: Some(split.Fails.Count))
+        from output in project(split.Succs, split.Fails.Count, tally, key)
         select output;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
+internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionTally Tally);
 
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) {
@@ -583,32 +578,29 @@ internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) {
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
 
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct IsolineLedger(
-    int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int VertexTouchRejected,
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct IsolineCensus(
+    int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int VertexTouchRejected,
     int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves)
-    : Monoid<IsolineLedger> {
-    public static IsolineLedger Empty => default;
+    : IValidityEvidence, Monoid<IsolineCensus> {
+    public static IsolineCensus Empty => default;
 
-    public IsolineLedger Combine(IsolineLedger rhs) =>
-        new(RawSegments + rhs.RawSegments, DedupedSegments + rhs.DedupedSegments,
+    public IsolineCensus Combine(IsolineCensus rhs) =>
+        new(FiniteLevels + rhs.FiniteLevels, RawSegments + rhs.RawSegments, DedupedSegments + rhs.DedupedSegments,
             DegenerateRejected + rhs.DegenerateRejected, PlateauRejected + rhs.PlateauRejected,
             VertexTouchRejected + rhs.VertexTouchRejected, StitchedCandidates + rhs.StitchedCandidates,
             BranchStops + rhs.BranchStops, BranchNodes + rhs.BranchNodes,
             Math.Max(val1: MaxIncidentSegments, val2: rhs.MaxIncidentSegments), EmittedCurves + rhs.EmittedCurves);
 
-    internal static IsolineLedger Raw(int count) => Empty with { RawSegments = count };
-    internal static IsolineLedger Plateau => Empty with { PlateauRejected = 1 };
-    internal static IsolineLedger VertexTouch => Empty with { VertexTouchRejected = 1 };
-    internal static IsolineLedger BranchStop => Empty with { BranchStops = 1 };
-    internal static IsolineLedger Census(int branchNodes, int maxIncident) =>
+    internal static IsolineCensus Raw(int count) => Empty with { RawSegments = count };
+    internal static IsolineCensus Plateau => Empty with { PlateauRejected = 1 };
+    internal static IsolineCensus VertexTouch => Empty with { VertexTouchRejected = 1 };
+    internal static IsolineCensus BranchStop => Empty with { BranchStops = 1 };
+    internal static IsolineCensus Branched(int branchNodes, int maxIncident) =>
         Empty with { BranchNodes = branchNodes, MaxIncidentSegments = maxIncident };
-    internal static IsolineLedger Stitched(int attempted, int emitted) =>
+    internal static IsolineCensus Stitched(int attempted, int emitted) =>
         Empty with { StitchedCandidates = attempted, EmittedCurves = emitted };
-}
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ScalarIsolineReceipt(int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int VertexTouchRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(FiniteLevels, 1), ValidityClaim.CountAtLeast(RawSegments, 0),
         ValidityClaim.CountAtLeast(DedupedSegments, 0), ValidityClaim.CountAtLeast(DegenerateRejected, 0),
@@ -620,26 +612,26 @@ public readonly record struct ScalarIsolineReceipt(int FiniteLevels, int RawSegm
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, ScalarIsolineReceipt Receipt);
+public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, IsolineCensus Census);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ExtractionReceipt(
+public readonly record struct ExtractionTally(
     ExtractionRoute Route, int Attempted, int Emitted, ExtractionTolerance Tolerance,
-    Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default,
-    Option<SampleReceipt> Sample = default, Option<int> ItemFailures = default) : IValidityEvidence {
+    Option<IsoSurfaceRun> IsoSurface = default, Option<IsolineCensus> ScalarIsoline = default,
+    Option<SampleTally> Sample = default, Option<int> ItemFailures = default) : IValidityEvidence {
     public int Rejected => Attempted - Emitted;
     public bool Complete => Emitted == Attempted;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(Attempted, 0), ValidityClaim.CountAtLeast(Emitted, 0),
         Emitted <= Attempted,
         ItemFailures.Map(static count => count >= 0).IfNone(noneValue: true),
-        IsoSurface.Map(static receipt => receipt.IsValid).IfNone(noneValue: true),
-        ScalarIsoline.Map(static receipt => receipt.IsValid).IfNone(noneValue: true),
-        Sample.Map(static receipt => receipt.IsValid).IfNone(noneValue: true));
-    internal static Fin<ExtractionReceipt> Of(ExtractionRoute route, int attempted, int emitted, ExtractionTolerance tolerance, Op key, Option<IsoSurfaceReceipt> isoSurface = default, Option<ScalarIsolineReceipt> scalarIsoline = default, Option<SampleReceipt> sample = default, Option<int> itemFailures = default) =>
+        IsoSurface.Map(static child => child.IsValid).IfNone(noneValue: true),
+        ScalarIsoline.Map(static child => child.IsValid).IfNone(noneValue: true),
+        Sample.Map(static child => child.IsValid).IfNone(noneValue: true));
+    internal static Fin<ExtractionTally> Of(ExtractionRoute route, int attempted, int emitted, ExtractionTolerance tolerance, Op key, Option<IsoSurfaceRun> isoSurface = default, Option<IsolineCensus> scalarIsoline = default, Option<SampleTally> sample = default, Option<int> itemFailures = default) =>
         attempted < 0 || emitted < 0 || emitted > attempted
-            ? Fin.Fail<ExtractionReceipt>(error: key.InvalidResult())
-            : Fin.Succ(new ExtractionReceipt(Route: route, Attempted: attempted, Emitted: emitted, Tolerance: tolerance, IsoSurface: isoSurface, ScalarIsoline: scalarIsoline, Sample: sample, ItemFailures: itemFailures));
+            ? Fin.Fail<ExtractionTally>(error: key.InvalidResult())
+            : Fin.Succ(new ExtractionTally(Route: route, Attempted: attempted, Emitted: emitted, Tolerance: tolerance, IsoSurface: isoSurface, ScalarIsoline: scalarIsoline, Sample: sample, ItemFailures: itemFailures));
 }
 ```
 
@@ -647,7 +639,6 @@ public readonly record struct ExtractionReceipt(
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

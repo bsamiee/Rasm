@@ -19,39 +19,12 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 import pytest
 
 import assay.core.exec as exec_mod
-from assay.core.exec import (
-    argv_for,
-    EngineExecutor,
-    Executor,
-    fan_out,
-    retry_predicate,
-    run_check,
-    run_check_async,
-    splice_command,
-)
+from assay.core.exec import argv_for, EngineExecutor, Executor, fan_out, retry_predicate, run_check, run_check_async, splice_command
 import assay.core.govern as govern_mod
 from assay.core.govern import fan_schedule, remaining, reset_foreign_census
-from assay.core.model import (
-    Check,
-    Claim,
-    Fault,
-    Input,
-    Language,
-    Mode,
-    RailStatus,
-    receipt,
-    Runner,
-    Stage,
-    Tool,
-    ToolGroup,
-)
+from assay.core.model import Check, Claim, Completed, Fault, Input, Language, Mode, RailStatus, Runner, Stage, Tool, ToolGroup
 from assay.core.routing import discover, discover_async, Routed, Scope
-from tests.python._testkit.spec import (
-    assert_error,
-    assert_error_status,
-    assert_ok,
-    validity_matrix,
-)
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, validity_matrix
 from tests.python.tools.assay.kit import AssayHarness
 
 if TYPE_CHECKING:
@@ -62,7 +35,6 @@ if TYPE_CHECKING:
 
     from assay.composition.settings import AssaySettings
     from assay.composition.store import ArtifactScope
-    from assay.core.model import Completed
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -72,25 +44,9 @@ COVERS: tuple[object, ...] = (
     reset_foreign_census, retry_predicate, run_check, run_check_async, splice_command,
 )  # fmt: skip
 
-_ECHO_TOOL = Tool(
-    name="test-echo",
-    runner=Runner.DIRECT,
-    command=("/bin/echo", "hello"),
-    input=Input.NONE,
-    language=Language.DOTNET,
-    claim=Claim.STATIC,
-    mode=Mode.CHECK,
-)
+_ECHO_TOOL = Tool(name="test-echo", runner=Runner.DIRECT, command=("/bin/echo", "hello"), input=Input.NONE, language=Language.DOTNET, claim=Claim.STATIC, mode=Mode.CHECK)
 _REMOTE_TOOL = Tool(name="remote", runner=Runner.DOTNET, command=("test",), input=Input.NONE, language=Language.DOTNET, claim=Claim.STATIC)
-_TOOL_RUN = Tool(
-    name="ilspycmd",
-    runner=Runner.DOTNET,
-    command=("tool", "run", "ilspycmd", "--", "-l", "cisde"),
-    input=Input.NONE,
-    language=Language.DOTNET,
-    claim=Claim.STATIC,
-    mode=Mode.QUERY,
-)
+_TOOL_RUN = Tool(name="ilspycmd", runner=Runner.DOTNET, command=("tool", "run", "ilspycmd", "--", "-l", "cisde"), input=Input.NONE, language=Language.DOTNET, claim=Claim.STATIC, mode=Mode.QUERY)
 _ROUTED_CHANGED = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
 _PY_CHANGED = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
 
@@ -193,10 +149,8 @@ def test_retry_predicate_decision_table(label: str, runner: Runner, exc: BaseExc
     validity_matrix(((label, exc, expected),), retry_predicate(check, started))
 
 
-def test_run_check_retries_transient_spawn_via_rail_probe(
-    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]
-) -> None:
-    """A transient remote spawn fault is retried with receipt and telemetry evidence attributed to the tool name."""
+def test_run_check_retries_transient_spawn_via_rail_probe(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]) -> None:
+    """A transient remote spawn fault is retried with outcome and telemetry evidence attributed to the tool name."""
     calls = [0]
 
     async def flaky(*_args: object, **_kwargs: object) -> Completed:
@@ -206,7 +160,7 @@ def test_run_check_retries_transient_spawn_via_rail_probe(
             case 1:
                 raise OSError("temporary transport")
             case _:
-                return receipt(("dotnet", "test"), 0)
+                return Completed(argv=("dotnet", "test"), returncode=0, status=RailStatus.from_returncode(0))
 
     monkeypatch.setattr(exec_mod, "_execute", flaky)
     done = assert_ok(_run(Check(tool=_REMOTE_TOOL), assay_root))
@@ -225,7 +179,7 @@ def test_fan_out_preserves_order_and_backfills_timeout(assay_root: AssayHarness,
     async def indexed(check: Check, *_args: object, **_kwargs: object) -> Completed:
         idx = int(check.tool.name.split("-")[1])
         await anyio.sleep(0.0 if idx < 2 else 10.0)
-        return receipt((check.tool.name,), 0)
+        return Completed(argv=(check.tool.name,), returncode=0, status=RailStatus.from_returncode(0))
 
     monkeypatch.setattr(exec_mod, "_execute", indexed)
     checks = tuple(Check(tool=msgspec.structs.replace(_ECHO_TOOL, name=f"check-{i}", runner=Runner.DOTNET)) for i in range(3))
@@ -245,7 +199,7 @@ def test_fan_out_contains_escaped_check_fault(assay_root: AssayHarness, monkeypa
             case True:
                 raise RuntimeError("escaped check fault")
             case False:
-                return receipt((check.tool.name,), 0)
+                return Completed(argv=(check.tool.name,), returncode=0, status=RailStatus.from_returncode(0))
 
     monkeypatch.setattr(exec_mod, "_execute", volatile)
     checks = tuple(Check(tool=msgspec.structs.replace(_ECHO_TOOL, name=f"contain-{i}")) for i in range(3))
@@ -301,13 +255,9 @@ def test_argv_for_exact_argv_rows(assay_root: AssayHarness) -> None:
     tails, and per-project dotnet scope injection after ``--project`` expansion.
     """
     settings = assay_root.settings
-    uv_tool = Tool(
-        "uv-argv-law", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.TEST, groups=(ToolGroup.MUTATION,), stage=Stage(project=True)
-    )
+    uv_tool = Tool("uv-argv-law", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.TEST, groups=(ToolGroup.MUTATION,), stage=Stage(project=True))
     uv_argv = assert_ok(argv_for(Check(tool=uv_tool), _PY_CHANGED, settings=settings, scope=None))
-    assert uv_argv == ("uv", "run", "--locked", "--group", "mutation", "--project", str(settings.root), "ruff", "check"), (
-        f"uv argv drifted: {uv_argv!r}"
-    )
+    assert uv_argv == ("uv", "run", "--locked", "--group", "mutation", "--project", str(settings.root), "ruff", "check"), f"uv argv drifted: {uv_argv!r}"
     direct = msgspec.structs.replace(uv_tool, runner=Runner.DIRECT)
     direct_argv = assert_ok(argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None))
     assert direct_argv == ("ruff", "check"), f"non-UV runner leaked uv segments: {direct_argv!r}"
@@ -393,9 +343,7 @@ _GUARDED_ROWS: tuple[tuple[str, tuple[str, ...], float | None, float | None, Rai
 
 
 @pytest.mark.parametrize("label, command, row_timeout, check_timeout, status", _GUARDED_ROWS, ids=[c[0] for c in _GUARDED_ROWS])
-def test_run_check_classifies_spawn_faults(
-    label: str, command: tuple[str, ...], row_timeout: float | None, check_timeout: float | None, status: RailStatus, assay_root: AssayHarness
-) -> None:
+def test_run_check_classifies_spawn_faults(label: str, command: tuple[str, ...], row_timeout: float | None, check_timeout: float | None, status: RailStatus, assay_root: AssayHarness) -> None:
     """``run_check`` routes absent binaries, deadlines, and NUL argv to guarded fault statuses with exact, unstamped evidence.
 
     The check-timeout row pins ``Check.timeout`` beating a generous row timeout without a sibling row.
@@ -407,9 +355,7 @@ def test_run_check_classifies_spawn_faults(
     match status:
         case RailStatus.TIMEOUT:
             assert fault.message == "deadline exceeded", f"deadline message not exact/unstamped: {fault.message!r}"
-            assert fault.argv == assert_ok(argv_for(check, _PY_CHANGED, settings=assay_root.settings, scope=None)), (
-                f"deadline fault lost its argv: {fault!r}"
-            )
+            assert fault.argv == assert_ok(argv_for(check, _PY_CHANGED, settings=assay_root.settings, scope=None)), f"deadline fault lost its argv: {fault!r}"
         case RailStatus.UNSUPPORTED:
             assert command[0] in fault.message, f"UNSUPPORTED message lost the missing binary: {fault.message!r}"
         case _:
@@ -456,14 +402,10 @@ def test_contained_verdicts_and_stage_fault_evidence(tmp_path: Path) -> None:
     work.mkdir()
     missing = exec_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "sub/absent.txt")
     assert missing is not None, "missing stage input did not fault"
-    assert (missing.argv, missing.message) == ((_ECHO_TOOL.name, "stage", "sub/absent.txt"), "missing stage input: sub/absent.txt"), (
-        f"missing-input fault evidence wrong: {missing!r}"
-    )
+    assert (missing.argv, missing.message) == ((_ECHO_TOOL.name, "stage", "sub/absent.txt"), "missing stage input: sub/absent.txt"), f"missing-input fault evidence wrong: {missing!r}"
     breach = exec_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "../x")
     assert breach is not None, "escaping stage input did not fault"
-    assert (breach.argv, breach.message) == ((_ECHO_TOOL.name, "stage", "../x"), "unsafe stage path: '../x'"), (
-        f"escape fault evidence wrong: {breach!r}"
-    )
+    assert (breach.argv, breach.message) == ((_ECHO_TOOL.name, "stage", "../x"), "unsafe stage path: '../x'"), f"escape fault evidence wrong: {breach!r}"
 
 
 @pytest.mark.mutation
@@ -488,14 +430,7 @@ _STAGED_REMOTE = Tool(
 )  # fmt: skip
 _LOCAL_ONLY_ROWS: tuple[tuple[str, Tool, str], ...] = (
     ("staged", _STAGED_REMOTE, "staged tools require local execution"),
-    *(
-        (
-            claim.value,
-            Tool("host-bound-remote-law", Runner.DOTNET, ("run", "--", "verify"), Input.NONE, Language.DOTNET, claim, mode=Mode.VERIFY),
-            "host-bound tools require local execution",
-        )
-        for claim in (Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION)
-    ),
+    *((claim.value, Tool("host-bound-remote-law", Runner.DOTNET, ("run", "--", "verify"), Input.NONE, Language.DOTNET, claim, mode=Mode.VERIFY), "host-bound tools require local execution") for claim in (Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION)),
 )
 
 
@@ -519,14 +454,14 @@ def test_inproc_thunk_outcomes(assay_root: AssayHarness) -> None:
         raise RuntimeError("deliberate thunk fault")
 
     def _good(check: Check) -> Completed:
-        return receipt((check.tool.name,), 0, stdout=b"inproc-ok")
+        return Completed(argv=(check.tool.name,), returncode=0, stdout=b"inproc-ok", status=RailStatus.from_returncode(0))
 
     no_thunk = assert_ok(_run(Check(tool=base), assay_root))
     raising = assert_ok(_run(Check(tool=base, paths=("p",), thunk=_raise), assay_root))
     healthy = assert_ok(_run(Check(tool=base, thunk=_good), assay_root))
-    assert (no_thunk.returncode, b"no thunk" in no_thunk.stderr.lower()) == (1, True), f"missing-thunk receipt wrong: {no_thunk!r}"
-    assert (raising.returncode, b"RuntimeError" in raising.stderr) == (1, True), f"raising-thunk receipt wrong: {raising!r}"
-    assert (healthy.returncode, healthy.stdout) == (0, b"inproc-ok"), f"healthy-thunk receipt wrong: {healthy!r}"
+    assert (no_thunk.returncode, b"no thunk" in no_thunk.stderr.lower()) == (1, True), f"missing-thunk outcome wrong: {no_thunk!r}"
+    assert (raising.returncode, b"RuntimeError" in raising.stderr) == (1, True), f"raising-thunk outcome wrong: {raising!r}"
+    assert (healthy.returncode, healthy.stdout) == (0, b"inproc-ok"), f"healthy-thunk outcome wrong: {healthy!r}"
 
 
 # --- [BACKEND_ROUTING]
@@ -538,7 +473,7 @@ def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, mon
 
     async def _record(plan: object, target: object) -> object:  # ruff:ignore[unused-async]
         recorded.append((target.url, dict(getattr(plan, "env", {}))))  # ty: ignore[unresolved-attribute]
-        return receipt(("remote",), 0, stdout=b"recorded")
+        return Completed(argv=("remote",), returncode=0, stdout=b"recorded", status=RailStatus.from_returncode(0))
 
     monkeypatch.setattr(exec_mod, "run_remote", _record)
     env_tool = msgspec.structs.replace(_ECHO_TOOL, name="route-law", env=(("ASSAY_ROW_DECLARED", "row-value"),))
@@ -559,20 +494,11 @@ def test_guarded_projects_argv_scope_and_governed_limiter_into_execute(assay_roo
     """Spawn execution receives projected argv, intact scope, and governed limiter cap through both run and fan paths."""
     seen: list[tuple[object, tuple[str, ...], int]] = []
 
-    async def capture(
-        check: Check,
-        settings: AssaySettings,
-        scope: ArtifactScope | None,
-        *,
-        argv: tuple[str, ...],
-        cwd: str,
-        env: Mapping[str, str],
-        thread_limiter: anyio.CapacityLimiter,
-    ) -> Completed:
+    async def capture(check: Check, settings: AssaySettings, scope: ArtifactScope | None, *, argv: tuple[str, ...], cwd: str, env: Mapping[str, str], thread_limiter: anyio.CapacityLimiter) -> Completed:
         await anyio.sleep(0.0)
         _ = (check, settings, cwd, env)
         seen.append((scope, argv, int(thread_limiter.total_tokens)))
-        return receipt(argv, 0)
+        return Completed(argv=argv, returncode=0, status=RailStatus.from_returncode(0))
 
     monkeypatch.setattr(exec_mod, "_execute", capture)
     monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))

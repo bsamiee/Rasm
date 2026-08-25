@@ -106,7 +106,7 @@ Each `SUPPORTED_*_POINT_FIELDS` is a `dict[str, str]` field-name -> `numpy` dtyp
 - `read_scan` is the one polymorphic intake — coordinate system auto-detects via `ScanHeader.get_coordinate_system`, the invalid-state column masks every field, spherical input `convert_spherical_to_cartesian`-projects, and `transform=True` lifts the dict to global-frame `cartesianX`/`cartesianY`/`cartesianZ`; `read_scan_raw` is the unconditioned escape, never a parallel reader family.
 - `make_buffer`/`make_buffers` size arrays from the `SUPPORTED_POINT_FIELDS` dtype-char map; the returned array dict, not the libe57 buffer vector, is the data surface.
 - `write_scan_raw` is the one append entry with no per-field write family; `E57.to_global` is the static quaternion transform (`Quaternion(rotation).rotation_matrix @ pts + t`), `ScanHeader.rotation` the `(w,x,y,z)` quaternion and `rotation_matrix` its derived `(3,3)`.
-- evidence: each read captures scan index, point count, coordinate system, present field names, and the pose-applied flag; each write captures scan name, written point count, and bounds as the scan-io receipt.
+- evidence: each read result carries scan index, point count, coordinate system, present field names, and the pose-applied flag; each write result carries scan name, written point count, and bounds.
 
 [STACKING]:
 - `open3d`(`.api/open3d.md`): the conditioned XYZ block wraps through `utility.Vector3dVector` into a `geometry.PointCloud`, feeding `registration.registration_icp` and `PointCloud.voxel_down_sample`; intensity/color columns ride `PointCloud.colors`.

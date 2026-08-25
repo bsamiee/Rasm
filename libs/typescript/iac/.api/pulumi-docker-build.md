@@ -73,7 +73,7 @@
 [STACKING]:
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `registries[].password` and `secrets` bind its `Secret` `Output` by value — no on-disk or env material.
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`) + `@pulumi/awsx`(`.api/pulumi-awsx.md`): `Image.digest`/`ref` feeds a workload image ref or an ECS TaskDefinition container image; `awsx.ecr.Image` bundles `docker-build` on the `aws` arm.
-- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): a build failure folds into the `automation.UpResult` run receipt, and `opts.provider` threads the arm's build `Provider`.
+- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): a build failure rejects the lifecycle operation and maps to `DeployFault`; `opts.provider` threads the arm's build `Provider`.
 - effect(`libs/typescript/.api/effect.md`): owns arm dispatch and the StackSpec/StackOutputs `Schema`.
 
 [LOCAL_ADMISSION]:

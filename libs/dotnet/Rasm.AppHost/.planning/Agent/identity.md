@@ -1,6 +1,6 @@
 # [APPHOST_IDENTITY_AND_TRUST]
 
-One authentication boundary for the runtime spine: a per-issuer OIDC trust anchor folds discovery, rotating JWKS, and the issuer's own claim dialect into the validation policy, an inbound-token rail validates a compact JWT to one canonical `Principal` whose tenant RESOLVES against the boot-minted roster, a flow-discriminated acquisition surface obtains machine-to-machine and device credentials over the relying-party client under one expiry/refresh custody, and a claims-policy gate evaluates a `Principal` against an `AuthorizationPolicy` with no HTTP pipeline. This page produces the one validated `Principal` whose `TenantContext` the `Agent/capability#GRANT_BROKER` `ConsentOf` reads — authentication owns *who*, the grant broker owns *what* and *how much* — and it owns the issuer-trust registry, the token-validation rail, the credential-acquisition flow family, the relying-party registration that flow consumes, and the policy gate. Owned axes also cover the `#PRINCIPAL` ambient slot every in-process caller reads, the `TokenLease` CELL custody a renewable credential takes, the `LeaseRoster` holder table each outbound hop and authenticated probe dereferences per send, the provider-side revocation read, and the `PolicyDescriptor` `[SmartEnum]` naming every authorization requirement as a row. It consumes `TenantContext`, `CorrelationId`, `ClockPolicy`, `ReceiptSinkPort`, `DataClassification`, the resilient `HttpClient` seam from `Wire/outbound`, and the `CredentialMaterial` DER `Runtime/secrets#CREDENTIAL_PEM` admits under the `Runtime/secrets#SECRET_LEASE` custody, minting no eighth port. `Microsoft.IdentityModel.JsonWebTokens` owns the JWT engine, `Microsoft.IdentityModel.Tokens` the validation contract and key hierarchy, `Microsoft.IdentityModel.Protocols.OpenIdConnect` the discovery leg, `OpenIddict.Client` the acquisition leg, and `Microsoft.AspNetCore.Authorization` the ABAC evaluation core; Thinktecture owns the vocabularies and LanguageExt the rails.
+One authentication boundary for the runtime spine: a per-issuer OIDC trust anchor folds discovery, rotating JWKS, and the issuer's claim dialect into validation; the inbound rail returns `Validation<Error, Principal>`; one flow-discriminated acquisition surface obtains and renews credentials through OpenIddict; and the claims-policy gate evaluates the admitted principal through `IAuthorizationService`. `Principal` carries the tenant the grant broker consumes, while `TokenLease` carries renewable credential state.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@ One authentication boundary for the runtime spine: a per-issuer OIDC trust ancho
 - Cases: each admitted issuer is one `IssuerTrust` row keyed by its issuer URI, carrying its tenant-claim name and its scope-claim name and shape; the anchor's `ConfigurationManager` carries the discovery `MetadataAddress`, the `AutomaticRefreshInterval`/`RefreshInterval` rotation cadence, and the `UseLastKnownGoodConfiguration` resilience toggle; 2 scope-shape rows — delimited, array.
 - Entry: `Anchor(string issuer, string metadataAddress, HttpClient resilient, DeadlineClass refresh, Duration skew, FrozenSet<string> audiences, string tenantClaim, string scopeClaim, ScopeShape shape)` constructs one anchor — a `ConfigurationManager<OpenIdConnectConfiguration>(metadataAddress, new OpenIdConnectConfigurationRetriever(), new HttpDocumentRetriever(resilient), new OpenIdConnectConfigurationValidator())` wired into one `TokenValidationParameters` whose `ConfigurationManager` slot owns the rotating keys; `Resolve(string issuer)` returns `Option<IssuerTrust>` through the ordinal probe; `IssuerTrust.Refresh()` flags the next read on a signature-key-not-found through `RequestRefresh`.
 - Auto: the anchor leaves `IssuerSigningKeys` unset and assigns the `ConfigurationManager` slot, so the validators pull the keys from the refreshed `JsonWebKeySet` rather than a pinned key, and a JWKS rotation lands on the next validate with no host edit; `UseLastKnownGoodConfiguration` is on at the manager AND `ValidateWithLKG` at the parameters, because the manager's fallback document only reaches validation when the validators opt into reading it — the toggle alone leaves the resilience claim with no consumer; `RefreshBeforeValidation` forces the re-fetch on a signature-key-not-found so a mid-flight rotation recovers inside the one validate rather than through a caller's retry; `ValidAudiences` and `ClockSkew` are set deliberately at every row, an unbound audience admitting a token minted for another relying party and a default skew being a policy the host never chose; the tenant-claim name and the scope-claim name and shape are ROW columns because no provider is pinned — RFC 8693 §4.2 and RFC 9068 §2.2.3 both spell `scope` as a space-delimited string and RFC 9068 §7.2.1 registers no array twin, so the delimited row is the conforming default and the array row an opt-in a divergent provider earns, and reading the array form off a conforming token binds no shape at all; the validating `ConfigurationManager<T>` ctor overload wires the `OpenIdConnectConfigurationValidator` so a discovery document without sufficient signing keys is rejected before it is trusted; the `OpenIdConnectProtocolValidator` checks the OIDC invariants bare JWT validation does not — the `nonce` round-trip, the `c_hash`/`at_hash` binding of the id-token to the authorization code and access token, and the `state` correlation — for the interactive challenge legs the `CREDENTIAL_FLOW` acquisition raises; the discovery `HttpClient` is the `Wire/outbound` resilient/service-discovery handler, never a bare client, and `RequireHttps` stays on.
-- Receipt: an issuer admission logs one `SpineLog` event inside the `FaultBand.SpineEvents` stride carrying the issuer key and the resolved `JwksUri`; the refresh advance rides the same event stream, never a parallel discovery receipt.
+- Output: an issuer admission logs one `SpineLog` event inside the `FaultBand.SpineEvents` stride carrying the issuer key and the resolved `JwksUri`; refresh advances use the same `SpineLog` mechanism.
 - Packages: Microsoft.IdentityModel.Protocols.OpenIdConnect, Microsoft.IdentityModel.Protocols, Microsoft.IdentityModel.Tokens, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one issuer is one `IssuerTrust` row; a per-issuer rotation-cadence retune is the row's `AutomaticRefreshInterval`/`RefreshInterval` column; a new claim dialect is one `ScopeShape` row carrying its reader; a pinned-metadata offline issuer is one `StaticConfigurationManager<OpenIdConnectConfiguration>` anchor variant, never a second registry; zero new surface.
 - Boundary: the registry is the only OIDC-trust owner — a hand-rolled `.well-known` fetch, a hardcoded issuer endpoint or signing key, and a pinned `IssuerSigningKey` for a rotating provider are the deleted forms; the `ConfigurationManager<OpenIdConnectConfiguration>` is the single JWKS source assigned to every issuer's `ValidationParameters.ConfigurationManager`, so the discovery refresh and the token validation share one rotating-key cache, never two; the `OpenIdConnectConfigurationRetriever` here is the `IConfigurationRetriever<OpenIdConnectConfiguration>` that specializes the protocol-agnostic `ConfigurationManager<T>` at `Microsoft.IdentityModel.Protocols`, so the discovery leg and the validation leg meet at the refreshed configuration and the page constructs the manager directly rather than through an ASP.NET authentication handler; the protocol validator is the interactive-flow gate only — a non-interactive client-credentials draw carries no `nonce`/`c_hash` and skips it — so the validator runs exactly where the OIDC spec demands it and nowhere else; the discovery capability flags (`RequirePushedAuthorizationRequests`, `TlsClientCertificateBoundAccessTokens`) read off `OpenIdConnectConfiguration` drive the `CREDENTIAL_FLOW` PAR/DPoP negotiation, never a hardcoded provider assumption; the claim dialect is the ROW's and never the projection's, so a provider divergence is a column value and the fold that reads it stays one shape — a projection hardcoding either the claim name or the scope shape encodes one identity provider into the boundary every other provider must then match.
@@ -120,34 +120,17 @@ public static class IssuerAnchor {
 
 ## [03]-[TOKEN_VALIDATION]
 
-- Owner: `IdentityRuntime` the one dependency record every entry on this page threads; `Principal` the validated identity record interiors read; `IdentityFault` `[Union]` the closed fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.HostIdentity`); `IdentityReceipt` `[Union]` the closed two-case per-validation evidence family — the admitted arm carries the principal projection, the refused arm the fault codes alone; `TokenValidation` the static admit-once validation rail over `JsonWebTokenHandler.ValidateTokenAsync`; one shared thread-safe `JsonWebTokenHandler` per runtime.
+- Owner: `IdentityRuntime` the dependency record every entry threads; `Principal` the validated identity record interiors read; `IdentityFault` `[Union]` the closed fault family; `TokenValidation` the static admit-once rail over `JsonWebTokenHandler.ValidateTokenAsync`; one shared thread-safe `JsonWebTokenHandler` per runtime.
 - Cases: `IdentityFault` = Untrusted | Malformed | Expired | SignatureRejected | ClaimMissing | TenantUnknown | ProtocolRejected | AcquisitionFailed | PolicyDenied | RefreshUnavailable | RefreshContended — one case per admission-rejection or renewal-refusal cause, each breaking every consumer arm.
-- Entry: `Validate(IdentityRuntime runtime, string token, CorrelationId correlation)` returns `IO<Validation<Error, Principal>>` — parses the token ONCE under typed malformed capture, reads its unverified issuer, resolves the `IssuerTrust`, folds the parsed-token `ValidateTokenAsync(parsed, anchor.Validation)` overload, branches on `TokenValidationResult.IsValid`, RESOLVES the claimed tenant against the boot-minted roster, and fans one `IdentityReceipt` on either arm; `Interactive(IssuerTrust anchor, ProtocolContext context, Principal principal)` returns `Validation<Error, Principal>` chaining `OpenIdConnectProtocolValidator.ValidateAuthenticationResponse` after the base validation for an interactive-flow id-token, seating the access token and the authorization code so the `at_hash` and `c_hash` bindings are checked rather than skipped.
-- Auto: the raw token is admitted EXACTLY ONCE at this rail — `Validate` is the boundary, it parses once and threads the parsed token through issuer resolution, validation, and projection rather than re-reading it per branch, and every interior reads the resulting `Principal`, never re-parsing a token or re-checking a signature; the handler is the modern `JsonWebTokenHandler`, never the legacy `JwtSecurityTokenHandler`, and the parsed-token `ValidateTokenAsync` overload is the async-first path whose `TokenValidationResult` carries `IsValid`/`ClaimsIdentity`/`Exception` so a validation failure lands on `Exception`; `MapInboundClaims = false` preserves provider claims for projection, while `Principal.Claims` rebuilds the normalized policy scope claims; the claims project through the typed `JsonWebToken` registered properties (`Subject`, `Audiences`, `ValidTo`, `Issuer`) and the NON-throwing `TryGetPayloadValue<T>`, never a string-keyed enumeration and never the throwing read — a typed read for a shape the token does not carry raises out of a rail whose whole contract is not to; the tenant claim RESOLVES against the boot-minted tenant roster and never constructs a tenancy, because the roster is the admitted set and a claim naming a tenant outside it is exactly the refusal this boundary exists to make — a projection that mints a `TenantContext` from claim text admits every tenant any trusted issuer cares to name; the scopes read through the anchor's own `ScopeShape`, so one host federating a conforming provider and a divergent one reads both correctly from one fold; `ValidTo` seats `Principal.Expiry` as a NodaTime `Instant` so expiry is one comparable stamp on the `ClockPolicy` axis; every validation — admitted or refused — marks once and fans one `IdentityReceipt` through `ReceiptSinkPort.Send`, so a refused admission is evidence rather than a silence.
-- Receipt: `IdentityReceipt` — a closed two-case family: `Admitted` carries subject, issuer, tenant, scope-set hash, expiry `Instant`, elapsed `Duration`, and correlation; `Refused` carries elapsed, correlation, and the generated fault codes ALONE — fanned through `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key, one arm per outcome, so absence is structural and a refusal never fills principal slots with sentinels under the root tenant.
+- Entry: `Validate(IdentityRuntime runtime, string token)` returns `IO<Validation<Error, Principal>>` — parses once, resolves `IssuerTrust`, validates the parsed token, and resolves the claimed tenant; `Interactive(IssuerTrust anchor, ProtocolContext context, Principal principal)` chains the OIDC protocol validator after token validation.
+- Auto: `Validate` parses the compact token once and threads the parsed `JsonWebToken` through trust resolution, validation, and projection; `TokenValidationResult` carries the typed validation verdict; `MapInboundClaims = false` preserves provider claims; `TryGetPayloadValue<T>` reads optional claim shapes without throwing; the issuer row's `ScopeShape` normalizes scopes; the boot roster resolves tenancy; `ValidTo` becomes the principal's `Instant` expiry.
+- Output: `Validation<Error, Principal>` carries either the canonical principal or the accumulated typed refusals.
 - Packages: Microsoft.IdentityModel.JsonWebTokens, Microsoft.IdentityModel.Tokens, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one new rejection cause is one new `IdentityFault` case whose ordinal must fit the kernel band's live span; a richer validation policy is one column on `IssuerTrust.Validation`, never a second handler. A new projected claim is one field on `Principal` read at the one projection off one more `IssuerTrust` claim-name column; zero new surface.
-- Boundary: the rail is the suite's only token-validation owner — a per-endpoint signature check, a hand-rolled base64url JWT split, and a claims read before `IsValid` is confirmed are the deleted forms; compact-token validation precedes the interactive OIDC protocol check because the latter consumes an already validated principal. The `Principal` is the one inbound-identity shape — its `TenantContext` is the roster row `Agent/capability#GRANT_BROKER` `ConsentOf` resolves a disposition from and `Runtime/ports` stamps on the causal frame, so authentication and the capability metering meet at the `Principal` and never share a token format; the validation never re-fetches JWKS itself — the `ConfigurationManager` on the anchor's parameters owns the refresh and `RefreshBeforeValidation` drives the forced re-fetch on a signature-key-not-found, so a key rotation mid-flight recovers inside the one validate; tenant MEMBERSHIP is the boot roster and nothing else — the store's RLS predicate filters off the ambient tenant this boundary has already stamped, so it structurally answers "what may this tenant see" and never "is this subject a member of this tenant", and a page claiming a downstream identity store answers the membership question routes the one refusal it owns to a surface that cannot make it; REVOCATION is the issuer's answer, read through provider introspection at `CREDENTIAL_FLOW`, because a long-lived token the local validation cannot revoke is only revocable by asking who minted it; `IdentityReceipt` is TWO-FORMED with `Rasm.Persistence/Element/identity`'s per-op store evidence of the same name and stays so — this one is the validation boundary's two-case admission evidence, that one a relational op receipt on the store rail, and neither ever crosses the other's seam.
+- Boundary: `TokenValidation` is the suite's token-validation owner; compact-token validation precedes the interactive OIDC protocol check; `Principal` is the one inbound identity shape and carries the admitted tenancy the grant broker reads; `ConfigurationManager` owns JWKS refresh; the boot roster owns tenant membership; provider introspection owns revocation.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record IdentityReceipt {
-    private IdentityReceipt() { }
-    public sealed record Admitted(
-        string Subject,
-        string Issuer,
-        string Tenant,
-        string ScopeHash,
-        Instant Expiry,
-        Duration Elapsed,
-        CorrelationId Correlation) : IdentityReceipt;
-    public sealed record Refused(
-        Duration Elapsed,
-        CorrelationId Correlation,
-        Seq<int> Faults) : IdentityReceipt;
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record IdentityRuntime(
     TrustRegistry Trust,
@@ -156,10 +139,7 @@ public sealed record IdentityRuntime(
     OpenIddictClientService Client,
     IAuthorizationService Authorization,
     Func<ScheduleEntry, IO<Unit>> Schedule,
-    ClockPolicy Clocks,
-    ReceiptSinkPort Sink,
-    CorrelationId Correlation,
-    JsonSerializerOptions Wire);
+    ClockPolicy Clocks);
 
 // --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -215,13 +195,8 @@ public abstract partial record IdentityFault : Fault {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TokenValidation {
-    public static IO<Validation<Error, Principal>> Validate(IdentityRuntime runtime, string token, CorrelationId correlation) =>
-        from mark in runtime.Clocks.Line.Capture().Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
-        from outcome in Admit(runtime, token)
-        from settled in runtime.Clocks.Line.Capture().Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
-        from span in runtime.Clocks.Line.Elapsed(mark, settled).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
-        from _fanned in Fan(runtime, outcome, correlation, Duration.FromTimeSpan(span))
-        select outcome;
+    public static IO<Validation<Error, Principal>> Validate(IdentityRuntime runtime, string token) =>
+        Admit(runtime, token);
 
     static IO<Validation<Error, Principal>> Admit(IdentityRuntime runtime, string token) =>
         Parsed(runtime.Handler, token).Match(
@@ -250,21 +225,6 @@ public static class TokenValidation {
                     None: () => Fail<Error, Principal>(new IdentityFault.TenantUnknown(claimed)))
                 : Fail<Error, Principal>(new IdentityFault.ClaimMissing(anchor.TenantClaim))
             : Fail<Error, Principal>(Classify(result.Exception));
-
-    static IO<Unit> Fan(IdentityRuntime runtime, Validation<Error, Principal> outcome, CorrelationId correlation, Duration elapsed) =>
-        outcome.Match(
-            Succ: principal => Send(runtime, new IdentityReceipt.Admitted(
-                principal.Subject, principal.Issuer, principal.Tenant.Slug, principal.ScopeHash,
-                principal.Expiry, elapsed, correlation), correlation, principal.Tenant),
-            Fail: faults => Send(runtime, new IdentityReceipt.Refused(
-                elapsed, correlation,
-                faults.Bind(AdmissionSlots.Unpack)
-                    .Choose(static error => error is Fault fault ? Some(fault.Code) : None)
-                    .ToSeq().Strict()), correlation, TenantContext.Root));
-
-    static IO<Unit> Send(IdentityRuntime runtime, IdentityReceipt receipt, CorrelationId correlation, TenantContext tenant) =>
-        runtime.Sink.Send(correlation, tenant, TelemetrySource.AppHost, ReceiptKind.Identity.Key,
-            JsonSerializer.SerializeToElement(receipt, runtime.Wire));
 
     static Error Classify(Exception? exception) => exception switch {
         SecurityTokenExpiredException ex => new IdentityFault.Expired(ex.Message, Captured(ex)),
@@ -300,7 +260,7 @@ public static class TokenValidation {
 - Entry: `IdentityPrincipal.Current` reads the ambient principal (`Option`-shaped — an unauthenticated in-process caller is `None`, never a synthetic anonymous principal); `Stamp(Principal principal)` returns `Fin<IDisposable>` off the one-level kernel slot, refusing a nested seat rather than shadowing it and restoring the displaced frame on disposal.
 - Packages: Rasm (kernel `AmbientSlot`, `CanonicalWriter`, `ContentHash.Hex`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new projected claim is one field on `Principal` read at the one validation projection; zero new surface.
-- Boundary: this pass WITHDRAWS `PrincipalWire`, `IssuerTrustWire`, and `PolicyVerdictWire` — three declared faces with no producer, no manifest row, and no decoder in any branch (`rg` over `libs/typescript`, `libs/python`, `libs/contracts` returns zero for all three); identity evidence leaves this host as the `ReceiptKind.Identity` payload alone, so a wire face asserting a peer that does not exist is the stranded state the wire law refuses. The `Principal` is the one inbound-identity shape — its `TenantContext` is the roster row `Agent/capability#GRANT_BROKER` `ConsentOf` resolves a disposition from and `Runtime/ports` stamps on the causal frame, so authentication, authorization-policy, and capability-metering are three ordered seams over this one record; the Persistence far end maps the richer `Principal` onto its own `StoreActor` at the port boundary (`Element/graph`) — the `Principal` never crosses down, and no store answers membership for it; the ambient slot carries the VALIDATED record only — a raw token, a `ClaimsPrincipal`, or a half-projected identity in the slot is the deleted form; stamping is scoped and restored LIFO so a marshalled continuation reads its caller's principal, never a leaked ambient.
+- Boundary: `Principal` remains host-local; the Persistence port maps it to `StoreActor`; the ambient slot carries only the validated record and restores it LIFO across marshalled continuations.
 
 ```csharp
 public sealed record Principal(
@@ -345,15 +305,15 @@ public static class IdentityPrincipal {
 
 ## [05]-[CREDENTIAL_FLOW]
 
-- Owner: `GrantFlow` `[Union]` the acquisition-flow family discriminating the credential request and deriving its own renewal grant; `TokenBundle` the acquired-token record interiors carry; `TokenLease` the CELL VALUE the custody commits — bundle, renewal verdict, and refresh occurrence as one row, the identity mirror of the `Runtime/secrets#SECRET_LEASE` custody; `LeaseRoster` the registration-keyed cell table every bearer read dereferences; `LeaseEvent` `[Union]` the lifecycle vocabulary; `LeaseReceipt` the per-transition evidence; `DeviceChallenge` the device-flow challenge handle; `Acquisition` the static surface over the one resolved `OpenIddictClientService`, owning the acquisition, the cell that holds it, the renewal that commits into it, the provider-side revocation read, and the relying-party registration all of them ride.
-- Cases: `GrantFlow` = ClientCredentials | Device | Refresh | Exchange — the machine-to-machine grant, the headless device-enrollment grant, the refresh grant, and the RFC 8693 delegation grant; device alone is a challenge-then-poll pair, the rest single-call. `LeaseEvent` = Acquired | Refreshed | Refused.
+- Owner: `GrantFlow` `[Union]` the acquisition-flow family deriving its renewal grant; `TokenBundle` the acquired token; `TokenLease` the committed renewable state; `LeaseRoster` the registration-keyed cell table every bearer read dereferences; `DeviceChallenge` the device-flow challenge handle; `Acquisition` the static surface over `OpenIddictClientService`.
+- Cases: `GrantFlow` = ClientCredentials | Device | Refresh | Exchange; device alone is a challenge-then-poll pair, while the remaining cases are single calls.
 - Law: a renewable credential is a COMMITTED CELL, never a held value. `TokenLease.Bearer` is the page's one bearer read and it reads through `Atom<TokenLease>.Value`, so a refreshed bundle reaches every holder with no re-registration and no holder can carry a token the cell has already replaced.
 - Exemption: the knot at `Seat` is earned exactly as `Runtime/secrets#SECRET_LEASE` states it — the renewal occurrence's `Work` must close over the cell the seat has not yet finished minting, so the handle assigns after construction and `Acquire` is that seat's only caller.
 - Entry: `Acquire(IdentityRuntime runtime, GrantFlow flow)` returns `IO<Validation<Error, Atom<TokenLease>>>` — the fold maps each flow case to its `AuthenticateWith*Async` verb on the one client service, projects the result bundle, SEATS it as the cell carrying its own refresh occurrence, and REGISTERS that occurrence on the runtime's bound `Schedule` arrow, so an acquired credential is never a bare bundle a caller renews by hand and never a cell whose renewal entry nothing armed; `Refresh(IdentityRuntime runtime, Atom<TokenLease> cell)` returns `IO<Unit>` — the renewal occurrence's `Work` binding, committing the re-draw through kernel `Cell.Commit`; `Challenge(IdentityRuntime runtime, string registrationId)` returns `IO<Validation<Error, DeviceChallenge>>` — runs `ChallengeUsingDeviceAsync` to the user/device code and verification URI the operator presents before `Acquire(GrantFlow.Device)` polls; `Active(IdentityRuntime runtime, string registrationId, string token)` returns `IO<Validation<Error, bool>>` — the provider-side revocation read.
 - Auto: every verb on the relying-party client signals rejection by RAISING rather than answering a negative result, so each call brackets into the typed rail at ONE seat and no arm reads a result the provider never produced — an unconditionally successful projection over a throwing call reports every provider refusal as an exception escaping a rail whose whole contract is to carry it; the acquisition is one polymorphic fold over the flow case, never a per-flow service — `ClientCredentials` runs `AuthenticateWithClientCredentialsAsync`, `Device` runs `AuthenticateWithDeviceAsync` honoring the challenge `Interval`/`Timeout`, `Refresh` runs `AuthenticateWithRefreshTokenAsync`, and `Exchange` runs `AuthenticateWithTokenExchangeAsync`, each discriminating the registration by `RegistrationId`; the RENEWAL grant derives from the origin case rather than from a caller's choice — a refresh token re-draws every origin, and with none issued only the two re-runnable grants (`ClientCredentials`, `Exchange`) answer themselves while a consumed device code and a spent refresh token answer no grant at all, so a credential that cannot renew refuses on the typed rail instead of spending a round trip to be told so; PKCE, DPoP/mTLS token binding, and pushed authorization are negotiated automatically from the per-`OpenIddictClientRegistration` capability sets read off the discovery document, so the page sets no `CodeChallengeMethod` override in normal use; each flow arm projects its OWN result members into the one `TokenDraw` row the bundle folds — three arms name their product `AccessToken`/`AccessTokenExpirationDate` and the exchange arm names its `IssuedToken`/`IssuedTokenExpirationDate`, so a shared accessor asserted across the four reads a member three of them never declare — and the GRANTED scope set reads off the raw `OpenIddictResponse`, the only surface carrying it and the only way a provider narrowing the request is visible at all; the client-assertion `SigningCredentials` the registration carries map from the `Runtime/secrets#CREDENTIAL_PEM` `CredentialMaterial` chain the host admits once under the `SECRET_LEASE` custody, never re-loaded here; the relying-party registration DECLARES here and the `Runtime/modules#MODULE_LEDGER` composition root is what folds it, so the flows resolve a service one declared ledger row bound rather than one a control host was said to own.
-- Receipt: `LeaseReceipt` carries the registration id, the origin grant's case name, the transition key, the committed bundle's expiry, and an optional canonical ProtoJSON refusal — never the bearer itself; every transition fans through `ReceiptSinkPort.Send` under `ReceiptKind.Identity`, the same kind the validation rail's `IdentityReceipt` rides, so identity evidence leaves this host under one key. `Acquire` registers the cell's refresh `ScheduleEntry` on the runtime's `Runtime/time#SCHEDULE_PORT` arrow at a policy fraction of the bundle lifetime — seat and registration are one bind — and a committed renewal re-registers the renewed entry under the SAME key, so the port replaces the row and the cadence re-derives off the NEW expiry rather than compounding one occurrence per renewal.
+- Output: `Acquire` returns the committed `Atom<TokenLease>`; each successful renewal replaces that cell and re-registers its `ScheduleEntry`; a refused renewal preserves the live prior bundle and stores the typed refusal on the same lease.
 - Packages: OpenIddict.Client, Rasm (kernel `Cell`/`Transition`), Microsoft.IdentityModel.Tokens, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one grant is one `GrantFlow` case breaking every acquire arm AND its `Renewal` arm; one lifecycle transition is one `LeaseEvent` case; one renewal refusal is one `IdentityFault` case whose ordinal fits the kernel band's live span; a new bound-token method is one negotiated registration capability, never a page flag; a new signing algorithm is one `SigningCredentials` row on the registration; a custom grant is one `GrantFlow.Exchange`-shaped case over `AuthenticateWithCustomGrantAsync`; zero new surface.
+- Growth: one grant is one `GrantFlow` case breaking every acquire arm AND its `Renewal` arm; one renewal refusal is one `IdentityFault` case whose ordinal fits the kernel band's live span; a new bound-token method is one negotiated registration capability, never a page flag; a new signing algorithm is one `SigningCredentials` row on the registration; a custom grant is one `GrantFlow.Exchange`-shaped case over `AuthenticateWithCustomGrantAsync`; zero new surface.
 - Boundary: `TokenLease` is TWO-FORMED with `Rasm.Rhino/HostUi/shell.md [09]-[ACCOUNTS]`'s row of the same name and stays so — this one is an OIDC relying-party bundle committed into a kernel cell under a `ScheduleEntry` refresh cadence for the runtime spine, that one confines a Rhino `SecretKey` inside `ExecuteProtectedCodeAsync` and emits detached `OpenIdEvidence`, and neither ever reads the other's carrier. `Acquisition` likewise names a credential FLOW here and a material-appearance capture at `Rasm.Materials/Appearance/acquisition.md`; both names keep their folders and a shared spelling across two strata with no seam between them is a collision only a reader crossing both can make.
 - Boundary: the acquisition surface is the suite's only credential-flow owner — a hand-rolled authorization-URL/PKCE/DPoP construction, a direct token-endpoint HTTP call, and a per-flow service are the deleted forms; the `OpenIddictClientService` is the single resolved service every flow discriminates by request record, and THIS page owns the registration that binds it — no other surface in the suite declares an OpenIddict composition, so a registration named at a control host exists in no fence and leaves every flow resolving a service nothing configured; the seat is `AddSigningCredentials` and never `AddSigningKey`, because that overload resolves its algorithm through a closed `RS256`/`HS256`/`ES256`/`ES384`/`ES512` ladder and refuses everything outside it, which makes the unchecked credentials overload the only door a post-quantum key enters through — and `MlDsaSecurityKey` and the `MlDsa44`/`MlDsa65`/`MlDsa87` algorithm constants ship on the pinned tokens package, so the arm is a real fence row rather than a forward-looking note; a key's live private half reads through `PrivateKeyStatus`, the obsolete boolean having been replaced; `LeaseRoster` is the ONE holder table — `Wire/outbound#OWNERSHIP_LAW` binds its `Bearer` as the arrow every HTTP hop reads per send and the `Runtime/modules#MODULE_LEDGER` `membership` probe reads per probe, so a caller copying `TokenBundle.AccessToken` out of a cell into a captured header, a client default, or a second roster is the deleted form and the reason the bundle's access token has exactly one reader; the renewal verdict rides the SWAPPED value — a refused re-draw commits the PRIOR lease carrying its `Refusal`, so the prior bundle stays LIVE until its own `ExpiresAt` and `Bearer` answers `None` only past that instant, while the refusal is readable off the cell rather than derived from a level nothing published; the commit rides kernel `Cell.Commit`, so a lost CAS reports `Contended` and fans `RefreshContended` carrying the spent rounds instead of publishing as success; introspection and revocation (`IntrospectTokenAsync`/`RevokeTokenAsync`) ride the same client service as the acquisition audit and logout legs, never a second OAuth surface, and the active read comes off `IntrospectionResult.IntrospectionResponse` rather than the result's `Principal` — that principal is documented empty for an inactive token, so a principal-shaped read reports every revoked token as merely claimless and the revocation check silently inverts; the device flow's verification URI crosses to the operator through the `Wire/companion` control service, never an AppHost-owned console.
 
@@ -383,20 +343,6 @@ public abstract partial record GrantFlow {
                 exchange: static f => Some<GrantFlow>(f)));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LeaseEvent {
-    private LeaseEvent() { }
-
-    public sealed record Acquired : LeaseEvent;
-    public sealed record Refreshed : LeaseEvent;
-    public sealed record Refused : LeaseEvent;
-
-    public string Key => Map(
-        acquired: nameof(Acquired),
-        refreshed: nameof(Refreshed),
-        refused: nameof(Refused));
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record TokenBundle(
     string AccessToken,
@@ -407,14 +353,6 @@ public sealed record TokenBundle(
 public sealed record DeviceChallenge(string UserCode, string DeviceCode, Uri VerificationUri, TimeSpan Interval, TimeSpan Timeout);
 
 public readonly record struct TokenDraw(string Access, string? Refresh, DateTimeOffset? Expires, OpenIddictResponse Response);
-
-public sealed record LeaseReceipt(
-    string RegistrationId,
-    string Grant,
-    string Transition,
-    Instant ExpiresAt,
-    Option<JsonElement> Refusal,
-    Instant At);
 
 public sealed record TokenLease(
     string RegistrationId,
@@ -463,7 +401,7 @@ public static class Acquisition {
         Atom<TokenLease>? cell = null;
         TokenLease held = TokenLease.Hold(
             origin.RegistrationId, origin, bundle, runtime.Clocks, () => Refresh(runtime, cell!));
-        return Emit(runtime, held, new LeaseEvent.Acquired()).Map(seated => cell = Atom(seated));
+        return IO.pure(cell = Atom(held));
     }
 
     public static IO<Unit> Refresh(IdentityRuntime runtime, Atom<TokenLease> cell) =>
@@ -473,17 +411,12 @@ public static class Acquisition {
                     Fail: errors => held with { Refusal = Some(Error.Many(errors)) }))
                 .Switch(
                     committed: row => outcome.Match(
-                        Succ: _ => runtime.Schedule(row.State.Refresh)
-                            .Bind(_ => Emit(runtime, row.State, new LeaseEvent.Refreshed())),
-                        Fail: _ => Emit(runtime, row.State, new LeaseEvent.Refused())),
-                    ceded: static row => IO.pure(row.State),
-                    refused: static row => IO.pure(row.State),
-                    contended: row => Emit(
-                        runtime,
-                        row.State with { Refusal = Some((Error)new IdentityFault.RefreshContended(
-                            row.State.RegistrationId, row.Attempts.Value)) },
-                        new LeaseEvent.Refused()))
-                .Map(static _ => unit)));
+                        Succ: _ => runtime.Schedule(row.State.Refresh),
+                        Fail: static _ => IO.pure(unit)),
+                    ceded: static _ => IO.pure(unit),
+                    refused: static _ => IO.pure(unit),
+                    contended: row => IO.fail<Unit>(new IdentityFault.RefreshContended(
+                        row.State.RegistrationId, row.Attempts.Value)))));
 
     static IO<Validation<Error, TokenLease>> Renew(IdentityRuntime runtime, TokenLease prior, Atom<TokenLease> cell) =>
         prior.Origin.Renewal(prior.Bundle.RefreshToken).Match(
@@ -491,24 +424,6 @@ public static class Acquisition {
                 prior.RegistrationId, prior.Origin, bundle, runtime.Clocks, () => Refresh(runtime, cell)))),
             None: () => IO.pure(Fail<Error, TokenLease>(
                 new IdentityFault.RefreshUnavailable(prior.RegistrationId))));
-
-    static IO<TokenLease> Emit(IdentityRuntime runtime, TokenLease lease, LeaseEvent transition) =>
-        runtime.Sink.Send(
-                runtime.Correlation, TenantContext.Current, TelemetrySource.AppHost, ReceiptKind.Identity.Key,
-                JsonSerializer.SerializeToElement(
-                    new LeaseReceipt(
-                        RegistrationId: lease.RegistrationId,
-                        Grant: lease.Origin.Match(
-                            clientCredentials: static _ => nameof(GrantFlow.ClientCredentials),
-                            device: static _ => nameof(GrantFlow.Device),
-                            refresh: static _ => nameof(GrantFlow.Refresh),
-                            exchange: static _ => nameof(GrantFlow.Exchange)),
-                        Transition: transition.Key,
-                        ExpiresAt: lease.Bundle.ExpiresAt,
-                        Refusal: lease.Refusal.Map(error => WireJson.Element(FaultWire.Observe(error))),
-                        At: runtime.Clocks.Now),
-                    runtime.Wire))
-            .Map(_ => lease);
 
     static Task<TokenDraw> Drawn(IdentityRuntime runtime, GrantFlow flow) => flow.Match(
         clientCredentials: async f => {
@@ -580,17 +495,6 @@ public static class Acquisition {
             .ToFrozenSet(StringComparer.Ordinal);
 }
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-services.AddOpenIddict().AddClient(options => {
-    options.AddRegistration(new OpenIddictClientRegistration {
-        RegistrationId = registrationId,
-        Issuer = new Uri(issuer),
-        ClientId = clientId,
-        SigningCredentials = { new X509SigningCredentials(admitted.Certificate) },
-    });
-
-    options.AddSigningCredentials(new SigningCredentials(new MlDsaSecurityKey(mlDsa), SecurityAlgorithms.MlDsa65));
-});
 ```
 
 ## [06]-[POLICY_GATE]
@@ -599,7 +503,7 @@ services.AddOpenIddict().AddClient(options => {
 - Entry: `ConsentRoster.Of(TenantContext tenant, Instant now)` returns `Consent` — resolves a validated principal's tenancy to a standing scope, an expired window, or a denial, an elevation the MCP round seated superseding all three; `Authorize(IdentityRuntime runtime, Principal principal, PolicyDescriptor policy, object resource)` returns `IO<Validation<Error, PolicyVerdict>>` — runs `AuthorizeAsync(principal.Claims, resource, policy.Policy)` over the standalone ABAC core and projects `AuthorizationResult.Succeeded` to a `PolicyVerdict` or `AuthorizationFailure.FailureReasons` to the typed `PolicyDenied` fault; `Policy(params ReadOnlySpan<IAuthorizationRequirement> requirements)` composes one immutable `AuthorizationPolicy` from a requirement span through the builder.
 - Auto: the evaluation runs over `AddAuthorizationCore()` — the HTTP-coupled `AddAuthorization()` and middleware surface stay out of the host, so authorization is an injected `IAuthorizationService` capability evaluating a `ClaimsPrincipal`, a domain resource, and registered handlers with no `HttpContext`; `Principal.Claims` preserves validated claims but replaces any raw `scope` spelling with canonical `scope` claims minted from `Principal.Scopes`, so every policy reads the issuer row's normalized scope set rather than a provider-specific claim spelling or shape; a requirement is the built-in `ClaimsAuthorizationRequirement`/`OperationAuthorizationRequirement`/`AssertionRequirement` or one custom `IAuthorizationRequirement` paired with an `AuthorizationHandler<TRequirement>`, never a hand-rolled claim/role check; the verdict reads `AuthorizationResult.Succeeded` (non-null `Failure` exactly when `false` under `[MemberNotNullWhen]`) so the boolean and the nullable failure flow through the typed result without a throw.
 - Law: `WebhookDelivery` admits the `event.deliver` scope and is the one policy `Wire/companion#EVENT_INGRESS` consumes after token validation; the HTTP door never re-reads a claim or accepts a caller-selected policy knob.
-- Receipt: the verdict rides the `IdentityReceipt` correlation — a denied policy stamps the generated `PolicyDenied` fault code and the failed-requirement reasons; no parallel authorization receipt.
+- Output: `Authorize` returns `Validation<Error, PolicyVerdict>`; a denial carries `IdentityFault.PolicyDenied` with the failed-requirement reasons.
 - Packages: Rasm (kernel `AmbientSlot`), Microsoft.AspNetCore.Authorization, LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one standing tenancy is one `ConsentRoster.Standing` row and one elevation path is the one slot, never a second resolver; one access rule is one `IAuthorizationRequirement` and its handler; a new policy is one `PolicyDescriptor` row composing its requirements through the builder; a resource-typed rule is the `AuthorizationHandler<TRequirement, TResource>` arity; zero new surface.
 - Boundary: the policy gate is the suite's only claims-policy owner — a hand-rolled role check, an HTTP-pipeline authorization attribute, and a string-policy-name lookup where an explicit `AuthorizationPolicy` value serves are the deleted forms; the policy gate and the `Agent/capability#GRANT_BROKER` are distinct concerns layered in order — the gate answers *is this principal permitted to attempt the op* off claims, the broker answers *does the tenant's scope and budget admit the op* off cost, so a principal that passes the policy gate still meters every op through the broker and a denied policy never reaches the broker; the gate evaluates a `ClaimsPrincipal` the validation rail produced, so authentication, authorization-policy, and capability-metering are three ordered seams over the one `Principal`, never a merged predicate; the resource-bound rail routes through `PolicyDescriptor` rows and `OperationAuthorizationRequirement` — a raw requirement span at a call site and a string-policy-name lookup are both the deleted forms, so a policy edit is one row change and the verdict evidence keys on the row.
@@ -674,7 +578,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_PULUMI]
 
-`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` async-dependency algebra, the `Resource`/`ComponentResource` model every `stack` tier extends, `Config`/`StackReference` state access, and the Automation API whose `EngineEvent` stream and `OpType`/`OpMap` deltas feed the run-receipt ledger. `iac` composes it as one Effect rail — inline `LocalWorkspace` programs against a self-managed backend, no `Pulumi.yaml` and no CLI shell-out.
+`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` dependency algebra, the `Resource`/`ComponentResource` model every stack tier extends, `Config`/`StackReference` state access, and the Automation API's operation-specific lifecycle results. `iac` lifts inline `LocalWorkspace` programs onto one Effect rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -87,7 +87,7 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 
 ## [04]-[AUTOMATION_API]
 
-`@pulumi/pulumi/automation` is the programmatic lifecycle, the sole entry `iac` drives. `LocalWorkspace.createOrSelectStack` is idempotent, `program: PulumiFn` returns the record that becomes stack outputs, and `LocalWorkspaceOptions` carries every deploy-host fact — CLI wrap, self-managed backend, state-secrets provider, env — so nothing leaks to disk. Every lifecycle method returns a typed result folded into the run receipt.
+`@pulumi/pulumi/automation` is the programmatic lifecycle. `LocalWorkspace.createOrSelectStack` is idempotent, `program: PulumiFn` returns the record that becomes stack outputs, and `LocalWorkspaceOptions` carries the deploy-host facts. Each lifecycle method returns its own native result type.
 
 [PUBLIC_TYPE_SCOPE]: workspace + program
 
@@ -116,10 +116,10 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 | [INDEX] | [SURFACE]                                                             | [FAMILY] | [NOTE]                                          |
 | :-----: | :-------------------------------------------------------------------- | :------- | :---------------------------------------------- |
 |  [01]   | `LocalWorkspace.createOrSelectStack(args, opts?): Promise<Stack>`     | factory  | idempotent; `create`/`select` variants          |
-|  [02]   | `Stack.up(opts?): Promise<UpResult>`                                  | ledger   | deploy/update; `outputs` + `summary`            |
-|  [03]   | `Stack.preview(opts?): Promise<PreviewResult>`                        | ledger   | dry-run; `changeSummary: OpMap`                 |
-|  [04]   | `Stack.refresh(opts?): Promise<RefreshResult>`                        | ledger   | reconcile state with provider (mutating)        |
-|  [05]   | `Stack.destroy(opts?): Promise<DestroyResult>`                        | ledger   | delete all resources                            |
+|  [02]   | `Stack.up(opts?): Promise<UpResult>`                                  | lifecycle | deploy/update; `outputs` + `summary`           |
+|  [03]   | `Stack.preview(opts?): Promise<PreviewResult>`                        | lifecycle | dry-run; `changeSummary: OpMap`                |
+|  [04]   | `Stack.refresh(opts?): Promise<RefreshResult>`                        | lifecycle | reconcile state with provider (mutating)       |
+|  [05]   | `Stack.destroy(opts?): Promise<DestroyResult>`                        | lifecycle | delete all resources                           |
 |  [06]   | `Stack.previewRefresh(opts?): Promise<PreviewResult>`                 | drift    | read-only refresh-preview; no mutation          |
 |  [07]   | `Stack.outputs(): Promise<OutputMap>`                                 | query    | `{[k]: {value, secret}}`                        |
 |  [08]   | `Stack.{getConfig,setConfig,getAllConfig,setAllConfig,refreshConfig}` | config   | per-key + bulk config                           |
@@ -136,7 +136,7 @@ Every resource arg and output flows through `Output<T>`, the async-dependency mo
 
 ## [05]-[ENGINE_EVENT_STREAM]
 
-Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` per engine step, the drift-and-progress pipeline the receipt ledger folds. `previewRefresh` re-reads provider state read-only and streams `resourcePreEvent` steps where `StepEventMetadata.op` classifies the divergence and `detailedDiff` carries the per-property delta, reconciled against `PreviewResult.changeSummary`. `OpType` is the operation vocabulary the drift fold buckets over.
+Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` directly to the caller. `previewRefresh` re-reads provider state without mutation and returns `PreviewResult`, whose `changeSummary` is the native drift fact.
 
 [PUBLIC_TYPE_SCOPE]: engine events
 
@@ -173,33 +173,31 @@ Every lifecycle `opts.onEvent` delivers a discriminated `EngineEvent` per engine
 - `.get()` is cloud-runtime-only and throws during planning; `.apply` may skip at preview when the value is `unknown`, guarded by `isUnknown`.
 - `secret()`/`Config.requireSecret` mark a value state-encrypted, so a generated `random`/`tls` credential or a `Doppler` value crosses a resource boundary only as a secret-tracked `Output`.
 - `LocalWorkspace` is the sole workspace for inline programs; the CLI wrap, `backend.url`, and `secretsProvider` bind through `LocalWorkspaceOptions`, never an authored `Pulumi.yaml`.
-- `_LEDGER` maps the op vocabulary to `Stack` methods as the whole ledger; `previewRefresh` is the non-mutating drift leg, `expectNoChanges`/`plan` gate CI, `policyPacks` attach CrossGuard, `Stack.import` adopts existing resources, `exportStack` backs up state, and `addEnvironments` attaches ESC.
+- `_operations` maps the operation vocabulary to `Stack` methods while preserving each method's native result type; `previewRefresh` is the non-mutating drift leg, `policyPacks` attach CrossGuard, and stack methods retain their own state and ESC results.
 
 [STACKING]:
-- `effect`(`libs/typescript/.api/effect.md`): every `Stack` op resolves onto `Effect.acquireRelease`/`Stream.runFold`/`Schema.decodeUnknown`, wrapping the Promise-shaped, callback-driven Automation API into one typed rail so every downstream row composes typed Effects; the full member-level seam maps below.
-- within-lib: the receipt rail folds the `_LEDGER` op dispatch and the `_streamed` bridge into one typed program.
+- `effect`(`libs/typescript/.api/effect.md`): every `Stack` operation lifts through `Effect.tryPromise`, which threads fiber interruption through its `AbortSignal`; retry, timeout, and tracing compose on that rail while `onEvent` remains the caller's direct observation callback.
 
 | [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                      |
 | :-----: | :------------------------------------ | :--------------------------------------------------- |
-|  [01]   | `Stack.up/preview/refresh/destroy` op | `_LEDGER` mapped record, one generic indexed call    |
-|  [02]   | `UpOptions.signal: AbortSignal`       | `Effect.acquireRelease` over an `AbortController`    |
-|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | `Stream.asyncPush` + `Stream.runFold` over `_folded` |
-|  [04]   | `EngineEvent` fold product            | `Schema.decodeUnknown(RunReceipt)`                   |
-|  [05]   | `LocalWorkspaceOptions` host facts    | `Config.unwrap` + `Config.redacted`                  |
-|  [06]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + secret-refusal gate         |
-|  [07]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`       |
-|  [08]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                              |
+|  [01]   | `Stack.up/preview/refresh/destroy` op | `_operations` mapped record with correlated native result |
+|  [02]   | lifecycle `signal: AbortSignal`        | `Effect.tryPromise` fiber interruption                |
+|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | caller-supplied callback                              |
+|  [04]   | `LocalWorkspaceOptions` host facts    | `Config.unwrap` + `Config.redacted`                   |
+|  [05]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + secret-refusal gate          |
+|  [06]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`        |
+|  [07]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                               |
 
-[_LEDGER]: `_LEDGER.up` `_LEDGER.preview` `_LEDGER.refresh` `_LEDGER.destroy` `_LEDGER.reconcile`
-[SURFACES]: `_streamed(Stack, string, RunReceipt.Op, Automation.Options?)`
+[_OPERATIONS]: `_operations.up` `_operations.preview` `_operations.refresh` `_operations.destroy` `_operations.reconcile`
+[SURFACES]: `Automation.run` `Automation.reconcile`
 
-- `_LEDGER` maps every op, `reconcile` included, to its `Stack` method, so a sixth op is a compile error at the record, not a fifth driver.
-- `Effect.acquireRelease` wraps an `AbortController` whose abort cancels the run on interruption, scope close, or budget exhaustion, leaving no orphan update; an ephemeral stack acquires at `createOrSelectStack` and releases at `destroy`.
-- Engine events fold once: `Stream.runFold` drives the live path and `Array.reduce` the batch path, decoding into `RunReceipt` — summary, steps, diagnostics, violations, stdout, and the first/last-timestamp band — reconciled against `changeSummary`.
+- `_operations` maps every operation to its `Stack` method, and indexed `ReturnType` derives the selected method's native success type.
+- `Effect.tryPromise` supplies the interrupt-bound signal to each lifecycle method; an ephemeral stack still brackets acquisition and destroy with `Effect.acquireRelease`.
+- `Automation.reconcile` returns `PreviewResult` directly, and `Drift.sweep` publishes its `changeSummary` without a second result model.
 - Secret-flagged outputs refuse at the decode gate and typed StackOutputs decode into `ShardingConfig`; the `CommandError` family and `RunError` triage through one `Match.instanceOf` ladder into the reason-discriminated fault family.
 
 [RAIL_LAW]:
 - Package: `@pulumi/pulumi`
 - Owns: output algebra, resource model, config, stack references, Automation API, engine-event stream, error rails
 - Accept: `Output<T>` for inter-resource value flow; the acquire/release `AbortController` for cancellation; `Config.redacted` for host secrets; `Schema` for `OutputMap` decode
-- Reject: authored `Pulumi.yaml`; raw `pulumi` CLI shell-out; promise chaining across resource boundaries; `Config.get` for secrets; parallel op drivers where the one `_LEDGER` mapped record owns them
+- Reject: authored `Pulumi.yaml`; raw `pulumi` CLI shell-out; promise chaining across resource boundaries; `Config.get` for secrets; parallel op drivers where the one `_operations` mapped record owns them

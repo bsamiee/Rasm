@@ -511,7 +511,7 @@ public sealed partial class SpreadAspect {
             .Map(static planar => planar.Map(static row => Seq(row.X, row.Y)))
             .Bind(rows => SampleMoment.Of(rows: rows, key: op))
             .Bind(moment => SymmetricMatrix.Of(dim: Dimension.Create(value: moment.Dimension), upper: moment.UpperCovariance, key: op)
-                .Bind(covariance => covariance.DecomposeEigenDetailed(key: op)).Map(static receipt => receipt.Pairs))
+                .Bind(covariance => covariance.DecomposeEigenDetailed(key: op)).Map(static solved => solved.Pairs))
             .Bind(pairs => Stat.Extrema(items: pairs, projection: static pair => pair.Eigenvalue, band: context.For(lane: ToleranceLane.Residual), direction: ExtremumDirection.Maximum).Head.ToFin(op.InvalidResult()))
             .Map(static dominant => Math.Atan2(y: dominant.Eigenvector[1], x: dominant.Eigenvector[0]));
     private static Fin<Plane> Oriented(Plane fit, Seq<Point3d> points, Context context, Op op) =>
@@ -673,7 +673,6 @@ One owner per axis; a new feature, projection, or aspect is a row, a case, or a 
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

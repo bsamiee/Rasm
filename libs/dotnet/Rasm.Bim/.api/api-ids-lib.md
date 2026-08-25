@@ -132,7 +132,7 @@ Beyond the audit, `IdsLib.IfcSchema` embeds the offline IFC2x3/IFC4/IFC4x3 schem
 
 [TOPOLOGY]:
 - `Audit.RunAsync` returns `Status` flags — `Ok`(0) passes, any error flag (or `IdsStructureWarning` when `XmlWarningAction` escalates it) rejects; `OmitIdsSchemaAudit`/`OmitIdsContentAudit` drop the XSD vs implementation-agreement legs and `SchemaProvider` pins the IDS-XSD source.
-- diagnostics flow through the caller-supplied `ILogger`; a list-backed `ILogger` captures the per-line `LogLevel`/message diagnostics for the `Review/validation#IDS_FACETS` `IdsAudit` receipt, which records `LibraryInformation.AssemblyVersion` so a stored audit reproduces against the exact engine build, and lowers onto `Fin<T>` via `BimFault`.
+- diagnostics flow through the caller-supplied `ILogger`; a list-backed `ILogger` captures the per-line `LogLevel`/message diagnostics for the `Review/validation#IDS_FACETS` `IdsAudit` verdict, which records `LibraryInformation.AssemblyVersion` so a stored audit reproduces against the exact engine build, and lowers onto `Fin<T>` via `BimFault`.
 - `IdsLib.IfcSchema` resolves without an audit: `SchemaIfc{2x3,4,4x3}` give the class hierarchy, `ClassInfo.Is(name)`/`GetConcreteClassesFrom(top, version)` are the inheritance algebra, `PropertySetInfo.GetSchema(version)` the standard Pset/Qto catalog, and `GetMeasureInformation`/`IfcMeasureInformation.Exponents` the measure → SI-base dimensional metadata.
 
 [STACKING]:

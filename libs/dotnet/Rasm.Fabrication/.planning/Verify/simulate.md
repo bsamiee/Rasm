@@ -549,10 +549,10 @@ internal sealed partial class CommandEffect {
 
 - Owner: `SimulationSlice` is the sole ledger family and `SimulationLedger` accumulates it; `MotionTally` and `DelayTally` own the per-band and per-kind aggregates.
 - Cases: `SimulationSlice` distinguishes motion, controller delay, additive deposition, specialized toolpath evidence, posed cell stations, and state evidence.
-- Law: `SimulationLedger` is BOTH the in-flight accumulator and the settled output, because the two carry identical columns — the slice run and the controller state it left. Two records over one shape let a fold and its result disagree on column order; one record makes the settled value the fold's own last step. It carries no content key, no evidence band, and no stamp, so it is not a settled receipt and takes no `*Receipt` name.
+- Law: `SimulationLedger` is both the in-flight accumulator and the final output because both carry the slice run and final controller state.
 - Law: `MotionDirective.Specialized` rows the walk executes carry its ADMITTED `SpecializedToolpathEnvelope` onto the ledger and out through `SimulationLedger.Specialized`, so wire, bevel, link, inspection, and turning rows survive the modal walk instead of being consumed and dropped. Direct specialized programs — those attached to no realized move — charge the duration their own `SpecializedToolpathEnvelope` carries; evidence attached to realized motion contributes no duplicate clock, because the moves it annotates already charged theirs.
-- Receipt: `Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands`, `Delays`, and `Poses` are folds keyed by `ClockBand`, `DelayKind`, and the posed payload, so a new band, delay row, or cell station reports with no projection edit, and `DistanceMm` sums banded length beside posed travel so a cell cycle never reports a band-only zero. `MotionTally.PeakFeedMmMinute` aggregates one dimension, because both feed modes settled into millimetres per minute at admission.
-- Boundary: `MotionTally` and `DelayTally` stay separate carriers because a delay row HAS no length and no feed — folding them into one tally seats two zero columns on every delay and lets a consumer read a travel distance off a dwell. `FabricationFact.Cycle.Of` projects `Cycle`, `EnergyKwh`, and `DistanceMm` onto `rasm.fabrication.cycle.duration`, `rasm.fabrication.cycle.energy`, and `rasm.fabrication.cycle.distance` through `Process/telemetry#FACT_PROJECTION` as kind `cycle`, so the authoritative cycle-time owner is the one histogram source; those three names are the frozen read and never move.
+- Output: `Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands`, `Delays`, and `Poses` are folds keyed by `ClockBand`, `DelayKind`, and the posed payload, so a new band, delay row, or cell station reports with no projection edit, and `DistanceMm` sums banded length beside posed travel so a cell cycle never reports a band-only zero. `MotionTally.PeakFeedMmMinute` aggregates one dimension, because both feed modes settled into millimetres per minute at admission.
+- Boundary: `MotionTally` and `DelayTally` stay separate carriers because a delay row HAS no length and no feed — folding them into one tally seats two zero columns on every delay and lets a consumer read a travel distance off a dwell. `Execute` writes `Cycle`, `EnergyKwh`, and `DistanceMm` through `FabricationInstruments.CycleDuration`, `CycleEnergy`, and `CycleDistance`, so the authoritative cycle-time owner is the one histogram source; those three names are the frozen read and never move.
 
 ```csharp
 public sealed record MotionTally(Duration Elapsed, double LengthMm, double PeakFeedMmMinute, int Blocks) {
@@ -636,13 +636,13 @@ public sealed record SimulationLedger(Seq<SimulationSlice> Slices, ControllerSta
 ## [05]-[MODAL_CLOCK]
 
 - Owner: `Simulate` owns the execution fold, the ONE spindle-ramp charge, the ONE tool-change charge, the ONE jerk-limited profile every linear, arc, and rotary span times through, and the `Gate`/`Demand`/`Folded` admission slots every owner on this page reads.
-- Entry: `public static Fin<SimulationLedger> Execute(SimulatePolicy policy, FabricationTap? tap = null, SpanBand? band = null)` folds executable `GNode` leaves through one `ControllerState` or folds the cell census, and fails before ledger mutation on a malformed inverse-time feed, an infeasible commanded block time, inconsistent offset- or radius-defined arcs, an unbanded motion role, a commanded rotary the policy never declared, an operating envelope breach, nesting beyond the admitted depth, execution after program end, a tool change the magazine census does not carry, or a cell whose compiled program carries no simulation. Execution runs inside the `FabricationEngine.Simulate` bracket the supplied `SpanBand` opens, and the settled ledger fires `FabricationFact.Cycle.Of` through the supplied tap — band and tap both default absent, so a headless caller runs untraced and silent with no branch of its own.
+- Entry: `public static Fin<SimulationLedger> Execute(SimulatePolicy policy, Option<InstrumentSet> set = default, Option<SpanBand> band = default)` folds executable `GNode` leaves through one `ControllerState` or folds the cell census, and fails before ledger mutation on a malformed inverse-time feed, an infeasible commanded block time, inconsistent offset- or radius-defined arcs, an unbanded motion role, a commanded rotary the policy never declared, an operating envelope breach, nesting beyond the admitted depth, execution after program end, a tool change the magazine census does not carry, or a cell whose compiled program carries no simulation. Execution runs inside the `FabricationEngine.Simulate` bracket the supplied band opens, and the settled ledger writes cycle duration, energy, and distance onto their `FabricationInstruments` rows through the supplied set — band and set both default absent, so a headless caller runs untraced and unmeasured with no branch of its own.
 - Law: every commanded spindle speed costs its ramp WHEREVER it arrives — an `S` word riding a modal block, an `M03` target, a constant-surface-speed resolution, or a posted spindle directive all route through one charge, so no arrival path changes the speed for free. `RotationalSpeed` carries the ramp arithmetic, so the per-minute basis rides the quantity library rather than a transcribed factor.
 - Law: tool changes cost the row the magazine measured for the ordered pair, and the spindle ALWAYS holds a real ordinal — an empty spindle sits at `MagazineLayout.Park`, whose index distance is zero by that layout's own definition, so the load collapses to arm swing through the magazine's own arithmetic and this page reconstructs nothing. Pairs the census does not carry are the magazine's gap and refuse.
 - Law: `GCommand.ProgramEnd` is the only terminal row the program vocabulary carries. `Stop` and `OptionalStop` share its `ModalGroup.Stop` membership but are RESUMABLE halts — the operator restarts them and execution continues — so they charge their controller-timed delay and leave the run live. Adding a second terminal word is a vocabulary row, not a predicate edit here.
 - Exemption: `Simulate.ProfileSeconds` and `Simulate.RadiusDefinition` are the numeric-kernel statement exemptions; `Simulate.ApplyModal` and `Simulate.ExecuteCell` are the fold-shaped statement exemptions.
 - Auto: `CommandEffect` stays a dispatch TABLE — its rows carry admission bodies rather than a shape correspondence, so no generated projection replaces it. `MotionDynamics` supplies rapid, linear, arc, and rotary ceilings with acceleration and jerk already stamped by `Posting/program`, and the cell lane reads its clock from the look-ahead planner instead, because a serial chain resolves no `ClockBand` and no axis-limit profile.
-- Receipt: `ExecuteCell` proves the posed ledger sums to `CellAnimation.Cycle`, which IS the look-ahead planner's `Program.Duration`, so the cell ledger reports the planner's own clock rather than a sampler census that drifted from it.
+- Law: `ExecuteCell` proves the posed ledger sums to `CellAnimation.Cycle`, which IS the look-ahead planner's `Program.Duration`, so the cell ledger reports the planner's own clock rather than a sampler census that drifted from it.
 - Boundary: a policy or parameter failing its own admission gate answers `FabricationFault.PolicyInadmissible` on its raising plane; only genuinely degenerate geometry answers the kernel `GeometryFault.DegenerateInput` band, so a missing work offset or an unresolvable tool length never borrows a fabricated `Kind`. Machine-less simulation omits the operating envelope and machine-energy gates but retains program, arc, feed, and rotary admission. `ExecuteCell` carries the power-on controller state unchanged because a serial chain has no modal controller. Every successful ledger sums exactly to its own projections.
 
 ```csharp
@@ -669,13 +669,15 @@ public static class Simulate {
 
     internal static readonly Seq<MachineAxis> Addressable = Seq(MachineAxis.A, MachineAxis.B, MachineAxis.C);
 
-    public static Fin<SimulationLedger> Execute(SimulatePolicy policy, FabricationTap? tap = null, SpanBand? band = null) =>
+    public static Fin<SimulationLedger> Execute(SimulatePolicy policy, Option<InstrumentSet> set = default, Option<SpanBand> band = default) =>
         band.Traced(FabricationEngine.Simulate, Op.Of(), _ =>
             from ledger in policy.Source.Switch(
                 state: policy,
                 posted: static (law, row) => ExecutePosted(law, row.Program),
                 cell: static (law, row) => ExecuteCell(law, row))
-            let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Cycle.Of(ledger))
+            from _duration in set.Write(FabricationInstruments.CycleDuration, ledger.Cycle.TotalSeconds)
+            from _energy in set.Write(FabricationInstruments.CycleEnergy, ledger.EnergyKwh)
+            from _distance in set.Write(FabricationInstruments.CycleDistance, ledger.DistanceMm)
             select ledger);
 
     private static Fin<SimulationLedger> ExecutePosted(SimulatePolicy policy, CutProgram program) =>
@@ -687,10 +689,10 @@ public static class Simulate {
 
     private static Fin<SimulationLedger> ExecuteCell(SimulatePolicy policy, MotionSource.Cell source) =>
         RobotProgram.Run(source.Cell, source.Moves, new CellProgramRequest.Animation(source.Policy, source.Clock))
-            .Bind(receipt => receipt.Switch(
+            .Bind(outcome => outcome.Switch(
                     motion: static _ => Option<CellAnimation>.None,
                     placement: static _ => Option<CellAnimation>.None,
-                    animation: static row => Some(row.Result))
+                    animation: static row => Some(row.Value))
                 .ToFin(new KernelFault.InvalidValue("simulate", "simulate:cell-modality")))
             .Bind(animation => {
                 Seq<SimulationSlice> slices = animation.Stations.Map(station => (SimulationSlice)new SimulationSlice.Posed(
@@ -1220,7 +1222,6 @@ public static class Simulate {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

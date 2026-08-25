@@ -97,11 +97,16 @@
 |  [16]   | `Spill`                         | enum    | support-closure | `Spill`                         |
 |  [17]   | `GeomSetting`                   | enum    | support-closure | `GeomSetting`                   |
 |  [18]   | `Dimensionality`                | enum    | support-closure | `Dimensionality`                |
-|  [19]   | `ControlService`                | service | support-closure | `ControlService`                |
-|  [20]   | `ControlService.SetDegradation` | method  | public-root     | `ControlService.SetDegradation` |
-|  [21]   | `ControlService.DrainRuntime`   | method  | public-root     | `ControlService.DrainRuntime`   |
-|  [22]   | `ComputeService`                | service | support-closure | `ComputeService`                |
-|  [23]   | `ComputeService.Tessellate`     | method  | public-root     | `ComputeService.Tessellate`     |
+|  [19]   | `WatchResponse`                 | message | public-root     | `WatchResponse`                 |
+|  [20]   | `WatchRequest`                  | message | public-root     | `WatchRequest`                  |
+|  [21]   | `ProgressPhase`                 | enum    | support-closure | `ProgressPhase`                 |
+|  [22]   | `ControlService`                | service | support-closure | `ControlService`                |
+|  [23]   | `ControlService.SetDegradation` | method  | public-root     | `ControlService.SetDegradation` |
+|  [24]   | `ControlService.DrainRuntime`   | method  | public-root     | `ControlService.DrainRuntime`   |
+|  [25]   | `ComputeService`                | service | support-closure | `ComputeService`                |
+|  [26]   | `ComputeService.Tessellate`     | method  | public-root     | `ComputeService.Tessellate`     |
+|  [27]   | `ProgressService`               | service | support-closure | `ProgressService`               |
+|  [28]   | `ProgressService.Watch`         | method  | public-root     | `ProgressService.Watch`         |
 
 [ROSTER_SCOPE]: `rasm.contracts.availability` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
@@ -221,7 +226,7 @@
 |  [08]   | `WriteBackWire.Types.Rejected`      | message | support-closure | `WriteBackWire.Rejected`      |
 |  [09]   | `WriteBackWire.Types.RolledBack`    | message | support-closure | `WriteBackWire.RolledBack`    |
 |  [10]   | `WriteBackWire.Types.Indeterminate` | message | support-closure | `WriteBackWire.Indeterminate` |
-|  [11]   | `WriteReceiptWire`                  | message | public-root     | `WriteReceiptWire`            |
+|  [11]   | `WriteOutcomeWire`                  | message | public-root     | `WriteOutcomeWire`            |
 |  [12]   | `EchoClass`                         | enum    | support-closure | `EchoClass`                   |
 
 [ROSTER_SCOPE]: `rasm.contracts.clock` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
@@ -366,41 +371,83 @@
 |  [15]   | `Falloff`                 | enum    | support-closure | `Falloff`                 |
 |  [16]   | `WebDialect`              | enum    | support-closure | `WebDialect`              |
 
+[ROSTER_SCOPE]: `rasm.contracts.stage` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+
+| [INDEX] | [NAME]                          | [KIND]  | [ORIGIN]        | [SYMBOL]                  |
+| :-----: | :------------------------------ | :------ | :-------------- | :------------------------ |
+|  [01]   | `StageProductWire`              | message | support-closure | `StageProductWire`        |
+|  [02]   | `StageInputWire`                | message | support-closure | `StageInputWire`          |
+|  [03]   | `StageInputWire.Types.Source`   | message | support-closure | `StageInputWire.Source`   |
+|  [04]   | `StageInputWire.Types.Produced` | message | support-closure | `StageInputWire.Produced` |
+|  [05]   | `StageOutputWire`               | message | support-closure | `StageOutputWire`         |
+|  [06]   | `StageScoreWire`                | message | support-closure | `StageScoreWire`          |
+|  [07]   | `BucketWire`                    | message | support-closure | `BucketWire`              |
+|  [08]   | `StageRequestWire`              | message | public-root     | `StageRequestWire`        |
+|  [09]   | `StageResultWire`               | message | public-root     | `StageResultWire`         |
+|  [10]   | `PbrStage`                      | enum    | support-closure | `PbrStage`                |
+|  [11]   | `LicenseClass`                  | enum    | support-closure | `LicenseClass`            |
+|  [12]   | `InferenceProvider`             | enum    | support-closure | `InferenceProvider`       |
+|  [13]   | `TensorPrecision`               | enum    | support-closure | `TensorPrecision`         |
+|  [14]   | `PadMode`                       | enum    | support-closure | `PadMode`                 |
+|  [15]   | `PriorField`                    | enum    | support-closure | `PriorField`              |
+|  [16]   | `ScoreField`                    | enum    | support-closure | `ScoreField`              |
+|  [17]   | `PlaneTransfer`                 | enum    | support-closure | `PlaneTransfer`           |
+|  [18]   | `PlaneFormat`                   | enum    | support-closure | `PlaneFormat`             |
+
+[ROSTER_SCOPE]: `rasm.contracts.sync` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
+
+| [INDEX] | [NAME]                    | [KIND]  | [ORIGIN]        | [SYMBOL]                  |
+| :-----: | :------------------------ | :------ | :-------------- | :------------------------ |
+|  [01]   | `SyncCursorWire`          | message | support-closure | `SyncCursorWire`          |
+|  [02]   | `PullRequest`             | message | public-root     | `PullRequest`             |
+|  [03]   | `PullResponse`            | message | public-root     | `PullResponse`            |
+|  [04]   | `PushRequest`             | message | public-root     | `PushRequest`             |
+|  [05]   | `PushResponse`            | message | public-root     | `PushResponse`            |
+|  [06]   | `TransferSetRequest`      | message | public-root     | `TransferSetRequest`      |
+|  [07]   | `TransferSetResponse`     | message | public-root     | `TransferSetResponse`     |
+|  [08]   | `CheckoutRequest`         | message | public-root     | `CheckoutRequest`         |
+|  [09]   | `CheckoutResponse`        | message | public-root     | `CheckoutResponse`        |
+|  [10]   | `SyncService`             | service | support-closure | `SyncService`             |
+|  [11]   | `SyncService.Pull`        | method  | public-root     | `SyncService.Pull`        |
+|  [12]   | `SyncService.Push`        | method  | public-root     | `SyncService.Push`        |
+|  [13]   | `SyncService.TransferSet` | method  | public-root     | `SyncService.TransferSet` |
+|  [14]   | `SyncService.Checkout`    | method  | public-root     | `SyncService.Checkout`    |
+
 [ROSTER_SCOPE]: `rasm.contracts.ui` — public roots and reachable support closure emitted by `assay contracts generate`; hand edits are overwritten
 
-| [INDEX] | [NAME]                                          | [KIND]  | [ORIGIN]        | [SYMBOL]                            |
-| :-----: | :---------------------------------------------- | :------ | :-------------- | :---------------------------------- |
-|  [01]   | `CommandGateWire`                               | message | public-root     | `CommandGateWire`                   |
-|  [02]   | `CommandOutcomeWire`                            | message | support-closure | `CommandOutcomeWire`                |
-|  [03]   | `DeckReceiptWire`                               | message | support-closure | `DeckReceiptWire`                   |
-|  [04]   | `PixelIdentityWire`                             | message | support-closure | `PixelIdentityWire`                 |
-|  [05]   | `NativeAssetFactWire`                           | message | support-closure | `NativeAssetFactWire`               |
-|  [06]   | `EvidenceReceiptWire`                           | message | public-root     | `EvidenceReceiptWire`               |
-|  [07]   | `EvidenceReceiptWire.Types.Surface`             | message | support-closure | `EvidenceReceiptWire.Surface`       |
-|  [08]   | `EvidenceReceiptWire.Types.Focus`               | message | support-closure | `EvidenceReceiptWire.Focus`         |
-|  [09]   | `EvidenceReceiptWire.Types.Render`              | message | support-closure | `EvidenceReceiptWire.Render`        |
-|  [10]   | `EvidenceReceiptWire.Types.Disposal`            | message | support-closure | `EvidenceReceiptWire.Disposal`      |
-|  [11]   | `EvidenceReceiptWire.Types.Edit`                | message | support-closure | `EvidenceReceiptWire.Edit`          |
-|  [12]   | `EvidenceReceiptWire.Types.Theme`               | message | support-closure | `EvidenceReceiptWire.Theme`         |
-|  [13]   | `EvidenceReceiptWire.Types.Motion`              | message | support-closure | `EvidenceReceiptWire.Motion`        |
-|  [14]   | `EvidenceReceiptWire.Types.Effect`              | message | support-closure | `EvidenceReceiptWire.Effect`        |
-|  [15]   | `EvidenceReceiptWire.Types.Effect.Types.Extent` | message | support-closure | `EvidenceReceiptWire.Effect.Extent` |
-|  [16]   | `EvidenceReceiptWire.Types.Asset`               | message | support-closure | `EvidenceReceiptWire.Asset`         |
-|  [17]   | `EvidenceReceiptWire.Types.LiveData`            | message | support-closure | `EvidenceReceiptWire.LiveData`      |
-|  [18]   | `EvidenceReceiptWire.Types.CollabSync`          | message | support-closure | `EvidenceReceiptWire.CollabSync`    |
-|  [19]   | `EvidenceReceiptWire.Types.CollabRevert`        | message | support-closure | `EvidenceReceiptWire.CollabRevert`  |
-|  [20]   | `EvidenceReceiptWire.Types.Media`               | message | support-closure | `EvidenceReceiptWire.Media`         |
-|  [21]   | `EvidenceReceiptWire.Types.Quality`             | message | support-closure | `EvidenceReceiptWire.Quality`       |
-|  [22]   | `EvidenceReceiptWire.Types.GpuFrame`            | message | support-closure | `EvidenceReceiptWire.GpuFrame`      |
-|  [23]   | `EvidenceReceiptWire.Types.Layout`              | message | support-closure | `EvidenceReceiptWire.Layout`        |
-|  [24]   | `EvidenceReceiptWire.Types.DispatcherLag`       | message | support-closure | `EvidenceReceiptWire.DispatcherLag` |
-|  [25]   | `EvidenceReceiptWire.Types.PreCommit`           | message | support-closure | `EvidenceReceiptWire.PreCommit`     |
-|  [26]   | `SkewBandWire`                                  | message | support-closure | `SkewBandWire`                      |
-|  [27]   | `EvidenceRowWire`                               | message | support-closure | `EvidenceRowWire`                   |
-|  [28]   | `EvidenceTimelineWire`                          | message | public-root     | `EvidenceTimelineWire`              |
-|  [29]   | `PixelLayout`                                   | enum    | support-closure | `PixelLayout`                       |
-|  [30]   | `MediaOutcome`                                  | enum    | support-closure | `MediaOutcome`                      |
-|  [31]   | `AppUiSurfaceProgram`                           | message | public-root     | `AppUiSurfaceProgram`               |
+| [INDEX] | [NAME]                                   | [KIND]  | [ORIGIN]        | [SYMBOL]                     |
+| :-----: | :--------------------------------------- | :------ | :-------------- | :--------------------------- |
+|  [01]   | `CommandGateWire`                        | message | public-root     | `CommandGateWire`            |
+|  [02]   | `CommandOutcomeWire`                     | message | support-closure | `CommandOutcomeWire`         |
+|  [03]   | `DeckOutcomeWire`                        | message | support-closure | `DeckOutcomeWire`            |
+|  [04]   | `PixelIdentityWire`                      | message | support-closure | `PixelIdentityWire`          |
+|  [05]   | `NativeAssetFactWire`                    | message | support-closure | `NativeAssetFactWire`        |
+|  [06]   | `EvidenceWire`                           | message | public-root     | `EvidenceWire`               |
+|  [07]   | `EvidenceWire.Types.Surface`             | message | support-closure | `EvidenceWire.Surface`       |
+|  [08]   | `EvidenceWire.Types.Focus`               | message | support-closure | `EvidenceWire.Focus`         |
+|  [09]   | `EvidenceWire.Types.Render`              | message | support-closure | `EvidenceWire.Render`        |
+|  [10]   | `EvidenceWire.Types.Disposal`            | message | support-closure | `EvidenceWire.Disposal`      |
+|  [11]   | `EvidenceWire.Types.Edit`                | message | support-closure | `EvidenceWire.Edit`          |
+|  [12]   | `EvidenceWire.Types.Theme`               | message | support-closure | `EvidenceWire.Theme`         |
+|  [13]   | `EvidenceWire.Types.Motion`              | message | support-closure | `EvidenceWire.Motion`        |
+|  [14]   | `EvidenceWire.Types.Effect`              | message | support-closure | `EvidenceWire.Effect`        |
+|  [15]   | `EvidenceWire.Types.Effect.Types.Extent` | message | support-closure | `EvidenceWire.Effect.Extent` |
+|  [16]   | `EvidenceWire.Types.Asset`               | message | support-closure | `EvidenceWire.Asset`         |
+|  [17]   | `EvidenceWire.Types.LiveData`            | message | support-closure | `EvidenceWire.LiveData`      |
+|  [18]   | `EvidenceWire.Types.CollabSync`          | message | support-closure | `EvidenceWire.CollabSync`    |
+|  [19]   | `EvidenceWire.Types.CollabRevert`        | message | support-closure | `EvidenceWire.CollabRevert`  |
+|  [20]   | `EvidenceWire.Types.Media`               | message | support-closure | `EvidenceWire.Media`         |
+|  [21]   | `EvidenceWire.Types.Quality`             | message | support-closure | `EvidenceWire.Quality`       |
+|  [22]   | `EvidenceWire.Types.GpuFrame`            | message | support-closure | `EvidenceWire.GpuFrame`      |
+|  [23]   | `EvidenceWire.Types.Layout`              | message | support-closure | `EvidenceWire.Layout`        |
+|  [24]   | `EvidenceWire.Types.DispatcherLag`       | message | support-closure | `EvidenceWire.DispatcherLag` |
+|  [25]   | `EvidenceWire.Types.PreCommit`           | message | support-closure | `EvidenceWire.PreCommit`     |
+|  [26]   | `SkewBandWire`                           | message | support-closure | `SkewBandWire`               |
+|  [27]   | `EvidenceRowWire`                        | message | support-closure | `EvidenceRowWire`            |
+|  [28]   | `EvidenceTimelineWire`                   | message | public-root     | `EvidenceTimelineWire`       |
+|  [29]   | `PixelLayout`                            | enum    | support-closure | `PixelLayout`                |
+|  [30]   | `MediaOutcome`                           | enum    | support-closure | `MediaOutcome`               |
+|  [31]   | `AppUiSurfaceProgram`                    | message | public-root     | `AppUiSurfaceProgram`        |
 
 <!-- roster:end -->
 

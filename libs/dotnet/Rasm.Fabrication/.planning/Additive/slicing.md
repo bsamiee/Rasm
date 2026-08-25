@@ -21,10 +21,10 @@ The wall ladder is this page's defining law: a slice boundary is the part SURFAC
 - Law: per-layer area, perimeter, and centroid are `AreaAt`/`PerimeterAt`/`CentroidAt` over the frozen channels. `PhysicalArea` survives for a DERIVED region — a Boolean or offset result standing behind no kernel layer — where no channel answers.
 - Law: a measurement axis a modality never makes rides `Option` and answers ABSENCE, never zero. A process building no support has no unsupported mass to read, and a zero there depresses every index it feeds below every ceiling — the finding a preflight exists to raise becomes the one it cannot raise. A measured zero is `Some(Area.Zero)` and states at its site why the reading is genuinely zero.
 - Law: the measurement family seats HERE rather than at its consumer. `Verify/audit` is its only reader today, but every column is a fact about one slice layer and nothing about a defect, a risk family, or a threshold — so the axes sit at the plane that measures them and the arrow stays one-way, `Verify` reading `Additive` exactly as the audit's stack, region, and support reads already do.
-- Entry: `SliceRegion.Of(SliceStack, layer)` reads the kernel forest; `SliceRegion.Of(Seq<Loop>)` admits a loop set through the `PolygonOp.Topology` receipt; `Admit` is the one construction below both. `LayerMetric.Of(stack, layer)` is the geometry read every consumer starts from and `with` seats the process axes a measuring consumer adds.
-- Auto: `Split` is the ONE open-clip receipt read and `Rays`/`Runs` are its two typed projections — a clipped run is one CONTINUOUS deposition path admitted as an open `Loop`, while an exposure consumer reads independent segments, so flattening happens at the reader that wants it rather than at the receipt.
+- Entry: `SliceRegion.Of(SliceStack, layer)` reads the kernel forest; `SliceRegion.Of(Seq<Loop>)` admits a loop set through the `PolygonOp.Topology` result; `Admit` is the one construction below both. `LayerMetric.Of(stack, layer)` is the geometry read every consumer starts from and `with` seats the process axes a measuring consumer adds.
+- Auto: `Split` is the ONE open-clip result read and `Rays`/`Runs` are its two typed projections — a clipped run is one CONTINUOUS deposition path admitted as an open `Loop`, while an exposure consumer reads independent segments, so flattening happens at the reader that wants it rather than at the result.
 - Auto: `RecoaterLikelihood.Of` selects its own arm from the absent set and answers `None` where every term is absent, so a roster with nothing measured carries no index rather than a zero every ceiling clears.
-- Receipt: `LayerMetric` carries filled area, perimeter, centroid, and the optional unsupported, mass, exposure, heat, growth, and blade-strike axes per layer; `SliceRegion` carries outer and hole rings.
+- Result: `LayerMetric` carries filled area, perimeter, centroid, and the optional unsupported, mass, exposure, heat, growth, and blade-strike axes per layer; `SliceRegion` carries outer and hole rings.
 - Packages: `Rasm.Meshing` (`SliceStack`, `Chain`, `Slicing.Apply`, `SliceOp`, `SlicePolicy`, `LayerPlan`); `Geometry2D/algebra` (`PolygonAlgebra.Apply`, `PolygonOp.Topology`/`Boolean`/`Offset`/`ClipOpen`/`Measure`, `PolygonTrace.Regioned`/`Runs`/`Measure`/`Diagram`, `RegionTopology`, `RegionNode`, `PolygonMeasure`, `OffsetField.Uniform`); `atoms#GEOMETRY` (`Loop`, `ProfileOp`, `ProfileResult`, `Edge3`); `UnitsNet`; LanguageExt; Thinktecture.
 - Boundary: `Slice` is the one additive slice-stack consumer and an in-page section sweep, triangle crossing kernel, or endpoint chain walker is the deleted form; variable layer height is `LayerPlan`'s and a Fabrication height loop is the sealed-boundary violation; a slice-local Clipper call site or a bare hole-blind `Seq<Loop>` region is the named duplication defect; `Bound` folds `Loop.Bound` because an arc span bulges outside its chord hull. A second per-layer measurement record anywhere in the folder is the deleted duplicate.
 
@@ -159,7 +159,7 @@ public sealed partial class SliceRegion {
         ? Fin.Succ(Empty)
         : PolygonAlgebra.Apply(new PolygonOp.Topology(loops, PolygonFill.NonZero))
             .Bind(static trace => trace
-                .Regioned(new KernelFault.InvalidValue("slicing", "slice-region:topology-receipt"))
+                .Regioned(new KernelFault.InvalidValue("slicing", "slice-region:topology-result"))
                 .Bind(Parted));
 
     public Fin<SliceRegion> Difference(SliceRegion other) =>
@@ -192,7 +192,7 @@ public sealed partial class SliceRegion {
         ? Fin.Succ(Area.Zero)
         : PolygonAlgebra.Apply(new PolygonOp.Measure(Loops, PolygonFill.NonZero))
             .Bind(static trace => trace
-                .Measure(new KernelFault.InvalidValue("slicing", "slice-region:measure-receipt"))
+                .Measure(new KernelFault.InvalidValue("slicing", "slice-region:measure-result"))
                 .Map(static measured => Area.FromSquareMillimeters(measured.FilledArea)));
 
     public bool Covers(Point3d point) =>
@@ -211,17 +211,17 @@ public sealed partial class SliceRegion {
             ? Fin.Succ(Seq<Seq<Edge3>>())
             : PolygonAlgebra.Apply(new PolygonOp.ClipOpen(Seq(rays), Loops, PolygonFill.NonZero))
                 .Bind(static trace => trace
-                    .Runs(new KernelFault.InvalidValue("slicing", "slice-region:open-clip-receipt"))
+                    .Runs(new KernelFault.InvalidValue("slicing", "slice-region:open-clip-result"))
                     .Map(static split => split.Inside));
 
     private static Fin<SliceRegion> Regions(PolygonOp operation) =>
         PolygonAlgebra.Apply(operation).Bind(static trace => trace
-            .Regioned(new KernelFault.InvalidValue("slicing", "slice-region:region-receipt"))
+            .Regioned(new KernelFault.InvalidValue("slicing", "slice-region:region-result"))
             .Bind(Parted));
 
-    private static Fin<SliceRegion> Parted(RegionTopology receipt) => Admit(
-        receipt.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary),
-        receipt.Nodes.Filter(static node => node.IsHole).Map(static node => node.Boundary));
+    private static Fin<SliceRegion> Parted(RegionTopology result) => Admit(
+        result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary),
+        result.Nodes.Filter(static node => node.IsHole).Map(static node => node.Boundary));
 
     private static Fin<Loop> Ring(SliceStack stack, int contour, Context tolerance) =>
         Loop.Admit(
@@ -812,7 +812,7 @@ public abstract partial record AdditivePolicy {
 - Exemption: `Hatch` is a bounded line-generation kernel — a statement fold over the region diagonal — and `Rings` is a bounded ring walk whose ceiling is the diagonal over the bead width; both are measured generators, not domain branching.
 - Entry: `Slice.Solve(FabricationPolicy.Additive, FabricationInput, Option<IProgress<double>>)` dispatches; `Slice.Layers(SliceStack, InfillPolicy, Option<IProgress<double>>)` is the sole planar-or-implicit fold.
 - Auto: the region table materializes ONCE before any neighbour-reading pass, because skin resolution reads its neighbours and per-layer re-derivation is quadratic. The planar fold publishes the fraction it MEASURED — layers settled over layers planned — and the implicit arm hands its sink to the provider's own trailing parameter.
-- Receipt: `AdditiveResult` carries planar `Move` rows with the kernel layer count, or the implicit `.cli` key with its mask keys; build routes pass complete `BuildOutcome` evidence through `AdditivePolicy.Build.Egress`.
+- Result: `AdditiveResult` carries planar `Move` rows with the kernel layer count, or the implicit `.cli` key with its mask keys; build routes pass complete `BuildOutcome` evidence through `AdditivePolicy.Build.Egress`.
 - Boundary: printability belongs to the kernel and a slicer-side mesh-defect classifier is the duplicate gate; gyroid and TPMS belong to `Additive/implicit` and a planar gyroid pattern row is the named false collapse.
 
 ```csharp
@@ -955,7 +955,7 @@ public static partial class Slice {
                         .ToArr()),
                     JoinType.Round, EndType.Closed, state.Policy.Offset))
                 .Bind(static trace => trace
-                    .Regioned(new KernelFault.InvalidValue("slicing", "slice:variable-offset-receipt"))
+                    .Regioned(new KernelFault.InvalidValue("slicing", "slice:variable-offset-result"))
                     .Map(static topology => topology.Nodes.Map(static node => node.Boundary))));
 
     private static Length Ladder(int wall, Length width) =>
@@ -1306,7 +1306,7 @@ public static partial class Slice {
             .Bind(static result => result is ProfileResult.Measure measure
                 ? Fin.Succ(measure.Path)
                 : Fin.Fail<Length>(
-                    new KernelFault.InvalidValue("slicing", "slice:path-measure-receipt")))
+                    new KernelFault.InvalidValue("slicing", "slice:path-measure-result")))
             .Map(extent => new DepositionPath(
                 path,
                 feature,
@@ -1348,19 +1348,19 @@ public static partial class Slice {
                 ? Fin.Succ((closest.Value.SegStartIndex,
                     new Point3d(closest.Value.SegPoint.X, closest.Value.SegPoint.Y, path.Plane)))
                 : Fin.Fail<(int Segment, Point3d Point)>(
-                    new KernelFault.InvalidValue("slicing", "slice:seam-closest-receipt")));
+                    new KernelFault.InvalidValue("slicing", "slice:seam-closest-result")));
 
     private static Fin<(int Segment, Point3d Point)> Scattered(Loop path, int layer, Length stride) =>
         from measured in path.Apply(new ProfileOp.Measure())
         from extent in measured is ProfileResult.Measure measure
             ? Fin.Succ(measure.Path)
-            : Fin.Fail<Length>(new KernelFault.InvalidValue("slicing", "slice:seam-measure-receipt"))
+            : Fin.Fail<Length>(new KernelFault.InvalidValue("slicing", "slice:seam-measure-result"))
         from sampled in path.Apply(new ProfileOp.Sample(Length.FromMillimeters(
             extent.Millimeters <= 0.0 ? 0.0 : (stride.Millimeters * layer) % extent.Millimeters)))
         from start in sampled is ProfileResult.Sampled row
             ? Fin.Succ((row.Segment, row.Point))
             : Fin.Fail<(int Segment, Point3d Point)>(
-                new KernelFault.InvalidValue("slicing", "slice:seam-sample-receipt"))
+                new KernelFault.InvalidValue("slicing", "slice:seam-sample-result"))
         select start;
 
     private static int Rear(Loop path) => Extremal(path, static point => point.Y);
@@ -1412,7 +1412,7 @@ flowchart LR
     Ladder --> Ground["grounding allowance → bridging verdict per wall"]
     Table --> Skin["skin split — inner minus the neighbour intersection"]
     Support["SupportPlan.PlanarRows — Density · ContactDuty"] support@--> Fill
-    Algebra["PolygonAlgebra.Apply → typed receipts"] algebra@--> Region
+    Algebra["PolygonAlgebra.Apply → typed results"] algebra@--> Region
     Loops["Loop.Apply — measure · closest · sample"] loops@--> Egress
     Resolve --> Fill["infill lanes → continuous Loop runs · per-ring concentric spacing"]
     Skin --> Fill
@@ -1432,7 +1432,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

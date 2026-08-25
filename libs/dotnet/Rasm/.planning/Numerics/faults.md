@@ -13,7 +13,6 @@
 - Entry: construct a case directly and lift it bare onto the `Error` rail.
 - Auto: `[FaultCase]` generates the cached numeric identity from `FamilyBand`; the typed payload and total presentation message remain authored on this family.
 - Law: ordinals are contiguous union structure; no cluster arithmetic, category roster, or wrapper may duplicate or erase a case.
-- Receipt: the typed `GeometryFault` itself.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, and the kernel fault substrate.
 - Growth: add one direct leaf, compact declaration-order ordinals to `0..N-1`, and set the band span to `N` in the same edit; never add an offset registry or message parser.
 - Boundary: geometry failures remain here; structural, BIM, material, fabrication, and host failures keep their owning fault families.
@@ -204,7 +203,6 @@ public abstract partial record GeometryFault : Fault {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

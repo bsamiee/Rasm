@@ -14,7 +14,7 @@
 
 [COMPONENTS]:
 - [07]-[ATTRIBUTES](.planning/Components/attributes.md): `ComponentChrome` owns the chrome policy spine over host `ResizableAttributes<T>` shells.
-- [08]-[COMPONENT](.planning/Components/component.md): `ComponentSpec` owns self-typed declaration and iteration policy, sealing one run receipt.
+- [08]-[COMPONENT](.planning/Components/component.md): `ComponentSpec` owns declaration, iteration, required outputs, and fault custody.
 - [09]-[DATA](.planning/Components/data.md): `GardenData` owns typed data-access transfer, tree algebra, cast-or-convert, host-tolerance projection.
 - [10]-[OBJECTS](.planning/Components/objects.md): `NativeObject` owns native-object families, persisted read and assign, and host verbs.
 - [11]-[PORTS](.planning/Components/ports.md): `PortRow` carries the data-driven pin catalogue — carrier, semantic, axis columns — side-aware.
@@ -36,13 +36,13 @@
 
 [SHELL]:
 - [21]-[CHROME](.planning/Shell/chrome.md): `Chrome` applies toolbar, input-panel, tooltip, and button intent onto GH2 hosts; `Mount` seats chrome.
-- [22]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots, swings toggle capabilities, settles `GateReceipt<ShellFacts>`.
+- [22]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots and swings toggle capabilities, returning `ShellFacts`.
 - [23]-[EVENTS](.planning/Shell/events.md): `GhFact` closes the folder fact band; GH2 source rows ride kernel `UiEvents` subscription and drains.
 - [24]-[HOOKS](.planning/Shell/hooks.md): `GrasshopperPoint` realizes the kernel `HookRail` roster, every row naming its live fire site.
 - [25]-[ICONS](.planning/Shell/icons.md): `IconOwner.Mint` materializes kernel asset origins into `IIcon` values; `IconCatalog` is the inventory.
 - [26]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts into stamped per-document partitions with export.
-- [27]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts over the injected session clock.
-- [28]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits factories and projects receipts into attributed instruments.
+- [27]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and gauges command acknowledgement over the injected session clock.
+- [28]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits factories and seats attributed instruments for producer-site writes.
 
 ## [02]-[DOMAIN_PACKAGES]
 

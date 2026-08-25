@@ -2,7 +2,7 @@
 
 `Symbol` owns the AEC marker vocabulary and populates graphic-cell bytes for `composition/sheet#SHEET`. One closed `SymbolKind` union carries typed geometry and `SymbolStyle`, then dual-lowers through `SymbolTarget` into named `drawsvg` layers or reusable `ezdxf` blocks. `IdTag` generates room, door, window, wall, and equipment tags from `TagShape` data without per-tag sibling cases.
 
-`SymbolStyle` composes `LayerName`, `LineWeight`, `TextHeight`, and `Terminator` with `fill` and `stroke` indices into `graphic/color/derive#DERIVE` `hex_ramp`. `schemdraw.ElementCompound` owns each SVG mark. DXF authors one block per translation-and-rotation-normalized `_signature`; `add_attdef` and `Insert.add_auto_attribs` carry labels, insert rotation carries orientation, and `_dxf_extras` carries directional geometry. `lane: LanePolicy` offloads synchronous authoring. `SymbolStyle.layer` buckets marks into `LayerNode.Annotation` rows, while `glyph` composes `applied(RegionOp.Rasterize(...))` for sheet-cell PNG bytes. `ArtifactReceipt.Drawing` and `ArtifactWork` carry the result, and `_emit` lands its durable evidence through `Journal.record`.
+`SymbolStyle` composes `LayerName`, `LineWeight`, `TextHeight`, and `Terminator` with `fill` and `stroke` indices into `graphic/color/derive#DERIVE` `hex_ramp`. `schemdraw.ElementCompound` owns each SVG mark. DXF authors one block per translation-and-rotation-normalized `_signature`; `add_attdef` and `Insert.add_auto_attribs` carry labels, insert rotation carries orientation, and `_dxf_extras` carries directional geometry. `lane: LanePolicy` offloads synchronous authoring. `SymbolStyle.layer` buckets marks into `LayerNode.Annotation` rows, while `glyph` composes `applied(RegionOp.Rasterize(...))` for sheet-cell PNG bytes. `ArtifactWork` carries the named layers.
 
 ## [01]-[INDEX]
 
@@ -14,9 +14,8 @@
 - Cases: the twelve marker cases, each carrying its typed geometry, one `SymbolStyle`, and (for the bubble/pointer/grid/match/tag marks) a named `self.anchors` terminal — `cut`/`point`/`leader`/`attach`/`match`/`north`/`level` — a `drawing/detail#DETAIL`/`drawing/annotate` leader binds; matched by one total `_element` fold closed by `assert_never`, never a per-marker special case. `ScaleBar` is the standalone twin of the `composition/sheet#SHEET` `Scale.bar` geometry; `KeyPlan` is the reference figure `sheet`'s `KeyPlan.figure` cell consumes; `IdTag` generates the identity-tag family over `TagShape`, its `bool(sublabel)` joining the block signature because a bisected and a plain tag are distinct geometry.
 - Entry: `Symbol.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `SymbolKind | Iterable[SymbolKind]` into `marks`; `emit`, `layered`, and `glyph` ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`. `_svg_engine` fixes `use('svg')`, outlined text, and coordinate precision before solving grid runs and bucketing self-contained marks by `SymbolStyle.layer`. `_dxf_engine` applies the same grid solve, guards one `doc.blocks.new` per `_signature`, places `add_blockref` references with `Standard.graphics(layer)`, fills ATTRIBs through `add_auto_attribs`, and adds directional geometry through `_dxf_extras`. `glyph` maps `RegionFault` into the rail `BoundaryFault` without nesting `Result`.
 - Auto: `SymbolStyle.fill`/`stroke` index the `hex_ramp` ramp resolved once per render, so a recolor is a palette swap; `Standard.graphics(layer)` projects the same `LayerName` into the `ezdxf` `GfxAttribs` so the SVG group and the DXF layer carry one discipline pen. `North`'s south-half and the `Revision`/`MatchLine`/`Datum` captions are all DRAWN geometry, never a promised-but-dropped part; the DXF block marks mirror the SVG fills through `add_hatch().set_solid_fill()` over a closed boundary path at cross-egress parity, and the block name is the deterministic authoring-order `SYM_<tag>_<index>` — never a process-random hash forking the content key. Each collinear grid run threads its OWN `kiwisolver.Solver` — endpoints `required`, given positions `weak`, an even gap at `medium`, min-separation `strong`, the `strength` bands ranking the hard endpoint snap above the clearance floor above aesthetic spacing — and `_grid_runs` partitions a two-axis structural grid into independent X/Y runs so both axes never collapse onto one diagonal; `updateVariables()` writes each solved `value()` back into the re-keyed anchor before `_element` reads it.
-- Receipt: `_emit` mints `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` off the pre-run key and awaits `Journal.record` over `receipt.evidence()` at that fold — a marker set is production trail, so the fact is `OPERATIONAL` and its byte volume charges `STORAGE`. Recording suspends, so the seat is the awaitable `_emit`; `layered()` projects the same crossing and `glyph` rasterizes one mark, and neither records a second fact for one produced artifact.
 - Packages: `schemdraw` owns `ElementCompound`, `Segment*`, named anchors, and outlined SVG text; `drawsvg` owns the named-layer `Group`; `ezdxf` owns blocks, references, ATTRIBs, and solid hatches; `kiwisolver` owns grid-run alignment; `graphic/vector/region#REGION` owns `applied(RegionOp.Rasterize(...))`; `drawing/regime#REGIME` and `drawing/standard#STANDARD` own ISO vocabulary and DXF lowering; `graphic/color/derive#DERIVE` owns `Palette` and `hex_ramp`.
-- Growth: a new AEC marker is one `SymbolKind` case plus one `_element` arm, one `_dxf_block` arm, and one `_signature` arm — the five compound primitives cover the geometry; a new identity-tag kind is one `TagShape` member, zero new cases; a new egress one `SymbolTarget` member plus one `_ENGINES` row; a new visual axis one `SymbolStyle` field; a new named terminal one `self.anchors` key; a new alignment axis one `_grid_runs` band plus one `kiwisolver` constraint at its `strength` band; a new line-end one `drawing/regime#REGIME` `Terminator` member plus its one lowering row there, and one arm on each backend that draws it; a new receipt fact one scalar the shared `ArtifactReceipt.Drawing` carries.
+- Growth: a new AEC marker is one `SymbolKind` case plus one `_element` arm, one `_dxf_block` arm, and one `_signature` arm — the five compound primitives cover the geometry; a new identity-tag kind is one `TagShape` member, zero new cases; a new egress one `SymbolTarget` member plus one `_ENGINES` row; a new visual axis one `SymbolStyle` field; a new named terminal one `self.anchors` key; a new alignment axis one `_grid_runs` band plus one `kiwisolver` constraint at its `strength` band; a new line-end one `drawing/regime#REGIME` `Terminator` member plus its one lowering row there, and one arm on each backend that draws it.
 - Boundary: no sheet-set, dimension, or annotation logic (`composition/sheet#SHEET`/`drawing/dimension#DIMENSION`/`drawing/annotate#ANNOTATE`); no IFC semantics (`dotnet:Rasm.Bim`); identity minting is the runtime's. `graphic/vector/region#REGION` owns the SVG↔raster and the landed `boolean`/`outline` a filled-band match line or unioned north silhouette composes; `graphic/layer#LAYER` owns the layer vocabulary; `composition/sheet#SHEET` owns the cell placement.
 
 ```python
@@ -39,13 +38,12 @@ from msgspec.msgpack import Encoder
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import INGRESS, LayerName, LayerSchema, LineType, LineWeight, Terminator, TextHeight
 from rasm.artifacts.drawing.standard import Standard
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
@@ -194,24 +192,26 @@ class Symbol(Struct, frozen=True):
             case _:
                 return cls(marks=tuple(marks), palette=palette, target=target, lane=lane)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[tuple[LayerNode, ...]]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.marks)))
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"drawing-symbol-{self.target}", _CANON.encode((self.marks, hex_ramp(self.palette), self.target)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        settled = (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(lambda pair: pair[1])
+    async def _emit(self) -> RuntimeRail[tuple[LayerNode, ...]]:
+        settled = await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)
         match settled:
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=layers):
+                size = sum(len(node.leaf[1].fragment) for node in layers if node.tag == "leaf" and node.leaf[1].tag == "fragment")
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind="drawing", scope=self.lane.scope)
+                return Ok(layers)
             case refused:
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         return (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(
-            lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
+            lambda layers: LayerPlan(schema=LayerSchema.ISO13567, roots=layers)
         )
 
     async def glyph(self, mark: SymbolKind, /) -> RuntimeRail[bytes]:
@@ -836,7 +836,7 @@ _TAG_RING: Final[frozendict[TagShape, tuple[Point, ...]]] = frozendict({
 })
 
 
-def _svg_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+def _svg_engine(symbol: Symbol) -> tuple[LayerNode, ...]:
     _configured()
     ramp = hex_ramp(symbol.palette)
     aligned = _grid_solve(symbol.marks)
@@ -848,13 +848,10 @@ def _svg_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
         (layer, _layer_svg(layer.compose(), frags, box)) for layer, frags in sorted(groups.items(), key=lambda kv: kv[0].compose())
     )
     layers = tuple(LayerNode.Annotation(layer.compose(), data, aec=Some(layer), z=z) for z, (layer, data) in enumerate(payloads))
-    total = sum(len(data) for _layer, data in payloads)
-    return layers, ArtifactReceipt.Drawing(
-        symbol._key, "symbol", len(symbol.marks), "drawsvg", int(box[2] - box[0]), int(box[3] - box[1]), total
-    )
+    return layers
 
 
-def _dxf_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+def _dxf_engine(symbol: Symbol) -> tuple[LayerNode, ...]:
     doc, std = ezdxf.new("R2018", setup=True), Standard.of()
     ramp = hex_ramp(symbol.palette)
     aligned = _grid_solve(symbol.marks)
@@ -875,13 +872,11 @@ def _dxf_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
         _dxf_extras(msp, mark, gfx)
     stream = io.StringIO()
     doc.write(stream)
-    data, box = stream.getvalue().encode(), _bbox(aligned)
-    return (LayerNode.Annotation("dxf", data),), ArtifactReceipt.Drawing(
-        symbol._key, "symbol", len(symbol.marks), "ezdxf", int(box[2] - box[0]), int(box[3] - box[1]), len(data)
-    )
+    data = stream.getvalue().encode()
+    return (LayerNode.Annotation("dxf", data),)
 
 
-_ENGINES: Final[frozendict[SymbolTarget, Callable[[Symbol], tuple[tuple[LayerNode, ...], ArtifactReceipt]]]] = frozendict({
+_ENGINES: Final[frozendict[SymbolTarget, Callable[[Symbol], tuple[LayerNode, ...]]]] = frozendict({
     SymbolTarget.SVG: _svg_engine,
     SymbolTarget.DXF: _dxf_engine,
 })

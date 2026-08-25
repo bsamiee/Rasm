@@ -10,7 +10,7 @@
 - owner: `data`
 - rail: engine
 - entry points: library use is import-only; no console script
-- capability: SQL and DataFrame execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration, catalog providers and object-store federation, the four UDF kinds, the `functions`/`functions.spark` namespaces, lazy plan inspection with typed `MetricsSet` receipts, sync/async streaming, zero-copy pandas/polars/pyarrow export, and Substrait `Plan` serialize/deserialize
+- capability: SQL and DataFrame execution over Arrow `RecordBatch` partitions, multi-format reader/writer registration, catalog providers and object-store federation, the four UDF kinds, the `functions`/`functions.spark` namespaces, lazy plan inspection with typed `MetricsSet` measurements, sync/async streaming, zero-copy pandas/polars/pyarrow export, and Substrait `Plan` serialize/deserialize
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -209,14 +209,14 @@ Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, t
 - `substrait` owns the portable `Plan`: `Serde` serializes SQL, `Producer`/`Consumer` bridge a `LogicalPlan`, and `Plan.encode`/`to_json`/`from_json` carry the protobuf/JSON wire for the SUBSTRAIT_PORTABILITY rail.
 - `to_arrow_table`/`to_pandas`/`to_polars`/`to_pylist`/`to_pydict` are zero-copy or near-zero-copy Arrow exports over the shared C-data capsule.
 - `SessionContext` extends the engine over FFI: `add_physical_optimizer_rule` appends a compiled physical-optimizer rule, `with_logical_extension_codec`/`with_physical_extension_codec` plug plan-serialization codecs, `enable_spark_functions` overrides built-ins with Spark semantics, and `with_python_udf_inlining(enabled=False)` disables UDF inlining and hardens `Expr.from_bytes` deserialization.
-- Each execution captures the engine receipt: session id, plan stage (logical/optimized/physical), partition count, and Substrait `Plan` byte length, with per-operator runtime metrics read post-execution through `ExecutionPlan.metrics`/`collect_metrics` as a typed `MetricsSet` (output rows, elapsed compute, spill counts) walked outer-to-leaf.
+- Each execution observes session id, plan stage, partition count, and Substrait `Plan` byte length, with per-operator runtime measurements read post-execution through `ExecutionPlan.metrics`/`collect_metrics` as a typed `MetricsSet` walked outer-to-leaf.
 - `pyarrow` owns the `RecordBatch`/`Schema` wire types at the seam; downstream owners consume `pa.RecordBatch`/`pa.Table` or a portable `Plan`, never the `_internal` Rust handles.
 
 [STACKING]:
 - `duckdb`(`.api/duckdb.md`) / `substrait`(`.api/substrait.md`): `substrait.Producer.to_substrait_plan` emits the wire `Plan` DuckDB re-binds through `con.execute("CALL from_substrait(?)", [plan.encode()])`, and the BLOB a DuckDB `con.execute("CALL get_substrait(?)", [sql]).fetchone()[0]` returns re-binds through `substrait.Consumer.from_substrait_plan`; one portable `Plan` and its JSON twin cross both engines. DuckDB's half is the extension's SQL table functions alone — the connection binds no substrait method, per `.api/duckdb-extensions.md` `[03]`.
 - `polars`(`.api/polars.md`) / `pyarrow`(`.api/pyarrow.md`): `from_arrow`/`from_polars`/`from_pandas` ingest and `to_arrow_table`/`to_polars`/`to_pandas` egress over the shared Arrow C-data capsule, so federation is provider registration rather than frame materialization.
 - `deltalake`(`.api/deltalake.md`): a `DeltaTable.to_pyarrow_dataset()` registers via `register_table`/`read_table` as a pushdown-capable `pa.dataset.Dataset`, joining Parquet listings and object-store CSV under one `sql` with predicate/column pruning pushed into the Delta scan.
-- within-lib: a federated `execute_stream` over a remote object store composes under a `stamina` `retry_context` and an OpenTelemetry span keyed by the engine receipt (session id, plan byte length, `ExecutionPlan.collect_metrics` output rows), threading one instrumented, retried streaming pull.
+- within-lib: a federated `execute_stream` over a remote object store composes under a `stamina` `retry_context` and an OpenTelemetry span carrying session id, plan byte length, and `ExecutionPlan.collect_metrics` output rows, threading one instrumented, retried streaming pull.
 
 [LOCAL_ADMISSION]:
 - import `datafusion` at boundary scope only; the branch admits it as the sole Arrow-native SQL/DataFrame engine over registered sources.

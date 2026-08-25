@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_CUTTING_DATA]
 
-`CuttingData` resolves a material specification, cutter form, operation trait, and admitted evidence into one dimensional cutting regime and ONE Kienzle force model. Material seeds and operation factors generate the regime space; exact production, vendor, and calibrated rows override data without repeating a class-by-operation matrix. `CuttingLoad` is the ONE force receipt: the edge count is a PARAMETER on one model, so a deflection consumer reads the per-edge column and a removal-rate consumer reads the engaged column off the same evaluation rather than a second force body with a different arity.
+`CuttingData` resolves a material specification, cutter form, operation trait, and admitted evidence into one dimensional cutting regime and ONE Kienzle force model. Material seeds and operation factors generate the regime space; exact production, vendor, and calibrated rows override data without repeating a class-by-operation matrix. `CuttingLoad` is the ONE force result: the edge count is a PARAMETER on one model, so a deflection consumer reads the per-edge column and a removal-rate consumer reads the engaged column off the same evaluation rather than a second force body with a different arity.
 
 `LinearFit` is the ONE least-squares owner in the package — a power law is that fit in log-log space, a wear trajectory is that fit in linear space, and the determination is computed in the space the regression was PERFORMED in, so a valid log-log fit is never rejected for a linear-space residual it never minimized. `CuttingCalibration` and `Tooling/wear` Taylor calibration both compose it. `ChatterStability` composes the resolved tangential coefficient with every admitted machine-tool mode, samples each lobe across its full ratio search, partitions valid points at every projection gap, solves every bracketed depth crossing against the request's target depth, and recommends one `StablePoint`.
 
@@ -461,14 +461,14 @@ public sealed partial class CuttingTable {
 
 ## [03]-[CUTTING_LOAD]
 
-- Owner: `CuttingData` owns resolved force and regime truth; `CutIntent` owns the engagement geometry; `CuttingLoad` owns the ONE force receipt; `CuttingDataMap` owns both construction paths onto one target.
-- Law: there is ONE force model and the ENGAGED EDGE COUNT is its parameter. A per-edge form and a multi-edge form standing side by side let a deflection consumer and a removal-rate consumer disagree about the same cut by exactly the edge count; the model evaluates once and publishes both columns, so each consumer reads the arm it needs off one receipt and the two can never diverge.
+- Owner: `CuttingData` owns resolved force and regime truth; `CutIntent` owns the engagement geometry; `CuttingLoad` owns the ONE force result; `CuttingDataMap` owns both construction paths onto one target.
+- Law: there is ONE force model and the ENGAGED EDGE COUNT is its parameter. A per-edge form and a multi-edge form standing side by side let a deflection consumer and a removal-rate consumer disagree about the same cut by exactly the edge count; the model evaluates once and publishes both columns, so each consumer reads the arm it needs off one result and the two can never diverge.
 - Law: the engaged edge count is DERIVED from the engagement arc and the tooth count and floored at one. A cut in contact has at least one edge in the material by definition, so a fractional engagement never prices the cut below a single edge.
 - Law: `Process/physics#BUDGET_FOLD` `SurfaceSpeed` owns the cutting-speed relation in both directions. The regime gate composes `SurfaceSpeed.MetersPerMinute` over the CUTTING diameter rather than spelling the inverse inline, so the forward and inverse can never drift.
 - Cases: `MaterialSource` selects family lookup or exact specification at one entry.
 - Entry: `CuttingData.Of(MaterialSource, CutterForm, Operation, CuttingTable, Option<CorrectionInputs>)` is the one resolution entry and `CuttingData.Evaluate(CutIntent)` the one force entry.
 - Auto: specific force refuses a chip thickness outside its evidence's declared domain; force evaluation derives the engagement arc from radial depth and diameter before projecting per-edge and engaged tangential, feed, and passive components, resultant, torque, power, and removal rate. Both construction paths land on ONE ingress shape through generated mappings, so a column added to the resolved data cannot reach one path and miss the other.
-- Receipt: `CuttingData` carries resolved source and clamps; `CuttingLoad` carries the specific force, the engaged edge count, per-edge and engaged tangential force, the derived feed, passive, and resultant components, torque, power, removal rate, chip thickness, and engagement.
+- Result: `CuttingData` carries resolved source and clamps; `CuttingLoad` carries the specific force, the engaged edge count, per-edge and engaged tangential force, the derived feed, passive, and resultant components, torque, power, removal rate, chip thickness, and engagement.
 - Packages: `UnitsNet` quantity algebra derives torque from force and radius and power from angular rate and torque, so no scale literal stands between them; LanguageExt.Core and Thinktecture.Runtime.Extensions compose directly.
 - Growth: a resolved column is one slot on `CuttingDataIngress` that both mapper partials fill.
 - Boundary: `Fin.Succ` query shells lifting pure values, unqualified dimensional request scalars, scalar-only force, engagement fraction standing in for the engagement arc, and silent extrapolation past the evidence domain are deleted forms.
@@ -676,13 +676,13 @@ public sealed partial class CuttingData {
 - Owner: `LinearFit` is the ONE least-squares owner in the package and `Regression` its ONE result; `PowerLawFit` narrows it to a log-log power law and `CuttingCalibration` narrows that to Kienzle terms.
 - Law: the determination is computed in the space the regression was PERFORMED in. A log-log fit minimizes log-space residuals, so scoring it against linear-space variance rejects sound fits as degenerate — the exact failure that made a well-conditioned calibration unusable.
 - Law: three samples is the floor. A two-point line passes through both points with zero residual and no determination at all, so it states a fit the data never supported.
-- Law: `Regression`, `PowerLaw`, and `KienzleModel` are regression STATISTICS — no content key, no evidence band, no stamp — so none takes the `*Receipt` name the branch reserves for the settled-receipt carrier.
+- Law: `Regression`, `PowerLaw`, and `KienzleModel` are the regression statistics consumed directly by their callers.
 - Cases: `FitSpace` closes linear and logarithmic and carries its own forward, inverse, and admissibility columns, so the transform and the domain guard travel together.
-- Entry: `LinearFit.Apply(Seq<(double X, double Y)>, FitSpace)` is the one regression; `PowerLawFit.Apply` and `CuttingCalibration.Apply(CalibrationRequest, Material, Operation, FabricationTap?)` compose it, the calibration's tap defaulting silent.
+- Entry: `LinearFit.Apply(Seq<(double X, double Y)>, FitSpace)` is the one regression; `PowerLawFit.Apply` and `CuttingCalibration.Apply(CalibrationRequest, Material, Operation, Option<InstrumentSet>)` compose it, the calibration's set defaulting absent.
 - Auto: `Tooling/wear` composes `Regression` for its trajectory fit rather than declaring a second regression body, so slope, intercept, residual, determination, domain, and terminal sample are stated once for the whole package.
-- Receipt: `Regression` carries slope, intercept, root-mean-square residual, fit-space determination, sample domain, ordinate mean and dispersion, the terminal abscissa and ordinate, and the sample count. Sample columns are the caller's own units and model columns the fit space's, so no consumer reads a logarithm beside a raw mean. `PowerLaw` adds the coefficient and exponent its log-log reading derives and forwards the shared columns. `FabricationFact.CuttingFit.Of` projects residual and determination onto `rasm.fabrication.fit.residual` and `rasm.fabrication.fit.quality` through `Process/telemetry#FACT_PROJECTION` as kind `cutting-fit`.
+- Result: `Regression` carries slope, intercept, root-mean-square residual, fit-space determination, sample domain, ordinate mean and dispersion, the terminal abscissa and ordinate, and the sample count. Sample columns are the caller's own units and model columns the fit space's, so no consumer reads a logarithm beside a raw mean. `PowerLaw` adds the coefficient and exponent its log-log reading derives and forwards the shared columns. `CuttingCalibration.Apply` writes residual and determination through `FabricationInstruments.FitResidual` and `FitQuality` from the settled fit.
 - Exemption: `LinearFit.Apply` is a measured numeric kernel — the buffer reuse across the transform, prediction, and residual passes IS the arithmetic, so the statement body is the law rather than an imperative accumulation of a value.
-- Packages: MathNet.Numerics `Fit.Line` and `GoodnessOfFit.RSquared`; `Process/telemetry` (`FabricationTap`, `FabricationFact.CuttingFit`); `TensorPrimitives` finite checks and statistical reductions.
+- Packages: MathNet.Numerics `Fit.Line` and `GoodnessOfFit.RSquared`; `Process/telemetry` (`FabricationInstruments`); `TensorPrimitives` finite checks and statistical reductions.
 - Growth: a new regression space is one `FitSpace` row.
 - Boundary: two-point unqualified fits, a determination computed outside the fit space, and a second least-squares body anywhere in the package are deleted forms.
 
@@ -814,7 +814,7 @@ public sealed partial class KienzleModel {
             || thicknessMinimum <= Length.Zero || thicknessMaximum <= thicknessMinimum
             || forceMean <= Pressure.Zero || forceStandardDeviation < Pressure.Zero
             || fit.Samples < LinearFit.MinimumSamples
-            ? ToolKey.Validation("cutting-calibration-receipt") : null;
+            ? ToolKey.Validation("cutting-calibration-result") : null;
 
     public static Fin<KienzleModel> Admit(Pressure kc11, double mc, Regression fit,
         Length thicknessMinimum, Length thicknessMaximum, Pressure forceMean, Pressure forceStandardDeviation) =>
@@ -824,11 +824,13 @@ public sealed partial class KienzleModel {
 
 public static class CuttingCalibration {
     public static Fin<KienzleModel> Apply(CalibrationRequest request, Material material, Operation operation,
-        FabricationTap? tap = null) =>
+        Option<InstrumentSet> set = default) =>
         from fit in PowerLawFit.Apply(request.Samples.Map(static row =>
             (row.ChipThickness.Millimeters, row.SpecificForce.Megapascals)))
-        let _fact = (tap ?? FabricationTap.Silent).Fire(
-            FabricationFact.CuttingFit.Of(nameof(CuttingCalibration), fit))
+        from _residual in set.Write(FabricationInstruments.FitResidual, fit.RootMeanSquareResidual,
+            (FabricationInstruments.ModelSlot, nameof(CuttingCalibration)))
+        from _quality in set.Write(FabricationInstruments.FitQuality, fit.RSquared,
+            (FabricationInstruments.ModelSlot, nameof(CuttingCalibration)))
         from model in KienzleModel.Admit(
             Pressure.FromMegapascals(fit.Coefficient), fit.Exponent, fit.Fit,
             Length.FromMillimeters(fit.DomainMinimum), Length.FromMillimeters(fit.DomainMaximum),
@@ -931,10 +933,10 @@ public static class CutterFormProjection {
 - Law: a lobe exists only on the NEGATIVE-compliance branch, so the positive branch yields no depth at all and answers `None`. A not-a-number standing in for that absence propagated through every comparison as silently false.
 - Cases: `ModalEvidence` distinguishes tap-test, operational, analytical, and vendor modal provenance; `StabilityEvidence` distinguishes stable, marginal, and unstable bands and carries its own admissibility column; `StabilityCrossing` names each solved transition's direction; `StabilityGapReason` names why a ratio window produced no band.
 - Entry: `ChatterStability.Apply(StabilityRequest)` is the one dynamic entry; `StabilityLobes.Recommend(double)` returns the highest-margin stable point at a requested depth and `.Require(double)` is its refusing counterpart.
-- Auto: the recommendation's margin is relative to the REQUESTED depth rather than the receipt's own target, so a caller asking about a shallower pass reads the margin it actually has; admissibility rides `StabilityEvidence` as a column, so the selection filters through the generated union rather than a runtime type test.
-- Receipt: `StabilityLobes` carries contiguous lobe-indexed spindle-depth bands, every solved crossing with its direction, ratio-bounded gaps, modal provenance, and the target depth its margins are relative to. `StablePoint` carries the spindle speed, the depth limit in millimetres, and the fraction by which that limit exceeds the request.
+- Auto: the recommendation's margin is relative to the REQUESTED depth rather than the result's own target, so a caller asking about a shallower pass reads the margin it actually has; admissibility rides `StabilityEvidence` as a column, so the selection filters through the generated union rather than a runtime type test.
+- Result: `StabilityLobes` carries contiguous lobe-indexed spindle-depth bands, every solved crossing with its direction, ratio-bounded gaps, modal provenance, and the target depth its margins are relative to. `StablePoint` carries the spindle speed, the depth limit in millimetres, and the fraction by which that limit exceeds the request.
 - Packages: MathNet.Numerics `Generate.LinearSpaced` and `Brent.TryFindRoot`; `UnitsNet` quantity ratio.
-- Law: `StabilityLobes` carries solved bands and no settled-receipt column, so it takes a page noun rather than the `*Receipt` name; `StabilityPolicy` stays here because this page PRODUCES the bands, and the `Posting/optimization` consumer that intersects them is the `StabilityGate` that renamed.
+- Law: `StabilityLobes` carries solved bands; `StabilityPolicy` stays here because this page produces them, and `Posting/optimization` consumes them through `StabilityGate`.
 - Growth: a measured mode is one `ModalMode` inside `ModalResponse`; a modal provenance is one `ModalEvidence` case.
 - Boundary: a single transition where a lobe crosses twice, margins relative to a regime ceiling rather than the requested depth, and chatter-blind speed selection are deleted forms.
 
@@ -1257,7 +1259,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

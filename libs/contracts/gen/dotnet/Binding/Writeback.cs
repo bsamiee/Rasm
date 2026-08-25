@@ -52,23 +52,22 @@ namespace Rasm.Contracts.Binding {
             "EkgKB2F0dGVtcHQYASABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVs",
             "dE9ic2VydmF0aW9uQga6SAPIAQFSB2F0dGVtcHQSSgoIcm9sbGJhY2sYAiAB",
             "KAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uQga6",
-            "SAPIAQFSCHJvbGxiYWNrQg0KBGtpbmQSBbpIAggBIpQEChBXcml0ZVJlY2Vp",
-            "cHRXaXJlEiYKCmJpbmRpbmdfaWQYASABKAlCB7pIBHICEAFSCWJpbmRpbmdJ",
+            "SAPIAQFSCHJvbGxiYWNrQg0KBGtpbmQSBbpIAggBIukDChBXcml0ZU91dGNv",
+            "bWVXaXJlEiYKCmJpbmRpbmdfaWQYASABKAlCB7pIBHICEAFSCWJpbmRpbmdJ",
             "ZBIlCgljYW5vbmljYWwYAiABKAFCB7pIBBICQAFSCWNhbm9uaWNhbBJPCgtk",
             "aXNwb3NpdGlvbhgDIAEoCzIlLnJhc20uY29udHJhY3RzLmJpbmRpbmcuV3Jp",
             "dGVCYWNrV2lyZUIGukgDyAEBUgtkaXNwb3NpdGlvbhJACgdlbGFwc2VkGAQg",
             "ASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQgu6SAjIAQGqAQIyAFIH",
-            "ZWxhcHNlZBIpCgtjb3JyZWxhdGlvbhgFIAEoDEIHukgEegJoEFILY29ycmVs",
-            "YXRpb24SKAoIcmVuZGVyZWQYBiABKAFCB7pIBBICQAFIAFIIcmVuZGVyZWSI",
-            "AQESMQoNcmVuZGVyZWRfdW5pdBgHIAEoCUIHukgEcgIQAUgBUgxyZW5kZXJl",
-            "ZFVuaXSIAQE6d7pIdBpyChZ3cml0ZV9yZWNlaXB0LnJlbmRlcmVkEilyZW5k",
-            "ZXJlZCBhbmQgcmVuZGVyZWRfdW5pdCBjcm9zcyB0b2dldGhlchotaGFzKHRo",
-            "aXMucmVuZGVyZWQpID09IGhhcyh0aGlzLnJlbmRlcmVkX3VuaXQpQgsKCV9y",
-            "ZW5kZXJlZEIQCg5fcmVuZGVyZWRfdW5pdCqGAQoJRWNob0NsYXNzEhoKFkVD",
-            "SE9fQ0xBU1NfVU5TUEVDSUZJRUQQABIVChFFQ0hPX0NMQVNTX0FCU0VOVBAB",
-            "EhYKEkVDSE9fQ0xBU1NfU1RBTVBFRBACEhYKEkVDSE9fQ0xBU1NfVE9LRU5F",
-            "RBADEhYKEkVDSE9fQ0xBU1NfU0xPVFRFRBAEQhmqAhZSYXNtLkNvbnRyYWN0",
-            "cy5CaW5kaW5nYgZwcm90bzM="));
+            "ZWxhcHNlZBIoCghyZW5kZXJlZBgFIAEoAUIHukgEEgJAAUgAUghyZW5kZXJl",
+            "ZIgBARIxCg1yZW5kZXJlZF91bml0GAYgASgJQge6SARyAhABSAFSDHJlbmRl",
+            "cmVkVW5pdIgBATp3ukh0GnIKFndyaXRlX291dGNvbWUucmVuZGVyZWQSKXJl",
+            "bmRlcmVkIGFuZCByZW5kZXJlZF91bml0IGNyb3NzIHRvZ2V0aGVyGi1oYXMo",
+            "dGhpcy5yZW5kZXJlZCkgPT0gaGFzKHRoaXMucmVuZGVyZWRfdW5pdClCCwoJ",
+            "X3JlbmRlcmVkQhAKDl9yZW5kZXJlZF91bml0KoYBCglFY2hvQ2xhc3MSGgoW",
+            "RUNIT19DTEFTU19VTlNQRUNJRklFRBAAEhUKEUVDSE9fQ0xBU1NfQUJTRU5U",
+            "EAESFgoSRUNIT19DTEFTU19TVEFNUEVEEAISFgoSRUNIT19DTEFTU19UT0tF",
+            "TkVEEAMSFgoSRUNIT19DTEFTU19TTE9UVEVEEARCGaoCFlJhc20uQ29udHJh",
+            "Y3RzLkJpbmRpbmdiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Buf.Validate.ValidateReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.DurationReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Rasm.Contracts.Fault.FaultReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rasm.Contracts.Binding.EchoClass), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -77,7 +76,7 @@ namespace Rasm.Contracts.Binding {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Binding.WriteBackWire.Types.Rejected), global::Rasm.Contracts.Binding.WriteBackWire.Types.Rejected.Parser, new[]{ "Fault" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Binding.WriteBackWire.Types.RolledBack), global::Rasm.Contracts.Binding.WriteBackWire.Types.RolledBack.Parser, new[]{ "Attempt", "PriorValue" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Binding.WriteBackWire.Types.Indeterminate), global::Rasm.Contracts.Binding.WriteBackWire.Types.Indeterminate.Parser, new[]{ "Attempt", "Rollback" }, null, null, null, null)}),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Binding.WriteReceiptWire), global::Rasm.Contracts.Binding.WriteReceiptWire.Parser, new[]{ "BindingId", "Canonical", "Disposition", "Elapsed", "Correlation", "Rendered", "RenderedUnit" }, new[]{ "Rendered", "RenderedUnit" }, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Binding.WriteOutcomeWire), global::Rasm.Contracts.Binding.WriteOutcomeWire.Parser, new[]{ "BindingId", "Canonical", "Disposition", "Elapsed", "Rendered", "RenderedUnit" }, new[]{ "Rendered", "RenderedUnit" }, null, null, null)
           }));
     }
     #endregion
@@ -1765,17 +1764,17 @@ namespace Rasm.Contracts.Binding {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class WriteReceiptWire : pb::IMessage<WriteReceiptWire>
+  public sealed partial class WriteOutcomeWire : pb::IMessage<WriteOutcomeWire>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<WriteReceiptWire> _parser = new pb::MessageParser<WriteReceiptWire>(() => new WriteReceiptWire());
+    private static readonly pb::MessageParser<WriteOutcomeWire> _parser = new pb::MessageParser<WriteOutcomeWire>(() => new WriteOutcomeWire());
     private pb::UnknownFieldSet _unknownFields;
     private int _hasBits0;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<WriteReceiptWire> Parser { get { return _parser; } }
+    public static pb::MessageParser<WriteOutcomeWire> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1791,7 +1790,7 @@ namespace Rasm.Contracts.Binding {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public WriteReceiptWire() {
+    public WriteOutcomeWire() {
       OnConstruction();
     }
 
@@ -1799,13 +1798,12 @@ namespace Rasm.Contracts.Binding {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public WriteReceiptWire(WriteReceiptWire other) : this() {
+    public WriteOutcomeWire(WriteOutcomeWire other) : this() {
       _hasBits0 = other._hasBits0;
       bindingId_ = other.bindingId_;
       canonical_ = other.canonical_;
       disposition_ = other.disposition_ != null ? other.disposition_.Clone() : null;
       elapsed_ = other.elapsed_ != null ? other.elapsed_.Clone() : null;
-      correlation_ = other.correlation_;
       rendered_ = other.rendered_;
       renderedUnit_ = other.renderedUnit_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -1813,8 +1811,8 @@ namespace Rasm.Contracts.Binding {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public WriteReceiptWire Clone() {
-      return new WriteReceiptWire(this);
+    public WriteOutcomeWire Clone() {
+      return new WriteOutcomeWire(this);
     }
 
     /// <summary>Field number for the "binding_id" field.</summary>
@@ -1865,20 +1863,8 @@ namespace Rasm.Contracts.Binding {
       }
     }
 
-    /// <summary>Field number for the "correlation" field.</summary>
-    public const int CorrelationFieldNumber = 5;
-    private pb::ByteString correlation_ = pb::ByteString.Empty;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pb::ByteString Correlation {
-      get { return correlation_; }
-      set {
-        correlation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     /// <summary>Field number for the "rendered" field.</summary>
-    public const int RenderedFieldNumber = 6;
+    public const int RenderedFieldNumber = 5;
     private readonly static double RenderedDefaultValue = 0D;
 
     private double rendered_;
@@ -1905,7 +1891,7 @@ namespace Rasm.Contracts.Binding {
     }
 
     /// <summary>Field number for the "rendered_unit" field.</summary>
-    public const int RenderedUnitFieldNumber = 7;
+    public const int RenderedUnitFieldNumber = 6;
     private readonly static string RenderedUnitDefaultValue = "";
 
     private string renderedUnit_;
@@ -1936,12 +1922,12 @@ namespace Rasm.Contracts.Binding {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as WriteReceiptWire);
+      return Equals(other as WriteOutcomeWire);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(WriteReceiptWire other) {
+    public bool Equals(WriteOutcomeWire other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -1952,7 +1938,6 @@ namespace Rasm.Contracts.Binding {
       if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(Canonical, other.Canonical)) return false;
       if (!object.Equals(Disposition, other.Disposition)) return false;
       if (!object.Equals(Elapsed, other.Elapsed)) return false;
-      if (Correlation != other.Correlation) return false;
       if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(Rendered, other.Rendered)) return false;
       if (RenderedUnit != other.RenderedUnit) return false;
       return Equals(_unknownFields, other._unknownFields);
@@ -1966,7 +1951,6 @@ namespace Rasm.Contracts.Binding {
       if (Canonical != 0D) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(Canonical);
       if (disposition_ != null) hash ^= Disposition.GetHashCode();
       if (elapsed_ != null) hash ^= Elapsed.GetHashCode();
-      if (Correlation.Length != 0) hash ^= Correlation.GetHashCode();
       if (HasRendered) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(Rendered);
       if (HasRenderedUnit) hash ^= RenderedUnit.GetHashCode();
       if (_unknownFields != null) {
@@ -2003,16 +1987,12 @@ namespace Rasm.Contracts.Binding {
         output.WriteRawTag(34);
         output.WriteMessage(Elapsed);
       }
-      if (Correlation.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteBytes(Correlation);
-      }
       if (HasRendered) {
-        output.WriteRawTag(49);
+        output.WriteRawTag(41);
         output.WriteDouble(Rendered);
       }
       if (HasRenderedUnit) {
-        output.WriteRawTag(58);
+        output.WriteRawTag(50);
         output.WriteString(RenderedUnit);
       }
       if (_unknownFields != null) {
@@ -2041,16 +2021,12 @@ namespace Rasm.Contracts.Binding {
         output.WriteRawTag(34);
         output.WriteMessage(Elapsed);
       }
-      if (Correlation.Length != 0) {
-        output.WriteRawTag(42);
-        output.WriteBytes(Correlation);
-      }
       if (HasRendered) {
-        output.WriteRawTag(49);
+        output.WriteRawTag(41);
         output.WriteDouble(Rendered);
       }
       if (HasRenderedUnit) {
-        output.WriteRawTag(58);
+        output.WriteRawTag(50);
         output.WriteString(RenderedUnit);
       }
       if (_unknownFields != null) {
@@ -2075,9 +2051,6 @@ namespace Rasm.Contracts.Binding {
       if (elapsed_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Elapsed);
       }
-      if (Correlation.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeBytesSize(Correlation);
-      }
       if (HasRendered) {
         size += 1 + 8;
       }
@@ -2092,7 +2065,7 @@ namespace Rasm.Contracts.Binding {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(WriteReceiptWire other) {
+    public void MergeFrom(WriteOutcomeWire other) {
       if (other == null) {
         return;
       }
@@ -2113,9 +2086,6 @@ namespace Rasm.Contracts.Binding {
           Elapsed = new global::Google.Protobuf.WellKnownTypes.Duration();
         }
         Elapsed.MergeFrom(other.Elapsed);
-      }
-      if (other.Correlation.Length != 0) {
-        Correlation = other.Correlation;
       }
       if (other.HasRendered) {
         Rendered = other.Rendered;
@@ -2164,15 +2134,11 @@ namespace Rasm.Contracts.Binding {
             input.ReadMessage(Elapsed);
             break;
           }
-          case 42: {
-            Correlation = input.ReadBytes();
-            break;
-          }
-          case 49: {
+          case 41: {
             Rendered = input.ReadDouble();
             break;
           }
-          case 58: {
+          case 50: {
             RenderedUnit = input.ReadString();
             break;
           }
@@ -2217,15 +2183,11 @@ namespace Rasm.Contracts.Binding {
             input.ReadMessage(Elapsed);
             break;
           }
-          case 42: {
-            Correlation = input.ReadBytes();
-            break;
-          }
-          case 49: {
+          case 41: {
             Rendered = input.ReadDouble();
             break;
           }
-          case 58: {
+          case 50: {
             RenderedUnit = input.ReadString();
             break;
           }

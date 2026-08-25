@@ -119,7 +119,7 @@ const _suite = {
   FlagVerdictWire: feature.FlagVerdictWireSchema,
   BindingStatus: binding.BindingStatusSchema,
   CoercedValueWire: bindingWriteback.CoercedValueWireSchema,
-  WriteReceiptWire: bindingWriteback.WriteReceiptWireSchema,
+  WriteOutcomeWire: bindingWriteback.WriteOutcomeWireSchema,
   CommandGateWire: appuiCommands.CommandGateWireSchema,
   AppUiSurfaceProgram: appuiSurface.AppUiSurfaceProgramSchema,
   EvidenceTimelineWire: appuiEvidence.EvidenceTimelineWireSchema,
@@ -848,7 +848,6 @@ export { Format }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

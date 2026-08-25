@@ -8,7 +8,7 @@
 - [03]-[FRAMES]: `FrameAsk`/`FramePose` — object frame, gumball frame, and drag-transform reads.
 - [04]-[REACH_AND_TOUCH]: `Reach`, `Touch`, and the immediate component selection and highlight rail.
 - [05]-[CUTS_AND_PIECES]: `SectionCut`, `ObjectPiece`, and the detached extraction custody.
-- [06]-[ASK_ENTRY]: `StateAsk`/`StateAnswer`, `ObjectSpine`, the `DocumentCensus` analytics receipt, and the `Objects` entries.
+- [06]-[ASK_ENTRY]: `StateAsk`/`StateAnswer`, `ObjectSpine`, the `DocumentCensus` analytics census, and the `Objects` entries.
 - [07]-[SURFACE_LEDGER]: owner rows for every surface this page declares.
 
 ## [02]-[SNAPSHOT]
@@ -19,7 +19,7 @@
 - Law: both whole-object grade writes answer the RESULTING state, not a change flag — the host returns "the object is now highlighted", so a highlight guard compares the return against the requested signal directly, while `SelectSubObject` returns a count the selection path discards before re-reading `IsSubObjectSelected`. Asymmetry is the host's, and each path reads its own member's contract.
 - Law: `CommitChanges` never appears — the host member answers `true` only when a staged working copy flushed, and this package stages nothing on the live object: attribute writes travel `TableOp.Amend`, mode and visibility travel `TableOp.State`, geometry travels `TableOp.Replace`; the snapshot is the read face of that one-write-path law.
 - Law: object mode is ONE row, not four predicates. `Normal`, `Hidden`, `Locked`, and `DefinitionGeometry` are four derived reads of the single host `Mode` word, so the snapshot carries the attributes page's `ObjectStance` and reads the word once; four bool columns re-derived it four times per object and admitted the corner — hidden AND locked at once — the word cannot hold. NAMED LOSS: `snapshot.Hidden` as a property; the WITNESS is `snapshot.Stance == ObjectStance.Hidden` at the census fold, where a mode tally is now one keyed reduction over the row instead of a filter per predicate.
-- Law: every remaining combinable object fact rides ONE `CapabilitySet<ObjectTrait>` whose rows own their host reads — visibility, selectability, deletability, deletion, reference membership, solidity, picture-frame shape, an in-flight drag, a history record, and history survival across replace. NAMED LOSS: per-column compile-time exhaustiveness, bought back by the set's printable `Wire` on every receipt and `AdmitsAll` at a consumer seam demanding a trait; a new host predicate is one row and no consumer signature moves.
+- Law: every remaining combinable object fact rides ONE `CapabilitySet<ObjectTrait>` whose rows own their host reads — visibility, selectability, deletability, deletion, reference membership, solidity, picture-frame shape, an in-flight drag, a history record, and history survival across replace. NAMED LOSS: per-column compile-time exhaustiveness, bought back by the set's printable `Wire` on every snapshot and `AdmitsAll` at a consumer seam demanding a trait; a new host predicate is one row and no consumer signature moves.
 - Law: grips are a LADDER, not two bools — `GripsSelected` without `GripsOn` is a corner no live object holds, so `GripStance` admits the pair and refuses the impossible answer at the read instead of publishing it as state a consumer must re-screen.
 - Law: reference provenance carries absence as absence — the host spells "not from a worksession, reference file, or linked definition" as serial `0` on three separate `uint` columns, so `SourceModel` projects each through `Option<uint>` and no consumer compares a magic serial.
 - Law: history linkage is presence evidence — `ObjectTrait.HistoryRecord` carries `HasHistoryRecord()`, and every linkage read or mutation lives on the history page's `Chronicle`.
@@ -627,15 +627,15 @@ public sealed class ObjectPiece {
 
 ## [06]-[ASK_ENTRY]
 
-- Owner: `StateAsk` `[Union]` closes snapshot, frame, component-roster, targeted part-state, extent, member, and cut reads; `StateAnswer` `[Union]` owns the corresponding detached products; every mutation rail returns the Document spine's `FactStream<TSlot, TBody>` — its own slot vocabulary and body family instantiate the ONE receipt algebra (`Document/facts.md`), so no namespace-local receipt monoid survives; `ObjectSpine` is the one commit entry — needs derived through `SessionNeed.Mutation`, one demand, and the Document spine's `DocumentCommit.Sealed` carrying the rail's `FactStream` fold and the `Stamped(slot:, record:, serial:)` undo projection; `Objects.Ask` and `Objects.Touch` are the polymorphic read and immediate-state entries; `Objects.Resolve` is the shared one-hop object window.
+- Owner: `StateAsk` `[Union]` closes snapshot, frame, component-roster, targeted part-state, extent, member, and cut reads; `StateAnswer` `[Union]` owns the corresponding detached products; `ObjectSpine` is the result-generic commit entry over one demand and the Document spine's `DocumentCommit.Sealed`; `Objects.Ask` and `Objects.Touch` are the polymorphic read and immediate-state entries; `Objects.Resolve` is the shared one-hop object window.
 - Entry: `Objects.Ask(DocumentSession, TableTarget, StateAsk) : Fin<StateAnswer>` demands `SessionNeed.Read`; `Objects.Touch(DocumentSession, TableTarget, Touch) : Fin<Seq<TouchResult>>` demands `SessionNeed.Mutate` — immediate touch opens no bracket, so no undo column rides its answer; both resolve the target once and fold per object inside one grant window. `Objects.Census(DocumentSession, TableTarget, Op?) : Fin<DocumentCensus>` opens one outer read demand and composes the object fold, layers tree, and block topology through their own entries while that pinned grant remains active.
-- Law: the spine is the one undo-recorded bracket owner for the namespace — light, material, and history commits walk `ObjectSpine.Commit` verbatim, each supplying only its fact fold; immediate visual `Objects.Touch` remains outside the bracket by contract; a recorded rail re-spelling the demand-and-seal sequence or opening `UndoBracket.Begin` beside `Sealed` is the deleted form, and a rail's facts stay its own typed `TFact` union so no evidence flattens into a shared body vocabulary.
+- Law: the spine is the one undo-recorded bracket owner for the namespace — light, material, and history commits supply their canonical result fold to `ObjectSpine.Commit`; immediate visual `Objects.Touch` remains outside the bracket by contract.
 - Law: resolution is the table vocabulary — `TableTarget.Resolve` answers the id set and `FindId` lifts each to the live handle typed, so explicit ids, runtime pairs, and admitted queries address the object window identically; a deleted id is `MissingContext`, never a null propagated inward.
 - Law: batch extent composes the host batch member — `Extent` runs the static `GetTightBoundingBox` over the whole resolved roster in one native call, with the plane overload selected by the ask's optional frame; a per-object union re-derived from single boxes is the deleted form.
 - Law: answers embed identity — every per-object row carries the object guid beside its payload, and `PartState` admits its own `PartIndex` from the raw host component at its one factory; component eligibility records both current-state and ignore-selection answers, so `IsSubObjectSelectable(ComponentIndex, bool)` keeps its host boolean at the boundary instead of exporting a request knob. `PartState` takes that name because `Document/events` declares a `ComponentState` of its own and this plane imports that namespace — the local declaration shadowed it silently, and two unrelated types under one name in one scope is a defect no compiler reports.
-- Boundary: visual-analysis attachment — `EnableVisualAnalysisMode`, its active-mode queries, and the `AnalysisModeChanged` static event — is the display page's analysis-mode extension; this window carries no analysis case and composes that seam's receipts where an ask needs the fact.
-- Owner: `DocumentCensus` is the one analytics-ready document receipt — object counts by kind, space, and mode, the annotation tally, memory total, layer-tree shape from `Layers.Ask`, per-layer and per-material usage histograms with material-source distribution from the attribute anchors, block-closure metrics from `BlockGraph.Ask` (definition count, placement count with completeness evidence, cycle groups), and on-disk archive size from the document path — every dimension detached, so the analytics egress lands one stable shape into the data plane and no consumer walks live tables.
-- Law: the census composes owners, never re-measures — one outer `DocumentSession.Demand` retains the session gate and host stack from the first `Objects.Ask` through `Layers.Ask` and every `BlockGraph.Ask`. Re-entrancy is the session owner's declared contract, not this page's assumption: `Demand` is re-entrant on the demanding thread through its reentrant lock and demand-depth counter, each nesting proving its own grants against its own fresh snapshot, so every nested owner read re-enters the same pinned document grant and no sibling session operation can interleave. Object rows come from the canonical snapshot window, the layer dimension is the `LayerTree` the layers page already mints — its `Count` AND its `Depth`, both measured at that mint off the topological order the tree proved, never re-walked here — the block dimension is three `BlockGraphAsk` questions over `GraphSource.Live`, and every histogram, mode tally included, folds through the one-pass `CountBy` keyed reduction rather than a filter per named value. Archive extent opens the candidate once and reads length from that handle; an unsaved or concurrently removed path projects absence, while directory and access refusals stay failures. `Objects/authoring.md` projects the receipt through the `rhino.census` instrument rows at the app root.
+- Boundary: visual-analysis attachment — `EnableVisualAnalysisMode`, its active-mode queries, and the `AnalysisModeChanged` static event — is the display page's analysis-mode extension; this window carries no analysis case and composes that seam's outcomes where an ask needs the fact.
+- Owner: `DocumentCensus` is the one analytics-ready document census — object counts by kind, space, and mode, the annotation tally, memory total, layer-tree shape from `Layers.Ask`, per-layer and per-material usage histograms with material-source distribution from the attribute anchors, block-closure metrics from `BlockGraph.Ask` (definition count, placement count with completeness evidence, cycle groups), and on-disk archive size from the document path — every dimension detached, so the analytics egress lands one stable shape into the data plane and no consumer walks live tables.
+- Law: the census composes owners, never re-measures — one outer `DocumentSession.Demand` retains the session gate and host stack from the first `Objects.Ask` through `Layers.Ask` and every `BlockGraph.Ask`. Re-entrancy is the session owner's declared contract, not this page's assumption: `Demand` is re-entrant on the demanding thread through its reentrant lock and demand-depth counter, each nesting proving its own grants against its own fresh snapshot, so every nested owner read re-enters the same pinned document grant and no sibling session operation can interleave. Object rows come from the canonical snapshot window, the layer dimension is the `LayerTree` the layers page already mints — its `Count` AND its `Depth`, both measured at that mint off the topological order the tree proved, never re-walked here — the block dimension is three `BlockGraphAsk` questions over `GraphSource.Live`, and every histogram, mode tally included, folds through the one-pass `CountBy` keyed reduction rather than a filter per named value. Archive extent opens the candidate once and reads length from that handle; an unsaved or concurrently removed path projects absence, while directory and access refusals stay failures. the app root's observe tap writes the `rasm.rhino.document.census.*` rows `Document/events#TELEMETRY_TAP` declares off this census.
 - Law: the census builds the block topology ONCE. Three separate `GraphSource.Live` values made the graph owner rebuild the same definition graph three times over one pinned grant, and the three answers disagree whenever a definition moves between builds — a census reporting a placement count from one topology beside a cycle count from another. One source value, three questions.
 - Growth: a new read is one ask case with its answer case; a new census dimension is one `DocumentCensus` field folded from an existing owner; the dispatch, the entries, and every consumer read it with zero new surface.
 
@@ -961,19 +961,17 @@ public static class Objects {
 }
 
 internal static class ObjectSpine {
-    internal static Fin<FactStream<TSlot, TBody>> Commit<TSlot, TBody>(
+    internal static Fin<TResult> Commit<TResult>(
         DocumentSession session, string name, RedrawPolicy redraw,
-        Func<RhinoDoc, Op, Fin<FactStream<TSlot, TBody>>> fold,
-        TSlot undo, Func<UndoSerial, TBody> record, Op op, bool recordsUndo = true)
-        where TSlot : class, IFactSlot<TBody> where TBody : class =>
+        Func<RhinoDoc, Op, Fin<TResult>> run, Op op, bool recordsUndo = true) =>
         session.Demand(
             use: document => DocumentCommit.Sealed(
                 document: document,
                 name: name,
                 recordsUndo: recordsUndo,
                 redraw: redraw,
-                run: () => fold(document, op),
-                stamp: (receipt, serial) => receipt.Stamped(slot: undo, record: record, serial: serial),
+                run: () => run(document, op),
+                project: Fin.Succ,
                 op: op),
             key: op,
             needs: SessionNeed.Mutation(undo: recordsUndo, redraw: redraw).ToArray());
@@ -995,14 +993,9 @@ internal static class ObjectSpine {
 |  [09]   | native release     | `ObjectPiece`    | host-array and product-roster disposal               | `Release`                     |
 |  [10]   | read dispatch      | `StateAsk`       | typed answer union                                   | `Objects.Ask`                 |
 |  [11]   | object resolution  | `Objects`        | target-to-handle lift                                | `Resolve(document, target)`   |
-|  [12]   | commit kernel      | `ObjectSpine`    | sealed commit onto the Document spine's fact stream  | `Commit<TSlot, TBody>`        |
-|  [13]   | analytics census   | `DocumentCensus` | detached multi-owner document receipt                | `Objects.Census`              |
+|  [12]   | commit kernel      | `ObjectSpine`    | result-generic sealed document commit                 | `Commit<TResult>`             |
+|  [13]   | analytics census   | `DocumentCensus` | detached multi-owner document census                 | `Objects.Census`              |
 
 ## [08]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
 
 (none)

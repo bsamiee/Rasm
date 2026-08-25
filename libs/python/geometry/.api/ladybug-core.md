@@ -149,10 +149,10 @@
 - `lbt-recipes`(`runtime/.api/lbt-recipes.md`): recipe execution emits the `eplusout.sql`, and `SQLiteResult(sql_path).data_collections_by_output_name(name)` reads it back into native `DataCollection`s — closing model -> simulation -> labeled series with `available_outputs` as the routing discriminator.
 - `dragonfly-core`(`geometry/.api/dragonfly-core.md`): `Model.to_geojson(location=...)`/`from_geojson` takes this package's `Location` to place a metric massing model on the globe.
 - `numpy`/`xarray`(`.api/numpy.md`, `.api/xarray.md`): a `DataCollection` maps onto an `xarray.DataArray` — `values` -> `data`, `datetimes` -> the `time` coordinate, `header` fields -> `attrs` — batch reduction runs in `numpy`, and a computed array rebuilds via `HourlyContinuousCollection(header, array.tolist())` while the package's own `histogram`/`percentile`/`linspace` stay the numpy-free fallback.
-- `msgspec`/`pydantic`(`.api/msgspec.md`, `.api/pydantic.md`): the symmetric `from_dict`/`to_dict` on every type is the codec boundary, and `EPW.to_file_string`/`from_file_string` graduates the weather file as an artifact-rail string.
+- `msgspec`/`pydantic`(`.api/msgspec.md`, `.api/pydantic.md`): the symmetric `from_dict`/`to_dict` on every type is the codec boundary, and `EPW.to_file_string`/`from_file_string` serializes the weather file for the artifact rail.
 
 [LOCAL_ADMISSION]:
-- Consume the AGPL ladybug/honeybee stack out-of-process as a process-boundary companion: invoke it at the edge, graduate `DataCollection`/EPW evidence across the wire, and keep its code out of any distributed proprietary artifact.
+- Consume the AGPL ladybug/honeybee stack out-of-process as a process-boundary companion: invoke it at the edge, carry `DataCollection`/EPW values across the wire, and keep its code out of any distributed proprietary artifact.
 
 [RAIL_LAW]:
 - Package: `ladybug-core`

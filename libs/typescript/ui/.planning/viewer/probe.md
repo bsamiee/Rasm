@@ -204,30 +204,29 @@ const _board = (
 ## [05]-[CAPTURE_FOLD]
 
 [CAPTURE_FOLD]:
-- Owner: `Probe.capture` admits `EvidenceTimelineWire` bytes through `Wire.decode`, then normalizes one controlled RGBA8 readback and compares its canonical pixel hash with timeline evidence.
+- Owner: `Probe.capture` admits `EvidenceTimelineWire` bytes through `Wire.decode`, then normalizes one controlled RGBA8 readback and compares its canonical pixel hash with the timeline's render arm, the verdict naming the producer `stamp` it compared against.
 - Law: the preimage is the producer kernel's `CanonicalWriter` framing — the version's int32-LE UTF-8 byte count then its bytes, width and height as int32-LE ordinals, then the tightly packed top-left RGBA8 sRGB straight-alpha plane as the trailing raw leaf whose extent those two ordinals already recover.
 - Law: the branch carries no `CanonicalWriter` peer — `core/value/contentKey` publishes `Digest.mint` and `Digest.Session` alone — so this page is the ONE site that spells the framing and a second framing helper elsewhere forks the law.
 - Law: capture compares only `pixels.hash`; `frameHash` identifies encoded artifact bytes and `drawHash` identifies draw attribution.
 - Law: `Probe.packed` publishes that normalization, so the hash preimage and `view/export#SERIALIZER_MATRIX`'s readback arm read one buffer — the preimage streams its framed segments and hands that packed plane as its trailing leaf rather than re-buffering it, and a second repack forks the pixel identity.
-- Boundary: scene supplies async readback, `Digest.mint` owns hashing over the framed segment stream, `Wire` owns timeline decoding, and the packed receipt unpacks through `Format.proto.any` against the one registry.
+- Boundary: scene supplies async readback, `Digest.mint` owns hashing over the framed segment stream, and `Wire` owns timeline decoding — every row lands its `EvidenceWire` arm beside its `stamp` decoded, so no packed payload and no second unpack exist here.
 
 ```typescript
-import { Digest, Format, Wire } from "@rasm/core"
-import { EvidenceReceiptWireSchema } from "@rasm\/contracts/rasm/contracts/ui/evidence_pb"
+import { Clock, Digest, Wire } from "@rasm/core"
 import { Array, DateTime, Effect, Equal, Option, type ParseResult, Schema } from "effect"
 
 const _PIXEL_VERSION = "rgba8-srgb-straight-top-left-v2" as const
 const _CAPTURE = { width: 1024, height: 1024, version: _PIXEL_VERSION } as const
 
-type Receipt = Schema.Schema.Type<ReturnType<typeof Format.proto.message<typeof EvidenceReceiptWireSchema>>>
-type RenderEvidence = Extract<Receipt["kind"], { readonly case: "render" }>["value"]
+type _Row = Wire.EvidenceTimeline["rows"][number]
+type _Render = Extract<NonNullable<_Row["evidence"]>["kind"], { readonly case: "render" }>["value"]
 
-const _receipt = (row: Wire.EvidenceTimeline["rows"][number]): Option.Option<Receipt> =>
-  Option.flatMap(Option.fromNullable(row.envelope?.payload), (payload) =>
-    Format.proto.any.unpack(payload, EvidenceReceiptWireSchema))
-
-const _render = (receipt: Receipt): Option.Option<RenderEvidence> =>
-  receipt.kind.case === "render" ? Option.some(receipt.kind.value) : Option.none()
+const _render = (row: _Row): Option.Option<{ readonly render: _Render; readonly stamp: Clock.Hlc }> =>
+  Option.all({
+    render: Option.flatMap(Option.fromNullable(row.evidence), (evidence) =>
+      evidence.kind.case === "render" ? Option.some(evidence.kind.value) : Option.none()),
+    stamp: Option.flatMap(Option.fromNullable(row.stamp), Schema.decodeOption(Clock.Hlc)),
+  })
 
 declare namespace Probe {
   type Pixels = {
@@ -238,6 +237,7 @@ declare namespace Probe {
   type Readback = (width: number, height: number) => Effect.Effect<Pixels>
   type Verdict = {
     readonly view: string
+    readonly stamp: Clock.Hlc
     readonly expected: Digest.Key<"content">
     readonly actual: Digest.Key<"content">
     readonly matched: boolean
@@ -274,15 +274,12 @@ const _preimage = (capture: Probe.Pixels, width: number, height: number): Readon
 const _rendered = (
   timeline: Wire.EvidenceTimeline,
   view: string,
-): Option.Option<{ readonly width: number; readonly height: number; readonly hash: Digest.Key<"content"> }> =>
+): Option.Option<{ readonly stamp: Clock.Hlc; readonly width: number; readonly height: number; readonly hash: Digest.Key<"content"> }> =>
   Option.flatMap(
-    Array.findFirst(
-      Array.filterMap(timeline.rows, (row) => Option.flatMap(_receipt(row), _render)),
-      (receipt) => receipt.slot === view && receipt.pixels !== undefined,
-    ),
-    (receipt) =>
-      Option.flatMap(Option.fromNullable(receipt.pixels), (pixels) =>
-        Option.map(Schema.decodeOption(Digest.codecs.content.bytes)(pixels.hash), (hash) => ({ width: pixels.width, height: pixels.height, hash }))),
+    Array.findFirst(Array.filterMap(timeline.rows, _render), ({ render }) => render.slot === view && render.pixels !== undefined),
+    ({ render, stamp }) =>
+      Option.flatMap(Option.fromNullable(render.pixels), (pixels) =>
+        Option.map(Schema.decodeOption(Digest.codecs.content.bytes)(pixels.hash), (hash) => ({ stamp, width: pixels.width, height: pixels.height, hash }))),
   )
 
 const _capture = (
@@ -302,6 +299,7 @@ const _capture = (
             const at = yield* DateTime.now
             return Option.some({
               view,
+              stamp: identity.stamp,
               expected: identity.hash,
               actual,
               matched: Equal.equals(actual, identity.hash),
@@ -335,7 +333,7 @@ const _tone = {
 
 const _line = (row: Probe.BoardRow | Probe.Verdict): string =>
   Predicate.hasProperty(row, "matched")
-    ? `${row.view} expected=${row.expected} actual=${row.actual} matched=${row.matched} at=${DateTime.formatIso(row.at)}`
+    ? `${row.view} stamp=${row.stamp.physical}:${row.stamp.logical} expected=${row.expected} actual=${row.actual} matched=${row.matched} at=${DateTime.formatIso(row.at)}`
     : [
         row.label,
         Option.match(row.claimed, { onNone: () => "claim=-", onSome: (held) => `claim=${held.value}${held.unit}` }),
@@ -380,7 +378,6 @@ export { Probe }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

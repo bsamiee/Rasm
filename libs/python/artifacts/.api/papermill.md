@@ -137,7 +137,7 @@ Every handler implements the four-method contract `read(path)`/`write(buf, path)
 - retry axis: cloud reads/writes run under a `tenacity` `retry(retry_if_exception_type, stop_after_attempt, wait_exponential)` policy, so a `PapermillRateLimitException` triggers exponential backoff — papermill's own retry, threaded inside any outer boundary rather than duplicated by it.
 - parameter axis: `parameters` translate to kernel code through `PapermillTranslators.find_translator(kernel_name, language).codify(...)`; the cell tagged `parameters` marks the injection point; `add_builtin_parameters` merges papermill's built-ins; a value overwriting a default emits `PapermillParameterOverwriteWarning`.
 - inspection axis: `inspect_notebook(path)` returns a dict of `Parameter` named tuples keyed by name via the translator's `inspect` classmethod, starting no kernel.
-- fault axis: a failing cell raises `PapermillExecutionError` (fields in `[02]`), and the egress folds this typed receipt onto the rail fault channel.
+- fault axis: a failing cell raises `PapermillExecutionError` with the fields catalogued in `[02]`.
 
 [STACKING]:
 - `nbclient`(`.api/nbclient`): `NBClientEngine` runs the parameterized node over `PapermillNotebookClient` (a `nbclient.NotebookClient` subclass) — papermill drives the run and nbclient owns the kernel loop, so `**engine_kwargs` (`timeout`/`start_timeout`/`kernel_name`) pass through to the client and every cell/timeout/kernel fault surfaces as an `nbclient` exception the boundary folds.

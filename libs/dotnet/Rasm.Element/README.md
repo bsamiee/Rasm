@@ -36,8 +36,8 @@ Every AEC peer projects its foreign source through `IElementProjection`, and Per
 - [17]-[ACOUSTIC](.planning/Composition/acoustic.md): Banded acoustic carrier and the shared `RatingContour` single-number contour-fit kernel.
 
 [ASSESSMENT]:
-- [18]-[ASSESSMENT](.planning/Assessment/assessment.md): Generic `AssessmentPayload` analysis receipt keyed by discipline, route, and input.
-- [19]-[OBSERVATION](.planning/Assessment/observation.md): `ObservationSeries` measured sensor evidence, the computed receipt's sibling modality.
+- [18]-[ASSESSMENT](.planning/Assessment/assessment.md): Generic `AssessmentPayload` analysis result keyed by discipline, route, and input.
+- [19]-[OBSERVATION](.planning/Assessment/observation.md): `ObservationSeries` measured sensor evidence, the computed assessment's sibling modality.
 
 [GEOSPATIAL]:
 - [20]-[COVERAGE](.planning/Geospatial/coverage.md): `CoverageGrid` by-reference raster-and-field descriptor over the kernel `CellLattice` placement.
@@ -47,8 +47,8 @@ Every AEC peer projects its foreign source through `IElementProjection`, and Per
 - [22]-[PROJECTION](.planning/Projection/projection.md): Cross-stratum projector and constraint floors under one `Assemble` composition apps wire.
 - [23]-[ADDRESS](.planning/Projection/address.md): `ContentAddress` codec, order-free graph addressing, and typed incremental/refold member steps.
 - [24]-[FAULTS](.planning/Projection/fault.md): `ElementFault` owns graph, address, and projection semantics over the kernel admission fold.
-- [25]-[OBSERVE](.planning/Projection/observe.md): `ElementHooks` tap — typed graph facts onto the kernel rail, fanned into `GraphInstrument`.
-- [26]-[AUDIT](.planning/Projection/audit.md): `ModelAudit` completeness grade folding coverage ratios and integrity sweeps into one typed receipt.
+- [25]-[OBSERVE](.planning/Projection/observe.md): `ElementHooks` tap firing typed graph facts onto the kernel rail and into `GraphInstrument`.
+- [26]-[AUDIT](.planning/Projection/audit.md): `ModelAudit` completeness grade folding coverage ratios and integrity sweeps into one graded value.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -76,3 +76,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Google.Protobuf` — Generated node-edit support messages and the descriptor-driven `FieldMask` seam.
 - `NodaTime.Serialization.Protobuf` — Temporal values reachable through the generated node payload closure.
 - `Rasm.Contracts` — Generated `NodeWire` support closure for Persistence `EntityEditWire`; referenced by project.
+
+[EVENT_TRANSPORT]:
+- `CloudNative.CloudEvents` — `CloudEvent` the durable-fact envelope `ElementTap.Events` publishes through the kernel mint.

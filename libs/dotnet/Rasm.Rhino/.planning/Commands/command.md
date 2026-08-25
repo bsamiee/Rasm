@@ -126,7 +126,7 @@ public sealed partial class CommandPolicy {
 - Law: the successor roster is a BASE POSITIONAL column — every case hands its outgoing keys to the root at construction, so no static ladder re-derives per case what the case already knows, and a new case cannot land without stating where it goes.
 - Law: `CommandFlow<TState>.Of` proves topology on the graph, not on a guard ladder. The row set builds ONE QuikGraph `AdjacencyGraph` (vertices = admitted keys, edges = declared successors); distinctness, entry membership, successor resolution, terminal presence, and REACHABILITY from the entry are five independent clauses accumulated through `Validation` — the prior four guards reported first-defect-only and never asked whether a stage was reachable at all, so an orphaned stage rode every program silently.
 - Law: `Drive` folds the kernel `foldUntil` over the budget range — the fold carries the rail as its state, stops on a settled verdict or a failed rail, and exhausting the range without a verdict is a typed budget refusal naming `StageBudget`; a success-shaped fall-through past the bound would certify an unconverged program as converged.
-- Law: `Commit.Fold` is railed and rides `Tables.Commit` as its receipt projection inside `DocumentCommit.Sealed`, so a fold refusal fails the commit with the operation faults instead of surviving a sealed record.
+- Law: `Commit.Fold` admits the next command state before `Tables.Commit`; a fold refusal prevents mutation, and a commit refusal discards the projected state.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -144,9 +144,9 @@ public readonly partial struct StageKey {
 
 public abstract record Stage<TState>(Seq<StageKey> Successors) {
     public sealed record Effect(Func<CommandTurn<TState>, Fin<TState>> Run, StageKey Next) : Stage<TState>(Seq(Next));
-    public sealed record Prompt(Func<TState, Fin<Acquire>> Request, Func<TState, AcquiredReceipt, Fin<TState>> Fold, StageKey Next) : Stage<TState>(Seq(Next));
+    public sealed record Prompt(Func<TState, Fin<Acquire>> Request, Func<TState, AcquireOutcome, Fin<TState>> Fold, StageKey Next) : Stage<TState>(Seq(Next));
     public sealed record Branch(Func<TState, StageKey> Route, Seq<StageKey> Targets) : Stage<TState>(Targets);
-    public sealed record Commit(Func<CommandTurn<TState>, Fin<TableTransaction>> Plan, Func<TState, TableReceipt, Fin<TState>> Fold, StageKey Next) : Stage<TState>(Seq(Next));
+    public sealed record Commit(Func<CommandTurn<TState>, Fin<TableTransaction>> Plan, Func<TState, Fin<TState>> Fold, StageKey Next) : Stage<TState>(Seq(Next));
     public sealed record Halt(CommandVerdict Verdict) : Stage<TState>(Seq<StageKey>());
 
     internal Fin<Unit> Admit(Op key) => this switch {
@@ -165,9 +165,9 @@ public abstract record Stage<TState>(Seq<StageKey> Successors) {
             .Map(state => (FlowStep<TState>)new FlowStep<TState>.Advance(Key: effect.Next, State: state)),
         Prompt prompt => prompt.Request(arg: turn.State)
             .Bind(request => Acquisition.Get(session: turn.Session, request: request))
-            .Bind(receipt => receipt.Terminal.Switch(
-                state: (Turn: turn, Stage: prompt, Receipt: receipt),
-                value: static (held, _) => held.Stage.Fold(arg1: held.Turn.State, arg2: held.Receipt)
+            .Bind(facts => facts.Terminal.Switch(
+                state: (Turn: turn, Stage: prompt, Facts: facts),
+                value: static (held, _) => held.Stage.Fold(arg1: held.Turn.State, arg2: held.Facts)
                     .Map(state => (FlowStep<TState>)new FlowStep<TState>.Advance(Key: held.Stage.Next, State: state)),
                 cancelled: static (held, _) => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Done(CommandVerdict.Cancelled, held.Turn.State)),
                 nothing: static (held, _) => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Done(CommandVerdict.Empty, held.Turn.State)),
@@ -179,10 +179,8 @@ public abstract record Stage<TState>(Seq<StageKey> Successors) {
             : Fin.Fail<FlowStep<TState>>(error: key.InvalidInput(axis: nameof(Branch.Targets)))),
         Commit commit =>
             from plan in commit.Plan(arg: turn)
-            from state in Tables.Commit(
-                session: turn.Session,
-                transaction: plan,
-                project: receipt => commit.Fold(arg1: turn.State, arg2: receipt))
+            from state in commit.Fold(arg: turn.State)
+            from _ in Tables.Commit(session: turn.Session, transaction: plan)
             select (FlowStep<TState>)new FlowStep<TState>.Advance(Key: commit.Next, State: state),
         Halt halt => Fin.Succ<FlowStep<TState>>(value: new FlowStep<TState>.Done(Verdict: halt.Verdict, State: turn.State)),
         _ => Fin.Fail<FlowStep<TState>>(error: key.InvalidInput()),
@@ -340,7 +338,7 @@ public abstract class RasmCommand<TSelf, TState> : Command
             from session in DocumentSession.Of(source: new SessionSource.Live(Document: doc), mode: lane, needs: policy.Needs.ToArray())
             from verdict in op.Catch(() => {
                 using DocumentSession active = session;
-                return flow.Drive(session: active, seed: Seed, policy: policy).Map(static receipt => receipt.Verdict);
+                return flow.Drive(session: active, seed: Seed, policy: policy).Map(static facts => facts.Verdict);
             })
             select verdict);
         FaultNotice notice = Optional(Policy).Map(static policy => policy.Notice).IfNone(FaultNotice.Announce);
@@ -719,7 +717,6 @@ public static class Scripting {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

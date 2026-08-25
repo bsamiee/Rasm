@@ -39,20 +39,19 @@ namespace Rasm.Contracts.Ui {
             "YXVsdC5GYXVsdE9ic2VydmF0aW9uSABSCHJlamVjdGVkEioKC3JvbGxlZF9i",
             "YWNrGAQgASgJQge6SARyAhABSABSCnJvbGxlZEJhY2sSKwoLY29tcGVuc2F0",
             "ZWQYBSABKAlCB7pIBHICEAFIAFILY29tcGVuc2F0ZWRCDQoEa2luZBIFukgC",
-            "CAEitQIKD0RlY2tSZWNlaXB0V2lyZRIZCgNrZXkYASABKAlCB7pIBHICEAFS",
+            "CAEiigIKD0RlY2tPdXRjb21lV2lyZRIZCgNrZXkYASABKAlCB7pIBHICEAFS",
             "A2tleRIhCgdzdXJmYWNlGAIgASgJQge6SARyAhABUgdzdXJmYWNlEkAKB2Vs",
             "YXBzZWQYAyABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25CC7pICMgB",
             "AaoBAjIAUgdlbGFwc2VkEkcKB291dGNvbWUYBCABKAsyJS5yYXNtLmNvbnRy",
             "YWN0cy51aS5Db21tYW5kT3V0Y29tZVdpcmVCBrpIA8gBAVIHb3V0Y29tZRIu",
             "Cg5wYXlsb2FkX2RpZ2VzdBgFIAEoDEIHukgEegJoEFINcGF5bG9hZERpZ2Vz",
-            "dBIpCgtjb3JyZWxhdGlvbhgGIAEoDEIHukgEegJoEFILY29ycmVsYXRpb25C",
-            "FKoCEVJhc20uQ29udHJhY3RzLlVpYgZwcm90bzM="));
+            "dEIUqgIRUmFzbS5Db250cmFjdHMuVWliBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Buf.Validate.ValidateReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.DurationReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::Rasm.Contracts.Compute.ControlReflection.Descriptor, global::Rasm.Contracts.Fault.FaultReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.CommandGateWire), global::Rasm.Contracts.Ui.CommandGateWire.Parser, new[]{ "Key", "Available", "Level" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.CommandOutcomeWire), global::Rasm.Contracts.Ui.CommandOutcomeWire.Parser, new[]{ "Completed", "Cancelled", "Rejected", "RolledBack", "Compensated" }, new[]{ "Kind" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.DeckReceiptWire), global::Rasm.Contracts.Ui.DeckReceiptWire.Parser, new[]{ "Key", "Surface", "Elapsed", "Outcome", "PayloadDigest", "Correlation" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.DeckOutcomeWire), global::Rasm.Contracts.Ui.DeckOutcomeWire.Parser, new[]{ "Key", "Surface", "Elapsed", "Outcome", "PayloadDigest" }, null, null, null, null)
           }));
     }
     #endregion
@@ -787,16 +786,16 @@ namespace Rasm.Contracts.Ui {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class DeckReceiptWire : pb::IMessage<DeckReceiptWire>
+  public sealed partial class DeckOutcomeWire : pb::IMessage<DeckOutcomeWire>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<DeckReceiptWire> _parser = new pb::MessageParser<DeckReceiptWire>(() => new DeckReceiptWire());
+    private static readonly pb::MessageParser<DeckOutcomeWire> _parser = new pb::MessageParser<DeckOutcomeWire>(() => new DeckOutcomeWire());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<DeckReceiptWire> Parser { get { return _parser; } }
+    public static pb::MessageParser<DeckOutcomeWire> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -812,7 +811,7 @@ namespace Rasm.Contracts.Ui {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public DeckReceiptWire() {
+    public DeckOutcomeWire() {
       OnConstruction();
     }
 
@@ -820,20 +819,19 @@ namespace Rasm.Contracts.Ui {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public DeckReceiptWire(DeckReceiptWire other) : this() {
+    public DeckOutcomeWire(DeckOutcomeWire other) : this() {
       key_ = other.key_;
       surface_ = other.surface_;
       elapsed_ = other.elapsed_ != null ? other.elapsed_.Clone() : null;
       outcome_ = other.outcome_ != null ? other.outcome_.Clone() : null;
       payloadDigest_ = other.payloadDigest_;
-      correlation_ = other.correlation_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public DeckReceiptWire Clone() {
-      return new DeckReceiptWire(this);
+    public DeckOutcomeWire Clone() {
+      return new DeckOutcomeWire(this);
     }
 
     /// <summary>Field number for the "key" field.</summary>
@@ -896,27 +894,15 @@ namespace Rasm.Contracts.Ui {
       }
     }
 
-    /// <summary>Field number for the "correlation" field.</summary>
-    public const int CorrelationFieldNumber = 6;
-    private pb::ByteString correlation_ = pb::ByteString.Empty;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pb::ByteString Correlation {
-      get { return correlation_; }
-      set {
-        correlation_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as DeckReceiptWire);
+      return Equals(other as DeckOutcomeWire);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(DeckReceiptWire other) {
+    public bool Equals(DeckOutcomeWire other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -928,7 +914,6 @@ namespace Rasm.Contracts.Ui {
       if (!object.Equals(Elapsed, other.Elapsed)) return false;
       if (!object.Equals(Outcome, other.Outcome)) return false;
       if (PayloadDigest != other.PayloadDigest) return false;
-      if (Correlation != other.Correlation) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -941,7 +926,6 @@ namespace Rasm.Contracts.Ui {
       if (elapsed_ != null) hash ^= Elapsed.GetHashCode();
       if (outcome_ != null) hash ^= Outcome.GetHashCode();
       if (PayloadDigest.Length != 0) hash ^= PayloadDigest.GetHashCode();
-      if (Correlation.Length != 0) hash ^= Correlation.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -980,10 +964,6 @@ namespace Rasm.Contracts.Ui {
         output.WriteRawTag(42);
         output.WriteBytes(PayloadDigest);
       }
-      if (Correlation.Length != 0) {
-        output.WriteRawTag(50);
-        output.WriteBytes(Correlation);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1014,10 +994,6 @@ namespace Rasm.Contracts.Ui {
         output.WriteRawTag(42);
         output.WriteBytes(PayloadDigest);
       }
-      if (Correlation.Length != 0) {
-        output.WriteRawTag(50);
-        output.WriteBytes(Correlation);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1043,9 +1019,6 @@ namespace Rasm.Contracts.Ui {
       if (PayloadDigest.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeBytesSize(PayloadDigest);
       }
-      if (Correlation.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeBytesSize(Correlation);
-      }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -1054,7 +1027,7 @@ namespace Rasm.Contracts.Ui {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(DeckReceiptWire other) {
+    public void MergeFrom(DeckOutcomeWire other) {
       if (other == null) {
         return;
       }
@@ -1078,9 +1051,6 @@ namespace Rasm.Contracts.Ui {
       }
       if (other.PayloadDigest.Length != 0) {
         PayloadDigest = other.PayloadDigest;
-      }
-      if (other.Correlation.Length != 0) {
-        Correlation = other.Correlation;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1127,10 +1097,6 @@ namespace Rasm.Contracts.Ui {
             PayloadDigest = input.ReadBytes();
             break;
           }
-          case 50: {
-            Correlation = input.ReadBytes();
-            break;
-          }
         }
       }
     #endif
@@ -1174,10 +1140,6 @@ namespace Rasm.Contracts.Ui {
           }
           case 42: {
             PayloadDigest = input.ReadBytes();
-            break;
-          }
-          case 50: {
-            Correlation = input.ReadBytes();
             break;
           }
         }

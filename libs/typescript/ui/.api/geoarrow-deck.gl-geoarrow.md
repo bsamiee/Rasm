@@ -26,7 +26,7 @@ Extension-type metadata infers the geometry column and every layer takes a singl
 |  [04]   | `ColorAccessor`             | color column    | `arrow.Data<FixedSizeList<Uint8>>` (RGBA) OR a `Color \| Color[]` fn           |
 |  [05]   | `NormalAccessor`            | normal column   | `arrow.Data<FixedSizeList<Float32>>` — `GeoArrowPointCloudLayer.getNormal`     |
 |  [06]   | `TimestampAccessor`         | temporal column | `arrow.Data<List<Float>>` — `GeoArrowTripsLayer.getTimestamps` animated paths  |
-|  [07]   | `GeoArrowPickingInfo`       | pick receipt    | `PickingInfo & { object?: arrow.StructRowProxy }` — zero-copy picked Arrow row |
+|  [07]   | `GeoArrowPickingInfo`       | pick result     | `PickingInfo & { object?: arrow.StructRowProxy }` — zero-copy picked Arrow row |
 |  [08]   | `GeoArrowLayerData<T>`      | data envelope   | `{ data, length, attributes? }` — the binary-attribute carrier                 |
 |  [09]   | `TypedArray`                | binary buffer   | the GPU attribute buffer element type                                          |
 

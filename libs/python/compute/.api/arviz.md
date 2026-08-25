@@ -215,10 +215,10 @@
 - within-lib: the `.azstats` accessor mirrors every free diagnostic as a chained `ds.azstats.<op>()` method; `compare -> extract`/`weight_predictions` folds stacking weights into model-averaged draws without leaving xarray; `reloo`/`loo_kfold` drive a `SamplingWrapper` subclass (`sel_observations`/`sample`/`get_inference_data`/`log_likelihood__i`) for exact held-out refit.
 
 [LOCAL_ADMISSION]:
-- arviz is offline study work reading the `pm.sample` `DataTree`: capture the `rhat`/`ess`/`mcse` (or `summary(kind='diagnostics')`) receipt before any posterior claim, the `loo`/`compare` receipt before any model-selection claim, and `psense_summary` as the prior-robustness receipt. Diagnostics feed the C# `Rasm.Compute` model rail; no production runtime imports arviz.
+- arviz is offline study work reading the `pm.sample` `DataTree`: capture the `rhat`/`ess`/`mcse` (or `summary(kind='diagnostics')`) diagnostics before any posterior claim, the `loo`/`compare` scores before any model-selection claim, and `psense_summary` as the prior-robustness check. Diagnostics feed the C# `Rasm.Compute` model rail; no production runtime imports arviz.
 
 [RAIL_LAW]:
 - Package: `arviz`
 - Owns: backend-agnostic Bayesian diagnostics, the full PSIS-LOO family, stacking/BMA comparison, prior/likelihood sensitivity, predictive divergence and metrics, survival curves, credible intervals, the `.azstats` accessor, the `rcParams` registry, and posterior visualization over `xarray.DataTree`
-- Accept: a `DataTree` posterior via `from_dict`/`convert_to_datatree`, analyzed with `rhat`/`ess`/`loo`/`summary`/`psense` (free-function or chained `.azstats`), defaults tuned through `rcParams`/`rc_context`, with a captured diagnostic + LOO receipt before any model claim
-- Reject: hand-rolled R-hat/ESS/PSIS-LOO/sensitivity arviz owns; reading nonexistent `elpd_loo`/`p_loo`/`hdi_3%` field names; visualization without a `DataTree` receipt; treating `InferenceData` as a container distinct from `DataTree`
+- Accept: a `DataTree` posterior via `from_dict`/`convert_to_datatree`, analyzed with `rhat`/`ess`/`loo`/`summary`/`psense` (free-function or chained `.azstats`), defaults tuned through `rcParams`/`rc_context`, with `rhat`/`ess` diagnostics and a `loo` score before any model claim
+- Reject: hand-rolled R-hat/ESS/PSIS-LOO/sensitivity arviz owns; reading nonexistent `elpd_loo`/`p_loo`/`hdi_3%` field names; visualization without a `DataTree`; treating `InferenceData` as a container distinct from `DataTree`

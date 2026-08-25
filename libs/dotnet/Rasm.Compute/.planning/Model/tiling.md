@@ -8,7 +8,6 @@
 
 - [02]-[TILE_PLAN]: fixed-bucket grid derivation with row-owned pad, blend, and layout kernels; the roster→tensor→lane fold binding every product of one forward pass to its own bytes; the edge-row taper table; the shared weight plane; and one accumulating admission naming every refusal a grid can carry.
 - [03]-[TILE_FOLD]: the gather-run-scatter mosaic over one bound flow, its measured coverage floor, its item-partitioned close, and the origin-window canary two providers compare on.
-- [04]-[RESEARCH]: open questions.
 
 ## [02]-[TILE_PLAN]
 
@@ -471,7 +470,7 @@ public sealed partial class TilePlan {
 - Law: a partly-built mosaic never escapes. Every plane already allocated returns to the pool before a fault leaves, so an abandoned grid strands no arena and a caller that encodes and drops the mosaic returns each rental through one `Dispose`.
 - Law: this fold SPILLS NOTHING. Every field accumulates in a pooled host arena for the whole grid and the mosaic owns those rentals, so PureHDF appears on no signature this page carries and no archive member reaches a Compute type. A plane budget past the arena ceiling is a REFUSAL at admission — `TilePlan`'s addressable gate — rather than a band-sealing writer whose ordering law had no producer to enforce it against.
 - Auto: the fold allocates one cleared `MemoryOwner<float>` per field, walks `plan.Windows` sequentially through the one bound input, gathers each tile through the layout's own kernel, runs ONE pulse per window, zips the produced tensors against the plan's derived roster by position, scatters each field lane through its taper and reads each grade off its lane, accumulates the shared weight plane once per window, proves coverage, normalizes every plane in parallel, and hands back the mosaic. Result cardinality proves against the TENSOR count and each tensor's element count against its own modality-aware expectation.
-- Receipt: a mosaic reports as one `ComputeReceipt.ModelRun` whose mode is the tiled key and whose `BatchSize` is `TileMosaic.Tiles`, the count inferred; per-tile and per-product receipt fan-out are the rejected forms for the same reason a batch window emits one — the grid ran once.
+- Result: `InferTiled` returns one `TileMosaic` carrying the planes, grades, plan, tile count, and measured coverage.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, CommunityToolkit.HighPerformance, LanguageExt.Core
 - Growth: a further mosaic-level measured column is one field on `TileMosaic`; a further per-window observation is one column on `TileWindow`; zero new surface for a wider roster, a packed tensor, or an added grade.
 - Boundary: `InferTiled` composes the `Model/sessions#SESSION_CAPSULE` shared-arena `BoundFlow` and NEVER opens a session — the flow's bound input is the bucket and its bound outputs are the tensor roster, so a mosaic and its session warm-up name the same shapes by construction. Tiles run sequentially through the one bound input because the binding holds a single device-resident staging value; intra-tile parallelism belongs to the session's own thread pool, and the only fold this page partitions itself is the per-product normalize, which touches no binding at all. Every arena is a pooled `MemoryOwner<float>` released on the fold's exit, and the mosaic transfers one accumulation rental per product to the caller, so a failed pulse disposes every plane before the fault leaves.
@@ -570,11 +569,3 @@ public static partial class RunOps {
     }
 }
 ```
-
-## [04]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

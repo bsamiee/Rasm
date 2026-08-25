@@ -1,14 +1,14 @@
 # [RASM_EVENT]
 
-`Rasm.Domain` (`Domain/Event.cs`) owns the .NET branch's CloudEvents 1.0 envelope mechanics — core grammar, mint boundary, carrier access, and format contract. Generated `rasm.contracts.event.Extensions` owns the estate extension vocabulary above this foundation. Envelopes announce a fact and gain no authority over it: the producing receipt stays evidence truth and a consumer routes on attributes without opening the payload.
+`Rasm.Domain` (`Domain/Event.cs`) owns the .NET branch's CloudEvents 1.0 envelope mechanics — core grammar, mint boundary, carrier access, and format contract. Generated `rasm.contracts.event.Extensions` owns the estate extension vocabulary above this foundation. Envelopes announce a fact and gain no authority over it: the producing result stays the truth and a consumer routes on attributes without opening the payload.
 
-Bindings, filters, subscriptions, and `dataref` residence policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `rails.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[05]-[SIGNAL_TAP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
+Bindings, filters, subscriptions, and `dataref` residence policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `rails.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[02]-[CAPSULE]`, `Hlc` and `CausalStamp` from `frame.md` `[04]-[STAMP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
 
 ## [01]-[INDEX]
 
 - [02]-[EVENT_GRAMMAR]: `EventType`, `EventSource`, and `EventId` — admitted Rasm profile vocabularies over the SDK's standard attributes.
 - [03]-[HANDLING_POLICY]: `DataGrade` and `BrokerReach` — interior egress policy projected once onto the generated event contract above this foundation.
-- [04]-[ENVELOPE_MINT]: generic `CloudEventMint`, typed `RasmEventMint<T>`, descriptor-total `EventExtensionContract<T>`, the mint/admission pair, and `EventCarrier` propagation.
+- [04]-[ENVELOPE_MINT]: generic `CloudEventMint`, typed `RasmEventMint<T>`, descriptor-total `EventExtensionContract<T>`, the mint/admission pair, the one `Publish` door, and `EventCarrier` propagation.
 - [05]-[FORMAT_CONTRACT]: `EventFormat` rows over JSON, Protobuf, and Avro with derived structured/batch framing, `EventFrame` the body-and-framing carrier, and the one encode/decode pair.
 - [06]-[ACCEPTANCE]: contract, profile, descriptor, and format proofs.
 - [07]-[DENSITY_BAR]: one owner per axis.
@@ -156,21 +156,21 @@ public sealed partial class DataGrade {
 
 ## [04]-[ENVELOPE_MINT]
 
-- Owner: `CloudEventMint` owns the generic standard construction shape; `RasmEventMint<T>` composes the Rasm grammar, typed content-key subject, and whole generated extension message; `EventExtensionContract<T>` derives the SDK projection from generated descriptors and validates the message; `EventEnvelope` owns the generic mint/raise funnel; `RasmEventEnvelope` owns profile mint/admission.
-- Entry: `EventEnvelope.Mint(request, key)` returns the generic strict SDK envelope. `RasmEventEnvelope.Mint(request, contract, key)` projects the generated message without a field roster, and `.Admit(envelope, contract, key)` returns the admitted typed profile. `EventEnvelope.Raise` remains the binary-mode inverse.
+- Owner: `CloudEventMint` owns the generic standard construction shape; `RasmEventMint<T>` composes the Rasm grammar, typed content-key subject, and whole generated extension message; `EventExtensionContract<T>` derives the SDK projection from generated descriptors, validates the message, and stamps the causal slots by descriptor name; `EventEnvelope` owns the generic mint/raise funnel; `RasmEventEnvelope` owns profile mint/admission and the ONE publish door every durable kernel fact crosses.
+- Entry: `EventEnvelope.Mint(request, key)` returns the generic strict SDK envelope. `RasmEventEnvelope.Publish(request, contract, clock, key)` is the producer's door — it takes `CausalStamp.Now(clock)`, writes the five causal slots onto the generated message through `contract.Stamp`, seals `time` with the stamp's physical half, and mints; `RasmEventEnvelope.Mint(request, contract, key)` is the already-stamped form a relay re-mints through, and `.Admit(envelope, contract, key)` returns the admitted typed profile. `EventEnvelope.Raise` remains the binary-mode inverse.
 - Auto: `CloudEvent.Validate()` throws on a malformed envelope, so construction, projected extension writes, and validation funnel through one `Op.Catch`; the first refused field is the verdict and no partly stamped instance escapes.
 - Law: the SDK indexer stamps IN PLACE, so a refused write leaves the instance partly stamped; what the rail guarantees is that such an instance is UNREACHABLE — `Mint` holds the only reference until `Validate()` returns it, and a refusal returns no envelope at all. A rail claiming the stronger "no half-stamped envelope exists" would be a law with no producer.
-- Law: the creation-time trace is the generated `event.Extensions` `traceparent`/`tracestate`/`baggage` triplet projected descriptor-total by `EventExtensionContract<T>`. The transport carrier remains the current-hop context; this kernel neither names nor re-stamps any generated trace field.
+- Law: the creation-time trace is the generated `event.Extensions` `traceparent`/`tracestate`/`baggage` triplet, stamped ONCE at `Publish` from the live span's `TraceCarrier` and projected descriptor-total by `EventExtensionContract<T>`; `sequence` carries the stamp's logical half and `recordedtime` the wall instant the mint read. The transport carrier remains the current-hop context, and no ingress re-stamps a creation-time slot — `Stamp` resolves each slot through `Descriptor.FindFieldByName`, so a generated contract missing one refuses typed instead of dropping the frame.
 - Law: `datacontenttype` and `dataschema` are row data off the serdes arrow that produced the body; both collapse to the SDK's nullable slot at this one crossing, exactly as optional `subject` does.
-- Law: `time` is the occurrence stamp and `recordedtime` is when the producer created the CloudEvent. A receiver preserves both and records its own arrival time only in its interior delivery carrier; re-stamping `recordedtime` at ingress erases the producer-to-receiver interval and violates the extension.
+- Law: `time` is the occurrence stamp — the HLC physical half on every published profile event, so `(time, sequence)` IS the causal order — and `recordedtime` is when the producer created the CloudEvent. A receiver preserves both, records its own arrival time only in its interior delivery carrier, and measures skew from `recordedtime` against that arrival; re-stamping `recordedtime` at ingress erases the producer-to-receiver interval and violates the extension.
 - Law: the SDK's `DateTimeOffset` timestamp surface resolves 100-nanosecond ticks. Mint refuses a finer `Instant`, and descriptor projection refuses a generated `Timestamp` whose nanos are not tick-aligned; admission never rounds producer time silently.
 - Law: `subject` is OPTIONAL under a non-empty validator, so a fact whose payload carries no content key omits the slot — a required slot makes every lifecycle and topic producer fabricate an address, and the empty string such a producer reaches for is the one value the specification's own validator refuses.
 - Law: descriptor field number order is the sole projection walk. String fields carrying Protovalidate `uri` or `uri_ref` rules become the SDK's URI or URI-reference type; timestamps, integers, booleans, bytes, and ordinary strings map by generated field kind. Any unsupported field kind refuses at the contract bridge instead of silently degrading to a string.
 - Law: `EventCarrier` publishes absence on both halves. It resolves only attributes already declared on the envelope, so an unknown or over-ceiling peer field drops without this foundation inventing or mirroring a roster.
-- Receipt: none minted — the message envelope PROJECTS the producing rail's own typed receipt and adds address, trace, and handling facts alone; a parallel event ledger beside those receipts is the deleted form.
+- Law: the message envelope PROJECTS the producing operation's own result as `data` and adds address, trace, tenant, stamp, and handling facts alone; a parallel event ledger, header wire, or fact stream beside the results is the deleted form.
 - Packages: CloudNative.CloudEvents, Celly.Protovalidate, Google.Protobuf, Generator.Equals, LanguageExt.Core, NodaTime, BCL inbox (`System.Net.Mime`).
 - Growth: a new estate extension changes only the generated descriptor; the projection walk, declaration set, construction, and decode consume it automatically. A new unsupported protobuf field kind fails visibly until one CloudEvents abstract-type correspondence is added.
-- Boundary: `Rasm` still references no sibling. A higher package references `Rasm.Contracts` and constructs `EventExtensionContract<Extensions>` from the generated `Parser`/`Descriptor` plus its process validator; the whole message crosses this kernel API. The generic `CloudEventMint` remains available to future apps whose extension vocabulary is not the Rasm profile.
+- Boundary: `Rasm` still references no sibling. A higher package references `Rasm.Contracts`, constructs `EventExtensionContract<Extensions>` from the generated `Parser`/`Descriptor` plus its process validator, and hands the composition's one `Hlc` to `Publish`; the whole message crosses this kernel API. The generic `CloudEventMint` remains available to future apps whose extension vocabulary is not the Rasm profile.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -286,6 +286,19 @@ public sealed record EventExtensionContract<TExtensions>(
         return Valid(message, key).Map(_ => message);
     });
 
+    public Fin<TExtensions> Stamp(TExtensions message, CausalStamp stamp, Op key) => key.Catch(() => {
+        TExtensions stamped = message.Clone();
+        foreach ((string slot, Option<object> value) in stamp.Slots) {
+            FieldDescriptor? field = Descriptor.FindFieldByName(slot);
+            if (field is null) {
+                return Fin.Fail<TExtensions>(new KernelFault.InvalidValue(
+                    Label: slot, Requirement: $"a {Descriptor.FullName} field carrying the causal slot", Key: Some(key)));
+            }
+            value.Iter(held => field.Accessor.SetValue(stamped, ToGenerated(field: field, value: held)));
+        }
+        return Fin.Succ(stamped);
+    });
+
     private Fin<Unit> Valid(TExtensions message, Op key) => key.Catch(() => {
         IReadOnlyList<Violation> violations = Validator.Validate(message);
         return violations.Count == 0
@@ -359,12 +372,12 @@ public static partial class EventEnvelope {
             Id = request.Id,
             Source = request.Source,
             Type = request.Type,
-            Subject = request.Subject.IfNoneUnsafe(default(string)),
+            Subject = request.Subject.Match<string?>(Some: static held => held, None: static () => null),
             Time = request.Time.Match(
                 Some: static value => (DateTimeOffset?)value.ToDateTimeOffset(),
                 None: static () => null),
-            DataSchema = request.DataSchema.IfNoneUnsafe(default(Uri)),
-            DataContentType = request.DataContentType.IfNoneUnsafe(default(string)),
+            DataSchema = request.DataSchema.Match<Uri?>(Some: static held => held, None: static () => null),
+            DataContentType = request.DataContentType.Match<string?>(Some: static held => held, None: static () => null),
             Data = request.Data,
         }))
         from _extensions in request.Extensions.TraverseM(field => field.Write(envelope: envelope, key: key)).As()
@@ -394,7 +407,7 @@ public static partial class EventEnvelope {
             : key.Catch(() => Fin.Succ(attributes.Fold(
             new CloudEvent(CloudEventsSpecVersion.V1_0, declared) {
                 Data = data,
-                DataContentType = dataType.Map(static type => type.ToString()).IfNoneUnsafe(default(string)),
+                DataContentType = dataType.Map(static type => type.ToString()).Match<string?>(Some: static held => held, None: static () => null),
             },
             static (held, row) => Admitted(envelope: held, name: row.Name, value: row.Value))))
             .Bind(envelope => Admit(envelope, key));
@@ -417,6 +430,17 @@ public static partial class EventEnvelope {
 }
 
 public static class RasmEventEnvelope {
+    public static Fin<CloudEvent> Publish<TExtensions>(
+        RasmEventMint<TExtensions> request,
+        EventExtensionContract<TExtensions> contract,
+        Hlc clock,
+        Op key)
+        where TExtensions : class, IMessage<TExtensions> {
+        CausalStamp stamp = CausalStamp.Now(clock);
+        return contract.Stamp(message: request.Extensions, stamp: stamp, key: key)
+            .Bind(stamped => Mint(request with { Time = stamp.Clock.Physical, Extensions = stamped }, contract, key));
+    }
+
     public static Fin<CloudEvent> Mint<TExtensions>(
         RasmEventMint<TExtensions> request,
         EventExtensionContract<TExtensions> contract,
@@ -700,6 +724,8 @@ flowchart LR
     Key["UInt128 subject"] -->|ContentHash.Hex| Profile
     Contract["generated Extensions message"] -->|descriptor-total projection| Profile
     Contract -->|descriptor-derived declarations| Decode["EventEnvelope.Decode"]
+    Stamp["frame.md CausalStamp — trace · tenant · Hlc"] -->|"Stamp — five slots by descriptor name"| Publish["RasmEventEnvelope.Publish — ONE producer door"]
+    Publish -->|"time = physical half"| Profile
     Profile -->|CloudEventMint| Mint["EventEnvelope.Mint — ONE Validate funnel"]
     Mint -->|Fin CloudEvent| Format["EventFormat — json · protobuf · avro"]
     Format -->|arity discriminates| Encode["EventEnvelope.Encode"]
@@ -714,7 +740,7 @@ flowchart LR
 - Generic surface: mint and admit a non-Rasm CloudEvent with omitted `time`, a valid app-owned extension, and SDK-owned standard attributes; the round trip must not invoke the Rasm grammar.
 - Rasm identity: mint and admit independently constructed source and type values whose domains agree, and refuse a profile segment with uppercase, a leading or trailing hyphen, or repeated hyphens, plus a type whose segment count misses the grammar's arity. Mint and admit an operation id whose text contains no capability prefix, prove uniqueness is the `(source, id)` pair, prove a present `subject` is exactly `ContentHash.Hex`, and refuse uppercase or short digest text.
 - Standard attributes: preserve occurrence `time`, optional absolute `dataschema`, `datacontenttype`, and payload independently; a registry subject, package coordinate, or contract generation presented as `dataschema` must have no special admission path.
-- Generated extensions: populate every field on one generated `Extensions` value and prove descriptor-number-order construction and decode return the same generated value. The fixture must cover ordinary strings, the `dataref` URI-reference, integer sample rate, and timestamp fields; a generated timestamp with sub-tick nanos and a mint `Instant` finer than 100 nanoseconds must refuse rather than round. Adding a descriptor field must break this proof until its CloudEvents abstract type is supported.
+- Generated extensions: populate every field on one generated `Extensions` value and prove descriptor-number-order construction and decode return the same generated value; `Publish` under a live tenant-stamped span must land `traceparent`, `baggage` carrying `rasm.tenant`, `sequence`, and `recordedtime`, seal `time` with the stamp's physical half, and a span-less publish must still carry the tenant pair. The fixture must cover ordinary strings, the `dataref` URI-reference, integer sample rate, and timestamp fields; a generated timestamp with sub-tick nanos and a mint `Instant` finer than 100 nanoseconds must refuse rather than round. Adding a descriptor field must break this proof until its CloudEvents abstract type is supported.
 - Generated validation: one invalid generated value must refuse before mint and after each decode path with the generated rule id preserved. Duplicate extension declarations and duplicate binary attributes refuse; unknown peer attributes and peer names beyond the CloudEvents ceiling do not enter the returned generated message and do not fault the whole event.
 - Formats: round-trip JSON structured and non-empty batch, admit inbound JSON `[]`, and round-trip every official protobuf data and attribute `oneof` arm plus non-empty and empty `CloudEventBatch` messages. Round-trip Avro structured mode. Refuse an empty local encode request, Avro batch mode, and unrelated media types that merely end in `+json`, `+protobuf`, or `+avro`; binary placement remains a binding proof over already-encoded data.
 
@@ -734,8 +760,8 @@ One owner per axis; capability is a row, case, or column, never a sibling surfac
 |  [08]   | Handling policy      | `DataGrade` + `BrokerReach`           | `Redact` obligation / `Broker` reach   |
 |  [09]   | Generated bridge     | `EventExtensionContract<T>`           | descriptor walk + validation           |
 |  [10]   | Construction shape   | `CloudEventMint` / `RasmEventMint<T>` | generic standard / typed profile       |
-|  [11]   | Mint boundary        | `EventEnvelope` / `RasmEventEnvelope` | generic funnel / profile admission     |
-|  [12]   | Creation-time trace  | generated `Extensions` projection     | publisher / consumer boundary          |
+|  [11]   | Mint boundary        | `EventEnvelope` / `RasmEventEnvelope` | generic funnel / `Publish` + admission |
+|  [12]   | Creation-time stamp  | `CausalStamp` + `Contract.Stamp`      | five slots, once, at `Publish`         |
 |  [13]   | Propagation seam     | `EventCarrier`                        | `Option`-publishing accessor pair      |
 |  [14]   | Format rows          | `EventFormat`                         | structured/batch rows + one formatter  |
 |  [15]   | Codec options        | `EventJson`                           | one serializer + document identity     |
@@ -746,7 +772,6 @@ One owner per axis; capability is a row, case, or column, never a sibling surfac
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

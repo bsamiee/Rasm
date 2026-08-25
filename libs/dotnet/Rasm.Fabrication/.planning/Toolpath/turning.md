@@ -45,7 +45,7 @@ The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`
 - Law: `Loaded` is the one pass constructor; an operation stating its own load carries it, and every other pass derives `TurnLoad.Cutting` per cutting span through `CuttingData.Evaluate(CutIntent)`. Knurl pressure states `TurnLoad.Forming` instead of impersonating chip-removal force, and a non-removing pass carries no load.
 - Law: `CutIntent` admits UnitsNet quantities, so the load boundary converts machining-canonical millimetre, rpm, and feed scalars through `Length.FromMillimeters`, `RotationalSpeed.FromRevolutionsPerMinute`, and `Speed.FromMillimetersPerMinutes` exactly once; radial depth and diameter derive engagement on the admitted intent.
 - Entry: `Turning.Generate(TurnRequest)` is the only raw operation.
-- Receipt: `TurnPass` carries moves, directives, load, its `RemovalEnvelope`, and its own measured seconds, so the `SpecializedToolpathEnvelope` the motion lane admits states a real duration; `TurnProgram` carries ordered passes, barriers, residual radial bounds, and physics evidence.
+- Output: `TurnPass` carries moves, directives, load, its `RemovalEnvelope`, and its own measured seconds, so the `SpecializedToolpathEnvelope` the motion lane admits states a real duration; `TurnProgram` carries ordered passes, barriers, residual radial bounds, and physics evidence.
 - Packages: `Thinktecture.Runtime.Extensions` owns generated closed families; `LanguageExt.Core` owns accumulated admission and traversal; `System.Numerics.Tensors` owns batch finiteness; `Geometry2D/algebra.md` owns the material-region clip and `Geometry2D/arcs.md` the residual biarc recovery; `ToolAssembly.Snapshot` supplies provider-detached insert width and lead angle through `ToolMeasure`; `UnitsNet` types every admitted policy magnitude and the `CutIntent` load boundary; `Rasm.Domain` `ToleranceLane` supplies the chord and arc gates off the profile's own `Context`; `Rasm.Solving` `FitPolicy.Of` admits the spline fit against that same context under this page's `Op`.
 - Boundary: `Turning` owns process geometry and semantic directives; posting admits no typed `TurnProgram` counterpart and reads the lowered `MotionDirective` stream alone.
 
@@ -568,7 +568,6 @@ public sealed partial class TurnRequest {
             .Bind(_ => Validate(demand, steps, out TurnRequest request).Admitted(request));
 }
 
-// --- [RECEIPTS] ------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LatheDirective {
     private LatheDirective() { }
@@ -905,7 +904,7 @@ public static class Turning {
             profile, profile.Tolerance.For(ToleranceLane.Arc).Value, demand.Policy.BiarcProbeFloor))
         from recovered in trace
             .Recovery(new KernelFault.InvalidValue("turning", "turning:biarc-recover"))
-            .Map(static evidence => evidence.Result)
+            .Map(static evidence => evidence.Output)
         from moves in Native(recovered, demand, sweep, side)
         select moves;
 
@@ -1289,7 +1288,6 @@ public static class Turning {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

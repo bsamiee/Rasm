@@ -8,7 +8,7 @@
 - [01]-[EXEC](.planning/proc/exec.md): Runtimes as rows — a bun swap is one Layer selection and a child process a declarative value.
 - [02]-[CONFIG](.planning/proc/config.md): One ordered provider chain answering every read; the boot-validated contract resolves once.
 - [03]-[FLAG](.planning/proc/flag.md): Feature evaluation over the real OpenFeature SDK — targeting rules decoded and folded as data.
-- [04]-[LIFE](.planning/proc/life.md): Startup and health as one skeleton — each row runs under its own budget and grades one receipt.
+- [04]-[LIFE](.planning/proc/life.md): Startup and health as one skeleton — each row runs under its own budget and folds into one `Drained` tally.
 - [05]-[WORKER](.planning/proc/worker.md): Off-thread compute at full platform depth — a closed schema union speaks for every crossing.
 
 [NET]:
@@ -18,7 +18,7 @@
 - [09]-[COORDINATE](.planning/net/coordinate.md): Distributed agreement beside the fanout plane — lease, elect, and guarded state as one port.
 
 [OTEL]:
-- [10]-[EMIT](.planning/otel/emit.md): OTLP egress, W3C continuation, and a native local conformance receipt from one live policy.
+- [10]-[EMIT](.planning/otel/emit.md): OTLP egress, W3C continuation, and a native local conformance diagnostic from one live policy.
 - [11]-[SERVER](.planning/otel/server.md): Node auto-instrumentation rows over the async-local manager — self-egress excluded, engine series bound.
 - [12]-[INSTRUMENT](.planning/otel/instrument.md): Document instrumentation rows over the zone manager; interaction admission gates span cardinality.
 - [13]-[CRASH](.planning/otel/crash.md): One structured fatal emission for every settled `Cause` — a total fold no failure class escapes.
@@ -34,7 +34,7 @@
 - [21]-[CLI](.planning/serve/cli.md): Verb families contributed as `Command` values, folded by the app into one root.
 
 [WORK]:
-- [22]-[ENTITY](.planning/work/entity.md): Cluster entities and the work plane's settled-receipt carrier over tiered mailboxes.
+- [22]-[ENTITY](.planning/work/entity.md): Cluster entities and the work plane's `Settled` carrier over tiered mailboxes.
 - [23]-[FLOW](.planning/work/flow.md): Suspend-and-replay workflows — recorded activities never re-run their side effects.
 - [24]-[QUEUE](.planning/work/queue.md): Restart-surviving job families with keyed quotas spent through one store-backed counter.
 - [25]-[SCHEDULE](.planning/work/schedule.md): Calendar recurrence as cadence rows — timezone-intrinsic cron, misfire windows, catch-up.

@@ -346,7 +346,7 @@ declare namespace Verdict {
 - Law: this owner is the one dialect crossing between the SDK's uppercase `StandardResolutionReasons` and the spec's lowercase result-reason values — `_SPEC` is the total keyed map, the convention owner holds the spec vocabulary alone, and an unrecognized SDK reason folds to the spec's own unknown row rather than reaching the wire raw.
 - Law: `Flags.gate` satisfies the `security` port — a Layer requiring the already-built `Flags` service and projecting the claim set to subject axes — so the access fold and direct consumers share one provider cell, memo, feed, and SDK lifecycle; the gate never mounts a second `Flags.Default` beneath itself.
 - Entry: `Flags.Default(digest, mode, outcomes)` at the root; `flags.evaluate(flag, subject, fallback)` everywhere; `Flags.gate` beside it for the access graph; `client.track(event, context, details)` at the business-outcome site the roster names.
-- Receipt: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
+- Output: every read is a `Verdict` — reason, code, variant, and instant travel with the value, so audit and telemetry consume evaluation evidence with no second surface.
 
 ```typescript
 import {
@@ -716,7 +716,6 @@ export { Flags, Rollout, Sticky, Verdict };
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -1,15 +1,13 @@
 # [IAC_POLICY]
 
-`Guard`, `Drift`, and `Reconcile` own the policy plane's verdict directions. `Guard` judges desired state before apply through one `PolicyPackArgs` value of policies-as-data rows attached by `Automation.Options.policyPacks`. Typed helpers narrow each policy onto the resource class its tier constructs: digest-pinned images, non-superuser Postgres roles, TLS edges, protected data with scheduled backups, namespace fences, and managed-by stamps. `Drift` projects `Automation.reconcile` receipts into `DriftReport` rows with docker-cell store conformance. `Reconcile` carries typed `Stack` CR rows through the Pulumi Kubernetes Operator. `Evidence` unifies run settlement, drift, rotation, secret-change, and hosted-webhook deliveries under one tagged union and never-failing sink. Growth is one policy row, report field, evidence case, or `Stack` CR row.
+`Guard` binds desired-state policy rows before apply, `Drift` publishes Pulumi's native `PreviewResult` across a fleet and reads docker-cell store conformance, and `Reconcile` carries typed `Stack` CR rows through the Pulumi Kubernetes Operator.
 
 ## [01]-[INDEX]
 
-- [02]-[PACK_ASSEMBLY]: the pack value, enforcement vocabulary, compliance frames; `Guard`.
-- [03]-[POLICY_ROWS]: the typed validation, stack-invariant, and remediation rows; `Guard`.
-- [04]-[DRIFT_REPORT]: the report owner: drifted rows, rotation watch, skew evidence; `Drift`.
-- [05]-[EVIDENCE_SPINE]: the typed evidence union, the sink contract, file sink, sweep cursor; `Evidence`.
-- [06]-[DRIFT_SWEEP]: the reconcile projection, the fleet sweep, the conformance read-back; `Drift`.
-- [07]-[RECONCILE_LOOP]: the in-cluster PKO operator and its typed Stack CR rows; `Reconcile`.
+- [02]-[PACK_ASSEMBLY]: `Guard` pack value, enforcement vocabulary, and compliance frames.
+- [03]-[POLICY_ROWS]: `Guard` validation, stack-invariant, and remediation rows.
+- [04]-[DRIFT_SWEEP]: native reconcile results, the fleet sweep, and the conformance read-back; `Drift`.
+- [05]-[RECONCILE_LOOP]: `Reconcile` in-cluster PKO operator and typed Stack CR rows.
 
 ## [02]-[PACK_ASSEMBLY]
 
@@ -17,7 +15,7 @@
 - Owner: `Guard`, the `PolicyPackArgs` value — the `policies` array is the whole pack, `enforcementLevel: "mandatory"` is the pack default each row may override (`"advisory"` for stamps, `"remediate"` for fix-forward rows), and metadata (`description`, `severity`, `framework`, `remediationSteps`) rides each row as data the engine surfaces with the violation.
 - Law: compliance is a frame on the row — `_CIS` is the one `PolicyComplianceFramework` vocabulary value, stamped on the rows whose invariant realizes a benchmark control, so an auditor reads coverage off the pack value and a compliance mapping is a `framework` field, never a parallel document.
 - Law: the pack module is pure and the analyzer entry is a boot edge — this module exports the args value; a one-line entry module (`new PolicyPack("rasm-guard", Guard)`) is the analyzer process's own top level, executed by the engine's policy plugin, and `Automation` attaches the entry's path via `policyPacks`, so the lib stays side-effect-free and the pack still gates every run.
-- Law: violations are receipt material — the engine folds `ReportViolation` calls into the run's policy events; a `mandatory` violation fails the run before apply, and the receipt's diagnostics carry the evidence, so gating and reporting are one stream.
+- Law: `ReportViolation` feeds Pulumi's policy event callback, and a `mandatory` violation fails the lifecycle operation before apply.
 - Law: configuration is typed at the row — a policy with knobs declares `configSchema` and reads `args.getConfig<T>()`; a config-less policy declares none, knob defaults live in the schema, never in validator bodies, and a per-app enforcement override is `PolicyPackConfig` data at the entry, never a pack edit.
 - Growth: one policy row per invariant; a new benchmark is one frame value stamped on the rows it maps.
 - Boundary: attachment plumbing is `program/automation.md`'s options row; the narrowed classes are the tier pages' constructions; enforcement semantics (`remediate` apply order, `mandatory` abort) are the engine's contract.
@@ -327,158 +325,24 @@ const Guard: policy.PolicyPackArgs = {
 }
 ```
 
-## [04]-[DRIFT_REPORT]
-
-[DRIFT_REPORT]:
-- Owner: `DriftReport`, one `Schema.Class` reusing the automation owner's field schemas — `summary` and `drifted` are `RunReceipt.fields.summary` and `RunReceipt.fields.steps` composed directly, so the drift vocabulary cannot fork from the receipt vocabulary — with `rotations` (the urns of certificate resources whose reissue window is open) and the `Option`-carried `skew` pair.
-- Law: `clean` is a projection — no drifted row and no open rotation; a report is evidence, and acting on it (re-running `up`, bumping an epoch) is the caller's decision over data.
-- Law: rotation is type-token matched — a `tls:`-prefixed step whose op is not `same` is a certificate moving through its renewal window, the deploy-plane read of the `Certs` `earlyRenewalHours`/`readyForRenewal` law; the ACME lane's ARI-window reissue surfaces through the same prefix watch on its own type token, so one channel covers both lanes.
-- Law: skew is fold-audit evidence — the engine's change summary and the event-folded buckets must agree; a disagreement ships as the `skew` pair rather than a silent preference, because a fold that quietly trusts one source cannot detect its own decode drift.
-- Growth: a new watch family is one prefix row in the rotation filter or one projection field.
-- Boundary: step and summary shapes are `program/automation.md`'s; what a drifted board means is `operate/observe.md`'s content-hash law; in-cluster DDL divergence on the k8s arm is the runtime's fail-closed capability probe, ruled there — the `conform` read-back below exists ONLY for the docker cell whose daemon host the deploy plane can reach.
-- Packages: `effect` (`Schema`, `Option`); `../program/automation.ts` (`RunReceipt`).
-
-```typescript
-import type { Stack } from "@pulumi/pulumi/automation"
-import { Array, Effect, Option, pipe, Record, Schema, type Schedule } from "effect"
-import { Automation, DeployFault, RunReceipt } from "../program/automation.ts"
-import type { StackSpec } from "../program/spec.ts"
-
-class DriftReport extends Schema.Class<DriftReport>("DriftReport")({
-  stack: Schema.NonEmptyString,
-  summary: RunReceipt.fields.summary,
-  drifted: RunReceipt.fields.steps,
-  rotations: Schema.Array(Schema.String),
-  skew: Schema.optionalWith(
-    Schema.Struct({
-      expected: RunReceipt.fields.summary,
-      observed: RunReceipt.fields.summary,
-    }),
-    { as: "Option" },
-  ),
-}) {
-  get clean(): boolean {
-    return this.drifted.length === 0 && this.rotations.length === 0
-  }
-}
-```
-
-## [05]-[EVIDENCE_SPINE]
-
-[EVIDENCE_SPINE]:
-- Owner: `Evidence` — the deploy plane's one delivery vocabulary: `rows` is the tagged `Schema.Union` (`Run` carries a settled `RunReceipt`, `Drift` a projected `DriftReport`, `Fault` a projected per-stack failure, `Rotation` the open reissue windows, `SecretChange` the Doppler webhook delivery, `Hosted` the Pulumi Cloud webhook delivery), `wire` is the fused JSON codec every webhook sink decodes through, `ofVerdict` folds a sweep verdict into its rows, and `file` is the `FileSystem`-backed NDJSON sink — one vocabulary, so run, drift, rotation, and both webhook sources land on any sink interchangeably.
-- Law: a sink never fails — `Evidence.Sink<R>` types the error channel `never`, delivery failure logs through `Effect.ignoreLogged` as the ruled discard, and the sweep proceeds; evidence delivery is a tap, and a tap that can halt its source is the inversion this contract forecloses.
-- Law: the sink rides the branch platform contracts — `FileSystem.FileSystem` and `Path.Path` Tags carry the file sink, the sweep cursor persists through the `KeyValueStore.layerSchema` store read via `Effect.serviceOption` so an unwired root simply skips the checkpoint — Tags in domain code, Layers at the root, presence as data.
-- Law: webhook deliveries decode here — the Doppler secret-change delivery (`operate/secret.md`'s `Secrets.webhook` row) and the hosted `DriftDetected`/`UpdateFailed`/`DeploymentFailed` delivery (`operate/cloud.md`'s `Webhook` row) enter their receiving sink through `Evidence.wire` as the `SecretChange` and `Hosted` rows, so the two-source evidence-delivery law shares one decode and one dispatch.
-- Law: rotation is its own row — a report whose `rotations` set is inhabited yields a `Rotation` row beside its `Drift` row, so a certificate-window watcher routes on the tag and never re-scans report interiors.
-- Entry: `Evidence.file(directory)` as the standing sweep sink; `Evidence.wire` at any webhook receiver; `Evidence.ofVerdict(verdict)` wherever a check verdict becomes delivery material.
-- Growth: a new evidence source is one union row; a new delivery surface is one sink constructor over the platform Tag that carries it.
-- Boundary: run settle rows are minted by `program/automation.md` callers; the webhook resources that deliver into this vocabulary are `operate/secret.md`'s and `operate/cloud.md`'s rows; the boot edge that provides `NodeContext.layer` beneath these Tags is `program/automation.md`'s composition-root law.
-- Packages: `@effect/platform` (`FileSystem`, `KeyValueStore`, `Path`); `effect` (`Schema`, `Effect`, `Either`, `Array`, `Option`, `DateTime`); `../program/automation.ts` (`RunReceipt`, `DeployFault`).
-
-```typescript
-import { FileSystem, KeyValueStore, Path } from "@effect/platform"
-import { DateTime, Either } from "effect"
-
-const _hostedKinds = ["DriftDetected", "UpdateFailed", "DeploymentFailed"] as const
-
-const _Run = Schema.TaggedStruct("Run", { receipt: RunReceipt })
-const _Drifted = Schema.TaggedStruct("Drift", { report: DriftReport })
-const _Faulted = Schema.TaggedStruct("Fault", { stack: Schema.NonEmptyString, reason: Schema.NonEmptyString, detail: Schema.String })
-const _Rotation = Schema.TaggedStruct("Rotation", { stack: Schema.NonEmptyString, urns: Schema.Array(Schema.String) })
-const _SecretChange = Schema.TaggedStruct("SecretChange", { project: Schema.NonEmptyString, config: Schema.NonEmptyString })
-const _Hosted = Schema.TaggedStruct("Hosted", { stack: Schema.NonEmptyString, kind: Schema.Literal(..._hostedKinds) })
-
-const _Evidence = Schema.Union(_Run, _Drifted, _Faulted, _Rotation, _SecretChange, _Hosted)
-
-const _CURSOR = KeyValueStore.layerSchema(Schema.Struct({ cycle: Schema.Int, at: Schema.DateTimeUtc }), "iac/DriftCursor")
-
-declare namespace Evidence {
-  type Row = typeof _Evidence.Type
-  type Kind = Row["_tag"]
-  type Sink<R = never> = (rows: ReadonlyArray<Row>) => Effect.Effect<void, never, R>
-}
-
-const Evidence = {
-  rows: _Evidence,
-  wire: Schema.parseJson(_Evidence),
-  run: (receipt: RunReceipt): Evidence.Row => _Run.make({ receipt }),
-  ofVerdict: (verdict: Either.Either<DriftReport, DeployFault>): ReadonlyArray<Evidence.Row> =>
-    Either.match(verdict, {
-      onLeft: (fault) => [_Faulted.make({ stack: fault.case.stack, reason: fault.case.reason, detail: fault.message })],
-      onRight: (report) => [
-        _Drifted.make({ report }),
-        ...(report.rotations.length === 0 ? [] : [_Rotation.make({ stack: report.stack, urns: report.rotations })]),
-      ],
-    }),
-  file: (directory: string): Evidence.Sink<FileSystem.FileSystem | Path.Path> =>
-    (rows) =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem
-        const path = yield* Path.Path
-        const at = yield* DateTime.now
-        const lines = yield* Effect.forEach(rows, Schema.encode(Evidence.wire))
-        yield* fs.writeFileString(path.join(directory, `${DateTime.formatIso(at)}.ndjson`), Array.join(lines, "\n"))
-      }).pipe(Effect.ignoreLogged),
-} as const
-```
-
-## [06]-[DRIFT_SWEEP]
+## [04]-[DRIFT_SWEEP]
 
 [DRIFT_SWEEP]:
-- Owner: `Drift` — `check(stack, name)` composes `Automation.reconcile` (the driver's read-only leg) and projects the receipt through `_report`; `sweep(fleet, cadence, sink)` repeats the fleet check under the caller's `Schedule` at the fiber's inherited concurrency budget, and each stack's failure is isolated through `Effect.either` so one faulted stack never starves the rest of the fleet cycle — the sweep folds every cycle's verdicts, faults included, through `Evidence.ofVerdict` into the sink, then advances the `_CURSOR` checkpoint where the root provides the store; `conform(database, expected)` is the docker-cell store read-back over the `postgresql.getTables` and `postgresql.getSequences` pair, returning the relations and sequences the expected roster names that the live store does not carry — sequence-level drift is first-class evidence beside table drift; `cursor` is the `KeyValueStore`-backed checkpoint Layer the composing root merges when sweep progress must survive a restart.
-- Law: the leg never mutates — `reconcile` is the engine's non-mutating previewRefresh; the mutating `refresh` stays a ledger op a human or workflow chooses after reading a report; the event-shaped triggers between sweep cycles are the two webhooks of one evidence-delivery law — the Doppler secret-change delivery (`operate/secret.md`) and the Pulumi Cloud `DriftDetected` filter (`operate/cloud.md`, when the backend is hosted) — both decoding through `Evidence.wire` at a sink that runs `check`.
-- Law: observed buckets fold from steps — group by op, count, compare per `OpType` against the receipt summary with absent buckets read as zero; the comparison is total over the anchored vocabulary, so a new engine op is a compile-time event here, never a silent bucket.
-- Law: the projection is expression-shaped end to end — the callback seam lives inside the driver's one stream bridge; this page folds decoded values only.
-- Entry: `Drift.check(stack, spec.name)` ad hoc or webhook-triggered; `Drift.sweep(fleet, Schedule.cron("0 4 * * *"), Evidence.file(directory))` as the standing watch with `Drift.cursor` merged at the root; `Drift.conform(database, roster)` on the docker cell beside the sweep.
-- Growth: a per-arm drift posture (ignore rows an operator owns) is one filter parameter over the drifted rows, defaulted permissive.
-- Boundary: the cadence value and its composition are the rails law consumed as a parameter; reports persist wherever the caller's sink writes them; `conform` is valid only where the daemon host is deploy-reachable — the k8s arm's conformance is the runtime probe, never this read.
-- Packages: `effect` (`Effect`, `Array`, `Either`, `Option`, `pipe`, `Record`, `Schedule`, `DateTime`); `@pulumi/pulumi/automation` (`Stack`); `@pulumi/postgresql` (`getTables`); `../program/automation.ts` (`Automation`, `DeployFault`, `RunReceipt`).
+- Owner: `Drift` — `sweep` repeats `Automation.reconcile` across the fleet and publishes each existing `StackSpec` beside the native `PreviewResult` or `DeployFault`; `conform` reads missing docker-cell tables and sequences through the provider's native query results.
+- Law: `Automation.reconcile` calls `previewRefresh`, so `PreviewResult.changeSummary` remains the engine-owned drift fact and mutating `refresh` stays an explicit operation.
+- Law: `Effect.either` isolates each stack's typed failure while the caller's publish function owns storage or delivery.
+- Entry: `Automation.reconcile(stack, spec.name)` for an ad hoc read; `Drift.sweep(fleet, cadence, publish)` for a standing watch; `Drift.conform(database, roster)` on the docker cell.
+- Boundary: `conform` applies only where the deploy plane can reach the database daemon; the k8s arm uses its runtime capability probe.
+- Packages: `effect` (`Effect`, `Either`, `Schedule`); `@pulumi/pulumi/automation` (`PreviewResult`, `Stack`); `@pulumi/postgresql` (`getTables`, `getSequences`); `../program/automation.ts` (`Automation`, `DeployFault`).
 
 ```typescript
 import * as postgresql from "@pulumi/postgresql"
-
-const _observed = (steps: RunReceipt["steps"]): Record.ReadonlyRecord<string, number> =>
-  pipe(
-    Array.groupBy(steps, (step) => step.op),
-    Record.map((rows) => rows.length),
-  )
-
-const _skewed = (
-  expected: RunReceipt["summary"],
-  observed: Record.ReadonlyRecord<string, number>,
-): Option.Option<{ readonly expected: RunReceipt["summary"]; readonly observed: Record.ReadonlyRecord<string, number> }> =>
-  Array.every(RunReceipt.opTypes, (op) => (expected[op] ?? 0) === (observed[op] ?? 0))
-    ? Option.none()
-    : Option.some({ expected, observed })
-
-const _report = (receipt: RunReceipt): unknown => {
-  const drifted = Array.filter(receipt.steps, (step) => step.op !== "same")
-  const observed = _observed(receipt.steps)
-  return {
-    stack: receipt.stack,
-    summary: receipt.summary,
-    drifted,
-    rotations: Array.map(
-      Array.filter(drifted, (step) => step.type.startsWith("tls:")),
-      (step) => step.urn,
-    ),
-    ...Option.match(_skewed(receipt.summary, observed), {
-      onNone: () => ({}),
-      onSome: (skew) => ({ skew }),
-    }),
-  }
-}
+import type { PreviewResult, Stack } from "@pulumi/pulumi/automation"
+import { Array, Effect, type Either, type Schedule } from "effect"
+import { Automation, DeployFault } from "../program/automation.ts"
+import type { StackSpec } from "../program/spec.ts"
 
 const Drift = {
-  check: (stack: Stack, name: string): Effect.Effect<DriftReport, DeployFault> =>
-    Automation.reconcile(stack, name).pipe(
-      Effect.flatMap((receipt) =>
-        Effect.mapError(
-          Schema.decodeUnknown(DriftReport)(_report(receipt)),
-          (parse) => new DeployFault({ case: { reason: "alien", stack: name, detail: parse.message } }),
-        )),
-    ),
   conform: (
     database: string,
     expected: { readonly tables: ReadonlyArray<string>; readonly sequences: ReadonlyArray<string> },
@@ -493,41 +357,30 @@ const Drift = {
         sequences: Array.difference(expected.sequences, Array.map(sequences.sequences, (sequence) => sequence.objectName)),
       }),
     ),
-  sweep: <R>(
+  sweep: <E, R>(
     fleet: ReadonlyArray<readonly [StackSpec, Stack]>,
     cadence: Schedule.Schedule<unknown>,
-    sink: Evidence.Sink<R>,
-  ): Effect.Effect<void, never, R> =>
+    publish: (outcomes: ReadonlyArray<readonly [StackSpec, Either.Either<PreviewResult, DeployFault>]>) => Effect.Effect<void, E, R>,
+  ): Effect.Effect<void, E, R> =>
     Effect.repeat(
       Effect.flatMap(
-        Effect.forEach(fleet, ([spec, stack]) => Effect.either(Drift.check(stack, spec.name)), { concurrency: "inherit" }),
-        (verdicts) =>
-          Effect.zipRight(
-            sink(Array.flatMap(verdicts, Evidence.ofVerdict)),
-            Effect.flatMap(Effect.serviceOption(_CURSOR.tag), Option.match({
-              onNone: () => Effect.void,
-              onSome: (store) =>
-                Effect.gen(function* () {
-                  const held = yield* store.get("sweep")
-                  yield* store.set("sweep", {
-                    cycle: Option.match(held, { onNone: () => 1, onSome: (cursor) => cursor.cycle + 1 }),
-                    at: yield* DateTime.now,
-                  })
-                }).pipe(Effect.ignoreLogged),
-            })),
-          ),
+        Effect.forEach(
+          fleet,
+          ([spec, stack]) => Effect.map(Effect.either(Automation.reconcile(stack, spec.name)), (outcome) => [spec, outcome] as const),
+          { concurrency: "inherit" },
+        ),
+        publish,
       ),
       { schedule: cadence },
     ).pipe(Effect.asVoid),
-  cursor: _CURSOR.layer,
 } as const
 ```
 
-## [07]-[RECONCILE_LOOP]
+## [05]-[RECONCILE_LOOP]
 
 [RECONCILE_LOOP]:
 - Owner: `Reconcile`, the in-cluster continuous-reconciliation tier — the Pulumi Kubernetes Operator installs as one `helm.v4.Chart` row, and each reconciled estate is one typed `Stack` CR (committed `crd2pulumi` classes from `../crds/pko`): `spec.stack` names the target, `spec.projectRepo`/`branch` bind the Git source of the desired-state program, `spec.refresh: true` re-reads provider state each cycle, `spec.continueResyncOnCommitMatch` + `spec.resyncFrequencySeconds` make the loop continuous rather than commit-edge-triggered, and `spec.envRefs` bind the workspace facts from the ONE workspace `Secret` this tier mints from its `workspace` args — the same facts `_host` reads on the deploy host, one vocabulary, two execution planes, and a CR referencing a secret nothing minted is the phantom this owner closes.
-- Law: two clocks never watch one stack — the deploy-host `Drift.sweep` and an in-cluster `Stack` CR are alternative reconcilers; an estate under PKO drops out of the local fleet roster, so evidence has one producer per stack and remediation posture stays deliberate on both paths.
+- Law: two clocks never watch one stack — the deploy-host `Drift.sweep` and an in-cluster `Stack` CR are alternative reconcilers; an estate under PKO drops out of the local fleet roster, so one reconciler owns each stack and remediation posture stays deliberate on both paths.
 - Law: tenant-triggered provisioning rides the operator — a tenant-submitted CR (the `Program` CR carrying an inline desired-state program, or a `Stack` CR referencing a tenant repo) is reconciled by PKO inside the tenant's own RBAC envelope, so multi-tenant self-service provisioning needs no deploy-host actor and the Capsule/vcluster boundary from `kube/tenant.md` scopes what the tenant's CR may reach.
 - Law: the operator's reach is RBAC shape, never a watch scope — the chart publishes no namespace-watch value at all, so the install lands in the estate namespace while `rbac.createClusterRole` (default TRUE) decides what the controller may reach cluster-wide; narrowing is `createClusterRole: false` plus `createRole: true`, and reading the namespace row as the scope leaves a namespaced install holding cluster-wide grants. The workload identity binds through the same `ServiceAccount` cell `kube/workload.md` realizes.
 - Law: the chart's CRDs stay current because the carrier renders — `crds/` carries the `Stack`, `Program`, `Workspace`, and `Update` schemas, which `helm upgrade` plants once and never revisits, while `helm.v4.Chart` hands each to the provider as a managed resource that diffs on every version bump; the generated `crds/pko` module regenerates against that same pin, so the cluster schema and the typed classes move together and neither needs an out-of-band apply.
@@ -590,14 +443,5 @@ class Reconcile extends Tier {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Drift, DriftReport, Evidence, Guard, Reconcile }
+export { Drift, Guard, Reconcile }
 ```
-
-## [08]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

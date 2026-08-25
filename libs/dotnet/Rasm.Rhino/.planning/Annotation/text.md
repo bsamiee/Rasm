@@ -710,7 +710,7 @@ public sealed partial class OutlineSpec {
 - Law: placement and duplicate-then-replace amendments hold native geometry in one owned lease through override, add, edit, and replace failure, and an absent attributes or history payload lowers through `Op.ToHostSlot` — the ONE spelling where an absent optional becomes a host `null`, never `ValueUnsafe`, which throws on `None`.
 - Law: formula assignment uses `SetRichText(rtfText, dimstyle)`; snapshot evidence reads first-character decoration off `FirstCharFont` because the host publishes no per-annotation decoration member.
 - Law: the dimension-scale probe carries the Document-owned `ViewportTarget` address and resolves it to one native viewport through `ResolveViewport` inside the session demand immediately before `GetDimensionScale`, so no live `RhinoViewport` handle rides the detached request.
-- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `StyleField`, `StyleOp.Lens`, `DraftCrossing`, `DraftPlan`, `DraftSpine`, `DraftSlot`, `LengthDisplayRow`); `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`TableTarget`, `TargetResolution.Only`, `ResourceId`, `GeometryHandle`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); `Numerics/atoms` (`PerceptualColor.OfHost`); RhinoCommon `AnnotationObjectBase`/`Leader`/`TextFields` per `.api/api-rhinocommon-annotation.md`.
+- Packages: `Annotation/style.md` (`AnnotationStyleOp`, `StylePatch`, `StyleField`, `StyleOp.Lens`, `DraftCrossing`, `DraftPlan`, `DraftSpine`, `LengthDisplayRow`); `Annotation/typeface.md` (`FaceDecoration`); `Document/tables.md` (`TableTarget`, `TargetResolution.Only`, `ResourceId`, `GeometryHandle`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); `Numerics/atoms` (`PerceptualColor.OfHost`); RhinoCommon `AnnotationObjectBase`/`Leader`/`TextFields` per `.api/api-rhinocommon-annotation.md`.
 - Growth: a new text mutation is one `TextOp` case with its factory and arm; a new read is one `TextAsk` case beside its answer case, and the commit and ask entries gain both unchanged.
 
 ```csharp
@@ -799,43 +799,42 @@ public abstract partial record TextOp {
             .Apply(static (source, style) => (TextOp)new StyleCase(Target: source, Edit: style)).As().ToFin();
     }
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
         placeCase: static (context, edit) => Placed(
             document: context.Document, seed: edit.Seed, placement: edit.Placement, op: context.Op),
         amendCase: static (context, edit) => Reworked(
-            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Amended,
+            document: context.Document, target: edit.Target, op: context.Op,
             change: (annotation, key) => edit.Edits
                 .TraverseM(item => item.Apply(annotation: annotation, key: key)).As().Map(static _ => unit)),
         reformulaCase: static (context, edit) => Reworked(
-            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Reformulated,
+            document: context.Document, target: edit.Target, op: context.Op,
             change: (annotation, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => annotation.SetRichText(
                 rtfText: edit.Program.Compose(), dimstyle: annotation.DimensionStyle))))),
         repointCase: static (context, edit) => Reworked(
-            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Adjusted,
+            document: context.Document, target: edit.Target, op: context.Op,
             change: (annotation, key) =>
                 from leader in key.Need(annotation as Leader)
                 from _ in key.Catch(() => Fin.Succ(value: Op.Side(
                     () => leader.Points3D = edit.Path.Points.ToArray())))
                 select unit),
         styleCase: static (context, edit) => Reworked(
-            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
+            document: context.Document, target: edit.Target, op: context.Op,
             change: (annotation, key) => edit.Edit.Apply(annotation: annotation, op: key)));
 
-    private static Fin<DraftReceipt> Placed(
+    private static Fin<Unit> Placed(
         RhinoDoc document, AnnotationSeed seed, AnnotationPlacement placement, Op op) =>
         from style in placement.Style.Resolve(document: document, lens: StyleOp.Lens, key: op)
         from geometry in seed.Mint(plane: placement.Frame, style: style, key: op)
-        from receipt in new Lease<AnnotationBase>.Owned(Value: geometry).Use(
+        from _ in new Lease<AnnotationBase>.Owned(Value: geometry).Use(
             body: owned =>
                 from _ in placement.Overrides.Traverse(patch => patch.Overlay(annotation: owned, key: op)).As()
-                from id in Added(document: document, geometry: owned, placement: placement, op: op)
-                from placed in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: Seq(id), key: op)
-                select placed,
+                from __ in Added(document: document, geometry: owned, placement: placement, op: op)
+                select unit,
             key: op)
-        select receipt;
+        select unit;
 
-    private static Fin<ResourceId> Added(
+    private static Fin<Unit> Added(
         RhinoDoc document, AnnotationBase geometry, AnnotationPlacement placement, Op op) => op.Catch(() =>
         ResourceId.Admit(geometry switch {
             TextEntity text => document.Objects.AddText(
@@ -849,27 +848,25 @@ public abstract partial record TextOp {
                 history: Op.ToHostSlot(value: placement.History),
                 reference: placement.Residency.Key),
             _ => Guid.Empty,
-        }, op));
+        }, op).Map(static _ => unit));
 
-    internal static Fin<DraftReceipt> Reworked(
-        RhinoDoc document, TableTarget target, Op op, DraftSlot slot,
+    internal static Fin<Unit> Reworked(
+        RhinoDoc document, TableTarget target, Op op,
         Func<AnnotationBase, Op, Fin<Unit>> change) =>
         from ids in target.Resolve(document: document, key: op)
-        from amended in ids.TraverseM(id =>
+        from _ in ids.TraverseM(id =>
             from native in Optional(document.Objects.FindId(id)).ToFin(Fail: op.MissingContext())
             from source in Optional((native as AnnotationObjectBase)?.AnnotationGeometry).ToFin(Fail: op.InvalidInput())
             from copy in op.Need(source.Duplicate() as AnnotationBase)
-            from landed in new Lease<AnnotationBase>.Owned(Value: copy).Use(
+            from __ in new Lease<AnnotationBase>.Owned(Value: copy).Use(
                 body: owned =>
-                    from _ in change(owned, op)
-                    from __ in op.Confirm(success: document.Objects.Replace(
+                    from ___ in change(owned, op)
+                    from ____ in op.Confirm(success: document.Objects.Replace(
                         objectId: id, geometry: owned, ignoreModes: false))
-                    from admitted in ResourceId.Admit(id, op)
-                    select admitted,
+                    select unit,
                 key: op)
-            select landed).As()
-        from receipt in DraftReceipt.Objects(slot: slot, ids: amended, key: op)
-        select receipt;
+            select unit).As()
+        select unit;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1236,7 +1233,7 @@ public abstract partial record TextAnswer : IDetachedDocumentResult {
 }
 
 public static class Texts {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<TextOp> plan, Op? key = null) =>
+    public static Fin<Unit> Commit(DocumentSession session, DraftPlan<TextOp> plan, Op? key = null) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, op) => operation.Apply(document: document, op: op),
             op: key.OrDefault());
@@ -1269,7 +1266,6 @@ public static class Texts {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

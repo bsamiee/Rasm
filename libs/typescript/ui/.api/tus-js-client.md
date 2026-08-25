@@ -20,7 +20,7 @@
 |  [02]   | `UploadOptions`    | option shape      | endpoint, metadata, chunk, retry, hook, and storage policy     |
 |  [03]   | `PreviousUpload`   | resume fact       | stored URL, parallel URLs, metadata, size, storage key         |
 |  [04]   | `UrlStorage`       | resume store port | `findAllUploads`/`findUploadsByFingerprint`/`addUpload`/remove |
-|  [05]   | `OnSuccessPayload` | success receipt   | wraps the final `HttpResponse` for `onSuccess`                 |
+|  [05]   | `OnSuccessPayload` | success payload   | wraps the final `HttpResponse` for `onSuccess`                 |
 |  [06]   | `DetailedError`    | protocol fault    | `originalRequest`/`originalResponse`/`causingError` classing   |
 
 [PUBLIC_TYPE_SCOPE]: request, chunk source, and transport seams
@@ -29,7 +29,7 @@
 | :-----: | :------------------------------------------ | :--------------- | :-------------------------------------------------- |
 |  [01]   | `HttpStack` / `DefaultHttpStack`            | transport port   | `createRequest(method, url)`/`getName`; default     |
 |  [02]   | `HttpRequest`                               | request port     | method, URL, header, progress, `send`, abort access |
-|  [03]   | `HttpResponse`                              | response receipt | status, header, body, underlying-object access      |
+|  [03]   | `HttpResponse`                              | response frame   | status, header, body, underlying-object access      |
 |  [04]   | `FileReader` / `FileSource` / `SliceResult` | chunk source     | `openFile` -> source with `size`/`slice`/`close`    |
 |  [05]   | `defaultOptions`                            | policy seed      | `httpStack`/`fileReader`/`urlStorage`/`fingerprint` |
 |  [06]   | `isSupported` / `canStoreURLs`              | capability facts | gate upload support and persistent resume storage   |
@@ -57,7 +57,7 @@
 [STACKING]:
 - `@tus/server`(`../../data/.api/tus-server.md`): the client's POST/HEAD/PATCH/DELETE requests land on the one `Server` instance whose hooks own admission and finalization.
 - `@tus/s3-store`(`../../data/.api/tus-s3-store.md`): the server datastore folds the client's ordered chunks and verified offsets into multipart parts.
-- `effect`(`../../.api/effect.md`): an `Upload` binds as a scoped resource, callbacks enqueue progress, receipt, and typed-fault facts, and `abort` is the scope release arm.
+- `effect`(`../../.api/effect.md`): an `Upload` binds as a scoped resource, callbacks enqueue progress, success, and typed-fault facts, and `abort` is the scope release arm.
 - within-lib: `ui` binds URL storage, request headers, and progress callbacks as policy rows fed from decoded configuration and action payloads.
 
 [LOCAL_ADMISSION]:
@@ -69,5 +69,5 @@
 [RAIL_LAW]:
 - Package: `tus-js-client`
 - Owns: browser tus upload sessions — `Upload`, resume discovery and URL storage, chunking, progress and request/response hooks, retry policy, custom `HttpStack`, file reader, and termination
-- Accept: one session per source, verified-offset resume, callback-to-effect progress and receipt projection, custom request policy through `HttpStack`/hooks, server-owned finalization
+- Accept: one session per source, verified-offset resume, callback-to-effect progress and success projection, custom request policy through `HttpStack`/hooks, server-owned finalization
 - Reject: whole-file retry after a resumable URL exists, a second resume store beside the port, secret literals in headers, client-side content-address finalization, a shared `Upload` across independent files

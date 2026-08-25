@@ -2,7 +2,7 @@
 
 ISO 128-2 annotation lowering lives in `Annotate`, one owner over `AnnotateOp.leader`/`textnote`/`revcloud`. `LeaderContent` carries `note`/`keynote`/`flag` landing payloads behind one leader geometry, `NoteBody` carries prose or math, and `revcloud` carries an `Option[str]` delta tag. `LeaderPath`, `BubbleShape`, and `Masking` are policy values; `Option[str]` distinguishes absent references from present text. SVG and DXF consume every output-bearing case, so spline leaders and delta-tagged clouds remain distinct on both targets.
 
-`SymbolStyle` supplies the drawing-plane palette, `LineWeight`, `TextHeight`, `LayerName`, and `Terminator` axes. `PositionedGlyphRun` and `LineBrokenRun` remain canonical owners inside prose notes, `ziafont` outlines the selected line text, the `typography/math#MATH` `Formula` owner typesets mixed math, and `kiwisolver.Solver` routes keynote columns. `LanePolicy` offloads the synchronous engines, `ArtifactReceipt.Drawing` records the same pre-run identity as `ArtifactWork`, and `LayerNode.Annotation` preserves `LayerSchema.ISO13567` naming through its `aec` value.
+`SymbolStyle` supplies the drawing-plane palette, `LineWeight`, `TextHeight`, `LayerName`, and `Terminator` axes. `PositionedGlyphRun` and `LineBrokenRun` remain canonical owners inside prose notes, `ziafont` outlines the selected line text, the `typography/math#MATH` `Formula` owner typesets mixed math, and `kiwisolver.Solver` routes keynote columns. `LanePolicy` offloads the synchronous engines, and `LayerNode.Annotation` preserves `LayerSchema.ISO13567` naming through its `aec` value.
 
 ## [01]-[INDEX]
 
@@ -12,9 +12,8 @@ ISO 128-2 annotation lowering lives in `Annotate`, one owner over `AnnotateOp.le
 
 - Owner: `Annotate` holds `marks`, `Palette`, `LanePolicy`, and `SymbolTarget`; `AnnotateOp.of`, `LeaderContent.of`, and `NoteBody.of` discriminate on input shape. `LeaderContent` shares leader geometry across note, keynote, and flag landings, while `NoteBody` keeps prose and math payloads disjoint.
 - Cases: each `AnnotateOp` case carries typed geometry plus `SymbolStyle`. `LeaderPath` selects straight or spline geometry, `BubbleShape` generates keynote outlines, `Masking` selects paper backing, and `Option[str]` carries sheet references and revision tags without null/default ghosts.
-- Entry: `Annotate.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `AnnotateOp | Iterable[AnnotateOp]` by a structural `match` at the head — never a `batch` knob, and never a raise outside the `_FAULTS` class the boundary admits. `emit()` is the schedulable `ArtifactWork`; `_emit` maps the receipt half and `layered()` the `LayerPlan` projection off the same `_crossed` hop, `async_boundary` narrowed to the `_FAULTS` engine-raise tuple so a non-engine raise crosses as a defect. `_svg_engine` and `_dxf_engine` are the `SymbolTarget`-keyed dual lowering, the SVG arm folding each mark into its `SymbolStyle.layer` `drawsvg.Group` under one `Drawing` carrying the shared terminator defs, the DXF arm through the `ezdxf` multileader/mtext/wipeout/lwpolyline model with `set_leader_properties(leader_type=)` carrying the `LeaderPath` axis natively.
+- Entry: `Annotate.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `AnnotateOp | Iterable[AnnotateOp]` by a structural `match` at the head — never a `batch` knob, and never a raise outside the `_FAULTS` class the boundary admits. `emit()` returns the schedulable named layers, while `layered()` projects the same `_crossed` hop into `LayerPlan`; `async_boundary` narrows the `_FAULTS` engine-raise tuple so a non-engine raise crosses as a defect. `_svg_engine` and `_dxf_engine` are the `SymbolTarget`-keyed dual lowering, the SVG arm folding each mark into its `SymbolStyle.layer` `drawsvg.Group` under one `Drawing` carrying the shared terminator defs, the DXF arm through the `ezdxf` multileader/mtext/wipeout/lwpolyline model with `set_leader_properties(leader_type=)` carrying the `LeaderPath` axis natively.
 - Auto: `SymbolStyle.fill`/`stroke` index one render-time palette. `getyofst()` and `getsize()` baseline-seat measured text, while pinned `ziafont.config.precision` stabilizes SVG bytes (math precision is `Formula`-owned config). `revcloud` folds each edge into `max(1, round(length / (2·radius)))` convex bumps on both targets. A keynote column uses `kiwisolver.Solver` with required anchors and `_MIN_SEP`, then `updateVariables()` publishes routed landings. `_typeset` lays each math note ONCE per render and threads the fragment to both the measuring span and the drawing group, so no note is typeset twice and the measured box always describes the drawn glyphs. Each SVG row carries `LayerName` through `LayerNode.Annotation`'s `aec` for `LayerSchema.ISO13567`.
-- Receipt: `_emit` mints `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` off the pre-run key and awaits `Journal.record` over `receipt.evidence()` at that fold — an annotation set is production trail, so the fact is `OPERATIONAL` and its byte volume charges `STORAGE`. Recording suspends, so the seat is the awaitable `_emit` and never `contribute`; `layered()` reads the same crossing and records nothing, one produced artifact owing one durable fact.
 - Packages: `drawsvg` builds named SVG layers and marker/path geometry; `ziafont` outlines measured text; `typography/math#MATH` `Formula` renders mixed math; `ezdxf` supplies multileaders, mtext, blocks, wipeouts, polylines, and `LeaderType`, its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `kiwisolver` solves landing columns; `expression` supplies `Option`, `Block`, and `Map` folds.
 - Growth: a leader landing adds one `LeaderContent` case and two lowering arms; a note body adds one `NoteBody` case; an annotation grammar adds one `AnnotateOp` case; bubble polygons add one `BubbleShape` member plus one `_SIDES` row. New visual behavior enters through an existing policy owner.
 - Boundary: no dimension, symbol, or sheet-set logic — `drawing/dimension#DIMENSION`, `drawing/symbol#SYMBOL`, `composition/sheet#SHEET`. `drawsvg` owns the SVG container and leader/scallop builders, `ziafont` the text outline and `typography/math#MATH` the math typeset, `ezdxf` the DXF model, `graphic/vector/region#REGION` the boolean/offset, `kiwisolver` the solve, `typography/layout#LAYOUT`/`typography/shape#SHAPE` the line-break and shaping, `export/layered#LAYERED` the layer binding, and `dotnet:Rasm.Bim` the IFC; identity minting is the runtime's.
@@ -31,21 +30,19 @@ from itertools import pairwise
 from typing import Final, Literal, NoReturn, Self, assert_never
 
 from beartype import beartype
-from expression import Error, Nothing, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, msgpack
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import INGRESS, LayerName, LayerSchema, LineWeight, Terminator
-from rasm.artifacts.drawing.standard import extent
 from rasm.artifacts.drawing.symbol import SymbolStyle, SymbolTarget
 from rasm.artifacts.graphic.layer import LayerNode, LayerPlan
 from rasm.artifacts.typography.layout import LineBrokenRun, ParagraphSpec, broken
@@ -68,7 +65,7 @@ type Point = tuple[float, float]
 type Box = tuple[float, float, float, float]
 type Ramp = tuple[str, ...]
 type AnnotateTag = Literal["leader", "textnote", "revcloud"]
-type Engine = Callable[[Annotate], tuple[tuple[LayerNode, ...], ArtifactReceipt]]
+type Engine = Callable[[Annotate], tuple[LayerNode, ...]]
 type LeaderLanding = str | tuple[str, BubbleShape, Option[str], Masking] | tuple[str, BubbleShape, Masking]
 type NoteSource = str | ParagraphSpec | tuple[PositionedGlyphRun, LineBrokenRun]
 type AnnotateSpec = (
@@ -219,32 +216,34 @@ class Annotate(Struct, frozen=True):
             case _:
                 return cls(marks=tuple(marks), palette=palette, lane=lane, target=target)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[tuple[LayerNode, ...]]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.marks)))
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"drawing-annotate-{self.target}", _CANON.encode((self.marks, self.palette, self.target)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        settled = (await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
+    async def _emit(self) -> RuntimeRail[tuple[LayerNode, ...]]:
+        settled = await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)
         match settled:
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=layers):
+                size = sum(len(node.leaf[1].fragment) for node in layers if node.tag == "leaf" and node.leaf[1].tag == "fragment")
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind="drawing", scope=self.lane.scope)
+                return Ok(layers)
             case refused:
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         return (await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)).map(
-            lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
+            lambda layers: LayerPlan(schema=LayerSchema.ISO13567, roots=layers)
         )
 
-    async def _crossed(self) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+    async def _crossed(self) -> tuple[LayerNode, ...]:
         crossed = await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)
         return crossed.default_with(self._raise)
 
     @staticmethod
-    def _raise(fault: object) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+    def _raise(fault: object) -> tuple[LayerNode, ...]:
         raise ValueError(str(fault))
 
 
@@ -737,7 +736,7 @@ def _dxf_rgb(ink: str, /) -> tuple[int, int, int]:
     return ((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF)
 
 
-def _svg_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+def _svg_engine(annotate: Annotate) -> tuple[LayerNode, ...]:
     ziafont.config.precision = _PRECISION
     ramp = hex_ramp(annotate.palette)
     routed = _route(Block.of_seq(annotate.marks))
@@ -752,32 +751,20 @@ def _svg_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactRece
     grouped = Block.of_seq(enumerate(annotate.marks)).fold(bucket, Map.empty())
     composed = tuple((layer, _layer_svg(name, items, box)) for name, (layer, items) in grouped.items())
     layers = tuple(LayerNode.Annotation(layer.compose(), source, aec=Some(layer)) for layer, source in composed)
-    return layers, ArtifactReceipt.Drawing(
-        annotate._key,
-        "annotate",
-        len(annotate.marks),
-        "drawsvg",
-        int(box[2] - box[0]),
-        int(box[3] - box[1]),
-        sum(len(source) for _, source in composed),
-    )
+    return layers
 
 
-def _dxf_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+def _dxf_engine(annotate: Annotate) -> tuple[LayerNode, ...]:
     doc = ezdxf.new("R2018", setup=True)
     msp = doc.modelspace()
     ramp = hex_ramp(annotate.palette)
     routed = _route(Block.of_seq(annotate.marks))
-    box = _bbox(annotate.marks, routed, _typeset(annotate.marks, ramp, annotate.lane))
     for index, mark in enumerate(annotate.marks):
         _dxf_mark(doc, msp, mark, routed.try_find(index), ramp)
-    width, height = extent(msp, Some(box))
     stream = io.StringIO()
     doc.write(stream)
     data = stream.getvalue().encode()
-    return (LayerNode.Annotation("dxf", data),), ArtifactReceipt.Drawing(
-        annotate._key, "annotate", len(annotate.marks), "ezdxf", round(width), round(height), len(data)
-    )
+    return (LayerNode.Annotation("dxf", data),)
 
 
 _ENGINES: frozendict[SymbolTarget, Engine] = frozendict({SymbolTarget.SVG: _svg_engine, SymbolTarget.DXF: _dxf_engine})
@@ -791,7 +778,6 @@ __all__ = ["Annotate", "AnnotateOp", "BubbleShape", "LeaderContent", "LeaderPath
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

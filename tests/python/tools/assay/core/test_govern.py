@@ -20,13 +20,7 @@ from typing import override, TYPE_CHECKING, TypedDict
 import anyio
 from dirty_equals import IsInt, IsPartialDict, IsPositiveFloat
 from expression import Error, Ok
-from hypothesis import (
-    given,
-    HealthCheck,
-    settings as hyp_settings,
-    strategies as st,
-    target,
-)
+from hypothesis import given, HealthCheck, settings as hyp_settings, strategies as st, target
 from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine
 import msgspec
 from opentelemetry import trace
@@ -69,29 +63,9 @@ from assay.core.govern import (
     touched,
     WriteSink,
 )
-from assay.core.model import (
-    ArtifactKind,
-    Check,
-    Claim,
-    Fault,
-    Input,
-    Language,
-    Mode,
-    RailStatus,
-    receipt,
-    Runner,
-    Tool,
-)
+from assay.core.model import ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Mode, RailStatus, Runner, Tool
 from assay.core.routing import Routed, Scope
-from tests.python._testkit.spec import (
-    assert_error_status,
-    assert_ok,
-    model_based,
-    monotone,
-    roundtrip,
-    support_matrix,
-    validity_matrix,
-)
+from tests.python._testkit.spec import assert_error_status, assert_ok, model_based, monotone, roundtrip, support_matrix, validity_matrix
 from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness
 
 if TYPE_CHECKING:
@@ -101,7 +75,6 @@ if TYPE_CHECKING:
     from expression import Result
 
     from assay.composition.store import ArtifactScope
-    from assay.core.model import Completed
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -126,15 +99,7 @@ COVERS: tuple[object, ...] = (
 )  # fmt: skip
 
 _CT: float = 1_700_000_000.0
-_ECHO_TOOL = Tool(
-    name="test-echo",
-    runner=Runner.DIRECT,
-    command=("/bin/echo", "hello"),
-    input=Input.NONE,
-    language=Language.DOTNET,
-    claim=Claim.STATIC,
-    mode=Mode.CHECK,
-)
+_ECHO_TOOL = Tool(name="test-echo", runner=Runner.DIRECT, command=("/bin/echo", "hello"), input=Input.NONE, language=Language.DOTNET, claim=Claim.STATIC, mode=Mode.CHECK)
 _REMOTE_TOOL = Tool(name="remote", runner=Runner.DOTNET, command=("test",), input=Input.NONE, language=Language.DOTNET, claim=Claim.STATIC)
 _ROUTED_CHANGED = Routed(language=Language.DOTNET, scope=Scope.CHANGED)
 
@@ -181,15 +146,7 @@ def test_decode_lease_owner_roundtrip_and_corrupt_bytes() -> None:
     """``decode_lease_owner`` inverts ``msgspec.json.encode`` on a real owner block; corrupt bytes decode to ``None``."""
     owner = govern_mod._LeaseOwner(resource="r", run_id="run-x", pid=4321, create_time=_CT, project="p", mode="exclusive")
     roundtrip(owner, msgspec.json.encode, lambda raw: decode_lease_owner(raw) or pytest.fail("decode_lease_owner lost a valid owner block"))
-    validity_matrix(
-        (
-            ("empty", b"", True),
-            ("not-json", b"{not json", True),
-            ("missing-required", b'{"resource": "x"}', True),
-            ("pid-wrong-type", b'{"resource": "x", "pid": "not-an-int"}', True),
-        ),
-        lambda raw: decode_lease_owner(raw) is None,
-    )
+    validity_matrix((("empty", b"", True), ("not-json", b"{not json", True), ("missing-required", b'{"resource": "x"}', True), ("pid-wrong-type", b'{"resource": "x", "pid": "not-an-int"}', True)), lambda raw: decode_lease_owner(raw) is None)
 
 
 @given(data=st.binary(max_size=512))
@@ -231,12 +188,7 @@ def test_is_lease_stale_monotone_in_drift(drift: float) -> None:
         monotone(drift + 0.005, drift - 0.005, lambda tol: int(is_lease_stale(owner, tolerance=tol)))
 
 
-_PROC_DEAD_CASES: tuple[tuple[str, _ProcKw, bool], ...] = (
-    ("live-running", {"running": True}, False),
-    ("zombie", {"status": psutil.STATUS_ZOMBIE}, True),
-    ("dead-status", {"status": psutil.STATUS_DEAD}, True),
-    ("no-such-process", {"raise_no_such": True}, True),
-)
+_PROC_DEAD_CASES: tuple[tuple[str, _ProcKw, bool], ...] = (("live-running", {"running": True}, False), ("zombie", {"status": psutil.STATUS_ZOMBIE}, True), ("dead-status", {"status": psutil.STATUS_DEAD}, True), ("no-such-process", {"raise_no_such": True}, True))
 
 
 @pytest.mark.parametrize("label, proc_kw, expected", _PROC_DEAD_CASES, ids=[c[0] for c in _PROC_DEAD_CASES])
@@ -283,39 +235,18 @@ def test_liveness_access_denied_defers_to_pid_exists(monkeypatch: pytest.MonkeyP
 
 @pytest.mark.parametrize(
     "cpu_count, max_checks, dotnet, mutation, runner_modes, expected",
-    [
-        (4, 8, 4, 4, (), 4),
-        (4, 2, 4, 4, (), 2),
-        (8, 8, 8, 8, (), 8),
-        (1, 8, 8, 8, (), 1),
-        (4, 8, 2, 8, ((Runner.DOTNET, Mode.CHECK),), 2),
-        (4, 8, 8, 1, ((Runner.DIRECT, Mode.MUTATION),), 1),
-        (4, 8, 2, 3, ((Runner.DOTNET, Mode.MUTATION),), 2),
-    ],
+    [(4, 8, 4, 4, (), 4), (4, 2, 4, 4, (), 2), (8, 8, 8, 8, (), 8), (1, 8, 8, 8, (), 1), (4, 8, 2, 8, ((Runner.DOTNET, Mode.CHECK),), 2), (4, 8, 8, 1, ((Runner.DIRECT, Mode.MUTATION),), 1), (4, 8, 2, 3, ((Runner.DOTNET, Mode.MUTATION),), 2)],
 )
-def test_governed_concurrency_cap_table(
-    cpu_count: int,
-    max_checks: int,
-    dotnet: int,
-    mutation: int,
-    runner_modes: tuple[tuple[Runner, Mode], ...],
-    expected: int,
-    assay_root: AssayHarness,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_governed_concurrency_cap_table(cpu_count: int, max_checks: int, dotnet: int, mutation: int, runner_modes: tuple[tuple[Runner, Mode], ...], expected: int, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """``governed_concurrency`` folds the cpu / dotnet-runner / mutation-mode ceilings into one floor ≥ 1."""
     monkeypatch.setattr(govern_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
     monkeypatch.setattr(govern_mod, "_foreign_dotnet_count", lambda: 0)
-    settings = assay_root.settings.model_copy(
-        update={"cpu_count": cpu_count, "max_checks": max_checks, "dotnet_max_cpu": dotnet, "mutation_max_cpu": mutation}
-    )
+    settings = assay_root.settings.model_copy(update={"cpu_count": cpu_count, "max_checks": max_checks, "dotnet_max_cpu": dotnet, "mutation_max_cpu": mutation})
     checks = tuple(Check(tool=msgspec.structs.replace(_ECHO_TOOL, runner=r, mode=m)) for r, m in runner_modes)
     assert governed_concurrency(settings, checks) == expected
 
 
-def test_governed_concurrency_halves_under_pressure_sources(
-    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]
-) -> None:
+def test_governed_concurrency_halves_under_pressure_sources(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]) -> None:
     """≥ 90% system RAM halves any batch (floor 1); a foreign dotnet census at/above ``cpu_count`` halves DOTNET batches only.
 
     Each pressured fold emits one ``concurrency.backpressure`` event carrying the pressure-source fields.
@@ -360,9 +291,7 @@ def test_drain_stream_aggregates_tail_size_and_lines(chunks: tuple[bytes, ...]) 
     whole = b"".join(chunks)
     captured = anyio.run(lambda: drain_stream(_recv_of(chunks), tail_cap=16, spill_cap=1 << 20, kind="out"))
     expected_lines = whole.count(b"\n") + (1 if whole and not whole.endswith(b"\n") else 0)
-    assert (captured.full, captured.spilled, captured.size, captured.lines) == (whole, False, len(whole), expected_lines), (
-        f"drain aggregate wrong: {captured!r}"
-    )
+    assert (captured.full, captured.spilled, captured.size, captured.lines) == (whole, False, len(whole), expected_lines), f"drain aggregate wrong: {captured!r}"
 
 
 class _ListSink:
@@ -436,9 +365,7 @@ def test_capture_spill_boundary_is_strict_greater_than(size: int, expect_spill: 
     path, handle = govern_mod._stream_writer(plan, "out")
     assert handle is not None, "scoped plan must return a real _WriteContext"
     with handle as sink:
-        drained = anyio.run(
-            functools.partial(drain_stream, _recv_of((payload,)), tail_cap=spill_cap, spill_cap=spill_cap, kind="out", sink=sink, path=path)
-        )
+        drained = anyio.run(functools.partial(drain_stream, _recv_of((payload,)), tail_cap=spill_cap, spill_cap=spill_cap, kind="out", sink=sink, path=path))
     assert drained.spilled is expect_spill, f"drain spill verdict wrong at size={size}: {drained!r}"
     assert (drained.full == b"") is expect_spill, f"drain inline ``full`` retained iff not spilled: {drained!r}"
     assert drained.read(scope.store) == payload, "drain read did not resolve the full payload"
@@ -468,7 +395,7 @@ _STREAM_LOCAL: tuple[tuple[str, tuple[str, ...], Language, bytes, bool], ...] = 
 
 
 @pytest.mark.parametrize("label, command, language, payload, scoped", _STREAM_LOCAL, ids=[c[0] for c in _STREAM_LOCAL])
-def test_streaming_local_receipt_carries_full_payload_and_artifact(
+def test_streaming_local_result_carries_full_payload_and_artifact(
     label: str,
     command: tuple[str, ...],
     language: Language,
@@ -476,13 +403,13 @@ def test_streaming_local_receipt_carries_full_payload_and_artifact(
     scoped: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     assay_root: AssayHarness,
 ) -> None:
-    """Streaming local tools resolve the receipt stdout to the full sub-cap payload, persisting the scoped artifact.
+    """Streaming local tools resolve stdout to the full sub-cap payload and persist the scoped artifact.
 
     ``scope=None`` is the no-sink tee arm carrying the full payload inline; the scoped rows round-trip the artifact.
     """
     scope = assay_root.scope(Claim.STATIC) if scoped else None
     done = assert_ok(_run(Check(tool=_stream_tool(f"{label}-tool", command, language)), assay_root, scope=scope))
-    assert done.stdout == payload, f"receipt stdout not the full payload: len={len(done.stdout)}"
+    assert done.stdout == payload, f"stdout not the full payload: len={len(done.stdout)}"
     artifact = next((a for a in done.artifacts if a.id.startswith(f"{label}-tool-") and a.id.endswith("-out")), None)
     match scope:
         case None:
@@ -493,7 +420,7 @@ def test_streaming_local_receipt_carries_full_payload_and_artifact(
 
 
 def test_nonstreaming_scoped_process_persists_output_artifacts(assay_root: AssayHarness) -> None:
-    """Scoped non-streaming tools persist full stdout/stderr artifacts while the receipt carries the full sub-cap payload."""
+    """Scoped non-streaming tools persist full stdout/stderr artifacts while the result carries the full sub-cap payload."""
     payload = b"x" * (assay_root.settings.stream_tail_bytes + 8)
     script = f"import sys; sys.stdout.buffer.write({payload!r}); sys.stderr.buffer.write(b'err-tail')"
     tool = Tool("nonstream-artifact-law", Runner.DIRECT, (sys.executable, "-c", script), Input.NONE, Language.PYTHON, Claim.STATIC)
@@ -504,12 +431,12 @@ def test_nonstreaming_scoped_process_persists_output_artifacts(assay_root: Assay
     assert artifact is not None, f"non-streaming process emitted no stdout artifact: {done.artifacts!r}"
     assert scope.store.read_path(artifact.path) == payload
     keys = {name for name, _ in done.resources}
-    assert {"proc.children", "proc.children_rss_bytes", "process.duration_ms"} <= keys, f"non-streaming receipt key set drifted: {sorted(keys)!r}"
+    assert {"proc.children", "proc.children_rss_bytes", "process.duration_ms"} <= keys, f"non-streaming result key set drifted: {sorted(keys)!r}"
 
 
 @pytest.mark.parametrize("mode", [Mode.RUN, Mode.VERIFY], ids=["nonstream", "stream"])
 def test_provision_process_suppresses_raw_artifacts(mode: Mode, assay_root: AssayHarness) -> None:
-    """Provision claim output remains in the receipt for parsing but never persists raw PROCESS artifacts."""
+    """Provision claim output remains available for parsing but never persists raw PROCESS artifacts."""
     payload = b'{"schemaVersion":2,"command":"status","ok":true}\n'
     script = f"import sys; sys.stdout.buffer.write({payload!r}); sys.stderr.buffer.write(b'raw-log')"
     tool = Tool("provision-redaction-law", Runner.DIRECT, (sys.executable, "-c", script), Input.NONE, Language.PYTHON, Claim.PROVISION, mode=mode)
@@ -518,11 +445,9 @@ def test_provision_process_suppresses_raw_artifacts(mode: Mode, assay_root: Assa
     assert done.artifacts == ()
 
 
-def test_streaming_process_emits_progress_and_receipt_resources(assay_root: AssayHarness, log_events: list[dict[str, object]]) -> None:
-    """Streaming local processes emit process/resource events and persist sampled resource rows on the receipt."""
-    tool = _stream_tool(
-        "resource-stream-law", (sys.executable, "-c", "import sys,time; print('ready'); sys.stdout.flush(); time.sleep(0.05)"), Language.PYTHON
-    )
+def test_streaming_process_emits_progress_and_result_resources(assay_root: AssayHarness, log_events: list[dict[str, object]]) -> None:
+    """Streaming local processes emit process/resource events and persist sampled resource rows on the result."""
+    tool = _stream_tool("resource-stream-law", (sys.executable, "-c", "import sys,time; print('ready'); sys.stdout.flush(); time.sleep(0.05)"), Language.PYTHON)
     done = assert_ok(_run(Check(tool=tool), assay_root))
     events = tuple(event.get("event") for event in log_events)
     assert "process.start" in events
@@ -547,12 +472,7 @@ def test_stall_verdict_triage_table() -> None:
     idle = sample()
     rows: tuple[tuple[str, StalledProcess, StalledProcess, str], ...] = (
         ("cpu-bound", idle, sample(cpu_s=window, procs=3), "cpu-bound (100% of one core, 3 procs)"),
-        (
-            "cpu-bound-precedes-disk-wait",
-            idle,
-            sample(cpu_s=window, status=psutil.STATUS_DISK_SLEEP, procs=2),
-            "cpu-bound (100% of one core, 2 procs)",
-        ),
+        ("cpu-bound-precedes-disk-wait", idle, sample(cpu_s=window, status=psutil.STATUS_DISK_SLEEP, procs=2), "cpu-bound (100% of one core, 2 procs)"),
         ("disk-wait", idle, sample(status=psutil.STATUS_DISK_SLEEP), "disk-wait"),
         ("scheduler-contention-inclusive-boundary", idle, sample(invol=window * 100.0), "scheduler-contention"),
         ("io-or-lock-wait", idle, sample(), "io-or-lock-wait"),
@@ -583,10 +503,7 @@ def test_stall_sample_aggregates_process_tree(monkeypatch: pytest.MonkeyPatch) -
     assert empty == StalledProcess(cpu_s=0.0, invol=0.0, status="", procs=0), f"vanished pid did not degrade: {empty!r}"
 
 
-_STALL_RUNS: tuple[tuple[str, tuple[str, ...], bool], ...] = (
-    ("silent-slow-notes-once", (sys.executable, "-c", "import time; time.sleep(1.2)"), True),
-    ("fast-child-no-note", ("/bin/echo", "fast-ok"), False),
-)
+_STALL_RUNS: tuple[tuple[str, tuple[str, ...], bool], ...] = (("silent-slow-notes-once", (sys.executable, "-c", "import time; time.sleep(1.2)"), True), ("fast-child-no-note", ("/bin/echo", "fast-ok"), False))
 
 
 @pytest.mark.parametrize("label, command, stalled", _STALL_RUNS, ids=[c[0] for c in _STALL_RUNS])
@@ -601,7 +518,7 @@ def test_stall_monitor_shrunk_constant_matrix(
 ) -> None:
     """Shrunk-constant stall matrix over the LOCAL streaming branch.
 
-    A silent slow child emits one receipt note plus log/span events; a fast child emits none.
+    A silent slow child emits one result note plus log/span events; a fast child emits none.
     """
     monkeypatch.setattr(govern_mod, "_STALL_AFTER_S", 0.2)
     monkeypatch.setattr(govern_mod, "_STALL_SAMPLE_S", 0.05)
@@ -617,14 +534,11 @@ def test_stall_monitor_shrunk_constant_matrix(
             assert (notes, events, span_hits) == ((), (), ()), f"fast child produced spurious stall telemetry: {done.notes!r} {events!r}"
 
 
-def test_resource_projection_aggregates_receipts_and_notes(assay_root: AssayHarness) -> None:
+def test_resource_projection_aggregates_completed_and_notes(assay_root: AssayHarness) -> None:
     """Resource projection folds pressure, waits, stalls, durations, and child metrics into rows."""
     check = Check(tool=msgspec.structs.replace(_REMOTE_TOOL, mode=Mode.BUILD))
-    done = msgspec.structs.replace(
-        receipt(("dotnet", "build"), 1, status=RailStatus.FAILED, duration_ms=42.0, notes=("proc.stall silent=30s io-or-lock-wait",)),
-        resources=(("proc.children_rss_bytes", 128.0), ("proc.dotnet.count", 2.0), ("proc.last_output_age_s", 7.0)),
-    )
-    rows = dict(resource_projection(assay_root.settings, (check,), notes=("dotnet.slot index=0 wait_ms=17", *done.notes), receipts=(done,)))
+    done = msgspec.structs.replace(Completed(argv=("dotnet", "build"), returncode=1, status=RailStatus.FAILED, duration_ms=42.0, notes=("proc.stall silent=30s io-or-lock-wait",)), resources=(("proc.children_rss_bytes", 128.0), ("proc.dotnet.count", 2.0), ("proc.last_output_age_s", 7.0)))
+    rows = dict(resource_projection(assay_root.settings, (check,), notes=("dotnet.slot index=0 wait_ms=17", *done.notes), completed=(done,)))
     assert rows["dotnet.slot_wait_ms.max"] == pytest.approx(17.0)
     assert rows["proc.stall.count"] == pytest.approx(1.0)
     assert rows["process.duration_ms.max"] == pytest.approx(42.0)
@@ -638,7 +552,7 @@ def test_resource_projection_aggregates_receipts_and_notes(assay_root: AssayHarn
 
 @pytest.mark.anyio
 async def test_dotnet_slot_surfaces_queue_and_pressure_note(assay_root: AssayHarness) -> None:
-    """The machine-wide dotnet slot pool emits the slot, wait, census, and concurrency decision as receipt notes."""
+    """The machine-wide dotnet slot pool emits the slot, wait, census, and concurrency decision as outcome notes."""
     async with dotnet_slot(Check(tool=_REMOTE_TOOL), assay_root.settings, None) as acquired:
         notes = assert_ok(acquired)
     joined = " ".join(notes)
@@ -657,15 +571,7 @@ def test_exclusive_lease_mutual_exclusion_and_owner_block(assay_root: AssayHarne
         assert_ok(first)
         owner = decode_lease_owner(lock_path.read_bytes())
         assert owner is not None, "owner block not written while the lease was held"
-        expected = {
-            "resource": "res",
-            "run_id": "run-a",
-            "cwd": str(assay_root.root),
-            "pid": os.getpid(),
-            "project": "proj",
-            "mode": "exclusive",
-            "create_time": IsPositiveFloat(),
-        }
+        expected = {"resource": "res", "run_id": "run-a", "cwd": str(assay_root.root), "pid": os.getpid(), "project": "proj", "mode": "exclusive", "create_time": IsPositiveFloat()}
         assert msgspec.structs.asdict(owner) == IsPartialDict(expected), f"owner block fields wrong: {owner!r}"
         with exclusive_lease("res", "run-b", settings=assay_root.settings) as second:
             assert_error_status(second, RailStatus.BUSY)
@@ -675,7 +581,7 @@ def test_exclusive_lease_mutual_exclusion_and_owner_block(assay_root: AssayHarne
 
 def test_leased_runs_action_only_when_held(assay_root: AssayHarness) -> None:
     """``leased`` runs the action and returns its value while the lease is free; a contended lease short-circuits to BUSY."""
-    token = receipt(("held",), 0)
+    token = Completed(argv=("held",), returncode=0, status=RailStatus.from_returncode(0))
     first = leased("act", lambda _held: Ok(token), settings=assay_root.settings, run_id="run-a")
     assert assert_ok(first) is token
     breach = Fault((), status=RailStatus.FAULTED, message="action ran under a held lease")
@@ -848,14 +754,9 @@ def test_phantom_inherited_fd_holder_yields_busy_naming_remedy(assay_root: Assay
     monkeypatch.setattr(govern_mod, "psutil", fake)
     stale = govern_mod._LeaseOwner(resource="phantom", run_id="old-run", pid=dead_pid, create_time=0.0)
     lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "phantom.lock")
-    with (
-        _lock_fd(lock_path, exclusive=True, seed=msgspec.json.encode(stale)),
-        exclusive_lease("phantom", "new-run", settings=assay_root.settings) as refused,
-    ):
+    with _lock_fd(lock_path, exclusive=True, seed=msgspec.json.encode(stale)), exclusive_lease("phantom", "new-run", settings=assay_root.settings) as refused:
         fault = assert_error_status(refused, RailStatus.BUSY)
-    assert f"pid {dead_pid}" in fault.message and "dotnet build-server shutdown" in fault.message, (
-        f"phantom holder diagnosis missing owner or remedy: {fault.message!r}"
-    )
+    assert f"pid {dead_pid}" in fault.message and "dotnet build-server shutdown" in fault.message, f"phantom holder diagnosis missing owner or remedy: {fault.message!r}"
 
 
 def test_steal_rewrites_owner_and_yields_contention_on_lost_race(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -882,12 +783,7 @@ def test_claim_contention_busy_vs_steal_decision(assay_root: AssayHarness, monke
     """
     self_pid, live_pid, dead_pid = os.getpid(), 88_778, 88_777
     self_proc = _proc(pid=self_pid, create_time=_CT)
-    fake = _make_psutil_module({
-        None: self_proc,
-        self_pid: self_proc,
-        live_pid: _proc(pid=live_pid, running=True, create_time=_CT),
-        dead_pid: _proc(pid=dead_pid, raise_no_such=True),
-    })
+    fake = _make_psutil_module({None: self_proc, self_pid: self_proc, live_pid: _proc(pid=live_pid, running=True, create_time=_CT), dead_pid: _proc(pid=dead_pid, raise_no_such=True)})
     monkeypatch.setattr(govern_mod, "psutil", fake)
     flock_calls: list[int] = []
     busy_first = [False]
@@ -899,9 +795,7 @@ def test_claim_contention_busy_vs_steal_decision(assay_root: AssayHarness, monke
 
     monkeypatch.setattr(govern_mod, "_FLOCK", scripted_flock)
 
-    def claim(
-        name: str, holder_pid: int | None, *, busy: bool
-    ) -> tuple[govern_mod._LeaseOwner | govern_mod._Contention, govern_mod._LeaseOwner | None, int]:
+    def claim(name: str, holder_pid: int | None, *, busy: bool) -> tuple[govern_mod._LeaseOwner | govern_mod._Contention, govern_mod._LeaseOwner | None, int]:
         flock_calls.clear()
         busy_first[0] = busy
         fd = os.open(str(assay_root.root / f"{name}.lock"), os.O_RDWR | os.O_CREAT, 0o644)
@@ -909,29 +803,14 @@ def test_claim_contention_busy_vs_steal_decision(assay_root: AssayHarness, monke
             if holder_pid is not None:
                 _ = os.write(fd, msgspec.json.encode(govern_mod._LeaseOwner(resource=name, run_id="holder", pid=holder_pid, create_time=_CT)))
                 _ = os.lseek(fd, 0, os.SEEK_SET)
-            won = govern_mod._claim(
-                fd,
-                name,
-                govern_mod._ClaimSpec(
-                    run_id="claim-run", tolerance=1.0, target="ssh://probe", cwd="/work/claim", project="proj-claim", mode="shared"
-                ),
-            )
+            won = govern_mod._claim(fd, name, govern_mod._ClaimSpec(run_id="claim-run", tolerance=1.0, target="ssh://probe", cwd="/work/claim", project="proj-claim", mode="shared"))
             _ = os.lseek(fd, 0, os.SEEK_SET)
             return won, decode_lease_owner(os.read(fd, 4096)), len(flock_calls)
         finally:
             os.close(fd)
 
     def stamped(resource: str) -> dict[str, object]:
-        return {
-            "resource": resource,
-            "run_id": "claim-run",
-            "pid": self_pid,
-            "create_time": _CT,
-            "cwd": "/work/claim",
-            "project": "proj-claim",
-            "mode": "shared",
-            "target": "ssh://probe",
-        }
+        return {"resource": resource, "run_id": "claim-run", "pid": self_pid, "create_time": _CT, "cwd": "/work/claim", "project": "proj-claim", "mode": "shared", "target": "ssh://probe"}
 
     won, persisted, flocks = claim("claim-free", None, busy=False)
     assert persisted is not None, "free-path acquire wrote no owner block"
@@ -940,9 +819,7 @@ def test_claim_contention_busy_vs_steal_decision(assay_root: AssayHarness, monke
     assert msgspec.structs.asdict(persisted) == IsPartialDict(stamped("claim-free")), f"free-path owner block wrong: {persisted!r}"
     won, persisted, flocks = claim("claim-busy", live_pid, busy=True)
     assert persisted is not None, "live holder block vanished under contention"
-    assert (won, flocks, persisted.run_id) == (govern_mod._Contention(owner=persisted), 1, "holder"), (
-        "live holder must map to non-phantom contention without a steal flock or rewrite"
-    )
+    assert (won, flocks, persisted.run_id) == (govern_mod._Contention(owner=persisted), 1, "holder"), "live holder must map to non-phantom contention without a steal flock or rewrite"
     won, persisted, flocks = claim("claim-stale", dead_pid, busy=True)
     assert persisted is not None, "steal wrote no owner block"
     assert won == persisted, f"steal return diverged from the persisted block: {won!r}"
@@ -1036,9 +913,7 @@ def test_diagnose_records_resource_snapshot(monkeypatch: pytest.MonkeyPatch) -> 
         assert exceptions == [exc], "exception not recorded on the fault span"
         name, attrs = events[0]
         assert (name, attrs.get("mem.rss_bytes")) == (govern_mod._FAULT_SNAPSHOT, 65536.0), f"snapshot event wrong: {name!r} {attrs!r}"
-        assert events[1] == (govern_mod._RING_SNAPSHOT, {"events": ("info:probe.start", "warning:probe.fault")}), (
-            f"ring event not built from ring_recent(): {events[1]!r}"
-        )
+        assert events[1] == (govern_mod._RING_SNAPSHOT, {"events": ("info:probe.start", "warning:probe.fault")}), f"ring event not built from ring_recent(): {events[1]!r}"
         rss = dict(govern_mod.RESOURCE.get())["mem.rss_bytes"]
         assert rss == pytest.approx(65536.0), "resource ContextVar not seeded from the snapshot"
     finally:
@@ -1103,14 +978,6 @@ def test_measure_and_load_info_pin_exact_metric_projection(monkeypatch: pytest.M
     monkeypatch.setattr(os, "getloadavg", lambda: (2.0, 9.0, 9.0), raising=False)
     load = {"sys.mem_available_bytes": 4096.0, "sys.mem_percent": 37.5, "sys.swap_percent": 12.5, "sys.load1_percent": 50.0}
     assert govern_mod._load_info().to_rows() == load, "load projection drifted from the doubled sources"
-    assert dict(measure().to_resources()) == {
-        "mem.rss_bytes": 2048.0,
-        "mem.vms_bytes": 4096.0,
-        "mem.uss_bytes": 1024.0,
-        "mem.percent_rss": 25.0,
-        "proc.num_fds": 6.0,
-        "proc.num_threads": 3.0,
-        "proc.children": 1.0,
-        "proc.children_rss_bytes": 512.0,
-        **load,
-    }, "measure projection drifted from the doubled process"
+    assert dict(measure().to_resources()) == {"mem.rss_bytes": 2048.0, "mem.vms_bytes": 4096.0, "mem.uss_bytes": 1024.0, "mem.percent_rss": 25.0, "proc.num_fds": 6.0, "proc.num_threads": 3.0, "proc.children": 1.0, "proc.children_rss_bytes": 512.0, **load}, (
+        "measure projection drifted from the doubled process"
+    )

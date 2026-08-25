@@ -222,9 +222,9 @@ public static class StretchPlan {
 
 ## [04]-[ARRANGE]
 
-- Owner: `Axis` `[SmartEnum<int>]` — the distribution axis whose columns answer every read the fold makes (`Pivot`, `Lead`, `Trail`, `Extent`, and the delta composer), so the five `Vertical ? … : …` ternaries inside one fold are five row-column reads. `CanvasArrangement` `[Union]` `[GenerateUnionOps]` — RENAMED from `Arrangement`: the kernel `Meshing/arrangement.md` owns that simple name and the seating brings it into scope (the same rule that renamed `TransformSpec`); the kernel keeps the name. `CanvasLayout` — the one sealed-mutation gate settling `CanvasReceipt<ArrangeFacts>` on `CanvasLane.Arrange` — the local stamp-pair receipt and its stringly, unread `Verb` column are deleted onto the fan's one gauged receipt.
-- Entry: `CanvasLayout.Arrange(VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context, Op? key = null)` → `Fin<CanvasReceipt<ArrangeFacts>>` — the clock is REQUIRED (no mint, no option: two receipts from one gesture under two clocks are unorderable) and the context supplies the device tolerance the zero-move filter reads.
-- Law: mutation and undo are one act — per object, a `PivotAction` undo row is ADDED BEFORE `IAttributes.Move`, the host action captures the pre-move pivot, and the filled `ActionList` seals through `HistoryLedger.Seal` inside the same marshal window; a move without its undo record is unconstructible from this gate. Below-tolerance delta contributes no undo row — the filter reads `context.For(ToleranceLane.Hit)`, never a bare `!= 0f` float gate — and an arrangement whose every delta is under it seals nothing and reports a zero-count receipt.
+- Owner: `Axis` `[SmartEnum<int>]` — the distribution axis whose columns answer every read the fold makes (`Pivot`, `Lead`, `Trail`, `Extent`, and the delta composer), so the five `Vertical ? … : …` ternaries inside one fold are five row-column reads. `CanvasArrangement` `[Union]` `[GenerateUnionOps]` — RENAMED from `Arrangement`: the kernel `Meshing/arrangement.md` owns that simple name and the seating brings it into scope (the same rule that renamed `TransformSpec`); the kernel keeps the name. `CanvasLayout` — the one sealed-mutation gate answering `ArrangeFacts` beside its `GaugedSpan<CanvasLane>` on `CanvasLane.Arrange` — the local stamp-pair record and its stringly, unread `Verb` column are deleted onto the kernel gauge.
+- Entry: `CanvasLayout.Arrange(VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context, Op? key = null)` → `Fin<(ArrangeFacts Facts, GaugedSpan<CanvasLane> Span)>` — the clock is REQUIRED (no mint, no option: two spans from one gesture under two clocks are unorderable) and the context supplies the device tolerance the zero-move filter reads.
+- Law: mutation and undo are one act — per object, a `PivotAction` undo row is ADDED BEFORE `IAttributes.Move`, the host action captures the pre-move pivot, and the filled `ActionList` seals through `HistoryLedger.Seal` inside the same marshal window; a move without its undo record is unconstructible from this gate. Below-tolerance delta contributes no undo row — the filter reads `context.For(ToleranceLane.Hit)`, never a bare `!= 0f` float gate — and an arrangement whose every delta is under it seals nothing and answers `Moved: 0`.
 - Law: `VerbNoun` arrives minted — `Document/history.md` owns the mint and this gate never constructs one.
 - Boundary: snapped interactive movement during a drag is the host's own; whole-graph selection sweeps and structural verbs are `Document/document.md`'s transaction; the live snap-axis nudge state is a `Canvas/canvas.md` lens read surfaced as `NudgeVector` evidence.
 - Packages: Grasshopper2 (`IAttributes`, `Document.Undo`, `ActionList`, `PivotAction`, `VerbNoun`, `WireEnds`), `Document/history.md` (`HistoryLedger.Seal`), `Shell/session.md` (`GhSession`, `ScopeTarget`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`), `Rasm.Domain` (`Context`, `ToleranceLane`), LanguageExt.Core.
@@ -278,7 +278,7 @@ public readonly record struct ArrangeFacts(int Moved, double Displacement) : IVa
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class CanvasLayout {
-    public static Fin<CanvasReceipt<ArrangeFacts>> Arrange(
+    public static Fin<(ArrangeFacts Facts, GaugedSpan<CanvasLane> Span)> Arrange(
         VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(value: plan)
@@ -291,7 +291,7 @@ public static class CanvasLayout {
                                Commit(graph: graph, label: label, moves: moves, step: context.For(lane: ToleranceLane.Hit), key: op))), key: op),
                    key: op)
                from facts in gauged.Value
-               select new CanvasReceipt<ArrangeFacts>(Span: gauged.Span, Facts: facts);
+               select (facts, gauged.Span);
     }
 
     private static Fin<Seq<(IAttributes Target, float Dx, float Dy)>> Deltas(Document graph, CanvasArrangement plan, Op key) =>

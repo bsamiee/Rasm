@@ -144,7 +144,7 @@ These take no positional geometry, and the `to_*` serializers accept format keyw
 - Geometry is a WKB-encoded Polars column, and each `.st.<op>` is a registered plugin expression node composing into the same `LazyFrame` query graph as ordinary `Expr` work, inheriting predicate/projection pushdown, never a post-collect Python pass.
 - `st(d)` resolves the namespace by container shape; one named op owns each concept, with `grid_size`/`quad_segs`/`cap_style`/`tolerance`/`method`/`mode` as call rows on the op, never a builder type per variant nor a per-container accessor function.
 - `sjoin` selects its predicate by the `predicate` row, never a join method per predicate; DGGS cell snapping routes through `set_precision` on the shared grid, never a hand-rolled vertex-snap loop; the geometry column stays WKB internally, decoded only at a `to_*` serialization boundary.
-- Each spatial transform captures geometry type, coordinate dimension, SRID, validity flag, bounds, and output row count as a spatial receipt.
+- Each spatial transform returns geometry type, coordinate dimension, SRID, validity flag, bounds, and output row count through the transformed frame and its metadata.
 
 [STACKING]:
 - `polars`(`.api/polars.md`): `.st` ops register as plugin expression nodes on `pl.Expr`, folding into the same `LazyFrame` graph and inheriting pushdown; `polars_st.selectors` re-exports `geom`/`element`/`cast` for `select`/`with_columns`, composing with `polars.selectors` for dtype/name column addressing.

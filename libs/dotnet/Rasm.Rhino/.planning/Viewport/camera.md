@@ -221,12 +221,12 @@ public readonly record struct CameraPose(VectorFrame Frame, Point3d Target, Lens
         Op op = key.OrDefault();
         return from owner in ViewportLease.Admit(lease: lease, key: op)
                from operation in CameraOp.Pose(pose: this, key: op)
-               from receipt in Cameras.Apply(
+               from outcome in Cameras.Apply(
                    session: owner.Session,
                    target: owner.Target,
                    operation: operation,
                    key: op)
-               from serial in receipt.Serials.Last.ToFin(Fail: op.InvalidResult())
+               from serial in outcome.Serials.Last.ToFin(Fail: op.InvalidResult())
                select serial.After;
     }
 }
@@ -660,7 +660,6 @@ public sealed record CameraSnapshot(
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

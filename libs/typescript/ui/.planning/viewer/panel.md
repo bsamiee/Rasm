@@ -1,10 +1,10 @@
 # [UI_PANEL]
 
-Panel materializes the AppUi shell's generated surface program: stable surface identity, one root control tree, and the exact layout-program closure that tree names. `Panel.fold` builds receipt-reconciled rows carrying binding slots beside the gate verdict, `Panel.chrome` projects decoded widgets, `Panel.route` exhaustively dispatches the viewer's own interaction vocabulary, `Panel.solve` preserves Cassowary insertion order and strengths, and `Panel.surface` admits and solves the generated root as one application input. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
+Panel materializes the AppUi shell's generated surface program: stable surface identity, one root control tree, and the exact layout-program closure that tree names. `Panel.fold` builds outcome-reconciled rows carrying binding slots beside the gate verdict, `Panel.chrome` projects decoded widgets, `Panel.route` exhaustively dispatches the viewer's own interaction vocabulary, `Panel.solve` preserves Cassowary insertion order and strengths, and `Panel.surface` admits and solves the generated root as one application input. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[EVENT_FOLD]: keyed shell fold, gate slot, receipt-reconciled optimistic round trip, pivot-board boundary; `Panel`.
+- [02]-[EVENT_FOLD]: keyed shell fold, gate slot, outcome-reconciled optimistic round trip, pivot-board boundary; `Panel`.
 - [03]-[PHASE_RENDER]: lifecycle and degradation tone axes, affordance projection, disposition and freshness rows; `Panel`.
 - [04]-[WIDGET_RENDER]: kind-exhaustive part-and-children fold, emphasis ladder, chrome projection; `Panel`.
 - [05]-[CONTROL_SINKS]: locally-minted interaction union, exhaustive routing over one Effect rail, intent egress; `Panel`.
@@ -14,14 +14,14 @@ Panel materializes the AppUi shell's generated surface program: stable surface i
 ## [02]-[EVENT_FOLD]
 
 [EVENT_FOLD]:
-- Owner: `Panel.fold` — the keyed accumulator: the event feed carries one exact family selector beside foreign bytes, and each arm decodes its own generated message before folding into a `HashMap<key, Panel.Row>` — `BindingStatus` advances the lifecycle state beside its transport, direction, and last-good instant (clearing the optimistic slot on `faulted` alone), `CoercedValue` records the canonical magnitude the host landed beside both units, `WriteReceipt` lands the canonical value, its rendered pair, and the write's own four-arm disposition while clearing the optimistic slot, `CommandGate` seats the `available`/`level` verdict; the fold is total over the selector union and every arm ends at `_at`, the one slot-seat combinator that also carries the optimistic stamp.
+- Owner: `Panel.fold` — the keyed accumulator: the event feed carries one exact family selector beside foreign bytes, and each arm decodes its own generated message before folding into a `HashMap<key, Panel.Row>` — `BindingStatus` advances the lifecycle state beside its transport, direction, and last-good instant (clearing the optimistic slot on `faulted` alone), `CoercedValue` records the canonical magnitude the host landed beside both units, `WriteOutcome` lands the canonical value, its rendered pair, and the write's own four-arm disposition while clearing the optimistic slot, `CommandGate` seats the `available`/`level` verdict; the fold is total over the selector union and every arm ends at `_at`, the one slot-seat combinator that also carries the optimistic stamp.
 - Packages: `@rasm/core` (`Wire`, `Hlc`); `@rasm\/contracts/rasm/contracts/binding/status_pb` (`BindingState`); `@rasm\/contracts/rasm/contracts/compute/control_pb` (`DegradationLevel`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `Schema`, `Stream`); `@effect-atom/atom-react` (the board atom rides `system/atom#STORE_ROOT`).
 - Law: the row is the panel's whole truth — lifecycle, transport, direction, freshness, coercion, landed value, disposition, optimistic, gate; a panel reads one row through an `Atom.family` keyed by cell name and re-renders only on its own row's change.
 - Law: every row slot is option-seated, so a gate-only row states that no binding has spoken rather than seeding a lifecycle token no producer emits.
 - Law: the ARM owns the key — the board's key space is the shell's addressable cell, and each arm names which cell its event addresses: the livewire triple addresses its `binding` path, `CommandGate` its `key`, the `CommandRow` key the C# deck freezes. Both columns arrive on one control from the producer's own intent binding (`valueKey` beside `command`), so an affordance reads its value row and its gate row off the one board with no side map, no re-keying, and no second accumulator.
 - Law: the gate is a row slot, never a second board — a control's whole display truth is one row, so `available` and `level` land beside the binding slots and the render projection is `[03]`'s alone; `level` is adopted through `CommandGate`'s own field, which derives from the ONE degradation vocabulary the `Availability` landing owns, so a producer level added at core breaks `[03]`'s degradation table at the declaration.
-- Law: writes are optimistic against the feed — a panel edit writes the intent through the app-wired write port AND stamps the row's optimistic slot; the display shows `optimistic` over `landed` while present, the reconciling `WriteReceipt` clears it, and a `faulted` status clears it with the refusal surfaced through the `view/form` field-error seam. Round trips are receipt-driven, never awaited-then-assumed — the feed is the truth channel, the write port's acknowledgement only gates re-submission, and display state always derives from the fold.
-- Law: this board is the wire-receipt optimistic plane — `system/atom`'s `Atom.optimistic` reconciles against an effect's own `Result` and never appears here; the two optimism laws share a name, never a mechanism, and the board rides the one store like any other atom.
+- Law: writes are optimistic against the feed — a panel edit writes the intent through the app-wired write port AND stamps the row's optimistic slot; the display shows `optimistic` over `landed` while present, the reconciling `WriteOutcome` clears it, and a `faulted` status clears it with the refusal surfaced through the `view/form` field-error seam. Round trips settle on the landed outcome, never awaited-then-assumed — the feed is the truth channel, the write port's acknowledgement only gates re-submission, and display state always derives from the fold.
+- Law: this board is the wire-outcome optimistic plane — `system/atom`'s `Atom.optimistic` reconciles against an effect's own `Result` and never appears here; the two optimism laws share a name, never a mechanism, and the board rides the one store like any other atom.
 - Law: stale optimism ages out — an optimistic slot older than the patience window (`_PATIENCE`, a `Duration` policy row) degrades to the in-flight affordance without reverting, keeping slow transports honest without fabricating failure.
 - Law: unknown-value payloads stay opaque — `offered`/`landed` are `Schema.Unknown` on the wire by design; the panel renders them through one value-presenter row, never assuming shape.
 - Law: bursts coalesce before the store — `Panel.drain` shapes the feed with `Stream.groupedWithin(events, 128, Duration.millis(16))`, folds each chunk through the SAME `_fold`, and lands one atom write per window inside `Atom.batch`, so a livewire storm costs one notification pass per frame; `Stream.throttle` composes on the same rail where a transport demands rate-shaping, and a per-event atom write is the named defect.
@@ -40,13 +40,13 @@ import type { Theme } from "../../src/system/token.ts"
 type PanelEvent =
   | { readonly family: "BindingStatus"; readonly bytes: Uint8Array }
   | { readonly family: "CoercedValueWire"; readonly bytes: Uint8Array }
-  | { readonly family: "WriteReceiptWire"; readonly bytes: Uint8Array }
+  | { readonly family: "WriteOutcomeWire"; readonly bytes: Uint8Array }
   | { readonly family: "CommandGateWire"; readonly bytes: Uint8Array }
 
 type PanelDecodedEvent =
   | { readonly family: "BindingStatus"; readonly value: Wire.BindingStatus }
   | { readonly family: "CoercedValueWire"; readonly value: Wire.CoercedValue }
-  | { readonly family: "WriteReceiptWire"; readonly value: Wire.WriteReceipt }
+  | { readonly family: "WriteOutcomeWire"; readonly value: Wire.WriteOutcome }
   | { readonly family: "CommandGateWire"; readonly value: Wire.CommandGate }
 
 const _State = Schema.Literal(
@@ -75,10 +75,10 @@ declare namespace Panel {
     readonly direction: Option.Option<Panel.Direction>
     readonly lastGoodAt: Option.Option<NonNullable<Wire.BindingStatus["lastGoodAt"]>>
     readonly coercion: Option.Option<Omit<Wire.CoercedValue, "bindingId">>
-    readonly landed: Option.Option<Wire.WriteReceipt["canonical"]>
-    readonly rendered: Option.Option<NonNullable<Wire.WriteReceipt["rendered"]>>
-    readonly renderedUnit: Option.Option<NonNullable<Wire.WriteReceipt["renderedUnit"]>>
-    readonly disposition: Option.Option<NonNullable<Wire.WriteReceipt["disposition"]>>
+    readonly landed: Option.Option<Wire.WriteOutcome["canonical"]>
+    readonly rendered: Option.Option<NonNullable<Wire.WriteOutcome["rendered"]>>
+    readonly renderedUnit: Option.Option<NonNullable<Wire.WriteOutcome["renderedUnit"]>>
+    readonly disposition: Option.Option<NonNullable<Wire.WriteOutcome["disposition"]>>
     readonly optimistic: Option.Option<{ readonly value: unknown; readonly since: Clock.Hlc }>
     readonly gate: Option.Option<{ readonly available: boolean; readonly level: Panel.Level }>
   }
@@ -110,8 +110,8 @@ const _admitEvent = (event: PanelEvent) =>
       Effect.map(Wire.decode("BindingStatus", bytes), (value) => ({ family: "BindingStatus", value }) as const)),
     Match.when({ family: "CoercedValueWire" }, ({ bytes }) =>
       Effect.map(Wire.decode("CoercedValueWire", bytes), (value) => ({ family: "CoercedValueWire", value }) as const)),
-    Match.when({ family: "WriteReceiptWire" }, ({ bytes }) =>
-      Effect.map(Wire.decode("WriteReceiptWire", bytes), (value) => ({ family: "WriteReceiptWire", value }) as const)),
+    Match.when({ family: "WriteOutcomeWire" }, ({ bytes }) =>
+      Effect.map(Wire.decode("WriteOutcomeWire", bytes), (value) => ({ family: "WriteOutcomeWire", value }) as const)),
     Match.when({ family: "CommandGateWire" }, ({ bytes }) =>
       Effect.map(Wire.decode("CommandGateWire", bytes), (value) => ({ family: "CommandGateWire", value }) as const)),
     Match.exhaustive,
@@ -132,13 +132,13 @@ const _landEvent = (board: Panel.Board, event: PanelDecodedEvent): Panel.Board =
     }),
     Match.when({ family: "CoercedValueWire" }, ({ value: { bindingId, canonical, canonicalUnit, sourceUnit, sourceAt } }) =>
       _at(board, bindingId, (row) => ({ ...row, coercion: Option.some({ canonical, canonicalUnit, sourceUnit, sourceAt }) }))),
-    Match.when({ family: "WriteReceiptWire" }, ({ value: receipt }) =>
-      _at(board, receipt.bindingId, (row) => ({
+    Match.when({ family: "WriteOutcomeWire" }, ({ value: outcome }) =>
+      _at(board, outcome.bindingId, (row) => ({
           ...row,
-          landed: Option.some(receipt.canonical),
-          rendered: Option.fromNullable(receipt.rendered),
-          renderedUnit: Option.fromNullable(receipt.renderedUnit),
-          disposition: Option.fromNullable(receipt.disposition),
+          landed: Option.some(outcome.canonical),
+          rendered: Option.fromNullable(outcome.rendered),
+          renderedUnit: Option.fromNullable(outcome.renderedUnit),
+          disposition: Option.fromNullable(outcome.disposition),
           optimistic: Option.none(),
         })),
     Match.when({ family: "CommandGateWire" }, ({ value: gate }) => {
@@ -753,7 +753,6 @@ export { Panel }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

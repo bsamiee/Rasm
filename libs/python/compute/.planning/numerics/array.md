@@ -2,7 +2,7 @@
 
 Backend-agnostic array admission over the Array API standard: `ArrayPayload.admit(source, axes, finite, mode, bound)` is the one entry parameterized over operand source (`ArraySource`) and output conditioning (`AdmitMode`), so a numpy floor, a JAX array, a Dask graph, or a pydata-`sparse` tensor admits through one body that never re-resolves the namespace, imports a vendor module, or grows a per-source/per-mode classmethod family. This owner is read-only admission — the mutate/copy fork belongs to transforming consumers — and it is the boundary where every downstream compute owner's backend and finiteness assumptions are established once.
 
-`array_namespace(*arrays)` resolves the backend `xp` once at entry, stacking `array-api-compat` as the resolver tier under `array-api-extra` as the extension tier (`xp.<op>` / `xpx.<op>(..., xp=xp)`). Its body is one `railed` chain inside the rostered `boundary(ADMIT, ..., catch=...)` fence from `runtime/reliability/faults#FAULT` — the fence names the resolver, carrier, and densify-bound raise surface it reaches and nothing wider — keying the host buffer through `runtime/evidence/identity#IDENTITY` `ContentIdentity.of` so a payload from any backend keys identically to its numpy floor. Its `Labelled` arm admits `xarray` carriers as branch-tier co-consumption, never a re-owned data interior. Payloads graduate on the `array_layout` `HandoffAxis` case, the cross-backend bit-identity proof riding the runtime `ParityReceipt` against the corpus-admitted `array-layout` fixture.
+`array_namespace(*arrays)` resolves the backend `xp` once at entry, stacking `array-api-compat` as the resolver tier under `array-api-extra` as the extension tier (`xp.<op>` / `xpx.<op>(..., xp=xp)`). Its body is one `railed` chain inside the rostered `boundary(ADMIT, ..., catch=...)` fence from `runtime/reliability/faults#FAULT` — the fence names the resolver, carrier, and densify-bound raise surface it reaches and nothing wider — keying the host buffer through `runtime/evidence/identity#IDENTITY` `ContentIdentity.of` so a payload from any backend keys identically to its numpy floor. Its `Labelled` arm admits `xarray` carriers as branch-tier co-consumption, never a re-owned data interior. Payloads graduate on the `array_layout` `HandoffAxis` case, the cross-backend bit-identity proof riding the runtime `Parity` against the corpus-admitted `array-layout` fixture.
 
 ## [01]-[INDEX]
 
@@ -19,7 +19,6 @@ Backend-agnostic array admission over the Array API standard: `ArrayPayload.admi
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any, Final, Literal, Protocol, Self, assert_never
 
@@ -31,11 +30,13 @@ from expression import Error, Nothing, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Meta, Struct
 
-from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from opentelemetry import trace
+
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, railed, rostered
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
-from rasm.runtime.reproduction import ParityReceipt
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
+from rasm.runtime.reproduction import Parity
 
 if TYPE_CHECKING:
     import dask.array as da
@@ -249,9 +250,9 @@ class ArrayPayload(Struct, frozen=True):
         facts = {"source": source.tag, "mode": mode.value, "finite": finite.value}
         return evidence_run(EvidenceScope.ARRAY, f"array.{source.tag}", rail, facts=facts, composition=composition)
 
-    def graduates(self, parity: ParityReceipt, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
+    def graduates(self, parity: Parity, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Graduation]":
         ledger = {"parity_delta": 0.0 if parity.verified else 1.0}
-        return GraduationReceipt.graduates(
+        return Graduation.graduates(
             EvidenceScope.ARRAY.value,
             HandoffAxis(array_layout=self.backend),
             self.content_key,
@@ -271,15 +272,14 @@ class ArrayPayload(Struct, frozen=True):
         }
         return base | self.sparse_facts.map(SparseFacts.as_map).default_value({})
 
-    def contribute(self) -> Iterable[Receipt]:
-        return (
-            Receipt.of(
-                EvidenceScope.ARRAY.value,
-                ("emitted", self.backend, self.facts()),
-                key=Some(self.content_key),
-                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
-            ),
-        )
+    @property
+    def attributes(self) -> dict[str, str | bool | int | float]:
+        scalars = {name: value for name, value in self.facts().items() if isinstance(value, str | bool | int | float)}
+        return {"key": self.content_key.hex, **scalars}
+
+    def _noted(self) -> "ArrayPayload":
+        trace.get_current_span().set_attributes(self.attributes)
+        return self
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -306,7 +306,7 @@ def _admit(array: "Array", axes: tuple[NamedAxis, ...], finite: FiniteGate, mode
         mode=mode,
         sparse_facts=Some(SparseFacts.of(conditioned)) if sparse_in else Nothing,
         content_key=key,
-    )
+    )._noted()
 
 
 def _host_buffer(array: "Array", sparse_in: bool, mode: AdmitMode, bound: DenseBound) -> np.ndarray:

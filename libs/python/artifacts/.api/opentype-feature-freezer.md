@@ -96,7 +96,7 @@ In-process composition bypasses these and builds the options carrier directly; `
 - Freeze step is `RemapByOTL(options).run()` over a temp-path round-trip, never a hand-walked `GSUB` traversal nor a hand-built `cmap` rewrite — the engine owns the LookupType 1/3/7 fold and the alternate first-pick.
 - Freeze policy is the typed options struct spreading the [02] field names, never a loose `dict[str, object]` and never a parallel rename helper — `renameFont` owns the `name`/CFF rename and the OFL replace.
 - Font model stays `fontTools.ttLib.TTFont`, so a `FREEZE -> SUBSET -> INSTANCE` chain runs on one model.
-- `engine.success` carries a freeze fault into the `RuntimeRail` failure; a `report`-mode run writes no font and yields a discovery receipt.
+- `engine.success` carries a freeze fault into the `RuntimeRail` failure; `report` mode writes no font and prints the script, language, and feature enumeration.
 
 [RAIL_LAW]:
 - Package: `opentype-feature-freezer`

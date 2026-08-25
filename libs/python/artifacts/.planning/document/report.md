@@ -2,7 +2,7 @@
 
 Reproducible-report composition binds data and visual outputs into one `document/model#NODE` `DocumentNode` tree beside the `document/emit#DOCUMENT` lowering owner. `ReportPlan` discriminates report kind over `COMPOSE_ARMS`, so `_emit` uniformly awaits one row; figures bind by content key as `FigureNode`s produced by `visualization/chart/spec#CHART`, `visualization/table#TABLE`, and `scene/render#SCENE`. `ReportPlan.matrix` fans one notebook across a parameter grid into content-keyed cell plans whose unchanged cells the `core/plan` elision replays, while grouped execution remains `core/issue`'s construction.
 
-`ReportSpec` admits once at `ReportPlan.of` through the closed `ReportPayload` `TypedDict` and `_REQUIRED`; `TemplateTrust.UNTRUSTED` rejects `NativeEnvironment`, filesystem/package/module loaders, bytecode-cache paths, and extension imports before `ImmutableSandboxedEnvironment` renders scalar context. Every kind threads one closed `ReportFact` case onto the frozen owner, every offload crosses `lane: LanePolicy`, `@receipted(OPEN)` drains `contribute`, and provider raises convert to `BoundaryFault` at `async_boundary`. `REFLOW` is the HTML-into-PDF inverse of `document/lens#LENS` `STORY`; `AUTHOR` is its MIT/Apache `pdf_oxide` peer. PAdES finishing routes to `exchange/conformance#CONFORMANCE` and security/navigation finishing to `document/egress#FINISH`.
+`ReportSpec` admits once at `ReportPlan.of` through the closed `ReportPayload` `TypedDict` and `_REQUIRED`; `TemplateTrust.UNTRUSTED` rejects `NativeEnvironment`, filesystem/package/module loaders, bytecode-cache paths, and extension imports before `ImmutableSandboxedEnvironment` renders scalar context. Every kind threads one closed `ReportFact` case onto the frozen owner, every offload crosses `lane: LanePolicy`, and provider raises convert to `BoundaryFault` at `async_boundary`. `REFLOW` is the HTML-into-PDF inverse of `document/lens#LENS` `STORY`; `AUTHOR` is its MIT/Apache `pdf_oxide` peer. PAdES finishing routes to `exchange/conformance#CONFORMANCE` and security/navigation finishing to `document/egress#FINISH`.
 
 ## [01]-[INDEX]
 
@@ -12,18 +12,17 @@ Reproducible-report composition binds data and visual outputs into one `document
 
 - Owner: `ReportPlan` — `SectionBlock` is the closed body-unit union interleaving prose, lists, figures, AND data tables IN one ordered flow, never a `Section.figures` trail parallel to the block flow; `TableData` lowers REAL cell text to a `TableNode` the audit's `THead`/`TR` nesting check reads, never a `FigureRef` pre-render flattening cells to an image; `NotebookEngine.client_kwargs` and `ExportPolicy.exporter_kwargs` project their full trait sets to constructor kwargs, so a new bounded-safety or export-shaping trait is one field with zero call-site edit.
 - Cases: the `TEMPLATE` arm renders strict-undefined — a missing section key is a `jinja2.UndefinedError` fault, never a silent blank — under the trusted/sandboxed/native `Environment` policy built at boundary scope, the sandbox arm winning first so an untrusted source can never reach the native engine; the `FunctionLoader` callable provider is deleted because a callable is no serializable spec value; the `NOTEBOOK` export round-trip target is deleted because it returns a `NotebookNode` the `jupytext.writes` archive already owns; `ReportSource.AUTO` defers to `jupytext.reads(fmt=None)` content detection.
-- Entry: the key mints PRE-RUN over the canonical `(kind, spec)` input with `receipt.slot == node.key`; grouped composition is `core/issue`'s construction, never a module batch driver here — `matrix` mints the per-cell plans and stops.
+- Entry: the key mints over the canonical `(kind, spec)` input; grouped composition is `core/issue`'s construction, and `matrix` mints the per-cell plans and stops.
 - Auto: `parameterize_notebook` threads `kernel_name` through `papermill.parameterize`; `nbconvert.get_exporter` resolves enabled and plugin exporters at admission; `(output, resources)` partitions on output type, so text becomes a `BlockKind.CODE` leaf while bytes remain a content-addressed `FigureNode` asset; `resources['outputs']` display figures splice through `_notebook_figures`; every non-reflow `media_box` derives from `_PAPER[spec.paper]`; REFLOW's `positionfn` sweep projects each placed element to a `Placement` row of native scalars and `_deposits` folds that stream to what a recovery reads back — heading nodes carrying their text, one link node per link occurrence — fragment boxes unioning only over a stable element id, never a bare (href, text) agreement fusing two same-target links — and a link-bearing heading nesting its link node as a child so neither fact drops — so the emitted `StructureNode` DOCUMENT root carries one `PageNode` per laid-out page (each keyed over its own deposit rows, a deposit-less page riding empty) exactly as the `document/lens#LENS` STORY and LINK arms recover off the rendered bytes page-for-page, and an id-bearing element MuPDF reports without any text deposits nothing rather than an empty node.
-- Receipt: `contribute` reads the threaded `ReportFact` case without re-running an arm; `REFLOW` and `AUTHOR` mint page-bearing `ArtifactReceipt.Pdf`, while `NOTEBOOK` addresses its rendered body and `jupytext` archive separately through the one `_archive` derivation both the durable seat and the synchronous port read. `_emit` awaits `Journal.record` over `receipt.evidence()` — the awaitable seat, since `contribute` cannot suspend — and a NOTEBOOK plan writes BOTH artifacts' ledgers in that one call, because an archive whose bytes are charged and whose fact never lands is a hole in the metering.
+- Output: `_emit` returns the settled `ReportFact`; `Metrics.record` records the rendered body and notebook archive byte volume at the same fold.
 - Packages: providers defer through module-scope `lazy` imports; `traitlets.config.Config` carries `ExportPolicy`; the runtime process lane isolates `REFLOW`, and the thread lane isolates GIL-releasing `AUTHOR` and blocking nbconvert renders.
 - Growth: a new report kind is one `ReportKind` row with one `COMPOSE_ARMS` row and optional `_REQUIRED` row; a new section-body unit is one `SectionBlock` case with one `_block_node` arm; exporter growth arrives through the nbconvert registry; a new result modality is one `ReportFact` case; a new recoverable reflow deposit is one `Placement` field MuPDF already reports with its `_placed_node` arm; a parameter study is one `matrix` grid with its `matrix_comparison` cross-cell section.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
-from collections.abc import Awaitable, Callable, Iterable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from enum import StrEnum
-from functools import partial
 from itertools import groupby
 from typing import Annotated, Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
 
@@ -37,9 +36,8 @@ from msgspec.json import Encoder
 from msgspec.structs import asdict
 from pydantic import Field, TypeAdapter, ValidationError
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactKind, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import (
     AnnotKind,
     AnnotationNode,
@@ -64,10 +62,9 @@ from rasm.artifacts.document.model import (
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.receipts import OPEN, Receipt, receipted
 
 lazy import jupytext
 lazy import nbconvert
@@ -936,64 +933,41 @@ class ReportPlan(Struct, frozen=True):
     spec: ReportSpec = field(default_factory=ReportSpec)
     fact: ReportFact | None = None
 
-    @receipted(
-        OPEN
-    )
     async def _composed(self) -> Self:
         return structs.replace(self, fact=await COMPOSE_ARMS[self.kind](self))
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[ReportFact]:
         key = self._key
-        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
+        return ArtifactWork(key=key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"report-{self.kind.value}", _KEY_ENCODER.encode((self.kind, self.spec)))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        settled = (await async_boundary(REPORT_COMPOSE, self._composed, catch=_compose_raises())).map(lambda done: (done, done._receipt(key)))
-        match settled:
-            case Result(tag="ok", ok=(done, receipt)):
-                facts = receipt.evidence()
-                archive = done._archive
-                return (await Journal.record(facts if archive is None else facts.append(archive.evidence()))).map(lambda _landed: receipt)
+    async def _emit(self) -> RuntimeRail[ReportFact]:
+        match await async_boundary(REPORT_COMPOSE, self._composed, catch=_compose_raises()):
+            case Result(tag="ok", ok=done):
+                assert done.fact is not None
+                fact = done.fact
+                match fact:
+                    case ReportFact(tag="pdf", pdf=(_node, body, _pages)):
+                        kind: ArtifactKind = "pdf"
+                        size = len(body)
+                    case ReportFact(tag="composed", composed=(_node, body)) | ReportFact(
+                        tag="template", template=(_node, body, _loader)
+                    ):
+                        kind, size = "report", len(body)
+                    case ReportFact(
+                        tag="notebook",
+                        notebook=(_node, body, archive, _figures, _export, _exporter, _extension, _resources, _source, _timed, _widgets),
+                    ):
+                        kind, size = "report", len(body) + len(archive)
+                    case _ as unreachable:
+                        assert_never(unreachable)
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind=kind, scope=self.lane.scope)
+                return Ok(fact)
             case refused:
                 return Error(refused.error)
-
-    @property
-    def _archive(self) -> ArtifactReceipt | None:
-        match self.fact:
-            case ReportFact(
-                tag="notebook",
-                notebook=(_node, _body, archive, _figures, _export, _exporter, _extension, _resources, _source, _timed, _widgets),
-            ):
-                return ArtifactReceipt.Report(ContentIdentity.key("report-notebook-archive", archive), len(archive))
-            case _:
-                return None
-
-    def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
-        assert self.fact is not None
-        match self.fact:
-            case ReportFact(tag="pdf", pdf=(_node, body, pages)):
-                return ArtifactReceipt.Pdf(key, len(body), pages)
-            case ReportFact(tag="composed", composed=(_node, body)):
-                return ArtifactReceipt.Report(key, len(body))
-            case ReportFact(tag="template", template=(_node, body, _loader)):
-                return ArtifactReceipt.Report(key, len(body))
-            case ReportFact(
-                tag="notebook",
-                notebook=(_node, body, _archive, _figures, _export, _exporter, _extension, _resources, _source, _timed, _widgets),
-            ):
-                return ArtifactReceipt.Report(key, len(body))
-            case _ as unreachable:
-                assert_never(unreachable)
-
-    def contribute(self) -> Iterable[Receipt]:
-        if self.fact is None:
-            return
-        yield from self._receipt(self._key).contribute()
-        if (archive := self._archive) is not None:
-            yield from archive.contribute()
 
     @classmethod
     def of(cls, kind: ReportKind, /, *, lane: LanePolicy, **raw: Unpack[ReportPayload]) -> Result[Self, ReportFault]:

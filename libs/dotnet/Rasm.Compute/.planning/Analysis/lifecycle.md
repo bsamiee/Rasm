@@ -1,6 +1,6 @@
 # [COMPUTE_LIFECYCLE]
 
-Rasm.Compute lifecycle runner owns the `Discipline.Environmental` and `Discipline.Cost` arms of the assessment rail — the EN 15978 embodied-carbon takeoff and the supply/install/lifecycle cost rollup. Both are ONE rollup over the `Analysis/aggregator` fold, discriminated by the aggregation each request names: the fold reads the seam `MaterialComposition`, distributes each ply by the element's baked `Qto_*BaseQuantities` takeoff, and projects a receipt into the uniform fact stream. Where a ply carries no baked EN 15978 declaration, the async `EnrichCarbon` ingress resolves one from the EC3 / openEPD REST catalogue through the fallback ladder, applied as a `GraphDelta` before the pure-sync carbon rollup.
+Rasm.Compute lifecycle runner owns the `Discipline.Environmental` and `Discipline.Cost` arms of the assessment rail — the EN 15978 embodied-carbon takeoff and the supply/install/lifecycle cost rollup. Both are ONE rollup over the `Analysis/aggregator` fold, discriminated by the aggregation each request names: the fold reads the seam `MaterialComposition`, distributes each ply by the element's baked `Qto_*BaseQuantities` takeoff, and projects a result into the uniform fact stream. Where a ply carries no baked EN 15978 declaration, the async `EnrichCarbon` ingress resolves one from the EC3 / openEPD REST catalogue through the fallback ladder, applied as a `GraphDelta` before the pure-sync carbon rollup.
 
 One typed `HttpClient` rides the shared `CacheLane` under a framed content key, and each runner returns one `AssessmentResult` fact stream the `Analysis/assessment` spine writes back, the governing ratio the whole-life carbon (or in-place cost) against the acceptance target the request carries — ABSENT where it carries none.
 
@@ -19,7 +19,7 @@ One typed `HttpClient` rides the shared `CacheLane` under a framed content key, 
 - Law: the reference study period is the B-stage's own scale. `product_service_life_years` and each scope's `Bn_years` are the two columns EN 15978 B1–B7 arithmetic needs — a use-stage value declared over one year and summed straight into a sixty-year study reports a building's whole maintenance and operational carbon as a single year of it, and a product whose service life is shorter than the study period is REPLACED, its product stage re-incurred at B4. Absent either column the B stages carry their declared magnitude and the result states the unscaled basis rather than fabricating a period.
 - Packages: `System.Net.Http` (typed client + `ReadFromJsonAsync(Type, JsonSerializerContext)`), `System.Text.Json` (source-generated context, AOT-safe), Microsoft.Extensions.Caching.Hybrid (reached through the `Rasm.AppHost` `Runtime/resources#CACHE_LANES` `CacheSurface`, never a cache instance), Riok.Mapperly (`[Mapper]`, `[MapProperty(Use = …)]`, `[MapValue]`, `[UserMapping]`, `[NamedMapping]`, `[UseStaticMapper]`, `[MapperIgnoreSource]` — the reader-free wire lowering), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[Union]`, `[ObjectFactory<string>]`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`HashMap`/`Validation`), Generator.Equals (`[Equatable]` — the impact-map and stage-vector reference-equality repair), NodaTime (`Instant`/`Duration`), Rasm (kernel — `ContentHash.Of<TState>`/`CanonicalWriter` the framed slot key, `Retriability` the published posture, `Op`), Rasm.Element (project — `LifecycleStage`/`ImpactCategory` the banding projections are generated over, `MeasurementBasis`, `PropertyEvidence`/`EvidenceGrade`), Rasm.AppHost (project — the `CacheLane` descriptor and its `CacheSurface`), BCL inbox; no NuGet SDK to pin (REST integration).
 - Growth: a new LCIA method is one `LciaMethod` row carrying its citation and wire spellings; a new decoded openEPD member is one source-gen context property and one banding entry; a new lifecycle module is one seam `LifecycleStage` row with one banding entry here, a new EN 15804 indicator one seam `ImpactCategory` row with one `ImpactIndicator` row; a new ladder rung is one `EpdQuery` case the descent's own roster orders; a SECOND carbon provider is one type satisfying the resolver contract with zero edit to the folds — the boundary widens by row and by adapter, never by a second HTTP client and never a per-endpoint cache path.
-- Boundary: the carbon folds take the RESOLVER, never this class — an assessment that names its provider cannot be run against a second catalogue, a fixture, or a cached corpus without editing the fold. Only the GET read surface is consumed (Rasm is a carbon consumer, never a publisher), and the openEPD wire family stays adapter-local: `Epd`/`ScopeSet`/`Amount` never cross the resolver contract, `EpdDeclaration` carrying the declared indicator cells, the two basis witnesses, the service life, and the `PropertyEvidence` the folds read. Cache tags reach `HybridCache` only through `CacheLane.Tag` and entry lifetime only through the lane's own `Entry` — this lane names an owner key and the lane frames it, where a page-local `HybridCacheEntryOptions` beside raw string tags was a THIRD cache authority against the folder's one-owner ruling and a tag space no `Invalidate` could reach. GWP `Measurement.Mean` is kgCO2e per declared unit and is not a `UnitsNet` quantity — it crosses interior signatures as a raw `double` and lands as a dimensionless `MeasureValue` labeled `kgCO2e` through `DomainMeasure`, never `UnitsNet.Mass` and never the abbreviation-resolving `MeasureValue.Of` (which rejects `kgCO2e`). `LciaMethod` carries its wire spelling as its OWN column (the `Model/providers#EP_AXIS` `WireKey` precedent): the citation a report renders and the token `impacts[method]` and `lcia_method=` are keyed by are two facts, and one string serving both makes a renamed citation silently miss every impact lookup. `LciaMethod` stays CLOSED and absence rides `Option` at the read — the wire's own `Unknown LCIA` bucket is a REFUSAL here, because a declaration whose method nothing named cannot be compared against one whose method the route pinned. `doctype`/`openepd_version` gate the decoder before any impact read, so a re-shaped future document refuses rather than decoding half. Provenance is the declaration's own orgs — `manufacturer`, `program_operator`, `third_party_verifier` and the `compliance` standards — never the `"epd"` literal a `[MapValue]` constant once stamped on every row alike. Hyphenated LCIA scope and indicator keys (`A1A2A3`, `B1`…`B7`, `C1`…`C4`, `gwp-fossil`, `ADP-mineral`, `ETP-fw`, `HTP-c`) require `[JsonPropertyName]` aliases; the `fields` query mask trims each leg to its own projection, so a category page carries candidate identity and basis alone and the winner's impacts are fetched once by identity rather than for every row the page returned; `meta.warnings[]` fold into the receipt as soft notes and `meta.paging` states whether the one probed page WAS the whole candidate set, because a freshest-of-100 pick silently presented as a freshest-of-all is the selection defect no downstream number reveals.
+- Boundary: the carbon folds take the RESOLVER, never this class — an assessment that names its provider cannot be run against a second catalogue, a fixture, or a cached corpus without editing the fold. Only the GET read surface is consumed (Rasm is a carbon consumer, never a publisher), and the openEPD wire family stays adapter-local: `Epd`/`ScopeSet`/`Amount` never cross the resolver contract, `EpdDeclaration` carrying the declared indicator cells, the two basis witnesses, the service life, and the `PropertyEvidence` the folds read. Cache tags reach `HybridCache` only through `CacheLane.Tag` and entry lifetime only through the lane's own `Entry` — this lane names an owner key and the lane frames it, where a page-local `HybridCacheEntryOptions` beside raw string tags was a THIRD cache authority against the folder's one-owner ruling and a tag space no `Invalidate` could reach. GWP `Measurement.Mean` is kgCO2e per declared unit and is not a `UnitsNet` quantity — it crosses interior signatures as a raw `double` and lands as a dimensionless `MeasureValue` labeled `kgCO2e` through `DomainMeasure`, never `UnitsNet.Mass` and never the abbreviation-resolving `MeasureValue.Of` (which rejects `kgCO2e`). `LciaMethod` carries its wire spelling as its OWN column (the `Model/providers#EP_AXIS` `WireKey` precedent): the citation a report renders and the token `impacts[method]` and `lcia_method=` are keyed by are two facts, and one string serving both makes a renamed citation silently miss every impact lookup. `LciaMethod` stays CLOSED and absence rides `Option` at the read — the wire's own `Unknown LCIA` bucket is a REFUSAL here, because a declaration whose method nothing named cannot be compared against one whose method the route pinned. `doctype`/`openepd_version` gate the decoder before any impact read, so a re-shaped future document refuses rather than decoding half. Provenance is the declaration's own orgs — `manufacturer`, `program_operator`, `third_party_verifier` and the `compliance` standards — never the `"epd"` literal a `[MapValue]` constant once stamped on every row alike. Hyphenated LCIA scope and indicator keys (`A1A2A3`, `B1`…`B7`, `C1`…`C4`, `gwp-fossil`, `ADP-mineral`, `ETP-fw`, `HTP-c`) require `[JsonPropertyName]` aliases; the `fields` query mask trims each leg to its own projection, so a category page carries candidate identity and basis alone and the winner's impacts are fetched once by identity rather than for every row the page returned; `meta.warnings[]` fold into the result as soft notes and `meta.paging` states whether the one probed page WAS the whole candidate set, because a freshest-of-100 pick silently presented as a freshest-of-all is the selection defect no downstream number reveals.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -418,21 +418,21 @@ public static partial class LifecycleAssessment {
     static readonly Op CarbonKey = Op.Of(name: nameof(RunCarbon));
     static readonly Op CostKey = Op.Of(name: nameof(RunCost));
 
-    static Fin<AssessmentResult> Rollup<TReceipt>(
+    static Fin<AssessmentResult> Rollup<TResult>(
         ElementGraph graph, AssessmentRoute route, Seq<NodeId> targets, Op key, IClock clock,
-        Func<MaterialComposition, ElementTakeoff, Fin<TReceipt>> aggregate,
-        Func<NodeId, TReceipt, Fin<Seq<AssessmentFact>>> project,
-        Func<TReceipt, Fin<Unit>> admit,
-        Func<TReceipt, double> measure,
+        Func<MaterialComposition, ElementTakeoff, Fin<TResult>> aggregate,
+        Func<NodeId, TResult, Fin<Seq<AssessmentFact>>> project,
+        Func<TResult, Fin<Unit>> admit,
+        Func<TResult, double> measure,
         Func<double, Option<double>, Option<double>> acceptance) =>
         targets
             .TraverseM(id =>
                 from composition in graph.CompositionOf(id).ToFin(Missing(AssessmentInputReason.CompositionShape, id.Value))
                 from takeoff in graph.TakeoffOf(id)
-                from receipt in aggregate(composition, takeoff)
-                from _ in admit(receipt)
-                from facts in project(id, receipt)
-                select (Facts: facts, Total: measure(receipt), takeoff.Area))
+                from result in aggregate(composition, takeoff)
+                from _ in admit(result)
+                from facts in project(id, result)
+                select (Facts: facts, Total: measure(result), takeoff.Area))
             .As()
             .Bind(rows => AssessmentResult.Of(route,
                 rows.Bind(static row => row.Facts),
@@ -620,11 +620,3 @@ public static partial class LifecycleAssessment {
             .Filter(static budget => double.IsFinite(budget) && budget > 0.0);
 }
 ```
-
-## [05]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

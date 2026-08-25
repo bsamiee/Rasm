@@ -40,7 +40,7 @@
 - Sub-unit opacity alone selects `AlphaMode.BLEND` and the `Transmissive` bit writes `KHR_materials_transmission`, never an alpha mode.
 - GDAL boundaries compose kernel `CellLattice` and `ChannelDtype` at the lattice mint — a lattice IS an admitted placement where a `Brep` never is.
 - Bulk geospatial projections PARTITION — a refused feature lands its ordinal, the import delivers what admitted; first-defect rails deliver neither.
-- Probe receipts separate REFUSED from UNMEASURED — an `Option` collapses a rejecting scan into one nobody ran, reading as fabricated absence.
+- Probe outcomes ride the kernel `Evidence<T>`, REFUSED apart from UNMEASURED — an `Option` collapses a rejecting scan into one nobody ran.
 - Classifiers absorbing an unmapped token publish that they did — an evidence-free fallback reports full coverage over a taxonomy it never reached.
 - Classifier and ingest keys carry each secondary discriminant as an OPTIONAL axis — a mandatory axis multiplies every mapping by values it ignores.
 - Ring AREA rides the Newell fold over the seam `Vector3` algebra, never planar NTS — a vertical aperture ring projects to near-zero area there.

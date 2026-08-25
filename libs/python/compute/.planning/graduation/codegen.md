@@ -23,7 +23,7 @@ import ast
 import decimal
 import importlib
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from enum import StrEnum
 from functools import reduce
 from queue import Queue
@@ -37,12 +37,14 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block, Map
 from msgspec import DecodeError, Struct, ValidationError
 
+from opentelemetry import trace
+
 from rasm.compute.graduation.handoff import EVIDENCE_DOMAIN, ComputeLeg, EvidenceScope, StageTap, evidence_run
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.faults import FAULT_CONF, TERMINAL, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, Party, Retain
 from rasm.runtime.lanes import PulseFact
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -141,7 +143,7 @@ class GeneratedModule(Struct, frozen=True):
     schema: dict[str, object] = msgspec.field(default_factory=dict)
 
     @property
-    def span_facts(self) -> dict[str, str | int]:
+    def attributes(self) -> dict[str, str | int]:
         return {
             "schema_version": self.schema_version,
             "owner_count": self.owner_count,
@@ -149,16 +151,9 @@ class GeneratedModule(Struct, frozen=True):
             "bundle_key": self.bundle_key.hex,
         }
 
-    def contribute(self) -> Iterable[Receipt]:
-        facts: dict[str, object] = dict(self.span_facts)
-        return (
-            Receipt.of(
-                EvidenceScope.CODEGEN.value,
-                ("emitted", self.bundle_key.hex, facts),
-                key=Some(self.bundle_key),
-                provenance=Some(Provenance(consumed=Block.singleton(self.bundle_key), produced=self.bundle_key)),
-            ),
-        )
+    def _noted(self) -> "GeneratedModule":
+        trace.get_current_span().set_attributes(self.attributes)
+        return self
 
 
 class FieldAlgebra[T](Struct, frozen=True):
@@ -358,7 +353,7 @@ class StubCodegen:
             bundle_key=key,
             source=StubCodegen._source(owners) if target in ("stub", "both") else "",
             schema=msgspec.json.schema_components(StubCodegen._owner_types(owners, ordered))[1] if target in ("schema", "both") else {},
-        )
+        )._noted()
 
     @staticmethod
     def _source(owners: tuple[OwnerDescriptor, ...]) -> str:

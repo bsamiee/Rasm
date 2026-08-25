@@ -662,7 +662,6 @@ public static class MotionApplication {
 - Law: velocity crosses in units per SECOND everywhere on this page, because the kernel spring's angular frequency is radians per second; the decay rows alone hold their retention per millisecond, and the conversion happens once inside the decay projection where the archetype constants are authored.
 - Entry: `MotionTrack.Sample(double position, Instant at)` — the smoothing fold every pointer sample threads; `HandoffSpec.Release(MotionTrack track)` — projection, snap, threshold, and settling in one fold, its two independent admissions accumulating; `GestureBlend.Blend(double running, double pointer, Duration elapsed)` — the grab pickup; `GestureBlend.Retarget(MotionToken token, SpringState live, double target, Duration elapsed)` — the interruption read; `MotionResolve.OnSpring` — the ONE resolved-modality fold both handoff reads share.
 - Auto: gesture ingress is the settled pointer-gesture routing table at `Shell/input#POINTER_GESTURES` — the drag rows deliver positions and the capture-lost row delivers the release edge, so this owner subscribes to nothing and every member here is a fold over values.
-- Receipt: none — a release is a value the calling surface seals through its own receipt; a per-gesture receipt would seal one row per pointer sample.
 - Packages: Rasm (project — `SpringShape`/`SpringState`/`DecayShape`/`SettleBand` the physics owners, `UnitInterval`, `Op`), Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core
 - Growth: a new inertial feel is one `MotionDecay` row carrying its retention; a new dismissible surface is one `HandoffSpec` value over existing rows; zero new surface.
 - Boundary: the tracker is a FIRST-ORDER smoother over the last samples, not a sample buffer — a two-sample difference reports whatever jitter the final pointer event carried, and a buffered average lags the release by its own window; the smoothing constant is the one declared window and a per-surface constant is the deleted form. Retargetability is a modality fact the token already carries: a spring re-enters the kernel closed form at its live `SpringState`, a tween restarts from the current value at rest. This owner holds the gesture state and hands VALUES to the apply lanes DELIBERATELY: the kernel's own motion boundary rules delegated interpolation out of the drive algebra, the composed lane publishes no velocity read at all, and no Avalonia gesture surface threads a `MonotonicBeat` chain — so the beat-sampled `MotionDrive.Step`/`Retarget` arms stay the host-pacer composition (Rhino/GH) while this page composes the same `SpringShape`/`DecayShape` closed forms value-wise, and no physics is derived here. A bound run takes its length from `SpringValue.Settling` at the pixel band rather than from the token duration, so a gently-damped completion is not cut off at its response window. Snap-to-grid quantizes the PROJECTED rest before the threshold test, never the live position, so inertia and snapping compose in one fold and a flick that would cross a cell lands on the cell it aimed at.
@@ -836,18 +835,15 @@ flowchart LR
 
 ## [07]-[REDUCED_MOTION]
 
-- Owner: `MotionReceipt` conformance receipt; `ReducedMotion` — the one degrade switch AND the Avalonia producer of the kernel `MotionPosture`.
+- Owner: `ReducedMotion` — the one degrade switch AND the Avalonia producer of the kernel `MotionPosture`.
 - Law: reduced motion is a HOST PREFERENCE, not a motion-local fact. The switch reads `PreferenceRow.ReducedMotion` through the one `PreferenceCell` every preference consumer binds, so a host flip re-derives motion, variant, translucency, and text scale in one resolve and a second probe path for motion alone cannot exist to disagree with it.
-- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Posture(PaceBand pace)` — the kernel `MotionPosture` producer for any consumer stepping kernel drives, filling `CapabilitySet<MotionConcession>` from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace.
+- Entry: `ReducedMotion.Select(MotionToken token)` — the one reduction point every consumer shares; `ReducedMotion.Bind(PreferenceCell cell)` — the composition-root binding, disposing back to the unreduced default; `ReducedMotion.Posture(PaceBand pace)` — the kernel `MotionPosture` producer for any consumer stepping kernel drives, filling `CapabilitySet<MotionConcession>` from the bound preference rows exactly as the Rhino `ConcessionProbe` fills it from the workspace; `ReducedMotion.Conformance(HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail, Op key)` — the headless sweep firing each resolved token through the AppUi motion point.
 - Auto: the cell's own `Track` subscription carries a host reduced-motion flip to the same swap that re-resolves the token catalogue, so every subsequent `Select` resolves the reduced pair globally with no per-animation re-check; a proof lane fixes the state through `PreferenceCell.Pin(PreferenceRow.ReducedMotion, new PreferenceValue.Flag(true))`, whose disposal restores the host read.
-- Receipt: `MotionReceipt` rows from `Conformance` — token key, resolved key, switch state, `Instant` — feed the headless proof lane and sink through `ReceiptSinkPort` under the evidence union's `Motion` case via the generated `EvidenceMap.ToEvidence(MotionReceipt)` seam; `Reduced` is the MEASURED switch state the conformance run observed, and the row's `Instant` stays off the case because the message-envelope HLC owns time.
 - Packages: Rasm (project — `MotionPosture`/`MotionConcession`/`PaceBand`/`CapabilitySet`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new host reduced-motion source is one column on the preference family at `tokens#VARIANT_AXIS`; a new concession correspondence is one row in the `Concessions` table below; this page grows nothing else.
 - Boundary: per-animation accessibility conditionals are the deleted pattern — reduction lives in this one switch, and the host probe rows live with the preference family that owns every other host read, so an unbound switch answers the unreduced default rather than fabricating a reading. Reduced selection lands on spring-free rows, positional transforms drop with the spring, and looping grades reduce to `Instant`; the collapse table below states what each execution lane does under reduction, because the lanes fail differently — a retained transition that merely shortens still animates, and a render-thread tick that merely slows still costs a recomposite per frame. The posture producer maps the three concession-shaped preference rows onto their kernel `MotionConcession` rows; `Appearance` and `TextScale` stay preference-only BY DISCRIMINANT — they carry values, not display concessions, so no kernel row exists for them and none is owed.
 
 ```csharp
-public readonly record struct MotionReceipt(string Token, string Resolved, bool Reduced, Instant At);
-
 public static class ReducedMotion {
     static readonly Atom<Option<PreferenceCell>> bound = Atom(Option<PreferenceCell>.None);
 
@@ -875,10 +871,18 @@ public static class ReducedMotion {
         return Disposable.Create(() => bound.Swap(_ => Option<PreferenceCell>.None));
     }
 
-    public static Seq<MotionReceipt> Conformance(IClock clock) =>
-        clock.GetCurrentInstant() switch {
-            var stamp => toSeq(MotionToken.Items).Map(token => new MotionReceipt(token.Key, Select(token).Key, Active, stamp)),
-        };
+    public static Fin<Unit> Conformance(
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Op key) =>
+        toSeq(MotionToken.Items)
+            .TraverseM(token => Select(token) switch {
+                var resolved => rail.Fire(
+                    at: AppUiPoint.Motion,
+                    fact: new AppUiFact.Motion(token.Key, resolved.Key, Active),
+                    key: key),
+            })
+            .As()
+            .Map(static _ => unit);
 }
 ```
 

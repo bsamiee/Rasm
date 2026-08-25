@@ -14,7 +14,7 @@ Quadrature rides the mesh as PROVEN evidence. `ElementClass.Quadrature` is the k
 - Cases: `FieldStation` rows nodal · integration-point · cell · boundary; `FieldRank` rows scalar · vector · tensor — the component count is the ROW's own derivation over the ambient dimension, so a rank-2 field carrying five components is unrepresentable rather than merely wrong.
 - Entry: `DiscreteMesh.FieldOf(FieldStation, FieldRank, int dim)` mints the field space; `FieldSpace.OfKey(DiscreteMesh, string station, string rank, int dim)` resolves both vocabulary keys and accumulates every unrostered one; `DiscreteMesh.NodalXyz(long element)` is the per-cell nodal gather every assembly, metric, and inertia fold reads; `DiscreteMesh.Archive(Stream, HdfArchivePolicy)` writes the two-dataset container through the ONE archive session owner.
 - Auto: `FieldSpace.Layout` projects the `Runtime/archive#CHUNK_CURSOR` station-outermost chunk grid, so every `FieldSpace`-shaped producer — solve history, ensemble store, field encode — reads one derivation and no second chunk arithmetic forks the address a consumer computes.
-- Receipt: none of its own — the mesh's evidence is `Solver/discretization`'s `Discretization` receipt and the solve's is `Solver/contract`'s.
+- Result: none of its own — the mesh is `Solver/discretization`'s `DiscreteMesh` and the solve result is `Solver/contract`'s.
 - Packages: Rasm (project — kernel `QuadratureRule`), PureHDF (through `Runtime/archive#HDF_ARCHIVE` alone), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new field station is one `FieldStation` row carrying its count derivation; a new field rank is one `FieldRank` row carrying its component derivation; a new mesh column is one field on `DiscreteMesh` with its `Pack` line; zero new surface.
 - Boundary: HDF5 crosses through `Runtime/archive#HDF_ARCHIVE` ALONE — `HdfArchive.Begin` opens the ONE deferred-write session, and a second `H5File` construction with a direct `Write(Stream)` anywhere in the package is the form the archive catalog names as rejected regardless of dataset scale. The container is create-only, both datasets are single-shot, and each rides its own monotone chunk cursor so an out-of-order ordinal refuses at admission rather than mid-encode.
@@ -125,7 +125,3 @@ public sealed partial record DiscreteMesh(
     }
 }
 ```
-
-## [03]-[RESEARCH]
-
-(none)

@@ -446,7 +446,7 @@ public static class ScanGeometry {
 - Law: a solid zone's density is unity by construction; only support rows carry a planner-realized duty, and that duty comes off `SupportLayer` rather than a model-derived default.
 - Law: an empty zone leaves the row set entirely, so a class with no area never reaches candidate generation as a degenerate region.
 - Entry: `SliceRegion.Of(stack, layer)` is the one region source; a layer outside the stack contributes nothing beneath or above and its whole region is skin.
-- Receipt: `ExposureRegion` carries layer, elevation, class, region, and density, so spacing resolves from the row alone.
+- Result: `ExposureRegion` carries layer, elevation, class, region, and density, so spacing resolves from the row alone.
 - Packages: `Rasm.Fabrication.Additive` (`SliceRegion` from `slicing`, `SupportPlan`/`SupportLayer` from `support`), LanguageExt.Core.
 - Growth: a zone is one `ExposureClass` row and one row on the zoning fold.
 - Boundary: the contour class covers the whole region boundary rather than a subtracted area, because a boundary pass is a perimeter and carries no area to double-expose.
@@ -598,8 +598,8 @@ public static class SourcePartition {
 
 - Owner: `ScanPlane` owns every derived spatial quantity — Morton locality and gas bearing — and is the ONE Morton owner on the page; `Scan.Waves` owns wave election; `ScanOrder` owns the sort key law.
 - Law: Morton order is a deterministic ORDERING key, never an index. Neighbour and overlap questions fold the kernel `Rasm.Spatial` owner, so this page holds no bucket grid, no cell hash, and no neighbourhood stencil — three byte-identical grids across this folder collapse onto one kernel index.
-- Law: contention is decided ONCE per layer. `SpatialQuery.SelfOverlap` enumerates every unordered pair inside one index whose bounds — each vector's segment box inflated by half the separation — overlap, and the exact `EdgeSeparation.Gap` predicate narrows that broad phase. A second quadratic re-test at receipt time re-derives what the election already settled and is the deleted form.
-- Law: a wave identifier stays inside `[0, ThermalWindow)`. A vector whose whole window is blocked is UNRESOLVED — it takes its seed wave, the receipt counts it, and the plan refuses on that count. Growing the identifier past the window escapes the modal vocabulary the machine schedules against and turns an unschedulable vector into a silently valid one.
+- Law: contention is decided ONCE per layer. `SpatialQuery.SelfOverlap` enumerates every unordered pair inside one index whose bounds — each vector's segment box inflated by half the separation — overlap, and the exact `EdgeSeparation.Gap` predicate narrows that broad phase. A second quadratic re-test at result time re-derives what the election already settled and is the deleted form.
+- Law: a wave identifier stays inside `[0, ThermalWindow)`. A vector whose whole window is blocked is UNRESOLVED — it takes its seed wave, the result counts it, and the plan refuses on that count. Growing the identifier past the window escapes the modal vocabulary the machine schedules against and turns an unschedulable vector into a silently valid one.
 - Auto: `ScanOrder` rows carry one `Project` column, so `ScanSort.Order` is one sort over one comparable key and no caller re-tests order identity. No row rewrites geometry: serpentine orientation is owned by ray emission, so an ordering that reverses alternate rows after sorting pairs whichever vectors the sort adjoined and never survives a re-sort.
 - Packages: `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Build`/`Query`, `SpatialKind.Bvh`, `BuildPolicy.Canonical`, `SpatialQuery.SelfOverlap`, `SpatialAnswer.Result`, `QueryResult.Pairs`), `Rasm.Fabrication.Geometry2D` (`EdgeSeparation.Gap`), LanguageExt.Core.
 - Growth: an ordering law is one `ScanOrder` row with its projection column.
@@ -787,15 +787,15 @@ public sealed record TimingPolicy(
 
 ## [08]-[EGRESS]
 
-- Owner: `ScanCodec.Write` is the sole canonical octet projection; `ScanEvidence` owns what the plan measured and `Receipt<ScanEvidence>` its plane, key, ancestry, and stamp; `Scan.Plan` owns the fold.
+- Owner: `ScanCodec.Write` is the sole canonical octet projection; `ScanEvidence` owns what the plan measured; `ScanPlan` owns the layers, bytes, evidence, and key.
 - Law: the codec composes `FabricationCanon` alone — `Coords`, `Basis`, `Maybe`, `Rows`, and `Discriminant` — so a point, a transform, an optional, a row set, and a vocabulary key have one framing package-wide. A page-local point or transform writer beside them is the deleted duplicate, and a sixteen-double transform beside the twelve affine reads is a second convention over one fact.
 - Law: this page owns exposure-count, path-length, and energy evidence. The executed machine clock — recoat scheduling, wave barriers, and inter-source waits — belongs to `Verify/simulate`, so no build-time column lands here and no second clock disagrees with it. Per-vector NOMINAL exposure time survives because energy is power times time and cannot be derived without it.
 - Law: an unmeasured thermal quantity is ABSENT. A layer set with no inter-vector transition has no separation to average, so the columns carry `None` rather than a zero a consumer reads as perfect locality. `Unresolved` and `Stitches` are measured counts whose zero is a real reading.
-- Entry: `Scan.Plan` runs policy admission, audit, physics agreement, zoning, field build, candidate generation, election, wave election, ordering, event projection, canonicalization, and receipt construction in one flat query inside the `FabricationEngine.Scan` bracket the supplied `SpanBand` opens, so a long derivation traces and a headless caller passing no band runs the identical query untraced.
-- Receipt: `ScanEvidence` retains source loads, field cells, thermal moments, unresolved contention, exposure, jump, remelt, and stitch counts, path, energy, and canonical size; `Consumed` carries the preflight it stood on and `AuditPolicy.EvaluatedAt` stamps it, the branch's one evaluation instant per build. The settled receipt fires the `FabricationFact.Engine.Of` rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
+- Entry: `Scan.Plan` runs policy admission, audit, physics agreement, zoning, field build, candidate generation, election, wave election, ordering, event projection, canonicalization, and result construction in one flat query inside the `FabricationEngine.Scan` bracket the supplied `SpanBand` opens, so a long derivation traces and a headless caller passing no band runs the identical query untraced.
+- Result: `ScanEvidence` retains source loads, field cells, thermal moments, unresolved contention, exposure, jump, remelt, and stitch counts, path, energy, and canonical size. The producer writes its engine steps through the caller-supplied instrument set, defaulting absent for headless callers.
 - Output: `ContentKey.Of(EgressKind.ScanVectors, bytes)` mints exactly once over the canonical stored bytes.
-- Packages: `Rasm.Element.Projection` (`CanonicalWriter`), `Rasm.Fabrication.Process` (`FabricationCanon`, `FabricationFact`, `FabricationTap`, `FabricationTrace`), LanguageExt.Core.
-- Boundary: `ScanEvidence.Exposures`, `.Jumps`, `.Remelts`, and `.Stitches` are the four columns `Process/telemetry#FACT_UNION` projects as `FabricationEngine.Scan` phases; renaming one silently strands its instrument, and the projection now reaches them through the carrier's `Evidence`.
+- Packages: `Rasm.Element.Projection` (`CanonicalWriter`), `Rasm.Fabrication.Process` (`FabricationCanon`, `FabricationInstruments`, `FabricationTrace`), LanguageExt.Core.
+- Boundary: `ScanEvidence.Exposures`, `.Jumps`, `.Remelts`, and `.Stitches` are the four columns `Process/telemetry#OBSERVE` writes as `FabricationEngine.Scan` phases; renaming one silently strands its instrument, and the site reads them through the artifact's `Evidence`.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -835,7 +835,10 @@ public sealed record ScanEvidence(
     int CanonicalBytes);
 
 public sealed record ScanPlan(
-    Seq<ScanLayer> Layers, ReadOnlyMemory<byte> Bytes, Receipt<ScanEvidence> Receipt);
+    Seq<ScanLayer> Layers,
+    ReadOnlyMemory<byte> Bytes,
+    ScanEvidence Evidence,
+    ContentKey Key);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Scan {
@@ -844,8 +847,8 @@ public static class Scan {
         ScanPolicy policy,
         ProcessBudget.Powder budget,
         Option<SupportPlan> support,
-        FabricationTap? tap = null,
-        SpanBand? band = null) =>
+        Option<InstrumentSet> set = default,
+        Option<SpanBand> band = default) =>
         band.Traced(FabricationEngine.Scan, Op.Of(), _ =>
         from _policy in (
             AdmissionSlots.Gate(policy.DownSkinLayers > 0 && policy.UpSkinLayers > 0
@@ -868,9 +871,9 @@ public static class Scan {
             .As()
             .ToFin()
         from audit in Audit.Preflight(stack, policy.Audit)
-        from _clean in audit.Evidence.Clean
+        from _clean in audit.Clean
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new KernelFault.InvalidValue("scanpath", $"scan:audit:{audit.Evidence.Defects.Count}"))
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("scanpath", $"scan:audit:{audit.Defects.Count}"))
         from physics in Physics(budget, policy)
         from _physics in physics.Power == policy.Base.Power
                 && physics.Speed == policy.Base.Speed
@@ -889,15 +892,13 @@ public static class Scan {
         from layers in Events(elections, policy)
         from bytes in ScanCodec.Write(policy, layers, Op.Of(name: nameof(Plan)))
         let evidence = Measured(fields, elections, layers, bytes.Length)
-        let receipt = new Receipt<ScanEvidence> {
-            Evidence = evidence,
-            Concern = FabConcern.Additive,
-            Key = ContentKey.Of(EgressKind.ScanVectors, bytes.Span),
-            Consumed = Seq(audit.Key),
-            Stamped = policy.Audit.EvaluatedAt,
-        }
-        let _fact = FabricationFact.Engine.Of(evidence).Map((tap ?? FabricationTap.Silent).Fire).Strict()
-        select new ScanPlan(layers, bytes, receipt));
+        let key = ContentKey.Of(EgressKind.ScanVectors, bytes.Span)
+        from _steps in set.Steps(
+            (EnginePhase.Exposures, evidence.Exposures),
+            (EnginePhase.Jumps, evidence.Jumps),
+            (EnginePhase.Remelts, evidence.Remelts),
+            (EnginePhase.Stitches, evidence.Stitches))
+        select new ScanPlan(layers, bytes, evidence, key));
 
     // --- [ZONING]
     private static Fin<Seq<ExposureRegion>> Regions(SliceStack stack, Option<SupportPlan> support, ScanPolicy policy) =>
@@ -1130,7 +1131,6 @@ public static class Scan {
             recoat: static (_, row) => row,
             layerDelay: static (_, row) => row);
 
-    // --- [RECEIPT]
     private static Fin<ExposureProfile> Physics(ProcessBudget.Powder budget, ScanPolicy policy) =>
         ExposureProfile.Admit(
             new Power(budget.LaserPower, PowerUnit.Watt),
@@ -1342,14 +1342,13 @@ flowchart LR
     Order --> Events["discontinuity-gated ScanEvent program"]
     Events --> Codec["FabricationCanon preimage"]
     Codec --> Key["ContentKey.Of ScanVectors"]
-    Key --> Plan["ScanPlan + Receipt&lt;ScanEvidence&gt;"]
+    Key --> Plan["ScanPlan"]
 ```
 
 ## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

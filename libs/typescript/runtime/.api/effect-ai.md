@@ -25,8 +25,8 @@ Every provider resolves a `Model.make` row into these tags, so provider choice i
 |  [04]   | `LanguageModel.streamText`                  | function         | streaming `Response.StreamPart` fold     |
 |  [05]   | `LanguageModel.make`                        | constructor      | build `Service` from provider params     |
 |  [06]   | `LanguageModel.ToolChoice<Tools>`           | union            | tool-selection policy value              |
-|  [07]   | `LanguageModel.GenerateTextResponse`        | class            | text receipt (`.text`/`.usage`/…)        |
-|  [08]   | `LanguageModel.GenerateObjectResponse`      | class            | object receipt (`.value`)                |
+|  [07]   | `LanguageModel.GenerateTextResponse`        | class            | text response (`.text`/`.usage`/…)       |
+|  [08]   | `LanguageModel.GenerateObjectResponse`      | class            | object response (`.value`)               |
 |  [09]   | `LanguageModel.ProviderOptions`             | interface        | provider-normalized request              |
 |  [10]   | `LanguageModel.ConstructorParams`           | interface        | provider implementation seam             |
 |  [11]   | `LanguageModel.ExtractError/ExtractContext` | conditional type | toolkit error/context inference          |

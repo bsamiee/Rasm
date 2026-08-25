@@ -358,7 +358,7 @@ public abstract partial record HatchSpec {
 - Boundary: placement rollback deletes landed objects while the release policy settles every minted native on both outcomes; placed-hatch rework retains original and revised clones through compensation, and a custody refusal after commit restores the originals.
 - Law: absence never crosses as `null` — an optional attribute set and the unused history slot project through the kernel's one host-slot spelling.
 - Entry: `Hatches.Commit` preserves the frozen wire and accepts `DraftPlan<HatchProgram>` with shared redraw and undo policy.
-- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagSurface`, `DraftPlan`, `DraftSpine`, `DraftSlot`, `DraftComponentKind`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); RhinoCommon `HatchPatternTable`/`HatchPattern.ReadFromFile`/`WriteToFile`.
+- Packages: `Annotation/style.md` (`TableGrip`, `TableOp`, `ListEdit`, `ListSurface`, `TagSurface`, `DraftPlan`, `DraftSpine`), `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`), `Domain/rails` (`Custody`, `Lease<T>`, `Op.ToHostSlot`); RhinoCommon `HatchPatternTable`/`HatchPattern.ReadFromFile`/`WriteToFile`.
 - Growth: a verb every component table shares lands on `TableOp`; a hatch-only verb is one case here.
 
 ```csharp
@@ -374,7 +374,7 @@ public abstract partial record HatchProgram {
     public sealed record Rescale(TableTarget Target, Transform Motion) : HatchProgram;
 
     internal static readonly TableGrip<HatchPattern, PatternDef> Grip = new(
-        HatchSpec.Lens, DraftComponentKind.Hatch,
+        HatchSpec.Lens,
         Named: static def => def.Name,
         Title: static (pattern, key) => key.AcceptValidated<ResourceName>(candidate: pattern.Name),
         Index: static pattern => pattern.Index,
@@ -407,7 +407,7 @@ public abstract partial record HatchProgram {
         Emit: static (path, patterns, key) => key.Confirm(success: HatchPattern.WriteToFile(
             filename: path.Value, hatchPatterns: patterns.AsIterable())));
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
         table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
         authorDefault: static (context, edit) =>
@@ -419,23 +419,23 @@ public abstract partial record HatchProgram {
                 .BindFail(primary => Fin.Fail<PatternDef>(error: primary).Rollback(
                     release: () => Custody.Dispose(held: stock, key: context.Op), key: context.Op))
             from _ in Custody.Dispose(held: stock, key: context.Op)
-            from receipt in new TableOp<HatchPattern, PatternDef>.Author(Def: definition, Interaction: edit.Interaction)
+            from __ in new TableOp<HatchPattern, PatternDef>.Author(Def: definition, Interaction: edit.Interaction)
                 .Apply(grip: Grip, document: context.Document, op: context.Op)
-            select receipt,
+            select unit,
         relist: static (context, edit) =>
             from _ in guard(!edit.Edits.IsEmpty, context.Op.InvalidInput()).ToFin()
-            from receipt in Grip.Revised(
-                target: edit.Target, document: context.Document, slot: DraftSlot.Amended,
+            from __ in Grip.Revised(
+                target: edit.Target, document: context.Document,
                 interaction: edit.Interaction, op: context.Op,
                 revise: (copy, key) =>
                     from applied in edit.Edits.TraverseM(row => row.Apply(surface: Generators(copy), op: key)).As()
                     from __ in guard(copy.FillType != HatchPatternFillType.Lines || copy.HatchLineCount > 0,
                         key.InvalidResult()).ToFin()
                     select unit)
-            select receipt,
+            select unit,
         place: static (context, edit) =>
             from hatches in edit.Spec.Mint(document: context.Document, placement: edit.Placement, op: context.Op)
-            from ids in DocumentCommit.Compensated(
+            from _ in DocumentCommit.Compensated(
                 source: hatches,
                 land: hatch => context.Op.Catch(() => ResourceId.Admit(context.Document.Objects.Add(
                     geometry: hatch,
@@ -445,14 +445,13 @@ public abstract partial record HatchProgram {
                 rollback: landed => context.Op.Confirm(success: context.Document.Objects.Delete(
                     objectIds: landed.Map(static id => id.Value).AsIterable(), quiet: true) == landed.Count),
                 release: minted => Custody.Dispose(held: minted, key: context.Op))
-            from receipt in DraftReceipt.Objects(slot: DraftSlot.Placed, ids: ids, key: context.Op)
-            select receipt,
+            select unit,
         regrade: static (context, edit) => Reworked(
-            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Restyled,
+            document: context.Document, target: edit.Target, op: context.Op,
             change: (hatch, key) => edit.Fill.Mint(key: key)
                 .Bind(fill => key.Catch(() => Fin.Succ(value: Op.Side(() => hatch.SetGradientFill(fill: fill)))))),
         rescale: static (context, edit) => Reworked(
-            document: context.Document, target: edit.Target, op: context.Op, slot: DraftSlot.Scaled,
+            document: context.Document, target: edit.Target, op: context.Op,
             change: (hatch, key) => key.Accept(edit.Motion)
                 .Bind(_ => key.Catch(() => Fin.Succ(value: Op.Side(() => hatch.ScalePattern(xform: edit.Motion)))))));
 
@@ -472,14 +471,14 @@ public abstract partial record HatchProgram {
         internal Seq<Hatch> Custody => Seq(Original, Revised);
     }
 
-    private static Fin<DraftReceipt> Reworked(
-        RhinoDoc document, TableTarget target, Op op, DraftSlot slot, Func<Hatch, Op, Fin<Unit>> change) =>
+    private static Fin<Unit> Reworked(
+        RhinoDoc document, TableTarget target, Op op, Func<Hatch, Op, Fin<Unit>> change) =>
         from ids in target.Resolve(document: document, key: op)
         from revisions in DocumentCommit.Compensated(
             source: ids,
             land: id => Prepare(document: document, id: id, change: change, op: op),
             rollback: landed => Custody.Dispose(held: landed.Bind(static row => row.Custody), key: op))
-        from amended in DocumentCommit.Compensated(
+        from _ in DocumentCommit.Compensated(
             source: revisions,
             land: revision => op.Confirm(success: document.Objects.Replace(
                     objectId: revision.Id, geometry: revision.Revised, ignoreModes: false))
@@ -488,8 +487,7 @@ public abstract partial record HatchProgram {
                     objectId: row.Id, geometry: row.Original, ignoreModes: false))
                 .ToValidation()).As().ToFin().Map(static _ => unit),
             release: rows => Custody.Dispose(held: rows.Bind(static row => row.Custody), key: op))
-        from receipt in DraftReceipt.Objects(slot: slot, ids: amended.Map(static row => ResourceId.Create(row.Id)), key: op)
-        select receipt;
+        select unit;
 
     private static Fin<HatchRevision> Prepare(
         RhinoDoc document, Guid id, Func<Hatch, Op, Fin<Unit>> change, Op op) =>
@@ -507,7 +505,7 @@ public abstract partial record HatchProgram {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Hatches {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<HatchProgram> plan) =>
+    public static Fin<Unit> Commit(DocumentSession session, DraftPlan<HatchProgram> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, key) => operation.Apply(document: document, op: key),
             op: Op.Of(name: nameof(Hatches)));
@@ -711,7 +709,6 @@ public abstract partial record HatchAnswer : IDetachedDocumentResult {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

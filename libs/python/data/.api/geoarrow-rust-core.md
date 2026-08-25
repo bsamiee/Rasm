@@ -78,7 +78,7 @@
 - construction axis: `from_wkb`/`from_wkt`/`from_ewkb` own the encoded-bytes entry and `from_shapely`/`from_geopandas` the external-container entry; `coord_type` selects `Interleaved` versus `Separated` at construction, and one polymorphic entry per source discriminates array from chunked on input shape, never a per-shape function family.
 - egress axis: `to_wkb` stays GeoArrow-native; `to_shapely`/`to_geopandas` cross to the Shapely/GeoPandas boundary, admitted only where a consumer requires those objects.
 - crs axis: `get_crs` reads the CRS from GeoArrow field metadata through `pyproj`, inferring the single geometry column or taking an explicit `column`, never re-derived from coordinates.
-- evidence: each call captures operation name, input encoding, selected `CoordType`, geometry-type, and chunk count as an ingress receipt.
+- evidence: each call returns the native geometry carrier; operation name, input encoding, selected `CoordType`, geometry type, and chunk count stay on the result or its span when consumed.
 
 [STACKING]:
 - `geoarrow-rust-compute`(`.api/geoarrow-rust-compute.md`): its kernels consume these carriers' capsules and its geometry-returning operations yield the same `GeometryArray`/`ChunkedGeometryArray` carriers back, so construction here and compute there share one memory model with no intermediate copy — core owns the carriers, compute owns the algorithms.

@@ -62,7 +62,7 @@ This catalogue is the kernel's `RhinoCommon` partition: the host-ABI surface `Ra
 |  [04]   | `MeshUnwrapper`          | reference, `IDisposable` | UV unwrap                 |
 |  [05]   | `MeshUnwrapMethod`       | enum                     | parameterization selector |
 
-- `QuadRemeshParameters`: `TargetEdgeLength` `TargetQuadCount` `AdaptiveSize` `AdaptiveQuadCount` `DetectHardEdges` `GuideCurveInfluence` `PreserveMeshArrayEdgesMode` `SymmetryAxis`; `TargetQuadCount` defaults to 2000, `AdaptiveSize` rides the native `[0,100]` unit, `AdaptiveQuadCount` and `DetectHardEdges` default true, all read-write so the receipt recovers the full set.
+- `QuadRemeshParameters`: `TargetEdgeLength` `TargetQuadCount` `AdaptiveSize` `AdaptiveQuadCount` `DetectHardEdges` `GuideCurveInfluence` `PreserveMeshArrayEdgesMode` `SymmetryAxis`; `TargetQuadCount` defaults to 2000, `AdaptiveSize` rides the native `[0,100]` unit, `AdaptiveQuadCount` and `DetectHardEdges` default true, all read-write so the capture recovers the full set.
 - `QuadRemeshSymmetryAxis`: `None=0` `X=1` `Y=2` `Z=4`, combining under `[Flags]`.
 - `ReduceMeshParameters`: `DesiredPolygonCount` `AllowDistortion` `Accuracy` `NormalizeMeshSize` `FaceTags` `LockedComponents` `CancelToken` `ProgressReporter`; the host writes the internally-set `Error`.
 - `MeshUnwrapper`: `MeshUnwrapper(Mesh)` and `MeshUnwrapper(IEnumerable<Mesh>)` constructors and the `SymmetryPlane` property.

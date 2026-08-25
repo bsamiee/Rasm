@@ -593,7 +593,7 @@ type CommandInvocation = MessageValidType<typeof CommandInvocation>
 type CommandPayload = MessageValidType<typeof ui.CommandPayloadWireSchema>
 
 type Dispatched<A> = Data.TaggedEnum<{
-  Granted: { readonly verb: string; readonly receipt: A }
+  Granted: { readonly verb: string; readonly output: A }
   Refused: { readonly verb: string; readonly verdict: Evidence.Availability.Verdict }
 }>
 interface DispatchedDefinition extends Data.TaggedEnum.WithGenerics<1> {
@@ -607,9 +607,8 @@ class AvailabilityGate extends Context.Tag("@rasm/core/AvailabilityGate")<Availa
 
 const _kinds = ["crash", "bug", "feedback"] as const
 
-class SupportReceipt extends Schema.Class<SupportReceipt>("SupportReceipt")({
+class SupportTicket extends Schema.Class<SupportTicket>("SupportTicket")({
   reference: Schema.NonEmptyString,
-  kind: Schema.Literal(..._kinds),
   at: Schema.DateTimeUtc,
 }) {}
 
@@ -620,16 +619,13 @@ class SupportCapture extends Schema.Class<SupportCapture>("SupportCapture")({
   evidence: Schema.Uint8ArrayFromSelf,
   at: Schema.DateTimeUtc,
 }) {
-  static readonly Receipt: typeof SupportReceipt = SupportReceipt
-  static readonly captured = (report: SupportCapture): Effect.Effect<SupportReceipt, never, SupportIntake> =>
-    Effect.gen(function* () {
-      const intake = yield* SupportIntake
-      return yield* intake.deliver(report)
-    })
+  static readonly Ticket: typeof SupportTicket = SupportTicket
+  static readonly captured = (report: SupportCapture): Effect.Effect<SupportTicket, never, SupportIntake> =>
+    Effect.flatMap(SupportIntake, (intake) => intake.deliver(report))
 }
 
 class SupportIntake extends Context.Tag("@rasm/core/SupportIntake")<SupportIntake, {
-  readonly deliver: (report: SupportCapture) => Effect.Effect<SupportReceipt>
+  readonly deliver: (report: SupportCapture) => Effect.Effect<SupportTicket>
 }>() {}
 
 declare namespace Gateway {
@@ -724,7 +720,7 @@ const _make = <
     )
     const invocation: Schema.Schema<CommandInvocation, JsonValue> = Format.proto.json(CommandInvocation)
     const output: Schema.Schema<Dispatched<A[Kinds[number]]>, unknown> = Schema.Union(...Array.map(keys, (key) => Schema.Union(
-      Schema.Struct({ _tag: Schema.Literal("Granted"), verb: Schema.Literal(key), receipt: rows[key].output }),
+      Schema.Struct({ _tag: Schema.Literal("Granted"), verb: Schema.Literal(key), output: rows[key].output }),
       Schema.Struct({ _tag: Schema.Literal("Refused"), verb: Schema.Literal(key), verdict: Evidence.Availability.Verdict }),
     )))
     const dispatch = Effect.fn("gateway/dispatch")(
@@ -739,7 +735,7 @@ const _make = <
         })
         const verdict = yield* gate.admits(command.key)
         return yield* (verdict._tag === "Available"
-          ? Effect.map(row.dispatch(command), (receipt) => _Dispatched.Granted({ verb: command.key, receipt }))
+          ? Effect.map(row.dispatch(command), (output) => _Dispatched.Granted({ verb: command.key, output }))
           : Effect.succeed(_Dispatched.Refused({ verb: command.key, verdict })))
       },
       (effect) => Metric.trackDuration(effect, _gatewayClock),
@@ -930,7 +926,6 @@ export { Invoke }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

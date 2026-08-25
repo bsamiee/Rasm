@@ -300,11 +300,3 @@ class Traffic extends Tier {
 
 export { Traffic }
 ```
-
-## [04]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

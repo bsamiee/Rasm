@@ -228,9 +228,6 @@ export const MaterialProfileWireSchema: GenMessage<MaterialProfileWire, {validTy
   messageDesc(file_rasm_contracts_element_substance, 3);
 
 /**
- * The producer lifts this receipt WHOLE, so every column is required and a zero is an engineering value, not
- * absence: a zero shear centre reads doubly-symmetric, and a zero axis distance reads non-reinforced.
- *
  * @generated from message rasm.contracts.element.SectionPropertiesWire
  */
 export type SectionPropertiesWire = Message<"rasm.contracts.element.SectionPropertiesWire"> & {
@@ -336,9 +333,6 @@ export type SectionPropertiesWire = Message<"rasm.contracts.element.SectionPrope
 };
 
 /**
- * The producer lifts this receipt WHOLE, so every column is required and a zero is an engineering value, not
- * absence: a zero shear centre reads doubly-symmetric, and a zero axis distance reads non-reinforced.
- *
  * @generated from message rasm.contracts.element.SectionPropertiesWire
  */
 export type SectionPropertiesWireValid = Message<"rasm.contracts.element.SectionPropertiesWire"> & {

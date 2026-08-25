@@ -50,7 +50,6 @@ from assay.core.model import (
     HINT_CAP,
     Match,
     RailStatus,
-    receipt,
     Report,
     RESULT_CAP,
     RunDelta,
@@ -63,19 +62,7 @@ from assay.core.model import (
     wire_safe,
 )
 from assay.diagnostics import cap_note, fold
-from assay.rails import (
-    api as api_rail,
-    bridge as bridge_rail,
-    code as code_rail,
-    contracts as contracts_rail,
-    docs as docs_rail,
-    health as health_rail,
-    init as init_rail,
-    package as package_rail,
-    provision as provision_rail,
-    static as static_rail,
-    test as test_rail,
-)
+from assay.rails import api as api_rail, bridge as bridge_rail, code as code_rail, contracts as contracts_rail, docs as docs_rail, health as health_rail, init as init_rail, package as package_rail, provision as provision_rail, static as static_rail, test as test_rail
 from assay.rails.api import ApiParams
 from assay.rails.bridge import BridgeParams
 from assay.rails.code import CodeParams
@@ -163,9 +150,7 @@ def _failing_step(fault: Fault) -> Step:
             return Step.SPAWN
 
 
-def _distill(
-    fault: Fault, duration_ms: float, *, events: tuple[str, ...] | None = None, resource: tuple[tuple[str, float], ...] = (), step: Step | None = None
-) -> tuple[Diagnostic, bool]:
+def _distill(fault: Fault, duration_ms: float, *, events: tuple[str, ...] | None = None, resource: tuple[tuple[str, float], ...] = (), step: Step | None = None) -> tuple[Diagnostic, bool]:
     ring = events if events is not None else tuple(RING.get() or ())
     step = step if step is not None else _failing_step(fault)
     reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
@@ -176,16 +161,7 @@ def _distill(
     snap = resource or RESOURCE.get() or measure().to_resources()
     ctx = trace.get_current_span().get_span_context()
     ids = (f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}") if ctx.is_valid else ("", "")
-    return Diagnostic(
-        failing_step=step,
-        recent_events=ring,
-        elapsed_ms=duration_ms,
-        hint=hint,
-        dispatched=not (ring and ring[0] == _DISPATCH_NONE),
-        resource=snap,
-        trace_id=ids[0],
-        span_id=ids[1],
-    ), truncated
+    return Diagnostic(failing_step=step, recent_events=ring, elapsed_ms=duration_ms, hint=hint, dispatched=not (ring and ring[0] == _DISPATCH_NONE), resource=snap, trace_id=ids[0], span_id=ids[1]), truncated
 
 
 def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -> tuple[Artifact, ...]:
@@ -219,37 +195,10 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
         artifact = _full_report_artifact(settings, bind, report)
         artifacts = ((*artifact, *report.artifacts) if artifact else report.artifacts)[:_ARTIFACT_CAP]
         cap, total = (RESULT_CAP, len(report.results)) if len(report.results) > RESULT_CAP else (_ARTIFACT_CAP, len(report.artifacts))
-        report = msgspec.structs.replace(
-            report,
-            results=_defect_preserving_cap(report.results),
-            artifacts=artifacts,
-            notes=(*report.notes, *cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")),
-        )
+        report = msgspec.structs.replace(report, results=_defect_preserving_cap(report.results), artifacts=artifacts, notes=(*report.notes, *cap_note(cap, total, cap, tail=f"full report artifact under {settings.run_id}")))
     defect_events = tuple(f"{m.id}: {m.text[:120]}" for m in defect_rows[:16])
-    ctx = (
-        _distill(
-            Fault((), RailStatus.FAILED, f"{len(defect_rows)} diagnostic(s) failed"),
-            ms,
-            events=defect_events,
-            resource=report.detail.resources if isinstance(report.detail, StaticRun) else (),
-            step=Step.DEFECTS,
-        )[0]
-        if report.status is RailStatus.FAILED
-        else None
-    )
-    return Envelope(
-        claim=bind.claim,
-        verb=bind.verb,
-        status=report.status,
-        exit_code=report.status.exit_code,
-        run_id=settings.run_id,
-        duration_ms=ms,
-        report=report,
-        error_context=ctx,
-        exec=report.exec,
-        truncated=truncated,
-        notes=report.notes,
-    )
+    ctx = _distill(Fault((), RailStatus.FAILED, f"{len(defect_rows)} diagnostic(s) failed"), ms, events=defect_events, resource=report.detail.resources if isinstance(report.detail, StaticRun) else (), step=Step.DEFECTS)[0] if report.status is RailStatus.FAILED else None
+    return Envelope(claim=bind.claim, verb=bind.verb, status=report.status, exit_code=report.status.exit_code, run_id=settings.run_id, duration_ms=ms, report=report, error_context=ctx, remote=report.remote, truncated=truncated, notes=report.notes)
 
 
 def _narrow(handler: object) -> Handler[object]:
@@ -289,29 +238,12 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
         case Result(error=fault):
             diagnostic, truncated = _distill(fault, ms)
             persist = diagnostic.failing_step != Step.PARSE
-            envelope = Envelope(
-                claim=bind.claim,
-                verb=bind.verb,
-                status=fault.status,
-                exit_code=fault.status.exit_code,
-                run_id=settings.run_id,
-                duration_ms=ms,
-                error=fault,
-                error_context=diagnostic,
-                truncated=truncated,
-            )
+            envelope = Envelope(claim=bind.claim, verb=bind.verb, status=fault.status, exit_code=fault.status.exit_code, run_id=settings.run_id, duration_ms=ms, error=fault, error_context=diagnostic, truncated=truncated)
     match next(_WRITES.get()):
         case 0:
             return _emit_envelope(settings, envelope, persist=persist)
         case rank:
-            doubled = Envelope(
-                claim=bind.claim,
-                verb=bind.verb,
-                status=RailStatus.FAULTED,
-                exit_code=RailStatus.FAULTED.exit_code,
-                run_id=settings.run_id,
-                error=Fault((), RailStatus.FAULTED, f"second Envelope suppressed (write #{rank}); Invariant 1 violated"),
-            )
+            doubled = Envelope(claim=bind.claim, verb=bind.verb, status=RailStatus.FAULTED, exit_code=RailStatus.FAULTED.exit_code, run_id=settings.run_id, error=Fault((), RailStatus.FAULTED, f"second Envelope suppressed (write #{rank}); Invariant 1 violated"))
             sys.stderr.buffer.write(wire_encode(doubled) + b"\n")
             return doubled
 
@@ -357,13 +289,7 @@ def _encode(envelope: Envelope) -> bytes:
     try:
         return wire_encode(envelope)
     except UnicodeEncodeError:
-        safe = Envelope(
-            claim=envelope.claim,
-            verb=wire_safe(envelope.verb),
-            status=RailStatus.FAULTED,
-            exit_code=RailStatus.FAULTED.exit_code,
-            notes=("output contained invalid characters",),
-        )
+        safe = Envelope(claim=envelope.claim, verb=wire_safe(envelope.verb), status=RailStatus.FAULTED, exit_code=RailStatus.FAULTED.exit_code, notes=("output contained invalid characters",))
         return wire_encode(safe)
 
 
@@ -398,7 +324,7 @@ _DRIFT_KEYS: Final[tuple[str, ...]] = ("rhinoVersion", "mcp.platform.version", "
 def _host_facts(report: Report | None) -> dict[str, str]:
     match report.detail if report is not None else None:
         case BridgeLifecycle(host=host, capabilities=caps):
-            return {**dict(host), **{key: f"{outcome}: {receipt}" for key, outcome, receipt in caps}}
+            return {**dict(host), **{key: f"{outcome}: {detail}" for key, outcome, detail in caps}}
         case VerifySummary(facts=facts):
             return dict(facts)
         case _:
@@ -416,9 +342,7 @@ def _delta_report(before_id: str, after_id: str, before: Envelope | None, after:
         case (Envelope() as b, Envelope() as a):
             (before_snap, before_keys, bf), (after_snap, after_keys, af) = snapshot(before_id, b), snapshot(after_id, a)
             drift = tuple((k, bf.get(k, ""), af.get(k, "")) for k in _DRIFT_KEYS if bf.get(k, "") != af.get(k, ""))
-            detail = RunDelta(
-                before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys), drift=drift
-            )
+            detail = RunDelta(before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys), drift=drift)
             return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK),), detail=detail)
         case _:
             missing = after_id if after is None else before_id
@@ -460,10 +384,7 @@ def _parse_dispatch(tokens: tuple[str, ...]) -> tuple[Claim, str, str]:
 
 
 def _validation_message(error: ValidationError) -> str:
-    rows = tuple(
-        f"{'.'.join(str(part) for part in item.get('loc', ()) if part != '__root__') or 'settings'}: {item.get('msg', 'invalid')}"
-        for item in error.errors(include_url=False, include_context=False, include_input=False)
-    )
+    rows = tuple(f"{'.'.join(str(part) for part in item.get('loc', ()) if part != '__root__') or 'settings'}: {item.get('msg', 'invalid')}" for item in error.errors(include_url=False, include_context=False, include_input=False))
     return "; ".join(rows) or str(error)
 
 
@@ -518,24 +439,10 @@ def self_test(*, rhino: bool = False, executor: Annotated[Executor | None, Param
     yak = health_rail.yak_ready()
     healthy = all(callable(b.handler) for b in REGISTRY) and all(c in bound_claims for c in Claim) and _composes() and health_rail.census()
     status = RailStatus.FAILED if (not healthy or (rhino and not yak)) else RailStatus.OK
-    summary = (
-        f"rows={len(REGISTRY)} claims={len(bound_claims)} tools={len(TOOLS)} "
-        f"healthy={healthy} yak_ready={yak} rhino={'required' if rhino else 'skipped'}"
-    )
-    report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if status is RailStatus.OK else 1, status=status, notes=(summary,)),))
-    report = msgspec.structs.replace(
-        report,
-        results=(
-            *report.results,
-            *(Match(id=b.verb, kind=ArtifactKind.PROCESS, text=f"{b.claim.value} {b.verb}", severity=None) for b in REGISTRY),
-            *health_probes,
-        ),
-    )
-    return _emit_envelope(
-        settings,
-        msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="self-test", run_id=settings.run_id), notes=(summary, *health_notes)),
-        persist=True,
-    )
+    summary = f"rows={len(REGISTRY)} claims={len(bound_claims)} tools={len(TOOLS)} healthy={healthy} yak_ready={yak} rhino={'required' if rhino else 'skipped'}"
+    report = fold(Claim.STATIC, "self-test", (Completed(("assay", "self-test"), 0 if status is RailStatus.OK else 1, status=status, notes=(summary,)),))
+    report = msgspec.structs.replace(report, results=(*report.results, *(Match(id=b.verb, kind=ArtifactKind.PROCESS, text=f"{b.claim.value} {b.verb}", severity=None) for b in REGISTRY), *health_probes))
+    return _emit_envelope(settings, msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="self-test", run_id=settings.run_id), notes=(summary, *health_notes)), persist=True)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -562,13 +469,7 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown prose gate + Mermaid + planning-marker validation."),
-    Bind(
-        Claim.CONTRACTS,
-        "check",
-        contracts_rail.check,
-        ContractsParams,
-        "buf build + lint + format + scratch generation, then the plugin probe, corpus audit, and freshness diff.",
-    ),
+    Bind(Claim.CONTRACTS, "check", contracts_rail.check, ContractsParams, "buf build + lint + format + scratch generation, then the plugin probe, corpus audit, and freshness diff."),
     Bind(Claim.CONTRACTS, "generate", contracts_rail.generate, ContractsParams, "buf generate --clean over every committed out root under lease."),
     Bind(Claim.CONTRACTS, "publish", contracts_rail.publish, ContractsParams, "Gate the full contract estate, then publish its named module to BSR."),
     Bind(Claim.PROVISION, "up", provision_rail.up, ProvisionParams, "Start enabled Forge-owned provisioning services."),
@@ -687,11 +588,7 @@ def _register_claim(app: App, group: tuple[Claim, tuple[Bind, ...]], executor: E
         case (single,) if single.verb == claim.value:
             return _register(app, _leaf(single, executor), name=claim.value, help=single.help, usage=_usage(single, root_leaf=True))
         case _:
-            sub = reduce(
-                lambda sub_app, row: _register(sub_app, _leaf(row, executor), name=row.verb, help=row.help, usage=_usage(row)),
-                rows,
-                App(name=claim.value, version_flags=(), usage=f"Usage: assay {claim.value} COMMAND"),
-            )
+            sub = reduce(lambda sub_app, row: _register(sub_app, _leaf(row, executor), name=row.verb, help=row.help, usage=_usage(row)), rows, App(name=claim.value, version_flags=(), usage=f"Usage: assay {claim.value} COMMAND"))
             return _register(app, sub)
 
 

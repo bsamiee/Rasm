@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_PROGRAM]
 
-`Post` owns one dialect-neutral `CutProgram` — the command vocabulary every controller resolves against, the AST that carries it, the RS274 parse that reconstructs it, and the four boundaries that lower, parse, publish, and interpret it. `GNode.Directive` preserves controller directives and specialized toolpath evidence beside motion; `GWord.Render` is the physical-record correspondence capacity checks and receipts consume.
+`Post` owns one dialect-neutral `CutProgram` — the command vocabulary every controller resolves against, the AST that carries it, the RS274 parse that reconstructs it, and the four boundaries that lower, parse, publish, and interpret it. `GNode.Directive` preserves controller directives and specialized toolpath evidence beside motion; `GWord.Render` is the physical-record correspondence capacity checks and results consume.
 
 `PostSource`, `PostDialect`, `EmitPolicy`, `ContentKey`, `WcsAssignment`, and the `Process/atoms` `Move`/`MotionDirective` floor arrive as settled seams. `Posting/conditioning#ADMISSION` owns `PostPolicy` and every dimensioned cut, fit, and compensation column, and `Posting/conditioning#CONDITIONING` owns the assembly fold `Post.Lower` composes — this page names those owners and declares none of their columns. `NodeKey` is the ONE structural identity over the AST — a per-node `UInt128` through the `Process/owner#RUN_DISPATCH` `FabricationCanon.Ordered` close, so a pass fold pays one digest per node it changed rather than a full serialization per intermediate tree. A process names NO dialect: the controller is a property of the machine, so `PostDialect.Admits(ProcessModality)` resolves every pairing and the resolving modality rides `ProgramIngress` where two command rows share one wire code.
 
@@ -305,7 +305,7 @@ public static class WireCode {
 - Law: `ProgramUnits` carries one millimetre scale in both directions, and `GNode.Word.With` preserves the replaced value's source units or the word's established source-unit row. Every `ProgramEvent` carries one structural `ProgramLocus`; motion also carries every admitted axis, resolved plane, and arc center, so consumers never re-derive modal state, discard rotary or auxiliary axes, or substitute a chord.
 - Law: AST scalars stay bare `double` in canonical millimetres. Every one of them enters a `NodeKey` preimage, and the branch ruling holds a digested column to the raw scalar — a typed quantity here moves the preimage and re-keys every program the shop has already posted.
 - Auto: `GCommand.Admit` composes address shape with row-owned scalar policy before AST construction, and `ModalState` threads controller state once.
-- Receipt: `CutProgram.Key` identifies the AST; admitted `ProgramTrace` preserves modal state and the complete node-and-repeat path of every expanded executable leaf.
+- Result: `CutProgram.Key` identifies the AST; admitted `ProgramTrace` preserves modal state and the complete node-and-repeat path of every expanded executable leaf.
 - Exemption: `ModalState.Apply` and `ArcOf` are the modal statement kernels — the arc-centre resolution is a numeric boundary where plane and arc-distance rows are simultaneously in hand.
 - Packages: `Rasm.Element` `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`; `LanguageExt.Core` `Fin`, `FoldM`, `Seq`, and `Map`; `Thinktecture.Runtime.Extensions` generated unions and smart enums.
 - Growth: a syntax construct is one `GNode` case, one `NodeKey` arm, and one `ModalState.Push` arm.
@@ -404,7 +404,7 @@ public abstract partial record GNode {
     public sealed record Macro(Arr<MacroSlot> Slots, Arr<GNode> Body) : GNode;
     public sealed record Subprogram(int Label, int Repeats, Arr<GNode> Body) : GNode;
     public sealed record AdditiveLayer(int Layer, ExtrusionProfile Extrusion, TemperatureSet Temperatures) : GNode;
-    public sealed record Nc1(Receipt<SteelImportEvidence> Receipt) : GNode;
+    public sealed record Nc1(ImportedSteel Import) : GNode;
     public sealed record Directive(MotionDirective Value) : GNode;
 
     public FaultSubject.ProgramNode Subject => new(Switch(
@@ -487,7 +487,7 @@ public static class NodeKey {
         additiveLayer: static (row, value) => row.String("additive").Ordinal(value.Layer)
             .Double(value.Extrusion.Amount).Double(value.Extrusion.Feed)
             .Double(value.Temperatures.Hotend).Double(value.Temperatures.Bed),
-        nc1: static (row, value) => value.Receipt.Key.CanonicalBytes(row.String("nc1")),
+        nc1: static (row, value) => value.Import.Key.CanonicalBytes(row.String("nc1")),
         directive: static (row, value) => WriteDirective(row, value.Value));
 
     private static CanonicalWriter WriteDirective(CanonicalWriter writer, MotionDirective directive) => directive.Switch(
@@ -647,7 +647,7 @@ public abstract partial record ProgramEvent(ProgramLocus Locus) {
     public sealed record Boundary(ProgramLocus locus, BlockFrame Frame) : ProgramEvent(locus);
     public sealed record Coordinate(ProgramLocus locus, WcsAssignment Assignment, Plane Frame) : ProgramEvent(locus);
     public sealed record Additive(ProgramLocus locus, int Layer, ExtrusionProfile Extrusion, TemperatureSet Temperatures) : ProgramEvent(locus);
-    public sealed record Exchange(ProgramLocus locus, Receipt<SteelImportEvidence> Receipt) : ProgramEvent(locus);
+    public sealed record Exchange(ProgramLocus locus, ImportedSteel Import) : ProgramEvent(locus);
     public sealed record Directive(ProgramLocus locus, MotionDirective Value) : ProgramEvent(locus);
 }
 
@@ -702,7 +702,7 @@ public sealed record ModalState(
             Events = context.State.Events.Add(new ProgramEvent.Additive(
                 context.Locus, value.Layer, value.Extrusion, value.Temperatures)),
         }),
-        nc1: static (context, value) => Fin.Succ(context.State with { Events = context.State.Events.Add(new ProgramEvent.Exchange(context.Locus, value.Receipt)) }),
+        nc1: static (context, value) => Fin.Succ(context.State with { Events = context.State.Events.Add(new ProgramEvent.Exchange(context.Locus, value.Import)) }),
         directive: static (context, value) => Fin.Succ(context.State with { Events = context.State.Events.Add(new ProgramEvent.Directive(context.Locus, value.Value)) }));
 
     private static Fin<ModalState> PushCycle(ModalState state, GNode.CannedCycle value, ProgramLocus locus) =>
@@ -1043,11 +1043,11 @@ public static partial class Post {
 
 ## [05]-[BOUNDARIES]
 
-- Owner: `Post` composes admitted policy and settled sibling owners into one result rail; `ProgramView` owns the motion-role partition every geometry egress reads off a trace.
+- Owner: `Post` composes admitted policy and sibling domain values; `ProgramView` owns the motion-role partition every geometry egress reads off a trace.
 - Cases: `ProgramView` closes all-motion, cutting, control, probing, and additive as one `Option<MotionRole>` column, so a view is one row rather than a predicate the caller writes.
 - Entry: `Lower`, `Parse`, and `Publish` each discriminate on an input value rather than an overload or a mode flag; `Post.Assemble` at `Posting/conditioning#CONDITIONING` is the fold `Lower` composes, and `PostPolicy` arrives admitted from `Posting/conditioning#ADMISSION`.
 - Auto: RS274 token coverage fails closed on `ProgramTokenUnresolved`, NC1 enters through `SteelImport.Read`, and every egress key derives from its complete payload.
-- Receipt: `ProgramView.Paths` returns the run partition directly — a coordinate change re-frames every following point, so it closes a run exactly as an excluded move does, and the open run carries as `Option` rather than a null cursor.
+- Result: `ProgramView.Paths` returns the run partition directly — a coordinate change re-frames every following point, so it closes a run exactly as an excluded move does, and the open run carries as `Option` rather than a null cursor.
 - Boundary: `Eff<CutProgram>` carries source acquisition; reusable transforms retain `Fin<T>`; rendered records collapse only at `PostedProgram`; every parameter arrives admitted, so no entry guards a null.
 
 ```csharp
@@ -1100,7 +1100,7 @@ public static partial class Post {
     public static Eff<CutProgram> Parse(ProgramIngress ingress) => ingress.Switch(
         rs274: static source => ParseRs274(source).ToEff(),
         nc1: static source => SteelImport.Read(source.Source, source.Policy)
-            .Map(receipt => CutProgram.Of(Seq<GNode>(new GNode.Nc1(receipt)), source.Dialect)));
+            .Map(result => CutProgram.Of(Seq<GNode>(new GNode.Nc1(result)), source.Dialect)));
 
     public static Fin<Seq<EncodedGeometry>> Publish(CutProgram program, ProgramView view, PackPolicy policy) =>
         from trace in Interpret(program)
@@ -1121,7 +1121,6 @@ public static partial class Post {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

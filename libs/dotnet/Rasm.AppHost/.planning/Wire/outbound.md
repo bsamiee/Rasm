@@ -1,10 +1,10 @@
 # [APPHOST_OUTBOUND_RESILIENCE]
 
-Nine `OutboundHop` cases bind to frozen `HopPolicy` rows on the runtime spine, each deriving its strategy posture from one `HopAllotment` and stating what it can do as one `CapabilitySet<HopCapability>`. Every hop holds exactly one retry surface — the standard or hedging HTTP handler on `SocketsHttpHandler`-borne rows, one keyed result-typed Polly pipeline per non-HTTP row. Admission folds the degradation gate, the profile exclusion, and the retry-owner claim onto one `Fin` rail, and every dispatch exits as one native `HopReceipt`.
+Nine `OutboundHop` cases bind to frozen `HopPolicy` rows on the runtime spine, each deriving its strategy posture from one `HopAllotment` and stating what it can do as one `CapabilitySet<HopCapability>`. Every hop holds exactly one retry surface — the standard or hedging HTTP handler on `SocketsHttpHandler`-borne rows, one keyed result-typed Polly pipeline per non-HTTP row. Admission folds the degradation gate, the profile exclusion, and the retry-owner claim onto one `Fin` rail, and every dispatch returns its `HopOutcome`, measured attempt facts, and carried value on one `HopSettled<T>`.
 
-Settled composition: `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `CapabilityLaw<TCapability>` arrive from `Rasm/Domain/validation#CAPABILITY`; `Retriability`, `RedrivePolicy`, and `Redrive` from `Rasm/Domain/rails#REDRIVE`; `Transition<TState>` and `Cell.Claim` from `Rasm/Domain/rails#TRANSITION`; `FaultBand.Hop` from `Rasm/Domain/rails#FAULT_BAND`; `MonotonicTimeline` and `GaugedSpan<TLane>` from `Rasm/Parametric/projections#TIMELINE`; `ReceiptSinkPort`, `ReceiptEnvelope`, `TelemetrySource`, and `TenantContext` from `Rasm/Domain/frame`.
+Settled composition: `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `CapabilityLaw<TCapability>` arrive from `Rasm/Domain/validation#CAPABILITY`; `Retriability`, `RedrivePolicy`, and `Redrive` from `Rasm/Domain/rails#REDRIVE`; `Transition<TState>` and `Cell.Claim` from `Rasm/Domain/rails#TRANSITION`; `FaultBand.Hop` from `Rasm/Domain/rails#FAULT_BAND`; `MonotonicTimeline` and `GaugedSpan<TLane>` from `Rasm/Parametric/projections#TIMELINE`; `InstrumentSet` from `Rasm/Domain/instrument`.
 
-In-folder composition: `Faculty` and `DegradationLevel` from `Observability/health#DEGRADATION_RAIL`; `ReceiptKind` from `Observability/instruments#RECEIPT_PROJECTION`; `AppHostPoint`/`AppHostFact` and `HookRail` from `Observability/hooks#HOOK_ROSTER`; `ClockPolicy` and `DeadlineClass` from `Runtime/time`; `DedupeWindow` from `Runtime/resources#DEDUPE_WINDOW`; the live bearer read from `Agent/identity#CREDENTIAL_FLOW` `LeaseRoster.Bearer`, which this spine consumes as an arrow and never as a token.
+In-folder composition: `Faculty` and `DegradationLevel` from `Observability/health#DEGRADATION_RAIL`; `AppHostMeasure.HopAttempts`/`HopDuration`/`DeliveryOutcomes` and `AppHostSlot.Hop`/`Outcome`/`Channel` from `Observability/instruments`; `ClockPolicy` and `DeadlineClass` from `Runtime/time`; `DedupeWindow` from `Runtime/resources#DEDUPE_WINDOW`; the live bearer read from `Agent/identity#CREDENTIAL_FLOW` `LeaseRoster.Bearer`, which this spine consumes as an arrow and never as a token.
 
 Owned surfaces: the hop axis, both pipeline registries, the ownership law over the Polly, Http.Resilience, and Grpc.Net.Client spine, the transport chaos posture `Runtime/determinism#ADVERSARIAL_PROBE` records as `ChaosDecision` entries, and the discovery manifest, UDS attach, contract-generation gate, and companion-spawn lifecycle seating the `LocalIpc` hop case.
 
@@ -15,10 +15,9 @@ Boundary is the process seam rather than the dial — two store-rail cases hand 
 - [02]-[HOP_AXIS]: Nine hop cases bound to frozen policy rows deriving one allotment, with total dispatch.
 - [03]-[HTTP_PIPELINES]: Standard and hedging handlers for `SocketsHttpHandler`-borne rows.
 - [04]-[KEYED_PIPELINES]: One keyed result-typed Polly registry, its strategy roster, and channel policy for non-HTTP hops.
-- [05]-[OWNERSHIP_LAW]: One retry owner per hop claimed at boot, with the outcome fold, conflict evidence, and receipts.
+- [05]-[OWNERSHIP_LAW]: One retry owner per hop claimed at boot, with the outcome fold and direct instrument writes.
 - [06]-[DISCOVERY_ATTACH]: Manifest law, UDS attach, contract-generation gate, and companion child lifecycle.
-- [07]-[DELIVERY_FANOUT]: Multi-channel notification fan-out, delivery receipts, and dedupe.
-- [08]-[RECEIPT_FAMILY]: Native hop and delivery evidence consumed inside the process.
+- [07]-[DELIVERY_FANOUT]: Multi-channel notification fan-out, outcomes, and dedupe.
 
 ## [02]-[HOP_AXIS]
 
@@ -695,13 +694,12 @@ public static class KeyedLane {
 
 ## [05]-[OWNERSHIP_LAW]
 
-- Owner: `OutboundSurface` — admission, dispatch, conflict evidence, in-process re-drive, and enforcement over one runtime record; `RetryOwner` `[SmartEnum<string>]` the two-row claim vocabulary; `OutboundRuntime` capability record, carrying the authority-to-registration credential map and the live bearer arrow beside the pipeline provider; `HopClaim` the retry-owner cell value; `HopOutcome` `[Union]`; `HopDial` the measured half of a hop; `HopReceipt` the stable native evidence; `HopSettled<T>` the receipt beside the typed carried rail.
+- Owner: `OutboundSurface` — admission, dispatch, in-process re-drive, and enforcement over one runtime record; `RetryOwner` `[SmartEnum<string>]` the two-row claim vocabulary; `OutboundRuntime` capability record, carrying the authority-to-registration credential map and the live bearer arrow beside the pipeline provider; `HopClaim` the retry-owner cell value; `HopOutcome` `[Union]`; `HopMeasure` the measured attempt facts; `HopSettled<T>` the outcome, measurement, and typed carried rail.
 - Cases: Delivered, Refused, Faulted — Refused carries pre-flight admission faults (exclusion, degradation fence, dead declared credential, owner conflict), Faulted carries in-flight pipeline rejection; two `RetryOwner` rows — `Pipeline`, `Schedule`.
-- Entry: `Seat(OutboundRuntime runtime)` returns `Fin<Unit>` — the boot gate proving every row's conditional corner, claiming every row for the pipeline owner, and proving every piped row materialized; `Dispatch<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome, T)>> send, Option<ILatencyContext> latency = default)` is the ONE hop run, answering `IO<HopSettled<T>>` that never fails — the value rides its typed `Fin<T>` beside the native receipt that timed it; `Run(...)` is its `Unit` projection returning `IO<HopReceipt>`, the shape a write-only hop takes; `Redriven<T>(OutboundRuntime runtime, HopPolicy row, RedrivePolicy policy, IO<T> work)` claims the schedule owner and re-drives in process where the pipeline provably holds no retry row. Every exit is a receipt, never a throw.
-- Receipt: native `HopReceipt` — typed registry key and verdict, one optional attempt/duration measurement, optional breaker state, and optional kernel `FaultObservation`; `HopDial` stays an execution-local measured pair only long enough to mint the stable receipt. Every hop exit fans that receipt under `ReceiptKind.Hop` through `SuiteContracts.Host`; no protobuf or parallel STJ carrier exists for this same-process evidence.
-- Packages: Polly.Core, Rasm (kernel `Redrive`/`Cell`/`GaugedSpan`/`FaultObservation`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Entry: `Seat(OutboundRuntime runtime)` returns `Fin<Unit>` — the boot gate proving every row's conditional corner, claiming every row for the pipeline owner, and proving every piped row materialized; `Dispatch<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome, T)>> send, Option<ILatencyContext> latency = default)` is the ONE hop run, answering `IO<HopSettled<T>>` that never fails — the value rides its typed `Fin<T>` beside the outcome and measured attempt facts from the same call; `Run(...)` is its `Unit` projection returning `IO<HopOutcome>`; `Redriven<T>(OutboundRuntime runtime, HopPolicy row, RedrivePolicy policy, IO<T> work)` claims the schedule owner and re-drives in process where the pipeline provably holds no retry row.
+- Packages: Polly.Core, Rasm (kernel `Redrive`/`Cell`/`GaugedSpan`/`InstrumentSet`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one outcome case per new terminal kind; one `HopFault` rejection arm per new pipeline termination verb, seated ahead of `Foreign`; zero new surface.
-- Boundary: a hop body that produces a value carries it out on the settlement the same run timed, so the reported value and the receipt describe ONE transport call — a hop run for its outcome followed by a second raw call for its value is the deleted form, since that second frame rides no pipeline, no retry, and no breaker while the receipt attributes its timing to the first; the value rides the execution's own `ResilienceContext` rather than a cell captured beside the run, so a retried attempt cannot leave a stale value behind an outcome the next attempt settled, and `HopSettled` makes the delivered-with-no-value corner one `Fin` refusal at the owner rather than a fall-through arm at every caller; exactly one retry owner per hop, claimed at COMPOSITION through `Seat` and read by `Admit` — a per-dispatch claim swap re-decides a boot fact on every frame and leaves an unregistered key admitting until its first dial throws; credential liveness joins the admission rail rather than the transport, because a dead DECLARED credential is knowable before the dial and a 401 read after it has already spent an attempt, a breaker sample, and a retry schedule to learn the same thing — the runtime holds the registration-keyed arrow and the authority map, never a token, so a lease renewed on its own occurrence reaches this seam and the HTTP lane's per-send link with no re-binding at either, and an authority carrying no `Credentials` row admits anonymously by declaration; the claim is a `Cell.Claim` first-writer transition, so the seater and the finder are distinguishable and the loser's own policy reference survives on the conflict; domain rails retry through `RedrivePolicy`, transport hops retry through the keyed or HTTP pipeline, never both on one seam, since a schedule of m over a pipeline of n multiplies attempts invisibly and inflates the idempotency window by m — `Redriven` is the ONE lawful in-process re-drive and it is lawful exactly because `Retries` is false for the row it serves: a `SingleShot` row takes no retry strategy at all, so the schedule claim cannot stack on a pipeline loop that does not exist, and a claim conflict degrades to a single pass carrying its conflict receipt rather than stacking one; the remote object store and the wide-column store seat on THIS owner because `[LAYER_SPLIT]` row `[02]` reads the process seam alone and a `HopOutcome` is transport-neutral by construction, while the embedded and coordination bands answer rows `[03]` and `[01]` at the Persistence side, so a store call has exactly one retry owner and which one is a seam fact rather than a package preference; `Dispatch` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` acquired and released by `IO.Bracket`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` with no exception-as-control-flow round-trip and the release arm runs on the raise path the hand `finally` covered; the lease fixes `OperationKey` to the hop's own `IdempotencyKey`, so the dedup identity reaches every attempt and lands as `operation.key` on every resilience event, and `HopContext.Window` carries the allotment span through `context.Properties` BEFORE the pipeline runs while `HopContext.Attempts` carries the ordinal the retry row writes during it — never ambient state, and never a key minted inside the retried callback that changes per attempt; the total-outcome fold happens exactly ONCE at this seam over a taxonomy ordered child-before-parent, `IsolatedCircuitException` ahead of its `BrokenCircuitException` base so operator-forced darkness never masquerades as a dependency open, and a caller re-folding the rail re-opens the vocabulary the seam retired; `Enforce` sweeps the per-faculty manual breakers from the effective degradation level and runs once at boot against the resolved level, so a pipeline materializing lazily under a pinned isolation comes up dark rather than serving one undegraded call; `BreakerState` answers `None` for a row whose breaker lives inside the HTTP handler's per-authority instances, because a receipt claiming `Closed` from an unattached provider reads as a measurement to every consumer; an admission refusal answers `Measure: None` for the same reason — a zero attempt count beside a zero span is a forged measurement of a dial that never happened, and absence is the honest carrier; the hop's latency checkpoint records through `LatencySpine.Mark(ILatencyContext, CheckpointToken)` in the bracket's release arm, so a faulted or rejected hop is measured exactly like a delivered one and the span on the receipt is never the recorder's only source; `HopReceipt.Of` classifies the execution once and projects errors through the kernel `FaultObservation`, while `SuiteContracts.Host` owns the sole local JSON crossing; the runtime record and its issued `CheckpointToken` are constructed once at the composition root.
+- Boundary: a hop body that produces a value carries it out on the settlement the same run timed, so both describe ONE transport call — a hop run for its outcome followed by a second raw call for its value is the deleted form, since that second frame rides no pipeline, no retry, and no breaker; the value rides the execution's own `ResilienceContext` rather than a cell captured beside the run, so a retried attempt cannot leave a stale value behind an outcome the next attempt settled, and `HopSettled` makes the delivered-with-no-value corner one `Fin` refusal at the owner rather than a fall-through arm at every caller; exactly one retry owner per hop, claimed at COMPOSITION through `Seat` and read by `Admit` — a per-dispatch claim swap re-decides a boot fact on every frame and leaves an unregistered key admitting until its first dial throws; credential liveness joins the admission rail rather than the transport, because a dead DECLARED credential is knowable before the dial and a 401 read after it has already spent an attempt, a breaker sample, and a retry schedule to learn the same thing — the runtime holds the registration-keyed arrow and the authority map, never a token, so a lease renewed on its own occurrence reaches this seam and the HTTP lane's per-send link with no re-binding at either, and an authority carrying no `Credentials` row admits anonymously by declaration; the claim is a `Cell.Claim` first-writer transition, so the seater and the finder are distinguishable and the loser's own policy reference survives on the conflict; domain rails retry through `RedrivePolicy`, transport hops retry through the keyed or HTTP pipeline, never both on one seam, since a schedule of m over a pipeline of n multiplies attempts invisibly and inflates the idempotency window by m — `Redriven` is the ONE lawful in-process re-drive and it is lawful exactly because `Retries` is false for the row it serves: a `SingleShot` row takes no retry strategy at all, so the schedule claim cannot stack on a pipeline loop that does not exist, and a claim conflict degrades to a single pass; the remote object store and the wide-column store seat on THIS owner because `[LAYER_SPLIT]` row `[02]` reads the process seam alone and a `HopOutcome` is transport-neutral by construction, while the embedded and coordination bands answer rows `[03]` and `[01]` at the Persistence side, so a store call has exactly one retry owner and which one is a seam fact rather than a package preference; `Dispatch` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` acquired and released by `IO.Bracket`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` with no exception-as-control-flow round-trip and the release arm runs on the raise path the hand `finally` covered; the lease fixes `OperationKey` to the hop's own `IdempotencyKey`, so the dedup identity reaches every attempt and lands as `operation.key` on every resilience event, and `HopContext.Window` carries the allotment span through `context.Properties` BEFORE the pipeline runs while `HopContext.Attempts` carries the ordinal the retry row writes during it — never ambient state, and never a key minted inside the retried callback that changes per attempt; the total-outcome fold happens exactly ONCE at this seam over a taxonomy ordered child-before-parent, `IsolatedCircuitException` ahead of its `BrokenCircuitException` base so operator-forced darkness never masquerades as a dependency open, and a caller re-folding the rail re-opens the vocabulary the seam retired; `Enforce` sweeps the per-faculty manual breakers from the effective degradation level and runs once at boot against the resolved level, so a pipeline materializing lazily under a pinned isolation comes up dark rather than serving one undegraded call; an admission refusal answers `Measure: None`, because a zero attempt count beside a zero span is a forged measurement of a dial that never happened; the hop's latency checkpoint records through `LatencySpine.Mark(ILatencyContext, CheckpointToken)` in the bracket's release arm, and `Dispatch` writes the hop counters and duration directly from the settled outcome and measured facts.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -723,8 +721,6 @@ public sealed partial class RetryOwner {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct HopDial(int Attempts, GaugedSpan<DeadlineClass> Span);
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -741,25 +737,7 @@ public sealed partial class HopVerdict {
 
 public readonly record struct HopMeasure(int Attempts, Duration Elapsed);
 
-public sealed record HopReceipt(
-    HopKey Hop,
-    HopVerdict Outcome,
-    Option<HopMeasure> Measure,
-    Option<CircuitState> Breaker,
-    Option<FaultObservation> Fault) {
-    public static HopReceipt Of(
-        HopKey hop, HopOutcome outcome, Option<HopDial> dial, Option<CircuitState> breaker) => new(
-            hop,
-            HopVerdict.Of(outcome),
-            dial.Map(static measured => new HopMeasure(measured.Attempts, measured.Span.Elapsed)),
-            breaker,
-            outcome.Switch(
-                delivered: static _ => Option<FaultObservation>.None,
-                refused: static row => Some(FaultObservation.Of(row.Reason)),
-                faulted: static row => Some(FaultObservation.Of(row.Reason))));
-}
-
-public readonly record struct HopSettled<T>(HopReceipt Receipt, Fin<T> Carried);
+public readonly record struct HopSettled<T>(HopOutcome Outcome, Option<HopMeasure> Measure, Fin<T> Carried);
 
 public sealed record HopClaim(RetryOwner Owner, HopKey Row);
 
@@ -775,10 +753,7 @@ public sealed record OutboundRuntime(
     HopEvidence Evidence,
     Atom<HashMap<HopKey, HopClaim>> RetryOwners,
     CheckpointToken Checkpoint,
-    ReceiptSinkPort Sink) {
-    public Option<CircuitState> BreakerState(HopPolicy row) =>
-        row.Piped ? Evidence.State(row.Key).Map(static state => state.CircuitState) : None;
-}
+    InstrumentSet Instruments);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class OutboundSurface {
@@ -829,19 +804,19 @@ public static class OutboundSurface {
         Admit(runtime, hop).Match(
                 Succ: row => Execute(runtime, row, hop, send, latency),
                 Fail: error => IO.pure(new HopSettled<T>(
-                    Conflicted(runtime, hop.Policy, error), Fin.Fail<T>(error))))
-            .Bind(settled => Fan(runtime, settled.Receipt).Map(receipt => settled with { Receipt = receipt }));
+                    new HopOutcome.Refused(error), None, Fin.Fail<T>(error))))
+            .Map(settled => Observed(runtime, hop.Policy, settled));
 
-    public static IO<HopReceipt> Run(
+    public static IO<HopOutcome> Run(
         OutboundRuntime runtime, OutboundHop hop,
         Func<CancellationToken, Task<HopOutcome>> send, Option<ILatencyContext> latency = default) =>
         Dispatch<Unit>(runtime, hop, async token => (await send(token).ConfigureAwait(false), unit), latency)
-            .Map(static settled => settled.Receipt);
+            .Map(static settled => settled.Outcome);
 
     public static IO<T> Redriven<T>(OutboundRuntime runtime, HopPolicy row, RedrivePolicy policy, IO<T> work) =>
         Claim(runtime, row, RetryOwner.Schedule).Match(
             Succ: _ => Redrive.Run(policy, work),
-            Fail: conflict => Fan(runtime, Conflicted(runtime, row, conflict)).Bind(_ => work));
+            Fail: _ => work);
 
     public static IO<Unit> Enforce(OutboundRuntime runtime, DegradationLevel effective) =>
         HopRows.Items.Map(static row => row.Needs).Distinct()
@@ -854,9 +829,16 @@ public static class OutboundSurface {
             .As()
             .Map(static _ => unit);
 
-    static IO<HopReceipt> Fan(OutboundRuntime runtime, HopReceipt receipt) =>
-        runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost, ReceiptKind.Hop.Key,
-            JsonSerializer.SerializeToElement(receipt, SuiteContracts.Host)).Map(_ => receipt);
+    static HopSettled<T> Observed<T>(OutboundRuntime runtime, HopPolicy row, HopSettled<T> settled) {
+        settled.Measure.Iter(measured => {
+            TagList tags = InstrumentSet.Tags(
+                (AppHostSlot.Hop, row.Key.Value),
+                (AppHostSlot.Outcome, HopVerdict.Of(settled.Outcome).Key));
+            ignore(runtime.Instruments.Write(AppHostMeasure.HopAttempts.Row, measured.Attempts, in tags));
+            ignore(runtime.Instruments.Write(AppHostMeasure.HopDuration.Row, measured.Elapsed.TotalSeconds, in tags));
+        });
+        return settled;
+    }
 
     static IO<HopSettled<T>> Execute<T>(
         OutboundRuntime runtime, HopPolicy row, OutboundHop hop,
@@ -865,7 +847,7 @@ public static class OutboundSurface {
         from settled in IO.liftAsync(envIO => ValueTask.FromResult(Leased(runtime, row, hop, envIO.Token))).Bracket(
             Use: context => Dialed(runtime, row, context, send).Bind(fold => Sealed(runtime, row, start, context, fold)),
             Catch: error => IO.pure(new HopSettled<T>(
-                Conflicted(runtime, row, HopFault.Of(error)), Fin.Fail<T>(error))),
+                new HopOutcome.Faulted(HopFault.Of(error)), None, Fin.Fail<T>(error))),
             Fin: context => IO.lift(() => {
                 ResilienceContextPool.Shared.Return(context);
                 latency.Iter(held => ignore(LatencySpine.Mark(held, runtime.Checkpoint)));
@@ -908,10 +890,9 @@ public static class OutboundSurface {
             select new GaugedSpan<DeadlineClass>(
                 DeadlineClass.HopTotal, Op.Of(), elapsed, runtime.Allotted(DeadlineClass.HopTotal)))
         select new HopSettled<T>(
-            HopReceipt.Of(
-                row.Key, fold.Outcome,
-                span.ToOption().Map(measured => new HopDial(context.Properties.GetValue(HopContext.Attempts, 1), measured)),
-                runtime.BreakerState(row)),
+            fold.Outcome,
+            span.ToOption().Map(measured => new HopMeasure(
+                context.Properties.GetValue(HopContext.Attempts, 1), measured.Elapsed)),
             fold.Outcome.Switch(
                 delivered: _ => fold.Value.ToFin(new HopFault.Empty()),
                 refused: static refused => Fin.Fail<T>(refused.Reason),
@@ -935,8 +916,6 @@ public static class OutboundSurface {
 
     static Error Captured(Exception raised) => Error.New(raised.Message, raised);
 
-    static HopReceipt Conflicted(OutboundRuntime runtime, HopPolicy row, Error reason) =>
-        HopReceipt.Of(row.Key, new HopOutcome.Refused(reason), None, runtime.BreakerState(row));
 }
 
 public static class HopCarry<T> {
@@ -948,10 +927,10 @@ public static class HopCarry<T> {
 
 - Owner: `DiscoveryManifest` attach record; `ContractGeneration` the contract coordinate a peer advertises — the generated descriptor's whole package, with `Compute` derived once from the generated `ComputeReflection.Descriptor` package and never hand-spelled or re-read at a caller; `CompanionChild` spawn capsule; `Discovery` static surface — path law, atomic publish, staleness probe, contract gate, UDS connect, spawn, the named drain-verb arrow, and the drain-fan producer.
 - Cases: `Compatible` admits the peer manifest on package EQUALITY and refuses everything else as `HopFault.ContractBroken` — no additive arm exists, because a widening lands a retired field in the proto3 unknown set at the consumer while a peer built off a foreign emission answers shapes this consumer never admits.
-- Entry: `Read(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract)` — `Fin` aborts on missing, empty, or dead-pid manifests; `Compatible(DiscoveryManifest peer, ContractGeneration local)` returns `Fin<DiscoveryManifest>`; `FanOf(OutboundRuntime runtime, ILatencyContext latency, FactSink<CompanionSignal> fan, Duration cooperative, string reason)` seats the drain-fan producer and its existing AppHost evidence sink, taking the parent's remaining cooperative allotment as the budget the child inherits; `DrainVerb(Duration cooperative, string reason)` invokes `ControlService.DrainRuntime` and returns its generated `DrainRuntimeResponse` for settlement.
+- Entry: `Read(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract)` — `Fin` aborts on missing, empty, or dead-pid manifests; `Compatible(DiscoveryManifest peer, ContractGeneration local)` returns `Fin<DiscoveryManifest>`; `FanOf(OutboundRuntime runtime, ILatencyContext latency, Duration cooperative, string reason)` seats the drain-fan producer, taking the parent's remaining cooperative allotment as the budget the child inherits; `DrainVerb(Duration cooperative, string reason)` invokes `ControlService.DrainRuntime` and returns its generated `DrainRuntimeResponse` for settlement.
 - Packages: Grpc.Net.Client (`GrpcChannel.ForAddress`; a `ConnectCallback` handler resolves `HttpHandlerType.Custom`, which forfeits the balancer surface WHOLE yet reports only half that forfeit — `ConnectAsync`, `State`, and `WaitForStateChangedAsync` raise `InvalidOperationException` loudly, while `CallOptions.WithWaitForReady(true)` accepts and does nothing, because `Custom` takes the passive subchannel transport whose connect reports Ready without connecting and leaves the one `PickResultType.Fail` arm that reads the flag unreachable), Grpc.Core.Api (`RpcException.StatusCode`/`Status.Detail`, `Metadata` — every remote fault leaves as a throw), Rasm.Contracts (project — `ControlService.ControlServiceClient`, `DrainRuntimeRequest`, `DrainRuntimeResponse`, and `ComputeReflection.Descriptor`), Google.Protobuf (`FileDescriptor.Package`), NodaTime.Serialization.Protobuf (`ToProtobufDuration` carries the inherited remainder onto the drain request), Rasm (kernel `Redrive`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: the connect dispatch is the single Unix-domain-socket route; socket-file mode and the accept-side peer-credential read are the access boundary, never a transport-level ACL; a second family a peer must advertise is one more `ContractGeneration` column on the manifest beside one more derived static off its `<F>Reflection.Descriptor`; zero new surface.
-- Boundary: `Publish` and `Connect` are the named boundary capsules carrying statement bodies — atomic temp-write-then-move publication and the UDS connect callback; the socket lives at the temp-root `rasm-{pid}.sock` path under the 104-byte `sun_path` cap; the manifest directory is created 0700 and directory mode is the credential boundary; `Compatible` compares the descriptor package whole — the one corpus emission every branch regenerates from is the one compatibility authority, a retired field lands in the peer's unknown set, and serialized-descriptor byte equality is refused by construction because buf's image and protoc's `FileDescriptorProto` bytes diverge on `json_name` and option encoding, so `SerializedData` equality across a C# host and a Connect peer is a falsehood; the spawn's post-spawn manifest read is the ONE in-process re-drive on this spine — `CompanionSpawn` is `SingleShot`, so its pipeline arms no retry row at all and a manifest a child has not yet published is a `StaleManifest` the kernel discriminant marks transient, which is exactly the row `OutboundSurface.Redriven` re-drives on the caller's own `RedrivePolicy`; `DrainFan` is the parent-to-child drain-fan producer — it dials the peer over the `LocalIpc` hop case through `OutboundSurface.Run` and invokes `DrainVerb`, the ONE named `ControlService.DrainRuntime` arrow, returning the `IO<Unit>` that `Spawn` threads into `CompanionChild.FanDrain` as the `drainFan` arg, so the drain conductor fans onto a named verb rather than a delegate any caller fills; the client arrow admits the generated `DrainRuntimeResponse`, derives the worst validated `DeadlineOutcome`, and fans the whole generated message as canonical ProtoJSON through `CompanionSignal.Drain` before settling the hop — no response is ignored, no local reply mirror exists, and `Met`, `Escalated`, and `Forced` are all delivered evidence; only a schema-valid reply whose `final_phase` is not `UNLOADED` is `HopFault.ContractBroken`, because that response refuses the drain method's completion postcondition rather than describing a legal straggler policy; liveness over this transport is an actual CALL, since the channel forfeits every connectivity member — a connect-probe drain raises `InvalidOperationException` on every fan and proves nothing about the peer, and wait-for-ready is the silent face of that one forfeit rather than a second remedy beside it; the redial and the retry cover DISJOINT fault classes and never stack, so nothing here is missing a third wait — `HopStrategy.ArmRedial` handles `ExecutionRejectedException` alone (a shed limiter, an open circuit) while a dead-peer connect arrives as `HttpRequestException`/`SocketException` on the retry row's `Transient` predicate, and wait-for-ready contributes its queueing only where the handler type admits the flag at all, which this channel never does; the accepted-socket peer-credential read moves to `Wire/companion#PEER_ADMISSION` (the serving side reads the connecting peer's uid and pid once at accept and never trusts the manifest) — a seam-split, not an owner here.
+- Boundary: `Publish` and `Connect` are the named boundary capsules carrying statement bodies — atomic temp-write-then-move publication and the UDS connect callback; the socket lives at the temp-root `rasm-{pid}.sock` path under the 104-byte `sun_path` cap; the manifest directory is created 0700 and directory mode is the credential boundary; `Compatible` compares the descriptor package whole — the one corpus emission every branch regenerates from is the one compatibility authority, a retired field lands in the peer's unknown set, and serialized-descriptor byte equality is refused by construction because buf's image and protoc's `FileDescriptorProto` bytes diverge on `json_name` and option encoding, so `SerializedData` equality across a C# host and a Connect peer is a falsehood; the spawn's post-spawn manifest read is the ONE in-process re-drive on this spine — `CompanionSpawn` is `SingleShot`, so its pipeline arms no retry row at all and a manifest a child has not yet published is a `StaleManifest` the kernel discriminant marks transient, which is exactly the row `OutboundSurface.Redriven` re-drives on the caller's own `RedrivePolicy`; `DrainFan` is the parent-to-child drain-fan producer — it dials the peer over the `LocalIpc` hop case through `OutboundSurface.Run` and invokes `DrainVerb`, the ONE named `ControlService.DrainRuntime` arrow, returning the `IO<Unit>` that `Spawn` threads into `CompanionChild.FanDrain` as the `drainFan` arg, so the drain conductor fans onto a named verb rather than a delegate any caller fills; the client arrow admits the generated `DrainRuntimeResponse` and accepts only a schema-valid reply whose `final_phase` is `UNLOADED`, because any other final phase refuses the drain method's completion postcondition; liveness over this transport is an actual CALL, since the channel forfeits every connectivity member — a connect-probe drain raises `InvalidOperationException` on every fan and proves nothing about the peer, and wait-for-ready is the silent face of that one forfeit rather than a second remedy beside it; the redial and the retry cover DISJOINT fault classes and never stack, so nothing here is missing a third wait — `HopStrategy.ArmRedial` handles `ExecutionRejectedException` alone (a shed limiter, an open circuit) while a dead-peer connect arrives as `HttpRequestException`/`SocketException` on the retry row's `Transient` predicate, and wait-for-ready contributes its queueing only where the handler type admits the flag at all, which this channel never does; the accepted-socket peer-credential read moves to `Wire/companion#PEER_ADMISSION` (the serving side reads the connecting peer's uid and pid once at accept and never trusts the manifest) — a seam-split, not an owner here.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1053,9 +1032,8 @@ public static class Discovery {
             .Bind(static started => started.Match(Succ: IO.pure, Fail: IO.fail<Process>));
 
     public static Func<DiscoveryManifest, CancellationToken, IO<Unit>> FanOf(
-        OutboundRuntime runtime, ILatencyContext latency, FactSink<CompanionSignal> fan,
-        Duration cooperative, string reason) =>
-        (peer, token) => DrainFan(peer, runtime, latency, fan, DrainVerb(cooperative, reason), token);
+        OutboundRuntime runtime, ILatencyContext latency, Duration cooperative, string reason) =>
+        (peer, token) => DrainFan(peer, runtime, latency, DrainVerb(cooperative, reason), token);
 
     public static Func<GrpcChannel, CancellationToken, Task<DrainRuntimeResponse>> DrainVerb(Duration cooperative, string reason) =>
         async (channel, token) => await new ControlService.ControlServiceClient(channel).DrainRuntimeAsync(
@@ -1063,22 +1041,24 @@ public static class Discovery {
             TraceContext.Inject(new Metadata()), cancellationToken: token);
 
     public static IO<Unit> DrainFan(DiscoveryManifest peer, OutboundRuntime runtime, ILatencyContext latency,
-        FactSink<CompanionSignal> fan,
         Func<GrpcChannel, CancellationToken, Task<DrainRuntimeResponse>> control, CancellationToken token) =>
         OutboundSurface.Run(runtime, new OutboundHop.LocalIpc(peer), inner =>
-            Drain(peer, Connect(peer, GrpcChannelPolicy.Canonical), fan, control,
+            Drain(Connect(peer, GrpcChannelPolicy.Canonical), control,
                 CancellationTokenSource.CreateLinkedTokenSource(token, inner).Token), latency)
             .Map(static _ => unit);
 
     static async Task<HopOutcome> Drain(
-        DiscoveryManifest peer, GrpcChannel channel, FactSink<CompanionSignal> fan,
+        GrpcChannel channel,
         Func<GrpcChannel, CancellationToken, Task<DrainRuntimeResponse>> control, CancellationToken token) {
         await using (channel) {
             try {
                 DrainRuntimeResponse received = await control(channel, token);
                 Op key = Op.Of(ControlVerb.DrainRuntime.Key);
                 return await WireAdmission.Admit(received, WireBoundary.InboundPayload, key).Match(
-                    Succ: reply => Fanned(peer, fan, reply, key).RunAsync().AsTask(),
+                    Succ: reply => Task.FromResult(reply.FinalPhase == global::Rasm.Contracts.Compute.RuntimePhase.Unloaded
+                        ? (HopOutcome)new HopOutcome.Delivered()
+                        : new HopOutcome.Faulted(new HopFault.ContractBroken(
+                            $"{DrainRuntimeResponse.Descriptor.FullName}.final_phase:{reply.FinalPhase}"))),
                     Fail: error => Task.FromResult<HopOutcome>(new HopOutcome.Faulted(HopFault.Of(error))));
             }
             catch (RpcException refused) when (refused.StatusCode != StatusCode.Unavailable) {
@@ -1086,30 +1066,6 @@ public static class Discovery {
             }
         }
     }
-
-    static global::Rasm.Contracts.Compute.DeadlineOutcome Outcome(DrainRuntimeResponse reply) =>
-        toSeq(reply.Steps).Fold(global::Rasm.Contracts.Compute.DeadlineOutcome.Met, static (held, step) =>
-            step.Outcome switch {
-                global::Rasm.Contracts.Compute.DeadlineOutcome.Met => held,
-                global::Rasm.Contracts.Compute.DeadlineOutcome.Escalated =>
-                    held == global::Rasm.Contracts.Compute.DeadlineOutcome.Forced ? held : step.Outcome,
-                global::Rasm.Contracts.Compute.DeadlineOutcome.Forced => step.Outcome,
-                _ => held,
-            });
-
-    static IO<HopOutcome> Fanned(
-        DiscoveryManifest peer, FactSink<CompanionSignal> fan, DrainRuntimeResponse reply, Op key) =>
-        HostWire.Correlation(reply.Correlation, key).Match(
-            Succ: correlation => fan.Fan(
-                    correlation,
-                    ControlVerb.DrainRuntime.Key,
-                    WireJson.Element(reply),
-                    new CompanionSignal.Drain(peer.Pid, Outcome(reply), reply))
-                .Map(_ => reply.FinalPhase == global::Rasm.Contracts.Compute.RuntimePhase.Unloaded
-                    ? (HopOutcome)new HopOutcome.Delivered()
-                    : new HopOutcome.Faulted(new HopFault.ContractBroken(
-                        $"{DrainRuntimeResponse.Descriptor.FullName}.final_phase:{reply.FinalPhase}"))),
-            Fail: error => IO.pure<HopOutcome>(new HopOutcome.Faulted(HopFault.Of(error))));
 
     static Fin<DiscoveryManifest> Alive(DiscoveryManifest manifest) =>
         Op.Of().Catch(() => Fin.Succ(Process.GetProcessById(manifest.Pid)))
@@ -1120,14 +1076,13 @@ public static class Discovery {
 
 ## [07]-[DELIVERY_FANOUT]
 
-- Owner: `DeliveryTarget` `[Union]` the channel-target carrier (endpoint `Uri` versus discovered peer manifest); `DeliveryChannel` `[SmartEnum<string>]` the outbound notification-channel axis under the hop key policy; `DeliveryMessage` the channel-agnostic notification payload; native `DeliveryDisposition` and `DeliveryReceipt` the per-channel account and evidence; `DeliveryFanout` the static multi-channel fan surface.
-- Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget, string)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer. The generated `DeliveryDisposition` enum owns dialed, suppressed, and unbound.
-- Entry: `Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels)` returns `IO<Seq<DeliveryReceipt>>` — deduplicates the message by its idempotency key, then fans it to each channel through the channel's `OutboundHop` under a bounded fork width, so one notification reaches every configured channel under one dedupe guard.
-- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe verdict is one `DedupeWindow.Admit(key, now)` call against the `Runtime/resources#DEDUPE_WINDOW` bounded seen-key window — a `true` is the first admission and a `false` is a key still holding an unexpired deadline — so the expiry prune, the capacity ceiling, and the admit-record race are the primitive's while the instant stays this composition's own `ClockPolicy` read, and this page carries no cell and no window column; each channel mints one native receipt carrying the channel, disposition, and hop verdict so a partial fan records every channel independently; the fan SCHEDULES each window's legs through `IO.Fork` before it awaits them, so channels inside a window genuinely overlap while the width stays the composition's own budget; the evidence leg stays sequential after the join because the receipt stream is the one ordered record of what the fan did; the evidence leg fires the `Observability/hooks#HOOK_ROSTER` `Delivery` row through `rail.Fire(AppHostPoint.Delivery, new AppHostFact.Delivery(receipt), key)`, so a per-channel subscriber reads the typed receipt while the envelope carries the same local evidence.
-- Receipt: native `DeliveryReceipt` — channel, optional typed verdict (`None` on a suppressed leg, which ran no hop and earned none) beside the disposition, optional measured attempts/duration, optional fenced watermark, and optional kernel fault observation. The idempotency key governs dedupe and the envelope correlation governs joining; neither is copied into the receipt.
-- Packages: Rasm (kernel `HookRail`/`FaultObservation`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one channel row absorbs a new delivery medium — a new SMS or chat channel is one `DeliveryChannel` row binding its `OutboundHop` over the matching `DeliveryTarget` case, never a parallel sender; a new target shape is one `DeliveryTarget` case breaking every channel's `Hop` switch; a new account of a leg lands on the corpus enum and producer switch; zero new surface.
-- Boundary: the delivery fan-out is the only multi-channel notification owner — a per-channel sender, a notification service wrapper, and a parallel delivery queue are the deleted forms, so all channels ride one fan and one dedupe; delivery never owns its own resilience — each channel composes its `OutboundHop` so the retry-owner, breaker, and rate-limit are the existing hop policy, and the delivery fan is purely the fan-and-dedupe layer above the hops; the dedupe is bounded and NOT owned here — `DedupeWindow` at `Runtime/resources#DEDUPE_WINDOW` is the one TTL-and-capacity seen-key window, composed by this fan and by `Wire/topics#SUBSCRIPTION_FABRIC` alike, so a long-lived process accumulates no unbounded dedup state under either bound and a local idempotency-key map beside it is the twin that primitive deleted; the disposition is the fan's honesty axis — a suppressed leg and an unbound leg each ran NO hop, so an attempt count and an elapsed span are measurements nobody took and a receipt reporting them as zeros is indistinguishable from a dial that returned instantly; the unbound arm carries the binding `Error` beside that absence, so a fan that fails to resolve a target names why on the receipt rather than on a log line; fork width is the composition's own worker budget rather than the channel count, because `IO.Fork` spins one dedicated long-running thread per leg with no pool ceiling, so an unwindowed fan is an unbounded thread count and a bare traverse over the deliveries is the opposite deleted form that sequences them and makes the partial-fan claim prose over a serial loop; the fan is the scheduled-delivery consumer — a `ScheduleEntry` row fires the fan on its cadence so scheduled multi-channel delivery is one schedule row and one fan call, never a second scheduler; the in-app channel rides the `LocalIpc` hop over a `DeliveryTarget.Peer` carrying the attached companion's `DiscoveryManifest` so an in-app notification reaches the companion over the control hop with a real peer manifest, never a `default!` placeholder and never a separate transport; the message's idempotency key threads INTO the hop case, so the fan's dedupe key, the pipeline's `OperationKey`, and the receiver's dedup key are one value rather than three mints of one intent.
+- Owner: `DeliveryTarget` `[Union]` the channel-target carrier (endpoint `Uri` versus discovered peer manifest); `DeliveryChannel` `[SmartEnum<string>]` the outbound notification-channel axis under the hop key policy; `DeliveryMessage` the channel-agnostic notification payload; `DeliveryFanout` the static multi-channel fan surface.
+- Cases: 2 target cases — `Endpoint(Uri)` for the network-borne channels, `Peer(DiscoveryManifest)` for the in-app companion channel; 4 channel rows — push, webhook, email, in-app — each binding the `OutboundHop` its bytes ride through a target-discriminating `Hop(DeliveryTarget, string)` returning `Fin<OutboundHop>`: push and webhook on `WebhookPost` over an `Endpoint`, email on `HttpApi` over an `Endpoint` (the transactional-mail API), in-app on `LocalIpc` over a `Peer` manifest; a channel fed the wrong target shape returns `HopFault.Excluded` so the in-app channel can never forge a null manifest and a network channel can never dial a peer.
+- Entry: `Fan(DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels)` returns `IO<Seq<(DeliveryChannel Channel, HopSettled<Unit> Result)>>` — deduplicates the message by its idempotency key, then fans it to each channel through the channel's `OutboundHop` under a bounded fork width, so one notification reaches every configured channel under one dedupe guard.
+- Auto: every channel rides its `OutboundHop` so delivery inherits the hop's retry, breaker, rate-limit, and deadline — a flapping webhook endpoint breaks on the existing circuit breaker and a rate-capped push channel admits through the existing sliding-window limiter, never a per-channel retry loop; the dedupe verdict is one `DedupeWindow.Admit(key, now)` call against the `Runtime/resources#DEDUPE_WINDOW` bounded seen-key window — a `true` is the first admission and a `false` is a key still holding an unexpired deadline — so the expiry prune, the capacity ceiling, and the admit-record race are the primitive's while the instant stays this composition's own `ClockPolicy` read, and this page carries no cell and no window column; the fan SCHEDULES each window's legs through `IO.Fork` before it awaits them, so channels inside a window genuinely overlap while the width stays the composition's own budget; each dialled result writes `AppHostMeasure.DeliveryOutcomes` directly from its channel and hop outcome.
+- Packages: Rasm (kernel `InstrumentSet`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one channel row absorbs a new delivery medium — a new SMS or chat channel is one `DeliveryChannel` row binding its `OutboundHop` over the matching `DeliveryTarget` case, never a parallel sender; a new target shape is one `DeliveryTarget` case breaking every channel's `Hop` switch; zero new surface.
+- Boundary: the delivery fan-out is the only multi-channel notification owner — a per-channel sender, a notification service wrapper, and a parallel delivery queue are the deleted forms, so all channels ride one fan and one dedupe; delivery never owns its own resilience — each channel composes its `OutboundHop` so the retry-owner, breaker, and rate-limit are the existing hop policy, and the delivery fan is purely the fan-and-dedupe layer above the hops; the dedupe is bounded and NOT owned here — `DedupeWindow` at `Runtime/resources#DEDUPE_WINDOW` is the one TTL-and-capacity seen-key window, composed by this fan and by `Wire/topics#SUBSCRIPTION_FABRIC` alike, so a long-lived process accumulates no unbounded dedup state under either bound and a local idempotency-key map beside it is the twin that primitive deleted; a suppressed leg returns no row because it ran no hop, while an unbound leg returns the typed refusal with no fabricated attempt or elapsed measurement; fork width is the composition's own worker budget rather than the channel count, because `IO.Fork` spins one dedicated long-running thread per leg with no pool ceiling, so an unwindowed fan is an unbounded thread count and a bare traverse over the deliveries is the opposite deleted form that sequences them and makes the partial-fan claim prose over a serial loop; the fan is the scheduled-delivery consumer — a `ScheduleEntry` row fires the fan on its cadence so scheduled multi-channel delivery is one schedule row and one fan call, never a second scheduler; the in-app channel rides the `LocalIpc` hop over a `DeliveryTarget.Peer` carrying the attached companion's `DiscoveryManifest` so an in-app notification reaches the companion over the control hop with a real peer manifest, never a `default!` placeholder and never a separate transport; the message's idempotency key threads INTO the hop case, so the fan's dedupe key, the pipeline's `OperationKey`, and the receiver's dedup key are one value rather than three mints of one intent.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1160,15 +1115,6 @@ public sealed partial class DeliveryChannel {
     public partial Fin<OutboundHop> Hop(DeliveryTarget target, string idempotencyKey);
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class DeliveryDisposition {
-    public static readonly DeliveryDisposition Dialed = new("dialed");
-    public static readonly DeliveryDisposition Suppressed = new("suppressed");
-    public static readonly DeliveryDisposition Unbound = new("unbound");
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DeliveryMessage(
     string IdempotencyKey,
@@ -1176,28 +1122,6 @@ public sealed record DeliveryMessage(
     JsonElement Body,
     DataClassification Classification,
     HashMap<DeliveryChannel, DeliveryTarget> Targets);
-
-public sealed record DeliveryReceipt(
-    string Channel,
-    Option<HopVerdict> Outcome,
-    DeliveryDisposition Disposition,
-    Option<HopMeasure> Measure,
-    Option<ulong> Watermark,
-    Option<FaultObservation> Fault) {
-    public static DeliveryReceipt Dialed(string channel, HopSettled<Unit> settled, Option<ulong> watermark) => new(
-        channel,
-        Some(settled.Receipt.Outcome),
-        settled.Receipt.Measure.IsSome ? DeliveryDisposition.Dialed : DeliveryDisposition.Unbound,
-        settled.Receipt.Measure,
-        watermark,
-        settled.Receipt.Fault);
-
-    public static DeliveryReceipt Suppressed(string channel) => new(
-        channel, None, DeliveryDisposition.Suppressed, None, None, None);
-
-    public static DeliveryReceipt Unbound(string channel, Error error) => new(
-        channel, Some(HopVerdict.Refused), DeliveryDisposition.Unbound, None, None, Some(FaultObservation.Of(error)));
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record DeliveryRuntime(
@@ -1207,62 +1131,51 @@ public sealed record DeliveryRuntime(
     int FanWidth,
     ILatencyContext Latency,
     ClockPolicy Clocks,
-    ReceiptSinkPort Sink,
-    HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail);
+    InstrumentSet Instruments);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DeliveryFanout {
-    public static IO<Seq<DeliveryReceipt>> Fan(
+    public static IO<Seq<(DeliveryChannel Channel, HopSettled<Unit> Result)>> Fan(
         DeliveryRuntime runtime, DeliveryMessage message, params ReadOnlySpan<DeliveryChannel> channels) =>
-        IO.lift(() => (
-                Correlation: Correlation.Mint(),
-                Admitted: runtime.Dedupe.Admit(message.IdempotencyKey, runtime.Clocks.Now))).Bind(frame =>
-            Windowed(
-                toSeq(channels.ToArray()).Map(channel => frame.Admitted
-                    ? Deliver(runtime, channel, message, frame.Correlation)
-                    : IO.pure(DeliveryReceipt.Suppressed(channel.Key))),
-                runtime.FanWidth)
-                .Bind(receipts => receipts.TraverseM(receipt => Evidence(runtime, frame.Correlation, receipt)).As()));
+        runtime.Dedupe.Admit(message.IdempotencyKey, runtime.Clocks.Now)
+            ? Windowed(toSeq(channels.ToArray()).Map(channel => Deliver(runtime, channel, message)), runtime.FanWidth)
+            : IO.pure(Seq<(DeliveryChannel Channel, HopSettled<Unit> Result)>());
 
-    static IO<Seq<DeliveryReceipt>> Windowed(Seq<IO<DeliveryReceipt>> legs, int width) =>
+    static IO<Seq<(DeliveryChannel Channel, HopSettled<Unit> Result)>> Windowed(
+        Seq<IO<(DeliveryChannel Channel, HopSettled<Unit> Result)>> legs, int width) =>
         legs.IsEmpty
-            ? IO.pure(Seq<DeliveryReceipt>())
+            ? IO.pure(Seq<(DeliveryChannel Channel, HopSettled<Unit> Result)>())
             : legs.Take(int.Max(width, 1)).TraverseM(static leg => leg.Fork()).As()
                 .Bind(handles => handles.TraverseM(static handle => handle.Await).As())
                 .Bind(head => Windowed(legs.Skip(int.Max(width, 1)), width).Map(tail => head + tail));
 
-    static IO<DeliveryReceipt> Evidence(
-        DeliveryRuntime runtime, CorrelationId correlation, DeliveryReceipt receipt) =>
-        runtime.Rail.Fire(at: AppHostPoint.Delivery, fact: new AppHostFact.Delivery(receipt), key: Op.Of()).Bind(_ =>
-            runtime.Sink.Send(correlation, TenantContext.Current, TelemetrySource.AppHost, ReceiptKind.Delivery.Key,
-                JsonSerializer.SerializeToElement(receipt, SuiteContracts.Host))).Map(_ => receipt);
-
-    static IO<DeliveryReceipt> Deliver(
-        DeliveryRuntime runtime, DeliveryChannel channel, DeliveryMessage message, CorrelationId correlation) =>
+    static IO<(DeliveryChannel Channel, HopSettled<Unit> Result)> Deliver(
+        DeliveryRuntime runtime, DeliveryChannel channel, DeliveryMessage message) =>
         (from target in message.Targets.Find(channel).ToFin(new HopFault.ContractBroken($"no-target:{channel.Key}"))
          from hop in channel.Hop(target, message.IdempotencyKey)
          select hop).Match(
             Succ: bound => OutboundSurface.Dispatch<Unit>(runtime.Outbound, bound,
                     async token => (await runtime.Send(bound, message)(token).ConfigureAwait(false), unit), runtime.Latency)
-                .Map(settled => DeliveryReceipt.Dialed(channel.Key, settled, watermark: None)),
-            Fail: error => IO.pure(DeliveryReceipt.Unbound(channel.Key, error)));
+                .Map(settled => {
+                    settled.Measure.Iter(_ => ignore(runtime.Instruments.Write(
+                        AppHostMeasure.DeliveryOutcomes.Row,
+                        1L,
+                        InstrumentSet.Tags(
+                            (AppHostSlot.Channel, channel.Key),
+                            (AppHostSlot.Outcome, HopVerdict.Of(settled.Outcome).Key)))));
+                    return (channel, settled);
+                }),
+            Fail: error => IO.pure((channel, new HopSettled<Unit>(
+                new HopOutcome.Refused(error), None, Fin.Fail<Unit>(error)))));
 }
 ```
 
-## [08]-[RECEIPT_FAMILY]
-
-- Owner: `HopVerdict`, `HopMeasure`, `HopReceipt`, `DeliveryDisposition`, and `DeliveryReceipt` are the one native transport-evidence family; the execution-only `HopOutcome` is projected once at the receipt mint.
-- Packages: Rasm (kernel `FaultObservation`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: a new terminal hop result extends `HopOutcome` and breaks `HopVerdict.Of`; a new delivery account is one `DeliveryDisposition` row and one mint arm.
-- Boundary: these receipts never cross a process boundary. The app-root `SuiteContracts.Host` serializer carries them only through the local receipt sink; no protobuf, TypeScript face, generated enum, or second projection repeats them.
-
 Outbound carries no open research. Accepted-socket peer-credential projection moves to the serving owner at `Wire/companion#PEER_ADMISSION`, where the P/Invoke `getsockopt` route and the `ucred`/`xucred` blittable layout seat the admission fence. Transactional-mail channel target API resolves at app-root creation behind the same app-root pin the OTLP exporter rides; the channel rows bind the `OutboundHop` only, never the provider client, so a mail provider is one channel target Uri, never a delivery-page client.
 
-## [09]-[RESEARCH]
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

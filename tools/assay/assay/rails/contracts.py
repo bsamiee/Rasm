@@ -24,16 +24,7 @@ from pathlib import Path, PurePosixPath
 import re
 from struct import pack
 from types import MappingProxyType
-from typing import (
-    Annotated,
-    ClassVar,
-    Final,
-    Literal,
-    override,
-    Protocol,
-    runtime_checkable,
-    Self,
-)
+from typing import Annotated, ClassVar, Final, Literal, override, Protocol, runtime_checkable, Self
 lazy import shutil
 
 from expression import Error, Ok, Result
@@ -41,9 +32,7 @@ from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 import xxhash
-lazy from google.protobuf.descriptor_pb2 import (
-    FileDescriptorSet as GoogleFileDescriptorSet,
-)
+lazy from google.protobuf.descriptor_pb2 import FileDescriptorSet as GoogleFileDescriptorSet
 lazy from google.protobuf.descriptor_pool import DescriptorPool as GoogleDescriptorPool
 lazy from google.protobuf.json_format import Parse, ParseError
 lazy from google.protobuf.message import DecodeError, Message
@@ -67,37 +56,11 @@ from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
 from assay.core.govern import leased
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    Band,
-    BaseParams,
-    Check,
-    Claim,
-    Completed,
-    ContractsRun,
-    Fault,
-    InprocThunk,
-    Language,
-    Match,
-    Mode,
-    RailStatus,
-    receipt,
-    Report,
-    Step,
-    Tool,
-    ToolArgs,
-)
+from assay.core.model import Artifact, ArtifactKind, Band, BaseParams, Check, Claim, Completed, ContractsRun, Fault, InprocThunk, Language, Match, Mode, RailStatus, Report, Step, Tool, ToolArgs
 from assay.core.routing import discover, Routed, Scope
 from assay.core.transaction import SwapTransaction
 from assay.diagnostics import cap_note, fold
-from assay.rails.contracts_generation import (
-    changes,
-    compose_image,
-    freshness_rows,
-    GenerationImage,
-    render,
-)
+from assay.rails.contracts_generation import changes, compose_image, freshness_rows, GenerationImage, render
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -150,21 +113,7 @@ _JSON_FRAMINGS: Final[frozenset[SchemaFraming]] = frozenset(("proto-json", "cano
 _NO_PROJECTIONS: Final[_Projections] = MappingProxyType({})
 _NO_ROSTER_FILES: Final[_RosterFiles] = MappingProxyType({})
 _ROOTS: Final[frozenset[str]] = frozenset((".api", _ESTATE, _VENDOR, _CONFORMANCE, _EMISSION.name))
-_ROOT_FILES: Final[frozenset[str]] = frozenset((
-    "README.md",
-    "ARCHITECTURE.md",
-    "RULINGS.md",
-    MANIFEST,
-    SCHEMA,
-    "buf.yaml",
-    "buf.gen.yaml",
-    "buf.lock",
-    "package.json",
-    "tsconfig.json",
-    "pyproject.toml",
-    "Rasm.Contracts.csproj",
-    "packages.lock.json",
-))
+_ROOT_FILES: Final[frozenset[str]] = frozenset(("README.md", "ARCHITECTURE.md", "RULINGS.md", MANIFEST, SCHEMA, "buf.yaml", "buf.gen.yaml", "buf.lock", "package.json", "tsconfig.json", "pyproject.toml", "Rasm.Contracts.csproj", "packages.lock.json"))
 _IGNORED: Final[tuple[str, ...]] = ("git", "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory", "--", CORPUS)
 _BLOCKER_FLOOR: Final = 24
 _IGNORE_TIMEOUT_S: Final = 30.0
@@ -827,16 +776,6 @@ class CorpusOracleFinding(msgspec.Struct, frozen=True, gc=False):
     path: str = ""
 
 
-class CorpusOracleReceipt(msgspec.Struct, frozen=True, gc=False):
-    """Typed direct verdict for one verified manifest case."""
-
-    subject: str
-    oracle: Oracle
-    vectors: int
-    specimens: int
-    findings: tuple[CorpusOracleFinding, ...] = ()
-
-
 class _Method(msgspec.Struct, frozen=True, gc=False):
     name: str
     input: str
@@ -990,12 +929,7 @@ class ContractsParams(BaseParams):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _ROWS: Final[dict[tuple[str, Mode], Tool]] = {(t.name, t.mode): t for t in select(Claim.CONTRACTS, Language.PROTO)}
-_LANES: Final[tuple[_Lane, ...]] = (
-    _Lane("buf-build", Mode.QUERY, output=_IMAGE),
-    _Lane("buf-lint", Mode.CHECK),
-    _Lane("buf-format", Mode.CHECK),
-    _Lane("buf-generate", Mode.STAGE, output=_GEN, gated=True),
-)
+_LANES: Final[tuple[_Lane, ...]] = (_Lane("buf-build", Mode.QUERY, output=_IMAGE), _Lane("buf-lint", Mode.CHECK), _Lane("buf-format", Mode.CHECK), _Lane("buf-generate", Mode.STAGE, output=_GEN, gated=True))
 _GATE: Final[msgspec.json.Decoder[_Gate]] = msgspec.json.Decoder(_Gate)
 _GATED: Final[frozenset[str]] = frozenset(("plugin-probe", "corpus-gate", "freshness-gate", "corpus-emit"))
 _EMITTABLE: Final[frozenset[str]] = frozenset(("distribution-missing", "distribution-stale", "schema-missing", "schema-stale", "roster-stale"))
@@ -1014,19 +948,10 @@ def actor_key(actor: Actor) -> str:
 
 
 def _parity_provenance_broken(case: Case) -> bool:
-    if not (
-        isinstance(case.authority, InfrastructureAuthority)
-        and isinstance(case.readiness, VerifiedReadiness)
-        and case.readiness.oracle == "value-parity"
-    ):
+    if not (isinstance(case.authority, InfrastructureAuthority) and isinstance(case.readiness, VerifiedReadiness) and case.readiness.oracle == "value-parity"):
         return False
     expected = frozenset(actor_key(actor) for actor in case.authority.minters)
-    return any(
-        len(vector.specimens) != len(expected)
-        or len({specimen.path for specimen in vector.specimens}) != len(vector.specimens)
-        or frozenset(specimen.minter for specimen in vector.specimens) != expected
-        for vector in case.readiness.vectors
-    )
+    return any(len(vector.specimens) != len(expected) or len({specimen.path for specimen in vector.specimens}) != len(vector.specimens) or frozenset(specimen.minter for specimen in vector.specimens) != expected for vector in case.readiness.vectors)
 
 
 _ENTRY_LAW: Final[tuple[_Clause[Entry], ...]] = (
@@ -1035,159 +960,76 @@ _ENTRY_LAW: Final[tuple[_Clause[Entry], ...]] = (
     (lambda e: len(e.law) > _LAW_CAP, "law-length", f"law exceeds {_LAW_CAP} characters", "move the detail to the owning page; keep one sentence"),
 )
 _CASE_LAW: Final[tuple[_Clause[Case], ...]] = (
+    (lambda c: not isinstance(c.authority, PublisherAuthority) and not c.consumers, "authority-actors", "process contract names no consuming boundary", "bind the exact reader, or delete the registry case; a producer or descriptor alone does not establish a crossing"),
     (
-        lambda c: not isinstance(c.authority, PublisherAuthority) and not c.consumers,
-        "authority-actors",
-        "process contract names no consuming boundary",
-        "bind the exact reader, or delete the registry case; a producer or descriptor alone does not establish a crossing",
-    ),
-    (
-        lambda c: (
-            isinstance(c.authority, ApplicationAuthority)
-            and bool(c.consumers)
-            and not any(actor.binding in {"generated", "package"} for actor in c.consumers)
-        ),
+        lambda c: isinstance(c.authority, ApplicationAuthority) and bool(c.consumers) and not any(actor.binding in {"generated", "package"} for actor in c.consumers),
         "authority-actors",
         "application authority names no executable wire reader",
         "bind the exact generated or package ingress; proof-only readers do not establish a public application boundary",
     ),
     (
-        lambda c: (
-            isinstance(c.authority, ApplicationAuthority) and not isinstance(c.definition, (CloudEventDefinition, ProtoDefinition, SchemaDefinition))
-        ),
+        lambda c: isinstance(c.authority, ApplicationAuthority) and not isinstance(c.definition, (CloudEventDefinition, ProtoDefinition, SchemaDefinition)),
         "authority-definition",
         "application authority is attached to a non-inbound definition",
         "reserve application authority for a public typed application input; missing estate producers remain defects",
     ),
+    (lambda c: isinstance(c.authority, InfrastructureAuthority) and len(c.authority.minters) < 2, "authority-actors", "infrastructure authority does not name two independent minters", "name every exact minter, or reclass the atomic case"),
+    (lambda c: isinstance(c.authority, PublisherAuthority) != isinstance(c.definition, PublisherDefinition), "authority-definition", "publisher definitions require publisher authority", "name the publisher source and format, or reclass the case"),
+    (lambda c: isinstance(c.authority, PublisherAuthority) and (not isinstance(c.readiness, VerifiedReadiness) or c.readiness.oracle != "publisher-digest"), "publisher-readiness", "publisher authority is not verified by publisher-digest", "freeze the publisher bytes and verify immutable custody"),
+    (lambda c: isinstance(c.readiness, VerifiedReadiness) and not c.readiness.vectors, "readiness-vectors", "verified readiness carries no proof vectors", "land exact evidence or mark the case blocked"),
+    (lambda c: isinstance(c.readiness, VerifiedReadiness) and any(not vector.specimens for vector in c.readiness.vectors), "proof-vector", "proof vector carries no specimen", "name the exact specimen assets the oracle evaluates"),
     (
-        lambda c: isinstance(c.authority, InfrastructureAuthority) and len(c.authority.minters) < 2,
-        "authority-actors",
-        "infrastructure authority does not name two independent minters",
-        "name every exact minter, or reclass the atomic case",
-    ),
-    (
-        lambda c: isinstance(c.authority, PublisherAuthority) != isinstance(c.definition, PublisherDefinition),
-        "authority-definition",
-        "publisher definitions require publisher authority",
-        "name the publisher source and format, or reclass the case",
-    ),
-    (
-        lambda c: (
-            isinstance(c.authority, PublisherAuthority)
-            and (not isinstance(c.readiness, VerifiedReadiness) or c.readiness.oracle != "publisher-digest")
-        ),
-        "publisher-readiness",
-        "publisher authority is not verified by publisher-digest",
-        "freeze the publisher bytes and verify immutable custody",
-    ),
-    (
-        lambda c: isinstance(c.readiness, VerifiedReadiness) and not c.readiness.vectors,
-        "readiness-vectors",
-        "verified readiness carries no proof vectors",
-        "land exact evidence or mark the case blocked",
-    ),
-    (
-        lambda c: isinstance(c.readiness, VerifiedReadiness) and any(not vector.specimens for vector in c.readiness.vectors),
-        "proof-vector",
-        "proof vector carries no specimen",
-        "name the exact specimen assets the oracle evaluates",
-    ),
-    (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle == "semantic-conformance"
-            and any(len(vector.specimens) != 1 or vector.expected is None for vector in c.readiness.vectors)
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "semantic-conformance" and any(len(vector.specimens) != 1 or vector.expected is None for vector in c.readiness.vectors),
         "proof-vector",
         "semantic-conformance vector is not one specimen paired with typed expected facts",
         "pair each producer specimen with one expected facts asset",
     ),
     (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle == "value-parity"
-            and any(vector.expected is None for vector in c.readiness.vectors)
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "value-parity" and any(vector.expected is None for vector in c.readiness.vectors),
         "proof-vector",
         "value-parity vector carries no normalized expected facts",
         "pair each specimen group with the one typed value all independent implementations must produce",
     ),
+    (_parity_provenance_broken, "proof-provenance", "value-parity vectors do not carry exactly one specimen from every declared minter", "mint one independent specimen per actor and bind it with actor_key(actor)"),
     (
-        _parity_provenance_broken,
-        "proof-provenance",
-        "value-parity vectors do not carry exactly one specimen from every declared minter",
-        "mint one independent specimen per actor and bind it with actor_key(actor)",
-    ),
-    (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle != "value-parity"
-            and any(specimen.minter for vector in c.readiness.vectors for specimen in vector.specimens)
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle != "value-parity" and any(specimen.minter for vector in c.readiness.vectors for specimen in vector.specimens),
         "proof-provenance",
         "non-parity specimens carry unrelated minter provenance",
         "reserve specimen minter keys for independent value-parity producers",
     ),
     (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle in {"semantic-roundtrip", "external-digest", "publisher-digest"}
-            and any(vector.expected is not None for vector in c.readiness.vectors)
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle in {"semantic-roundtrip", "external-digest", "publisher-digest"} and any(vector.expected is not None for vector in c.readiness.vectors),
         "proof-vector",
         "digest or semantic-roundtrip vector carries unrelated expected facts",
         "keep expected facts only where the oracle compares normalized values",
     ),
+    (lambda c: isinstance(c.readiness, BlockedReadiness) and not c.readiness.blockers, "readiness-blockers", "blocked readiness names no blocker", "state what no source tree runs"),
     (
-        lambda c: isinstance(c.readiness, BlockedReadiness) and not c.readiness.blockers,
-        "readiness-blockers",
-        "blocked readiness names no blocker",
-        "state what no source tree runs",
-    ),
-    (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle == "publisher-digest"
-            and not isinstance(c.authority, PublisherAuthority)
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "publisher-digest" and not isinstance(c.authority, PublisherAuthority),
         "oracle-authority",
         "publisher-digest is attached to estate authority",
         "use publisher authority, or select the estate oracle that proves the case",
     ),
     (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle == "semantic-roundtrip"
-            and not isinstance(c.definition, (CloudEventDefinition, ProtoDefinition))
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "semantic-roundtrip" and not isinstance(c.definition, (CloudEventDefinition, ProtoDefinition)),
         "oracle-definition",
         "semantic-roundtrip is attached to a non-protobuf definition",
         "use semantic-roundtrip only for decoded protobuf value normalization",
     ),
     (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "semantic-roundtrip" and not isinstance(c.authority, DomainAuthority)
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "semantic-roundtrip" and not isinstance(c.authority, DomainAuthority),
         "oracle-authority",
         "semantic-roundtrip is not owned by one domain producer",
         "use semantic-roundtrip only for a single-producer protobuf boundary; compare independent minters through value-parity",
     ),
     (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle == "external-digest"
-            and isinstance(c.definition, (CloudEventDefinition, ProtoDefinition))
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "external-digest" and isinstance(c.definition, (CloudEventDefinition, ProtoDefinition)),
         "oracle-definition",
         "external-digest is attached to protobuf bytes",
         "prove protobuf by semantic roundtrip; reserve external-digest for byte-defined external formats",
     ),
     (
-        lambda c: (
-            isinstance(c.readiness, VerifiedReadiness)
-            and c.readiness.oracle == "value-parity"
-            and not isinstance(c.authority, InfrastructureAuthority)
-        ),
+        lambda c: isinstance(c.readiness, VerifiedReadiness) and c.readiness.oracle == "value-parity" and not isinstance(c.authority, InfrastructureAuthority),
         "oracle-authority",
         "value-parity is not owned by independent infrastructure minters",
         "name the independent minters, or select the producer-owned oracle",
@@ -1233,10 +1075,7 @@ def _json_layout(value: object, depth: int = 0) -> str:
             if not isinstance(key, str):
                 raise TypeError("JSON object key is not a string")
             items.append((key, item))
-        rows = (
-            f"{' ' * (_JSON_INDENT * (depth + 1))}{msgspec.json.encode(key).decode()}: {_json_layout(item, depth + 1)}"
-            for key, item in sorted(items, key=itemgetter(0))
-        )
+        rows = (f"{' ' * (_JSON_INDENT * (depth + 1))}{msgspec.json.encode(key).decode()}: {_json_layout(item, depth + 1)}" for key, item in sorted(items, key=itemgetter(0)))
         return "{\n" + ",\n".join(rows) + f"\n{indent}}}"
     if isinstance(value, list):
         if not value:
@@ -1265,16 +1104,10 @@ def derived_schema(struct: type[msgspec.Struct] = Manifest, *, identity: str = "
 def _admitted_templates(main: _BufGen) -> Result[_Templates, Fault]:
     if not main.clean:
         return Error(Fault((TEMPLATE,), RailStatus.FAULTED, f"{Step.PARSE}: template: {TEMPLATE} must clean"))
-    unpinned = tuple(
-        row.remote for row in main.plugins if row.remote and (":" not in row.remote.rsplit("/", 1)[-1] or row.revision is None or row.revision < 1)
-    )
+    unpinned = tuple(row.remote for row in main.plugins if row.remote and (":" not in row.remote.rsplit("/", 1)[-1] or row.revision is None or row.revision < 1))
     misplaced = tuple(row.local for row in main.plugins if not row.remote and row.revision is not None)
     if unpinned or misplaced:
-        reason = (
-            f"remote plugins must pin version and positive revision: {', '.join(unpinned)}"
-            if unpinned
-            else "revision belongs only to a remote plugin"
-        )
+        reason = f"remote plugins must pin version and positive revision: {', '.join(unpinned)}" if unpinned else "revision belongs only to a remote plugin"
         return Error(Fault((TEMPLATE,), RailStatus.FAULTED, f"{Step.PARSE}: template: {reason}"))
     return Ok(_Templates(main=main))
 
@@ -1400,11 +1233,7 @@ def _files(image: Path) -> tuple[_File, ...]:
     descriptors = tuple(FileDescriptorSet.from_binary(image.read_bytes()).file)
     all_messages = {f".{file.package}.{name}": row for file in descriptors for name, row in _message_rows("", file.message_type)}
     map_entries = frozenset(name for name, row in all_messages.items() if row.options is not None and row.options.map_entry)
-    direct_maps = frozenset(
-        name
-        for name, row in all_messages.items()
-        if name not in map_entries and any(field.type == FieldDescriptorProto.Type.MESSAGE and field.type_name in map_entries for field in row.field)
-    )
+    direct_maps = frozenset(name for name, row in all_messages.items() if name not in map_entries and any(field.type == FieldDescriptorProto.Type.MESSAGE and field.type_name in map_entries for field in row.field))
 
     def message_targets(row: DescriptorProto) -> frozenset[str]:
         targets: set[str] = set()
@@ -1430,13 +1259,7 @@ def _files(image: Path) -> tuple[_File, ...]:
     for file in descriptors:
         messages, enums = _dotted("", file.message_type)
         methods = tuple(
-            _Method(
-                name=f"{file.package}.{service.name}.{method.name}",
-                input=method.input_type.removeprefix("."),
-                output=method.output_type.removeprefix("."),
-                client_streaming=method.client_streaming,
-                server_streaming=method.server_streaming,
-            )
+            _Method(name=f"{file.package}.{service.name}.{method.name}", input=method.input_type.removeprefix("."), output=method.output_type.removeprefix("."), client_streaming=method.client_streaming, server_streaming=method.server_streaming)
             for service in file.service
             for method in service.method
         )
@@ -1450,10 +1273,7 @@ def _files(image: Path) -> tuple[_File, ...]:
                 methods=methods,
                 dependencies=tuple(file.dependency),
                 map_messages=tuple(name for name in messages if f".{file.package}.{name}" in map_bearing),
-                message_links=tuple(
-                    (f"{file.package}.{name}", tuple(sorted(target.removeprefix(".") for target in links.get(f".{file.package}.{name}", ()))))
-                    for name in messages
-                ),
+                message_links=tuple((f"{file.package}.{name}", tuple(sorted(target.removeprefix(".") for target in links.get(f".{file.package}.{name}", ())))) for name in messages),
             )
         )
     return tuple(rows)
@@ -1473,20 +1293,12 @@ def _actor_roots(manifest: Manifest, language: str, kinds: frozenset[_Kind]) -> 
                 roots.extend(actor.method for actor in actors if not isinstance(actor, MessageActor))
             if "service" in kinds:
                 roots.extend(actor.method for actor in actors if not isinstance(actor, MessageActor))
-            roots.extend(
-                support.fqn
-                for actor in actors
-                for support in actor.supports
-                if (support.kind == "message" and "message" in kinds) or (support.kind in {"service", "method"} and "service" in kinds)
-            )
+            roots.extend(support.fqn for actor in actors for support in actor.supports if (support.kind == "message" and "message" in kinds) or (support.kind in {"service", "method"} and "service" in kinds))
     return tuple(dict.fromkeys(roots))
 
 
 def _file_owns(file: _File, symbol: str) -> bool:
-    return symbol in frozenset((
-        *(f"{file.package}.{name}" for name in (*file.messages, *file.enums, *file.services)),
-        *(method.name for method in file.methods),
-    ))
+    return symbol in frozenset((*(f"{file.package}.{name}" for name in (*file.messages, *file.enums, *file.services)), *(method.name for method in file.methods)))
 
 
 def _emitted(file: _File, kinds: frozenset[_Kind]) -> _File:
@@ -1495,13 +1307,7 @@ def _emitted(file: _File, kinds: frozenset[_Kind]) -> _File:
     Returns:
         The descriptor row with non-emitted symbol kinds removed.
     """
-    return msgspec.structs.replace(
-        file,
-        messages=file.messages if "message" in kinds else (),
-        enums=file.enums if "enum" in kinds else (),
-        services=file.services if "service" in kinds else (),
-        methods=file.methods if "method" in kinds else (),
-    )
+    return msgspec.structs.replace(file, messages=file.messages if "message" in kinds else (), enums=file.enums if "enum" in kinds else (), services=file.services if "service" in kinds else (), methods=file.methods if "method" in kinds else ())
 
 
 def _plugin_roots(corpus: _Corpus, plugin: _Plugin) -> tuple[str, ...]:
@@ -1547,19 +1353,9 @@ def _cs_name(kind: _Kind, dotted: str) -> str:
 
 
 _ROSTERS: Final[dict[str, _Roster]] = {
-    row.language: row
-    for row in (
-        _Roster("typescript", frozenset(("message", "enum", "service", "method")), _ts_name),
-        _Roster("python", frozenset(("message", "enum", "service", "method")), _py_name),
-        _Roster("dotnet", frozenset(("message", "enum", "service", "method")), _cs_name),
-    )
+    row.language: row for row in (_Roster("typescript", frozenset(("message", "enum", "service", "method")), _ts_name), _Roster("python", frozenset(("message", "enum", "service", "method")), _py_name), _Roster("dotnet", frozenset(("message", "enum", "service", "method")), _cs_name))
 }
-_KINDS: Final[tuple[tuple[_Kind, Callable[[_File], tuple[str, ...]]], ...]] = (
-    ("message", lambda file: file.messages),
-    ("enum", lambda file: file.enums),
-    ("service", lambda file: file.services),
-    ("method", lambda file: tuple(method.name.removeprefix(f"{file.package}.") for method in file.methods)),
-)
+_KINDS: Final[tuple[tuple[_Kind, Callable[[_File], tuple[str, ...]]], ...]] = (("message", lambda file: file.messages), ("enum", lambda file: file.enums), ("service", lambda file: file.services), ("method", lambda file: tuple(method.name.removeprefix(f"{file.package}.") for method in file.methods)))
 
 
 def _table(header: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> str:
@@ -1567,11 +1363,7 @@ def _table(header: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> str:
     widths = tuple(max(len(column[i]) for column in (header, *cells)) for i in range(len(header)))
 
     def line(row: tuple[str, ...], *, head: bool = False) -> str:
-        return (
-            "| "
-            + " | ".join((value if head or i else f" {value}").ljust(width) for i, (value, width) in enumerate(zip(row, widths, strict=True)))
-            + " |"
-        )
+        return "| " + " | ".join((value if head or i else f" {value}").ljust(width) for i, (value, width) in enumerate(zip(row, widths, strict=True))) + " |"
 
     rule = "| " + " | ".join(f":{'-' * (width - 2)}:" if i == 0 else f":{'-' * (width - 1)}" for i, width in enumerate(widths)) + " |"
     return "\n".join((line(header, head=True), rule, *(line(row) for row in cells)))
@@ -1582,38 +1374,17 @@ def _distribution_language(distribution: Distribution) -> str:
 
 
 def _catalog_distributions(manifest: Manifest, language: str) -> tuple[Distribution, ...]:
-    return tuple(
-        distribution
-        for entry in manifest.entries
-        for case in entry.cases
-        for asset in _assets(case)
-        if isinstance(asset, SpecimenAsset)
-        for distribution in asset.distributions
-        if _distribution_language(distribution) == language
-    )
+    return tuple(distribution for entry in manifest.entries for case in entry.cases for asset in _assets(case) if isinstance(asset, SpecimenAsset) for distribution in asset.distributions if _distribution_language(distribution) == language)
 
 
 def _asset_table(distributions: tuple[Distribution, ...]) -> str:
-    rows = tuple(
-        (
-            f"`{distribution.symbol if isinstance(distribution, TypeScriptJsonModule) else PurePosixPath(distribution.path).name}`",
-            "readonly-json" if isinstance(distribution, TypeScriptJsonModule) else "package-resource",
-            f"`{distribution.path}`",
-        )
-        for distribution in distributions
-    )
-    return "[ASSET_SCOPE]: exact publisher projections emitted by `assay contracts generate`; hand edits are overwritten\n\n" + _table(
-        ("[INDEX]", "[NAME]", "[KIND]", "[PATH]"), rows
-    )
+    rows = tuple((f"`{distribution.symbol if isinstance(distribution, TypeScriptJsonModule) else PurePosixPath(distribution.path).name}`", "readonly-json" if isinstance(distribution, TypeScriptJsonModule) else "package-resource", f"`{distribution.path}`") for distribution in distributions)
+    return "[ASSET_SCOPE]: exact publisher projections emitted by `assay contracts generate`; hand edits are overwritten\n\n" + _table(("[INDEX]", "[NAME]", "[KIND]", "[PATH]"), rows)
 
 
 def _roster_block(roster: _Roster, files: tuple[_File, ...], roots: tuple[str, ...], distributions: tuple[Distribution, ...] = ()) -> str:
     public = frozenset(roots)
-    packages = tuple(
-        dict.fromkeys(
-            file.package for file in files if file.package != "google.protobuf" and (*file.messages, *file.enums, *file.services, *file.methods)
-        )
-    )
+    packages = tuple(dict.fromkeys(file.package for file in files if file.package != "google.protobuf" and (*file.messages, *file.enums, *file.services, *file.methods)))
     tables = tuple(
         f"[ROSTER_SCOPE]: `{package}` — public roots and reachable support closure emitted by "
         "`assay contracts generate`; hand edits are overwritten\n\n"
@@ -1621,13 +1392,7 @@ def _roster_block(roster: _Roster, files: tuple[_File, ...], roots: tuple[str, .
             ("[INDEX]", "[NAME]", "[KIND]", "[ORIGIN]", "[SYMBOL]"),
             tuple(
                 dict.fromkeys(
-                    (f"`{roster.name(kind, dotted)}`", kind, "public-root" if fqn in public else "support-closure", f"`{dotted}`")
-                    for file in files
-                    if file.package == package
-                    for kind, names in _KINDS
-                    if kind in roster.kinds
-                    for dotted in names(file)
-                    for fqn in (f"{file.package}.{dotted}",)
+                    (f"`{roster.name(kind, dotted)}`", kind, "public-root" if fqn in public else "support-closure", f"`{dotted}`") for file in files if file.package == package for kind, names in _KINDS if kind in roster.kinds for dotted in names(file) for fqn in (f"{file.package}.{dotted}",)
                 )
             ),
         )
@@ -1753,19 +1518,7 @@ def _derived_rows(corpus: _Corpus, subject: str, definition: SchemaDefinition, p
     match _derived(corpus, subject, definition, path):
         case Result(tag="ok", ok=derived):
             stale = (corpus.schema_root / definition.path).read_bytes() != derived
-            return (
-                (
-                    _finding(
-                        "schema-stale",
-                        subject,
-                        f"{definition.path} differs from its derivation",
-                        "assay contracts generate, then commit the file",
-                        path,
-                    ),
-                )
-                if stale
-                else ()
-            )
+            return (_finding("schema-stale", subject, f"{definition.path} differs from its derivation", "assay contracts generate, then commit the file", path),) if stale else ()
         case Result(error=rows):
             return rows
         case never:  # pragma: no cover
@@ -1782,11 +1535,7 @@ def _schema_findings(corpus: _Corpus, subject: str, definition: SchemaDefinition
             identity = str(schema.get("$id", ""))
             return (
                 *_derived_rows(corpus, subject, definition, path),
-                *(
-                    (_finding("definition-id", subject, f"$id {identity!r} is not the file name {expected!r}", "regenerate the derived file", path),)
-                    if identity != expected
-                    else ()
-                ),
+                *((_finding("definition-id", subject, f"$id {identity!r} is not the file name {expected!r}", "regenerate the derived file", path),) if identity != expected else ()),
                 *((_finding("definition-invalid", subject, error, "repair the schema document", path),) if (error := _check_schema(schema)) else ()),
                 *(_finding("definition-ref", subject, error, "land the referenced row, or re-point the $ref", path) for error in _ref_errors(schema)),
             )
@@ -1826,13 +1575,7 @@ def _entry_class(case: Case) -> EntryClass:
 
 
 def _assets(case: Case) -> tuple[Asset, ...]:
-    return (
-        tuple(
-            asset for vector in case.readiness.vectors for asset in (*vector.specimens, *((vector.expected,) if vector.expected is not None else ()))
-        )
-        if isinstance(case.readiness, VerifiedReadiness)
-        else ()
-    )
+    return tuple(asset for vector in case.readiness.vectors for asset in (*vector.specimens, *((vector.expected,) if vector.expected is not None else ()))) if isinstance(case.readiness, VerifiedReadiness) else ()
 
 
 def _blockers(case: Case) -> tuple[str, ...]:
@@ -1880,11 +1623,7 @@ def _inside(value: str, root: PurePosixPath) -> bool:
 
 
 def _unresolved(corpus: _Corpus, subject: str, messages: tuple[str, ...]) -> tuple[_Finding, ...]:
-    return tuple(
-        _finding("message-unresolved", subject, f"{name} is not in the built descriptor set", "name a message the corpus declares, or land the proto")
-        for name in messages
-        if corpus.files and name not in corpus.known
-    )
+    return tuple(_finding("message-unresolved", subject, f"{name} is not in the built descriptor set", "name a message the corpus declares, or land the proto") for name in messages if corpus.files and name not in corpus.known)
 
 
 def _anchor(repo: Path, text: str, *, paths: bool) -> str:
@@ -1898,9 +1637,7 @@ def _anchor(repo: Path, text: str, *, paths: bool) -> str:
         case _ if paths and text.startswith(_BARE_ANCHOR_ROOTS) and not text.startswith("/") and (repo / text).is_file():
             return ""
         case _:
-            return "anchor grammar is lang:pkg/page#CLUSTER, tier0:ARCHITECTURE#[NN]-[TOKEN], tier0:RULINGS#[NN]-[TOKEN]" + (
-                ", or a repo-relative path" if paths else ""
-            )
+            return "anchor grammar is lang:pkg/page#CLUSTER, tier0:ARCHITECTURE#[NN]-[TOKEN], tier0:RULINGS#[NN]-[TOKEN]" + (", or a repo-relative path" if paths else "")
 
 
 def _cluster(page: Path, header: str) -> str:
@@ -1949,33 +1686,14 @@ def _rule_schema(corpus: _Corpus) -> Iterable[_Finding]:
     repair = "write derived_schema() to manifest.schema.json; the msgspec model is the one authority"
     if not path.is_file():
         return (_finding("schema-missing", SCHEMA, "manifest.schema.json is absent", repair, f"{CORPUS}/{SCHEMA}"),)
-    return (
-        ()
-        if path.read_bytes() == derived_schema()
-        else (_finding("schema-stale", SCHEMA, "manifest.schema.json differs from the derived schema", repair, f"{CORPUS}/{SCHEMA}"),)
-    )
+    return () if path.read_bytes() == derived_schema() else (_finding("schema-stale", SCHEMA, "manifest.schema.json differs from the derived schema", repair, f"{CORPUS}/{SCHEMA}"),)
 
 
 def _rule_identity(corpus: _Corpus) -> Iterable[_Finding]:
     entries = corpus.manifest.entries
-    yield from (
-        _finding("id-duplicate", name, "entry id registered more than once", "merge the entries; one entry per seam")
-        for name in _repeated(tuple(e.id for e in entries))
-    )
-    yield from (
-        _finding("seam-duplicate", seam, "seam registered by more than one entry", "merge into one grouping owner")
-        for seam in _repeated(tuple(e.id.lower().replace("_", "-") for e in entries))
-    )
-    yield from (
-        _finding(
-            "case-duplicate",
-            f"{entry.id}/{name}",
-            "case id registered more than once under the entry",
-            "merge the cases; one case per discriminant value",
-        )
-        for entry in entries
-        for name in _repeated(tuple(case.id for case in entry.cases))
-    )
+    yield from (_finding("id-duplicate", name, "entry id registered more than once", "merge the entries; one entry per seam") for name in _repeated(tuple(e.id for e in entries)))
+    yield from (_finding("seam-duplicate", seam, "seam registered by more than one entry", "merge into one grouping owner") for seam in _repeated(tuple(e.id.lower().replace("_", "-") for e in entries)))
+    yield from (_finding("case-duplicate", f"{entry.id}/{name}", "case id registered more than once under the entry", "merge the cases; one case per discriminant value") for entry in entries for name in _repeated(tuple(case.id for case in entry.cases)))
 
 
 def _rule_entry(corpus: _Corpus) -> Iterable[_Finding]:
@@ -1985,53 +1703,22 @@ def _rule_entry(corpus: _Corpus) -> Iterable[_Finding]:
             subject = f"{entry.id}/{case.id}"
             yield from (_finding(rule, subject, detail, repair) for broken, rule, detail, repair in _CASE_LAW if broken(case))
             actors = _actors(case)
-            yield from (
-                _finding("actor-duplicate", subject, f"{role} actor repeated: {key}", "bind each exact boundary entrypoint once per role")
-                for role, rows in (("minter", _minters(case)), ("consumer", case.consumers))
-                for key in _repeated(tuple(actor_key(actor) for actor in rows))
-            )
+            yield from (_finding("actor-duplicate", subject, f"{role} actor repeated: {key}", "bind each exact boundary entrypoint once per role") for role, rows in (("minter", _minters(case)), ("consumer", case.consumers)) for key in _repeated(tuple(actor_key(actor) for actor in rows)))
             message_actors = tuple(actor for actor in actors if isinstance(actor, MessageActor))
             publisher_proto = isinstance(case.definition, PublisherDefinition) and PurePosixPath(case.definition.source).suffix == ".proto"
+            yield from (_finding("actor-roots", subject, f"{actor.anchor} repeats descriptor roots {repeated!r}", "name each exact publisher descriptor root once", token=actor.anchor) for actor in message_actors if (repeated := _repeated(actor.roots)))
             yield from (
-                _finding(
-                    "actor-roots",
-                    subject,
-                    f"{actor.anchor} repeats descriptor roots {repeated!r}",
-                    "name each exact publisher descriptor root once",
-                    token=actor.anchor,
-                )
-                for actor in message_actors
-                if (repeated := _repeated(actor.roots))
-            )
-            yield from (
-                _finding(
-                    "actor-roots",
-                    subject,
-                    f"{actor.anchor} carries descriptor roots outside a publisher protobuf case",
-                    "remove the redundant roots; proto cases derive their one message from the definition",
-                    token=actor.anchor,
-                )
+                _finding("actor-roots", subject, f"{actor.anchor} carries descriptor roots outside a publisher protobuf case", "remove the redundant roots; proto cases derive their one message from the definition", token=actor.anchor)
                 for actor in message_actors
                 if actor.roots and not publisher_proto
             )
             yield from (
-                _finding(
-                    "actor-roots",
-                    subject,
-                    f"{actor.anchor} names no exact publisher descriptor root",
-                    "name every publisher message this generated or package binding consumes directly",
-                    token=actor.anchor,
-                )
+                _finding("actor-roots", subject, f"{actor.anchor} names no exact publisher descriptor root", "name every publisher message this generated or package binding consumes directly", token=actor.anchor)
                 for actor in message_actors
                 if publisher_proto and actor.binding in {"generated", "package"} and not actor.roots
             )
         sentences = tuple((f"{entry.id}/{case.id}", sentence) for case in entry.cases for sentence in _blockers(case))
-        yield from (
-            _finding(rule, subject, f"{detail}: {sentence!r}", repair)
-            for subject, sentence in sentences
-            for broken, rule, detail, repair in _BLOCKER_LAW
-            if broken(sentence)
-        )
+        yield from (_finding(rule, subject, f"{detail}: {sentence!r}", repair) for subject, sentence in sentences for broken, rule, detail, repair in _BLOCKER_LAW if broken(sentence))
 
 
 def _rule_definition(corpus: _Corpus) -> Iterable[_Finding]:
@@ -2041,12 +1728,7 @@ def _rule_definition(corpus: _Corpus) -> Iterable[_Finding]:
             match definition:
                 case CloudEventDefinition(message=message, type=event_type):
                     if not _EVENT_TYPE.fullmatch(event_type):
-                        yield _finding(
-                            "event-type",
-                            subject,
-                            f"CloudEvents type {event_type!r} is not an exact application discriminant",
-                            "name the exact producer type as rasm.<domain>.<subject>.<fact>",
-                        )
+                        yield _finding("event-type", subject, f"CloudEvents type {event_type!r} is not an exact application discriminant", "name the exact producer type as rasm.<domain>.<subject>.<fact>")
                     yield from _unresolved(corpus, subject, (message,))
                 case ProtoDefinition(message=message):
                     if not message.strip():
@@ -2061,40 +1743,18 @@ def _rule_definition(corpus: _Corpus) -> Iterable[_Finding]:
                     if reason := _path_reason(source):
                         yield _finding("definition-path", subject, f"{source!r}: {reason}", "name the normalized corpus-relative publisher source")
                     elif not (corpus.root / source).exists():
-                        yield _finding(
-                            "definition-missing", subject, f"{source} is absent", "vendor the publisher source byte-identically", f"{CORPUS}/{source}"
-                        )
-                    yield from _unresolved(
-                        corpus, subject, tuple(root for actor in _actors(case) if isinstance(actor, MessageActor) for root in actor.roots)
-                    )
+                        yield _finding("definition-missing", subject, f"{source} is absent", "vendor the publisher source byte-identically", f"{CORPUS}/{source}")
+                    yield from _unresolved(corpus, subject, tuple(root for actor in _actors(case) if isinstance(actor, MessageActor) for root in actor.roots))
                     if not origin.repository.startswith("https://"):
-                        yield _finding(
-                            "publisher-origin",
-                            subject,
-                            f"publisher repository {origin.repository!r} is not an immutable HTTPS origin",
-                            "name the canonical upstream HTTPS repository",
-                        )
+                        yield _finding("publisher-origin", subject, f"publisher repository {origin.repository!r} is not an immutable HTTPS origin", "name the canonical upstream HTTPS repository")
                     if reason := _path_reason(origin.upstream_path):
-                        yield _finding(
-                            "publisher-origin", subject, f"upstream path {origin.upstream_path!r}: {reason}", "name the normalized upstream path"
-                        )
+                        yield _finding("publisher-origin", subject, f"upstream path {origin.upstream_path!r}: {reason}", "name the normalized upstream path")
                 case LawDefinition(anchor=anchor):
                     match _LAW_ANCHOR.match(anchor):
                         case None:
-                            yield _finding(
-                                "definition-anchor",
-                                subject,
-                                f"law anchor {anchor!r} is not path#[NN]-[CLUSTER]",
-                                "spell the repo-relative page and its cluster header",
-                            )
+                            yield _finding("definition-anchor", subject, f"law anchor {anchor!r} is not path#[NN]-[CLUSTER]", "spell the repo-relative page and its cluster header")
                         case found if reason := _cluster(corpus.repo / found.group(1), rf"\[{found.group(2)}\]-\[{re.escape(found.group(3))}\]"):
-                            yield _finding(
-                                "definition-anchor",
-                                subject,
-                                f"law anchor {anchor}: {reason}",
-                                "land the cluster at the page, or re-point the anchor",
-                                found.group(1),
-                            )
+                            yield _finding("definition-anchor", subject, f"law anchor {anchor}: {reason}", "land the cluster at the page, or re-point the anchor", found.group(1))
                         case _:
                             pass
 
@@ -2119,29 +1779,10 @@ def _support_findings(corpus: _Corpus, subject: str, case: Case, actor: Actor, s
         Exact context, duplicate, descriptor-kind, resolution, and closure-redundancy defects.
     """
     if actor.binding != "generated" or not isinstance(case.definition, ProtoDefinition):
-        yield _finding(
-            "support-context",
-            subject,
-            f"{actor.anchor} attaches descriptor support outside a generated protobuf actor",
-            "attach support only to the exact generated protobuf actor that semantically uses it",
-            token=actor.anchor,
-        )
-    yield from (
-        _finding(
-            "support-duplicate",
-            subject,
-            f"{actor.anchor} repeats {kind} support {fqn}",
-            "name each exact semantic support root once on its actor",
-            token=actor.anchor,
-        )
-        for kind, fqn in _repeated(tuple((support.kind, support.fqn) for support in actor.supports))
-    )
+        yield _finding("support-context", subject, f"{actor.anchor} attaches descriptor support outside a generated protobuf actor", "attach support only to the exact generated protobuf actor that semantically uses it", token=actor.anchor)
+    yield from (_finding("support-duplicate", subject, f"{actor.anchor} repeats {kind} support {fqn}", "name each exact semantic support root once on its actor", token=actor.anchor) for kind, fqn in _repeated(tuple((support.kind, support.fqn) for support in actor.supports)))
     method = corpus.methods.get(actor.method) if not isinstance(actor, MessageActor) else None
-    message_roots = (
-        (case.definition.message, *((method.input, method.output) if method is not None else ()))
-        if isinstance(case.definition, ProtoDefinition)
-        else ()
-    )
+    message_roots = (case.definition.message, *((method.input, method.output) if method is not None else ())) if isinstance(case.definition, ProtoDefinition) else ()
     message_closure = _message_closure(corpus, message_roots)
     boundary = set(message_roots)
     if not isinstance(actor, MessageActor):
@@ -2149,29 +1790,11 @@ def _support_findings(corpus: _Corpus, subject: str, case: Case, actor: Actor, s
     for support in actor.supports:
         found = symbol_kind.get(support.fqn)
         if corpus.files and found is None:
-            yield _finding(
-                "support-unresolved",
-                subject,
-                f"{actor.anchor} support {support.fqn} is absent from the built descriptor set",
-                "name one exact generated message, service, or method FQN",
-                token=actor.anchor,
-            )
+            yield _finding("support-unresolved", subject, f"{actor.anchor} support {support.fqn} is absent from the built descriptor set", "name one exact generated message, service, or method FQN", token=actor.anchor)
         elif found is not None and found != support.kind:
-            yield _finding(
-                "support-kind",
-                subject,
-                f"{actor.anchor} declares {support.fqn} as {support.kind}, but the descriptor declares {found}",
-                "use the descriptor symbol's exact closed kind",
-                token=actor.anchor,
-            )
+            yield _finding("support-kind", subject, f"{actor.anchor} declares {support.fqn} as {support.kind}, but the descriptor declares {found}", "use the descriptor symbol's exact closed kind", token=actor.anchor)
         if support.fqn in boundary or (support.kind == "message" and support.fqn in message_closure):
-            yield _finding(
-                "support-redundant",
-                subject,
-                f"{actor.anchor} support {support.fqn} is already reachable from its boundary root",
-                "remove the support; Buf owns recursive descriptor closure",
-                token=actor.anchor,
-            )
+            yield _finding("support-redundant", subject, f"{actor.anchor} support {support.fqn} is already reachable from its boundary root", "remove the support; Buf owns recursive descriptor closure", token=actor.anchor)
 
 
 def _rule_supports(corpus: _Corpus) -> Iterable[_Finding]:
@@ -2199,13 +1822,7 @@ def _actor_direction(subject: str, role: Literal["producer", "minter", "consumer
     if not invalid:
         return None
     expected = "server-request or client-response" if role == "consumer" else "client-request or server-response"
-    return _finding(
-        "actor-direction",
-        subject,
-        f"{role} {actor.anchor} uses {_direction(actor)} direction",
-        f"use {expected} for an RPC {role}",
-        token=actor.anchor,
-    )
+    return _finding("actor-direction", subject, f"{role} {actor.anchor} uses {_direction(actor)} direction", f"use {expected} for an RPC {role}", token=actor.anchor)
 
 
 def _method_finding(corpus: _Corpus, subject: str, case: Case, actor: Actor) -> _Finding | None:
@@ -2213,48 +1830,18 @@ def _method_finding(corpus: _Corpus, subject: str, case: Case, actor: Actor) -> 
         return None
     method = corpus.methods.get(actor.method)
     if method is None:
-        return (
-            _finding(
-                "method-unresolved",
-                subject,
-                f"{actor.method} is not in the built descriptor set",
-                "name one exact service method FQN",
-                token=actor.anchor,
-            )
-            if corpus.files
-            else None
-        )
+        return _finding("method-unresolved", subject, f"{actor.method} is not in the built descriptor set", "name one exact service method FQN", token=actor.anchor) if corpus.files else None
     if not isinstance(case.definition, ProtoDefinition):
-        return _finding(
-            "actor-direction",
-            subject,
-            f"RPC actor {actor.anchor} binds a non-protobuf definition",
-            "split the direction into a case owning its exact protobuf message FQN",
-            token=actor.anchor,
-        )
+        return _finding("actor-direction", subject, f"RPC actor {actor.anchor} binds a non-protobuf definition", "split the direction into a case owning its exact protobuf message FQN", token=actor.anchor)
     expected = method.input if isinstance(actor, (ClientRequestActor, ServerRequestActor)) else method.output
-    return (
-        None
-        if case.definition.message == expected
-        else _finding(
-            "actor-direction",
-            subject,
-            f"{actor.method} {_direction(actor)} carries {expected}, not {case.definition.message}",
-            "bind the actor to the direction-atomic request or response case",
-            token=actor.anchor,
-        )
-    )
+    return None if case.definition.message == expected else _finding("actor-direction", subject, f"{actor.method} {_direction(actor)} carries {expected}, not {case.definition.message}", "bind the actor to the direction-atomic request or response case", token=actor.anchor)
 
 
 def _rule_actor_methods(corpus: _Corpus) -> Iterable[_Finding]:
     cases = tuple((f"{entry.id}/{case.id}", case) for entry in corpus.manifest.entries for case in entry.cases)
     for subject, case in cases:
         producer = _producer(case)
-        actors = (
-            *(((("producer", producer),)) if producer is not None else ()),
-            *(("minter", actor) for actor in _minters(case)),
-            *(("consumer", actor) for actor in case.consumers),
-        )
+        actors = (*(((("producer", producer),)) if producer is not None else ()), *(("minter", actor) for actor in _minters(case)), *(("consumer", actor) for actor in case.consumers))
         yield from (finding for role, actor in actors if (finding := _actor_direction(subject, role, actor)) is not None)
         yield from (finding for actor in _actors(case) if (finding := _method_finding(corpus, subject, case, actor)) is not None)
 
@@ -2297,14 +1884,7 @@ def _distribution_bytes(repo: Path, asset: Asset, distribution: Distribution) ->
 
 
 def _distributions(manifest: Manifest) -> tuple[_DistributionRow, ...]:
-    return tuple(
-        (f"{entry.id}/{case.id}", _entry_class(case), asset, distribution)
-        for entry in manifest.entries
-        for case in entry.cases
-        for asset in _assets(case)
-        if isinstance(asset, SpecimenAsset)
-        for distribution in asset.distributions
-    )
+    return tuple((f"{entry.id}/{case.id}", _entry_class(case), asset, distribution) for entry in manifest.entries for case in entry.cases for asset in _assets(case) if isinstance(asset, SpecimenAsset) for distribution in asset.distributions)
 
 
 def _distribution_path_finding(corpus: _Corpus, subject: str, distribution: Distribution) -> _Finding | None:
@@ -2314,23 +1894,11 @@ def _distribution_path_finding(corpus: _Corpus, subject: str, distribution: Dist
     if isinstance(distribution, PythonPackageResource):
         if PurePosixPath(where).suffix == ".avsc" and _inside(where, _PY_PACKAGE_ROOT):
             return None
-        return _finding(
-            "distribution-path",
-            subject,
-            f"{where} is not an .avsc below the {_PY_PACKAGE} package root",
-            f"seat the exact resource below {_PY_PACKAGE_ROOT.as_posix()}",
-            where,
-        )
+        return _finding("distribution-path", subject, f"{where} is not an .avsc below the {_PY_PACKAGE} package root", f"seat the exact resource below {_PY_PACKAGE_ROOT.as_posix()}", where)
     roots = tuple(PurePosixPath(row.out) for row in corpus.template.plugins if row.language == "typescript")
     if PurePosixPath(where).suffix == ".ts" and any(_inside(where, root) for root in roots):
         return None
-    return _finding(
-        "distribution-path",
-        subject,
-        f"{where} is outside a configured TypeScript out root or is not a .ts module",
-        "seat the module under the configured TypeScript generated out root",
-        where,
-    )
+    return _finding("distribution-path", subject, f"{where} is outside a configured TypeScript out root or is not a .ts module", "seat the module under the configured TypeScript generated out root", where)
 
 
 def _distribution_findings(corpus: _Corpus) -> Iterable[_Finding]:
@@ -2379,62 +1947,28 @@ def _distribution_findings(corpus: _Corpus) -> Iterable[_Finding]:
             case _:
                 pass
         if not export_ok:
-            yield _finding(
-                "distribution-export",
-                _TS_PACKAGE,
-                f"{_TS_EXPORT} does not resolve {_TS_SOURCE} in the workspace and publish {_TS_TARGET}",
-                "restore the standalone contracts package metadata before publishing generated assets",
-                _TS_PACKAGE,
-            )
+            yield _finding("distribution-export", _TS_PACKAGE, f"{_TS_EXPORT} does not resolve {_TS_SOURCE} in the workspace and publish {_TS_TARGET}", "restore the standalone contracts package metadata before publishing generated assets", _TS_PACKAGE)
     for subject, entry_class, asset, distribution in distributions:
         where = distribution.path
         if entry_class != "publisher" or not isinstance(asset, SpecimenAsset):
-            yield _finding(
-                "distribution-authority",
-                subject,
-                f"{asset.path} is not publisher-owned evidence",
-                "distribute only an exact publisher asset; estate definitions generate through their descriptor",
-                where,
-            )
+            yield _finding("distribution-authority", subject, f"{asset.path} is not publisher-owned evidence", "distribute only an exact publisher asset; estate definitions generate through their descriptor", where)
         if finding := _distribution_path_finding(corpus, subject, distribution):
             yield finding
             continue
         if isinstance(distribution, TypeScriptJsonModule) and _SYMBOL.fullmatch(distribution.symbol) is None:
-            yield _finding(
-                "distribution-symbol", subject, f"{distribution.symbol!r} is not a PascalCase export", "name one PascalCase package export", where
-            )
+            yield _finding("distribution-symbol", subject, f"{distribution.symbol!r} is not a PascalCase export", "name one PascalCase package export", where)
             continue
         rendered = _distribution_bytes(corpus.repo, asset, distribution)
         if rendered.is_error():
-            yield _finding(
-                "distribution-source",
-                subject,
-                f"{asset.path}: {rendered.error}",
-                "restore the exact publisher asset before generating its package projection",
-                f"{CORPUS}/{asset.path}",
-            )
+            yield _finding("distribution-source", subject, f"{asset.path}: {rendered.error}", "restore the exact publisher asset before generating its package projection", f"{CORPUS}/{asset.path}")
             continue
         target = corpus.output / where
         if not target.is_file():
-            yield _finding(
-                "distribution-missing", subject, f"{where} is absent", "run assay contracts generate and commit the generated projection", where
-            )
+            yield _finding("distribution-missing", subject, f"{where} is absent", "run assay contracts generate and commit the generated projection", where)
         elif target.read_bytes() != rendered.ok:
-            yield _finding(
-                "distribution-stale",
-                subject,
-                f"{where} differs from {CORPUS}/{asset.path}",
-                "run assay contracts generate and commit the generated projection",
-                where,
-            )
+            yield _finding("distribution-stale", subject, f"{where} differs from {CORPUS}/{asset.path}", "run assay contracts generate and commit the generated projection", where)
     yield from (
-        _finding(
-            "distribution-owned-twice",
-            path,
-            f"package target is owned by {', '.join(subjects)}",
-            "assign the generated package target to exactly one frozen asset",
-            path,
-        )
+        _finding("distribution-owned-twice", path, f"package target is owned by {', '.join(subjects)}", "assign the generated package target to exactly one frozen asset", path)
         for path in _repeated(tuple(distribution.path for _, _, _, distribution in distributions))
         for subjects in (tuple(subject for subject, _, _, distribution in distributions if distribution.path == path),)
     )
@@ -2613,13 +2147,7 @@ def _virtual_field_facts(path: Path) -> VirtualFieldFacts:
             dims = (first, second)
         case _:
             raise ValueError("VirtualiZarr /field projection must carry exactly two named axes")
-    chunks = tuple(
-        VirtualChunkFacts(
-            key=key, offset=_integer(entry["offset"], f"VirtualiZarr {key} offset"), length=_integer(entry["length"], f"VirtualiZarr {key} length")
-        )
-        for key, entry in sorted(data.manifest.dict().items())
-        if _text(entry["path"], f"VirtualiZarr {key} path") == source
-    )
+    chunks = tuple(VirtualChunkFacts(key=key, offset=_integer(entry["offset"], f"VirtualiZarr {key} offset"), length=_integer(entry["length"], f"VirtualiZarr {key} length")) for key, entry in sorted(data.manifest.dict().items()) if _text(entry["path"], f"VirtualiZarr {key} path") == source)
     if len(chunks) != len(data.manifest.dict()):
         raise ValueError("VirtualiZarr field chunks must all reference the admitted specimen")
     return VirtualFieldFacts(dims=(dims[0], dims[1]), shape=(shape[0], shape[1]), dtype="float32", chunks=chunks)
@@ -2651,17 +2179,8 @@ def _field_facts(file: _HdfFile, path: Path) -> FieldFacts:
         shape=(shape[0], shape[1]),
         chunks=(chunks[0], chunks[1]),
         compression=FieldCompressionFacts(kind="gzip", level=_integer(data.compression_opts, "/field gzip level"), shuffle=bool(data.shuffle)),
-        values=(
-            (_number(values[0][0], "/field[0,0]"), _number(values[0][1], "/field[0,1]")),
-            (_number(values[1][0], "/field[1,0]"), _number(values[1][1], "/field[1,1]")),
-        ),
-        root_attributes=FieldRootFacts(
-            bits=_integer(attrs["bits"], "/ bits"),
-            bound=_number(attrs["bound"], "/ bound"),
-            format_key=_text(attrs["format-key"], "/ format-key"),
-            max_residual=_number(attrs["max-residual"], "/ max-residual"),
-            residence="exact",
-        ),
+        values=((_number(values[0][0], "/field[0,0]"), _number(values[0][1], "/field[0,1]")), (_number(values[1][0], "/field[1,0]"), _number(values[1][1], "/field[1,1]"))),
+        root_attributes=FieldRootFacts(bits=_integer(attrs["bits"], "/ bits"), bound=_number(attrs["bound"], "/ bound"), format_key=_text(attrs["format-key"], "/ format-key"), max_residual=_number(attrs["max-residual"], "/ max-residual"), residence="exact"),
         virtual=_virtual_field_facts(path),
     )
 
@@ -2680,10 +2199,7 @@ def _graduation_facts(file: _HdfFile) -> GraduationFacts:
     _hdf_roster(climate.attrs, ("kind",), "/bands/climate attributes")
     _hdf_roster(temperature, ("edges", "mass"), "/bands/temperature")
     _hdf_roster(temperature.attrs, ("kind",), "/bands/temperature attributes")
-    if (
-        _text(climate.attrs["kind"], "/bands/climate kind") != "categorical"
-        or _text(temperature.attrs["kind"], "/bands/temperature kind") != "numeric"
-    ):
+    if _text(climate.attrs["kind"], "/bands/climate kind") != "categorical" or _text(temperature.attrs["kind"], "/bands/temperature kind") != "numeric":
         raise ValueError("graduation band kinds must match their categorical and numeric layouts")
     if categories.dtype.descr != [("", "|O")] or categories.dtype.name != "object" or categories.dtype.metadata != {"vlen": str}:
         raise ValueError("/bands/climate/categories must use the HDF5 UTF-8 variable-length string dtype")
@@ -2698,14 +2214,8 @@ def _graduation_facts(file: _HdfFile) -> GraduationFacts:
     return GraduationFacts(
         path="/bands",
         evidence_key=_text(bands.attrs["evidence-key"], "/bands evidence-key"),
-        climate=CategoricalBandFacts(
-            categories=tuple(_text(value, "/bands/climate/categories") for value in _sequence(categories[()], "/bands/climate/categories")),
-            mass=tuple(_number(value, "/bands/climate/mass") for value in _sequence(climate_mass[()], "/bands/climate/mass")),
-        ),
-        temperature=NumericBandFacts(
-            edges=tuple(_number(value, "/bands/temperature/edges") for value in _sequence(edges[()], "/bands/temperature/edges")),
-            mass=tuple(_number(value, "/bands/temperature/mass") for value in _sequence(temperature_mass[()], "/bands/temperature/mass")),
-        ),
+        climate=CategoricalBandFacts(categories=tuple(_text(value, "/bands/climate/categories") for value in _sequence(categories[()], "/bands/climate/categories")), mass=tuple(_number(value, "/bands/climate/mass") for value in _sequence(climate_mass[()], "/bands/climate/mass"))),
+        temperature=NumericBandFacts(edges=tuple(_number(value, "/bands/temperature/edges") for value in _sequence(edges[()], "/bands/temperature/edges")), mass=tuple(_number(value, "/bands/temperature/mass") for value in _sequence(temperature_mass[()], "/bands/temperature/mass"))),
     )
 
 
@@ -2740,15 +2250,7 @@ def _sparse_facts(file: _HdfFile) -> SparseFacts:
         raise ValueError("/A must be a two-axis csc lu archive")
     return SparseFacts(
         path="/A",
-        attributes=SparseAttributesFacts(
-            fill=_integer(attrs["fill"], "/A fill"),
-            format="csc",
-            frobenius=_number(attrs["frobenius"], "/A frobenius"),
-            kind="lu",
-            ordering=_integer(attrs["ordering"], "/A ordering"),
-            shape=(shape[0], shape[1]),
-            symmetric=bool(symmetric_value),
-        ),
+        attributes=SparseAttributesFacts(fill=_integer(attrs["fill"], "/A fill"), format="csc", frobenius=_number(attrs["frobenius"], "/A frobenius"), kind="lu", ordering=_integer(attrs["ordering"], "/A ordering"), shape=(shape[0], shape[1]), symmetric=bool(symmetric_value)),
         indices=tuple(_integer(value, "/A/indices") for value in _sequence(datasets["indices"][()], "/A/indices")),
         indptr=tuple(_integer(value, "/A/indptr") for value in _sequence(datasets["indptr"][()], "/A/indptr")),
         permutation=tuple(_integer(value, "/A/permutation") for value in _sequence(datasets["permutation"][()], "/A/permutation")),
@@ -2776,15 +2278,7 @@ def _waveform_facts(file: _HdfFile) -> WaveformFacts:
         raise ValueError("/waveform values do not match the declared shape")
     if not isfinite(sample_rate) or sample_rate <= 0.0:
         raise ValueError("/waveform sample-rate must be finite and positive")
-    return WaveformFacts(
-        path="/waveform",
-        dtype="float32",
-        shape=(shape[0], shape[1]),
-        chunks=(chunks[0], chunks[1]),
-        compression=FieldCompressionFacts(kind="gzip", level=_integer(data.compression_opts, "/waveform gzip level"), shuffle=True),
-        sample_rate=sample_rate,
-        values=values,
-    )
+    return WaveformFacts(path="/waveform", dtype="float32", shape=(shape[0], shape[1]), chunks=(chunks[0], chunks[1]), compression=FieldCompressionFacts(kind="gzip", level=_integer(data.compression_opts, "/waveform gzip level"), shuffle=True), sample_rate=sample_rate, values=values)
 
 
 def _decoded_matrix_market(path: Path) -> MatrixMarketFacts:
@@ -2801,25 +2295,12 @@ def _decoded_matrix_market(path: Path) -> MatrixMarketFacts:
     if len(row_values) != stored or len(column_values) != stored or len(data_values) != stored:
         raise ValueError("Matrix Market body count does not match its header")
     entries = tuple(
-        sorted(
-            (
-                MatrixEntryFacts(
-                    row=_integer(row, "Matrix Market row"),
-                    column=_integer(column, "Matrix Market column"),
-                    value=_number(value, "Matrix Market value"),
-                )
-                for row, column, value in zip(row_values, column_values, data_values, strict=True)
-            ),
-            key=lambda entry: (entry.row, entry.column),
-        )
+        sorted((MatrixEntryFacts(row=_integer(row, "Matrix Market row"), column=_integer(column, "Matrix Market column"), value=_number(value, "Matrix Market value")) for row, column, value in zip(row_values, column_values, data_values, strict=True)), key=lambda entry: (entry.row, entry.column))
     )
     coordinates = tuple((entry.row, entry.column) for entry in entries)
     if len(frozenset(coordinates)) != len(entries):
         raise ValueError("Matrix Market body contains duplicate coordinates")
-    if any(
-        entry.row < 0 or entry.row >= rows or entry.column < 0 or entry.column >= columns or not isfinite(entry.value) or not entry.value
-        for entry in entries
-    ):
+    if any(entry.row < 0 or entry.row >= rows or entry.column < 0 or entry.column >= columns or not isfinite(entry.value) or not entry.value for entry in entries):
         raise ValueError("Matrix Market body contains an out-of-range, non-finite, or explicit-zero entry")
     return MatrixMarketFacts(shape=(rows, columns), entries=entries)
 
@@ -2998,14 +2479,7 @@ def _backend_generation(backend: Message) -> BackendGenerationFacts:
         ordinal(_defined_enum(capability, "failure_rank"))
         ordinal(_defined_enum(capability, "restart_class"))
     held = bytes(preimage)
-    return BackendGenerationFacts(
-        contract=contract,
-        artifact_keys=artifact_keys,
-        capability_keys=capability_keys,
-        preimage_bytes=len(held),
-        preimage_xxh128=xxhash.xxh128(held, seed=0).hexdigest(),
-        preimage_hex=held.hex(),
-    )
+    return BackendGenerationFacts(contract=contract, artifact_keys=artifact_keys, capability_keys=capability_keys, preimage_bytes=len(held), preimage_xxh128=xxhash.xxh128(held, seed=0).hexdigest(), preimage_hex=held.hex())
 
 
 def _backend_facts(image: Path, message_fqn: str, raw: bytes) -> Result[BackendGenerationFacts, str]:
@@ -3045,11 +2519,7 @@ def _specimen_facts(corpus: _ProofContext, case: Case, specimen_path: Path, expe
             return _expected_facts(_hlc_facts(corpus.image, case.definition.message, specimen_path.read_bytes()))
         except OSError as exc:
             return Error(str(exc))
-    if (
-        isinstance(expected, (FieldFacts, GraduationFacts, SparseFacts, WaveformFacts))
-        and isinstance(case.definition, LawDefinition)
-        and case.definition.format == "hdf5"
-    ):
+    if isinstance(expected, (FieldFacts, GraduationFacts, SparseFacts, WaveformFacts)) and isinstance(case.definition, LawDefinition) and case.definition.format == "hdf5":
         return _expected_facts(_hdf_facts(specimen_path, expected))
     if isinstance(expected, MatrixMarketFacts) and isinstance(case.definition, LawDefinition) and case.definition.format == "text":
         return _expected_facts(_matrix_market_facts(specimen_path))
@@ -3067,13 +2537,7 @@ def _proof_findings(corpus: _ProofContext, subject: str, case: Case) -> Iterable
         try:
             expected = _EXPECTED_FACTS.decode(expected_path.read_bytes())
         except (OSError, msgspec.DecodeError, msgspec.ValidationError) as exc:
-            yield _finding(
-                "expected-invalid",
-                subject,
-                f"vector {index} expected facts {expected_asset.path}: {exc}",
-                "restore the typed expected facts asset",
-                f"{CORPUS}/{expected_asset.path}",
-            )
+            yield _finding("expected-invalid", subject, f"vector {index} expected facts {expected_asset.path}: {exc}", "restore the typed expected facts asset", f"{CORPUS}/{expected_asset.path}")
             continue
         format_matches = (
             (expected_asset.facts_format == "backend-generation" and isinstance(expected, BackendGenerationFacts))
@@ -3083,112 +2547,43 @@ def _proof_findings(corpus: _ProofContext, subject: str, case: Case) -> Iterable
             or (expected_asset.facts_format == "matrix-market-facts" and isinstance(expected, MatrixMarketFacts))
         )
         if not format_matches:
-            yield _finding(
-                "expected-format",
-                subject,
-                f"vector {index} {expected_asset.facts_format} does not match {type(expected).__name__}",
-                "name the expected asset's exact closed facts format",
-                f"{CORPUS}/{expected_asset.path}",
-            )
+            yield _finding("expected-format", subject, f"vector {index} {expected_asset.facts_format} does not match {type(expected).__name__}", "name the expected asset's exact closed facts format", f"{CORPUS}/{expected_asset.path}")
             continue
         for specimen in vector.specimens:
             specimen_path = corpus.root / specimen.path
             facts = _specimen_facts(corpus, case, specimen_path, expected)
             if facts.is_error():
-                yield _finding(
-                    "specimen-invalid",
-                    subject,
-                    f"vector {index} specimen {specimen.path}: {facts.error}",
-                    "repair the native specimen or its case-local facts route",
-                    f"{CORPUS}/{specimen.path}",
-                )
+                yield _finding("specimen-invalid", subject, f"vector {index} specimen {specimen.path}: {facts.error}", "repair the native specimen or its case-local facts route", f"{CORPUS}/{specimen.path}")
             elif facts.ok != expected:
-                yield _finding(
-                    "semantic-mismatch",
-                    subject,
-                    f"vector {index} specimen {specimen.path} differs from {expected_asset.path}",
-                    "repair the producer or replace both specimen and expected facts from a fresh proof",
-                    f"{CORPUS}/{specimen.path}",
-                )
+                yield _finding("semantic-mismatch", subject, f"vector {index} specimen {specimen.path} differs from {expected_asset.path}", "repair the producer or replace both specimen and expected facts from a fresh proof", f"{CORPUS}/{specimen.path}")
 
 
 def _asset_findings(corpus: _ProofContext, subject: str, case: Case) -> Iterable[_Finding]:
-    schema: Result[_Document, str] = (
-        _document(corpus.schema_root / case.definition.path) if isinstance(case.definition, SchemaDefinition) else Error("no schema definition")
-    )
+    schema: Result[_Document, str] = _document(corpus.schema_root / case.definition.path) if isinstance(case.definition, SchemaDefinition) else Error("no schema definition")
     for asset in _assets(case):
         path, where = corpus.root / asset.path, f"{CORPUS}/{asset.path}"
         if isinstance(case.authority, PublisherAuthority) and asset.fingerprint.algorithm != "sha256":
-            yield _finding(
-                "publisher-fingerprint",
-                subject,
-                f"{asset.path} uses {asset.fingerprint.algorithm}, not SHA-256",
-                "record immutable publisher custody with SHA-256",
-                where,
-            )
+            yield _finding("publisher-fingerprint", subject, f"{asset.path} uses {asset.fingerprint.algorithm}, not SHA-256", "record immutable publisher custody with SHA-256", where)
         if not path.is_file():
             yield _finding("asset-missing", subject, f"{asset.path} is absent", "land the asset, or drop the row", where)
             continue
         raw = path.read_bytes()
         if len(raw) != asset.bytes:
-            yield _finding(
-                "asset-bytes",
-                subject,
-                f"{asset.path}: {len(raw)} bytes on disk, {asset.bytes} registered",
-                "re-prove in scratch and re-record bytes",
-                where,
-            )
+            yield _finding("asset-bytes", subject, f"{asset.path}: {len(raw)} bytes on disk, {asset.bytes} registered", "re-prove in scratch and re-record bytes", where)
         expected_length = 32 if asset.fingerprint.algorithm == "xxh128" else 64
         if re.fullmatch(rf"[0-9a-f]{{{expected_length}}}", asset.fingerprint.value) is None:
-            yield _finding(
-                "asset-fingerprint",
-                subject,
-                f"{asset.path}: {asset.fingerprint.algorithm} value has the wrong shape",
-                "record the lowercase digest at the algorithm's exact width",
-                where,
-            )
+            yield _finding("asset-fingerprint", subject, f"{asset.path}: {asset.fingerprint.algorithm} value has the wrong shape", "record the lowercase digest at the algorithm's exact width", where)
         digest = xxhash.xxh128(raw, seed=0).hexdigest() if asset.fingerprint.algorithm == "xxh128" else sha256(raw).hexdigest()
         if digest != asset.fingerprint.value:
-            yield _finding(
-                "asset-digest",
-                subject,
-                f"{asset.path}: {asset.fingerprint.algorithm} {digest} on disk, {asset.fingerprint.value} registered",
-                "re-prove in scratch and re-record the digest",
-                where,
-            )
-        if (
-            isinstance(case.readiness, VerifiedReadiness)
-            and case.readiness.oracle == "semantic-roundtrip"
-            and isinstance(case.definition, (CloudEventDefinition, ProtoDefinition))
-            and case.definition.framing == "proto-binary"
-        ):
-            unknown = _semantic_roundtrip(
-                corpus.image,
-                case.definition.message,
-                raw,
-                event_type=case.definition.type if isinstance(case.definition, CloudEventDefinition) else "",
-            )
+            yield _finding("asset-digest", subject, f"{asset.path}: {asset.fingerprint.algorithm} {digest} on disk, {asset.fingerprint.value} registered", "re-prove in scratch and re-record the digest", where)
+        if isinstance(case.readiness, VerifiedReadiness) and case.readiness.oracle == "semantic-roundtrip" and isinstance(case.definition, (CloudEventDefinition, ProtoDefinition)) and case.definition.framing == "proto-binary":
+            unknown = _semantic_roundtrip(corpus.image, case.definition.message, raw, event_type=case.definition.type if isinstance(case.definition, CloudEventDefinition) else "")
             if unknown.is_error():
-                yield _finding(
-                    "asset-invalid",
-                    subject,
-                    f"{asset.path}: protobuf decode failed: {unknown.error}",
-                    "repair the fixture or its exact message descriptor",
-                    where,
-                )
+                yield _finding("asset-invalid", subject, f"{asset.path}: protobuf decode failed: {unknown.error}", "repair the fixture or its exact message descriptor", where)
             elif unknown.ok:
-                yield _finding(
-                    "roundtrip-unknown",
-                    subject,
-                    f"{asset.path} retains unknown protobuf fields at {', '.join(unknown.ok)}",
-                    "rebuild the fixture through the current exact descriptor and prove semantic roundtrip again",
-                    where,
-                )
+                yield _finding("roundtrip-unknown", subject, f"{asset.path} retains unknown protobuf fields at {', '.join(unknown.ok)}", "rebuild the fixture through the current exact descriptor and prove semantic roundtrip again", where)
         if isinstance(case.readiness, VerifiedReadiness) and path.suffix == ".json":
-            yield from (
-                _finding("asset-invalid", subject, f"{asset.path}: {row}", "repair the asset or its seam schema", where)
-                for row in _validated(schema, path)
-            )
+            yield from (_finding("asset-invalid", subject, f"{asset.path}: {row}", "repair the asset or its seam schema", where) for row in _validated(schema, path))
 
 
 def _publisher_evidence_findings(root: Path, subject: str, case: Case) -> Iterable[_Finding]:
@@ -3200,33 +2595,15 @@ def _publisher_evidence_findings(root: Path, subject: str, case: Case) -> Iterab
     for specimen in (asset for vector in vectors for asset in vector.specimens):
         contained = specimen.path == definition.source or (source.is_dir() and _inside(specimen.path, PurePosixPath(definition.source)))
         if not contained:
-            yield _finding(
-                "publisher-source",
-                subject,
-                f"{specimen.path} is outside publisher source {definition.source}",
-                "register only exact bytes at or below the immutable publisher source",
-                f"{CORPUS}/{specimen.path}",
-            )
+            yield _finding("publisher-source", subject, f"{specimen.path} is outside publisher source {definition.source}", "register only exact bytes at or below the immutable publisher source", f"{CORPUS}/{specimen.path}")
     license_row = definition.origin.license
     license_path = root / license_row.path
     if reason := _path_reason(license_row.path):
         yield _finding("publisher-license", subject, f"license path {license_row.path!r}: {reason}", "name the colocated license path")
     elif not license_path.is_file():
-        yield _finding(
-            "publisher-license",
-            subject,
-            f"{license_row.path} is absent",
-            "vendor the publisher license beside its custody assets",
-            f"{CORPUS}/{license_row.path}",
-        )
+        yield _finding("publisher-license", subject, f"{license_row.path} is absent", "vendor the publisher license beside its custody assets", f"{CORPUS}/{license_row.path}")
     elif (digest := sha256(license_path.read_bytes()).hexdigest()) != license_row.sha256:
-        yield _finding(
-            "publisher-license",
-            subject,
-            f"{license_row.path}: SHA-256 {digest} on disk, {license_row.sha256} registered",
-            "restore the exact upstream license bytes or re-prove custody",
-            f"{CORPUS}/{license_row.path}",
-        )
+        yield _finding("publisher-license", subject, f"{license_row.path}: SHA-256 {digest} on disk, {license_row.sha256} registered", "restore the exact upstream license bytes or re-prove custody", f"{CORPUS}/{license_row.path}")
 
 
 def _rule_assets(corpus: _Corpus) -> Iterable[_Finding]:
@@ -3238,61 +2615,32 @@ def _rule_assets(corpus: _Corpus) -> Iterable[_Finding]:
             yield from _publisher_evidence_findings(corpus.root, subject, case)
 
 
-def prove_case(root: Path, subject: str, case: Case, *, image: Path | None = None) -> Result[CorpusOracleReceipt, str]:
-    """Prove one verified case directly through the Assay-owned specimen decoders and typed oracle.
+def prove_case(root: Path, subject: str, case: Case, *, image: Path | None = None) -> Result[tuple[CorpusOracleFinding, ...], str]:
+    """Prove one verified case through the Assay-owned specimen decoders and typed oracle.
 
     Returns:
-        Typed per-case receipt, or a refusal when the case is blocked rather than evidence-bearing.
+        Exact proof findings, or a refusal when the case cannot be proved.
     """
     if not isinstance(case.readiness, VerifiedReadiness):
         return Error(f"{subject} is blocked and carries no proof vectors")
     if image is None and isinstance(case.definition, (CloudEventDefinition, ProtoDefinition)):
         return Error(f"{subject} requires the exact built descriptor image")
     context = _DirectProofContext(root=root, image=image or Path())
-    findings = (
-        *(_finding(rule, subject, detail, repair) for broken, rule, detail, repair in _CASE_LAW if broken(case)),
-        *_asset_findings(context, subject, case),
-        *_proof_findings(context, subject, case),
-        *_publisher_evidence_findings(root, subject, case),
-    )
-    return Ok(
-        CorpusOracleReceipt(
-            subject=subject,
-            oracle=case.readiness.oracle,
-            vectors=len(case.readiness.vectors),
-            specimens=sum(len(vector.specimens) for vector in case.readiness.vectors),
-            findings=tuple(CorpusOracleFinding(rule=row.rule, detail=row.detail, path=row.path) for row in findings),
-        )
-    )
+    findings = (*(_finding(rule, subject, detail, repair) for broken, rule, detail, repair in _CASE_LAW if broken(case)), *_asset_findings(context, subject, case), *_proof_findings(context, subject, case), *_publisher_evidence_findings(root, subject, case))
+    return Ok(tuple(CorpusOracleFinding(rule=row.rule, detail=row.detail, path=row.path) for row in findings))
 
 
 def _rule_anchors(corpus: _Corpus) -> Iterable[_Finding]:
     repair = "land the cluster at the page, or re-point the anchor"
     for entry in corpus.manifest.entries:
         cells = tuple((f"{entry.id}/{case.id}", case, actor) for case in entry.cases for actor in _actors(case))
-        yield from (
-            _finding("anchor-dangling", subject, f"actor {actor.anchor}: {reason}", repair, token=actor.anchor)
-            for subject, _, actor in cells
-            if (reason := _anchor(corpus.repo, actor.anchor, paths=True))
-        )
+        yield from (_finding("anchor-dangling", subject, f"actor {actor.anchor}: {reason}", repair, token=actor.anchor) for subject, _, actor in cells if (reason := _anchor(corpus.repo, actor.anchor, paths=True)))
         for subject, case, actor in cells:
             body_result = _anchor_body(corpus.repo, actor.anchor)
             if _COORDINATE.fullmatch(actor.coordinate) is None:
-                yield _finding(
-                    "actor-coordinate",
-                    subject,
-                    f"{actor.anchor} coordinate {actor.coordinate!r} is not one singular source symbol",
-                    "name the exact implementation entrypoint without alternatives or heading aliases",
-                    token=actor.anchor,
-                )
+                yield _finding("actor-coordinate", subject, f"{actor.anchor} coordinate {actor.coordinate!r} is not one singular source symbol", "name the exact implementation entrypoint without alternatives or heading aliases", token=actor.anchor)
             elif body_result.is_ok() and actor.coordinate not in body_result.ok:
-                yield _finding(
-                    "actor-coordinate",
-                    subject,
-                    f"{actor.anchor} body does not contain coordinate {actor.coordinate!r}",
-                    "name the literal boundary entrypoint inside the exact anchor cluster",
-                    token=actor.anchor,
-                )
+                yield _finding("actor-coordinate", subject, f"{actor.anchor} body does not contain coordinate {actor.coordinate!r}", "name the literal boundary entrypoint inside the exact anchor cluster", token=actor.anchor)
             if not isinstance(case.definition, (CloudEventDefinition, ProtoDefinition)) or _anchor(corpus.repo, actor.anchor, paths=True):
                 continue
             method_tokens: tuple[str, ...] = ()
@@ -3301,24 +2649,10 @@ def _rule_anchors(corpus: _Corpus) -> Iterable[_Finding]:
                 method_tokens = (service, _python_member(method) if _actor_language(actor) == "python" else method)
             tokens = (case.definition.message.rsplit(".", 1)[-1], *method_tokens)
             match body_result:
-                case Result(tag="ok", ok=body) if (
-                    actor.binding == "proof" and re.search(r"\b(manifest|descriptor|corpus|contract|generated)\b", body, re.IGNORECASE) is None
-                ):
-                    yield _finding(
-                        "anchor-generic",
-                        subject,
-                        f"{actor.anchor} does not evidence manifest, descriptor, corpus, contract, or generated-surface consumption",
-                        "bind the proof actor to the exact generic proof rail that reads contract authority",
-                        token=actor.anchor,
-                    )
+                case Result(tag="ok", ok=body) if actor.binding == "proof" and re.search(r"\b(manifest|descriptor|corpus|contract|generated)\b", body, re.IGNORECASE) is None:
+                    yield _finding("anchor-generic", subject, f"{actor.anchor} does not evidence manifest, descriptor, corpus, contract, or generated-surface consumption", "bind the proof actor to the exact generic proof rail that reads contract authority", token=actor.anchor)
                 case Result(tag="ok", ok=body) if actor.binding != "proof" and any(token not in body for token in tokens):
-                    yield _finding(
-                        "anchor-generic",
-                        subject,
-                        f"{actor.anchor} does not name {', '.join(token for token in tokens if token not in body)}",
-                        "bind the actor to the exact fence that constructs or decodes this message and RPC method",
-                        token=actor.anchor,
-                    )
+                    yield _finding("anchor-generic", subject, f"{actor.anchor} does not name {', '.join(token for token in tokens if token not in body)}", "bind the actor to the exact fence that constructs or decodes this message and RPC method", token=actor.anchor)
                 case _:
                     pass
 
@@ -3337,25 +2671,15 @@ def _seam_materialization(corpus: _Corpus, entry: Entry) -> _Finding | None:
         )
     )
     if any(_inside(path, expected) for path in paths) and not seam.is_dir():
-        return _finding(
-            "seam-missing", entry.id, f"seam directory {expected.as_posix()} is absent", "land the registered definition and evidence under its seam"
-        )
+        return _finding("seam-missing", entry.id, f"seam directory {expected.as_posix()} is absent", "land the registered definition and evidence under its seam")
     if seam.is_dir() and not any(isinstance(case.readiness, VerifiedReadiness) for case in entry.cases):
-        return _finding(
-            "seam-without-proof",
-            entry.id,
-            f"seam directory {expected.as_posix()} exists while every case is blocked",
-            "remove the directory; only verified cases materialize proof assets",
-            f"{CORPUS}/{expected.as_posix()}",
-        )
+        return _finding("seam-without-proof", entry.id, f"seam directory {expected.as_posix()} exists while every case is blocked", "remove the directory; only verified cases materialize proof assets", f"{CORPUS}/{expected.as_posix()}")
     return None
 
 
 def _ignored(repo: Path) -> frozenset[str]:
     listed = discover(_IGNORED, root=repo, timeout=_IGNORE_TIMEOUT_S).default_value(b"")
-    return frozenset(
-        PurePosixPath(row).relative_to(CORPUS).parts[0] for row in listed.decode(errors="replace").split("\0") if row.startswith(f"{CORPUS}/")
-    )
+    return frozenset(PurePosixPath(row).relative_to(CORPUS).parts[0] for row in listed.decode(errors="replace").split("\0") if row.startswith(f"{CORPUS}/"))
 
 
 def _stray_findings(corpus: _Corpus, estate: frozenset[str], publishers: frozenset[str]) -> Iterable[_Finding]:
@@ -3370,13 +2694,7 @@ def _stray_findings(corpus: _Corpus, estate: frozenset[str], publishers: frozens
         for child in sorted(directory.iterdir()) if directory.is_dir() else ():
             if not admits(child):
                 rel = f"{seam_root}/{child.name}" if seam_root else child.name
-                yield _finding(
-                    "root-stray",
-                    rel,
-                    f"unregistered entry {where}",
-                    "seat the file under its seam, vendor, conformance, or gen root, register the directory under its authority class, or delete it",
-                    f"{CORPUS}/{rel}",
-                )
+                yield _finding("root-stray", rel, f"unregistered entry {where}", "seat the file under its seam, vendor, conformance, or gen root, register the directory under its authority class, or delete it", f"{CORPUS}/{rel}")
 
 
 def _rule_disk(corpus: _Corpus) -> Iterable[_Finding]:
@@ -3387,12 +2705,7 @@ def _rule_disk(corpus: _Corpus) -> Iterable[_Finding]:
     for entry in entries:
         subject_classes = classes[entry.id]
         if "publisher" in subject_classes and len(subject_classes) != 1:
-            yield _finding(
-                "authority-mixed-publisher",
-                entry.id,
-                "publisher and estate authorities share one seam",
-                "split publisher custody from estate custody",
-            )
+            yield _finding("authority-mixed-publisher", entry.id, "publisher and estate authorities share one seam", "split publisher custody from estate custody")
         if finding := _seam_materialization(corpus, entry):
             yield finding
     yield from _stray_findings(corpus, estate, publishers)
@@ -3401,62 +2714,32 @@ def _rule_disk(corpus: _Corpus) -> Iterable[_Finding]:
     for entry in entries:
         expected = PurePosixPath(corpus.seam_dir(entry).relative_to(root).as_posix())
         owned.setdefault(corpus.seam_dir(entry), set())
-        for license_path in dict.fromkeys(
-            case.definition.origin.license.path for case in entry.cases if isinstance(case.definition, PublisherDefinition)
-        ):
+        for license_path in dict.fromkeys(case.definition.origin.license.path for case in entry.cases if isinstance(case.definition, PublisherDefinition)):
             if reason := _path_reason(license_path):
                 yield _finding("path-normalization", entry.id, f"{license_path!r}: {reason}", "name one normalized corpus-relative path")
             elif not _inside(license_path, expected):
-                yield _finding(
-                    "wrong-seam",
-                    entry.id,
-                    f"{license_path} is outside {expected.as_posix()}/",
-                    "seat the publisher license beside its custody assets",
-                    f"{CORPUS}/{license_path}",
-                )
+                yield _finding("wrong-seam", entry.id, f"{license_path} is outside {expected.as_posix()}/", "seat the publisher license beside its custody assets", f"{CORPUS}/{license_path}")
             else:
                 owned[corpus.seam_dir(entry)].add(license_path)
         for case in entry.cases:
             subject = f"{entry.id}/{case.id}"
-            definition_paths = (
-                (case.definition.path,)
-                if isinstance(case.definition, SchemaDefinition)
-                else ((case.definition.source,) if isinstance(case.definition, PublisherDefinition) else ())
-            )
+            definition_paths = (case.definition.path,) if isinstance(case.definition, SchemaDefinition) else ((case.definition.source,) if isinstance(case.definition, PublisherDefinition) else ())
             for path in dict.fromkeys((*definition_paths, *(asset.path for asset in _assets(case)))):
                 if reason := _path_reason(path):
                     yield _finding("path-normalization", subject, f"{path!r}: {reason}", "name one normalized corpus-relative path")
                     continue
                 if not _inside(path, expected):
-                    yield _finding(
-                        "wrong-seam",
-                        subject,
-                        f"{path} is outside {expected.as_posix()}/",
-                        "seat the definition or evidence under its grouping owner's seam",
-                        f"{CORPUS}/{path}",
-                    )
+                    yield _finding("wrong-seam", subject, f"{path} is outside {expected.as_posix()}/", "seat the definition or evidence under its grouping owner's seam", f"{CORPUS}/{path}")
                     continue
                 target = root / path
                 if not target.is_dir():
                     owners.setdefault(path, []).append(subject)
                     owned[corpus.seam_dir(entry)].add(path)
-    yield from (
-        _finding(
-            "path-owned-twice", path, f"file is owned by {', '.join(subjects)}", "assign the file to exactly one atomic case", f"{CORPUS}/{path}"
-        )
-        for path, subjects in sorted(owners.items())
-        if len(subjects) > 1
-    )
+    yield from (_finding("path-owned-twice", path, f"file is owned by {', '.join(subjects)}", "assign the file to exactly one atomic case", f"{CORPUS}/{path}") for path, subjects in sorted(owners.items()) if len(subjects) > 1)
     for seam_dir, registered in owned.items():
         for file in sorted(candidate for candidate in seam_dir.rglob("*") if candidate.is_file()) if seam_dir.is_dir() else ():
             if (rel := file.relative_to(root).as_posix()) not in registered:
-                yield _finding(
-                    "seam-stray",
-                    rel,
-                    "file under a seam that no entry registers",
-                    "register it as an asset or definition, or delete it",
-                    f"{CORPUS}/{rel}",
-                )
+                yield _finding("seam-stray", rel, "file under a seam that no entry registers", "register it as an asset or definition, or delete it", f"{CORPUS}/{rel}")
 
 
 def _rule_selectors(corpus: _Corpus) -> Iterable[_Finding]:
@@ -3467,32 +2750,10 @@ def _rule_selectors(corpus: _Corpus) -> Iterable[_Finding]:
         subject = f"{plugin.language}:{plugin.out}:{plugin.binary or plugin.remote}"
         expected = roots[id(plugin)]
         if tuple(plugin.types) != expected:
-            yield _finding(
-                "selector-drift",
-                subject,
-                f"configured roots {plugin.types!r} differ from manifest actor roots {expected!r}",
-                "replace the plugin types with the exact actor-derived FQNs in manifest order",
-                TEMPLATE,
-            )
-        yield from (
-            _finding(
-                "selector-generic",
-                subject,
-                f"{token!r} is not one exact message, enum, service, or method FQN",
-                "name exact actor-owned descriptor roots; Buf computes the recursive support closure",
-                TEMPLATE,
-            )
-            for token in plugin.types
-            if corpus.files and token not in known
-        )
+            yield _finding("selector-drift", subject, f"configured roots {plugin.types!r} differ from manifest actor roots {expected!r}", "replace the plugin types with the exact actor-derived FQNs in manifest order", TEMPLATE)
+        yield from (_finding("selector-generic", subject, f"{token!r} is not one exact message, enum, service, or method FQN", "name exact actor-owned descriptor roots; Buf computes the recursive support closure", TEMPLATE) for token in plugin.types if corpus.files and token not in known)
     yield from (
-        _finding(
-            "selector-coverage",
-            f"{language}:{fqn}",
-            f"no {language} plugin emitting {kind} owns generated actor root {fqn}",
-            f"land one {kind}-capable plugin row whose exact types derive this actor root",
-            TEMPLATE,
-        )
+        _finding("selector-coverage", f"{language}:{fqn}", f"no {language} plugin emitting {kind} owns generated actor root {fqn}", f"land one {kind}-capable plugin row whose exact types derive this actor root", TEMPLATE)
         for language, kind, fqn in _actor_needs(corpus.manifest)
         if not any(plugin.language == language and kind in plugin.kinds and fqn in roots[id(plugin)] for plugin in plugins)
     )
@@ -3511,32 +2772,14 @@ def _rule_roster(corpus: _Corpus) -> Iterable[_Finding]:
             continue
         span = _roster_span(text)
         if span is None:
-            yield _finding(
-                "roster-missing",
-                language,
-                f"{roster.catalog} carries no {ROSTER_BEGIN} / {ROSTER_END} block",
-                "land the marker pair; assay contracts generate fills it",
-                roster.catalog,
-            )
+            yield _finding("roster-missing", language, f"{roster.catalog} carries no {ROSTER_BEGIN} / {ROSTER_END} block", "land the marker pair; assay contracts generate fills it", roster.catalog)
         files = corpus.roster_files.get(language, ())
         roots = _actor_roots(corpus.manifest, language, roster.kinds)
         distributions = _catalog_distributions(corpus.manifest, language)
         if span is not None and corpus.files and not files:
-            yield _finding(
-                "roster-image",
-                language,
-                "no Buf type-filtered descriptor image was built for the language",
-                "repair the buf-roster lanes; the roster must derive from Buf's filtered closure",
-                roster.catalog,
-            )
+            yield _finding("roster-image", language, "no Buf type-filtered descriptor image was built for the language", "repair the buf-roster lanes; the roster must derive from Buf's filtered closure", roster.catalog)
         elif span is not None and text[span[0] : span[1]] != _roster_block(roster, files, roots, distributions):
-            yield _finding(
-                "roster-stale",
-                language,
-                f"{roster.catalog} roster block differs from the emission",
-                "assay contracts generate, then commit the catalog",
-                roster.catalog,
-            )
+            yield _finding("roster-stale", language, f"{roster.catalog} roster block differs from the emission", "assay contracts generate, then commit the catalog", roster.catalog)
 
 
 def _rule_lock(corpus: _Corpus) -> Iterable[_Finding]:
@@ -3544,58 +2787,21 @@ def _rule_lock(corpus: _Corpus) -> Iterable[_Finding]:
         config = msgspec.convert(YAML(typ="safe").load((corpus.repo / _CONFIG).read_text(encoding="utf-8")), _BufConfig)
     except OSError, msgspec.ValidationError:
         return ()
-    return (
-        (_finding("lock-present", _LOCK, f"{_CONFIG} declares deps but {_LOCK} is absent", "run buf dep update and commit buf.lock", _LOCK),)
-        if config.deps and not (corpus.repo / _LOCK).is_file()
-        else ()
-    )
+    return (_finding("lock-present", _LOCK, f"{_CONFIG} declares deps but {_LOCK} is absent", "run buf dep update and commit buf.lock", _LOCK),) if config.deps and not (corpus.repo / _LOCK).is_file() else ()
 
 
-_RULES: Final[tuple[_Rule, ...]] = (
-    _rule_schema,
-    _rule_identity,
-    _rule_entry,
-    _rule_definition,
-    _rule_supports,
-    _rule_actor_methods,
-    _rule_assets,
-    _distribution_findings,
-    _rule_anchors,
-    _rule_disk,
-    _rule_selectors,
-    _rule_roster,
-    _rule_lock,
-)
+_RULES: Final[tuple[_Rule, ...]] = (_rule_schema, _rule_identity, _rule_entry, _rule_definition, _rule_supports, _rule_actor_methods, _rule_assets, _distribution_findings, _rule_anchors, _rule_disk, _rule_selectors, _rule_roster, _rule_lock)
 
 
-def _corpus_of(
-    repo: Path,
-    image: Path,
-    template: _Templates,
-    projections: _Projections,
-    roster_files: _RosterFiles = _NO_ROSTER_FILES,
-    material: Path | None = None,
-) -> Result[tuple[_Corpus, tuple[_Finding, ...]], Fault]:
+def _corpus_of(repo: Path, image: Path, template: _Templates, projections: _Projections, roster_files: _RosterFiles = _NO_ROSTER_FILES, material: Path | None = None) -> Result[tuple[_Corpus, tuple[_Finding, ...]], Fault]:
     files = _files(image) if image.is_file() else ()
-    head = (
-        []
-        if files
-        else [
-            _finding(
-                "image-missing", _IMAGE, "no descriptor set was built", "repair the buf-build lane; message resolution and roster emission wait on it"
-            )
-        ]
-    )
+    head = [] if files else [_finding("image-missing", _IMAGE, "no descriptor set was built", "repair the buf-build lane; message resolution and roster emission wait on it")]
     match load_manifest(repo / CORPUS):
         case Result(tag="ok", ok=manifest):
             pass
         case Result(error=Fault(status=RailStatus.FAILED, message=message)):
             rule = "manifest-missing" if message.endswith(": missing") else "manifest-undecodable"
-            repair = (
-                "author manifest.json from the owning fences"
-                if rule == "manifest-missing"
-                else "repair the named field; the schema is derived_schema()"
-            )
+            repair = "author manifest.json from the owning fences" if rule == "manifest-missing" else "repair the named field; the schema is derived_schema()"
             head.append(_finding(rule, MANIFEST, message, repair, f"{CORPUS}/{MANIFEST}"))
             manifest = Manifest(entries=())
         case Result(error=fault):
@@ -3620,26 +2826,10 @@ def _corpus_of(
 def _targets(repo: Path, image: Path) -> tuple[str, ...]:
     known = _known(_files(image)) if image.is_file() else frozenset()
     entries = load_manifest(repo / CORPUS).map(lambda manifest: manifest.entries).default_value(())
-    return tuple(
-        dict.fromkeys(
-            owner
-            for entry in entries
-            for case in entry.cases
-            if isinstance(case.definition, SchemaDefinition) and case.definition.framing in _JSON_FRAMINGS
-            for arm, owner in (_arm(case.definition.derived_from),)
-            if arm == "proto" and owner in known
-        )
-    )
+    return tuple(dict.fromkeys(owner for entry in entries for case in entry.cases if isinstance(case.definition, SchemaDefinition) and case.definition.framing in _JSON_FRAMINGS for arm, owner in (_arm(case.definition.derived_from),) if arm == "proto" and owner in known))
 
 
-def _audit(
-    repo: Path,
-    image: Path,
-    template: _Templates,
-    projections: _Projections = _NO_PROJECTIONS,
-    roster_files: _RosterFiles = _NO_ROSTER_FILES,
-    material: Path | None = None,
-) -> Result[_Audit, Fault]:
+def _audit(repo: Path, image: Path, template: _Templates, projections: _Projections = _NO_PROJECTIONS, roster_files: _RosterFiles = _NO_ROSTER_FILES, material: Path | None = None) -> Result[_Audit, Fault]:
     match _corpus_of(repo, image, template, projections, roster_files, material):
         case Result(tag="ok", ok=(corpus, head)):
             pass
@@ -3672,7 +2862,7 @@ def _plugins(root: Path, template: _Templates) -> InprocThunk:
         status = RailStatus.UNSUPPORTED if misses else RailStatus.OK
         notes = () if projector else (f"{JSONSCHEMA_PLUGIN}: {_MACHINE_HINT}",)
         payload = _ENCODER.encode(_Probe(plugins=(*resolved, (JSONSCHEMA_PLUGIN, projector)), misses=misses, hint=hint, projector=projector))
-        return receipt(check.args.fill(check.tool.command), status.exit_code, stdout=payload, stderr=hint.encode(), status=status, notes=notes)
+        return Completed(argv=check.args.fill(check.tool.command), returncode=status.exit_code, stdout=payload, stderr=hint.encode(), status=status, notes=notes)
 
     return run
 
@@ -3683,9 +2873,9 @@ def _corpus(repo: Path, image: Path, template: _Templates, projections: _Project
         match _audit(repo, image, template, projections, roster_files):
             case Result(tag="ok", ok=audit):
                 status = RailStatus.FAILED if audit.findings else RailStatus.OK
-                return receipt(argv, status.exit_code, stdout=_ENCODER.encode(audit), status=status)
+                return Completed(argv=argv, returncode=status.exit_code, stdout=_ENCODER.encode(audit), status=status)
             case Result(error=fault):
-                return receipt(argv, RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
+                return Completed(argv=argv, returncode=RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
 
     return run
 
@@ -3703,9 +2893,9 @@ def _preflight(repo: Path, image: Path, template: _Templates, projections: _Proj
             case Result(tag="ok", ok=audit):
                 blocking = tuple(finding for finding in audit.findings if finding.rule not in _EMITTABLE)
                 status = RailStatus.FAILED if blocking else RailStatus.OK
-                return receipt(argv, status.exit_code, stdout=_ENCODER.encode(msgspec.structs.replace(audit, findings=blocking)), status=status)
+                return Completed(argv=argv, returncode=status.exit_code, stdout=_ENCODER.encode(msgspec.structs.replace(audit, findings=blocking)), status=status)
             case Result(error=fault):
-                return receipt(argv, RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
+                return Completed(argv=argv, returncode=RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
 
     return run
 
@@ -3725,7 +2915,7 @@ def _freshness(repo: Path, scratch: Path, roots: tuple[str, ...]) -> InprocThunk
             artifacts = (Artifact(id="freshness-diff", kind=ArtifactKind.SCOPE, path=str(target), bytes=len(diff.encode()), lines=diff.count("\n")),)
         status = RailStatus.FAILED if stale else RailStatus.OK
         payload = _ENCODER.encode(_Freshness(stale=stale, roots=roots, diff=str(target) if diff else ""))
-        return receipt(check.args.fill(check.tool.command), status.exit_code, stdout=payload, status=status, artifacts=artifacts)
+        return Completed(argv=check.args.fill(check.tool.command), returncode=status.exit_code, stdout=payload, status=status, artifacts=artifacts)
 
     return run
 
@@ -3737,15 +2927,7 @@ def _write_distributions(repo: Path, base: Path, manifest: Manifest) -> tuple[tu
     for subject, _, asset, distribution in _distributions(manifest):
         rendered = _distribution_bytes(repo, asset, distribution)
         if rendered.is_error():
-            findings.append(
-                _finding(
-                    "distribution-source",
-                    subject,
-                    f"{asset.path}: {rendered.error}",
-                    "restore the exact publisher asset before generating its package projection",
-                    f"{CORPUS}/{asset.path}",
-                )
-            )
+            findings.append(_finding("distribution-source", subject, f"{asset.path}: {rendered.error}", "restore the exact publisher asset before generating its package projection", f"{CORPUS}/{asset.path}"))
             continue
         emissions.append((distribution.path, rendered.ok))
     emissions.append((_PY_MARKER, b""))
@@ -3784,16 +2966,12 @@ def _schemas(corpus: _Corpus) -> tuple[tuple[_Finding, ...], tuple[str, ...]]:
 
 
 def _roster_catalogs(template: _Templates) -> tuple[str, ...]:
-    catalogs = (
-        _ROSTERS[language].catalog for language in dict.fromkeys(row.language for row in template.plugins if row.language) if language in _ROSTERS
-    )
+    catalogs = (_ROSTERS[language].catalog for language in dict.fromkeys(row.language for row in template.plugins if row.language) if language in _ROSTERS)
     return tuple(dict.fromkeys(catalogs))
 
 
 def _schema_files(manifest: Manifest) -> tuple[str, ...]:
-    derived = (
-        f"{CORPUS}/{case.definition.path}" for entry in manifest.entries for case in entry.cases if isinstance(case.definition, SchemaDefinition)
-    )
+    derived = (f"{CORPUS}/{case.definition.path}" for entry in manifest.entries for case in entry.cases if isinstance(case.definition, SchemaDefinition))
     return tuple(dict.fromkeys((f"{CORPUS}/{SCHEMA}", *derived)))
 
 
@@ -3817,32 +2995,20 @@ def _roster_emission(staged: GenerationImage, corpus: _Corpus, language: str) ->
         return (_finding("roster-row", language, f"{_EMISSION}/{language} has no roster row", "land the emission target's _Roster row"),), None, None
     catalog = staged.read(roster.catalog)
     if catalog.is_error():
-        finding = _finding(
-            "roster-catalog", language, catalog.error.message, "restore the generated package's unaliased .api catalog", roster.catalog
-        )
+        finding = _finding("roster-catalog", language, catalog.error.message, "restore the generated package's unaliased .api catalog", roster.catalog)
         return (finding,), None, None
     try:
         text = catalog.ok.decode()
     except UnicodeDecodeError:
-        finding = _finding(
-            "roster-catalog", language, f"{roster.catalog} is not UTF-8", "restore the generated package's UTF-8 .api catalog", roster.catalog
-        )
+        finding = _finding("roster-catalog", language, f"{roster.catalog} is not UTF-8", "restore the generated package's UTF-8 .api catalog", roster.catalog)
         return (finding,), None, None
     span = _roster_span(text)
     if span is None:
-        finding = _finding(
-            "roster-missing", language, f"{roster.catalog} carries no {ROSTER_BEGIN} / {ROSTER_END} block", "land the marker pair", roster.catalog
-        )
+        finding = _finding("roster-missing", language, f"{roster.catalog} carries no {ROSTER_BEGIN} / {ROSTER_END} block", "land the marker pair", roster.catalog)
         return (finding,), None, None
     files = corpus.roster_files.get(language, ())
     if not files:
-        finding = _finding(
-            "roster-image",
-            language,
-            "no Buf type-filtered descriptor image was built for the language",
-            "repair the buf-roster lanes; the roster must derive from Buf's filtered closure",
-            roster.catalog,
-        )
+        finding = _finding("roster-image", language, "no Buf type-filtered descriptor image was built for the language", "repair the buf-roster lanes; the roster must derive from Buf's filtered closure", roster.catalog)
         return (finding,), None, None
     start, end = span
     roots = _actor_roots(corpus.manifest, language, roster.kinds)
@@ -3872,21 +3038,19 @@ def _emit(repo: Path, image: Path, template: _Templates, projections: _Projectio
     def run(check: Check) -> Completed:
         argv = check.args.fill(check.tool.command)
         if not image.is_file():
-            return receipt(
-                argv, RailStatus.FAULTED.exit_code, stderr=b"no descriptor set was built; the roster cannot be emitted", status=RailStatus.FAULTED
-            )
+            return Completed(argv=argv, returncode=RailStatus.FAULTED.exit_code, stderr=b"no descriptor set was built; the roster cannot be emitted", status=RailStatus.FAULTED)
         registry = load_manifest(repo / CORPUS).default_value(Manifest(entries=()))
         owned = _owned_files(template, registry)
         match compose_image(repo, image.parent / _GEN, image.parent / _COMMIT_IMAGE, out_dirs(template), owned):
             case Result(tag="ok", ok=staged):
                 pass
             case Result(error=fault):
-                return receipt(argv, RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
+                return Completed(argv=argv, returncode=RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
         match _corpus_of(repo, image, template, projections, roster_files, staged.root):
             case Result(tag="ok", ok=(corpus, head)):
                 pass
             case Result(error=fault):
-                return receipt(argv, RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
+                return Completed(argv=argv, returncode=RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
         distribution_findings, distribution_notes = _write_distributions(repo, staged.root, corpus.manifest)
         refused, written = _schemas(corpus)
         findings: list[_Finding] = [*head, *distribution_findings, *refused]
@@ -3909,15 +3073,13 @@ def _emit(repo: Path, image: Path, template: _Templates, projections: _Projectio
                 case Result(tag="ok", ok=audit):
                     findings.extend(audit.findings)
                 case Result(error=fault):
-                    return receipt(argv, RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
+                    return Completed(argv=argv, returncode=RailStatus.FAULTED.exit_code, stderr=fault.message.encode(), status=RailStatus.FAULTED)
         if not findings:
             committed = staged.sources(repo, owned).bind(_generation_transaction(repo, template, registry).install)
             if committed.is_error():
-                return receipt(argv, RailStatus.FAULTED.exit_code, stderr=committed.error.message.encode(), status=RailStatus.FAULTED)
+                return Completed(argv=argv, returncode=RailStatus.FAULTED.exit_code, stderr=committed.error.message.encode(), status=RailStatus.FAULTED)
         status = RailStatus.FAILED if findings else RailStatus.OK
-        return receipt(
-            argv, status.exit_code, stdout=_ENCODER.encode(_Audit(findings=tuple(findings), files=corpus.files)), status=status, notes=tuple(notes)
-        )
+        return Completed(argv=argv, returncode=status.exit_code, stdout=_ENCODER.encode(_Audit(findings=tuple(findings), files=corpus.files)), status=status, notes=tuple(notes))
 
     return run
 
@@ -3939,32 +3101,10 @@ def _verdict(done: Completed) -> RailStatus:
 
 
 def _rows(gates: tuple[_Gate, ...]) -> tuple[Match, ...]:
-    findings = tuple(
-        Match(
-            id=f"corpus:{row.rule}",
-            kind=ArtifactKind.CODE,
-            text=f"corpus: {row.subject}: {row.rule}: {row.detail}; repair: {row.repair}",
-            severity="error",
-            path=row.path,
-            message=row.detail,
-        )
-        for gate in gates
-        if isinstance(gate, _Audit)
-        for row in gate.findings
-    )
+    findings = tuple(Match(id=f"corpus:{row.rule}", kind=ArtifactKind.CODE, text=f"corpus: {row.subject}: {row.rule}: {row.detail}; repair: {row.repair}", severity="error", path=row.path, message=row.detail) for gate in gates if isinstance(gate, _Audit) for row in gate.findings)
     stale = tuple((kind, path) for gate in gates if isinstance(gate, _Freshness) for kind, path in gate.stale)
     repair = "assay contracts generate, then commit the tree"
-    freshness = tuple(
-        Match(
-            id=f"freshness:{kind}",
-            kind=ArtifactKind.CODE,
-            text=f"freshness: {path}: {kind}; repair: {repair}",
-            severity="error",
-            path=path,
-            message=kind,
-        )
-        for kind, path in stale[:_STALE_CAP]
-    )
+    freshness = tuple(Match(id=f"freshness:{kind}", kind=ArtifactKind.CODE, text=f"freshness: {path}: {kind}; repair: {repair}", severity="error", path=path, message=kind) for kind, path in stale[:_STALE_CAP])
     return (*findings, *freshness)
 
 
@@ -3986,19 +3126,11 @@ def _located(done: Completed, module: str) -> Result[None, str]:
     except msgspec.MsgspecError as exc:
         return Error(f"module lookup returned malformed JSON: {exc}")
     coordinate = f"{info.remote}/{info.owner}/{info.name}"
-    return (
-        Error(f"module lookup returned {coordinate!r}, expected {module!r}")
-        if coordinate != module
-        else Error(f"module lookup returned default label {info.default_label_name!r}, expected {_DEFAULT_LABEL!r}")
-        if info.default_label_name != _DEFAULT_LABEL
-        else Ok(None)
-    )
+    return Error(f"module lookup returned {coordinate!r}, expected {module!r}") if coordinate != module else Error(f"module lookup returned default label {info.default_label_name!r}, expected {_DEFAULT_LABEL!r}") if info.default_label_name != _DEFAULT_LABEL else Ok(None)
 
 
 def _absent_module(done: Completed, module: str) -> bool:
-    return done.stderr.decode(errors="replace") == (
-        f'Failure: a module named "{module}" does not exist, use "buf registry module create" to create one\n'
-    )
+    return done.stderr.decode(errors="replace") == (f'Failure: a module named "{module}" does not exist, use "buf registry module create" to create one\n')
 
 
 def _authenticated(done: Completed) -> Result[str, str]:
@@ -4044,9 +3176,7 @@ def _detail(lanes: _Lanes, gates: tuple[_Gate, ...], rows: tuple[Match, ...], sc
         counts=counts,
         packages=tuple(sorted({file.package for file in audit.files})),
         stale=fresh.stale,
-        unformatted=tuple(
-            found.group(1) for line in format_out.decode(errors="replace").splitlines() if (found := _DIFF_HEADER.match(line)) is not None
-        ),
+        unformatted=tuple(found.group(1) for line in format_out.decode(errors="replace").splitlines() if (found := _DIFF_HEADER.match(line)) is not None),
         violations=tuple((row.id.removeprefix("buf:"), row.path, row.line) for row in rows if row.id.startswith("buf:")),
         plugins=probe.plugins,
         seams=audit.seams,
@@ -4084,12 +3214,10 @@ def _lane_name(chk: Check) -> str:
 
 def _seat(chk: Check, status: RailStatus, reason: str) -> Completed:
     argv = chk.args.fill(chk.tool.command)
-    return receipt(argv, status.exit_code, stderr=reason.encode(), status=status, notes=(f"{_lane_name(chk)}: {status.value}: {reason}",))
+    return Completed(argv=argv, returncode=status.exit_code, stderr=reason.encode(), status=status, notes=(f"{_lane_name(chk)}: {status.value}: {reason}",))
 
 
-def _phase(
-    executor: Executor, checks: tuple[Check, ...], seat: Callable[[Check], Completed | None], *, settings: AssaySettings, scope: ArtifactScope
-) -> Result[_Lanes, Fault]:
+def _phase(executor: Executor, checks: tuple[Check, ...], seat: Callable[[Check], Completed | None], *, settings: AssaySettings, scope: ArtifactScope) -> Result[_Lanes, Fault]:
     seated = tuple(seat(chk) for chk in checks)
     live = tuple(chk for chk, done in zip(checks, seated, strict=True) if done is None)
 
@@ -4121,12 +3249,7 @@ def _module_phase(module: str, executor: Executor, *, settings: AssaySettings, s
             return _seat(check, RailStatus.SKIP, f"first publish: {module} does not exist"), False
         if done.status in {RailStatus.OK, RailStatus.EMPTY}:
             reason = located.error
-            return (
-                msgspec.structs.replace(
-                    done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-module: faulted: {reason}")
-                ),
-                False,
-            )
+            return (msgspec.structs.replace(done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-module: faulted: {reason}")), False)
         return (msgspec.structs.replace(done, status=RailStatus.FAULTED) if done.status is RailStatus.FAILED else done), False
 
     return _phase(executor, (check,), lambda _chk: None, settings=settings, scope=scope).map(itemgetter(0)).map(itemgetter(1)).map(admitted)
@@ -4146,23 +3269,10 @@ def _baseline_phase(module: str, executor: Executor, *, present: bool, settings:
             return done
         if done.status in {RailStatus.OK, RailStatus.EMPTY}:
             reason = coordinate.error
-            return msgspec.structs.replace(
-                done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-baseline: faulted: {reason}")
-            )
+            return msgspec.structs.replace(done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-baseline: faulted: {reason}"))
         return msgspec.structs.replace(done, status=RailStatus.FAULTED) if done.status is RailStatus.FAILED else done
 
-    return (
-        _phase(
-            executor,
-            (check,),
-            lambda chk: _seat(chk, RailStatus.SKIP, "first publish: named module is absent") if not present else None,
-            settings=settings,
-            scope=scope,
-        )
-        .map(itemgetter(0))
-        .map(itemgetter(1))
-        .map(admitted)
-    )
+    return _phase(executor, (check,), lambda chk: _seat(chk, RailStatus.SKIP, "first publish: named module is absent") if not present else None, settings=settings, scope=scope).map(itemgetter(0)).map(itemgetter(1)).map(admitted)
 
 
 def _auth_phase(module: str, executor: Executor, *, settings: AssaySettings, scope: ArtifactScope) -> Result[Completed, Fault]:
@@ -4197,13 +3307,7 @@ def _verify_phase(module: str, published: str, executor: Executor, *, settings: 
 
     def admitted(done: Completed) -> Completed:
         coordinate = _resolved(done, module)
-        reason = (
-            f"published {published!r} but the label could not be read back: {coordinate.error}"
-            if coordinate.is_error()
-            else ""
-            if coordinate.ok == published
-            else f"{_DEFAULT_LABEL} carries {coordinate.ok!r} after publishing {published!r}"
-        )
+        reason = f"published {published!r} but the label could not be read back: {coordinate.error}" if coordinate.is_error() else "" if coordinate.ok == published else f"{_DEFAULT_LABEL} carries {coordinate.ok!r} after publishing {published!r}"
         if not reason:
             return done
         return msgspec.structs.replace(done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-verify: faulted: {reason}"))
@@ -4225,9 +3329,7 @@ def _prepush_phase(module: str, lanes: _Lanes, executor: Executor, *, settings: 
             if not present or done.status is RailStatus.FAULTED:
                 return done
             reason = f"{module} appeared after first-publish admission"
-            return msgspec.structs.replace(
-                done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-prepush: faulted: {reason}")
-            )
+            return msgspec.structs.replace(done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-prepush: faulted: {reason}"))
 
         return _module_phase(module, executor, settings=settings, scope=scope).map(absent)
 
@@ -4238,9 +3340,7 @@ def _prepush_phase(module: str, lanes: _Lanes, executor: Executor, *, settings: 
         if done.status not in {RailStatus.OK, RailStatus.EMPTY} or current == baseline:
             return done
         reason = f"default label moved from {baseline!r} to {current!r} before publish"
-        return msgspec.structs.replace(
-            done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-prepush: faulted: {reason}")
-        )
+        return msgspec.structs.replace(done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-prepush: faulted: {reason}"))
 
     return _baseline_phase(module, executor, present=True, settings=settings, scope=scope).map(unchanged)
 
@@ -4271,17 +3371,7 @@ def _roster_specs(template: _Templates, scratch: Path) -> tuple[_RosterSpec, ...
             continue
         seen.add(key)
         identity = f"{plugin.language}-{len(specs) + 1:02d}"
-        specs.append(
-            _RosterSpec(
-                language=plugin.language,
-                identity=identity,
-                output=scratch / "roster" / f"{identity}.binpb",
-                roots=plugin.types,
-                kinds=plugin.kinds,
-                include_imports=plugin.include_imports,
-                include_wkt=plugin.include_wkt,
-            )
-        )
+        specs.append(_RosterSpec(language=plugin.language, identity=identity, output=scratch / "roster" / f"{identity}.binpb", roots=plugin.types, kinds=plugin.kinds, include_imports=plugin.include_imports, include_wkt=plugin.include_wkt))
     return tuple(specs)
 
 
@@ -4292,9 +3382,7 @@ def _roster_check(spec: _RosterSpec) -> Check:
     return Check(tool=tool, args=ToolArgs(output=str(spec.output), targets=targets, fqn=spec.identity))
 
 
-def _roster_phase(
-    done: _Lanes, template: _Templates, scratch: Path, executor: Executor, *, settings: AssaySettings, scope: ArtifactScope
-) -> Result[tuple[_Lanes, _RosterFiles], Fault]:
+def _roster_phase(done: _Lanes, template: _Templates, scratch: Path, executor: Executor, *, settings: AssaySettings, scope: ArtifactScope) -> Result[tuple[_Lanes, _RosterFiles], Fault]:
     specs = _roster_specs(template, scratch)
     if specs:
         (scratch / "roster").mkdir(parents=True, exist_ok=True)
@@ -4305,38 +3393,24 @@ def _roster_phase(
         for spec, (_, completed) in zip(specs, played, strict=True):
             if completed.status in {RailStatus.OK, RailStatus.EMPTY} and spec.output.is_file():
                 filtered = _files(spec.output)
-                selected = tuple(
-                    file
-                    for file in filtered
-                    if (spec.include_imports or any(_file_owns(file, root) for root in spec.roots))
-                    and (spec.include_wkt or file.package != "google.protobuf")
-                )
+                selected = tuple(file for file in filtered if (spec.include_imports or any(_file_owns(file, root) for root in spec.roots)) and (spec.include_wkt or file.package != "google.protobuf"))
                 files.setdefault(spec.language, []).extend(_emitted(file, spec.kinds) for file in selected)
         return ((*done, *played), MappingProxyType({language: tuple(rows) for language, rows in files.items()}))
 
     return _phase(executor, checks, lambda _chk: None, settings=settings, scope=scope).map(project)
 
 
-def _derive_phase(
-    root: Path, scratch: Path, done: _Lanes, executor: Executor, *, settings: AssaySettings, scope: ArtifactScope
-) -> Result[tuple[_Lanes, _Projections], Fault]:
+def _derive_phase(root: Path, scratch: Path, done: _Lanes, executor: Executor, *, settings: AssaySettings, scope: ArtifactScope) -> Result[tuple[_Lanes, _Projections], Fault]:
     projector = next((gate.projector for _, played in done for gate in (_gate(played),) if isinstance(gate, _Probe)), "")
     refusal = "" if projector else f"{JSONSCHEMA_PLUGIN} is not resolvable; {_MACHINE_HINT}"
     fqns = _targets(root, scratch / _IMAGE)
     checks = tuple(_derive_check(CORPUS, scratch, fqn) for fqn in fqns)
     if checks and not refusal:
         (scratch / _SCHEMAS).mkdir(parents=True, exist_ok=True)
-    return _phase(executor, checks, lambda chk: _seat(chk, RailStatus.UNSUPPORTED, refusal) if refusal else None, settings=settings, scope=scope).map(
-        lambda played: (
-            (*done, *played),
-            MappingProxyType({fqn: _projection(fqn, lane, scratch) for fqn, (_, lane) in zip(fqns, played, strict=True)}),
-        )
-    )
+    return _phase(executor, checks, lambda chk: _seat(chk, RailStatus.UNSUPPORTED, refusal) if refusal else None, settings=settings, scope=scope).map(lambda played: ((*done, *played), MappingProxyType({fqn: _projection(fqn, lane, scratch) for fqn, (_, lane) in zip(fqns, played, strict=True)})))
 
 
-def _check_lanes(
-    root: Path, template: _Templates, scratch: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor
-) -> Result[_Lanes, Fault]:
+def _check_lanes(root: Path, template: _Templates, scratch: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor) -> Result[_Lanes, Fault]:
     gated = frozenset(lane.name for lane in _LANES if lane.gated)
     freshness = Check(tool=_ROWS["freshness-gate", Mode.QUERY], thunk=_freshness(root, scratch, out_dirs(template)))
 
@@ -4364,71 +3438,47 @@ def _check_lanes(
         _probe(root, template, executor, settings=settings, scope=scope)
         .bind(gate_phase)
         .bind(lambda done: _derive_phase(root, scratch, done, executor, settings=settings, scope=scope))
-        .bind(
-            lambda derived: _roster_phase(derived[0], template, scratch, executor, settings=settings, scope=scope).map(
-                lambda rostered: (rostered[0], derived[1], rostered[1])
-            )
-        )
+        .bind(lambda derived: _roster_phase(derived[0], template, scratch, executor, settings=settings, scope=scope).map(lambda rostered: (rostered[0], derived[1], rostered[1])))
         .bind(post_phase)
     )
 
 
-def _generate_run(
-    root: Path, template: _Templates, config: _BufConfig, scratch: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor
-) -> Result[Report, Fault]:
+def _generate_run(root: Path, template: _Templates, config: _BufConfig, scratch: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor) -> Result[Report, Fault]:
     build = _lane_check(_LANES[0], scratch)
     write = _lane_check(_LANES[-1], scratch)
 
     def build_phase(probe: Completed) -> Result[_Lanes, Fault]:
         if probe.status is not RailStatus.OK:
-            return Error(
-                Fault(("buf", "generate"), RailStatus.UNSUPPORTED, f"plugin probe: {probe.stderr.decode(errors='replace') or 'missed'}"[:_TAIL])
-            )
+            return Error(Fault(("buf", "generate"), RailStatus.UNSUPPORTED, f"plugin probe: {probe.stderr.decode(errors='replace') or 'missed'}"[:_TAIL]))
         return _phase(executor, (build,), lambda _chk: None, settings=settings, scope=scope).map(lambda done: (("plugin-probe", probe), *done))
 
     def preflight_phase(derived: tuple[_Lanes, _Projections, _RosterFiles]) -> Result[tuple[_Lanes, _Projections, _RosterFiles], Fault]:
         done, projections, roster_files = derived
         built = dict(done)["buf-build"]
         rostered = tuple(played for name, played in done if name.startswith("buf-roster:"))
-        reason = (
-            "descriptor build did not complete"
-            if built.status not in {RailStatus.OK, RailStatus.EMPTY}
-            else "one or more exact roster images did not complete"
-            if any(played.status not in {RailStatus.OK, RailStatus.EMPTY} for played in rostered)
-            else ""
-        )
+        reason = "descriptor build did not complete" if built.status not in {RailStatus.OK, RailStatus.EMPTY} else "one or more exact roster images did not complete" if any(played.status not in {RailStatus.OK, RailStatus.EMPTY} for played in rostered) else ""
         gate = Check(tool=_ROWS["corpus-gate", Mode.CHECK], thunk=_preflight(root, scratch / _IMAGE, template, projections, roster_files))
-        return _phase(executor, (gate,), lambda chk: _seat(chk, RailStatus.SKIP, reason) if reason else None, settings=settings, scope=scope).map(
-            lambda post: ((*done, *post), projections, roster_files)
-        )
+        return _phase(executor, (gate,), lambda chk: _seat(chk, RailStatus.SKIP, reason) if reason else None, settings=settings, scope=scope).map(lambda post: ((*done, *post), projections, roster_files))
 
     def write_phase(preflighted: tuple[_Lanes, _Projections, _RosterFiles]) -> Result[tuple[_Lanes, _Projections, _RosterFiles], Fault]:
         done, projections, roster_files = preflighted
         gate = dict(done)["corpus-gate"]
         reason = "" if gate.status is RailStatus.OK else "corpus preflight did not pass"
-        return _phase(executor, (write,), lambda chk: _seat(chk, RailStatus.SKIP, reason) if reason else None, settings=settings, scope=scope).map(
-            lambda main: ((*done, *main), projections, roster_files)
-        )
+        return _phase(executor, (write,), lambda chk: _seat(chk, RailStatus.SKIP, reason) if reason else None, settings=settings, scope=scope).map(lambda main: ((*done, *main), projections, roster_files))
 
     def emit_phase(derived: tuple[_Lanes, _Projections, _RosterFiles]) -> Result[_Lanes, Fault]:
         done, projections, roster_files = derived
         written = dict(done)["buf-generate"]
         reason = "" if written.status in {RailStatus.OK, RailStatus.EMPTY} else "regeneration did not complete"
         emit = Check(tool=_ROWS["corpus-emit", Mode.WRITE], thunk=_emit(root, scratch / _IMAGE, template, projections, roster_files))
-        return _phase(executor, (emit,), lambda chk: _seat(chk, RailStatus.SKIP, reason) if reason else None, settings=settings, scope=scope).map(
-            lambda post: (*done, *post)
-        )
+        return _phase(executor, (emit,), lambda chk: _seat(chk, RailStatus.SKIP, reason) if reason else None, settings=settings, scope=scope).map(lambda post: (*done, *post))
 
     def run() -> Result[Report, Fault]:
         return (
             _probe(root, template, executor, settings=settings, scope=scope)
             .bind(build_phase)
             .bind(lambda done: _derive_phase(root, scratch, done, executor, settings=settings, scope=scope))
-            .bind(
-                lambda derived: _roster_phase(derived[0], template, scratch, executor, settings=settings, scope=scope).map(
-                    lambda rostered: (rostered[0], derived[1], rostered[1])
-                )
-            )
+            .bind(lambda derived: _roster_phase(derived[0], template, scratch, executor, settings=settings, scope=scope).map(lambda rostered: (rostered[0], derived[1], rostered[1])))
             .bind(preflight_phase)
             .bind(write_phase)
             .bind(emit_phase)
@@ -4439,9 +3489,7 @@ def _generate_run(
     return _generation_transaction(root, template, manifest).recover().bind(lambda _direction: run())
 
 
-def _publish_run(
-    root: Path, template: _Templates, config: _BufConfig, scratch: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor
-) -> Result[Report, Fault]:
+def _publish_run(root: Path, template: _Templates, config: _BufConfig, scratch: Path, settings: AssaySettings, scope: ArtifactScope, executor: Executor) -> Result[Report, Fault]:
     def push_phase(lanes: _Lanes) -> Result[Report, Fault]:
         preflight = _report("publish", lanes, str(scratch), config.module)
         if preflight.status is not RailStatus.OK:
@@ -4462,42 +3510,26 @@ def _publish_run(
                 if done.status not in {RailStatus.OK, RailStatus.EMPTY}:
                     return msgspec.structs.replace(done, status=RailStatus.FAULTED) if done.status is RailStatus.FAILED else done
                 reason = coordinate.error
-                return msgspec.structs.replace(
-                    done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-push: faulted: {reason}")
-                )
+                return msgspec.structs.replace(done, status=RailStatus.FAULTED, stderr=reason.encode(), notes=(*done.notes, f"buf-push: faulted: {reason}"))
 
             def confirmed(done: Completed) -> Result[Report, Fault]:
                 pushed = (*verified, ("buf-push", done))
                 coordinate = _published(done, config.module)
                 if coordinate.is_error():
                     return Ok(_report("publish", pushed, str(scratch), config.module))
-                return _verify_phase(config.module, coordinate.ok, executor, settings=settings, scope=scope).map(
-                    lambda seen: _report("publish", (*pushed, ("buf-verify", seen)), str(scratch), config.module)
-                )
+                return _verify_phase(config.module, coordinate.ok, executor, settings=settings, scope=scope).map(lambda seen: _report("publish", (*pushed, ("buf-verify", seen)), str(scratch), config.module))
 
-            return (
-                _phase(executor, (push,), lambda _chk: None, settings=settings, scope=scope)
-                .map(itemgetter(0))
-                .map(itemgetter(1))
-                .map(admitted)
-                .bind(confirmed)
-            )
+            return _phase(executor, (push,), lambda _chk: None, settings=settings, scope=scope).map(itemgetter(0)).map(itemgetter(1)).map(admitted).bind(confirmed)
 
         return _prepush_phase(config.module, lanes, executor, settings=settings, scope=scope).bind(revalidated)
 
     def custody(auth: Completed) -> Result[_Lanes, Fault]:
-        return _module_phase(config.module, executor, settings=settings, scope=scope).bind(
-            lambda module: _baseline_phase(config.module, executor, present=module[1], settings=settings, scope=scope).map(
-                lambda baseline: (("buf-auth", auth), ("buf-module", module[0]), ("buf-baseline", baseline))
-            )
-        )
+        return _module_phase(config.module, executor, settings=settings, scope=scope).bind(lambda module: _baseline_phase(config.module, executor, present=module[1], settings=settings, scope=scope).map(lambda baseline: (("buf-auth", auth), ("buf-module", module[0]), ("buf-baseline", baseline))))
 
     def gated(auth: Completed) -> Result[Report, Fault]:
         if _verdict(auth) is not RailStatus.OK:
             return Ok(_report("publish", (("buf-auth", auth),), str(scratch), config.module))
-        return custody(auth).bind(
-            lambda custodial: _check_lanes(root, template, scratch, settings, scope, executor).bind(lambda lanes: push_phase((*custodial, *lanes)))
-        )
+        return custody(auth).bind(lambda custodial: _check_lanes(root, template, scratch, settings, scope, executor).bind(lambda lanes: push_phase((*custodial, *lanes))))
 
     return _auth_phase(config.module, executor, settings=settings, scope=scope).bind(gated)
 
@@ -4522,16 +3554,7 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: ContractsParams
     _ = params
     root = Path(str(settings.root))
     return read_template(root).bind(
-        lambda template: _read_config(root).bind(
-            lambda config: _scratch(settings, scope).bind(
-                lambda scratch: _leased(
-                    settings,
-                    lambda: _check_lanes(root, template, scratch, settings, scope, executor).map(
-                        lambda lanes: _report("check", lanes, str(scratch), config.module)
-                    ),
-                )
-            )
-        )
+        lambda template: _read_config(root).bind(lambda config: _scratch(settings, scope).bind(lambda scratch: _leased(settings, lambda: _check_lanes(root, template, scratch, settings, scope, executor).map(lambda lanes: _report("check", lanes, str(scratch), config.module)))))
     )
 
 
@@ -4545,13 +3568,7 @@ def generate(settings: AssaySettings, scope: ArtifactScope, params: ContractsPar
     """
     _ = params
     root = Path(str(settings.root))
-    return read_template(root).bind(
-        lambda template: _read_config(root).bind(
-            lambda config: _scratch(settings, scope).bind(
-                lambda scratch: _leased(settings, lambda: _generate_run(root, template, config, scratch, settings, scope, executor))
-            )
-        )
-    )
+    return read_template(root).bind(lambda template: _read_config(root).bind(lambda config: _scratch(settings, scope).bind(lambda scratch: _leased(settings, lambda: _generate_run(root, template, config, scratch, settings, scope, executor)))))
 
 
 def publish(settings: AssaySettings, scope: ArtifactScope, params: ContractsParams, executor: Executor) -> Result[Report, Fault]:
@@ -4567,13 +3584,7 @@ def publish(settings: AssaySettings, scope: ArtifactScope, params: ContractsPara
     """
     _ = params
     root = Path(str(settings.root))
-    return read_template(root).bind(
-        lambda template: _read_config(root).bind(
-            lambda config: _scratch(settings, scope).bind(
-                lambda scratch: _leased(settings, lambda: _publish_run(root, template, config, scratch, settings, scope, executor))
-            )
-        )
-    )
+    return read_template(root).bind(lambda template: _read_config(root).bind(lambda config: _scratch(settings, scope).bind(lambda scratch: _leased(settings, lambda: _publish_run(root, template, config, scratch, settings, scope, executor)))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -4599,7 +3610,6 @@ __all__ = [
     "ClientResponseActor",
     "ContractsParams",
     "CorpusOracleFinding",
-    "CorpusOracleReceipt",
     "Definition",
     "Distribution",
     "DistributionKind",

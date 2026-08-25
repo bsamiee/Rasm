@@ -50,7 +50,7 @@
 - `protobuf-py`(`protobuf-py.md`): generated descriptors feed `validate`; refusal details return on the same runtime.
 - `connectrpc`(`connectrpc.md`): body interception maps request refusals to `INVALID_ARGUMENT` and response refusals to `INTERNAL`. `ValidationError.to_proto()` passes through `ConnectError.details` without translation.
 - `runtime/transport/serve`: one body interceptor validates unary and streamed elements; metadata admission retains its own interceptor.
-- `artifacts/graphic/texture/set`: the completed generated appearance document validates before it leaves its producer; its admitted binary is reused for exact receipt metering.
+- `artifacts/graphic/texture/set`: producers validate the completed generated appearance document before publication; byte measurement reads that admitted binary.
 
 [ADMISSION]:
 - Runtime serving evaluates the generated rule set at every request and response body crossing; compilation and evaluation defects map to `INTERNAL`.

@@ -16,7 +16,7 @@
 
 [PUBLIC_TYPE_SCOPE]: solver, model, and solution roots
 
-`Highs` is the one stateful solver object; a model is built fluently through `highs_var`/`highs_linear_expression` or passed as the typed `HighsModel`/`HighsLp` sparse surface, and the solve returns the typed `HighsSolution`/`HighsBasis`/`HighsInfo` receipts. `kHighsInf` is the free-bound sentinel, `kHighsIInf` the integer sentinel, `kHighsUndefined` the unset-value sentinel.
+`Highs` is the one stateful solver object; a model is built fluently through `highs_var`/`highs_linear_expression` or passed as the typed `HighsModel`/`HighsLp` sparse surface, and the solve returns the typed `HighsSolution`/`HighsBasis`/`HighsInfo` results. `kHighsInf` is the free-bound sentinel, `kHighsIInf` the integer sentinel, `kHighsUndefined` the unset-value sentinel.
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]       | [CAPABILITY]                                                                          |
 | :-----: | :------------------------ | :------------------ | :------------------------------------------------------------------------------------ |
@@ -30,13 +30,13 @@
 |  [08]   | `HighsHessian`            | quadratic term      | `dim_`, `format_`, and `start_`/`index_`/`value_` upper-triangular sparse Hessian     |
 |  [09]   | `HighsSolution`           | result carrier      | `col_value`/`col_dual`/`row_value`/`row_dual` with `value_valid`/`dual_valid` flags   |
 |  [10]   | `HighsBasis`              | simplex basis       | `col_status`/`row_status` `HighsBasisStatus` vectors with `valid`/`alien` flags       |
-|  [11]   | `HighsInfo`               | solve receipt       | objective, status, iteration-count, and MIP-gap fields fenced below                   |
+|  [11]   | `HighsInfo`               | solve measures      | objective, status, iteration-count, and MIP-gap fields fenced below                   |
 |  [12]   | `HighsRanging`            | sensitivity         | `col_cost_up/dn`, `col_bound_up/dn`, `row_bound_up/dn` sensitivity ranges             |
 |  [13]   | `HighsIis`                | infeasibility       | irreducible infeasible subsystem with `col_index_`/`row_index_` and per-bound status  |
 |  [14]   | `HighsLinearObjective`    | multi-objective     | `coefficients`, `weight`, `priority`, `offset`, and `abs_tolerance`/`rel_tolerance`   |
 |  [15]   | `HighsCallback`           | callback surface    | `subscribe`/`unsubscribe` over `HighsCallbackEvent` for MIP and simplex interaction   |
 
-[PUBLIC_TYPE_SCOPE]: `HighsInfo` receipt fields
+[PUBLIC_TYPE_SCOPE]: `HighsInfo` fields
 
 | [INDEX] | [FIELD]                                               | [ROLE]                                                   |
 | :-----: | :---------------------------------------------------- | :------------------------------------------------------- |
@@ -87,7 +87,7 @@ Every verdict is a closed enum whose `k`-prefixed members are the emitted wire n
 |  [09]   | `Highs.optimize`       | `optimize()` / `run()` / `solve()` -> `HighsStatus` | solve the assembled LP/MIP/QP model                   |
 |  [10]   | `Highs.val`            | `val(var)` / `vals(vars)`                           | read the primal value of a variable or expression     |
 |  [11]   | `Highs.getSolution`    | `getSolution()` -> `HighsSolution`                  | read the full primal/dual solution carrier            |
-|  [12]   | `Highs.getInfo`        | `getInfo()` -> `HighsInfo`                          | read the solve receipt fenced above                   |
+|  [12]   | `Highs.getInfo`        | `getInfo()` -> `HighsInfo`                          | read the solve measures fenced above                   |
 |  [13]   | `Highs.getModelStatus` | `getModelStatus()` -> `HighsModelStatus`            | read the terminal model verdict                       |
 |  [14]   | `Highs.setInteger`     | `setInteger(var)` / `setContinuous(var)`            | flip a column's integrality after assembly            |
 
@@ -120,14 +120,14 @@ Every verdict is a closed enum whose `k`-prefixed members are the emitted wire n
 - regime axis: column integrality selects the engine — all-`kContinuous` with no Hessian runs the LP simplex/IPM/PDLP arm, any `kInteger`/`kSemiContinuous` column the branch-and-bound MIP arm, a `passHessian` upper-triangular term the active-set QP arm; `setOptionValue("solver", ...)` picks `simplex`/`ipm`/`pdlp` for the LP arm.
 - mutation axis: a parametrized sweep re-solves through `changeCol*`/`changeRow*`/`changeCoeff` then `run()`, reusing the retained warm basis; a structural change adds or deletes rows/columns through `addRows`/`deleteCols` — the warm re-solve is the discriminant against a cold rebuild.
 - callback axis: each `HighsCallback` owns `subscribe(callback, user_data)`/`unsubscribe(callback)` for its typed event; the first subscription starts the event, the last removal stops it.
-- evidence axis: each solve captures the `HighsModelStatus` verdict, the `HighsSolution` primal `col_value`/dual `col_dual`, and the `HighsInfo` objective with the iteration and `mip_node_count`/`mip_gap` counts as the program-solve receipt; the dual `col_dual` reduced costs are the LP optimality certificate, `getRanging()` bounds its stability, and `getDualRay()`/`getPrimalRay()` certify `kInfeasible`/`kUnbounded`.
+- evidence axis: each solve captures the `HighsModelStatus` verdict, the `HighsSolution` primal `col_value`/dual `col_dual`, and the `HighsInfo` objective with the iteration and `mip_node_count`/`mip_gap` counts as the `Optimum.Program` evidence; the dual `col_dual` reduced costs are the LP optimality certificate, `getRanging()` bounds its stability, and `getDualRay()`/`getPrimalRay()` certify `kInfeasible`/`kUnbounded`.
 - infeasibility axis: a `kInfeasible` model resolves through `getIis()` for the irreducible conflict set or `feasibilityRelaxation()` for the minimal-violation solution.
 - boundary: HiGHS owns the LP/MIP/QP solve, the simplex basis, and the primal/dual certificate; cvxpy owns disciplined-convex modeling above it; the graduation rail hands the offline solution across the wire.
 
 [STACKING]:
 - `cvxpy`(`.api/cvxpy.md`): `cp.Problem.solve(solver=cp.HIGHS)` routes a disciplined-convex LP, MILP, or convex-QP to HiGHS, and admitting `highspy` lights the `cp.HIGHS` backend beside `cp.CLARABEL`/`cp.SCS` — HiGHS the LP/MIP/QP arm, Clarabel/SCS the conic arms of the one convex family; `get_problem_data(cp.HIGHS)` yields the sparse standard form for a direct `passModel` drive without the modeling layer in the hot loop.
 - `scipy`(`.api/scipy.md`): `HighsSparseMatrix` mirrors `scipy.sparse` CSC/CSR (`start_`/`index_`/`value_`) — assemble the constraint matrix as a `scipy.sparse.csc_matrix` and the QP Hessian as `scipy.sparse.triu(P).tocsc()`; `scipy.optimize.linprog(method="highs")` is the same engine through the scipy façade for a one-shot LP.
-- within-lib: the `HighsModelStatus`/`HighsInfo` objective and iteration/node counts fold into one program-solve receipt the graduation owner hands across the wire, aligned with the `clarabel`/`scs` conic receipts so the convex family emits one uniform solve-evidence row; the dual `col_dual` is the certificate the consumer reads, never recomputed.
+- within-lib: the `HighsModelStatus`/`HighsInfo` objective and iteration/node counts fold into one `Optimum.Program` the graduation owner hands across the wire, aligned with the `clarabel`/`scs` conic measures so the convex family emits one uniform solve-evidence row; the dual `col_dual` is the certificate the consumer reads, never recomputed.
 
 [LOCAL_ADMISSION]:
 - admit `highspy` as the compute LP/MIP/QP backend and the cvxpy `cp.HIGHS` binding; a model carrying SOC/PSD/exponential/power cones routes to the `clarabel`/`scs` conic arms.

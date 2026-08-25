@@ -1,6 +1,6 @@
 # [PY_DATA_API_RUSTWORKX]
 
-`rustworkx` owns the Rust-core graph surface for the data graph rail: `PyGraph`/`PyDiGraph`/`PyDAG` containers over stable, never-recycled integer indices, with a polymorphic bare-name algorithm suite dispatching on graph type beside the `graph_*`/`digraph_*` type-bound forms. Data graph callers route through the bare name, read the typed result carrier (`PathMapping`/`CentralityMapping`/`NodeMap`/`Pos2DMapping`) as the receipt, drive event-stepped search through the `visit.*` visitor base classes, and fold the Rust-core traversal over re-walking a BFS/DFS/Dijkstra loop in Python.
+`rustworkx` owns the Rust-core graph surface for the data graph rail: `PyGraph`/`PyDiGraph`/`PyDAG` containers over stable, never-recycled integer indices, with a polymorphic bare-name algorithm suite dispatching on graph type beside the `graph_*`/`digraph_*` type-bound forms. Data graph callers route through the bare name, consume the typed result carrier (`PathMapping`/`CentralityMapping`/`NodeMap`/`Pos2DMapping`) directly, drive event-stepped search through the `visit.*` visitor base classes, and fold the Rust-core traversal over re-walking a BFS/DFS/Dijkstra loop in Python.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -236,7 +236,7 @@
 - `networkx`(`.api/networkx.md`): `networkx_converter` is the one-way NetworkX-to-rustworkx bridge; the `networkx` side stays the read-side interop surface and rustworkx owns the hot algorithm path.
 - `igraph`(`.api/igraph.md`): route `GRAPH_COMMUNITY` to `igraph` Leiden/Louvain/Infomap detection rustworkx lacks, keeping `GRAPH_PATH`/`GRAPH_CENTRALITY`/`GRAPH_STRUCTURE` on rustworkx.
 - `pyarrow`(`.api/pyarrow.md`): `floyd_warshall_numpy`/`distance_matrix`/`adjacency_matrix` emit dense NumPy matrices folding into the tensor carriers, and a `CentralityMapping` keyed by stable node index lowers into the `node`-keyed Arrow frame the tabular plane left-outer-joins a node-attribute table against, so a centrality run is a left-join enrichment; `node_link_json`/GraphML/Matrix-Market IO are the content-keyed serialization seam.
-- data graph owner: build from the interop frame, run the bare-name algorithm, read the typed carrier, and fold the receipt onto the downstream frame in one pass with no Python re-walk of the Rust-core result.
+- data graph owner: build from the interop frame, run the bare-name algorithm, and fold the typed carrier onto the downstream frame in one pass with no Python re-walk of the Rust-core result.
 
 [LOCAL_ADMISSION]:
 - Apache-2.0 links safely into a host-distributed plugin; import at boundary scope, and route community detection to the GPL `igraph`(`.api/igraph.md`) sibling.
@@ -244,5 +244,5 @@
 [RAIL_LAW]:
 - Package: `rustworkx`
 - Owns: undirected/directed/DAG containers over stable integer indices and the Rust-core graph algorithm suite, with `visit.*` visitor-driven search, `TopologicalSorter`, the `generators` submodule, and one-way NetworkX conversion
-- Accept: polymorphic bare-name dispatch, `visit.*` visitors with `PruneSearch`/`StopSearch`, `ColoringStrategy`-parameterized coloring, the typed result carriers as receipts, stable node index lowered into the `node`-keyed Arrow frame, `networkx_converter` at the read-side boundary, and `igraph` for the community-detection split
+- Accept: polymorphic bare-name dispatch, `visit.*` visitors with `PruneSearch`/`StopSearch`, `ColoringStrategy`-parameterized coloring, direct typed result carriers, stable node index lowered into the `node`-keyed Arrow frame, `networkx_converter` at the read-side boundary, and `igraph` for the community-detection split
 - Reject: per-graph-type entrypoints where the polymorphic form covers both, a hand-rolled BFS/DFS/Dijkstra loop, a post-hoc cycle scan where `check_cycle` rejects at mutation, re-keying centrality output off the stable node index, a thin rename wrapper over a result carrier, and community detection routed here instead of `igraph`

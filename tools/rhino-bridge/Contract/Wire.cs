@@ -160,7 +160,7 @@ public abstract partial record BridgeFault {
     public sealed record UiWedged(double SilentForMs, string Scenario) : BridgeFault;
     public sealed record ExecuteDeadline(string Scenario, double ElapsedMs) : BridgeFault;
     public sealed record NugetLockDrift(string Detail) : BridgeFault;
-    public sealed record CapabilityAbsent(string Capability, string ProbeReceipt) : BridgeFault;
+    public sealed record CapabilityAbsent(string Capability, string Detail) : BridgeFault;
     public sealed record RedeployIncomplete(string FailingCheck) : BridgeFault;
 
     public PhaseStatus Status => Switch(
@@ -182,7 +182,7 @@ public abstract partial record BridgeFault {
         shellSkew: static f => string.Create(provider: CultureInfo.InvariantCulture, $"shell contract v{f.ShellContract} < supervisor v{f.SupervisorContract}: run redeploy"),
         nugetLockDrift: static f => $"lock drift ({f.Detail}): run dotnet restore --force-evaluate via the static rail; the bridge never mutates lockfiles",
         busyHeld: static f => string.Create(provider: CultureInfo.InvariantCulture, $"session lease held by pid {f.HolderPid} for {f.AgeSeconds:F0}s: wait or quit that session"),
-        capabilityAbsent: static f => $"capability '{f.Capability}' unavailable on this host: {f.ProbeReceipt}",
+        capabilityAbsent: static f => $"capability '{f.Capability}' unavailable on this host: {f.Detail}",
         launchFailed: static f => f.Detail,
         connectFailed: static f => f.Detail,
         hostDrift: static f => $"host moved under compiled cargo ({f.MissingMember}): rerun verify (auto-rebuild)",
@@ -362,7 +362,7 @@ public sealed partial class EndpointRecord {
 }
 
 public readonly record struct HostFingerprint(string BundleVersion, string RhinoCommonVersion, string Grasshopper2Version, string RuntimeVersion);
-public readonly record struct CapabilityEntry(string Key, PhaseStatus Outcome, string Receipt);
+public readonly record struct CapabilityEntry(string Key, PhaseStatus Outcome, string Detail);
 public readonly record struct ScenarioEntry(string Theme, string Name, string[] Requires, int BudgetMs);
 public readonly record struct ReferenceRoot(string Assembly, string Theme, string Path);
 public readonly record struct EvidenceName(string Key);
@@ -397,7 +397,7 @@ public readonly record struct ScenarioCounts(int Total, int Ok, int Failed, int 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct StatusBreakdown(PhaseStatus ScenarioStatus, PhaseStatus SessionStatus, PhaseStatus OverallStatus);
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PhaseReceipt(SessionPhase Phase, PhaseStatus Status, double DurationMs, BridgeFault? Fault);
+public readonly record struct PhaseOutcome(SessionPhase Phase, PhaseStatus Status, double DurationMs, BridgeFault? Fault);
 public sealed record FaultSummary(SessionPhase? Phase, BridgeFault? Fault, string Message);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SpoolSummary(long DurableEvents, long RelayedEvents, long LastSequence, bool Diverged, int Failures);
@@ -406,23 +406,23 @@ public sealed record EvidenceCertificate(
     EvidenceCounts Counts, ArtifactRef[] Artifacts, ReferenceEvidenceResult[] References,
     ObjectManifest[] ObjectManifests, GeometryManifest[] GeometryManifests,
     ViewportManifest[] ViewportManifests, Gh2CanvasManifest[] Gh2CanvasManifests,
-    ScratchManifest[] ScratchManifests, PhaseReceipt[] Phases, FaultSummary? FirstFault);
-public readonly record struct ScenarioReceipt(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault) {
+    ScratchManifest[] ScratchManifests, PhaseOutcome[] Phases, FaultSummary? FirstFault);
+public readonly record struct ScenarioOutcome(string Scenario, PhaseStatus Status, double DurationMs, BridgeFault? Fault) {
     public PhaseStatus ScenarioStatus { get; init; } = Status;
     public ReferenceEvidenceResult[] ReferenceResults { get; init; } = [];
     public string FirstScenarioFailure { get; init; } = string.Empty;
 }
 public readonly record struct CrashFact(string IpsPath, string CrashThread, string ExceptionType, string Detail);
-public readonly record struct UnloadReceipt(bool Confirmed, bool DebuggerAttached, int GcRetries, double ElapsedMs);
+public readonly record struct UnloadOutcome(bool Confirmed, bool DebuggerAttached, int GcRetries, double ElapsedMs);
 
-public readonly record struct QuitPrepareReceipt(int Documents, int MarkedClean, int ResidualDirty, string Gh2, string[] SavedPaths) {
+public readonly record struct QuitScrub(int Documents, int MarkedClean, int ResidualDirty, string Gh2, string[] SavedPaths) {
     public bool Scrubbed => ResidualDirty == 0;
 }
 
 public sealed record CargoManifest(
     Guid SessionId, string ReportDir, string ContentHash, string StagePath,
     Guid[] HostPlugins, HostFingerprint BuiltAgainst, string[] ScenarioAssemblies);
-public sealed record CargoReceipt(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
+public sealed record LoadedCargo(string ContentHash, double SwapMs, ScenarioEntry[] Scenarios, CapabilityEntry[] Capabilities);
 
 public sealed record Handshake(
     int ContractGeneration, string SenderVersion,
@@ -462,11 +462,11 @@ public abstract partial record ScenarioSelection {
 
 public sealed record SessionEnvelope(
     string RunId, string Verb, PhaseStatus Status, double DurationMs, string ReportDir,
-    HostFingerprint Host, CapabilityEntry[] Capabilities, ScenarioReceipt[] Scenarios,
+    HostFingerprint Host, CapabilityEntry[] Capabilities, ScenarioOutcome[] Scenarios,
     BridgeEvent[] Evidence, string FirstFailure, SessionPhase? FirstFaultPhase, BridgeFault? Fault) {
     public PhaseStatus ScenarioStatus { get; init; } = Status;
     public PhaseStatus SessionStatus { get; init; } = Status;
-    public PhaseReceipt[] PhaseReceipts { get; init; } = [];
+    public PhaseOutcome[] Phases { get; init; } = [];
     public string FirstScenarioFailure { get; init; } = string.Empty;
     public string FirstSessionFault { get; init; } = string.Empty;
     public string CertificatePath { get; init; } = string.Empty;

@@ -131,7 +131,6 @@ nbclient fires these eight `Callable` traits around the notebook and per-cell li
 - Bounded-safety defaults: `force_raise_errors=True` + `interrupt_on_timeout=True` + `raise_on_iopub_timeout=True` make a runaway cell raise rather than hang and a late iopub raise rather than warn; `coalesce_streams=True` merges adjacent stream output; `record_timing=True` stamps per-cell timing; `allow_errors=False` with `allow_error_names` as the narrow whitelist keeps a failing cell a hard fault.
 - Timeout: `timeout` applies per-cell (`None` = unbounded, the rail pins 600); `startup_timeout` bounds the kernel-start handshake; `error_on_timeout` injects a fake `error` reply as the cell result; `iopub_timeout`/`raise_on_iopub_timeout` bound the trailing output wait; `shell_timeout_interval` is the shell-poll granularity the reply loop ticks on.
 - Widget state: `store_widget_state=True` captures Jupyter widget state into `metadata.widgets` via `on_comm_open_jupyter_widget` -> `register_output_hook` -> `OutputWidget` -> `set_widgets_metadata`.
-- Eight `on_*` `Callable` hooks stay off the keyed plan: a `Callable` is not a content-keyable reproducibility fact, so receipt and progress capture is the `@receipted` harvest off `self.fact` and the `runtime` observability span.
 
 [STACKING]:
 - `papermill`(`.api/papermill.md`): `parameterize_notebook` injects the parameter cell upstream and its default `NBClientEngine` delegates the kernel lifecycle to this client — nbclient owns the execution loop papermill's engine wraps.

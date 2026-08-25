@@ -4,7 +4,7 @@
 
 Every signed artifact is keyed and signed over a `CanonicalWriter` BINARY preimage, never a serializer's output: a quantity enters as its family token and base-unit magnitude, so renaming a display unit cannot invalidate a signature, and every collection carries its count while every optional column carries its presence bit. `CanonicalJson` remains the TRANSPORT rendering the traveler document serializes through, carrying the `[JsonPolymorphic]` rosters, the LanguageExt carrier factory, and the Thinktecture value factory that make that rendering round-trip.
 
-`ECDsa` signs the preimage, signer, role, credential, and instant; the trust callback binds those claims to the certificate before quorum and receipt verification. `EgressKind.DigitalProductPassport` is this page's own artifact family, distinct from the `EgressKind.QualityRecord` the report body keys under, and the Persistence `ArtifactKind` row of the same spelling federates to it BY VALUE at the content-key boundary — never by a type reference either side holds.
+`ECDsa` signs the preimage, signer, role, credential, and instant; the trust callback binds those claims to the certificate before quorum and result verification. `EgressKind.DigitalProductPassport` is this page's own artifact family, distinct from the `EgressKind.QualityRecord` the report body keys under, and the Persistence `ArtifactKind` row of the same spelling federates to it BY VALUE at the content-key boundary — never by a type reference either side holds.
 
 ## [01]-[INDEX]
 
@@ -201,16 +201,16 @@ public abstract partial record ReportScope {
 - Law: `AttestationRole` is the branch vocabulary at `Rasm.Element` `Composition/material` (Element `RULINGS.md:37`) and this package declares no roster of its own — a folder-local role table forks the independence law the seal's quorum gate reads.
 - Law: the signed preimage is `CanonicalWriter` BINARY. A serializer's byte stream depends on property order, naming policy, escape choices, and a unit's SPELLING — every one of which can change without any evidence changing — so a signature over it attests to a rendering rather than to the evidence. A quantity enters as its `QuantityInfo.Name` and its base-unit magnitude, so a millimetre reading and its metre spelling address identically and a display rename re-keys nothing.
 - Law: the seal closes through `FabricationCanon.Sealed` at a ZERO grid — signed bytes and their address come from ONE close, so they cannot drift — and `Preimage` is the bytes-only mint the unaddressed payload close reads. Measured evidence is exact truth under attestation, so this seal declares no quantization and no column it writes is a `Measure`; `Retaining` is the mint whose close hands back bytes, and `ToBytes` is that close's own typed rail — a streaming writer holds no preimage to sign, which is exactly the absence the rail states instead of a raise.
-- Law: an UPSTREAM receipt enters the preimage by the columns this attestation covers — its identity, its verdict, and the demands it published. Its own owner keys its full shape, and re-transcribing that shape here forks the two keys the day either page grows a column.
+- Law: an UPSTREAM result enters the preimage by the columns this attestation covers — its identity, its verdict, and the demands it published. Its own owner keys its full shape, and re-transcribing that shape here forks the two keys the day either page grows a column.
 - Law: `CanonicalJson` is the TRANSPORT rendering, not an identity: it carries the `[JsonPolymorphic]` roster per union, `LanguageExtJsonConverterFactory` so `Seq` and `Option` members repopulate on read, and `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` so generator-stamped owners keep their own converters.
-- Law: `RecordAttestation` signs and verifies `AttestationPayload(Body, Signer, Role, Credential, SignedAt)` with `ECDsa`, `HashAlgorithmName.SHA384`, and `DSASignatureFormat.Rfc3279DerSequence`; receipts carry credential identity, certificate PEM, and signature bytes without private-key material.
+- Law: `RecordAttestation` signs and verifies `AttestationPayload(Body, Signer, Role, Credential, SignedAt)` with `ECDsa`, `HashAlgorithmName.SHA384`, and `DSASignatureFormat.Rfc3279DerSequence`; results carry credential identity, certificate PEM, and signature bytes without private-key material.
 - Law: quorum is THREE independent gates that accumulate — a signer naming the same role twice, an independent authority who also signed as the manufacturer, and a published demand no credential satisfies are three different refusals a caller acts on differently.
 - Law: classification rides definition-time attribute rows from `Process/telemetry#CLASSIFICATION` — `Signer` personal, `Credential` credential — so a log or export seam redacts these members while the sealed preimage stays domain truth.
 - Exemption: the `extension(CanonicalWriter sink)` body is the byte kernel; every other body on this cluster is expression-shaped.
-- Entry: `public static Fin<SealedRecord> QualityReport.Seal(QualityReportRequest request)` is the only sealing entrypoint; the trailing `FabricationTap?` defaults to the silent port.
-- Receipt: `SealedRecord` carries the attested report, the optional attested passport, and the folded census. `FabricationFact.QualitySeal.Of` folds every sealed sustainability case through the union's own total `Switch` onto the `rasm.fabrication.sustainability.<quantity>` stream its UCUM unit selects, tagged by the case name, through `Process/telemetry#FACT_PROJECTION` as kind `quality-seal`; an unsealed measure projects no row rather than a zero reading.
+- Entry: `public static Fin<SealedRecord> QualityReport.Seal(QualityReportRequest request, Option<InstrumentSet> set = default)` is the only sealing entrypoint; the trailing set defaults absent.
+- Result: `SealedRecord` carries the attested report, the optional attested passport, and the folded census. `QualityReport.Seal` folds every sealed sustainability case through the union's total `Switch` onto the `SustainabilityQuantity` instrument its UCUM unit selects, tagged by the case name; an unsealed measure writes no row.
 - Packages: `Documentation/report` (`QualityEvidence` for the record rail and every record-plane column writer, `QualityRecord`, `EvidenceCensus`, `RecordRefusal`), `Rasm.Element` (`AttestationRole`, `CanonicalWriter` through `Process/owner#RUN_DISPATCH`, `ContentKey.CanonicalBytes`), `System.Security.Cryptography`, `System.Text.Json`, `NodaTime.Serialization.SystemTextJson`, Thinktecture.Runtime.Extensions.Json.
-- Boundary: `TravelerReceiptCorpus.Records` consumes `Seq<SealedRecord>` and derives its singleton digital-product-passport projection from those records.
+- Boundary: `TravelerCorpus.Records` consumes `Seq<SealedRecord>` and derives its singleton digital-product-passport projection from those records.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -313,7 +313,7 @@ public static class QualityReport {
             },
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
-    public static Fin<SealedRecord> Seal(QualityReportRequest request, FabricationTap? tap = null) =>
+    public static Fin<SealedRecord> Seal(QualityReportRequest request, Option<InstrumentSet> set = default) =>
         from admitted in QualityEvidence.RecordOp.Need(request)
         from _request in (
             QualityEvidence.Gate(!admitted.Records.IsEmpty, RecordRefusal.Source),
@@ -358,10 +358,29 @@ public static class QualityReport {
                     admitted.Trust,
                     admitted.SealedAt)
                 .Map(static artifact => Some(artifact)))
-        let _fact = admitted.Scope.Switch(
-            records: static _ => unit,
-            passport: value => (tap ?? FabricationTap.Silent)
-                .Fire(FabricationFact.QualitySeal.Of(value.Evidence)))
+        from _measurements in passport.Match(
+            None: static () => Fin.Succ(unit),
+            Some: artifact => artifact.Body.Evidence.Sustainability.TraverseM(evidence => evidence.Switch(
+                energyUse: row => set.Write(SustainabilityQuantity.Energy.Instrument, row.Value.Joules,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                carbon: row => set.Write(SustainabilityQuantity.Mass.Instrument, row.Value.Kilograms,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                waste: row => set.Write(SustainabilityQuantity.Mass.Instrument, row.Value.Kilograms,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                recycledContent: row => set.Write(SustainabilityQuantity.Fraction.Instrument, row.Value.DecimalFractions,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                waterUse: row => set.Write(SustainabilityQuantity.Volume.Instrument, row.Value.Liters,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                renewableEnergy: row => set.Write(SustainabilityQuantity.Fraction.Instrument, row.Value.DecimalFractions,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                recyclableMass: row => set.Write(SustainabilityQuantity.Mass.Instrument, row.Value.Kilograms,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                hazardousSubstance: row => set.Write(SustainabilityQuantity.Mass.Instrument, row.Value.Kilograms,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                repairability: row => set.Write(SustainabilityQuantity.Fraction.Instrument, row.Value.DecimalFractions,
+                    (FabricationInstruments.MeasureSlot, row.Measure)),
+                durability: row => set.Write(SustainabilityQuantity.Lifetime.Instrument, row.Value.TotalSeconds,
+                    (FabricationInstruments.MeasureSlot, row.Measure)))).As().Map(static _ => unit))
         select new SealedRecord(
             report,
             passport,
@@ -472,15 +491,14 @@ flowchart LR
     Report --> Sealed["SealedRecord"]
     Artifact --> Sealed
     Census["EvidenceCensus.Of"] --> Sealed
-    Sealed -->|"records and passport key"| Traveler["Documentation/traveler — TravelerReceiptCorpus"]
-    Sealed -->|"quality-seal fact"| Telemetry["Process/telemetry — FabricationFact.QualitySeal"]
+    Sealed -->|"records and passport key"| Traveler["Documentation/traveler — TravelerCorpus"]
+    Sealed -->|"sustainability writes"| Telemetry["Process/telemetry — FabricationInstruments"]
 ```
 
 ## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

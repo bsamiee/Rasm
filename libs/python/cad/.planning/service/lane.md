@@ -15,7 +15,7 @@
 - Law: `@cache` keys the empty argument tuple, so the fold runs ONCE PER PROCESS — the worker holds its own cache, and a respawned worker re-pins before its first fold without any parent-side coordination.
 - Law: a module-global `_configured = False` flag is the DELETED form, and its defect was residency rather than style: the ladder ran inside the `to_process` worker, so the parent's copy never flipped, every respawn silently re-ran a probe nothing read, and the one boolean any reader consulted lived in the process that never touched it.
 - Law: three bare `RuntimeError` raises are the other half of that deleted form — a refusal that cannot name its leg, cannot carry its Connect code, and cannot cross the pickle seam as a value is not a refusal, and `NATIVE_INIT` states all three from one row.
-- Law: every pin WRITES and then READS BACK, because OCCT accepts a set that never takes; a write-only probe certifies a unit the writer does not hold, which is exactly how a metre receipt silently becomes a millimetre one.
+- Law: every pin WRITES and then READS BACK, because OCCT accepts a set that never takes; a write-only probe certifies a unit the writer does not hold, which is exactly how a metre measurement silently becomes a millimetre one.
 - Cases: `Controller` rows start the STEP and IGES exchange controllers; `Pin` rows carry a coordinate, the value it must hold, and the typed `Interface_Static` write-and-read pair for that value's kind, so the string pins and the integer pin fold through one arm instead of two statement ladders differing only by which member they call.
 - Growth: a new process-wide OCCT setting is one `Pin` row, a new exchange controller one `Controller` row, and neither touches the fold.
 - Boundary: readers, writers, meshers, and property folds compose an already-pinned process and never re-probe one; the roster's membership is `exchange/identity#PINS`'s ruling, applied here.
@@ -106,7 +106,7 @@ def regime() -> CadRail[None]:
 - Law: the read races by one — a caller admitted between the snapshot and the acquire still serializes on the limiter, so the snapshot is an admission bound and never a lock, and the cost of losing the race is one extra waiter rather than a second concurrent native fold.
 - Law: `_LANE_DEPTH` admits exactly one waiter, so a caller arriving mid-fold queues and the caller after it is refused with a stated window instead of waiting behind two whole calls with nothing said about the delay.
 - Law: every value crossing the pickle seam parses and imports on BOTH sides of it, kernels cross by QUALIFIED NAME through `_regimed`, and a `CadFault` crosses home as a VALUE because `msgspec.Struct` pickles by reference — a custom exception transporting an inner fault across that seam is the rejected inversion.
-- Law: generated messages and artifact bodies never cross; the request crosses as BINARY, the receipt returns as binary, and the output leaves through the call-owned path rather than through the seam.
+- Law: generated messages and artifact bodies never cross; the request crosses as BINARY, the measure and correspondence return as binary, and the output leaves through the call-owned path rather than through the seam.
 - Law: `OneSource.of` resolves the single source path on the SERVE floor, where `references` already ran and body admission already passed, so the worker receives a path instead of a roster and an unguarded index into it — the double lookup `_path_rows(sources)[references(request)[0].sha256]` performed on the unvalidated side is the deleted form.
 - Law: an unpicklable argument raises out of `run_sync` and PROPAGATES as a defect, because a value this owner cannot marshal is a construction fault of the fence that built it, never a caller's refusal.
 - Cases: `Sources` is `OneSource` for the rpc admitting exactly one reference and `SourceRows` for the rpc admitting any admitted count including none; the arity discriminant is the source shape itself, so no kernel re-guards a count the serve floor already settled.
@@ -158,14 +158,15 @@ class NativeCall[C: Sources](Struct, frozen=True, kw_only=True):
 
 
 class BrepMarshal(Struct, frozen=True, gc=False):
-    receipt: bytes
+    measure: bytes
+    correspondence: bytes
     protocol: int
 
 
 class MeshMarshal(Struct, frozen=True, gc=False):
     element_count: int
     triangle_count: int
-    kernel: bytes
+    measure: bytes
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -174,7 +175,13 @@ class MeshMarshal(Struct, frozen=True, gc=False):
 def brep_kernel(call: NativeCall[SourceRows], /) -> CadRail[BrepMarshal]:
     return execute_brep(
         ExecuteRequest.from_binary(call.payload), call.sources.paths(), Path(call.target), call.ceiling
-    ).map(lambda evidence: BrepMarshal(receipt=evidence.receipt.to_binary(), protocol=int(evidence.protocol)))
+    ).map(
+        lambda evidence: BrepMarshal(
+            measure=evidence.measure.to_binary(),
+            correspondence=evidence.correspondence.to_binary(),
+            protocol=int(evidence.protocol),
+        )
+    )
 
 
 def mesh_kernel(call: NativeCall[OneSource], /) -> CadRail[MeshMarshal]:
@@ -184,7 +191,7 @@ def mesh_kernel(call: NativeCall[OneSource], /) -> CadRail[MeshMarshal]:
         lambda evidence: MeshMarshal(
             element_count=evidence.element_count,
             triangle_count=evidence.triangle_count,
-            kernel=evidence.kernel.to_binary(),
+            measure=evidence.measure.to_binary(),
         )
     )
 
@@ -212,4 +219,4 @@ async def native[C: Sources, E](
 
 ## [04]-[RESEARCH]
 
-- [OUTPUT_CEILING]-[OPEN]: do `brep/operation` and `tessellation/emission` both admit `NativeCall.ceiling` at their write seam; verify at each owner's fence.
+(none)

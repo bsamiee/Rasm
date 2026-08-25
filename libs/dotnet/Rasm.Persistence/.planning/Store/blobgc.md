@@ -2,7 +2,7 @@
 
 Rasm.Persistence reclaims object bytes through the write-blob-first protocol and the ONE full-history reachability sweep, never a blob-lane-local deletion executor. `BlobCatalogRow` is the content-lineage retention row every blob carries — the same row the snapshot spine has — keyed on the `ArtifactKind` its retention class DERIVES from and carrying the WORM window, the residence form, and the wrapped DEK beside the tenant, extent, tier, lineage, and classification columns. `PendingWrite` is the write-first ledger whose open rows ARE the in-flight fence, so a crash before the catalog commit leaves a collectible orphan rather than a dangling reference. `LifecycleRules` arms the PROVIDER-side half — expiries and cold-tier rungs projected from declared schedule values onto per-class key prefixes, unlocked by the class-leading object name. `BlobGc` owns the write protocol, the in-flight fence it contributes to the sweep's eligibility predicate, the set-shaped WORM-aware evict arrow, and the metadata-only demote, and it owns no second sweeper.
 
-`RetentionClass`, `StorageLane`, `RetentionCapability`/`RetentionLoss`, `RetentionCeiling`, `RetentionFact`, `SweepReceipt`, `Hold`, `Reachability`, and `RetentionSweep` — the ONE deletion executor every lane routes through — compose from `Version/retention#SWEEP_AND_GC` and `#RETENTION_CLASSES`; `ArtifactKind` and its derived retention from the same owner. `ObjectStore`, `ObjectClient`, `BlobAdmission`, `BlobName`, `BlobHandle`, `BlobRemote`, `BlobResidence`, `BlobTransferFact`, `BlobFactKind`, `EraseTally`, `MultipartTransfer.Upload`, and `ObjectIo.Bound` come from `Store/blobstore#OBJECT_STORE` and `#TRANSFER`, whose placement bundle routes every write through `WriteBlobFirst`; `StorageTier`, `Rung`, `Extent`, and `ObjectCodec` from `Store/residence#RESIDENCE_FORM`; `ObjectLock` and its deadline projection from `#WRITE_STANCE`; `RemoteStoreFault` and `ObjectVerb` from `Store/redrive#FAULT_BAND`. `ContentAddress`, `ChunkPolicy`, and `ContentChunker` compose from `Element/codec#CONTENT_CHUNKING`; `ProjectionContext`, `DataClassification`, and `WrappedKey` from the `Element/graph#STORE_RAIL` frame and `Element/identity#KMS_CUSTODY`.
+`RetentionClass`, `RetentionFact`, `SweepVerdict`, `SweepTally`, `Hold`, `Reachability`, and `RetentionSweep` compose from `Version/retention`; object placement composes `ObjectStore`, `BlobResidence`, `EraseTally`, and `MultipartTransfer.Upload`; storage form, faults, chunking, classification, and key custody compose from their owning package surfaces.
 
 ## [01]-[INDEX]
 
@@ -89,13 +89,12 @@ public static class LifecycleRules {
 ## [03]-[BLOB_GC]
 
 - Owner: `BlobCatalogRow` the content-lineage retention row, `PendingWrite` the kind-bearing write-first ledger row, and `BlobGc` the static surface owning the write-blob-first protocol, the in-flight fence, the retention-fact projection, the WORM-gated demote, the set-shaped evict arrow, and the reclaim pass — never a second deletion executor.
-- Law: one sweep pass per retention class PRESENT in the catalog, because the retention sweep budgets against ONE schedule and its receipt conserves over one class's inventory; a mixed inventory folded under one class silently budgets every row at the founding class's ceiling.
+- Law: one sweep pass handles one retention class, so its schedule and `SweepTally` govern one inventory.
 - Law: the catalog IS the authoritative inventory; a listing-then-filter sweep is the deleted parallel executor, and artifact GC over head alone is forbidden — the retention mark folds every AS-OF cut, so a blob a historical version references survives.
 - Law: identity and event share the ONE Marten session transaction; the blob is write-first and referenced-after, with no two-ORM atomicity dance.
 - Law: the demote gate reads a REALIZED rung alone; a provider stating no storage class returns the row's own declared default, so a gate folding observation and assumption into one value skips a transition that never happened — `Rung.Realized` is what makes the observation a proof.
 - Entry: `WriteBlobFirst` takes the facts only the admitting caller holds — the kind, the payload family's codec, and the `BlobAdmission` carrying the settled classification and lineage — and carries `open → blob → catalog → close` as the THREE durable marks one `BlobLedger` composes, so a write path holding two of the three is unrepresentable; `InFlightFence` derives each key's grace from that key's OWN class orphan age; `ToFact` projects a catalog row to the retention fact the executor budgets on; `Demote` rewrites a storage-class header behind an observation gate and a WORM gate; `WormEvict` partitions a verdict group against the catalog's WORM index in one pass; `Sweep` groups by derived class and routes every group through the one executor; `Pass` is the reclaim entry the host schedules, arming the provider-side rules before the sweep so the two halves of retention install and run as one fold.
-- Auto: a crash before the catalog commit leaves a present blob with an OPEN pending row and no event reference — a collectible orphan, protected until its own class's orphan age, and the write-once no-op makes a re-drive survive; the WORM window on the catalog row derives from the SAME instant the upload sampled, so catalog and provider agree by construction. Where a provider lifecycle rule already realized a rung, the observation gate receipts without paying even the metadata round trip; where an active WORM window holds the key, the domain check surfaces the typed refusal instead of eating a provider status the lift folds to a denial.
-- Receipt: a blob write rides the write slot carrying the content key and stored extent; the GC reclaim rides the retention sweep's own receipt, the orphan count and reclaimed bytes being that executor's evidence and never a parallel stream this lane re-mints.
+- Auto: a crash before catalog commit leaves a pending collectible orphan. Upload and catalog share one WORM instant, and a provider-realized colder rung completes as a no-op.
 - Boundary: the artifact blob carries the SAME content-lineage and retention-catalog row the snapshot spine has and registers in the object-store retention class, so ONE full-history reachability GC governs both — this lane contributing only its fact projection, its in-flight and WORM fence, and its tier transition. Eviction leaves as a SET so the verdict group goes out through the row's own erase paging, held keys landing on the tally as per-key refusals rather than a rail failure costing the whole pass one compliance window; the eligibility predicate ALSO holds a locked key, so the arrow is the defense-in-depth second gate against a window that landed after the verdict was computed; the catalog row's tenant column stamps the frame tenant the first write step proves equal to the client tenant, and the catalog the caller hands the sweep is RLS-filtered at its query, so a cross-tenant reclaim is unrepresentable end to end; the SSE key MATERIAL is a key-id string on the encryption case and the DEK-wrapping lifecycle is Authority's; a blob-lane-local KMS wrap is the deleted form.
 - Packages: System.IO.Hashing, NodaTime (`Instant`/`Duration` the WORM window), LanguageExt.Core (`Seq`/`Choose`/`Partition`/`TraverseM`/`IO.fail`), System.Collections.Frozen (`FrozenDictionary` the WORM index), Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new catalog column is one field on the row; a new WORM stance is one `ObjectLock` case both the write and the evict arrow read with zero new surface; a head-only blob GC, a lane-local list-then-filter sweep, a payload re-PUT standing in for a storage-class change, a same-transaction blob write, or a lane-local retention executor re-deciding eviction beside the one sweep is the deleted form.
@@ -115,33 +114,30 @@ public readonly record struct BlobLedger(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BlobGc {
-    public static IO<BlobResidence> WriteBlobFirst(ObjectStore store, ObjectClient client, BlobAdmission admitted, ArtifactKind kind, ObjectCodec codec, ReadOnlySequence<byte> source, BlobLedger ledger, Func<BlobTransferFact, IO<Unit>> sink, ProjectionContext frame) =>
+    public static IO<BlobResidence> WriteBlobFirst(ObjectStore store, ObjectClient client, BlobAdmission admitted, ArtifactKind kind, ObjectCodec codec, ReadOnlySequence<byte> source, BlobLedger ledger, ProjectionContext frame) =>
         from _t in frame.Tenant.TenantId == client.Tenant ? IO.pure(unit) : IO.fail<Unit>(new RemoteStoreFault.Denied(admitted.Key, store.Key, "tenant-mismatch"))
         let key = admitted.Key
         let session = admitted.Session
         let handle = BlobName.Handle(key, client.Tenant, kind.Retention, codec, source.Length)
         from _o in ledger.Open(new PendingWrite(key, kind, source.Length, frame.Now(), session))
         from formed in store.Encode(codec, key, source)
-        from receipt in MultipartTransfer.Upload(store, client, handle, BlobResidence.From(key, new Extent(formed.Bytes.Length, source.Length), new Rung.Assumed(store.Tier), codec) with { ConditionToken = session }, ContentChunker.Chunk(store.Chunking, formed.Bytes), formed.Bytes, sink, frame)
-        from _c in ledger.Catalog(new BlobCatalogRow(key, kind, new Extent(formed.Bytes.Length, source.Length), store.Tier, codec, admitted.Lineage, frame.Tenant.TenantId, admitted.Classification, receipt.WormUntil, formed.Dek, frame.Now()))
-        from _w in sink(new BlobTransferFact(store, BlobFactKind.Write, key, receipt.Extent.Stored, receipt.Parts, session))
+        from resident in MultipartTransfer.Upload(store, client, handle, BlobResidence.From(key, new Extent(formed.Bytes.Length, source.Length), new Rung.Assumed(store.Tier), codec) with { ConditionToken = session }, ContentChunker.Chunk(store.Chunking, formed.Bytes), formed.Bytes, frame)
+        from _c in ledger.Catalog(new BlobCatalogRow(key, kind, resident.Extent, store.Tier, codec, admitted.Lineage, frame.Tenant.TenantId, admitted.Classification, resident.WormUntil, formed.Dek, frame.Now()))
         from _x in ledger.Close(key)
-        select new BlobResidence(receipt.Key, new Extent(receipt.Extent.Stored, source.Length), new Rung.Assumed(store.Tier), codec, receipt.Parts, receipt.ResumedParts, receipt.Verified, None, receipt.Correlation);
+        select resident;
 
     public static Func<ContentAddress, bool> InFlightFence(Seq<PendingWrite> pending, Instant now) =>
         key => pending.Find(w => w.Key == key).Match(Some: w => now - w.Started >= w.Kind.Retention.Schedule.OrphanAge, None: () => true);
 
     static RetentionFact ToFact(BlobCatalogRow row) => new(row.Class, row.Key, row.Extent.Stored, row.Tier, row.At);
 
-    static IO<Unit> Demote(ObjectStore store, ObjectClient client, RetentionClass cls, ContentAddress key, StorageTier colder, FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm, Instant now, Func<BlobTransferFact, IO<Unit>> sink) {
+    static IO<Unit> Demote(ObjectStore store, ObjectClient client, RetentionClass cls, ContentAddress key, StorageTier colder, FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm, Instant now) {
         BlobHandle handle = BlobName.Handle(key, client.Tenant, cls, ObjectCodec.Identity, 0L);
         return worm.TryGetValue(key, out (string Mode, Instant Until) held) && now < held.Until
             ? IO.fail<Unit>(new RemoteStoreFault.Locked(key, held.Mode, held.Until))
             : store.Head(client, handle).Bind(present => present.Match(Some: resident => resident.Tier is Rung.Realized { Tier: var realized } && realized == colder, None: static () => false)
-                ? sink(new BlobTransferFact(store, BlobFactKind.LifecycleNoop, key, 0L, 0, None))
-                : from _ in store.Transition(client, handle, colder, now)
-                  from _fact in sink(new BlobTransferFact(store, BlobFactKind.Tier, key, 0L, 0, None))
-                  select unit);
+                ? IO.pure(unit)
+                : store.Transition(client, handle, colder, now));
     }
 
     static Func<Seq<ContentAddress>, IO<EraseTally>> WormEvict(ObjectStore store, ObjectClient client, RetentionClass cls, FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm, Instant now) =>
@@ -154,7 +150,7 @@ public static class BlobGc {
                 : store.EraseMany(client, split.Free.Map(key => BlobName.Handle(key, client.Tenant, cls, ObjectCodec.Identity, 0L))).Map(page => refused + page);
         };
 
-    public static IO<Seq<SweepReceipt>> Sweep(ObjectStore store, ObjectClient client, Seq<BlobCatalogRow> catalog, Seq<PendingWrite> pending, Reachability reachable, Seq<Hold> holds, Func<BlobTransferFact, IO<Unit>> sink, ProjectionContext frame) {
+    public static IO<Seq<SweepTally>> Sweep(ObjectStore store, ObjectClient client, Seq<BlobCatalogRow> catalog, Seq<PendingWrite> pending, Reachability reachable, Seq<Hold> holds, ProjectionContext frame) {
         FrozenDictionary<ContentAddress, (string Mode, Instant Until)> worm = catalog.Choose(static r => r.WormUntil.Map(u => (r.Key, (Mode: "worm", Until: u)))).ToFrozenDictionary(static t => t.Key, static t => t.Item2);
         Instant now = frame.Now();
         Func<ContentAddress, bool> fence = InFlightFence(pending, now);
@@ -164,14 +160,14 @@ public static class BlobGc {
                 group.Key,
                 RetentionSweep.Run(group.Key, toSeq(group).Map(ToFact), holds, reachable, eligible, now, frame.Correlation).Verdicts,
                 WormEvict(store, client, group.Key, worm, now),
-                (key, tier) => Demote(store, client, group.Key, key, tier, worm, now, sink),
+                (key, tier) => Demote(store, client, group.Key, key, tier, worm, now),
                 frame)).As();
     }
 
-    public static IO<Seq<SweepReceipt>> Pass(ObjectStore store, ObjectClient client, Seq<BlobCatalogRow> catalog, Seq<PendingWrite> pending, Seq<RetentionClass> classes, Reachability reachable, Seq<Hold> holds, Func<BlobTransferFact, IO<Unit>> sink, ProjectionContext frame) =>
+    public static IO<Seq<SweepTally>> Pass(ObjectStore store, ObjectClient client, Seq<BlobCatalogRow> catalog, Seq<PendingWrite> pending, Seq<RetentionClass> classes, Reachability reachable, Seq<Hold> holds, ProjectionContext frame) =>
         from _armed in LifecycleRules.Arm(client, classes)
-        from receipts in Sweep(store, client, catalog, pending, reachable, holds, sink, frame)
-        select receipts;
+        from tallies in Sweep(store, client, catalog, pending, reachable, holds, frame)
+        select tallies;
 }
 ```
 
@@ -185,7 +181,7 @@ public static class BlobGc {
 |  [06]   | WORM window     | catalog column plus the evict arrow              | eligibility fence plus typed evict; no provider 403 leak           |
 |  [07]   | tenancy         | tenant column plus RLS-filtered catalog          | tenant name segment; cross-tenant reclaim unrepresentable          |
 |  [08]   | asset class     | kind column; retention DERIVES from it           | one axis both catalogs share                                       |
-|  [09]   | sweep partition | one pass per class present, receipt per pass     | per-class budgets; a mixed inventory never rides one ceiling       |
+|  [09]   | sweep partition | one pass and tally per class present           | per-class budgets; a mixed inventory never rides one ceiling       |
 |  [10]   | admitted stamps | kind, classification, lineage from the caller    | absence of evidence is not clearance                               |
 |  [11]   | class segment   | name LEADS with the retention class              | one prefix rule per class over every tenant; membership immutable  |
 |  [12]   | lifecycle rules | projection over declared schedule values         | expiry and rungs from the age bound; count and size stay the sweep |
@@ -199,7 +195,6 @@ public static class BlobGc {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

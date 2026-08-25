@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_PVLIB]
 
-`pvlib.solarposition` owns the NREL SPA solar-ephemeris surface feeding the artifacts diagram rail: apparent and true solar position, sunrise/sunset/transit times, Earth-Sun distance, hour angle, and the analytical declination and equation-of-time closed forms, every result numpy-vectorized over the input `pandas.DatetimeIndex`. It emits ephemeris data alone — no SVG, plot, or receipt — so `visualization/diagram/solar#SOLAR` consumes the `azimuth`/`apparent_elevation` columns as the source geometry for its own sun-path arcs, projection, and furniture.
+`pvlib.solarposition` owns the NREL SPA solar-ephemeris surface feeding the artifacts diagram rail: apparent and true solar position, sunrise/sunset/transit times, Earth-Sun distance, hour angle, and the analytical declination and equation-of-time closed forms, all numpy-vectorized over the input `pandas.DatetimeIndex`. It emits ephemeris data alone, so `visualization/diagram/solar#SOLAR` consumes the `azimuth`/`apparent_elevation` columns as source geometry for sun-path arcs, projection, and furniture.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -64,7 +64,7 @@ Every function vectorizes over the input `DatetimeIndex` (`time`/`times`), never
 - `get_solarposition(method=)` is the single polymorphic dispatch — `method` discriminates the SPA backend (`'nrel_numpy'`/`'nrel_numba'`/`'pyephem'`/`'ephemeris'`/`'nrel_c'`); a new accuracy tier is a `method` value, never a parallel owner, with `spa_python` the direct high-accuracy backend and `ephemeris` the scipy-free path.
 - Every function vectorizes over the input `DatetimeIndex`; one `pandas.date_range` samples the whole solstice/equinox/hour-line grid in a single call and the `azimuth`/`apparent_elevation` columns return as `numpy` arrays.
 - `apparent_zenith`/`apparent_elevation`/`azimuth` (refraction-corrected) are the on-sky projection inputs and the bare `zenith`/`elevation` carry the geometric angle; `pressure`/`temperature`/`altitude` tune the refraction model and `delta_t` the TT-UT1 offset.
-- pvlib owns the ephemeris alone and emits no SVG, plot, or receipt: the sun-path arcs, 2D projection, and furniture are `visualization/diagram/solar`'s owned generation over `graphic/vector/path`, with `nrel_earthsun_distance` scaling the sun disc, `sun_rise_set_transit_spa` bounding each date arc at true horizon crossing, `hour_angle` parameterizing the hour lines, and the `declination_*` forms selecting the summer-solstice/equinox/winter-solstice arcs.
+- pvlib owns the ephemeris alone: `visualization/diagram/solar` generates the sun-path arcs, 2D projection, and furniture over `graphic/vector/path`.
 - Import at boundary scope only (`lazy import pvlib.solarposition`); `solarposition` and `pvlib.location` are the sole admitted namespaces, the PV-system/irradiance/module-model surface out of scope.
 
 [STACKING]:

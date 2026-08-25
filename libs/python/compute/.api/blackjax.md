@@ -37,4 +37,4 @@
 - Package: `blackjax`
 - Owns (as admitted): the `"blackjax"` NUTS-backend string PyMC dispatches to, with `chain_method`/`postprocessing_backend` as the accelerator-lever `nuts_sampler_kwargs`
 - Accept: `pm.sample(nuts_sampler="blackjax", nuts_sampler_kwargs={"chain_method": ...})` inside a `pm.Model()` study, graduated through `az.summary`/`az.rhat` on the returned `DataTree`
-- Reject: any `import blackjax` in compute; a raw kernel, SMC, SG-MCMC, VI, adaptation, or diagnostic call; a posterior claim without the PyMC-returned `InferenceData`/`DataTree` receipt; catalog re-authoring of the declined surfaces
+- Reject: any `import blackjax` in compute; a raw kernel, SMC, SG-MCMC, VI, adaptation, or diagnostic call; a posterior claim without the PyMC-returned `InferenceData`/`DataTree`; catalog re-authoring of the declined surfaces

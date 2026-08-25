@@ -101,12 +101,12 @@ Affine ops return `GeometryArray`/`ChunkedGeometryArray`; `affine_transform` app
 - One `method` keyword row discriminates each metric — `area`/`signed_area` on `AreaMethod`, `length` on `LengthMethod`, `simplify` on `SimplifyMethod`, `rotate` on `RotateOrigin` — taking the enum or its lowercase alias; `affine_transform` owns the full matrix and `rotate`/`scale`/`skew`/`translate` fold the same kernel.
 - `frechet_distance(input, other)` and `line_locate_point(input, point)` broadcast one scalar geometry through `__geo_interface__` or `geoarrow.rust.core.Geometry` against the array — the sole non-Arrow admission, a native broadcast rather than a Python scalar loop.
 - `line_interpolate_point` matches `shapely.line_interpolate_point` at `normalized=True`: fraction in `[0,1]`, out-of-range clamps to the endpoints, a non-finite fraction or coordinate yields `POINT EMPTY`; `line_locate_point` is its inverse.
-- Each call captures operation name, selected method, input geometry-type and chunk count, and output carrier kind as an ingress receipt.
+- Each call returns the native geometry result; operation name, selected method, input geometry type and chunk count, and output carrier kind stay on the result or its span when consumed.
 
 [STACKING]:
 - `geoarrow-rust-core`(`.api/geoarrow-rust-core.md`): consumes and returns its `GeometryArray`/`ChunkedGeometryArray` carriers over one shared memory model with no intermediate copy; `frechet_distance`/`line_locate_point` take its `Geometry` scalar as a broadcast operand.
 - `arro3-core`(`.api/arro3-core.md`): scalar-returning ops emit its `Array`/`ChunkedArray` and `explode` its `Table`.
-- geospatial `VectorOp` path: folds every op into the geospatial-ingress compute leg, capturing the ingress receipt per call.
+- geospatial `VectorOp` path: folds every op into the geospatial-ingress compute leg and consumes the native geometry result directly.
 
 [LOCAL_ADMISSION]:
 - Admitted for Arrow-capsule geometry compute on the geospatial-ingress path; geometry-array construction routes to `geoarrow.rust.core` and file IO to `geoarrow.rust.io`.

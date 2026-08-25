@@ -101,7 +101,7 @@ Metadata setters (`with_crs`, `with_edge_type`) replace field attribution withou
 - `array`/`as_geoarrow` own input entry and `as_wkb`/`as_wkt` own serialized re-encoding; one polymorphic `array` entry discriminates on input, and `coord_type` selects `INTERLEAVED` versus `SEPARATED` at construction, never a post-construction re-pack.
 - Zero-argument geometry-type constructors carry unspecified CRS; `with_crs(obj, OGC_CRS84)` or an explicit pyproj CRS writes field attribution, and CRS is never derived from coordinates.
 - `geoarrow-c`/`geoarrow-types` own the WKB/WKT codecs, coordinate kernels, and type specs; this package binds them to pyarrow and re-implements no codec or layout.
-- Each call captures operation name, input encoding, selected `CoordType`, geometry type, CRS presence, and chunk count as an ingress receipt.
+- Each call exposes operation name, input encoding, selected `CoordType`, geometry type, CRS presence, and chunk count at the ingress observation seam.
 
 [STACKING]:
 - `geoarrow-rust-core`(`.api/geoarrow-rust-core.md`): a geometry crosses to the immutable Rust `GeometryArray`/`ChunkedGeometryArray` carriers over the shared Arrow C Data Interface PyCapsule hand-off — one on-wire GeoArrow layout, no intermediate Shapely scalar.

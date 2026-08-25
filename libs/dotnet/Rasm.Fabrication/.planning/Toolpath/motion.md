@@ -17,11 +17,11 @@ CAM motion closes the admitted `(ProcessModality, CutStrategy)` cross-product un
 - Owner: each sub-owner admits ONE axis family and validates it alone — `AxialLaw` the depth schedule and its stability recommendation, `FinishLaw` the surface and grade demand, `ContourLaw` entry, seam, sense, compensation and planar offset, `InfillLaw` the raster and walk law, `SurfaceLaw` sampling, indexed views and the caller-minted layout keys, `RouteLaw` guard, link and machine identity, `MotionStock` the mounted fixture state beside residual and snapshot geometry. `EngagementPolicy` composes admitted sub-owners and validates only the generator map, so no validator carries thirty-eight parameters and a new axis lands on the sub-owner that owns it. The optional `Toolpath/wire` `WirePolicy` and `Toolpath/bevel` `BevelPolicy` ride beside them: an erosion boundary pass is a wire cut and a thermal or abrasive one is a prepared edge wherever the admitted geometry demands the groove, so the law each owner already admits travels on the engagement rather than being re-transcribed at the strategy that routes into it.
 - Cases: `MotionMounts.Floor` admits guard and workholding evidence and rejects execution without joint evidence; `Mounted` threads `CurveSkeleton`, `SpatialIndex`, and `MachineKinematics` through `MotionRun`.
 - Entry: every sub-owner exposes `Admit` returning `Fin`, so a caller composes them once and `EngagementPolicy.Admit` never re-proves an axis its sub-owner already closed.
-- Law: a sub-owner's axes are INDEPENDENT, so its hook accumulates through `AdmissionSlots.Gate` slots and a caller learns every bad axis at once; the refusal locus is `<owner>:<axis>`, so no reader decodes which of six columns a single `contour-law` token meant. A dependent chain — `MotionRun.Of`, where the scallop receipt feeds the chord that feeds the schedule — stays on `Fin` and aborts, because a later step reads an earlier one's value.
+- Law: a sub-owner's axes are INDEPENDENT, so its hook accumulates through `AdmissionSlots.Gate` slots and a caller learns every bad axis at once; the refusal locus is `<owner>:<axis>`, so no reader decodes which of six columns a single `contour-law` token meant. A dependent chain — `MotionRun.Of`, where the scallop verdict feeds the chord that feeds the schedule — stays on `Fin` and aborts, because a later step reads an earlier one's value.
 - Law: the stability recommendation is `Tooling/cuttingdata#STABILITY` `StabilityLobes.Recommend`'s own `Option<StablePoint>` seated on the axial law — the chatter-free depth is an AXIAL fact, so it rides the schedule it constrains. `MotionRun.Of` clamps the resolved step-down to the recommended depth and records the adopted spindle point as a `RunWarning`; an absent recommendation leaves the requested schedule untouched.
 - Law: every DIMENSIONED sub-owner column rides its `UnitsNet` quantity under the package ruling that quantities seat on each policy head no preimage digests — the four axial depths, the finish allowance and its engagement angle, the raster direction with its per-layer advance, the thread pitch, and the five hole lengths beside the countersink included angle. Each suffix stated its unit where no compiler read it, so an inch-basis caller admitted its magnitude unchanged and an angle column sat interchangeable with a length one; the quantity states the unit at construction, closes that cross-dimension mix, and leaves the millimetre a projection at the numeric seam. `AxialPass` is the ONE bare-millimetre row left: `Cam.AtDepth` writes each pass depth into a `FabricationCanon.Ordered` preimage, so the folder ruling that a digested scalar keeps its raw spelling holds it, and `AxialLaw.Schedule` is the derivation site the projection sits at. Feed, retract, spot, deep-step, and ream fractions stay bare — no unit names them, and `Ratio` leaves all five mutually substitutable while buying a conversion at every scale site.
 - Auto: `EngagementPolicy.Resolve` folds the budget case to ONE `BudgetDraw` row — the modality the case requires, its refusal locus, and the feed/compensation/step-down triple it can answer — so the eleven arms carry no repeated gate and one admission decides them all. `AxialLaw.Schedule` derives axial-pass rows from total depth, step ceiling, finish step-down, and allowances. `MotionRun.Of` resolves scallop chord and IT-grade allowance once.
-- Receipt: `MotionRun` carries the admitted carrier every emitter reads; `Schedule` is derived, never stored, so a policy edit cannot leave a stale roster behind it.
+- Output: `MotionRun` carries the admitted carrier every emitter reads; `Schedule` is derived, never stored, so a policy edit cannot leave a stale roster behind it.
 - Packages: `Process/owner.md` atoms and `FabricationCanon`, `Process/family.md`, `Process/physics.md`, `Process/faults.md`, `Tooling/cuttingdata.md`, `Spec/tolerance.md` (`ToleranceSpec.Apply`), `Toolpath/bevel.md`, `Toolpath/guard.md`, `Toolpath/link.md`, `Toolpath/surface.md`, `Toolpath/wire.md`, `Fixturing/workholding.md`, `Kinematics/machine.md`, kernel `Rasm.Domain` (`Tolerance`, `ToleranceLane`), `Rasm.Element` (`AdmissionSlots`, `CanonicalWriter`), `UnitsNet` (`Length` and `Angle` over every dimensioned sub-owner column, and the quantity algebra that folds the raster heading), `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `Riok.Mapperly`, `RhinoCommon`, BCL inbox.
 - Growth: a new engagement axis is one column on the sub-owner that owns it; a new machine posture is one `RouteLaw` column.
 - Boundary: `Cam` never uses pass count as an axial-depth surrogate and never chord-samples a revolution a `Move.Circular` arc states exactly. Fabricated physics, Cartesian coordinates relabeled as joints, and automatic guard lifts stay unrepresentable.
@@ -787,7 +787,7 @@ public sealed record CamStrategy(CutStrategy Strategy, bool DemandsClosed, Func<
 - Entry: `Solve(FabricationPolicy.Cam, FabricationInput)` is the owner-side fold. `Generate(MotionRun)` derives its `(ProcessModality, CutStrategy)` discriminant from the admitted carrier and reads the strategy row. Both return `Fin`; independent open-profile defects accumulate at the closed-boundary gate, and dependent generation aborts.
 - Law: the SAME hazard fold `Commit` runs is submitted to the link beam, so a transition the guard refuses never enters the beam and one verdict governs both legs.
 - Auto: `ElementVariant.Of` derives every element's rotation, thermal exposure, and pierce count off its own emitted motion, so the link objective sums one measurement across stations and transitions. `Turn` lowers each executable `LatheDirective` onto the S0 `MotionDirective` carrier and each evidence directive onto a `SpecializedToolpathRow` through the generated mapper, then folds one admitted `SpecializedToolpathEnvelope` — no parallel command family and no typed refusal for a dwell, oriented stop, or spindle synchronization the atom now carries.
-- Receipt: `FabricationResult.Motion` carries atom-safe moves, generated directives, joint rows, seconds, and cell code; reach is asserted only by a machine or cell solve. Every element keys through `CutElement.Identify`, the package's one mint, so the occurrence ordinal separates geometrically equal profiles at one depth and an axial shift re-keys rather than inheriting its source's identity.
+- Output: `FabricationResult.Motion` carries atom-safe moves, generated directives, joint rows, seconds, and cell code; reach is asserted only by a machine or cell solve. Every element keys through `CutElement.Identify`, the package's one mint, so the occurrence ordinal separates geometrically equal profiles at one depth and an axial shift re-keys rather than inheriting its source's identity.
 - Boundary: `Cam` never feeds between islands, rings, graph components, native paths, or fill strokes. `Cleared` and `Sampling` are the private folds the sibling `Guard` and `SurfacePolicy` owners would otherwise shadow by name.
 
 ```csharp
@@ -957,10 +957,10 @@ public static class Cam {
         from guarded in Cleared(run, conditioned, run.Engagement.Route.Home)
         from solved in run.Policy.Robot.Match(
             Some: cell =>
-                from receipt in RobotProgram.Run(cell, guarded, new CellProgramRequest.Motion(run.Policy.Cell))
-                from motion in receipt is CellProgramReceipt.Motion completed
-                    ? Fin.Succ(completed.Result)
-                    : Fin.Fail<FabricationResult.Motion>(new KernelFault.InvalidValue("motion", "cam:cell-motion-receipt"))
+                from outcome in RobotProgram.Run(cell, guarded, new CellProgramRequest.Motion(run.Policy.Cell))
+                from motion in outcome is CellOutcome.Motion completed
+                    ? Fin.Succ(completed.Value)
+                    : Fin.Fail<FabricationResult.Motion>(new KernelFault.InvalidValue("motion", "cam:cell-motion"))
                 select motion,
             None: () => run.Mounts.Kinematics.Match(
                 Some: kinematics => MachineTool.Solve(kinematics, guarded).Map(static solution => solution.Motion),
@@ -981,7 +981,7 @@ public static class Cam {
         Workholding.Apply(new WorkholdingOp.Condition(run.Mounts.Fixture, run.Mounts.State, moves)).Bind(result =>
             result is WorkholdingResult.Conditioned conditioned
                 ? Fin.Succ(conditioned.Moves)
-                : Fin.Fail<Seq<Move>>(new KernelFault.InvalidValue("motion", "cam:workholding-receipt")));
+                : Fin.Fail<Seq<Move>>(new KernelFault.InvalidValue("motion", "cam:workholding")));
 
     private static Fin<Seq<Move>> Cleared(MotionRun run, Seq<Move> moves, Point3d home) {
         (Point3d Cursor, Seq<Error> Faults) walked = moves.Fold(
@@ -1011,8 +1011,8 @@ public static class Cam {
              run.Mounts.State,
              run.Engagement.Route.Guard,
              run.Engagement.Route.Probes)
-         from receipt in Guard.Check(request)
-         select receipt.Hazards.Map(hazard => hazard.Switch(
+         from verdict in Guard.Check(request)
+         select verdict.Hazards.Map(hazard => hazard.Switch(
              state: run,
              gouge: static (value, row) => (Error)new FabricationFault.Gouge(row.Witness.Surface, value.Policy.Cutter),
              @fixed: static (_, row) => new KernelFault.InvalidValue("motion", $"cam:guard:fixed:{row.Obstacle.Operation}:{row.Obstacle.Element}"),
@@ -1070,8 +1070,8 @@ public static class Cam {
                     side,
                     LeadRole.Entry))
                 from motion in trace is ArcTrace.Motion moved
-                    ? Fin.Succ(moved.Receipt)
-                    : Fin.Fail<MotionReceipt>(new KernelFault.InvalidValue("motion", "cam:lead-receipt"))
+                    ? Fin.Succ(moved.Evidence)
+                    : Fin.Fail<ArcMotionEvidence>(new KernelFault.InvalidValue("motion", "cam:lead-path"))
                 from lead in AtDepth(motion.Moves, depth)
                 select (lead, Seq<Move>()),
             ramp: row => RampEntry(ring, feed, depth, row),
@@ -1143,8 +1143,8 @@ public static class Cam {
                             : accessible.Traverse(region => Seed(
                                 PartitionStrategy.PocketRegion,
                                 region,
-                                new PartitionProjection.Regions()).Bind(receipt =>
-                                    receipt.Regions.Traverse(cell =>
+                                new PartitionProjection.Regions()).Bind(partitioned =>
+                                    partitioned.Regions.Traverse(cell =>
                                         Rings(cell, run.Policy.Pass.StepOver, run.Engagement.Contour.PlanarOffset)
                                             .Bind(rings => rings.Traverse(ring =>
                                                 from perimeter in Perimeter(run, ring, run.Feed * pass.FeedScale, layer: 0)
@@ -1192,11 +1192,11 @@ public static class Cam {
             run.Input.Model.Match(
                 Some: model =>
                     from policy in Sampling(run)
-                    from receipt in SurfacePath.Sample(
+                    from sampling in SurfacePath.Sample(
                         new SurfaceStrategy.DrillFamily(policy, measured.Map(static target => target.Top).ToArr()),
                         model,
                         run.Policy.Cutter)
-                    from dropped in receipt.Elements
+                    from dropped in sampling.Elements
                         .Bind(static element => element.Variants)
                         .Bind(static variant => variant.Moves)
                         .Map(static move => move.Target) is var tops && tops.Count == measured.Count
@@ -1293,7 +1293,7 @@ public static class Cam {
         toSeq(run.Input.Profiles).Traverse(loop =>
             from stock in ArcForest.Admit(Seq(loop), loop.Tolerance, loop.Plane).ToFin()
             from result in Offsetting.Apply(new OffsetOp.Medial(Ring(loop), Rasm.Meshing.OffsetPolicy.Canonical))
-            from receipt in result is OffsetResult.Axis axis
+            from offset in result is OffsetResult.Axis axis
                     ? SkeletonDemand.Admit(
                         stock,
                         axis.Medial,
@@ -1304,7 +1304,7 @@ public static class Cam {
                         run.Pair.Modality).Bind(Skeleton.Walk)
                     : Fin.Fail<SkeletonWalk>(new KernelFault.InvalidValue("motion", "cam:medial-result"))
             from elements in run.Schedule
-                            .Traverse(pass => receipt.Elements.Traverse(element =>
+                            .Traverse(pass => offset.Elements.Traverse(element =>
                                 AtDepth(element, pass.DepthMm - pass.FloorAllowanceMm)))
                             .Map(static passes => passes.Bind(identity))
             select elements)
@@ -1500,8 +1500,8 @@ public static class Cam {
         from model in run.Input.Model.ToFin(new KernelFault.InvalidValue("motion", "cam:surface-model"))
         from policy in Sampling(run)
         from demand in strategy(policy)
-        from receipt in SurfacePath.Sample(demand, model, run.Policy.Cutter)
-        select receipt.Elements;
+        from sampling in SurfacePath.Sample(demand, model, run.Policy.Cutter)
+        select sampling.Elements;
 
     private static Fin<SurfacePolicy> Sampling(MotionRun run) =>
         SurfacePolicy.Admit(run.Engagement, run.Engagement.Surface.Layout);
@@ -1632,7 +1632,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

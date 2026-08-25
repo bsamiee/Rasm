@@ -1,11 +1,11 @@
 # [PY_GEOMETRY]
 
-`geometry` is the Python branch's standalone host-free geometry and IFC/BIM platform, every crossing content-keyed, receipted, and produced off the event loop. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactService` Connect contract, and it graduates evidence through its own `rasm.geometry.graduation` spine, never an import.
+`geometry` is the Python branch's standalone host-free geometry and IFC/BIM platform, with content-keyed crossings produced off the event loop. Peer branches meet it through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactService` Connect contract.
 
 ## [01]-[ROUTER]
 
 [GRADUATION]:
-- [01]-[GRADUATION](.planning/graduation.md): S0 evidence spine and raise-leg roster every producer composes into a content-keyed receipt.
+- [01]-[GRADUATION](.planning/graduation.md): S0 raise-leg, observation-scope, metric-charter, frame, progress, and benchmark roster.
 
 [SCAN]:
 - [02]-[INGESTION](.planning/scan/ingestion.md): Source-discriminated raw-scan preprocessing into a registration-ready point cloud.
@@ -118,7 +118,7 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 - `networkx`
 
 [WIRE_CODEGEN]:
-- `protobuf-py` — generated message, enum, and oneof carriers for tessellation admission, receipts, and artifact frames.
+- `protobuf-py` — generated message, enum, and oneof carriers for tessellation admission, results, and artifact frames.
 - `connectrpc` — `RequestContext` the generated servicer signatures take; the host and dial stay runtime's.
 - `rasm.contracts` — generated compute/artifact protocols; `scene_pb` is the energy-simulation decode surface.
 - `rasm.contracts.cad` — generated CAD requests, unary replies, artifact references, and `CadServiceClient` for the isolated provider boundary.

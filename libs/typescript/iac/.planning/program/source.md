@@ -267,7 +267,3 @@ const _FOLDERS = {
 
 export { Source }
 ```
-
-## [04]-[RESEARCH]
-
-(none)

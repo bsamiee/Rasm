@@ -2,7 +2,7 @@
 
 `DocumentPlan` owns the document-emission axis over the single `DocumentNode` semantic tree. `DocumentMode` discriminates over the `BACKENDS` policy table, and every arm folds FROM `document/model#NODE` — PDF authoring, archival HTML-CSS, tagged PDF/UA, Typst typesetting, raster, assembly, repair, OOXML and OpenDocument office, structured text, and Markdown/LaTeX manuscript egress — never an opaque payload. Emission lowers FROM the tree and `document/lens#LENS` recovers TO it, so production and extraction are inverses over one node algebra.
 
-Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker split is a row column rather than a second dispatch surface: a `CORE`-band arm crosses as a `KernelTrait.RELEASING` kernel, a `WORKER`-band arm as `KernelTrait.HOSTILE` onto the warm process pool under its trait-row worker-death retry, and both hand the SAME `_dispatched` row-resolver to the caller-threaded `lane: LanePolicy` offload seam the runtime owns — the worker lane carries no second `match`. `EmitSpec` admits exactly once at `DocumentPlan.of` through the closed `EmitPayload` `TypedDict` under the per-mode `_REQUIRED` precondition AND the per-mode `_SCOPE` admissibility set — a payload key the selected mode cannot observe is the `EmitFault.foreign` refusal, `bound` slices one validated payload per mode so a key rides exactly the modes that observe it and refuses only a key NO selected mode observes, and `_key` hashes only the mode-scoped spec slice, so plan identity is invariant under data no backend reads; arm-level provider raises convert to the runtime `BoundaryFault` at the `async_boundary` capsule. `@receipted(OPEN)` drains `contribute` off the stepped owner; `core/plan#PLAN` schedules the node set and `core/issue#ISSUE` constructs it; `exchange/detect#DETECT` format-identifies a `template` payload before any engine trusts its extension.
+Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker split is a row column rather than a second dispatch surface: a `CORE`-band arm crosses as a `KernelTrait.RELEASING` kernel, a `WORKER`-band arm as `KernelTrait.HOSTILE` onto the warm process pool under its trait-row worker-death retry, and both hand the same `_dispatched` row-resolver to the caller-threaded `lane: LanePolicy` offload seam the runtime owns. `EmitSpec` admits exactly once at `DocumentPlan.of` through the closed `EmitPayload` `TypedDict` under the per-mode `_REQUIRED` precondition and `_SCOPE` admissibility set; `_key` hashes only the mode-scoped spec slice. `exchange/detect#DETECT` format-identifies a `template` payload before any engine trusts its extension.
 
 ## [01]-[INDEX]
 
@@ -10,9 +10,9 @@ Each `Backend` row binds its arm to its runtime `Band`, so the runtime/worker sp
 
 ## [02]-[DOCUMENT]
 
-- Entry: the key mints PRE-RUN over the canonical `(mode, node, spec)` input — `receipt.slot == node.key`, the produced output content-address riding the receipt FACTS, never the elision key. `bound(node, modes, **payload)` is the one-context-many-formats fan: one validated payload binds one `DocumentNode` context to N format nodes with per-mode keys and per-mode payload slices, so a re-issued package re-renders only changed formats — never a per-format vocabulary re-spelling `DocumentMode` and never a second scheduling rail. `world(title=)` is the one Typst `Compiler` mint — compile, query, and eval arms share it, so the tree lowers to Typst source exactly once per emission.
+- Entry: the key mints over the canonical `(mode, node, spec)` input. `bound(node, modes, **payload)` binds one validated `DocumentNode` context to per-mode work with per-mode keys and payload slices. `world(title=)` is the one Typst `Compiler` mint shared by compile, query, and eval.
 - Auto: `_run_markup` carries each `RunNode`'s real weight/italic/colour/baseline/decoration with `<`/`&` escaped once before any tag — a plain `run.text` splice drops run fidelity, and the docx/pptx/odf office arms carry the same per-run fidelity into list items and slide runs rather than flattening to bare text; the `A_3A` weasyprint variant embeds its PDF/A-3 source files through `attachments`, never only naming them; each `PageNode` opens its own tagged sheet through `new_page_same_size`, so a multi-page UA document never overflows one buffered page, `FormulaNode` and footnote `NOTE` annotations land in the UA walk (`page.paragraph` over the `/Alt` equivalent, `page.footnote`), a spanned grid rides the `streaming_table(repeat_header=, max_rowspan=)` row surface, and the UA and slide walks prune below `TableNode` so cell content never doubles as loose paragraphs; the manuscript rows escape through the model owner's `_MD_ESCAPE`/`_LATEX_ESCAPE` maps so no active character breaks the source. Born-archival and born-tagged renders self-verify: `_conformance` re-opens the emitted bytes through the `pdf_oxide` oracle (`validate_pdf_a(level)`/`validate_pdf_ua()`) and folds `valid`/`errors` onto the fact — emit-side evidence of the claimed variant, never the sealed verdict `exchange/conformance#CONFORMANCE` owns. `_pypdfium2_raster` copies each borrowed `to_numpy` view into the `EmitFact.data` byte stream before closing its `PdfBitmap`, then closes the page and document leaf-first; `frame_shapes` preserves heterogeneous page boundaries without `np.stack` shape assumptions.
-- Receipt: `contribute` reads the threaded `EmitFact` off `self.fact` — never an in-process re-run of a worker-gated arm — and folds the case off the `Backend.kind` discriminant: emit mints only the `ArtifactReceipt.Pdf`/`.Office` arities the receipt owner declares; the typography-rail `Document` case is not its to mint. Rich per-arm evidence (render scale, outline count, embedded-face set, undeclared-variable set, validation verdict) rides the `EmitFact` carrier, never a widened receipt tuple. `_emit` also awaits `Journal.record` over `receipt.evidence(*live._claim)` — the ONE durable seat for the three kinds this owner mints, because recording suspends and `contribute` cannot — and an archival or born-tagged render appends its declared variant beside the oracle's verdict positionally, since the shared `Pdf` case carries neither.
+- Output: `_emit` returns the settled `EmitFact`; `Backend.kind` selects only the production observation, and archival or born-tagged claims land as regulatory audit changes at the same fold.
 - Growth: a new document format is one `DocumentMode` row with one `Backend` row binding its arm and band, one `_SCOPE` row naming its observable payload fields, and a `_REQUIRED` row when it demands an input; a new mode-specific control is one `EmitSpec` field with its `_SCOPE` membership; a new typed cell is one `CellValue` arm; a new interactive-field payload is one `FieldValue` case with one `_ua_field` arm; a new archival profile is one `PdfVariant` row projecting through `_PDF_STANDARD`/`_PDF_PROFILE`/`_ACCESSIBLE` to both engines; a new evidence fact is one `EmitFact` field; a new admission cause is one `EmitFault` case.
 
 ```python
@@ -38,14 +38,13 @@ from pydantic import Field, TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
-from rasm.runtime.journal import Assigned, Change, Journal
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Journal, Party, Retain
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import OPEN, Receipt, receipted
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactKind, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.exchange.detect import Detect, MediaClass, Source
 from rasm.artifacts.document.model import (
     AnnotKind,
@@ -179,12 +178,6 @@ class DocumentMode(StrEnum):
 class Band(StrEnum):
     CORE = "core"
     WORKER = "worker"
-
-
-class ReceiptKind(StrEnum):
-    PDF = "pdf"
-    OFFICE = "office"
-    DOCUMENT = "document"
 
 
 class SchemaKind(StrEnum):
@@ -546,7 +539,7 @@ _SCOPE: Final[Map[DocumentMode, frozenset[str]]] = Map.of_seq([
 class Backend(Struct, frozen=True):
     band: Band
     arm: Arm
-    kind: ReceiptKind
+    kind: ArtifactKind
 
 
 class DocumentPlan(Struct, frozen=True):
@@ -559,7 +552,7 @@ class DocumentPlan(Struct, frozen=True):
     def world(self, *, title: str | None = None) -> "Compiler":
         return Compiler(to_typst_source(self.node, title=title).encode(), font_paths=[], sys_inputs=dict(self.spec.sys_inputs))
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[EmitFact]:
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=self.spec.parents, admission=Admission(keyed=None), cost=1.0)
 
@@ -571,12 +564,27 @@ class DocumentPlan(Struct, frozen=True):
     def _scoped(self) -> EmitSpec:
         return EmitSpec(**{name: getattr(self.spec, name) for name in _admissible(self.mode)})
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        crossed = await async_boundary(EMIT_STEP, self._stepped, catch=_STEP_RAISES)
-        settled = crossed.map(lambda live: (live, _RECEIPT[BACKENDS[self.mode].kind](key, live.fact)))
-        match settled:
-            case Result(tag="ok", ok=(live, receipt)):
-                return (await Journal.record(receipt.evidence(*live._claim))).map(lambda _landed: receipt)
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[EmitFact]:
+        match await async_boundary(EMIT_STEP, self._stepped, catch=_STEP_RAISES):
+            case Result(tag="ok", ok=live):
+                assert live.fact is not None
+                fact = live.fact
+                Metrics.record(
+                    {BYTE_VOLUME: float(len(fact.data))},
+                    domain=DOMAIN,
+                    kind=BACKENDS[self.mode].kind,
+                    scope=self.lane.scope,
+                )
+                if live._claim:
+                    audited = AuditFact(
+                        action="artifacts.document.emit",
+                        actor=Party(kind=Actor.SERVICE, key="artifacts"),
+                        target=Party(kind=BACKENDS[self.mode].kind, key=key.hex),
+                        retention=Retain.REGULATORY,
+                        change=live._claim,
+                    )
+                    await Journal.record((audited,), scope=self.lane.scope)
+                return Ok(fact)
             case refused:
                 return Error(refused.error)
 
@@ -592,7 +600,6 @@ class DocumentPlan(Struct, frozen=True):
             Assigned(path="/errors", next=str(fact.errors)),
         )
 
-    @receipted(OPEN)
     async def _stepped(self, /) -> Self:
         gate: RuntimeRail[Self] = (
             (await Detect(lane=self.lane).of(Source.File(Path(self.spec.template))))
@@ -611,11 +618,6 @@ class DocumentPlan(Struct, frozen=True):
             else await admitted.lane.offload(Kernel.of(_dispatched, KernelTrait.RELEASING), admitted)
         )
         return replace(admitted, fact=fact.default_with(lapsed))
-
-    def contribute(self) -> Iterable[Receipt]:
-        if (fact := self.fact) is None:
-            return
-        yield from _RECEIPT[BACKENDS[self.mode].kind](self._key, fact).contribute()
 
     @classmethod
     def _planned(cls, mode: DocumentMode, node: DocumentNode, lane: LanePolicy, payload: EmitPayload, /) -> Result[Self, EmitFault]:
@@ -1615,41 +1617,35 @@ def _dispatched(plan: DocumentPlan) -> EmitFact:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_RECEIPT: Final[Map[ReceiptKind, Callable[[ContentKey, EmitFact], "ArtifactReceipt"]]] = Map.of_seq([
-    (ReceiptKind.PDF, lambda key, fact: ArtifactReceipt.Pdf(key, len(fact.data), fact.pages)),
-    (ReceiptKind.OFFICE, lambda key, fact: ArtifactReceipt.Office(key, len(fact.data))),
-    (ReceiptKind.DOCUMENT, lambda key, fact: ArtifactReceipt.Document(key, len(fact.data))),
-])
-
 BACKENDS: Final[Map[DocumentMode, Backend]] = Map.of_seq([
-    (DocumentMode.PDF_AUTHOR, Backend(Band.CORE, _reportlab_author, ReceiptKind.PDF)),
-    (DocumentMode.PDF_HTML, Backend(Band.WORKER, _weasyprint_html, ReceiptKind.PDF)),
-    (DocumentMode.PDF_OXIDE, Backend(Band.CORE, _pdf_oxide_create, ReceiptKind.PDF)),
-    (DocumentMode.PDF_UA, Backend(Band.CORE, _pdf_ua_build, ReceiptKind.PDF)),
-    (DocumentMode.PDF_TYPST, Backend(Band.WORKER, _typst_compile, ReceiptKind.PDF)),
-    (DocumentMode.TYPST_QUERY, Backend(Band.WORKER, _typst_query, ReceiptKind.DOCUMENT)),
-    (DocumentMode.TYPST_EVAL, Backend(Band.WORKER, _typst_eval, ReceiptKind.DOCUMENT)),
-    (DocumentMode.TYPST_DATA, Backend(Band.WORKER, _typst_compile, ReceiptKind.PDF)),
-    (DocumentMode.PDF_RENDER, Backend(Band.CORE, _pymupdf_render, ReceiptKind.PDF)),
-    (DocumentMode.PDF_RASTER, Backend(Band.CORE, _pypdfium2_raster, ReceiptKind.PDF)),
-    (DocumentMode.PDF_OXIDE_RENDER, Backend(Band.CORE, _pdf_oxide_render, ReceiptKind.PDF)),
-    (DocumentMode.PDF_ASSEMBLE, Backend(Band.CORE, _pypdf_assemble, ReceiptKind.PDF)),
-    (DocumentMode.PDF_REPAIR, Backend(Band.WORKER, _pikepdf_repair, ReceiptKind.PDF)),
-    (DocumentMode.FONT_EMBED, Backend(Band.CORE, _font_embed, ReceiptKind.PDF)),
-    (DocumentMode.DOCX, Backend(Band.CORE, _docx_emit, ReceiptKind.OFFICE)),
-    (DocumentMode.DOCX_TEMPLATE, Backend(Band.CORE, _docxtpl_emit, ReceiptKind.OFFICE)),
-    (DocumentMode.PPTX, Backend(Band.WORKER, _pptx_emit, ReceiptKind.OFFICE)),
-    (DocumentMode.XLSX, Backend(Band.CORE, _xlsx_emit, ReceiptKind.OFFICE)),
-    (DocumentMode.ODT, Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE)),
-    (DocumentMode.ODS, Backend(Band.CORE, _odf_emit, ReceiptKind.OFFICE)),
-    (DocumentMode.XML, Backend(Band.WORKER, _lxml_emit, ReceiptKind.DOCUMENT)),
-    (DocumentMode.XML_TRANSFORM, Backend(Band.WORKER, _lxml_transform, ReceiptKind.DOCUMENT)),
-    (DocumentMode.XML_VALIDATE, Backend(Band.WORKER, _lxml_validate, ReceiptKind.DOCUMENT)),
-    (DocumentMode.XML_QUERY, Backend(Band.WORKER, _lxml_query, ReceiptKind.DOCUMENT)),
-    (DocumentMode.YAML, Backend(Band.CORE, _ruamel_emit, ReceiptKind.DOCUMENT)),
-    (DocumentMode.TOML, Backend(Band.CORE, _tomlkit_emit, ReceiptKind.DOCUMENT)),
-    (DocumentMode.MARKDOWN, Backend(Band.CORE, _markdown_emit, ReceiptKind.DOCUMENT)),
-    (DocumentMode.LATEX, Backend(Band.CORE, _latex_emit, ReceiptKind.DOCUMENT)),
+    (DocumentMode.PDF_AUTHOR, Backend(Band.CORE, _reportlab_author, "pdf")),
+    (DocumentMode.PDF_HTML, Backend(Band.WORKER, _weasyprint_html, "pdf")),
+    (DocumentMode.PDF_OXIDE, Backend(Band.CORE, _pdf_oxide_create, "pdf")),
+    (DocumentMode.PDF_UA, Backend(Band.CORE, _pdf_ua_build, "pdf")),
+    (DocumentMode.PDF_TYPST, Backend(Band.WORKER, _typst_compile, "pdf")),
+    (DocumentMode.TYPST_QUERY, Backend(Band.WORKER, _typst_query, "document")),
+    (DocumentMode.TYPST_EVAL, Backend(Band.WORKER, _typst_eval, "document")),
+    (DocumentMode.TYPST_DATA, Backend(Band.WORKER, _typst_compile, "pdf")),
+    (DocumentMode.PDF_RENDER, Backend(Band.CORE, _pymupdf_render, "pdf")),
+    (DocumentMode.PDF_RASTER, Backend(Band.CORE, _pypdfium2_raster, "pdf")),
+    (DocumentMode.PDF_OXIDE_RENDER, Backend(Band.CORE, _pdf_oxide_render, "pdf")),
+    (DocumentMode.PDF_ASSEMBLE, Backend(Band.CORE, _pypdf_assemble, "pdf")),
+    (DocumentMode.PDF_REPAIR, Backend(Band.WORKER, _pikepdf_repair, "pdf")),
+    (DocumentMode.FONT_EMBED, Backend(Band.CORE, _font_embed, "pdf")),
+    (DocumentMode.DOCX, Backend(Band.CORE, _docx_emit, "office")),
+    (DocumentMode.DOCX_TEMPLATE, Backend(Band.CORE, _docxtpl_emit, "office")),
+    (DocumentMode.PPTX, Backend(Band.WORKER, _pptx_emit, "office")),
+    (DocumentMode.XLSX, Backend(Band.CORE, _xlsx_emit, "office")),
+    (DocumentMode.ODT, Backend(Band.CORE, _odf_emit, "office")),
+    (DocumentMode.ODS, Backend(Band.CORE, _odf_emit, "office")),
+    (DocumentMode.XML, Backend(Band.WORKER, _lxml_emit, "document")),
+    (DocumentMode.XML_TRANSFORM, Backend(Band.WORKER, _lxml_transform, "document")),
+    (DocumentMode.XML_VALIDATE, Backend(Band.WORKER, _lxml_validate, "document")),
+    (DocumentMode.XML_QUERY, Backend(Band.WORKER, _lxml_query, "document")),
+    (DocumentMode.YAML, Backend(Band.CORE, _ruamel_emit, "document")),
+    (DocumentMode.TOML, Backend(Band.CORE, _tomlkit_emit, "document")),
+    (DocumentMode.MARKDOWN, Backend(Band.CORE, _markdown_emit, "document")),
+    (DocumentMode.LATEX, Backend(Band.CORE, _latex_emit, "document")),
 ])
 ```
 
@@ -1657,7 +1653,6 @@ BACKENDS: Final[Map[DocumentMode, Backend]] = Map.of_seq([
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

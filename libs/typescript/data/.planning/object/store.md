@@ -7,7 +7,7 @@
 - [02]-[CLIENT_SEAM]: scoped client, one typed send, fault fold, config, engine table.
 - [03]-[CONDITIONAL]: put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads.
 - [04]-[REFERENCE_GC]: reference ledger, owner vocabulary with its mint and ingress admission, derived retention tag and the held posture, If-Match CAS sweep with the transitive derivative cascade, archive ladder and lifecycle, multipart reap, restore deferral.
-- [05]-[INSTRUMENT_ROWS]: Convention projections — dedup outcome, bytes written, GC reclaim off the receipts.
+- [05]-[INSTRUMENT_ROWS]: Convention projections — dedup outcome, bytes written, GC reclaim off the landed value and the sweep mark.
 - [06]-[GRANT_MINT]: one presign entry, TTL narrowing, header policy, typed grant.
 - [07]-[EVENT_DATAREF]: confined CloudEvents claim-check externalize/resolve over the content-addressed store.
 - [08]-[CUSTODY_CONTRACT]: object-plane half of the backend generation — custody descriptor artifact, capability rows, realized-state observation.
@@ -21,7 +21,7 @@
 - Law: the abort bridge is mandatory — `Effect.tryPromise({ try: (signal) => client.send(command, { abortSignal: signal }), catch: _folded(key) })` — fiber interruption aborts the in-flight request; an un-abortable send leaks past interruption.
 - Law: `ObjectFault` closes missing, archived, refused-owner, integrity, engine-conformance, and I/O reasons through `Fault.Class.family`; HTTP 412 returns replay success.
 - Law: the fold reads the SDK's TAGGED classes before it reads transport status, because a status is the coarsest evidence a reply carries and the archive verdict is the case that proves it — `InvalidObjectState` is neither 404 nor 412, so a status-only ladder drops it on the `io` arm and re-drives the whole `lease` curve against a condition no attempt can change, on the plane whose own `_lifecycle` writes the rules that archived the object.
-- Law: the command's own conditional selects the leg's fold — `_folded` mints `_Replay` and serves exactly the legs that send a conditional header (the three put legs, the copy, the `If-Match` sweep delete, each folding the replay into a receipt or a retained mark), while every unconditional command takes `_foldedRead`: the presign mint, the lifecycle push, the multipart open, the part uploads, and the reads. `_folded` on an unconditional leg widens that leg's error channel with a private tag no caller folds even though the 412 can never arrive, and `_shielded` then hands its retry gate a value carrying no `class`, which `Fault.Class.of` reads as `defect` — the classification a store fault must never reach by construction.
+- Law: the command's own conditional selects the leg's fold — `_folded` mints `_Replay` and serves exactly the legs that send a conditional header (the three put legs, the copy, the `If-Match` sweep delete, each folding the replay into a `Landed` value or a retained mark), while every unconditional command takes `_foldedRead`: the presign mint, the lifecycle push, the multipart open, the part uploads, and the reads. `_folded` on an unconditional leg widens that leg's error channel with a private tag no caller folds even though the 412 can never arrive, and `_shielded` then hands its retry gate a value carrying no `class`, which `Fault.Class.of` reads as `defect` — the classification a store fault must never reach by construction.
 - Law: `_shielded` composes the `Fault.Budget` lease schedule, attempt ceiling, total ceiling, and `Fault.Class.retryable` gate.
 - Law: `Fault.Budget` owns the WHOLE curve and the SDK-native retry pins to a single attempt — `maxAttempts: 1` on the client is the pin, and no `Config` row exposes it, because a provider schedule nested inside each attempt of the lease curve makes effective attempts the PRODUCT of two schedules and every budget on this page then measures a span it never fixed.
 - Boundary: streaming, waiting, walking, and reference members stand outside the bracket by construction — `putKeyed` cannot replay a one-shot body, `settled` owns its waiter budget, `sweep` and `reap` settle faults inside their folds, and `refer`/`release` ride the relational rail; every other member rides `_shielded`.
@@ -178,14 +178,14 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault =>
 - Owner: the conditional-put algebra and the read family — `conditional` (the ONE conditional command mint the server put, the presign grant, and the stream rail's finalize all share), `put` discriminating plain versus multipart versus streaming on the body shape and size, `get` with identity verification, `head` settling presence and descriptor evidence, and the consistency waiters; the ranged streaming read is `object/stream.md`'s `Rail.range` — one owner per read geometry, never both pages.
 - Packages: AWS S3 clients, `effect`, and core `Digest` supply conditional transport, streaming rails, and content identity.
 - Entry: `store.put(bytes)` mints the key from the bytes through the core digest and writes conditionally — the caller never supplies a key because identity is derived, not asserted; a streaming body whose key is already proven (the stream rail's finalize) enters through `store.putKeyed(key, body)` on the same conditional legs.
-- Receipt: `ObjectStore.Receipt` — `{ key, bytes, written }` — `written: false` is the 412 idempotent noop, a success by law; the multipart and streaming legs land the same receipt because the conditional evaluates atomically at completion.
+- Output: `ObjectStore.Landed` — `{ key, bytes, written }` — `written: false` is the 412 idempotent noop, a success by law; the multipart and streaming legs land the same value because the conditional evaluates atomically at completion.
 - Growth: a write posture is a field threaded into the command mints, arriving as one policy row on the service construction; a read shape (range, part, attributes) is a command field, never a sibling get; a new producer is one `_OWNERS` row `[04]` and its own reference row, never a leg here.
 - Law: every leg writes at the engine's DEFAULT class and the retention ladder owns depth alone — a put-time archive class is refused because this plane verifies identity by re-minting the bytes it reads back, and a class that cannot be read without a restore makes that verification impossible for the object's whole cold life; the dedup leg proves the same point from the other side, since a 412 against a live object leaves whatever class that object already carries, so a put-time class holds on first write and silently vanishes on every replay. Depth is therefore an AGE decision the lifecycle rules apply, never a write-time assertion a replay can lose.
 - Law: the conditional rides every leg — `IfNoneMatch: "*"` on the plain put, on the hand-composed `CompleteMultipartUpload`, and on the `Upload` params whose spread carries it onto both its paths; first-writer-wins lands at the moment the object materializes, and a 409 concurrent race retries into the 412 noop under the `io` reason's retryable class.
 - Law: body shape selects the leg — bounded bytes below the threshold ride the plain put, bounded bytes above it ride the hand-composed part fold under `Effect.acquireRelease` with `AbortMultipartUpload` on failure, and a streaming or unknown-length body rides `Upload` with the abort bridged to fiber interruption; the caller sees one `put`.
 - Law: the SHA-256 transport checksum rides ALL THREE write legs, never the plain and streaming pair alone — the multipart leg declares the algorithm at `CreateMultipartUpload`, asserts it on every `UploadPart`, and carries each part reply's `ChecksumSHA256` into its `CompletedPart` so the engine re-verifies the assembled object at completion; the middle size band is otherwise the one class whose wire corruption reaches the verified read as an `integrity` fault with no transport evidence naming the part that carried it.
 - Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Descriptor` request family through one `HeadObjectCommand` send as `ObjectStore.Stat` — the schema-owned evidence row whose `etag`, `contentType`, and `modified` fields are `Option`-carried with encodable twins, so the batch engine's durable band persists the same row `head` mints, a reply without `ContentLength` is the `io` fault, never a sentinel-zero forgery, and the HEAD windows and a singular probe share one member; `attributes` is the deep-evidence twin — `GetObjectAttributesCommand` yields `ObjectParts` and `Checksum` for multipart integrity audits a plain HEAD cannot carry.
-- Law: every receipt is honest — `putKeyed` takes the proven span from the caller's identity fold, while `rekey(source, target)` probes the source once and carries its `Stat.bytes` into either copy outcome; the server-side copy derives `CopySourceIfMatch` from the same typed probe, so neither caller-provided ETags nor zero-byte receipt guesses are spellable.
+- Law: every `Landed` span is honest — `putKeyed` takes the proven span from the caller's identity fold, while `rekey(source, target)` probes the source once and carries its `Stat.bytes` into either copy outcome; the server-side copy derives `CopySourceIfMatch` from the same typed probe, so neither caller-provided ETags nor zero-byte span guesses are spellable.
 - Boundary: `_putStreaming` is the one lib-storage seam — the `Upload` construction and the abort-signal listener are statement flow inside the `tryPromise` lambda, and fiber interruption reaches the in-flight multipart through the injected `Options.abortController`, whose `abort()` returns void so the teardown call and its rejection stay on the `done()` promise the fold already owns.
 - Law: consistency after a sweep race is a waiter, never a sleep — `settled(key)` runs `waitUntilObjectExists({ client, maxWaitTime: setting.settleSeconds, abortSignal }, { Bucket, Key })` to close the write-then-serve window where an engine's read-after-write posture demands it; the budget is construction policy shared with delete settlement, never a call-site knob.
 - Law: producers reach ONE of the two put legs and mint no byte plane of their own — `object/file.md`'s derivative persist and `lane/olap.md#ARROW_WIRE`'s `Olap.lake.write`/`.sink` Parquet egress hand bounded bytes to `put` (a row-group window is bytes in hand, so identity derives and no caller asserts a key), while `object/file.md`'s disk seal, `object/stream.md`'s tus finalize and its custody preservation landing, and `object/remote.md`'s remote ingest carry a proven span into `putKeyed`; each spends the owner mint `[04]` closes and records its reference row in the same unit of work, so the cold-tail residence and every other landed object share one identity, one conditional, and one GC ledger rather than a second addressing scheme per producer.
@@ -216,7 +216,7 @@ class _Stat extends Schema.Class<_Stat>("ObjectStore.Stat")({
 }
 
 declare namespace ObjectStore {
-  type Receipt = { readonly key: Digest.Key<"content">; readonly bytes: number; readonly written: boolean }
+  type Landed = { readonly key: Digest.Key<"content">; readonly bytes: number; readonly written: boolean }
   type Stat = _Stat
   type RestorePolicy = { readonly days: number; readonly tier: "Bulk" | "Expedited" | "Standard" }
 }
@@ -233,9 +233,9 @@ const _putPlain = (client: S3Client, bucket: string, key: Digest.Key<"content">,
     {
       onFailure: (fault) =>
         fault._tag === "ObjectReplay"
-          ? Effect.succeed<ObjectStore.Receipt>({ key, bytes: bytes.byteLength, written: false })
+          ? Effect.succeed<ObjectStore.Landed>({ key, bytes: bytes.byteLength, written: false })
           : Effect.fail(fault),
-      onSuccess: () => Effect.succeed<ObjectStore.Receipt>({ key, bytes: bytes.byteLength, written: true }),
+      onSuccess: () => Effect.succeed<ObjectStore.Landed>({ key, bytes: bytes.byteLength, written: true }),
     },
   )
 
@@ -286,11 +286,11 @@ const _putMultipart = (client: S3Client, bucket: string, key: Digest.Key<"conten
           }), { abortSignal: signal }),
         catch: _folded(key),
       })
-      return { key, bytes: bytes.byteLength, written: true } satisfies ObjectStore.Receipt
+      return { key, bytes: bytes.byteLength, written: true } satisfies ObjectStore.Landed
     }),
   ).pipe(
     Effect.catchTag("ObjectReplay", () =>
-      Effect.succeed<ObjectStore.Receipt>({ key, bytes: bytes.byteLength, written: false })),
+      Effect.succeed<ObjectStore.Landed>({ key, bytes: bytes.byteLength, written: false })),
   )
 
 const _putStreaming = (client: S3Client, bucket: string, key: Digest.Key<"content">, body: ReadableStream<Uint8Array>, partBytes: number, partFlight: number, span: number, step?: (loaded: number) => void) =>
@@ -316,9 +316,9 @@ const _putStreaming = (client: S3Client, bucket: string, key: Digest.Key<"conten
     {
       onFailure: (fault) =>
         fault._tag === "ObjectReplay"
-          ? Effect.succeed<ObjectStore.Receipt>({ key, bytes: span, written: false })
+          ? Effect.succeed<ObjectStore.Landed>({ key, bytes: span, written: false })
           : Effect.fail(fault),
-      onSuccess: () => Effect.succeed<ObjectStore.Receipt>({ key, bytes: span, written: true }),
+      onSuccess: () => Effect.succeed<ObjectStore.Landed>({ key, bytes: span, written: true }),
     },
   )
 
@@ -352,9 +352,9 @@ const _rekey = (client: S3Client, bucket: string, source: Digest.Key<"content">,
       {
         onFailure: (fault) =>
           fault._tag === "ObjectReplay"
-            ? Effect.succeed<ObjectStore.Receipt>({ key: target, bytes: stat.bytes, written: false })
+            ? Effect.succeed<ObjectStore.Landed>({ key: target, bytes: stat.bytes, written: false })
             : Effect.fail(fault),
-        onSuccess: () => Effect.succeed<ObjectStore.Receipt>({ key: target, bytes: stat.bytes, written: true }),
+        onSuccess: () => Effect.succeed<ObjectStore.Landed>({ key: target, bytes: stat.bytes, written: true }),
       },
     )
   })
@@ -409,7 +409,7 @@ const _settled = (client: S3Client, bucket: string, key: Digest.Key<"content">, 
 - Owner: the `object_ref` ensure row, the reference verbs whose every ledger write re-derives the object's retention tag, the sweep, the transitive `derivative:` reach, the two-layer native GC, and the multipart reap — orphan detection walks the bucket through the shipped paginator, joins each entry against the ledger, and every delete is a per-key `If-Match`-guarded CAS against the ETag the listing just carried; `DeleteObjectsCommand` is the refused spelling here because the 1000-key batch cannot carry a per-key conditional, and the CAS law outranks the round-trip saving; `lifecycle` pushes the retention-class windows as native bucket rules.
 - Packages: `@aws-sdk/client-s3` (`DeleteObjectCommand`, `paginateListObjectsV2`, `ListMultipartUploadsCommand`, `AbortMultipartUploadCommand`, `PutBucketLifecycleConfigurationCommand`, `PutObjectTaggingCommand`, `RestoreObjectCommand`, `TransitionStorageClass`, `waitUntilObjectNotExists`); `@effect/sql` (`SqlSchema`, `sql.insert`, `sql.in`, `sql.withTransaction`); `journal/retain.md` (`Retain.Class`, `Retain.Policy`, `Retain.depths` — the one retention vocabulary with its cost ladder, and the shredded-subject law arriving as data); `@rasm/core` (`Shape.Bound` — the walk budget the cascade's convergence is stated in); `effect` (`Order`, `Duration.Order` — the dominance fold; `Array`, `HashMap`, `Record`, `Option`, `pipe` — the rule fold and the reach join).
 - Entry: every producer that lands an object records `{ key, owner, retention }` through `store.refer` inside its own unit of work; `store.release(key, owner)` drops a reference; both verbs re-derive and re-stamp the object's retention tag from the surviving reference set on the post-commit drain, so no caller ever stamps a tag and the re-derivation never rides the caller's pin; the sweep and the reap run on the maintenance cadence (`read/fold.md`'s cron row where granted, the host schedule otherwise); `lifecycle` applies once at provision and on any `Retain.Policy` change.
-- Receipt: the sweep's mark — `{ probed, swept, cascaded, reclaimed, retained }` — rides the span and the fact stream, `swept` the key census, `cascaded` the reference rows the transitive reach released beneath those keys, and `reclaimed` the byte total the listing entries' own `Size` already carried at the fold, so the byte-coded reclaim instrument reads bytes and evidence reconciles against billing in the unit billing is denominated in; the reap's mark — `{ probed, reaped }` — is the same evidence over abandoned multipart uploads.
+- Output: the sweep's mark — `{ probed, swept, cascaded, reclaimed, retained }` — rides the span and the fact stream, `swept` the key census, `cascaded` the reference rows the transitive reach released beneath those keys, and `reclaimed` the byte total the listing entries' own `Size` already carried at the fold, so the byte-coded reclaim instrument reads bytes and evidence reconciles against billing in the unit billing is denominated in; the reap's mark — `{ probed, reaped }` — is the same evidence over abandoned multipart uploads.
 - Growth: a new owner kind is one `_OWNERS` row carrying its grammar, its role, and its coining page; a new retention posture is a `Retain.Class` row arriving from the one vocabulary and a new cost depth one `Retain.depths` entry with its `_STORAGE` answer — the lifecycle rule set, the ladder filter, and the dominance fold regenerate from those tables, zero edits here.
 - Law: the lifecycle rule set carries BOTH halves each retention row prices — the transition ladder its engine honours and the expiry its window names — so one rule per class states the whole cost curve and a `permanent` class survives with transitions alone rather than dropping out with its infinite window; depth maps to the engine's own `TransitionStorageClass` through `_STORAGE`, total over the retention roster so a new depth breaks at that declaration instead of emitting a class the API accepts and ignores.
 - Law: the reap's crash window closes TWICE by the same floor — the process arm walks live uploads past `_REAP_FLOOR` and the `AbortIncompleteMultipartUpload` rule enforces the identical age at the engine, so a runtime that dies between `CreateMultipartUpload` and its abort and never boots again still stops billing; the two read one value rather than two windows a reader reconciles, and the rule carries no tag filter because an abandoned upload has no object to tag.
@@ -819,11 +819,11 @@ const _restore = (client: S3Client, bucket: string) =>
 
 ## [05]-[INSTRUMENT_ROWS]
 
-- Owner: the object plane's Convention projections — `_measured`, the one receipt fold every write leg taps, and `_reclaimed`, the sweep-mark projection — instruments the runtime meter bridge exports like every other series while the receipts stay the billing and evidence truth.
+- Owner: the object plane's Convention projections — `_measured`, the one `Landed` projection every write leg taps, and `_reclaimed`, the sweep-mark projection — instruments the runtime meter bridge exports like every other series while the landed value and the sweep mark stay the billing truth.
 - Packages: `effect` (`Metric`); `@rasm/core` (`Convention` — the instrument and tag rows).
 - Entry: the service construction composes `_measured` as an `Effect.tap` on `put`, `putKeyed`, and `rekey`, and the sweep tail taps `_reclaimed` — zero call-site wiring, and no consumer can write an object the instruments miss.
-- Growth: a receipt axis is one `Convention.instrument` row and one tap on the owning leg.
-- Law: dedup rate DERIVES on the dashboard — the write counter tags each receipt's outcome (`written` versus `dedup`) from the bounded two-value vocabulary, so the rate is a ratio query over one series and no page computes it; bytes count only on `written: true` because a 412 noop moved no bytes, and reclaim counts the sweep mark's `reclaimed` BYTE total, never its key census — the convention row codes `By`, so a key count exported under that code reports objects in a series a reader spends as bytes.
+- Growth: a landed axis is one `Convention.instrument` row and one tap on the owning leg.
+- Law: dedup rate DERIVES on the dashboard — the write counter tags each landing's outcome (`written` versus `dedup`) from the bounded two-value vocabulary, so the rate is a ratio query over one series and no page computes it; bytes count only on `written: true` because a 412 noop moved no bytes, and reclaim counts the sweep mark's `reclaimed` BYTE total, never its key census — the convention row codes `By`, so a key count exported under that code reports objects in a series a reader spends as bytes.
 - Law: instrument name, description, and tag key read off the `Convention` rows — no signal-site literal exists on the object plane, and identifier-grade context (the content key) rides span attributes on `data.sweep`/`data.grant`, never a metric tag.
 
 ```typescript
@@ -834,10 +834,10 @@ const _reclaimed = Convention.mount(Convention.metric.objectReclaimed)
 const _weight = Convention.mount(Convention.metric.objectSize)
 const _written = Convention.mount(Convention.metric.objectWritten)
 
-const _measured = (receipt: ObjectStore.Receipt): Effect.Effect<void> =>
+const _measured = (landed: ObjectStore.Landed): Effect.Effect<void> =>
   Effect.zipRight(
-    Metric.increment(Metric.tagged(_written, Convention.rasm.objectOutcome, receipt.written ? "written" : "dedup")),
-    receipt.written ? Metric.incrementBy(_weight, receipt.bytes) : Effect.void,
+    Metric.increment(Metric.tagged(_written, Convention.rasm.objectOutcome, landed.written ? "written" : "dedup")),
+    landed.written ? Metric.incrementBy(_weight, landed.bytes) : Effect.void,
   )
 ```
 
@@ -846,8 +846,8 @@ const _measured = (receipt: ObjectStore.Receipt): Effect.Effect<void> =>
 - Owner: `store.grant(key, command, policy?)` — one polymorphic mint over any command value: the command discriminates upload, download, part, or probe; the policy row narrows the TTL and carries the signed and hoisted header sets; the reply is the typed `{ url, expiresAt, key }` capability, never a bare string.
 - Packages: `@aws-sdk/s3-request-presigner` (`getSignedUrl`, `signableHeaders`, `hoistableHeaders`); `effect` (`DateTime`, `Duration`).
 - Entry: the grant's live consumers are IN-BRANCH reads — `lane/olap.md`'s `Olap.lakeSource` registers a presigned URL on a worker session so the browser scans cold-tail Parquet by HTTP range, and `object/file.md`'s derivative fan mints one per row whose own `grant` policy asks, every other row carrying `Option.none()` and its key; a browser-direct upload grant presigns the SAME conditional command `[3]` mints, so the idempotency and checksum headers survive into a browser path by construction, and the stream rail grants part uploads against its staging band.
-- Receipt: the grant is a bounded bearer-equivalent capability — the mint is span-annotated because grants are auditable facts, and the value is `{ url, expiresAt, key }` its consumer spends directly.
-- Law: this page mints capability and names NO serving seam — no surface outside `data` accepts or returns a presigned URL today, so a law promising one describes a consumer that does not exist, and a receipt minting one unconditionally pays for a signature nothing reads; the grant is therefore an in-branch capability its two readers spend, and per-principal quota is priced wherever a future serving edge lands, because that is where principal identity exists.
+- Output: the grant is a bounded bearer-equivalent capability — the mint is span-annotated because grants are auditable facts, and the value is `{ url, expiresAt, key }` its consumer spends directly.
+- Law: this page mints capability and names NO serving seam — no surface outside `data` accepts or returns a presigned URL today, so a law promising one describes a consumer that does not exist, and a fan minting one unconditionally pays for a signature nothing reads; the grant is therefore an in-branch capability its two readers spend, and per-principal quota is priced wherever a future serving edge lands, because that is where principal identity exists.
 - Law: the capability keeps `ObjectStore.Grant` while it stays namespace-qualified and in-branch — `runtime/serve/live.md`'s `Admission.Grant` (a resolved live-channel rule) and the ui geolocation permission port spell the same word for unrelated concepts, which is harmless only because no consumer holds two; the moment a serving edge returns this value into a folder that spells bare `Grant` for authorization, the object capability takes the distinct name `ObjectStore.Ticket` BEFORE it crosses, so the rename rides the seam's arrival rather than a later collision nobody traces.
 - Growth: a new presigned operation is a command value through the same entry; a signing posture (SSE-C pinning into `signableHeaders`, `Response*` hoisting into `hoistableHeaders`) is a `GrantPolicy` field, never a second mint.
 - Law: config is inherited, never re-declared — the presigner reads the live client's resolved credentials, region, endpoint, and path style, so grants against any conforming engine are the same call and no second client exists; the published `provider` record carries its credential fields SEALED as `Redacted` values, and the one sanctioned unwrap is the staging store's own construction seam in `object/stream.md`.
@@ -986,7 +986,7 @@ export { ObjectFault, ObjectStore }
 
 - Owner: `Dataref` is the future-app claim-check port over `ObjectStore`: one construction policy fixes an HTTPS root and retention class; `externalize` proves the offered bytes mint the event's subject before conditionally landing and referring them, while `resolve` accepts only the exact canonical reference this root would mint, reads through the store's verified `get`, and proves an inline twin byte-equal when one was carried.
 - Law: the reference is a receiver-resolvable URI-reference and never an object key alias: the canonical HTTPS URL derives from the configured root plus the lower-case subject, while the store key remains `Digest.Key<"content">`. Resolution performs no caller-directed fetch; a foreign origin, credentials, query, fragment, path escape, or reference whose terminal coordinate differs from `subject` refuses before the object plane reads.
-- Law: `dataref` permits reference-only and dual carriage. Reference-only returns the verified resident bytes; dual carriage additionally remints the inline content and compares the complete octet sequence, so a digest collision cannot certify unequal information. The receipt states `reference | dual`; absence of both is unrepresentable.
+- Law: `dataref` permits reference-only and dual carriage. Reference-only returns the verified resident bytes; dual carriage additionally remints the inline content and compares the complete octet sequence, so a digest collision cannot certify unequal information. `Dataref.Resolved.carriage` states `reference | dual`; absence of both is unrepresentable.
 - Law: `externalize` derives the ledger owner from `(source,id)` through the closed `event:` owner row and reads the retention posture from construction. Callers can neither invent an object-owner prefix nor shorten custody after publishing a reference. The application serving the configured HTTPS root authorizes retrieval; this data owner supplies custody and resolution only and never widens a principal.
 - Growth: another residence engine satisfies `Dataref` behind the same port; another URI scheme is a policy case only when it preserves confinement and receiver resolution, never a branch inside a webhook.
 - Packages: existing `effect`, core `Digest`, `ObjectStore`, and `Retain`; no new package or codec is admitted.
@@ -1043,17 +1043,17 @@ declare namespace Dataref {
     readonly reference: string
     readonly inline: Option.Option<Uint8Array>
   }
-  type Receipt = {
+  type Resolved = {
     readonly subject: Digest.Key<"content">
     readonly reference: string
     readonly bytes: Uint8Array
     readonly carriage: "reference" | "dual"
   }
-  type Externalized = ObjectStore.Receipt & { readonly reference: string }
+  type Externalized = ObjectStore.Landed & { readonly reference: string }
   type Policy = typeof _DatarefPolicy.Type
   type Shape = {
     readonly externalize: (offered: Externalize) => Effect.Effect<Externalized, DatarefFault | ObjectFault>
-    readonly resolve: (offered: Resolve) => Effect.Effect<Receipt, DatarefFault | ObjectFault>
+    readonly resolve: (offered: Resolve) => Effect.Effect<Resolved, DatarefFault | ObjectFault>
   }
 }
 

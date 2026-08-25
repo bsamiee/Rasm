@@ -114,7 +114,7 @@
 - Compute consumer anchor: `Analysis/energy#SUBPROCESS_RESULTS` — `TabularFacts`/`Tabular` fold the `(report, table, row)`-keyed rows into `AssessmentFact.Measure` duration facts beside the `SqlFile` annual reads.
 
 [LOCAL_ADMISSION]:
-- Persistence: SQL text, parameters, transactions, and blob streams pass through query-shape ownership beneath the unified store-profile rail; extension loading is an explicit profile capability, never ambient; backup and checkpoint operations emit typed `SqliteFact` snapshot/receipt projections.
+- Persistence: SQL text, parameters, transactions, and blob streams pass through query-shape ownership beneath the unified store-profile rail; extension loading is an explicit profile capability, never ambient; backup and checkpoint operations emit typed `SqliteFact` cases.
 - Compute: SQL text exists only inside the one query family — every predicate is a bound parameter, so `CommandText` interpolation has no site; coercing typed getters (`GetDouble`/`GetInt64` over TEXT) stay off the fold, the invariant-parse route owns numeric extraction.
 
 [RAIL_LAW]:

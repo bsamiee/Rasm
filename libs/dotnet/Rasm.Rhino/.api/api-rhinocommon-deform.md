@@ -160,16 +160,16 @@ This catalog owns the host-fidelity nonlinear deformation and flattening boundar
 
 [STACKING]:
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d`/`Plane` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
-- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a `bool` morph or unwrap folds into a `Fin<Unit>` keyed to the mutated geometry, a nullable squish or unroll result lifts to `Option<Brep>`/`Option<Mesh>`, the unroll `Brep[]` and carried-geometry arrays land as `Seq<A>`, and the caller-owned squish mark lists and the `PerformUnroll` parallel `out` arrays fold into one detached flatten receipt.
+- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a `bool` morph or unwrap folds into a `Fin<Unit>` keyed to the mutated geometry, a nullable squish or unroll result lifts to `Option<Brep>`/`Option<Mesh>`, the unroll `Brep[]` and carried-geometry arrays land as `Seq<A>`, and the caller-owned squish mark lists and the `PerformUnroll` parallel `out` arrays fold into one detached build-fact stream.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the closed flattening vocabularies — `MeshUnwrapMethod`, `SquishFlatteningAlgorithm`, and `SquishDeformation` — wrap as `[SmartEnum<TKey>]` owners; the morph kind models as a `[Union]` over the morph-kind arms, each binding its defining-parameter carrier.
 - `Rasm` kernel: host-neutral DEC UV-flattening and linear-motion transforms stand at the kernel altitude and the boundary re-derives none of them; radii, angles, lengths, spring constants, and tolerances compose the kernel numeric and unit owners before the native call.
 
 [LOCAL_ADMISSION]:
 - deformation enters through the morph union or the `MorphControl` driver: each arm binds its native morph, applies it to a duplicated geometry, and projects the `bool` outcome onto the rail; flattening enters through the `Unroller`, `Squisher`, or `MeshUnwrapper` owner, disposing every native flattener through a using scope or lease and draining the caller-owned mark lists into detached records.
-- native morph, `MorphControl`, and flattener types stay inside the deformation grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed flatten receipt, or an explicitly owned geometry lease.
+- native morph, `MorphControl`, and flattener types stay inside the deformation grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed build facts, or an explicitly owned geometry lease.
 
 [RAIL_LAW]:
 - Surface: `Rhino.Geometry` + `Rhino.Geometry.Morphs` host-fidelity deformation and flattening
 - Owns: the space-morph engine and its deformation family, the interactive morph-control deformer, and the unroll, squish, and mesh-unwrap flatteners.
-- Accept: native morph and flatten outcomes projected onto `Fin`/`Option`/`Seq` rails, parallel unroll `out` arrays and caller-owned squish mark lists folded into typed receipts, and disposable flatteners leased.
+- Accept: native morph and flatten outcomes projected onto `Fin`/`Option`/`Seq` rails, parallel unroll `out` arrays and caller-owned squish mark lists folded into typed build facts, and disposable flatteners leased.
 - Reject: re-deriving kernel-altitude DEC flattening or linear motion, exception-style handling of `false` morph or unwrap results, retaining an undisposed native flattener, and leaking host morph/flattener types past the boundary.

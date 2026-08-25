@@ -420,11 +420,6 @@ namespace Rasm.Contracts.Fault {
 
   }
 
-  /// <summary>
-  /// The compact in-process observation a host receipt carries beside its outcome: the recovery verdict, the bounded
-  /// cause chain (outermost first), whether that chain was cut, and the producing family's identity where one exists.
-  /// A foreign error crosses with neither `domain` nor `case`.
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class FaultObservation : pb::IMessage<FaultObservation>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE

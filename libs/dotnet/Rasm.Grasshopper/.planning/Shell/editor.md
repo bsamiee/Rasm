@@ -1,14 +1,14 @@
 # [RASM_GRASSHOPPER_SHELL_EDITOR]
 
-`EditorShell` is the editor-shell operator of the Grasshopper boundary — ONE owner over the GH2 `Editor` singleton's whole shell surface: the chrome pane slots (tabs, status bar, layouts, recent-document rows, the `ThisOrRhino` host anchor), the shell toggle capability rows (collapsed shell, notes visibility, undo-history visibility), the projected `ShellFacts` receipt, the single Rhino handoff through `BeginRhinoGetter`, and the root-wired standing `Mount`.
+`EditorShell` is the editor-shell operator of the Grasshopper boundary — ONE owner over the GH2 `Editor` singleton's whole shell surface: the chrome pane slots (tabs, status bar, layouts, recent-document rows, the `ThisOrRhino` host anchor), the shell toggle capability rows (collapsed shell, notes visibility, undo-history visibility), the projected `ShellFacts` value, the single Rhino handoff through `BeginRhinoGetter`, and the root-wired standing `Mount`.
 
-Every shell pane is a `ShellSlot` row drained by one generic typed-projection gate; every shell axis is a `ShellToggle` CAPABILITY row — shown-state is `CapabilitySet<ShellToggle>` membership, never a boolean triple — swung by a `ToggleIntent` row (`Hold`, `Release`, `Flip`), so no bare target bool survives at any call site. Command gate settles the folder's `GateReceipt<ShellFacts>` on `Document/document.md`'s `GateLane.Shell` under the session's injected clock, so shell settlement carries the same gauge evidence as every document gate. Scope acquisition, editor reveal, and marshal law are `Shell/session.md`'s floor composed as found; chrome construction against its own mintable hosts is `Shell/chrome.md`'s intent surface.
+`ShellSlot` rows drain through one generic typed-projection gate; `ShellToggle` CAPABILITY rows hold shown-state as `CapabilitySet<ShellToggle>` membership and swing through `ToggleIntent` (`Hold`, `Release`, `Flip`), so no bare target bool survives at any call site. Commands return the `ShellFacts` produced in the same marshal window. Scope acquisition, editor reveal, and marshal law are `Shell/session.md`'s floor composed as found; chrome construction against its own mintable hosts is `Shell/chrome.md`'s intent surface.
 
 ## [01]-[INDEX]
 
 - [02]-[SLOTS]: `ShellPane` + `ShellSlot` + `EditorShell.Grab<TOut>` — the closed pane family, the slot vocabulary over every chrome anchor the editor exposes, and the one typed-projection gate that replaces direct singleton property reads.
-- [03]-[STATE]: `ToggleIntent` + `ShellToggle` + `ShellFacts` — the swing-intent rows, the shell-axis capability rows, and the one projected shell receipt.
-- [04]-[OPERATOR]: `ShellOp` + `EditorShell` — the command union (toggle, getter handoff), the `GateReceipt<ShellFacts>` settlement, the `Apply`/`Snapshot`/`Grab` gate trio, and the standing `Mount`.
+- [03]-[STATE]: `ToggleIntent` + `ShellToggle` + `ShellFacts` — the swing-intent rows, the shell-axis capability rows, and the one projected shell value.
+- [04]-[OPERATOR]: `ShellOp` + `EditorShell` — the command union (toggle, getter handoff), the `Apply`/`Snapshot`/`Grab` gate trio, and the standing `Mount`.
 
 ## [02]-[SLOTS]
 
@@ -24,20 +24,20 @@ Every shell pane is a `ShellSlot` row drained by one generic typed-projection ga
 
 - Owner: `ToggleIntent` `[SmartEnum<int>]` — the swing vocabulary (E-G46): `Hold` (the axis lands shown/engaged), `Release` (the axis lands hidden/disengaged), `Flip` (the axis inverts its current state) — one `Target(bool current)` column derives the write from the read, so a bare `bool target` parameter and its truth-table ambiguity ("does true mean collapsed or expanded?") are unconstructible; the row NAMES the intended posture.
 - Owner: `ShellToggle` `[SmartEnum<string>]` `ICapability<ShellToggle>` — 3 shell-axis capability rows over TWO `[UseDelegateFromConstructor]` columns, `Read(GhScope, Op) -> Fin<bool>` and `Write(GhScope, bool, Op) -> Fin<Unit>`: `Collapsed` (`Editor.Collapsed`), `Notes` (`Editor.ShowNotes`), `UndoHistory` (`Canvas.ShowUndoHistory`). Capability law is `Open` — any membership combination is a lawful shell posture. Two editor rows demand the scope's `Editor` projection through the `EditorRow` factory and the canvas row demands its `Canvas` projection through the `CanvasRow` factory — the two factories are the SAME shape over different scope projections, so no row hand-rolls its acquisition — each refusing an anchor-mismatched scope with `KernelFault.MissingContext`.
-- Owner: `ShellFacts` `[BoundaryAdapter]` readonly record struct — the one shell-evidence receipt: `Shown` (`CapabilitySet<ShellToggle>` — membership IS the engaged set, so three parallel booleans collapse to one set the capability algebra already serves), `HasDocument` (whether `Editor.Documents.Current` is live), and `RecentCount` (`Editor.MostRecentCount`, the host's on-disk recency tally), implementing `IValidityEvidence` through the claim fold. This receipt makes shell state structural: a consumer reads it as one projected value and never interrogates the singleton, and shell-state diffing is set algebra on two receipts' `Shown` members.
-- Law: a new shell axis is one `ShellToggle` row — the `Shown` set absorbs it with zero receipt-shape change, which is the collapse's proof over the field-per-axis form it replaced.
-- Boundary: document identity, open-document mutation, and document IO are `Document/document.md`'s scope; this receipt answers only whether a current document exists, never which.
+- Owner: `ShellFacts` `[BoundaryAdapter]` readonly record struct — the one shell posture value: `Shown` (`CapabilitySet<ShellToggle>` — membership IS the engaged set, so three parallel booleans collapse to one set the capability algebra already serves), `HasDocument` (whether `Editor.Documents.Current` is live), and `RecentCount` (`Editor.MostRecentCount`, the host's on-disk recency tally), implementing `IValidityEvidence` through the claim fold. This value makes shell state structural: a consumer reads it as one projected value and never interrogates the singleton, and shell-state diffing is set algebra on two values' `Shown` members.
+- Law: a new shell axis is one `ShellToggle` row — the `Shown` set absorbs it with zero shape change, which is the collapse's proof over the field-per-axis form it replaced.
+- Boundary: document identity, open-document mutation, and document IO are `Document/document.md`'s scope; this value answers only whether a current document exists, never which.
 - Packages: Grasshopper2 (`Editor.Collapsed`, `Editor.ShowNotes`, `Editor.Documents.Current`, `Editor.MostRecentCount`, `Canvas.ShowUndoHistory`), `Rasm.Domain` (`ValidityClaim`, `IValidityEvidence`, `CapabilitySet`, `ICapability`, `CapabilityLaw`).
-- Growth: a new shell axis is one `ShellToggle` row; the columns, the receipt, and the snapshot gate never change.
+- Growth: a new shell axis is one `ShellToggle` row; the columns, the value, and the snapshot gate never change.
 
 ## [04]-[OPERATOR]
 
-- Owner: `EditorShell` — the one editor-shell operator. `ShellOp` `[Union]` `[GenerateUnionOps]` closes the command family: `ToggleCase(ShellToggle Row, ToggleIntent Intent)` swings one shell axis under a NAMED intent, `GetterCase(Option<RhinoDoc> Target)` arbitrates the single Rhino handoff through the static `Editor.BeginRhinoGetter(RhinoDoc doc = null)` — `None` defers to the host's `RhinoDoc.ActiveDoc` default, and the member's `false` return (no target document, or a getter already active) settles as the kernel's `UiFault.HostRejected`, never a silently ignored bool. This handoff is the one seam by which the editor yields input focus to a Rhino getter, so a direct `RhinoDoc` getter beside it bypasses the editor's arbitration and is the deleted form. Settlement evidence is the folder's `GateReceipt<ShellFacts>` (E-G47): the case's generated `SelfOp` verb, `Seal: None` (no shell command mints an undo record), `GateOutcome.SettledCase`, the `GaugedSpan<GateLane>` on `GateLane.Shell`, and the post-command `ShellFacts` as the receipt's facts — every shell command returns the state it produced and no consumer issues a follow-up snapshot to learn what its own command did.
-- Entry: `EditorShell.Apply(ShellOp op, MonotonicTimeline clock, Op? key = null)` → `Fin<GateReceipt<ShellFacts>>` — the command gate, the clock the session's injected timeline, REQUIRED; `EditorShell.Snapshot(Op? key = null)` → `Fin<ShellFacts>` — the state gate; `EditorShell.Grab<TOut>` — the `[02]` pane gate; `EditorShell.Mount(MonotonicTimeline clock, Seq<ShellOp> standing, Op? key = null)` → `Fin<Lease<ShellSeat>>` — the root-wired standing mount (`Platform/composition.md` row `[04]`): it captures the pre-mount `ShellFacts`, applies the standing ops as one traverse (a refusal unwinds by restoring the captured facts before the fault returns), and the settled lease's release restores those captured facts — the plugin leaves the editor shell exactly as it found it.
-- Law: every case settles inside ONE marshal — scope acquisition through `ScopeTarget`, the host verb, and the receipt's facts projection share the window, so no command observes a shell another thread mutated mid-settlement, and every case body runs under `Op.Catch` so a throwing host member keeps its original exceptional `Error`.
+- Owner: `EditorShell` — the one editor-shell operator. `ShellOp` `[Union]` `[GenerateUnionOps]` closes the command family: `ToggleCase(ShellToggle Row, ToggleIntent Intent)` swings one shell axis under a NAMED intent, `GetterCase(Option<RhinoDoc> Target)` arbitrates the single Rhino handoff through the static `Editor.BeginRhinoGetter(RhinoDoc doc = null)` — `None` defers to the host's `RhinoDoc.ActiveDoc` default, and the member's `false` return (no target document, or a getter already active) settles as the kernel's `UiFault.HostRejected`, never a silently ignored bool. This handoff is the one seam by which the editor yields input focus to a Rhino getter, so a direct `RhinoDoc` getter beside it bypasses the editor's arbitration and is the deleted form. Every shell command returns the `ShellFacts` it produced and no consumer issues a follow-up snapshot to learn what its own command did.
+- Entry: `EditorShell.Apply(ShellOp op, Op? key = null)` → `Fin<ShellFacts>` — the command gate; `EditorShell.Snapshot(Op? key = null)` → `Fin<ShellFacts>` — the state gate; `EditorShell.Grab<TOut>` — the `[02]` pane gate; `EditorShell.Mount(Seq<ShellOp> standing, Op? key = null)` → `Fin<Lease<ShellFacts>>` — the root-wired standing mount (`Platform/composition.md` row `[04]`): it captures the pre-mount `ShellFacts`, applies the standing ops as one traverse (a refusal unwinds by restoring the captured facts before the fault returns), and the settled lease's release restores those captured facts — the plugin leaves the editor shell exactly as it found it.
+- Law: every case runs inside ONE marshal — scope acquisition through `ScopeTarget`, the host verb, and the facts projection share the window, so no command observes a shell another thread mutated mid-command, and every case body runs under `Op.Catch` so a throwing host member keeps its original exceptional `Error`.
 - Law: reveal is not a case — `SessionOp.RevealCase` on the session floor owns the public static `Editor.ShowEditor` (`EnsureVisible` is host-internal), and a second reveal spelling here forks the one session-command vocabulary; a consumer sequencing reveal-then-shell-work composes the two gates.
 - Boundary: `GetterCase` transports the optional `RhinoDoc` and adjudicates nothing about it — Rhino document semantics are `Rasm.Rhino`'s concern entirely, and the case exists because the handoff member lives on the GH2 editor.
-- Packages: Grasshopper2 (the static `Editor.BeginRhinoGetter`), RhinoCommon (`RhinoDoc` as the handoff payload), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`), `Rasm.Interaction` (`UiThread`, `UiFault`), `Shell/session.md` (`ScopeTarget`, `GhScope`), `Document/document.md` (`GateReceipt<TFacts>`, `GateLane`, `GateOutcome`).
+- Packages: Grasshopper2 (the static `Editor.BeginRhinoGetter`), RhinoCommon (`RhinoDoc` as the handoff payload), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`, `ValidityClaim`), `Rasm.Interaction` (`UiThread`, `UiFault`), `Shell/session.md` (`ScopeTarget`, `GhScope`).
 - Growth: a new shell command is one `ShellOp` case with its `Switch` arm breaking loudly at the gate; zero new entrypoints on any axis.
 
 ```csharp
@@ -45,7 +45,6 @@ Every shell pane is a `ShellSlot` row drained by one generic typed-projection ga
 using Rasm.Domain;
 using Rasm.Grasshopper.Document;
 using Rasm.Interaction;
-using Rasm.Parametric;
 using Rhino;
 
 namespace Rasm.Grasshopper.Shell;
@@ -142,8 +141,6 @@ public readonly record struct ShellFacts(
     public bool IsValid => RecentCount >= 0;
 }
 
-public sealed record ShellSeat(ShellFacts Found, Seq<GateReceipt<ShellFacts>> Applied);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class EditorShell {
@@ -164,33 +161,25 @@ public static class EditorShell {
             DispatchLane.Interactive, op);
     }
 
-    public static Fin<GateReceipt<ShellFacts>> Apply(ShellOp op, MonotonicTimeline clock, Op? key = null) {
+    public static Fin<ShellFacts> Apply(ShellOp op, Op? key = null) {
         Op active = key.OrDefault();
         return active.Need(op).Bind(valid =>
-            from gauged in clock.Gauged<ShellFacts, GateLane>(
-                lane: GateLane.Shell,
-                work: active,
-                body: () => UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
-                    () => ScopeTarget.EditorHost.Acquire(key: active).Bind(scope => valid.Switch(
-                        state: (Scope: scope, Key: active),
-                        toggleCase: static (s, c) =>
-                            from current in c.Row.Read(scope: s.Scope, key: s.Key)
-                            from _ in c.Row.Write(scope: s.Scope, value: c.Intent.Target(current: current), key: s.Key)
-                            select unit,
-                        getterCase: static (s, c) => s.Key.Catch(body: () =>
-                            Editor.BeginRhinoGetter(doc: c.Target.Match<RhinoDoc?>(Some: static live => live, None: static () => null))
-                                ? Fin.Succ(unit)
-                                : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: nameof(Editor.BeginRhinoGetter)))))
-                        .Bind(_ => Project(scope: scope, key: active)))),
-                    DispatchLane.Interactive, active),
-                key: active)
-            from facts in gauged.Value
-            select new GateReceipt<ShellFacts>(
-                Verb: valid.SelfOp, Seal: Option<VerbNoun>.None, Outcome: new GateOutcome.SettledCase(),
-                Span: gauged.Span, Facts: facts));
+            UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
+                () => ScopeTarget.EditorHost.Acquire(key: active).Bind(scope => valid.Switch(
+                    state: (Scope: scope, Key: active),
+                    toggleCase: static (s, c) =>
+                        from current in c.Row.Read(scope: s.Scope, key: s.Key)
+                        from _ in c.Row.Write(scope: s.Scope, value: c.Intent.Target(current: current), key: s.Key)
+                        select unit,
+                    getterCase: static (s, c) => s.Key.Catch(body: () =>
+                        Editor.BeginRhinoGetter(doc: c.Target.Match<RhinoDoc?>(Some: static live => live, None: static () => null))
+                            ? Fin.Succ(unit)
+                            : Fin.Fail<Unit>((Error)new UiFault.HostRejected(Key: c.SelfOp, Detail: nameof(Editor.BeginRhinoGetter)))))
+                    .Bind(_ => Project(scope: scope, key: active)))),
+                DispatchLane.Interactive, active));
     }
 
-    public static Fin<Lease<ShellSeat>> Mount(MonotonicTimeline clock, Seq<ShellOp> standing, Op? key = null);
+    public static Fin<Lease<ShellFacts>> Mount(Seq<ShellOp> standing, Op? key = null);
 
     private static Fin<ShellFacts> Project(GhScope scope, Op key) =>
         from shell in scope.Editor.ToFin(key.MissingContext())
@@ -217,9 +206,9 @@ config:
 ---
 flowchart LR
     accTitle: Editor-shell gates over one singleton
-    accDescr: The composition root mounts the standing shell posture; boundary consumers reach the GH2 editor singleton through the command, snapshot, and pane-projection gates, each acquiring scope through the session rows inside one kernel marshal, the command gate gauging GateReceipt over ShellFacts on the shared Shell lane.
-    Root["Platform/composition PlatformRoot"] -->|standing ops + restore lease| Mount["EditorShell.Mount → Fin&lt;Lease&lt;ShellSeat&gt;&gt;"]
-    Mount --> Apply["EditorShell.Apply → Fin&lt;GateReceipt&lt;ShellFacts&gt;&gt;"]
+    accDescr: The composition root mounts the standing shell posture; boundary consumers reach the GH2 editor singleton through the command, snapshot, and pane-projection gates, each acquiring scope through the session rows inside one kernel marshal; commands return the ShellFacts they produce.
+    Root["Platform/composition PlatformRoot"] -->|standing ops + restore lease| Mount["EditorShell.Mount → Fin&lt;Lease&lt;ShellFacts&gt;&gt;"]
+    Mount --> Apply["EditorShell.Apply → Fin&lt;ShellFacts&gt;"]
     Consumer["boundary consumers"] -->|ShellOp cases| Apply
     Consumer -->|evidence read| Snapshot["EditorShell.Snapshot → Fin&lt;ShellFacts&gt;"]
     Consumer -->|"ShellSlot + Func&lt;ShellPane, Fin&lt;TOut&gt;&gt;"| Grab["EditorShell.Grab&lt;TOut&gt;"]
@@ -228,7 +217,6 @@ flowchart LR
     Grab --> Slots["ShellSlot resolve column → ShellPane"]
     Slots -->|"Editor.Tabs · StatusBar · layouts · recents · ThisOrRhino"| Host["Grasshopper2 Editor singleton"]
     Apply -->|"ShellToggle capability rows · ToggleIntent · BeginRhinoGetter"| Host
-    Apply -->|"GateLane.Shell gauge"| Lane["Document/document GateReceipt&lt;TFacts&gt;"]
     Apply -->|one marshal per command| Dispatch["kernel UiThread.Run"]
     Grab --> Dispatch
 ```
@@ -243,18 +231,17 @@ flowchart LR
 |  [02]   | pane slots        | `ShellSlot`              | resolve column                 | `Resolve → Fin<ShellPane>`      |    7    |
 |  [03]   | swing intent      | `ToggleIntent`           | target column (E-G46)          | `Target(current) → bool`        |    3    |
 |  [04]   | shell axes        | `ShellToggle`            | capability rows, r/w columns   | `CapabilitySet` membership      |    3    |
-|  [05]   | shell commands    | `ShellOp`                | `[Union]` `[GenerateUnionOps]` | `Apply` → gauged receipt        |    2    |
-|  [06]   | shell evidence    | `ShellFacts`             | one `Shown` set, no bools      | `Snapshot → Fin<ShellFacts>`    |    1    |
+|  [05]   | shell commands    | `ShellOp`                | `[Union]` `[GenerateUnionOps]` | `Apply` → direct `ShellFacts`   |    2    |
+|  [06]   | shell posture     | `ShellFacts`             | one `Shown` set, no bools      | `Snapshot → Fin<ShellFacts>`    |    1    |
 |  [07]   | typed pane egress | `EditorShell.Grab<TOut>` | total-`Switch`, one marshal    | `Grab → Fin<TOut>`              |    1    |
-|  [08]   | standing mount    | `EditorShell.Mount`      | capture-apply-restore lease    | `Mount → Fin<Lease<ShellSeat>>` |    1    |
+|  [08]   | standing mount    | `EditorShell.Mount`      | capture-apply-restore lease    | `Mount → Fin<Lease<ShellFacts>>` |    1    |
 
-`ScopeTarget`, `GhScope`, kernel `UiThread`/`UiFault`, `GateReceipt<TFacts>`/`GateLane`/`GateOutcome`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; the boolean shell triple, the bare-bool toggle target, the dual-direction `Option<bool>` swing column, the folder-local `ShellReceipt` sibling, the `nameof` verb strings, and the `EtoDispatch` marshal are all deleted. `Editor.BreadCrumbs` (private) is a phantom row no fence composes, and the host ships no file-comparison member.
+`ScopeTarget`, `GhScope`, kernel `UiThread`/`UiFault`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; the boolean shell triple, the bare-bool toggle target, the dual-direction `Option<bool>` swing column, the folder-local command wrapper, the `nameof` verb strings, and the `EtoDispatch` marshal are all deleted. `Editor.BreadCrumbs` (private) is a phantom row no fence composes, and the host ships no file-comparison member.
 
 ## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

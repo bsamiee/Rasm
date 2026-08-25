@@ -35,7 +35,7 @@
 
 [STACKING]:
 - `opentelemetry-api`(`.api/opentelemetry-api.md`): the wrap reads the active context via `context.get_current()` at `Thread.start`/`Timer`/`ThreadPoolExecutor.submit` and re-activates it in the worker body via token-paired `context.attach`/`context.detach`; this surface owns the thread-crossing carriage, `opentelemetry-api` owns the immutable `Context` and its attach/detach tokens.
-- within-lib: the `anyio.to_thread` and executor offload crossings inherit the live span, while the pickled process and interpreter arms stay the explicit `Signals.attach` stitch owner's.
+- within-lib: the `anyio.to_thread` and executor offload crossings inherit the live span, while the pickled process and interpreter arms stay the explicit observe `attach` stitch owner's.
 
 [LOCAL_ADMISSION]:
 - `instrument()` fires once at the composition root; a thread crossing the patch already carries takes no per-call `contextvars` plumbing.

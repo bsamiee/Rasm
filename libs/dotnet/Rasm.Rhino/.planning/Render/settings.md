@@ -1,25 +1,25 @@
 # [RASM_RHINO_RENDER_SETTINGS]
 
-`SettingsSource` admits live, archived, or detached `RenderSettings` once, and `Settings.Run` closes read, edit, and copy through one correlated request/result family. `SettingsSlot` is the ONE axis roster — its rows carry the host read, the `SettingsBody` union carries the host write, and the receipt is the spine's fact stream over the pair — so an axis is one row and every projection, gate, and undo stamp derives. `SunSolver.Solve` closes host astronomy, `SceneSun` projects the `rasm.contracts.scene` sun band off the kernel almanac, and `AmbientWatch` parks broadcast failures in one ring.
+`SettingsSource` admits live, archived, or detached `RenderSettings` once, and `Settings.Run` closes read, edit, and copy through one correlated request/result family. `SettingsBody` closes the writable sub-owner family and `RenderState` carries the complete detached state required by copy and compensation. `SunSolver.Solve` closes host astronomy, `SceneSun` projects the `rasm.contracts.scene` sun band off the kernel almanac, and `AmbientWatch` parks broadcast failures in one ring.
 
 ## [01]-[INDEX]
 
 - [02]-[SOURCE]: `SettingsSource` — the origin union with its `Use` read and `Mutate` undo-bracketed borrow folds.
 - [03]-[STATE_RECORDS]: the `SubOwners` custody window, the capability vocabularies, the writable sub-owner states, derived evidence, and `RenderConfig`.
 - [04]-[SUN_ASTRONOMY]: `SunProblem`/`SunSolution`/`SunSolver` over the host statics, beside the `SolarFrame`/`SunDerivation`/`SceneSun` descriptor band.
-- [05]-[EDIT_RAIL]: `SettingsSlot`, `SettingsBody`, `SettingsReceipt`, `RenderState`, and the `Settings.Run` request/result rail.
+- [05]-[EDIT_RAIL]: `SettingsBody`, `RenderState`, and the `Settings.Run` request/result rail.
 - [06]-[AMBIENT_WATCH]: `AmbientPulse` and the `Changed`-broadcast fold over a bounded ring.
 - [07]-[SURFACE_LEDGER]: page owner table.
 
 ## [02]-[SOURCE]
 
-- Owner: `SettingsSource` `[Union]` — `Live` resolves `RhinoDoc.RenderSettings` inside a `Demand` window, `Archived` resolves the archive-bound `File3dm.Settings.RenderSettings`, and `Free` mints one owned free-floating `RenderSettings` retained until source disposal; `Use` borrows the selected aggregate for exactly one read callback, and `Mutate` borrows it for exactly one mutation callback — the live arm demanding `Mutate`+`Undo`, opening one named `UndoBracket`, and stamping the undo serial onto the `SettingsReceipt`.
+- Owner: `SettingsSource` `[Union]` — `Live` resolves `RhinoDoc.RenderSettings` inside a `Demand` window, `Archived` resolves the archive-bound `File3dm.Settings.RenderSettings`, and `Free` mints one owned free-floating `RenderSettings` retained until source disposal; `Use` borrows the selected aggregate for exactly one read callback, and `Mutate` borrows it for exactly one mutation callback — the live arm demanding `Mutate`+`Undo` and opening one named `UndoBracket`.
 - Law: the origin is the discriminant a consumer carries — the same `GroundPlane` type is document-bound, archive-attached, or free-floating by the host's internal pointer resolution, so no parallel type pair exists on this side of the seam and no live sub-owner leaves the borrow.
 - Law: writes are in-place — a bound sub-owner commits through its native pointer, inert `BeginChange`/`EndChange` never appear, and cross-source copy replays one detached total state.
-- Law: only the document owns an undo record — archive and detached mutations apply without one; archive persistence occurs at `File3dm.Write`, while detached values remain locally owned, so their receipts carry no serial. The stamp is the stream's own projection, so an unrecorded program contributes no fact instead of one claiming record zero.
+- Law: only the document owns an undo record — archive and detached mutations apply without one; archive persistence occurs at `File3dm.Write`, while detached values remain locally owned.
 - Law: `RhinoDoc.RenderSettings` answers a FRESH document-bound wrapper on every read, so the aggregate enters the borrow once and threads — two reads of one property are two wrappers over one native and two instants the `Changed` broadcast can move between.
 - Boundary: the document and archive accessors are the document and file-IO catalogs' seam; this union names them once and every settings verb enters through it.
-- Packages: `api-rhinocommon-rendersettings.md` (`RenderSettings`, `DocumentOrFreeFloatingBase`, `RhinoDoc.RenderSettings`); `api-rhinocommon-fileio.md` (`File3dm.Settings.RenderSettings`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Lease<T>.Acquire`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `RedrawPolicy`, `IDetachedDocumentResult`), `Document/commit.md` (`DocumentCommit.Sealed`), `Document/facts.md` (`FactStream.Stamped`); LanguageExt.Core (`Fin`); Thinktecture.Runtime.Extensions (`[Union]`).
+- Packages: `api-rhinocommon-rendersettings.md` (`RenderSettings`, `DocumentOrFreeFloatingBase`, `RhinoDoc.RenderSettings`); `api-rhinocommon-fileio.md` (`File3dm.Settings.RenderSettings`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Lease<T>.Acquire`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `RedrawPolicy`, `IDetachedDocumentResult`), `Document/commit.md` (`DocumentCommit.Sealed`); LanguageExt.Core (`Fin`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -77,12 +77,12 @@ public abstract partial record SettingsSource : IDisposable {
                 from result in ctx.Op.Catch(() => ctx.Borrow(settings.Resource))
                 select result);
 
-    internal Fin<SettingsReceipt> Mutate(string name, Func<RenderSettings, Fin<SettingsReceipt>> borrow, Op key) =>
+    internal Fin<Unit> Mutate(string name, Func<RenderSettings, Fin<Unit>> borrow, Op key) =>
         Switch(
             context: (Name: name, Borrow: borrow, Op: key),
             live: static (ctx, source) =>
                 from session in ctx.Op.Need(source.Session)
-                from receipt in session.Demand(
+                from changed in session.Demand(
                     use: document => DocumentCommit.Sealed(
                         document: document,
                         name: ctx.Name,
@@ -90,28 +90,24 @@ public abstract partial record SettingsSource : IDisposable {
                         redraw: RedrawPolicy.None,
                         run: () =>
                             from settings in Optional(document.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
-                            from receipt in ctx.Borrow(settings)
-                            select receipt,
-                        stamp: static (receipt, serial) => receipt.Stamped(
-                            slot: SettingsSlot.Undo,
-                            record: static value => new SettingsBody.Record(Serial: value),
-                            serial: serial),
+                            from applied in ctx.Borrow(settings)
+                            select applied,
                         project: Fin.Succ,
                         op: ctx.Op),
                     key: ctx.Op,
                     needs: SessionNeed.Mutation(undo: true, redraw: RedrawPolicy.None).ToArray())
-                select receipt,
+                select changed,
             archived: static (ctx, source) =>
                 from archive in ctx.Op.Need(source.Archive)
-                from receipt in ctx.Op.Catch(() =>
+                from changed in ctx.Op.Catch(() =>
                     from settings in Optional(archive.Settings.RenderSettings).ToFin(Fail: ctx.Op.MissingContext())
                     from applied in ctx.Borrow(settings)
                     select applied)
-                select receipt,
+                select changed,
             detached: static (ctx, source) =>
                 from settings in ctx.Op.Need(source.Settings)
-                from receipt in ctx.Op.Catch(() => ctx.Borrow(settings.Resource))
-                select receipt);
+                from changed in ctx.Op.Catch(() => ctx.Borrow(settings.Resource))
+                select changed);
 
     public void Dispose() =>
         ignore(Switch(
@@ -135,7 +131,7 @@ public abstract partial record SettingsSource : IDisposable {
 - Law: an identity column admits at construction — a ground plane's material instance and a channel's custom rows are `ResourceId`, so the empty guid the host answers for "no material" refuses here instead of travelling as a state a replay asserts.
 - Law: `EnvironmentRole` and `EnvironmentView` close the usage-purpose product; `RenderConfig` writes one binding per role and `EnvironmentBindingState.Resolve` reads both purposes without leaking host enums.
 - Law: a host-identity roster keys on its OWN host ordinal — `SunAccuracy`, `DitherMethod`, `EnvironmentRole`, and `EnvironmentView` are one-to-one renamings of a host enum, so the ordinal IS the key, `Native` derives from it, and the read is the kernel host-enum row arm. A string key beside a stored native column was two authorities for one value and the read it forced has no landed arity.
-- Growth: a new host switch is one vocabulary row; a new sub-owner property is one record field read and asserted in the same pass; a new sub-owner is one record, one `SettingsSlot` row, and one `SettingsBody` case.
+- Growth: a new host switch is one vocabulary row; a new sub-owner property is one record field read and asserted in the same pass; a new sub-owner is one state record, one `SettingsBody` case, and one `RenderState` column.
 - Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane`, `Skylight`, `Sun`, `Sun.Accuracies`, `Sun.SetPosition`, `Sun.SetDateTime`/`GetDateTime`, `Sun.Light`/`Vector`/`Hash`, `LinearWorkflow`, `Dithering`, `Dithering.Methods`, `SafeFrame`, `RenderChannels`, `RenderChannels.Modes`, `RenderSettings.EnvironmentUsage`/`EnvironmentPurpose`/`RenderingSources`, `RenderEnvironmentId`/`SetRenderEnvironmentId`/`RenderEnvironmentOverride`/`SetRenderEnvironmentOverride`, `BackgroundStyle`, `AntialiasLevel`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/rails` (`Op.Row`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `ValidityClaim`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/context` (`ModelUnit`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`, `Size2i`); `Document/tables.md` (`ResourceId`), kernel `Domain/rails` (`Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`).
 
 ```csharp
@@ -1125,94 +1121,19 @@ public static class SunSolver {
 
 ## [05]-[EDIT_RAIL]
 
-- Owner: `SettingsBodyKind`, `SettingsSlot`, and `SettingsBody` are this page's whole contribution to the Document spine's fact stream — a kind vocabulary, a keyed slot roster carrying the host read as a delegate column, and a payload union carrying the host write as one total fold; `SettingsReceipt` is the closed instantiation and `SettingsReceipts` the mint surface. `SettingsRequest`/`SettingsResult` correlate the rail and `Settings.Run` is the sole entry over every `SettingsSource` origin.
-- Entry: `SettingsReceipt.Edit(body)` mints one fact — the body's own kind selects its slot through the stream's gate, so a caller names the payload and never the axis; `SettingsSlot.State(owners, key)` is the whole-state read and `SettingsBody.Apply` the whole-state write.
-- Law: the axis roster has ONE spelling. It stood in six — a slot enum, an edit union with its axis column, that union's apply switch, a total-state record's fields, that record's replay list, and the read fold's constructor — so a new sub-owner touched six places and any two disagreed about which axes exist. The row now carries the read, the body case carries the write, and every other spelling DERIVES. NAMED LOSS: `RenderState`'s eleven typed accessors, so an internal caller wanting one axis projects it off the stream by slot; bought back by the stream's slot-keyed readers, its monoid, and its gate, none of which the record had.
-- Law: the stream MACHINERY is not this page's. The accumulation, the cross-product gate, the undo projection, and the slot-keyed readers live once on `Document/facts.md`; a page-local receipt, fact, gate, or projection beside that owner is the deleted form, and the same two declarations are all a third mutation folder needs to join.
-- Law: the undo serial refuses zero. `DocumentCommit.Sealed` stamps every sealed receipt including a program that opened no record, and that serial is `0u` — the prior receipt wrapped it in `Some` and published a fact claiming record zero, indistinguishable from a real record. `UndoSerial.Maybe` refuses it, so an unrecorded program contributes no fact at all.
-- Law: the undo slot has NO read column. Its body is minted by the commit envelope's stamp rather than sampled off a sub-owner, so its read is absent by type and the whole-state fold skips it without a predicate; replaying a stamped receipt refuses at that body's own write arm, because an undo record is evidence, never an edit.
-- Law: derived evidence is a `RenderState` column, not a slot. `SunEvidence`, `WorkflowEvidence`, and the environment resolution are host projections a replay must never re-assert, so they sit beside the fact stream rather than inside it — a slot carrying one puts a non-replayable body into every replay plan.
-- Law: each request enters its source once; edit and whole-state replay lower through one receipt inside one compensated mutation grant over a single `SubOwners` window, and copy crosses sources as exactly one source read-window and one target write-window — the receipt IS the replayable carrier, so no duplicate aggregate is minted and no live aggregate outlives its window.
-- Law: a failed edit sequence restores the pre-borrow total state before the fault leaves — the prior `RenderState` is the compensation record for every source, archive and detached included, with the live bracket's undo rollback layered above it; a restore failure appends onto the primary fault, never replaces it. The disposal bracket is the package's both-arms release fold, so a compensation record whose lease refuses to release reports that refusal rather than swallowing it in a `using` exit.
+- Owner: `SettingsBody` closes the writable sub-owner family; `RenderState` carries the complete detached state with derived evidence; `SettingsRequest`/`SettingsResult` correlate the rail and `Settings.Run` is the sole entry over every `SettingsSource` origin.
+- Entry: `Settings.Run` reads the canonical state, applies one `SettingsBody`, or copies one complete `RenderState`.
+- Law: the result carries every writable sub-owner as its existing typed state. Copy and compensation apply that state directly; no slot roster, body-kind mirror, accumulator, or projection stands between the producer and caller.
+- Law: derived evidence remains read-only. `SunEvidence`, `WorkflowEvidence`, and environment resolution are host projections a replay must never assert, so `RenderState.Apply` touches only the writable state columns.
+- Law: each request enters its source once; edit lowers one body inside one compensated mutation grant over a single `SubOwners` window, and copy crosses sources as exactly one source read-window and one target write-window.
+- Law: a failed mutation restores the pre-borrow `RenderState` before the fault leaves, with the live bracket's undo rollback layered above it; a restore failure appends onto the primary fault, never replaces it.
 - Boundary: `RenderSettings.PostEffects : PostEffectCollection` is a separate host sub-owner whose configuration rows belong to the Display render page.
-- Growth: a new configuration axis is one `SettingsSlot` row, one `SettingsBody` case, and one `SettingsBodyKind` row with every consumer untouched.
-- Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), kernel `Domain/rails` (`Custody.Settled`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`); LanguageExt.Core (`Fin`, `Seq`, `Traverse`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`).
+- Growth: a new writable axis is one `SettingsBody` case and one typed `RenderState` column with its capture and apply paths.
+- Packages: kernel `Domain/rails` (`Custody.Settled`, `Op`, `Op.Side`); LanguageExt.Core (`Fin`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SettingsBodyKind : ICapability<SettingsBodyKind> {
-    public static readonly SettingsBodyKind Frame = new(key: "frame");
-    public static readonly SettingsBodyKind Ground = new(key: "ground");
-    public static readonly SettingsBodyKind Sky = new(key: "sky");
-    public static readonly SettingsBodyKind Daylight = new(key: "daylight");
-    public static readonly SettingsBodyKind Workflow = new(key: "workflow");
-    public static readonly SettingsBodyKind Dither = new(key: "dither");
-    public static readonly SettingsBodyKind Guides = new(key: "guides");
-    public static readonly SettingsBodyKind Channels = new(key: "channels");
-    public static readonly SettingsBodyKind Record = new(key: "record");
-}
-
-[SmartEnum<int>]
-public sealed partial class SettingsSlot : IFactSlot<SettingsBody, SettingsBodyKind> {
-    private static readonly CapabilitySet<SettingsBodyKind> Framed = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Frame);
-    private static readonly CapabilitySet<SettingsBodyKind> Grounded = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Ground);
-    private static readonly CapabilitySet<SettingsBodyKind> Skied = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Sky);
-    private static readonly CapabilitySet<SettingsBodyKind> Lit = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Daylight);
-    private static readonly CapabilitySet<SettingsBodyKind> Piped = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Workflow);
-    private static readonly CapabilitySet<SettingsBodyKind> Dithered = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Dither);
-    private static readonly CapabilitySet<SettingsBodyKind> Guided = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Guides);
-    private static readonly CapabilitySet<SettingsBodyKind> Channelled = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Channels);
-    private static readonly CapabilitySet<SettingsBodyKind> Stamped = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Record);
-
-    public static readonly SettingsSlot Frame = new(key: 0, bodies: Framed, read: Some<Sampler>(
-        static (owners, op) => RenderConfig.Of(settings: owners.Settings, key: op)
-            .Map(static config => (SettingsBody)new SettingsBody.Frame(Config: config))));
-    public static readonly SettingsSlot Ground = new(key: 1, bodies: Grounded, read: Some<Sampler>(
-        static (owners, op) => GroundPlaneState.Of(ground: owners.Ground, key: op)
-            .Map(static state => (SettingsBody)new SettingsBody.Ground(State: state))));
-    public static readonly SettingsSlot Sky = new(key: 2, bodies: Skied, read: Some<Sampler>(
-        static (owners, op) => op.Catch(() => Fin.Succ(
-            value: (SettingsBody)new SettingsBody.Sky(State: SkylightState.Of(sky: owners.Sky))))));
-    public static readonly SettingsSlot Daylight = new(key: 3, bodies: Lit, read: Some<Sampler>(
-        static (owners, op) => SunState.Of(sun: owners.Daylight, key: op)
-            .Map(static state => (SettingsBody)new SettingsBody.Daylight(State: state))));
-    public static readonly SettingsSlot Workflow = new(key: 4, bodies: Piped, read: Some<Sampler>(
-        static (owners, op) => WorkflowState.Of(workflow: owners.Workflow, key: op)
-            .Map(static state => (SettingsBody)new SettingsBody.Workflow(State: state))));
-    public static readonly SettingsSlot Dither = new(key: 5, bodies: Dithered, read: Some<Sampler>(
-        static (owners, op) => DitherState.Of(dither: owners.Dither, key: op)
-            .Map(static state => (SettingsBody)new SettingsBody.Dither(State: state))));
-    public static readonly SettingsSlot Guides = new(key: 6, bodies: Guided, read: Some<Sampler>(
-        static (owners, op) => op.Catch(() => Fin.Succ(
-            value: (SettingsBody)new SettingsBody.Guides(State: SafeFrameState.Of(frame: owners.Guides))))));
-    public static readonly SettingsSlot Channels = new(key: 7, bodies: Channelled, read: Some<Sampler>(
-        static (owners, op) => ChannelState.Of(channels: owners.Channels, key: op)
-            .Map(static state => (SettingsBody)new SettingsBody.Channels(State: state))));
-    public static readonly SettingsSlot Undo = new(key: 8, bodies: Stamped, read: None);
-
-    internal delegate Fin<SettingsBody> Sampler(SubOwners owners, Op key);
-
-    public CapabilitySet<SettingsBodyKind> Bodies { get; }
-
-    private Option<Sampler> Read { get; }
-
-    internal Fin<SettingsReceipt> Sample(SubOwners owners, Op key) =>
-        Read.Match(
-            Some: read => read(owners, key).Bind(body => SettingsReceipt.Of(slot: this, body: body, key: key)),
-            None: () => Fin.Succ(value: SettingsReceipt.Empty));
-
-    internal static Fin<SettingsReceipt> State(SubOwners owners, Op key) =>
-        toSeq(Items)
-            .Traverse(slot => slot.Sample(owners: owners, key: key).ToValidation())
-            .As()
-            .ToFin()
-            .Map(static facts => facts.Fold(SettingsReceipt.Empty, static (state, next) => state + next));
-}
-
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SettingsBody : IFactBody<SettingsBodyKind> {
+public abstract partial record SettingsBody {
     private SettingsBody() { }
     public sealed record Frame(RenderConfig Config) : SettingsBody;
     public sealed record Ground(GroundPlaneState State) : SettingsBody;
@@ -1222,18 +1143,6 @@ public abstract partial record SettingsBody : IFactBody<SettingsBodyKind> {
     public sealed record Dither(DitherState State) : SettingsBody;
     public sealed record Guides(SafeFrameState State) : SettingsBody;
     public sealed record Channels(ChannelState State) : SettingsBody;
-    public sealed record Record(UndoSerial Serial) : SettingsBody;
-
-    public SettingsBodyKind Kind => Map(
-        frame: SettingsBodyKind.Frame,
-        ground: SettingsBodyKind.Ground,
-        sky: SettingsBodyKind.Sky,
-        daylight: SettingsBodyKind.Daylight,
-        workflow: SettingsBodyKind.Workflow,
-        dither: SettingsBodyKind.Dither,
-        guides: SettingsBodyKind.Guides,
-        channels: SettingsBodyKind.Channels,
-        record: SettingsBodyKind.Record);
 
     internal Fin<Unit> Apply(SubOwners owners, Op op) =>
         Switch(
@@ -1250,15 +1159,14 @@ public abstract partial record SettingsBody : IFactBody<SettingsBodyKind> {
             guides: static (context, body) => context.Op.Need(body.State)
                 .Bind(state => state.Apply(frame: context.Owners.Guides, key: context.Op)),
             channels: static (context, body) => context.Op.Need(body.State)
-                .Bind(state => state.Apply(channels: context.Owners.Channels, key: context.Op)),
-            record: static (context, _) => Fin.Fail<Unit>(error: context.Op.InvalidInput()));
+                .Bind(state => state.Apply(channels: context.Owners.Channels, key: context.Op)));
 }
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SettingsRequest {
     private SettingsRequest() { }
     public sealed record Read : SettingsRequest;
-    public sealed record Edit(SettingsReceipt Plan) : SettingsRequest;
+    public sealed record Edit(SettingsBody Change) : SettingsRequest;
     public sealed record CopyTo(SettingsSource Target) : SettingsRequest;
 }
 
@@ -1268,31 +1176,59 @@ public abstract partial record SettingsResult : IDetachedDocumentResult {
     public sealed record State(RenderState Value) : SettingsResult, IDisposable {
         public void Dispose() => Value.Dispose();
     }
-    public sealed record Changed(SettingsReceipt Receipt) : SettingsResult;
+    public sealed record Changed : SettingsResult;
 }
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-global using SettingsFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Render.SettingsSlot, Rasm.Rhino.Render.SettingsBody>;
-global using SettingsReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Render.SettingsSlot, Rasm.Rhino.Render.SettingsBody>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record RenderState(
-    SettingsReceipt Facts,
+    RenderConfig Frame,
+    GroundPlaneState Ground,
+    SkylightState Sky,
+    SunState Daylight,
+    WorkflowState Workflow,
+    DitherState Dither,
+    SafeFrameState Guides,
+    ChannelState Channels,
     SunEvidence DaylightEvidence,
     WorkflowEvidence WorkflowEvidence,
     Seq<(EnvironmentRole Role, EnvironmentView View, Option<Guid> Content)> EnvironmentResolution)
     : IDisposable, IDetachedDocumentResult {
     internal static Fin<RenderState> Of(SubOwners owners, Op key) =>
-        from facts in SettingsSlot.State(owners: owners, key: key)
+        from frame in RenderConfig.Of(settings: owners.Settings, key: key)
+        from ground in GroundPlaneState.Of(ground: owners.Ground, key: key)
+        from sky in key.Catch(() => Fin.Succ(value: SkylightState.Of(sky: owners.Sky)))
+        from daylight in SunState.Of(sun: owners.Daylight, key: key)
+        from workflow in WorkflowState.Of(workflow: owners.Workflow, key: key)
+        from dither in DitherState.Of(dither: owners.Dither, key: key)
+        from guides in key.Catch(() => Fin.Succ(value: SafeFrameState.Of(frame: owners.Guides)))
+        from channels in ChannelState.Of(channels: owners.Channels, key: key)
         from environments in EnvironmentBindingState.Resolve(settings: owners.Settings, key: key)
         from evidence in SunEvidence.Of(sun: owners.Daylight, key: key)
         select new RenderState(
-            Facts: facts,
+            Frame: frame,
+            Ground: ground,
+            Sky: sky,
+            Daylight: daylight,
+            Workflow: workflow,
+            Dither: dither,
+            Guides: guides,
+            Channels: channels,
             DaylightEvidence: evidence,
             WorkflowEvidence: WorkflowEvidence.Of(workflow: owners.Workflow),
             EnvironmentResolution: environments);
 
-    internal Fin<T> Use<T>(Func<RenderState, Fin<T>> borrow, Op key) where T : IDetachedDocumentResult {
+    internal Fin<Unit> Apply(SubOwners owners, Op key) =>
+        from frame in key.Need(Frame).Bind(value => value.Apply(settings: owners.Settings, key: key))
+        from ground in key.Need(Ground).Bind(value => value.Apply(ground: owners.Ground, key: key))
+        from sky in Sky.Apply(sky: owners.Sky, key: key)
+        from daylight in key.Need(Daylight).Bind(value => value.Apply(sun: owners.Daylight, key: key))
+        from workflow in Workflow.Apply(workflow: owners.Workflow, key: key)
+        from dither in Dither.Apply(dither: owners.Dither, key: key)
+        from guides in key.Need(Guides).Bind(value => value.Apply(frame: owners.Guides, key: key))
+        from channels in key.Need(Channels).Bind(value => value.Apply(channels: owners.Channels, key: key))
+        select unit;
+
+    internal Fin<T> Use<T>(Func<RenderState, Fin<T>> borrow, Op key) {
         RenderState self = this;
         return key.Need(borrow)
             .Bind(active => key.Catch(() => active(self)))
@@ -1303,20 +1239,6 @@ public sealed record RenderState(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class SettingsReceipts {
-    extension(SettingsReceipt) {
-        public static Fin<SettingsReceipt> Edit(SettingsBody body, Op? key = null) {
-            Op op = key.OrDefault();
-            return from active in op.Need(body)
-                   from slot in toSeq(SettingsSlot.Items)
-                       .Find(row => row.Admits(body: active))
-                       .ToFin(Fail: op.InvalidInput())
-                   from receipt in SettingsReceipt.Of(slot: slot, body: active, key: op)
-                   select receipt;
-        }
-    }
-}
-
 public static class Settings {
     public static Fin<SettingsResult> Run(SettingsSource source, SettingsRequest request, Op? key = null) {
         Op op = key.OrDefault();
@@ -1331,61 +1253,60 @@ public static class Settings {
                                .Map(static value => (SettingsResult)new SettingsResult.State(value)),
                            key: state.Op),
                        key: state.Op),
-                   edit: static (state, command) => Commit(state.Source, command.Plan, state.Op)
-                       .Map(static receipt => (SettingsResult)new SettingsResult.Changed(receipt)),
+                   edit: static (state, command) => Commit(state.Source, command.Change, state.Op)
+                       .Map(static _ => (SettingsResult)new SettingsResult.Changed()),
                    copyTo: static (state, command) => Copy(state.Source, command.Target, state.Op)
-                       .Map(static receipt => (SettingsResult)new SettingsResult.Changed(receipt)))
+                       .Map(static _ => (SettingsResult)new SettingsResult.Changed()))
                select result;
     }
 
-    private static Fin<SettingsReceipt> Commit(SettingsSource source, SettingsReceipt plan, Op op) =>
-        from _ in guard(!plan.Facts.IsEmpty, op.InvalidInput()).ToFin()
-        from receipt in source.Mutate(
+    private static Fin<Unit> Commit(SettingsSource source, SettingsBody change, Op op) =>
+        from active in op.Need(change)
+        from changed in source.Mutate(
             name: nameof(SettingsRequest.Edit),
             borrow: settings => SubOwners.Within(
                 settings: settings,
                 borrow: owners => RenderState.Of(owners: owners, key: op)
-                    .Bind(prior => Compensated(owners, prior, plan, op)),
+                    .Bind(prior => Compensated(
+                        owners, prior, (state, key) => active.Apply(owners: state, op: key), op)),
                 key: op),
             key: op)
-        select receipt;
+        select changed;
 
-    private static Fin<SettingsReceipt> Compensated(
-        SubOwners owners, RenderState prior, SettingsReceipt plan, Op op) =>
+    private static Fin<Unit> Compensated(
+        SubOwners owners, RenderState prior, Func<SubOwners, Op, Fin<Unit>> apply, Op op) =>
         prior.Use(
-            borrow: record => ApplyPlan(owners: owners, plan: plan, op: op)
-                .BindFail(fault => ApplyPlan(owners: owners, plan: record.Facts, op: op).Match(
-                    Succ: _ => Fin.Fail<SettingsReceipt>(error: fault),
-                    Fail: restore => Fin.Fail<SettingsReceipt>(error: fault + restore))),
+            borrow: record => apply(owners, op)
+                .BindFail(fault => record.Apply(owners: owners, key: op).Match(
+                    Succ: _ => Fin.Fail<Unit>(error: fault),
+                    Fail: restore => Fin.Fail<Unit>(error: fault + restore))),
             key: op);
 
-    private static Fin<SettingsReceipt> Copy(SettingsSource source, SettingsSource target, Op op) =>
+    private static Fin<Unit> Copy(SettingsSource source, SettingsSource target, Op op) =>
         from activeTarget in op.Need(target)
         from state in source.Use(
             borrow: settings => SubOwners.Within(
                 settings: settings, borrow: owners => RenderState.Of(owners: owners, key: op), key: op),
             key: op)
-        from receipt in state.Use(
+        from changed in state.Use(
             borrow: value => activeTarget.Mutate(
                 name: nameof(SettingsRequest.CopyTo),
                 borrow: settings => SubOwners.Within(
                     settings: settings,
                     borrow: owners => RenderState.Of(owners: owners, key: op)
-                        .Bind(prior => Compensated(owners: owners, prior: prior, plan: value.Facts, op: op)),
+                        .Bind(prior => Compensated(
+                            owners, prior, (active, key) => value.Apply(owners: active, key: key), op)),
                     key: op),
                 key: op),
             key: op)
-        select receipt;
-
-    private static Fin<SettingsReceipt> ApplyPlan(SubOwners owners, SettingsReceipt plan, Op op) =>
-        plan.Facts.TraverseM(fact => fact.Body.Apply(owners: owners, op: op)).As().Map(_ => plan);
+        select changed;
 }
 ```
 
 ## [06]-[AMBIENT_WATCH]
 
 - Owner: `AmbientPulse` `[SmartEnum<int>]` carries each catalogued static `Changed` broadcast as one bind row; `AmbientFact` detaches the pulse, optional document key, and host property context; `AmbientWatch` owns transactional attach, symmetric release, and one bounded ring of delivery failures.
-- Law: a broadcast row is a PULSE, never a slot. The word `Slot` names a mutation-consequence vocabulary on this boundary — the fact-stream contract at `Document/facts.md` and its `[05]` instantiation here — so an event-bind roster wearing it read as a receipt axis a reader hands to `Settings.Run`. `Render/registry.md`'s `ContentPulse` is the same regime under the same name.
+- Law: a broadcast row is a PULSE, never a mutation axis; `Render/registry.md`'s `ContentPulse` is the same regime under the same name.
 - Law: `LinearWorkflow` and `Dithering` carry no `Changed` event, so their staleness is polled through `Settings.Run(SettingsRequest.Read)`.
 - Law: the failure journal IS the kernel bounded ring. A cap, oldest-first eviction, and a drop counter were a page-local retention policy and ledger pair; `Ring<AmbientFailure>` is that shape once for the estate, its `Park` verdict is COUNTED rather than discarded, and a declined park reads as `Lost` where the prior ledger conflated a shed row with a contended write. NAMED LOSS: the accumulated `Error` over every dropped failure; that accumulator grew without bound beside a capped roster, so the cap now bounds what it claimed to.
 - Law: `RenderPropertyChangedEvent.Document`, `Context`, `DocKey` projection, sink delivery, and failure retention share one guarded callback rail. `Context` remains the host's opaque integer discriminant, a missing document yields `None`, and projection failure parks a pulse-keyed fallback fact.
@@ -1494,17 +1415,14 @@ public sealed class AmbientWatch : IDisposable {
 |  [10]   | host astronomy    | `SunProblem` / `SunSolution`         | closed request/result              | `SunSolver.Solve`      |
 |  [11]   | machine location  | `SunCapability`                      | grant the `Here` case names        | `SunSolver.Solve`      |
 |  [12]   | settings rail     | `SettingsRequest` / `SettingsResult` | correlated request/result          | `Settings.Run`         |
-|  [13]   | axis roster       | `SettingsSlot` / `SettingsBodyKind`  | keyed slots with the host read     | `SettingsSlot.State`   |
-|  [14]   | mutation receipt  | `SettingsReceipt`                    | the spine's stream, undo-stamped   | `SettingsReceipt.Edit` |
-|  [15]   | broadcasts        | `AmbientPulse` / `AmbientFailure`    | bound ring over verified pulses    | `AmbientWatch.Of`      |
-|  [16]   | engine-bound site | `SolarFrame`                         | annual-run georeference gate       | `SolarFrame.Validate`  |
-|  [17]   | descriptor sun    | `SunDerivation` / `SceneSun`         | sited-or-authored wire band        | `SceneSun.Of`          |
+|  [13]   | broadcasts        | `AmbientPulse` / `AmbientFailure`    | bound ring over verified pulses    | `AmbientWatch.Of`      |
+|  [14]   | engine-bound site | `SolarFrame`                         | annual-run georeference gate       | `SolarFrame.Validate`  |
+|  [15]   | descriptor sun    | `SunDerivation` / `SceneSun`         | sited-or-authored wire band        | `SceneSun.Of`          |
 
 ## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

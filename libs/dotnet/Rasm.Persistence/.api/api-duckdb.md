@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_DUCKDB]
 
-`DuckDB.NET.Data.Full` owns the in-process DuckDB analytical store behind the `Query/columnar` `ColumnarProfile` algebra: the ADO.NET provider, the bulk appender and data-chunk vector rails, scalar and table function registration, and schema metadata. Appender and data-chunk throughput land as profile receipts, and the snapshot codecs project `[ValueObject]`/`[SmartEnum]` owners into columns through the typed `AppendValue`/`WriteValue` rails. One provider also carries the engine's full extension surface as `INSTALL`/`LOAD` SQL over `DuckDBCommand` — no second engine, no per-extension package.
+`DuckDB.NET.Data.Full` owns the in-process DuckDB analytical store behind the `Query/columnar` `ColumnarProfile` algebra: the ADO.NET provider, the bulk appender and data-chunk vector rails, scalar and table function registration, and schema metadata. Appender and data-chunk throughput project directly to telemetry, and the snapshot codecs project `[ValueObject]`/`[SmartEnum]` owners into columns through the typed `AppendValue`/`WriteValue` rails. One provider also carries the engine's full extension surface as `INSTALL`/`LOAD` SQL over `DuckDBCommand` — no second engine, no per-extension package.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -16,7 +16,7 @@
 
 [PUBLIC_TYPE_SCOPE]: ADO.NET provider surfaces
 
-`DuckDBQueryProgress` (`DuckDB.NET.Native` struct) carries `double Percentage`, `ulong RowsProcessed`, `ulong TotalRowsToProcess` — the `GetQueryProgress()` receipt. `DuckDBErrorType` (`DuckDB.NET.Native` enum) discriminates `DuckDBException.ErrorType` over the native fault vocabulary, lifting `DuckDBException` to the store-profile fault rail.
+`DuckDBQueryProgress` (`DuckDB.NET.Native` struct) carries `double Percentage`, `ulong RowsProcessed`, `ulong TotalRowsToProcess` from `GetQueryProgress()`. `DuckDBErrorType` (`DuckDB.NET.Native` enum) discriminates `DuckDBException.ErrorType` over the native fault vocabulary, lifting `DuckDBException` to the store-profile fault rail.
 
 `DuckDBConnectionStringBuilder` exposes `DataSource` and the `const string` anchors `InMemoryDataSource` (`:memory:`), `InMemoryConnectionString`, `InMemorySharedDataSource` (`:memory:?cache=shared`), `InMemorySharedConnectionString`. `DuckDBClientFactory : DbProviderFactory` carries `static readonly Instance` and `const ProviderInvariantName = "DuckDB.NET.Data"` for `DbProviderFactories` registration.
 
@@ -208,12 +208,12 @@ Every DuckDB extension enters as `INSTALL`/`LOAD` SQL over `DuckDBCommand.Execut
 |  [03]   | `CREATE OR REPLACE SECRET ⟨name⟩ IN postgres_⟨db⟩ (TYPE s3, …);`                       | persist into an attached store              |
 |  [04]   | `ATTACH '⟨conn⟩' AS ⟨alias⟩ (TYPE postgres, READ_ONLY);`                               | cross-engine join against live PG           |
 |  [05]   | `COPY (SELECT … FROM postgres_scan('⟨conn⟩',…)) TO '⟨file⟩.parquet' (FORMAT parquet);` | PG → Parquet extract                        |
-|  [06]   | `SELECT extension_name, loaded, installed FROM duckdb_extensions() WHERE installed;`   | profile receipt of the loaded extension set |
+|  [06]   | `SELECT extension_name, loaded, installed FROM duckdb_extensions() WHERE installed;`   | loaded extension set                         |
 
 [LOAD_PROTOCOL]:
-- Each profile declares its extension set once and runs the ordered `INSTALL <ext>; LOAD <ext>;` pairs through `DuckDBConnection.CreateCommand().ExecuteNonQuery()` right after `Open`, before any analytical query; the loaded set lands as a `Query/columnar` receipt queried back via `duckdb_extensions()`.
+- Each profile declares its extension set once and runs the ordered `INSTALL <ext>; LOAD <ext>;` pairs through `DuckDBConnection.CreateCommand().ExecuteNonQuery()` right after `Open`, before any analytical query; `duckdb_extensions()` verifies the loaded set.
 - Statically-linked `parquet`/`json`/`icu` resolve without network access; on-demand extensions require a one-time repository download, so a sealed profile pins a deterministic `extension_directory` to pre-warm the cache off the query path.
-- `autoinstall_known_extensions`/`autoload_known_extensions` self-install a bare `read_parquet`/`ST_Read`/`iceberg_scan` reference; an explicit bootstrap `INSTALL`/`LOAD` stays the declared contract so the required set is a receipt, not an implicit query-time side effect.
+- `autoinstall_known_extensions`/`autoload_known_extensions` self-install a bare `read_parquet`/`ST_Read`/`iceberg_scan` reference; explicit bootstrap `INSTALL`/`LOAD` keeps the required set declared instead of an implicit query-time side effect.
 - Credentials are `CREATE SECRET` objects, never inline keys in a path or `SET`; a secret persisted `IN postgres_⟨db⟩` survives reconnect, an in-memory secret is profile-scoped. `httpfs` is the prerequisite for every `s3://`/`http(s)://` path, and `aws`/`azure` resolve the credential, not the transport.
 
 ## [05]-[IMPLEMENTATION_LAW]
@@ -225,7 +225,7 @@ Every DuckDB extension enters as `INSTALL`/`LOAD` SQL over `DuckDBCommand.Execut
 - `api-thinktecture-json`/`api-thinktecture-messagepack`(`libs/dotnet/.api/`): a `[ValueObject]`/`[SmartEnum]` owner crosses into a DuckDB column through `ThinktectureJsonConverterFactory`/`ThinktectureMessageFormatterResolver` projecting the owner to its key, which the typed `AppendValue` (or data-chunk `WriteValue<T>`) writes; the inverse decodes the column value back through the same factory, never a hand-rolled column mapping.
 - `Apache.Arrow`(`libs/dotnet/.api/api-arrow.md`): the `Query/columnar` extract path (DuckDB result → Arrow record batch) bridges through `Apache.Arrow` `RecordBatch`/`Schema` and the `Apache.Arrow.Adbc` driver manager over a native `[LibraryImport]` against `duckdb`; the managed `DuckDB.NET.Data` surface exposes no Arrow CLR member, so a zero-copy DuckDB→Arrow path is an explicit native-bridge rail, never a `DuckDBConnection` member.
 - `api-ara3d-bimopenschema`(`.api/api-ara3d-bimopenschema.md`): the BIM analytics-frame producer this provider reads — `WriteDuckDB`/`DuckDbUtils.WriteToDuckDB` bulk-appends the columnar BIM tables (each suffixed `<Name>_<n>`) through a `DuckDBAppender`, and a Persistence analytics query opens that `.duckdb` over this same `DuckDBConnection` and SQL-joins the suffixed entity/parameter/relation tables.
-- store-profile receipts: the appender batch and data-chunk vector throughput land as the `Query/columnar` typed receipt, and `GetQueryProgress()` `DuckDBQueryProgress` feeds a progress span through the AppHost `telemetry`/`drain` ports, never a bespoke logger.
+- store-profile telemetry: appender batch and data-chunk vector throughput project directly, and `GetQueryProgress()` `DuckDBQueryProgress` feeds a progress span through the AppHost `telemetry`/`drain` ports, never a bespoke logger.
 - fault rail: `DuckDBException` lifts at the provider edge discriminated on `DuckDBErrorType`, joining the store-profile failure rail rather than surfacing as a raw ADO exception.
 - spatial: `ST_AsWKB`/`ST_GeomFromWKB` exchange geometry with the branch core codecs (`WKBReader`/`WKBWriter`, `libs/dotnet/.api/api-nettopologysuite.md`) and `ST_Read` reads the GDAL formats admitted via `api-npgsql-nts`; DuckDB owns columnar spatial aggregation, PG GiST owns transactional spatial indexing.
 - lakehouse: `delta_scan`/`iceberg_scan` read the same tables the managed `api-deltalake` writer produces — DuckDB is the read/aggregate projection, the managed writer the system of record, meeting at the table path.
@@ -234,12 +234,12 @@ Every DuckDB extension enters as `INSTALL`/`LOAD` SQL over `DuckDBCommand.Execut
 - substrait: the `substrait` community extension serializes a DuckDB query to a portable Substrait plan (`get_substrait`) and executes a foreign plan (`from_substrait`), bridging to `Apache.Arrow.Adbc`'s Substrait surface as the `Query/columnar` `ColumnarExtension.Substrait` member; community-signed, so the profile is fail-closed — bootstrap probes `duckdb_extensions()` and rejects the profile when `substrait` is absent or unloaded rather than silently degrading.
 
 [LOCAL_ADMISSION]:
-- DuckDB surfaces enter behind the same store-profile vocabulary as every provider; appender and data-chunk throughput are profile receipts, not public service families.
+- DuckDB surfaces enter behind the same store-profile vocabulary as every provider; appender and data-chunk throughput are telemetry, not public service families.
 - UDF registration requires explicit profile declarations with typed readers and writers; scalar UDFs bind either low-level `Action`-callbacks or high-level typed `Func` overloads, and table UDFs reach column-projection push-down only through the `Expression`-selector `RegisterTableFunction<TData, TProjection>`.
-- Extension loading is profile policy expressed as `INSTALL`/`LOAD` SQL through `DuckDBCommand` at bootstrap; the loaded set is a profile receipt, never a per-extension NuGet package.
+- Extension loading is profile policy expressed as `INSTALL`/`LOAD` SQL through `DuckDBCommand` at bootstrap; the loaded set is queried through `duckdb_extensions()`, never a per-extension NuGet package.
 
 [RAIL_LAW]:
 - Package: `DuckDB.NET.Data.Full`
 - Owns: in-process DuckDB ADO provider admission, the bulk appender and data-chunk rails, scalar and table UDF registration, and the `INSTALL`/`LOAD` SQL extension-bootstrap that makes the engine fully-featured (spatial, remote, lakehouse, cross-engine, ANN, text) without a second engine or per-extension package
-- Accept: the store profile with appender and UDF declarations, ordered `INSTALL`/`LOAD` bootstrap via `DuckDBCommand`, `CREATE SECRET` credentials, `ATTACH` cross-engine joins, `duckdb_extensions()` receipts
+- Accept: the store profile with appender and UDF declarations, ordered `INSTALL`/`LOAD` bootstrap via `DuckDBCommand`, `CREATE SECRET` credentials, `ATTACH` cross-engine joins, `duckdb_extensions()` verification
 - Reject: provider-branded service families, a per-extension NuGet or native package, inline credentials in paths or `SET`, and treating an `ATTACH`-ed analytical lane as the consistency owner

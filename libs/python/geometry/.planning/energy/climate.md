@@ -1,19 +1,19 @@
 # [PY_GEOMETRY_ENERGY_CLIMATE]
 
-`Climate` owns the energy plane's weather substrate and its point-comfort tier — the plane's ONLY solar owner. `Climate.of` admits EPW weather by payload shape, and ONE polymorphic `query` answers every read that document supports: `series` collection algebra, `derive` projections, `solar` sun-geometry, `comfort` point-comfort with SolarCal MRT, the `index` scalar band, the `mrt` SolarCal series, and the spatial `comfort_map` readback — one `ClimateQuery` case in, one `ClimateResult` arm out, one `_dispatch` closing on `assert_never`. `ladybug-core` and `ladybug-comfort` own every weather, psychrometric, comfort, and index kernel; this page composes them into typed, railed, receipted evidence.
+`Climate` owns the energy plane's weather substrate and its point-comfort tier — the plane's ONLY solar owner. `Climate.of` admits EPW weather by payload shape, and ONE polymorphic `query` answers every read that document supports: `series` collection algebra, `derive` projections, `solar` sun-geometry, `comfort` point-comfort with SolarCal MRT, the `index` scalar band, the `mrt` SolarCal series, and the spatial `comfort_map` readback — one `ClimateQuery` case in, one `ClimateResult` arm out, one `_dispatch` closing on `assert_never`. `ladybug-core` and `ladybug-comfort` own every weather, psychrometric, comfort, and index kernel; this page composes them into typed, railed results.
 
-Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane charter: `ladybug`/`ladybug_comfort` reach the interpreter through `LateBound` — the folder's ONE late-binding owner, holding its module as a STRING and resolving at the call seam — or through a function-local import inside a boundary seam, never a module-scope binding of either form, because a static license audit reads the LEXICAL import graph and a module-scope statement (`lazy` included, the soft keyword being module-scope by design) couples every importer of this page to AGPL; confinement is the point, not deferral. Evidence crosses the wire, never a link into a distributed host binary. Every query threads the `rasm.geometry.graduation` `evidence_run` weave under the owner's own `composition` key, the admitted document keys once over its canonical file-string bytes so re-ingestion dedupes in the persistence ledger, and comfort evidence graduates under `GeometrySubject.THERMAL_COMFORT` against caller ceilings.
+Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane charter: `ladybug`/`ladybug_comfort` reach the interpreter through `LateBound` — the folder's ONE late-binding owner, holding its module as a STRING and resolving at the call seam — or through a function-local import inside a boundary seam, never a module-scope binding of either form, because a static license audit reads the LEXICAL import graph and a module-scope statement (`lazy` included, the soft keyword being module-scope by design) couples every importer of this page to AGPL; confinement is the point, not deferral. Evidence crosses the wire, never a link into a distributed host binary. Every query threads runtime observation through `evidence_run` under the owner's own `composition` key, and the admitted document keys once over its canonical file-string bytes so re-ingestion dedupes in the persistence ledger.
 
 ## [01]-[INDEX]
 
-- [02]-[CLIMATE]: one polymorphic weather owner — EPW admission and one `ClimateQuery`/`ClimateResult` read surface over series, derived documents, sun geometry, comfort, scalar indices, MRT, and spatial maps — under one `ClimateReceipt`.
+- [02]-[CLIMATE]: one polymorphic weather owner — EPW admission and one `ClimateQuery`/`ClimateResult` read surface over series, derived documents, sun geometry, comfort, scalar indices, MRT, and spatial maps.
 
 ## [02]-[CLIMATE]
 
 - Owner: `Climate` holds the decoded `EPW`, its `Location`, the weather `ContentKey`, and the `composition` custody key every weave and charter record stamps. `ClimateField` members ARE the `EPW` collection-property names across the whole EPW data band, so field access is one `getattr`; `Reduce.method` derives its ladybug spelling from its own fields; `LateBound` carries the module, the member, and the roster of owner attributes its kernel takes, so `COMFORT`, `MAPS`, and `INDEX` share ONE resolution fold and the page holds no second `import_module` site. `EnergyFault` seats beside `LateBound` for the same reachability reason — every band page already imports this owner — so the whole band's refusal vocabulary is ONE closed family rather than four coordinate-string grammars a consumer re-parses per page.
 - Entry: `Climate.of` admits `bytes | str | Path | Mapping` by payload shape — modality IS the shape, never a `source_kind=` knob. `query` is the one read surface over `ClimateQuery | Sequence[ClimateQuery]`; a batch accumulates through `traversed(ACCUMULATE)` so a refused member names itself beside its siblings. `comfort` routes the EPW solar fields through SolarCal to the `rad_temperature` MRT input internally; the `mrt` case is the explicit arm only for a caller feeding a non-EPW thermal model, and the `index` band's own MRT slot resolves through that same fold.
-- Auto: every fold returns `(result, receipt)` built inside the fold off facts it already holds, so the weave's conditional harvest emits without a caller hand-asserting a single count. Collection alignment is `compute_function_aligned`'s own precondition over the aligned operand list, so the index band never re-derives it; `Wea`/`DDY` projections serialize through their own `to_file_string`, reaching the recipe boundary as handler inputs, never a second reader; `comfort_map` rows consume the recipe products `energy/simulate`'s `matrix` readback surfaces, so a spatial map reads real addresses rather than a feed no producer emits.
-- Receipt: `ClimateReceipt.spec` is the evidence subject — the admitted weather key beside the query that read it — and `graduates` derives its `ContentKey` from it, so no caller supplies a key. Discomfort is the comfort fold's own measurement: a series, solar, or index read never computed it, so `graduates` OMITS the measure and the spine's `_breached` refuses `unmeasured:discomfort` rather than clearing a ceiling on a fabricated zero. The comfort fold records `rasm.geometry.comfort.discomfort` onto the charter at the producing site.
+- Auto: every fold returns its canonical `ClimateResult` directly. Collection alignment is `compute_function_aligned`'s own precondition over the aligned operand list, so the index band never re-derives it; `Wea`/`DDY` projections serialize through their own `to_file_string`, reaching the recipe boundary as handler inputs, never a second reader; `comfort_map` rows consume the recipe products `energy/simulate`'s `matrix` readback surfaces, so a spatial map reads real addresses rather than a feed no producer emits.
+- Output: the comfort result already carries `percent_comfortable`, the only query-specific fact the charter needs; that fold records discomfort at the producing site. Other queries return their own typed result arm without a parallel metadata object.
 - Packages: `ladybug-core` and `ladybug-comfort` per the table rows; the spatial `map.*` kernels are the `energy/simulate` readback surface, and a `LateBound` resolution or a boundary-seam function-local import is the seam every one of them crosses.
 - Growth: a new climate read is one `ClimateQuery` case, one `_dispatch` arm, and one `ClimateResult` arm; a new field is one `ClimateField` member; a new grain one `Grain` member, method name deriving; a new projection one `Derived` case beside its `DerivedDocument` arm, IP-units over `EPW.convert_to_ip` the named next; a new comfort model one `COMFORT` row; a new scalar index one `INDEX` row over its `IndexInput` roster; a new spatial map one `MAPS` row; a new band refusal is one `EnergyFault` case carrying its own coordinate tuple, minted at the page that raises it and read by every consumer off the tag. `Adaptive` is not weather-drivable — it builds `from_air_and_rad_temp` over model results, so its home is the `energy/simulate` readback, its `AdaptiveParameter` already serializable through this page's parameter discipline; urban-microclimate EPW morphing enters as one more `Derived` case with its own package admission.
 - Boundary: `SolarQuery` reads the WEATHER file's own sun and a captured scene descriptor carries angles a peer already solved — `energy/simulate` projects those angles straight onto a sky, since routing them back through `Sunpath` re-derives an ephemeris the descriptor settled and silently substitutes a second almanac's answer.
@@ -21,7 +21,7 @@ Ladybug's AGPL-3.0 network-copyleft band rides the standing companion-lane chart
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from functools import partial
 from importlib import import_module
@@ -34,15 +34,13 @@ from msgspec import Struct
 
 from rasm.geometry.graduation import (
     EvidenceScope,
-    GeometryHandoff,
     GeometrySubject,
     charter_record,
-    evidence_key,
     evidence_run,
 )
 from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 if TYPE_CHECKING:
     from ladybug.datacollection import HourlyContinuousCollection
@@ -513,43 +511,6 @@ class ClimateResult:
     mapped: MapResult = case()
 
 
-class ClimateReceipt(Struct, frozen=True):
-    content_key: ContentKey
-    latitude: float
-    longitude: float
-    elevation: float
-    time_zone: float
-    is_leap_year: bool
-    operation: str
-    discriminant: str
-    count: int
-    comfortable: Option[float] = Nothing
-
-    def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of(
-            "rasm.geometry.energy.climate",
-            (
-                "emitted",
-                f"{self.operation}:{self.discriminant}",
-                {
-                    "count": self.count,
-                    "latitude": self.latitude,
-                    "longitude": self.longitude,
-                    "content_key": self.content_key.hex,
-                    **self.comfortable.map(lambda pct: {"comfortable": pct}).default_value({}),
-                },
-            ),
-        )
-
-    def spec(self) -> bytes:
-        return b"|".join((self.content_key.memory, self.operation.encode(), self.discriminant.encode()))
-
-    def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.THERMAL_DISCOMFORT]) -> GeometryHandoff:
-        measured = self.comfortable.map(lambda pct: {"discomfort": 1.0 - pct / 100.0}).default_value({}) | {"count": float(self.count)}
-        subject = GeometrySubject.THERMAL_COMFORT
-        return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"discomfort": regime.bar()})
-
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -562,83 +523,65 @@ class Climate(Struct, frozen=True):
     @classmethod
     def of(
         cls, source: "bytes | str | Path | Mapping[str, object]", *, composition: ScopeKey = DEFAULT_SCOPE
-    ) -> "RuntimeRail[tuple[Self, ClimateReceipt]]":
-        def admit() -> tuple[Self, ClimateReceipt]:
+    ) -> "RuntimeRail[Self]":
+        def admit() -> Self:
             from ladybug.epw import EPW
 
             match source:
                 case bytes() as raw:
-                    epw, shape = EPW.from_file_string(raw.decode()), "bytes"
+                    epw = EPW.from_file_string(raw.decode())
                 case Mapping() as data:
-                    epw, shape = EPW.from_dict(dict(data)), "mapping"
+                    epw = EPW.from_dict(dict(data))
                 case at:
-                    epw, shape = EPW(str(at)), "path"
-            admitted = cls(
+                    epw = EPW(str(at))
+            return cls(
                 epw=epw,
                 location=epw.location,
                 content_key=ContentIdentity.key("weather", epw.to_file_string().encode()),
                 composition=composition,
             )
-            return admitted, admitted._receipt("admit", shape, len(epw.dry_bulb_temperature.values))
 
         return evidence_run(EvidenceScope.ENERGY_CLIMATE, "admit", admit, composition=composition)
 
     @overload
-    def query(self, q: ClimateQuery) -> "RuntimeRail[tuple[ClimateResult, ClimateReceipt]]": ...
+    def query(self, q: ClimateQuery) -> "RuntimeRail[ClimateResult]": ...
     @overload
-    def query(self, q: Sequence[ClimateQuery]) -> "RuntimeRail[Block[tuple[ClimateResult, ClimateReceipt]]]": ...
+    def query(self, q: Sequence[ClimateQuery]) -> "RuntimeRail[Block[ClimateResult]]": ...
     def query(
         self, q: "ClimateQuery | Sequence[ClimateQuery]"
-    ) -> "RuntimeRail[tuple[ClimateResult, ClimateReceipt]] | RuntimeRail[Block[tuple[ClimateResult, ClimateReceipt]]]":
+    ) -> "RuntimeRail[ClimateResult] | RuntimeRail[Block[ClimateResult]]":
         match q:
             case ClimateQuery() as one:
                 return self._routed(one)
             case batch:
                 return traversed(Block.of_seq([self._routed(one) for one in batch]), by=Disposition.ACCUMULATE)
 
-    def _routed(self, q: ClimateQuery) -> "RuntimeRail[tuple[ClimateResult, ClimateReceipt]]":
+    def _routed(self, q: ClimateQuery) -> "RuntimeRail[ClimateResult]":
         return evidence_run(EvidenceScope.ENERGY_CLIMATE, f"query.{q.tag}", partial(self._dispatch, q), composition=self.composition)
 
-    def _dispatch(self, q: ClimateQuery) -> tuple[ClimateResult, ClimateReceipt]:
+    def _dispatch(self, q: ClimateQuery) -> ClimateResult:
         match q:
             case ClimateQuery(tag="series", series=spec):
                 fact = _series(SeriesSubject(field=spec.field), _reduced(spec, _windowed(getattr(self.epw, spec.field.value), spec.window)))
-                return ClimateResult(series=fact), self._receipt("series", spec.field.value, len(fact.values))
+                return ClimateResult(series=fact)
             case ClimateQuery(tag="index", index=spec):
                 fact = _series(SeriesSubject(index=spec.model), _indexed(self, spec))
-                return ClimateResult(series=fact), self._receipt("index", spec.model.value, len(fact.values))
+                return ClimateResult(series=fact)
             case ClimateQuery(tag="mrt", mrt=surfaces):
                 fact = _series(SeriesSubject(mrt=None), _mrt(self, surfaces))
-                return ClimateResult(series=fact), self._receipt("mrt", fact.subject.label, len(fact.values))
+                return ClimateResult(series=fact)
             case ClimateQuery(tag="derive", derive=kind):
-                document = _derived(self, kind)
-                return ClimateResult(derived=document), self._receipt("derive", kind.tag, document.count)
+                return ClimateResult(derived=_derived(self, kind))
             case ClimateQuery(tag="solar", solar=query):
-                result = _solar(self.location, query)
-                return ClimateResult(solar=result), self._receipt("solar", query.tag, result.count)
+                return ClimateResult(solar=_solar(self.location, query))
             case ClimateQuery(tag="comfort", comfort=spec):
                 fact = _comfort(self, spec)
                 charter_record(GeometrySubject.THERMAL_COMFORT, {"discomfort": 1.0 - fact.percent_comfortable / 100.0}, composition=self.composition)
-                return ClimateResult(comfort=fact), self._receipt("comfort", spec.model.value, fact.hours, Some(fact.percent_comfortable))
+                return ClimateResult(comfort=fact)
             case ClimateQuery(tag="comfort_map", comfort_map=spec):
-                result = _mapped(self, spec)
-                return ClimateResult(mapped=result), self._receipt("comfort_map", spec.kind.value, result.count)
+                return ClimateResult(mapped=_mapped(self, spec))
             case _ as unreachable:
                 assert_never(unreachable)
-
-    def _receipt(self, operation: str, discriminant: str, count: int, comfortable: Option[float] = Nothing) -> ClimateReceipt:
-        return ClimateReceipt(
-            content_key=self.content_key,
-            latitude=self.location.latitude,
-            longitude=self.location.longitude,
-            elevation=self.location.elevation,
-            time_zone=self.location.time_zone,
-            is_leap_year=self.epw.is_leap_year,
-            operation=operation,
-            discriminant=discriminant,
-            count=count,
-            comfortable=comfortable,
-        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

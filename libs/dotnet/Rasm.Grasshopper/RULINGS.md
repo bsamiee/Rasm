@@ -15,7 +15,6 @@
 - ONE `MonotonicTimeline` per session — `PlatformRoot` mints it at load and every gate takes it REQUIRED, a per-call mint forking the causal order.
 - `PlatformRoot.Faults` is the only package `FaultCell`; every retained callback and hook receives it whole, so no default ring forks custody.
 - `PlatformRoot.Hold` owns every mounted lease; `Custody.Release` attempts inverse teardown, and every mount parks on root `Faults`.
-- `GateReceipt<TFacts>` on the `DocumentGate.Run` spine carries every settlement — a thinner receipt strands facts no replay can audit.
 - `GhFault` binds `FaultBand.Grasshopper`; package-local expected failures stay compact direct `[FaultCase]` leaves with generated identity.
 - Blocking waits BOUND: a caller-thread wait carries a `WaitPosture` budget, lapsing as `GhFault.Overdue`; thread custody is a `MarshalLane` column.
 - `GhCrossing.Bind` closes `ScopeTarget.Acquire` INSIDE the `UiDispatch` body, so every crossing posture shares one acquisition law.

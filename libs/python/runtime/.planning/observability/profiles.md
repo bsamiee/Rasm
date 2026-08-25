@@ -2,18 +2,18 @@
 
 `Profiles` pushes continuous CPU profiles beside the OTLP rails and links them to traces: the pyroscope push agent streams samples to the profile store, and `PyroscopeSpanProcessor` stamps every root span with `pyroscope.profile.id` so a trace click-through lands on its flame graph. This page also owns the whole benchmark tier — the macro-latency and throughput evidence the request-duration histogram cannot carry, the threshold and verdict grading over it, and the estate's one external-tool provision roster the host floor of a graded subject resolves through — plus the offline-job envelope draining a short-lived process before it exits. Measurement and grading seat together because every stratum reaches this tier and none reaches a peer's, so a grader anywhere else is unreachable by the folders that measure.
 
-Install custody is two-tier — per-composition `ProfilesReceipt`s key by the receipts-owned `ScopeKey` (a same-scope re-install returns `REENTRANT`, a later composition `ADOPTED`) while the imported `latched` guards the one process push agent, `pyroscope.configure` being process-global — and rides the `execution/admission#CONTEXT` `emit_otel` gate, sequenced after `observability/telemetry#TELEMETRY` so the span processor attaches to the registered SDK provider. `SignalProfile` and the flush-then-shutdown drain arrive settled from the telemetry owner, `SCHEMA_URL` from the `reliability/faults#FAULT` scope coordinate one tier below it; `LogShip`/`LogPipeline.configure` from `observability/logging#PIPELINE`; `Metrics.record` from `observability/metrics#METRIC`; `Receipt`/`Signals` from `observability/receipts#RECEIPT`. Job identity is hand-built, no detector carrying job semantics; delta temporality arrives from the telemetry owner's exporter pin, so the job lane sets no launcher variable of its own.
+Install custody is two-tier — per-composition `ProfilesInstall`s key by the observe-owned `ScopeKey` (a same-scope re-install returns `REENTRANT`, a later composition `ADOPTED`) while the imported `latched` guards the one process push agent, `pyroscope.configure` being process-global — and rides the `execution/admission#CONTEXT` `emit_otel` gate, sequenced after `observability/telemetry#TELEMETRY` so the span processor attaches to the registered SDK provider. `SignalProfile` and the flush-then-shutdown drain arrive settled from the telemetry owner, `SCHEMA_URL` from the `reliability/faults#FAULT` scope coordinate one tier below it; `LogShip`/`LogPipeline.configure` from `observability/logging#PIPELINE`; `Metrics.record` from `observability/metrics#METRIC`; `ScopeKey` from `observability/observe#OBSERVE`. Job identity is hand-built, no detector carrying job semantics; delta temporality arrives from the telemetry owner's exporter pin, so the job lane sets no launcher variable of its own.
 
 ## [01]-[INDEX]
 
 - [02]-[PROFILES]: scope-keyed, profile-gated pyroscope push install beside the span-profile link.
-- [03]-[BENCH]: benchmark-receipt family, the threshold/verdict grading half over the estate tool roster, and their instrument projections.
+- [03]-[BENCH]: the `Benchmark` measurement, the threshold/verdict grading half over the estate tool roster, and their instrument projections.
 - [04]-[JOB]: offline-job envelope — hand-built resource, one `ship` value arming both halves of the log egress, high-interval safety net, and the flush-then-shutdown boundary.
 
 ## [02]-[PROFILES]
 
 - Owner: `Profiles.install` configures the push agent once — application name from the faults-owned `SCOPES[Scope.PROFILES]` row, so the profile store keys the profiler's own emitting plane rather than the served host's name and a backend joining on scope separates the two, server address, static tags, and tenant caller-supplied — and attaches `PyroscopeSpanProcessor` to the registered SDK `TracerProvider`, so every root span carries `pyroscope.profile.id` and the profiler's thread tags carry `span_id`/`span_name`/`trace_id` for the reverse jump. `tenant_id` threads the folder's first-class tenant dimension onto the push, so a multi-tenant profile store slices flame graphs by the same org routing every measurement already carries; `Profiles.phase` scopes sample tags to a bounded window — a recipe stage, a worker kernel window — so a flame graph slices by phase while static dimensions stay install-time `tags=`. Worker floors attach through the workers-owned boot capture: `install` runs in every pool initializer with the `worker.kind` install tag and the parent-captured tenant, the kernel-subject `phase` window rides `traced_kernel`, and the atexit-registered `shutdown` stops the push at worker retirement — so flames come from the process that burns the cycles and a slow offload span clicks through to its worker's graph.
-- Entry: a composition whose providers bind no telemetry export caches a `SILENT` receipt per scope and starts no agent, so an embedded or test-harness process pays nothing; a same-scope re-install returns its cached receipt stamped `REENTRANT` off the `_receipts` map fold, and a later composition arriving after the push agent exists receives `ADOPTED` through the `latched` reentrant closure — the agent never doubles. `PyroscopeSpanProcessor` attaches only when the global resolves to the SDK `TracerProvider` the telemetry install registered — the API no-op provider matches no arm and the receipt records `linked=False`. `shutdown` is scope-keyed custody: only the scope holding the `INSTALLED` receipt stops the push thread and clears every scope receipt; a `SILENT`/`ADOPTED` scope retires its own receipt alone.
+- Entry: a composition whose providers bind no telemetry export caches a `SILENT` install per scope and starts no agent, so an embedded or test-harness process pays nothing; a same-scope re-install returns its cached install stamped `REENTRANT` off the `_installs` map fold, and a later composition arriving after the push agent exists receives `ADOPTED` through the `latched` reentrant closure — the agent never doubles. `PyroscopeSpanProcessor` attaches only when the global resolves to the SDK `TracerProvider` the telemetry install registered — the API no-op provider matches no arm and the install records `linked=False`. `shutdown` is scope-keyed custody: only the scope holding the `INSTALLED` install stops the push thread and clears every scope install; a `SILENT`/`ADOPTED` scope retires its own install alone.
 - Auto: `oncpu=True` and `gil_only=False` keep samples on-CPU across Python and native kernels that release the GIL, while idle waits fall out; `shutdown` stops the push thread through `pyroscope.shutdown()` on the drain fold beside the telemetry providers.
 - Packages: `pyroscope-otel` (`PyroscopeSpanProcessor` and its bundled push agent `pyroscope.configure`/`shutdown`/`tag_wrapper`/`add_thread_tag`), `opentelemetry-sdk` (the `TracerProvider` match arm — composition-root altitude), runtime (`latched`, `SCOPES`, admission gate).
 - Swap: this owner holds the branch's profiles swap point, so the swap off vendor push onto the OTLP profiles signal replaces rows rather than redesigning a lane — `pyroscope.configure` gives way to one `SignalSpec` row on the telemetry owner's signal roster beside one profiles factory on its `EGRESS` map, and profiles then ride the provider drain, exporter policy, and scope coordinate the other three signals already ride. Arming waits on that signal reaching stable across the three SDK trains; `PyroscopeSpanProcessor`'s span-profile stamp, tenant and phase tag projections, and every flamegraph query survive untouched, which leaves transport as the only moving part.
@@ -68,7 +68,7 @@ from rasm.runtime.faults import (
 )
 from rasm.runtime.logging import LogPipeline, LogShip
 from rasm.runtime.metrics import Dimension, Metrics
-from rasm.runtime.receipts import OPEN, DEFAULT_SCOPE, Receipt, ScopeKey, Signals
+from rasm.runtime.observe import DEFAULT_SCOPE, Facts, ScopeKey, logger
 from rasm.runtime.telemetry import NAMESPACE, SignalProfile, Telemetry
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -84,7 +84,7 @@ class ProfilesOutcome(StrEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class ProfilesReceipt(Struct, frozen=True):
+class ProfilesInstall(Struct, frozen=True):
     outcome: ProfilesOutcome
     application: str
     endpoint: str
@@ -96,21 +96,21 @@ class ProfilesReceipt(Struct, frozen=True):
 
 
 class Profiles:
-    _receipts: ClassVar[Map[ScopeKey, ProfilesReceipt]] = Map.empty()
-    _process: ClassVar[ProfilesReceipt | None] = None
+    _installs: ClassVar[Map[ScopeKey, ProfilesInstall]] = Map.empty()
+    _process: ClassVar[ProfilesInstall | None] = None
     _gate = RLock()
 
     @classmethod
     @latched(lambda: Profiles._process, lambda r: setattr(Profiles, "_process", r), lambda prior: replace(prior, outcome=ProfilesOutcome.ADOPTED))
-    def _pushed(cls, endpoint: str, tags: Mapping[str, str], tenant: str | None) -> ProfilesReceipt:
+    def _pushed(cls, endpoint: str, tags: Mapping[str, str], tenant: str | None) -> ProfilesInstall:
         application = SCOPES[Scope.PROFILES]
         pyroscope.configure(application_name=application, server_address=endpoint, tags=dict(tags), tenant_id=tenant, oncpu=True, gil_only=False)
         match trace.get_tracer_provider():
             case TracerProvider() as sdk_provider:
                 sdk_provider.add_span_processor(PyroscopeSpanProcessor())
-                return ProfilesReceipt(ProfilesOutcome.INSTALLED, application, endpoint, linked=True, tenant=tenant)
+                return ProfilesInstall(ProfilesOutcome.INSTALLED, application, endpoint, linked=True, tenant=tenant)
             case _:
-                return ProfilesReceipt(ProfilesOutcome.INSTALLED, application, endpoint, linked=False, tenant=tenant)
+                return ProfilesInstall(ProfilesOutcome.INSTALLED, application, endpoint, linked=False, tenant=tenant)
 
     @classmethod
     def install(
@@ -121,19 +121,19 @@ class Profiles:
         tenant: str | None = None,
         *,
         scope: ScopeKey = DEFAULT_SCOPE,
-    ) -> ProfilesReceipt:
+    ) -> ProfilesInstall:
         with cls._gate:
-            match cls._receipts.try_find(scope):
+            match cls._installs.try_find(scope):
                 case Option(tag="some", some=prior):
                     return replace(prior, outcome=ProfilesOutcome.REENTRANT)
                 case _:
-                    receipt = (
-                        ProfilesReceipt(ProfilesOutcome.SILENT, SCOPES[Scope.PROFILES], endpoint, linked=False, tenant=tenant)
+                    installed = (
+                        ProfilesInstall(ProfilesOutcome.SILENT, SCOPES[Scope.PROFILES], endpoint, linked=False, tenant=tenant)
                         if not ctx.policy.emit_otel
                         else cls._pushed(endpoint, tags if tags is not None else {}, tenant)
                     )
-                    cls._receipts = cls._receipts.add(scope, receipt)
-                    return receipt
+                    cls._installs = cls._installs.add(scope, installed)
+                    return installed
 
     @staticmethod
     def phase(tags: Mapping[str, str]) -> AbstractContextManager[None]:
@@ -142,37 +142,36 @@ class Profiles:
         return pyroscope.tag_wrapper(dict(tags)) if installed else nullcontext()
 
     @classmethod
-    def receipt(cls) -> Option[ProfilesReceipt]:
+    def installed(cls) -> Option[ProfilesInstall]:
         with cls._gate:
             return Option.of_optional(cls._process)
 
     @classmethod
     def shutdown(cls, scope: ScopeKey = DEFAULT_SCOPE) -> None:
         with cls._gate:
-            match cls._receipts.try_find(scope).map(lambda r: r.outcome is ProfilesOutcome.INSTALLED).default_value(False):
+            match cls._installs.try_find(scope).map(lambda r: r.outcome is ProfilesOutcome.INSTALLED).default_value(False):
                 case True:
                     pyroscope.shutdown()
                     cls._process = None
-                    cls._receipts = Map.empty()
+                    cls._installs = Map.empty()
                 case _:
-                    cls._receipts = cls._receipts.remove(scope) if cls._receipts.contains_key(scope) else cls._receipts
+                    cls._installs = cls._installs.remove(scope) if cls._installs.contains_key(scope) else cls._installs
 ```
 
 ## [03]-[BENCH]
 
-- Owner: `BenchmarkReceipt` carries the macro-benchmark evidence — subject, mode, rounds, warmup, the latency quartet, throughput, and the refusal that closed the window — and `Bench.run` is the one runner: warmup rounds discarded, measured rounds folded into per-round wall samples, quantiles derived at read, never fold state. `Bench.graded` closes the other half at the SAME tier: `BenchSubject` rows carry the bar and the host floor, `BenchVerdict.graded` is the one grade projection, and `_verdicted` the one `rasm.bench.verdicts` write. Measurement and grading seat together because every stratum reaches this tier and none reaches a peer's — a grader seated at any producer folder is unreachable by the three folders that measure, so they benched and could never grade.
+- Owner: `Benchmark` is the macro measurement — subject, mode, rounds, warmup, the latency quartet, throughput, and the refusal that closed the window — and `Bench.run` is the one runner: warmup rounds discarded, measured rounds folded into per-round wall samples, quantiles derived at read, never fold state, and the duration and throughput measures recorded onto `Metrics.record` under `domain="bench"` beside one `bench` line off `Benchmark.facts` at the run site, so the measurement stays truth and the instruments stay its projections. `Bench.graded` closes the other half at the SAME tier: `BenchSubject` rows carry the bar and the host floor, `BenchVerdict.graded` is the one grade projection, and `_verdicted` the one `rasm.bench.verdicts` write. Measurement and grading seat together because every stratum reaches this tier and none reaches a peer's — a grader seated at any producer folder is unreachable by the three folders that measure, so they benched and could never grade.
 - Owner: `TOOLS` is the estate's one external-tool roster behind `resolved`, its single discovery entry — settings override, then the row's own probe body — so a host is provisioned or not by one answer rather than by an inline lookup here, a name-to-body map there, and an env-to-constant ladder elsewhere. It seats at this tier for the same reachability reason the grader does: a producer plane can compose it, where a conductor-owned roster it could only reach upward through.
 - Entry: `Bench.graded(roster, kernels)` takes ALREADY-BOUND kernels — the `BenchKernel` shape `run` already accepts — which is the whole parameterization: a folder resolves its own deterministic-input edge to a thunk before the call, so its feed, plane, and signal vocabularies never leave its stratum and `BenchSubject` carries no input edge at all. Four refusals close before any counter writes — a doubled subject id, a floor naming a tool no `TOOLS` row keys, a provisioned subject no kernel covers, and a host on which not one subject is provisioned — and the graded verdicts fold under `Disposition.ACCUMULATE` so every subject reports even when one refuses.
 - Law: a regression is a VERDICT, never a fault — a slow subject is evidence a board trends, and railing it would let one regression hide every other subject's grade. Refusal is reserved for a roster or host defect: a doubled id, an unrostered tool, an uncovered subject, a wholly unprovisioned host.
 - Law: every anchor a threshold rests on rides the verdict — the INPUT through the feed the calling folder bound, and the HOST through the resolved `floor` paths, since a different binary behind one tool id is a different subject graded on the first one's bar and nothing about the id says so.
-- Law: `BenchMode` rides the receipt as evidence and selects which bar a consumer grades, one uniform sample stream serving both.
+- Law: `BenchMode` rides the measurement and selects which bar a consumer grades, one uniform sample stream serving both.
 - Law: one measured window yields latency and throughput together, so a mode value alters no fact already present in the samples.
-- Law: each round runs behind its own `boundary` fence, so a raising round CLOSES the window and every prior sample survives on the receipt.
+- Law: each round runs behind its own `boundary` fence, so a raising round CLOSES the window and every prior sample survives on the measurement.
 - Law: the fold stops at the first refusal, so a broken op pays one round rather than the whole declared window.
 - Law: `run` rails only where the window measured nothing, quantiles needing at least one sample.
-- Receipt: `contribute` streams one `Receipt.of("runtime.bench", ("emitted", subject, facts))` row and projects the duration and throughput measures onto the `Metrics.record` mapping arm under `domain="bench"`, so the receipt stays truth and the instruments stay projections of it.
 - Law: the four roster refusals and the three window refusals each resolve their OWN `reliability/faults#FAULT` `RAISES` anchor under `RuntimeLeg.PROFILES` — four distinct census LAWS keep four rows rather than one subject spelling four sentences — and the benched subject rides a NAMED slot where the fault names it. Both timing fences keep the plane's catch-all, since the graded body is a caller kernel no runtime can roster.
-- Growth: a new benchmark statistic is one `BenchmarkReceipt` field derived from the held samples, reaching every verdict through `graded` with no roster edit; a new bench instrument is one measure name here and one `InstrumentSpec` row on the metrics owner; a new run outcome is one `BenchOutcome` member reaching the counter through the single `_verdicted` site; a new external tool is one `TOOLS` row a `floor` names, and a tool whose presence is not a bare PATH lookup grows its own probe body on that row while its deployment override needs no settings edit; a benching folder gains grading by supplying one roster and one kernel map, zero edits here.
+- Growth: a new benchmark statistic is one `Benchmark` field derived from the held samples, reaching every verdict through `graded` with no roster edit; a new bench instrument is one measure name here and one `InstrumentSpec` row on the metrics owner; a new run outcome is one `BenchOutcome` member reaching the counter through the single `_verdicted` site; a new external tool is one `TOOLS` row a `floor` names, and a tool whose presence is not a bare PATH lookup grows its own probe body on that row while its deployment override needs no settings edit; a benching folder gains grading by supplying one roster and one kernel map, zero edits here.
 - Packages: `pydantic-settings` (the one `RASM_TOOL_PATHS` deployment override, admitted once), the builtin `frozendict` (that override projected immutable), stdlib `shutil.which` (the default `ToolRow` probe body — it answers the resolved path, and an absolute override resolves through it only when executable, never a spawn the roster pays for).
 - Boundary: this family owns the branch's macro evidence AND its own corpus gate; benchmark authority stays branch-local, so no peer runtime's figure is graded or cited here and a cross-runtime speed comparison has no owner. A calling folder owns its corpus roster, its recipes, and its deterministic-input vocabulary — this tier reads a bound thunk and never a feed value, so no producer type crosses upward. `JobRun.bounded` envelopes a process-terminal bench run so the final `domain="bench"` projection flushes before exit; an in-daemon bench rides the standing periodic reader.
 
@@ -186,7 +185,7 @@ class BenchMode(StrEnum):
     THROUGHPUT = "throughput"
 
 
-class BenchmarkReceipt(Struct, frozen=True):
+class Benchmark(Struct, frozen=True):
     subject: str
     mode: BenchMode
     rounds: int
@@ -201,7 +200,7 @@ class BenchmarkReceipt(Struct, frozen=True):
     @classmethod
     def of(
         cls, subject: str, mode: BenchMode, warmup: int, samples_ms: tuple[float, ...], refused: BoundaryFault | None = None
-    ) -> "BenchmarkReceipt":
+    ) -> "Benchmark":
         cut = quantiles(samples_ms, n=20) if len(samples_ms) > 1 else [samples_ms[0]] * 19
         total_s = sum(samples_ms) / 1000.0
         return cls(
@@ -217,11 +216,9 @@ class BenchmarkReceipt(Struct, frozen=True):
             refused=refused,
         )
 
-    def contribute(self) -> tuple[Receipt, ...]:
-        Metrics.record({"rasm.bench.duration": self.p50_ms, "rasm.bench.throughput": self.throughput_hz}, domain="bench", kind=self.subject)
-        facts = {"mode": self.mode.value, "rounds": self.rounds, "p50_ms": self.p50_ms, "p95_ms": self.p95_ms, "hz": self.throughput_hz}
-        truncated = {} if self.refused is None else {"refused_at": self.rounds, **self.refused.facts()}
-        return (Receipt.of("runtime.bench", ("emitted", self.subject, facts | truncated)),)
+    def facts(self) -> Facts:
+        held: Facts = {"subject": self.subject, "mode": self.mode.value, "rounds": self.rounds, "p50_ms": self.p50_ms, "p95_ms": self.p95_ms, "hz": self.throughput_hz}
+        return held if self.refused is None else held | {"refused_at": self.rounds, **self.refused.facts()}
 
 
 class BenchThreshold(Struct, frozen=True, gc=False):
@@ -255,15 +252,15 @@ class BenchVerdict(Struct, frozen=True, gc=False):
     floor: tuple[str, ...] = ()
 
     @classmethod
-    def graded(cls, row: BenchSubject, receipt: BenchmarkReceipt, floor: tuple[str, ...], /) -> Self:
+    def graded(cls, row: BenchSubject, measured: Benchmark, floor: tuple[str, ...], /) -> Self:
         bar = row.threshold
         return cls(
             subject=row.subject,
             kind=row.kind,
-            passed=receipt.p95_ms <= bar.p95_ceiling_ms and receipt.throughput_hz >= bar.floor_hz,
-            p95_ms=receipt.p95_ms,
+            passed=measured.p95_ms <= bar.p95_ceiling_ms and measured.throughput_hz >= bar.floor_hz,
+            p95_ms=measured.p95_ms,
             ceiling_ms=bar.p95_ceiling_ms,
-            throughput_hz=receipt.throughput_hz,
+            throughput_hz=measured.throughput_hz,
             floor_hz=bar.floor_hz,
             floor=floor,
         )
@@ -309,9 +306,8 @@ class Bench:
         uncovered = live.map(lambda pair: pair[0].subject).filter(lambda subject: kernels.try_find(subject).is_none())
 
         def one(row: BenchSubject, floor: tuple[str, ...], /) -> RuntimeRail[BenchVerdict]:
-            def scored(receipt: BenchmarkReceipt, /) -> BenchVerdict:
-                Signals.emit(receipt, OPEN)
-                verdict = BenchVerdict.graded(row, receipt, floor)
+            def scored(measured: Benchmark, /) -> BenchVerdict:
+                verdict = BenchVerdict.graded(row, measured, floor)
                 _verdicted(row.subject, "passed" if verdict.passed else "regressed")
                 return verdict
 
@@ -332,7 +328,7 @@ class Bench:
     @staticmethod
     def run(
         subject: str, op: BenchKernel, *, mode: BenchMode = BenchMode.LATENCY, rounds: int = 32, warmup: int = 4
-    ) -> RuntimeRail[BenchmarkReceipt]:
+    ) -> RuntimeRail[Benchmark]:
         def timed() -> float:
             start = perf_counter()
             op()
@@ -347,7 +343,7 @@ class Bench:
         if rounds < 1 or warmup < 0:
             return Error(BENCH_ROUNDS.raised(subject, str(rounds), str(warmup)))
         return boundary(BENCH_WARMUP, lambda: Block.range(warmup).fold(lambda _, __: timed(), 0.0), catch=Exception).bind(
-            lambda _warmed: _windowed(subject, mode, warmup, Block.range(rounds).fold(rounded, (Block.empty(), None)))
+            lambda _warmed: _windowed(subject, mode, warmup, Block.range(rounds).fold(rounded, (Block.empty(), None))).map(_recorded)
         )
 
 
@@ -357,13 +353,19 @@ def _tally(roster: Block[BenchSubject]) -> Map[str, int]:
 
 def _windowed(
     subject: str, mode: BenchMode, warmup: int, window: tuple[Block[float], BoundaryFault | None]
-) -> RuntimeRail[BenchmarkReceipt]:
+) -> RuntimeRail[Benchmark]:
     samples, refused = window
     return (
-        Ok(BenchmarkReceipt.of(subject, mode, warmup, tuple(samples), refused))
+        Ok(Benchmark.of(subject, mode, warmup, tuple(samples), refused))
         if not samples.is_empty()
         else Error(Option.of_optional(refused).default_value(BENCH_EMPTY.raised(subject)))
     )
+
+
+def _recorded(measured: Benchmark) -> Benchmark:
+    Metrics.record({"rasm.bench.duration": measured.p50_ms, "rasm.bench.throughput": measured.throughput_hz}, domain="bench", kind=measured.subject)
+    logger().info("bench", **measured.facts())
+    return measured
 ```
 
 ## [04]-[JOB]

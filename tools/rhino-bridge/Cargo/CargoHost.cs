@@ -29,14 +29,14 @@ internal sealed partial class HostCapability {
             "probe 0b: Start(SolutionMode.Headless) is blocked under the execute lane on this build; GH2 stays render-only"));
     public static readonly HostCapability Gh2Render = new(key: "gh2.render", probe: static host => host.ProbeRender());
 
-    private readonly Func<CargoHost, (PhaseStatus Outcome, string Receipt)> probe;
+    private readonly Func<CargoHost, (PhaseStatus Outcome, string Detail)> probe;
 
     internal CapabilityEntry Probe(CargoHost host) {
         try {
-            (PhaseStatus outcome, string receipt) = probe(host);
-            return new CapabilityEntry(Key: Key, Outcome: outcome, Receipt: receipt);
+            (PhaseStatus outcome, string detail) = probe(host);
+            return new CapabilityEntry(Key: Key, Outcome: outcome, Detail: detail);
         } catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException) {
-            return new CapabilityEntry(Key: Key, Outcome: PhaseStatus.Failed, Receipt: $"probe threw {error.GetType().Name}: {error.Message}");
+            return new CapabilityEntry(Key: Key, Outcome: PhaseStatus.Failed, Detail: $"probe threw {error.GetType().Name}: {error.Message}");
         }
     }
 }
@@ -117,7 +117,7 @@ public sealed class CargoHost : IBridgeCargo {
         return report;
     }
 
-    public ScenarioReceipt Run(ScenarioEntry scenario, Action<BridgeEvent> publish) {
+    public ScenarioOutcome Run(ScenarioEntry scenario, Action<BridgeEvent> publish) {
         ArgumentNullException.ThrowIfNull(argument: publish);
         long started = Stopwatch.GetTimestamp();
         object? candidate = Scan()
@@ -141,7 +141,7 @@ public sealed class CargoHost : IBridgeCargo {
 
     // --- [PROBES]
 
-    internal static (PhaseStatus Outcome, string Receipt) ProbeEventPipe() {
+    internal static (PhaseStatus Outcome, string Detail) ProbeEventPipe() {
         string socketRoot = Path.GetTempPath();
         string pattern = string.Create(provider: CultureInfo.InvariantCulture, $"dotnet-diagnostic-{Environment.ProcessId}-*");
         return Directory.EnumerateFiles(path: socketRoot, searchPattern: pattern).Any()
@@ -149,7 +149,7 @@ public sealed class CargoHost : IBridgeCargo {
             : (PhaseStatus.Unsupported, $"no {pattern} socket under {socketRoot}: EventPipe disabled on this host");
     }
 
-    internal static (PhaseStatus Outcome, string Receipt) ProbeExceptionTap() {
+    internal static (PhaseStatus Outcome, string Detail) ProbeExceptionTap() {
         static void Tap(string source, Exception ex) {
         }
         HostUtils.OnExceptionReport += Tap;
@@ -157,7 +157,7 @@ public sealed class CargoHost : IBridgeCargo {
         return (PhaseStatus.Ok, "OnExceptionReport subscription took; the shell tap is the live wire");
     }
 
-    internal (PhaseStatus Outcome, string Receipt) ProbeRender() {
+    internal (PhaseStatus Outcome, string Detail) ProbeRender() {
         long started = Stopwatch.GetTimestamp();
         string path = Path.Combine(path1: manifest.ReportDir, path2: ReportLayout.Gh2Directory, path3: "probe", path4: "gh2-render.png");
         return AcquireLane().Bind(f: live => live.DrawCanvas(path: path)) switch {
@@ -170,30 +170,26 @@ public sealed class CargoHost : IBridgeCargo {
 
     // --- [BRACKET]
 
-    private static ScenarioReceipt Receipt(ScenarioEntry scenario, PhaseStatus status, double duration, BridgeFault? fault) =>
-        new(Scenario: scenario.Name, Status: status, DurationMs: duration, Fault: fault) {
-            ScenarioStatus = status,
-            ReferenceResults = [],
-            FirstScenarioFailure = string.Empty,
-        };
+    private static ScenarioOutcome Outcome(ScenarioEntry scenario, PhaseStatus status, double duration, BridgeFault? fault) =>
+        new(Scenario: scenario.Name, Status: status, DurationMs: duration, Fault: fault);
 
-    private ScenarioReceipt Refuse(ScenarioEntry scenario, CapabilityEntry gap, Action<BridgeEvent> publish, long started) {
+    private ScenarioOutcome Refuse(ScenarioEntry scenario, CapabilityEntry gap, Action<BridgeEvent> publish, long started) {
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
-        BridgeFault fault = new BridgeFault.CapabilityAbsent(Capability: gap.Key, ProbeReceipt: gap.Receipt);
+        BridgeFault fault = new BridgeFault.CapabilityAbsent(Capability: gap.Key, Detail: gap.Detail);
         double duration = Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds;
         Emit(spool: spool, publish: publish, evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Unsupported, DurationMs: duration, Fault: fault) { Stamp = NextStamp(scenario: scenario.Name) });
-        return Receipt(scenario: scenario, status: PhaseStatus.Unsupported, duration: duration, fault: fault);
+        return Outcome(scenario: scenario, status: PhaseStatus.Unsupported, duration: duration, fault: fault);
     }
 
-    private ScenarioReceipt Vanish(ScenarioEntry scenario, Action<BridgeEvent> publish, long started) {
+    private ScenarioOutcome Vanish(ScenarioEntry scenario, Action<BridgeEvent> publish, long started) {
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
         Emit(spool: spool, publish: publish, evt: Fact(key: "scenario.missing", value: $"'{scenario.Name}' not present in staged assemblies carrying [RhinoScenario]", scenario: scenario.Name));
         double duration = Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds;
         Emit(spool: spool, publish: publish, evt: new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: PhaseStatus.Failed, DurationMs: duration, Fault: null) { Stamp = NextStamp(scenario: scenario.Name) });
-        return Receipt(scenario: scenario, status: PhaseStatus.Failed, duration: duration, fault: null);
+        return Outcome(scenario: scenario, status: PhaseStatus.Failed, duration: duration, fault: null);
     }
 
-    private ScenarioReceipt Execute(ScenarioEntry scenario, MethodInfo entry, Action<BridgeEvent> publish, long started) {
+    private ScenarioOutcome Execute(ScenarioEntry scenario, MethodInfo entry, Action<BridgeEvent> publish, long started) {
         using Spool spool = new(reportDir: manifest.ReportDir, scenario: scenario.Name);
         using ScratchRedirect scratch = ScratchRedirect.Open(reportDir: manifest.ReportDir, scenario: scenario.Name);
         void emit(BridgeEvent evt) => Emit(spool: spool, publish: publish, evt: evt);
@@ -225,7 +221,7 @@ public sealed class CargoHost : IBridgeCargo {
                 context = new ScenarioContext(doc: doc, sink: fact, scenario: scenario.Name);
                 Capture.Hook = label => doc.Views.ActiveView is { } view
                     ? Shoot(spool: spool, view: view, scenario: scenario.Name, label: label, onFailure: false, emit: emit, fact: fact)
-                    : Fin.Fail<CaptureReceipt>(error: Error.New(message: "Capture.Snapshot: no active viewport"));
+                    : Fin.Fail<Snapshot>(error: Error.New(message: "Capture.Snapshot: no active viewport"));
                 (status, fault) = Invoke(entry: entry, context: context, fact: fact);
                 if (context.FactCount == 0) {
                     fact(key: "facts.empty", value: "scenario emitted zero facts");
@@ -276,7 +272,7 @@ public sealed class CargoHost : IBridgeCargo {
             }
             emit(new BridgeEvent.PhaseCase(Phase: SessionPhase.Execute, Status: status, DurationMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds, Fault: fault) { Stamp = NextStamp(scenario: scenario.Name) });
         }
-        return Receipt(scenario: scenario, status: status, duration: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds, fault: fault);
+        return Outcome(scenario: scenario, status: status, duration: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds, fault: fault);
     }
 
     private (PhaseStatus Status, BridgeFault? Fault) Invoke(MethodInfo entry, ScenarioContext context, Action<string, object?> fact) {
@@ -321,7 +317,7 @@ public sealed class CargoHost : IBridgeCargo {
         }
     }
 
-    private Fin<CaptureReceipt> Shoot(Spool spool, RhinoView view, string scenario, string? label, bool onFailure, Action<BridgeEvent> emit, Action<string, object?> fact) {
+    private Fin<Snapshot> Shoot(Spool spool, RhinoView view, string scenario, string? label, bool onFailure, Action<BridgeEvent> emit, Action<string, object?> fact) {
         Fin<BridgeEvent.CaptureCase> shot = spool.Capture(view: view, label: label, onFailure: onFailure);
         if (shot is Fin<BridgeEvent.CaptureCase>.Succ(BridgeEvent.CaptureCase capture)) {
             emit(capture with { Stamp = NextStamp(scenario: scenario) });
@@ -330,15 +326,15 @@ public sealed class CargoHost : IBridgeCargo {
             fact("capture.camera.target", viewport.CameraTarget);
             fact("capture.frame", string.Create(provider: CultureInfo.InvariantCulture, $"{capture.Width}x{capture.Height}"));
             fact("capture.objects", view.Document.Objects.Count);
-            return Fin.Succ(value: new CaptureReceipt(
+            return Fin.Succ(value: new Snapshot(
                 Path: capture.Path, Width: capture.Width, Height: capture.Height,
                 OnFailure: capture.OnFailure, Artifact: capture.Artifact));
         }
         if (shot is Fin<BridgeEvent.CaptureCase>.Fail(Error error)) {
             fact("capture.failed", error.Message);
-            return Fin.Fail<CaptureReceipt>(error: error);
+            return Fin.Fail<Snapshot>(error: error);
         }
-        return Fin.Fail<CaptureReceipt>(error: Error.New(message: "capture unresolved"));
+        return Fin.Fail<Snapshot>(error: Error.New(message: "capture unresolved"));
     }
 
     // --- [DISCOVERY]
@@ -402,7 +398,7 @@ public sealed class CargoHost : IBridgeCargo {
         return requires
             .Select(selector: key => granted.Filter(f: entry => string.Equals(a: entry.Key, b: key, comparisonType: StringComparison.Ordinal)).Head.Case is CapabilityEntry row
                 ? row
-                : new CapabilityEntry(Key: key, Outcome: PhaseStatus.Unsupported, Receipt: "no capability row on this build"))
+                : new CapabilityEntry(Key: key, Outcome: PhaseStatus.Unsupported, Detail: "no capability row on this build"))
             .Where(predicate: static entry => entry.Outcome != PhaseStatus.Ok)
             .Cast<CapabilityEntry?>()
             .FirstOrDefault();
@@ -421,7 +417,7 @@ public sealed class CargoHost : IBridgeCargo {
 
     private CapabilityEntry Probed(HostCapability row, Spool spool, Action<BridgeEvent> publish) {
         CapabilityEntry entry = row.Probe(host: this);
-        Emit(spool: spool, publish: publish, evt: Fact(key: $"capability.{entry.Key}", value: $"{entry.Outcome.Key}: {entry.Receipt}", scenario: ProbeSlot));
+        Emit(spool: spool, publish: publish, evt: Fact(key: $"capability.{entry.Key}", value: $"{entry.Outcome.Key}: {entry.Detail}", scenario: ProbeSlot));
         return entry;
     }
 

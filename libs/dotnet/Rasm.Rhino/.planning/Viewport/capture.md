@@ -2,7 +2,7 @@
 
 Capture ownership (`Rasm.Rhino.Viewport`) prepares native `ViewCaptureSettings` batches, drives the transparent-raster, depth, and frame-sequence host facades, and converges every product on one `CaptureArtifact` family. The page is sink-FREE: preparation, measurement, and the artifact vocabulary live here, while raster, vector, and printer DELIVERY are cases of `Exchange/publish`'s `Landing` — an S4 owner this S3 page never names and never reaches upward for.
 
-`ViewportFault` seats here as the sub-domain's refusal family, coded on the kernel `FaultBand.HostViewport` row; every generated owner across `Viewport/*` stamps `[ValidationError]`. Measurement stays receipt evidence on successful artifacts, while failures preserve their exact cause without a measured-fault wrapper.
+`ViewportFault` seats here as the sub-domain's refusal family, coded on the kernel `FaultBand.HostViewport` row; every generated owner across `Viewport/*` stamps `[ValidationError]`. Measurement stays a column on successful artifacts, while failures preserve their exact cause without a measured-fault wrapper.
 
 Drawing STANDARDS are the kernel's whole: margins come from `SheetFrame`, model scale from `DrawingScale`, plotted magnitudes from `LineGroup`/`Terminator`/`TextHeight`, output resolution from `PlotResolution`, and the sun study's north bearing from `NorthPosture` over the model's own declination — this page authors no standards figure of its own.
 
@@ -11,7 +11,7 @@ Drawing STANDARDS are the kernel's whole: margins come from `SheetFrame`, model 
 - [02]-[FAULT]: `ViewportFault` — the sub-domain's one refusal family on the kernel band registry, and the folder law that seats it.
 - [03]-[SPEC_AXES]: admitted extents, origins, resolution, subject, area, scale, media layout, and the `CaptureFeature` capability table with its per-surface rosters.
 - [04]-[ARTIFACT_ROWS]: the transparent and depth request specifications, the depth projection/payload pair, and the one `CaptureArtifact` family with its coverage carriage.
-- [05]-[FRAME_SEQUENCE]: document-custodied animation capture — sequence kinds, the `SunWindow` calendar family, output rows, the generated host transcription, and the frame receipt.
+- [05]-[FRAME_SEQUENCE]: document-custodied animation capture — sequence kinds, the `SunWindow` calendar family, output rows, the generated host transcription, and the sequence outcome.
 - [06]-[RUN_RAIL]: sink-free plans, the modality union with its own demand and identity, the nested preparation bracket, and the one measured execution fold.
 
 ## [02]-[FAULT]
@@ -22,7 +22,6 @@ Drawing STANDARDS are the kernel's whole: margins come from `SheetFrame`, model 
 - Law: the generated fault-case identity supplies the numeric code, while this root's total `Message` switch supplies presentation.
 - Law: measurement decorates a successful artifact; failure preserves the original cause without minting a viewport wrapper.
 - Law: no category or string identity is stored or wired; telemetry projects the numeric identity only for domain faults.
-- Receipt: none — the fault IS the evidence; the band registry proof and the `OwnerOf` reverse read are the kernel's.
 - Packages: `Domain/rails` for `FaultBand` and the rail; Thinktecture.Runtime.Extensions for generated unions and values; `Modeling/solids` for `BenchEvidence`.
 - Growth: a new refusal class is one case, one offset row, and one message row inside the band's span; the band's own span guard throws at type init when the span is spent.
 - Boundary: `ViewportFault` is the Viewport family alone — Exchange, Render, Plugin, and Persistence each mint their own on their own band row, and the kernel `UiFault` stays the one UI refusal family.
@@ -726,7 +725,7 @@ public abstract partial record CaptureArtifact : IDetachedDocumentResult {
     public sealed record VectorCase(System.Xml.XmlDocument Svg) : CaptureArtifact;
     public sealed record PrintedCase(Rasm.Numerics.Dimension Pages) : CaptureArtifact;
     public sealed record DepthCase(DepthField Field) : CaptureArtifact;
-    public sealed record SequenceCase(SequenceReceipt Receipt) : CaptureArtifact;
+    public sealed record SequenceCase(SequenceOutcome Outcome) : CaptureArtifact;
 
     internal static Fin<CaptureArtifact> Raster(Func<System.Drawing.Bitmap> mint, Size2i extent, AlphaLayout coverage, Op key) =>
         Lease<System.Drawing.Bitmap>.Acquire(mint: mint, key: key)
@@ -738,7 +737,7 @@ public abstract partial record CaptureArtifact : IDetachedDocumentResult {
         vectorCase: static (text, _) => new RunOutcome.Completed(Label: text, Scale: FrozenDictionary<string, string>.Empty),
         printedCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(PrintedCase.Pages), row.Pages.Value.ToString(CultureInfo.InvariantCulture))),
         depthCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(DepthField.Hits), row.Field.Hits.ToString(CultureInfo.InvariantCulture))),
-        sequenceCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(SequenceReceipt), row.Receipt.Echo.HtmlFileName)));
+        sequenceCase: static (text, row) => new RunOutcome.Completed(Label: text, Scale: Scale(nameof(SequenceOutcome), row.Outcome.Echo.HtmlFileName)));
 
     private static FrozenDictionary<string, string> Scale(string field, string value) =>
         new Dictionary<string, string>(StringComparer.Ordinal) { [field] = value }.ToFrozenDictionary(StringComparer.Ordinal);
@@ -804,13 +803,13 @@ public sealed record DepthCaptureSpec(
 
 ## [05]-[FRAME_SEQUENCE]
 
-- Owner: `SequenceKind` closes the four motion cases — turntable, dual-track path, single-track flythrough, and a sun study over one `SunWindow`; `SequenceTrack` carries a track as a path-curve id or an admitted point row set, written through the `TrackSlot` setter columns so camera and target share one dispatch; `SunPlace` composes the kernel `SolarSite` with the bearing a `NorthPosture` row answers; `SunWindow` closes the two calendar windows; `SequenceOutput`, `SequenceFidelity`, and `FrameSequenceSpec` carry the output and fidelity axes; `SequenceReceipt` is the host read-back; `SequenceMap` is the generated host transcription.
+- Owner: `SequenceKind` closes the four motion cases — turntable, dual-track path, single-track flythrough, and a sun study over one `SunWindow`; `SequenceTrack` carries a track as a path-curve id or an admitted point row set, written through the `TrackSlot` setter columns so camera and target share one dispatch; `SunPlace` composes the kernel `SolarSite` with the bearing a `NorthPosture` row answers; `SunWindow` closes the two calendar windows; `SequenceOutput`, `SequenceFidelity`, and `FrameSequenceSpec` carry the output and fidelity axes; `SequenceOutcome` is the host read-back; `SequenceMap` is the generated host transcription.
 - Entry: `CaptureRequest.Sequence(SequenceOp, Op?)` enters `Captures.Run`, so sequence custody and sequence evidence share the capture dispatch and return `CaptureArtifact.SequenceCase`.
 - Auto: the name-mirrored halves of the host write are GENERATED. `SequenceMap` transcribes `SequenceOutput`, `SequenceFidelity`, and the twelve-column read-back through Mapperly under `RequiredMappingStrategy.Source`, so a new column with no host slot is a build break rather than a silently dropped field. What stays hand-written is what no name correspondence expresses: the `TrackSlot` slot dispatch, and the calendar DECOMPOSITION of one `LocalDate`/`LocalTime` pair into twelve host integer members.
 - Law: geodetic site and compass bearing are the kernel's. `SunPlace` carries `SolarSite` — latitude, longitude, NodaTime `Offset` timezone, and elevation, all admitted at their published bands — beside the `NorthPosture` row and the model's own declination, so the bearing DERIVES rather than riding a free `northAngle` double. NAMED GAIN: timezone and elevation become required, which is what exposed that the host animation solves sun angles carrying no zone at all.
 - Law: the sun window carries NodaTime shapes because `AnimationProperties`'s Start/End slots are a zone-free WALL CLOCK — `LocalDate`, `LocalTime`, `Duration`, and `Period` are the carriers that spelling names, and a `DateTimeOffset` here attaches an offset the host does not store. NAMED LOSS: `SequenceKind.DaySun` and `Season` stop being separately nameable cases; bought back because the WINDOW case is the name, both arms write the same Start/End slots, and the window's own `CaptureType` column answers which host study runs.
-- Law: `RhinoDoc.AnimationProperties` GET mints a detached native copy and SET commits it — in-place mutation without the set-back is inert. Adopt is one copy-edit-commit inside the shared undo bracket: the fresh copy preserves every member the spec leaves unstated, the spec writes land, the property set commits, and the receipt re-reads committed state.
-- Law: the spec configures and the host animation tools record — `Images`, `Dates`, and `CurrentFrame` are host-written receipts read back as evidence, never spec inputs. A day study spaces frames by `MinutesBetweenFrames` and a seasonal study by `DaysBetweenFrames`; each window writes only its own spacing member.
+- Law: `RhinoDoc.AnimationProperties` GET mints a detached native copy and SET commits it — in-place mutation without the set-back is inert. Adopt is one copy-edit-commit inside the shared undo bracket: the fresh copy preserves every member the spec leaves unstated, the spec writes land, the property set commits, and `SequenceOutcome.Echo` re-reads committed state.
+- Law: the spec configures and the host animation tools record — `Images`, `Dates`, and `CurrentFrame` are host-written columns read back on `SequenceEcho`, never spec inputs. A day study spaces frames by `MinutesBetweenFrames` and a seasonal study by `DaysBetweenFrames`; each window writes only its own spacing member.
 - Law: `SequenceOutput` admits extension, animation name, and HTML name as canonical filename components through an ACCUMULATING `Validation`, so a caller with three broken components learns all three; separators, special dot components, platform-invalid characters, and trailing dots or spaces never reach native output metadata.
 
 ```csharp
@@ -1096,12 +1095,12 @@ public sealed record SequenceEcho(
     Seq<string> Images,
     Seq<string> Dates);
 
-public sealed record SequenceReceipt(
+public sealed record SequenceOutcome(
     SequenceMode Mode,
     SequenceEcho Echo,
     Option<uint> UndoRecord = default) : IDetachedDocumentResult {
 
-    internal SequenceReceipt Stamp(uint undoRecord) => this with { UndoRecord = Some(undoRecord) };
+    internal SequenceOutcome Stamp(uint undoRecord) => this with { UndoRecord = Some(undoRecord) };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1400,7 +1399,7 @@ public static class Captures {
         request.Switch(
             (Document: document, Op: key),
             inspectCase: static (ctx, _) => Read(document: ctx.Document, key: ctx.Op)
-                .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(Receipt: receipt)),
+                .Map(static outcome => (CaptureArtifact)new CaptureArtifact.SequenceCase(Outcome: outcome)),
             adoptCase: static (ctx, adopt) => DocumentCommit.Sealed(
                 document: ctx.Document,
                 name: nameof(CaptureRequest.Sequence),
@@ -1416,19 +1415,19 @@ public static class Captures {
                             return Fin.Succ(value: unit);
                         }),
                         key: ctx.Op)
-                    from receipt in Read(document: ctx.Document, key: ctx.Op)
-                    select receipt,
-                stamp: static (receipt, serial) => receipt.Stamp(undoRecord: serial),
-                project: static receipt => Fin.Succ((CaptureArtifact)new CaptureArtifact.SequenceCase(Receipt: receipt)),
+                    from outcome in Read(document: ctx.Document, key: ctx.Op)
+                    select outcome,
+                stamp: static (outcome, serial) => outcome.Stamp(undoRecord: serial),
+                project: static outcome => Fin.Succ((CaptureArtifact)new CaptureArtifact.SequenceCase(Outcome: outcome)),
                 op: ctx.Op));
 
-    private static Fin<SequenceReceipt> Read(RhinoDoc document, Op key) =>
+    private static Fin<SequenceOutcome> Read(RhinoDoc document, Op key) =>
         Lease<AnimationProperties>.Acquire(mint: () => document.AnimationProperties, key: key)
             .Bind(native => native.Use(
                 body: held => from mode in key.Row<AnimationProperties.CaptureTypes, SequenceMode>(
                                   candidate: held.CaptureType, ordinal: static value => (int)value)
                               from echo in key.Catch(() => Fin.Succ(value: SequenceMap.Read(host: held)))
-                              select new SequenceReceipt(Mode: mode, Echo: echo),
+                              select new SequenceOutcome(Mode: mode, Echo: echo),
                 key: key));
 }
 ```
@@ -1466,7 +1465,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

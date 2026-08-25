@@ -1,6 +1,6 @@
 # [PY_DATA_API_IGRAPH]
 
-`igraph` owns the libigraph C-core graph surface for the data graph rail: one `Graph` container carrying the `community_*` detection family, modularity scoring, component and core decomposition, and C-core centrality, with `VertexClustering`/`VertexDendrogram` result carriers and the `compare_communities` partition-distance surface. Data graph detection routes through `Graph.community_leiden`/`community_multilevel`/`community_infomap`, reads `VertexClustering.membership`/`modularity` as the receipt, and folds the C-core modularity optimization rather than re-implementing it.
+`igraph` owns the libigraph C-core graph surface for the data graph rail: one `Graph` container carrying the `community_*` detection family, modularity scoring, component and core decomposition, and C-core centrality, with `VertexClustering`/`VertexDendrogram` result carriers and the `compare_communities` partition-distance surface. Data graph detection routes through `Graph.community_leiden`/`community_multilevel`/`community_infomap`, reads `VertexClustering.membership`/`modularity` directly, and folds the C-core modularity optimization rather than re-implementing it.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -141,7 +141,7 @@ All rows are instance methods on `Graph`.
 - `Graph.modularity` scores an external membership against the C-core; `community_optimal_modularity` is the exact-optimum row; resolution rides the `resolution` argument.
 - `compare_communities` is the single partition-distance surface keyed by `method`; `split_join_distance` is the directed split-join row.
 - `connected_components`/`decompose` partition by reachability — choose them for connectivity, `community_*` for community; `k_core`/`coreness` own core decomposition; `pagerank`/`betweenness`/`closeness`/`distances` are the C-core ranking surface.
-- Each detection captures algorithm, cluster count, per-cluster sizes, membership vector, modularity, and resolution as a graph receipt.
+- Each `VertexClustering` result retains cluster count, per-cluster sizes, membership vector, and modularity; the request retains algorithm and resolution.
 
 [STACKING]:
 - `pandas`(`.api/pandas.md`): `Graph.DataFrame` builds the container from an edge frame at ingress, `get_edge_dataframe`/`get_vertex_dataframe` return the frames at egress, and a `VertexClustering.membership` vector joins back as a vertex column.
@@ -154,5 +154,5 @@ All rows are instance methods on `Graph`.
 [RAIL_LAW]:
 - Package: `igraph`
 - Owns: libigraph C-core graph containers, the `community_*` detection family, modularity scoring, `connected_components`/`decompose` component split, `k_core`/`coreness` decomposition, `pagerank`/`betweenness`/`closeness`/`distances` centrality, `VertexClustering`/`VertexDendrogram` carriers, and `compare_communities` partition comparison
-- Accept: `Graph.community_leiden`/`community_multilevel`/`community_infomap` for detection, `VertexClustering.membership`/`modularity` as the receipt, `compare_communities` keyed by `method`, `Graph.DataFrame`/`TupleList` at construction, and `get_*_dataframe`/`to_networkx` at egress
+- Accept: `Graph.community_leiden`/`community_multilevel`/`community_infomap` for detection, direct `VertexClustering.membership`/`modularity`, `compare_communities` keyed by `method`, `Graph.DataFrame`/`TupleList` at construction, and `get_*_dataframe`/`to_networkx` at egress
 - Reject: a hand-rolled modularity optimization or Leiden/Louvain loop the C core owns, a per-algorithm detector type where the method row covers it, a re-implemented partition-distance metric where `compare_communities` carries `method`, a Python re-walk of centrality or components the C core computes, and the GPL C core linked into a host-distributed plugin

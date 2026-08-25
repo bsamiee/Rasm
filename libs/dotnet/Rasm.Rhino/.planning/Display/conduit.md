@@ -8,7 +8,7 @@
 
 - [02]-[PROGRAM]: `PhaseCapability`, `PhaseHost`, `ConduitPhase`, `RenderAspect`, `SwitchState`, `RenderSwitch`, `CullUse`, `ConduitCriterion`, `BoundsRole`, `DrawProjector`, `ConduitStep`, `ConduitProgram`, `FramePosture`, `FrameContext`, `ConduitFrame`, `Cases` — phase, filter, state policy, and the once-partitioned step lanes.
 - [03]-[MOUNT]: `DisplayFaults`, `ConduitAdapter`, `PipelineScope`, `ConduitLease`, `Conduits`, `ConduitVetoAsk`, `ConduitHooks` — binding, bounded callback faults, disablement, and unbinding.
-- [04]-[OVERLAYS]: `AnalysisMode`, `ModeParticipation`, `AnalysisScale`, `AnalysisLaw`, `MeshComponent`, `AnalysisOverlay`, `OverlayVisibility`, `RetainedRequest`, `RetainedReceipt`, `RetainedOverlay` — registered false-colour analysis and the retained `CustomDisplay` capsule.
+- [04]-[OVERLAYS]: `AnalysisMode`, `ModeParticipation`, `AnalysisScale`, `AnalysisLaw`, `MeshComponent`, `AnalysisOverlay`, `OverlayVisibility`, `RetainedRequest`, `RetainedState`, `RetainedOverlay` — registered false-colour analysis and the retained `CustomDisplay` capsule.
 
 ## [02]-[PROGRAM]
 
@@ -396,8 +396,8 @@ internal static class Cases {
 - Owner: `ConduitLease` owns the adapter and its bounded callback-fault cell until deterministic release; `DisplayFaults` declares the ONE cap every long-lived display owner's cell mints under; `ConduitHooks` registers the two display veto points as TYPED hook bindings.
 - Entry: `ConduitProgram.Of` admits and partitions; `Conduits.Mount` applies the admitted program and arms participation; `ConduitHooks.Mount` seats `rasm.rhino.display.cull` and `rasm.rhino.display.drawobject` on the `MountRegistry` — the ask is a typed `ConduitVetoAsk` whose program must carry the point's own veto step, the grant is the mounted `ConduitLease`, and a program missing the veto step refuses typed before any host participation arms.
 - Law: the fault cell is the kernel `FaultCell` — a bounded ring whose parks, sheds, and declined parks all read as numbers — never an unbounded `Atom<Seq<Error>>`; the cap is DECLARED at `DisplayFaults.Cap`, because every one of these owners is host-activated or process-static and no policy reaches a constructor, and a per-owner cap beside the declared one is the fork.
-- Law: every parked fault also publishes through `ObjectsTelemetry` under `FaultSite.Conduit` — the cell is the lease's readable receipt, the publish the process egress, and a second logger sink beside them is the fork.
-- Law: a draw lane's REFUSAL rows park too — `Marks.Paint` accounts a capability-illegal mark as a typed refusal on its receipt, and the adapter parks each cause, so a projector emitting a mark its canvas cannot draw is observable rather than silent.
+- Law: every parked fault also publishes through `ObjectsTelemetry` under `FaultSite.Conduit` — the cell is the lease's readable fault roster, the publish the process egress, and a second logger sink beside them is the fork.
+- Law: a draw lane's REFUSAL rows park too — `Marks.Paint` accounts a capability-illegal mark as a typed refusal on its `DrawTally`, and the adapter parks each cause, so a projector emitting a mark its canvas cannot draw is observable rather than silent.
 - Law: release composes kernel `Custody.Release` — disable, `UnbindAll`, sprite disposal, every step running even when an earlier one refuses, failures aggregating through `Error.Many` — and the lease's one-shot is a stepped transition whose failed release re-arms while its verdict parks on the cell.
 - Boundary: the adapter is the only `DisplayConduit` subclass and the only statement-shaped host callback seam.
 
@@ -472,7 +472,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
     private Fin<Unit> Render(ConduitFrame frame, Seq<RenderAspect> state, Fin<Seq<DisplayMark>> projected) =>
         PipelineScope.With(frame.Pipeline, state, () => projected
             .Bind(marks => Marks.Paint(new Canvas.Pipeline(frame, sprites), marks, key))
-            .Map(receipt => receipt.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: Rail, cause: cause)))), key);
+            .Map(tally => tally.Refused.Fold(unit, (_, cause) => ignore(faults.Park(point: Rail, cause: cause)))), key);
 
     private Fin<Unit> Project(DrawObjectEventArgs e, ConduitStep.Draw step) {
         ConduitFrame frame = ConduitFrame.Of(e.Display, e.Viewport, step.Phase);
@@ -775,7 +775,7 @@ public abstract partial record RetainedRequest {
         inspect: static _ => true);
 }
 
-public readonly record struct RetainedReceipt(OverlayVisibility Visibility, Rasm.Numerics.Dimension Marks);
+public readonly record struct RetainedState(OverlayVisibility Visibility, Rasm.Numerics.Dimension Marks);
 
 public sealed class RetainedOverlay : IDisposable {
     private readonly CustomDisplay display;
@@ -796,7 +796,7 @@ public sealed class RetainedOverlay : IDisposable {
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    public Fin<RetainedReceipt> Apply(RetainedRequest request, Op? key = null) {
+    public Fin<RetainedState> Apply(RetainedRequest request, Op? key = null) {
         Op op = key.OrDefault();
         lock (lifecycle) {
             return guard(!released, op.InvalidContext()).ToFin()
@@ -809,26 +809,26 @@ public sealed class RetainedOverlay : IDisposable {
                                 new Canvas.Retained(ctx.Self.display),
                                 row.Marks.Map(static mark => (DisplayMark)new DisplayMark.World(mark)),
                                 ctx.Op)
-                            .Bind(receipt => receipt.IsValid
+                            .Bind(tally => tally.IsValid
                                 ? Fin.Succ((ctx.Self.journal = prior + row.Marks,
-                                    new RetainedReceipt(
+                                    new RetainedState(
                                         ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
                                         Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)
-                                : Fin.Fail<RetainedReceipt>(receipt.Refused.Fold(Errors.None, static (folded, cause) => folded + cause)))
+                                : Fin.Fail<RetainedState>(tally.Refused.Fold(Errors.None, static (folded, cause) => folded + cause)))
                             .BindFail(failure => ctx.Self.Restore(prior, ctx.Op).Match(
-                                Succ: _ => Fin.Fail<RetainedReceipt>(failure),
-                                Fail: cleanup => Fin.Fail<RetainedReceipt>(failure + cleanup)));
+                                Succ: _ => Fin.Fail<RetainedState>(failure),
+                                Fail: cleanup => Fin.Fail<RetainedState>(failure + cleanup)));
                     },
                     visibility: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ((
                         ctx.Self.display.Enabled = row.Value.Key,
-                        new RetainedReceipt(row.Value, Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)),
+                        new RetainedState(row.Value, Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)),
                     clear: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ((
                         Op.Side(ctx.Self.display.Clear),
                         ctx.Self.journal = Seq<WorldMark>(),
-                        new RetainedReceipt(
+                        new RetainedState(
                             ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
                             Rasm.Numerics.Dimension.Create(value: 0))).Item3)),
-                    inspect: static (ctx, _) => Fin.Succ(new RetainedReceipt(
+                    inspect: static (ctx, _) => Fin.Succ(new RetainedState(
                         ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
                         Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count)))));
         }
@@ -868,7 +868,6 @@ public sealed class RetainedOverlay : IDisposable {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -21,7 +21,7 @@
 - Law: the Boolean posture crosses every seam as `BoolKind`, so the provider ordinal stays a private column on the row and a plane above reaches a set operation without naming a `CavalierContours` type; the owned key is also what a preimage frames, under the folder ruling that a provider ordinal never enters one.
 - Auto: one `Polyline<double>` and one `StaticAABB2DIndex<double>` are built per `Loop` and HELD, so a fold running measure, winding, offset, and Boolean over one loop pays one build rather than one per query; the held view is ignored by equality because it is derived from the admitted members.
 - Law: island-preserving offset rides `Shape<double>.FromPlines(...).ParallelOffset(...)`, which offsets CCW outer and CW hole loops together; a per-loop `PlineOffset.ParallelOffset` over a forest loses the hole nesting and is the deleted form. A single loop with no islands keeps the single-polyline path, where the two agree.
-- Receipt: `ProfileResult.Loops` carries rebuilt loops re-admitted through `Loop.Admit`, so a provider result that degenerated fails at the boundary rather than downstream.
+- Output: `ProfileResult.Loops` carries rebuilt loops re-admitted through `Loop.Admit`, so a provider result that degenerated fails at the boundary rather than downstream.
 - Packages: `CavalierContours` (`Polyline<double>`, `PlineOffset`, `PlineBoolean`, `PlineContains`, `Shape<double>`, `StaticAABB2DIndex<double>`), RhinoCommon value geometry, `UnitsNet` at the measure boundary.
 - Boundary: containment, area, and winding are defined only over a CLOSED loop; an open chain has no interior and answers `Sign.Zero`, zero area, and false containment consistently. Provider geometry never leaves this cluster.
 
@@ -452,7 +452,7 @@ public sealed partial class ProjectionDir {
 - Entry: `Move.Rapid.Of`, `Move.Linear.Of`, and `Move.Circular.Of` are the ONLY constructions — every case constructor is private, so admission runs BEFORE the value exists and no caller holds an unvalidated move. `Move.Transformed` re-seats an admitted move under a placement without re-admission, because an affine placement preserves every admitted invariant and mirrors the sweep sign with the point map. `Move.Admit` is the ONE re-proof a plane receiving a move across a seam runs — each case re-enters its own factory — so a consumer never spells a per-case admission ladder.
 - Law: an admitted `Move` with no `Orientation` is AXIS-FREE, so its planar swept solid is exact; a consumer computing a planar sweep over an oriented move refuses with `FabricationFault.PolicyInadmissible(FabConcern.Toolpath, "swept-solid:oriented-move")` rather than approximating the tilt silently. Indexed three-plus-two work carries no orientation here — its frame belongs to the setup, not the move.
 - Auto: `SpecializedToolpathEnvelope.Admit` folds payload validity ONCE — kind correspondence across every row, non-empty rows, finite non-negative duration — so a consumer holding the admitted payload revalidates nothing.
-- Receipt: `MotionEvidence.Warnings` carries typed `RunWarning` rows naming the raising plane and its locus, so the `rasm.fabrication.run.warnings` instrument partitions by concern instead of counting opaque text.
+- Output: `MotionEvidence.Warnings` carries typed `RunWarning` rows naming the raising plane and its locus, so the `rasm.fabrication.run.warnings` instrument partitions by concern instead of counting opaque text.
 - Growth: a new specialized lane is one `SpecializedToolpathKind` row and one `SpecializedToolpathRow` case; a new controller semantic is one `MotionDirective` case, and the dialect owns its spelling.
 - Boundary: closed row vocabularies are `[SmartEnum<string>]` rows; a unit-suffixed bare double stays bare where `CanonicalWriter` digests it, under the folder ruling that lifting a digested scalar to a typed quantity forks every key already minted.
 
@@ -761,7 +761,7 @@ public sealed partial class MotionEvidence {
 - Cases: `CutterMetric` is the one keyed vocabulary for every optional cutter length, angle, and mass — a metric is a ROW, so a new ISO-13399 dimension needs no column, no constructor slot, and no validation clause. `CutterFamily.Compound` is the composite form whose two profile sections ride `MajorLength` and `SecondaryAngle` on that stream, so a cutter pairing a body form with a tip form is one family row rather than one family per pairing.
 - Entry: `CutterForm.Admit` consumes one `CutterIngress` record of decoded scalars; `ToolEvidence.Admit` consumes already-decoded lifecycle scalars.
 - Auto: the metric map validates under ONE clause — every admitted metric is finite and positive — replacing a per-column predicate ladder whose arity grew with the catalog.
-- Receipt: the named projections (`ShankDiameterMm`, `OverallLengthMm`, and their peers) read the same map, so a consumer keeps its member spelling while the carrier stays one fact stream.
+- Output: the named projections (`ShankDiameterMm`, `OverallLengthMm`, and their peers) read the same map, so a consumer keeps its member spelling while the carrier stays one fact stream.
 - Packages: `Thinktecture.Runtime.Extensions` closes construction; `UnitsNet` seats the quantity projections.
 - Boundary: provider assets, mutable tool state, and unit parsing terminate at `Tooling/magazine`; this cluster admits decoded scalars and keyed catalogue identities only.
 
@@ -1327,7 +1327,6 @@ public sealed partial class InspectionFeature {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

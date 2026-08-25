@@ -2,23 +2,23 @@
 
 `Skeleton` owns clearance-derived constant-engagement milling over one admitted `SkeletonDemand`. Kernel `SkeletonGraph` supplies medial topology and per-node clearance radii, `WalkStrategy` rows own the motion grammar each cut modality demands, `EngagementLimit` rows own every competing ceiling on the two engagement axes, and `ArcAlgebra.Apply` owns arc-native emission. `Link.Route` remains the only inter-element travel owner.
 
-`Skeleton.Walk` partitions the graph into connected components and walks each one against its own clearance profile, so a single narrow channel constrains only the component containing it. Each component walk is one `DepthFirstSearchAlgorithm` descent whose recorded tree edges and parent map build the Euler guide, and whose component label and visit ordinal ride the pass receipt as published columns. `SkeletonDemand` admits topology once and carries the walked graph forward, so no consumer rebuilds adjacency. `Cam` alone repeats the planar result across axial depth and composes linking, workholding, guarding, and kinematics.
+`Skeleton.Walk` partitions the graph into connected components and walks each one against its own clearance profile, so a single narrow channel constrains only the component containing it. Each component walk is one `DepthFirstSearchAlgorithm` descent whose recorded tree edges and parent map build the Euler guide, and whose component label and visit ordinal ride the pass as published columns. `SkeletonDemand` admits topology once and carries the walked graph forward, so no consumer rebuilds adjacency. `Cam` alone repeats the planar result across axial depth and composes linking, workholding, guarding, and kinematics.
 
 ## [01]-[INDEX]
 
 - [02]-[LIMITS]: `EngagementLimit` rows bind the radial and advance axes separately and fold to the binding row on each.
 - [03]-[STRATEGY]: `WalkStrategy` rows own the motion grammar each modality lowers into `ArcOp`.
 - [04]-[DEMAND]: `SkeletonDemand` closes stock, graph, cutter, engagement, strategy, and topology admission through one hook.
-- [05]-[WALK]: `Skeleton.Walk` walks each component against its own clearance and emits typed receipts.
+- [05]-[WALK]: `Skeleton.Walk` walks each component against its own clearance and emits typed passes.
 
 ## [02]-[LIMITS]
 
 - Owner: `EngagementAxis` names the two axes an adaptive cut prices independently — the arc's radial immersion and the advance between successive offset levels; `EngagementLimit` is the vocabulary of ceilings, each row carrying the axis it binds and its own `Ceiling` derivation delegate.
 - Cases: `Channel` bounds immersion by the narrowest admitted clearance in the walked component; `Immersion` bounds it by the requested engagement angle; `Deflection`, `Stability`, `ChipThinning`, and `MeasuredLoad` bound it from the `ProcessBudget.Subtractive` columns the demand already admits. `Width` and `Scallop` bind the ADVANCE axis, because a stepover is what the process budget's width of cut and the finish demand's scallop step actually constrain.
-- Law: a ceiling is `Option<double>` — a row that does not bind is ABSENT, never a positive-infinity sentinel a fold must filter and a receipt would publish as a measurement. `Ceilings` therefore holds the binding rows alone.
+- Law: a ceiling is `Option<double>` — a row that does not bind is ABSENT, never a positive-infinity sentinel a fold must filter and a pass would publish as a measurement. `Ceilings` therefore holds the binding rows alone.
 - Law: `MeasuredLoad` reads the optional `Kinematics/observation.md` `LoadWindow` paired with its evaluation instant in one `Option` — a load without its instant is unrepresentable — scales a fresh positive sample around its reference radial depth, and binds conservatively at zero for an invalid present window; only absence removes the ceiling.
 - Entry: `EngagementLimit.Solve` returns `Fin<EngagementSolution>`, so an axis no row bound and a non-positive bound both refuse HERE naming the binding row, and every consumer reads an engagement it never has to re-gate.
-- Receipt: `EngagementSolution` carries every bound row's keyed ceiling and the binding row on each axis, so a constrained walk names which physics bound its immersion and which bound its advance rather than reporting one unattributed scalar.
+- Output: `EngagementSolution` carries every bound row's keyed ceiling and the binding row on each axis, so a constrained walk names which physics bound its immersion and which bound its advance rather than reporting one unattributed scalar.
 - Boundary: the fold owns selection; no consumer re-derives a ceiling or re-orders the rows.
 
 ## [03]-[STRATEGY]
@@ -34,7 +34,7 @@
 - Owner: `SkeletonTopology` owns the ONE admitted graph — the directed container carrying each medial arc in both senses, its component labels, its detached edge list, and its duplicate census; `SkeletonDemand` carries every value needed to reproduce the walk, that topology included.
 - Law: admission is CLOSED — the geometric fact fold runs inside the generated validation hook, so `Create`, `TryCreate`, and `Validate` all cross it and no caller can seat a demand whose graph the facts would have refused.
 - Law: the topology mints only through its own internal factory off a `SkeletonGraph`, so a fabricated label map or edge list cannot enter beside a graph that disagrees with it.
-- Law: each component's canonical `SkeletonArc.OriginEdge` set travels into every element key and pass receipt as a counted ordinal run, so the digest is self-delimiting and no delimiter collision forges equality.
+- Law: each component's canonical `SkeletonArc.OriginEdge` set travels into every element key and pass as a counted ordinal run, so the digest is self-delimiting and no delimiter collision forges equality.
 - Auto: `BidirectionalGraph<int, SEdge<int>>` rejects parallel edges, so a repeated arc is counted rather than doubled; `WeaklyConnectedComponents` labels the symmetric pairs and `OutDegree` answers isolation in one probe.
 - Packages: `TensorPrimitives.IsFiniteAll` admits coordinate, radius, and process batches before scalar inequalities classify them.
 - Growth: a new graph producer projects the existing `SkeletonGraph`, and a new engagement axis becomes one `EngagementLimit` row carrying the `EngagementAxis` it binds.
@@ -46,11 +46,10 @@
 - Law: the component descent is ONE `DepthFirstSearchAlgorithm` run — `OutEdgesFilter` carries the deterministic child order, `EdgeRecorderObserver` records the tree edges in discovery order, and `VertexPredecessorRecorderObserver` records the parent map the return legs ascend, both attached over the disposable scope the observer seam returns. The emitted guide is the Euler walk of that tree, so consecutive guide vertices stay adjacent and a hand recursive descent with its unbounded depth is the deleted form.
 - Law: `ElementVariant.Of` derives the walk's rotation penalty, thermal exposure, and pierce count off emitted motion at the link owner, so a placeholder and a page-local re-derivation are both deleted forms; `CutElement.Identify` mints the key from the component, its origin edges, and the run ordinal.
 - Entry: `Skeleton.Walk(SkeletonDemand)` is the only operation.
-- Entry: `SkeletonBench.Workload` builds the `skeleton-offset` measured demand from literal ordinals — a multi-component chain graph with per-channel clearance bands over an injected cutter and engagement — and `SkeletonBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.SkeletonOffset`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
+- Entry: `SkeletonBench.Workload` builds the `skeleton-offset` measured demand from literal ordinals — a multi-component chain graph with per-channel clearance bands over an injected cutter and engagement — and `SkeletonBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.SkeletonOffset`; measurement and benchmark projection stay the bench edge's under the AppHost claim-field map.
 - Auto: the component's medial chain seeds at its maximum-clearance node and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
 - Output: each component's emitted moves become one `CutElement` per contiguous cutting run, with rapid delimiters dropped, so branch and component travel stays absent from the cutting owner.
-- Law: `SkeletonWalk` carries no content key, evidence band, or stamp, so it takes no `*Receipt` name, which belongs to the `Process/owner#RECEIPT` `Receipt<TEvidence>` carrier alone.
-- Receipt: `SkeletonPass` publishes the algorithm's OWN outputs beside the geometry — the component label it walked, the discovery-ordered visit sequence, and the tree-edge count — so a consumer reads the traversal evidence rather than reconstructing it from proximity. `SkeletonWalk` carries those passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census fires the `FabricationFact.Engine.Of` node, arc, and pass rows through the caller-supplied `FabricationTap` on the rail, defaulting silent for headless callers.
+- Output: `SkeletonPass` publishes the algorithm's OWN outputs beside the geometry — the component label it walked, the discovery-ordered visit sequence, and the tree-edge count — so a consumer reads the traversal evidence rather than reconstructing it from proximity. `SkeletonWalk` carries those passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census writes its node, arc, and pass counts onto `FabricationInstruments.EngineSteps` through the caller-supplied set, which defaults absent for headless callers.
 - Packages: `LanguageExt.Core` owns accumulation, keyed lookup, and traversal; `Thinktecture.Runtime.Extensions` owns demand construction and the delegate-bearing rows; `QuikGraph` owns component topology, the depth-first descent, and its observers; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` arrives through `ArcAlgebra.Apply`; `MTConnect.NET-Common` arrives through `CutterForm` admission.
 - Boundary: `ArcAlgebra` owns exact-arc path generation, `Cam` owns axial repetition and safety composition, and `Link` owns travel.
 
@@ -300,7 +299,7 @@ public sealed record SkeletonWalk(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Skeleton {
-    public static Fin<SkeletonWalk> Walk(SkeletonDemand demand, FabricationTap? tap = null) =>
+    public static Fin<SkeletonWalk> Walk(SkeletonDemand demand, Option<InstrumentSet> set = default) =>
         from scallop in ToleranceSpec.Apply(new ToleranceRequest.Scallop(demand.Engagement.Finish.Roughness, demand.Cutter))
         from budget in demand.Engagement.Budget is ProcessBudget.Subtractive subtractive
             ? Fin.Succ(subtractive)
@@ -317,7 +316,7 @@ public static class Skeleton {
             demand.Graph.Nodes.Count,
             demand.Graph.Arcs.Count,
             cutterRadius)
-        from _ in Fin.Succ(FabricationFact.Engine.Of(walked).Map((tap ?? FabricationTap.Silent).Fire).Strict())
+        from _ in set.Steps((EnginePhase.Nodes, walked.NodeCount), (EnginePhase.Arcs, walked.ArcCount), (EnginePhase.Passes, walked.Passes.Count))
         select walked;
 
     private static Fin<SkeletonPass> Component(
@@ -342,8 +341,8 @@ public static class Skeleton {
         from trace in ArcAlgebra.Apply(demand.Strategy.Operation(
             demand.Stock, walked.Guide, engagement, cutterRadius, budget.FeedRate, demand.Sense))
         from motion in trace is ArcTrace.Motion moved
-            ? Fin.Succ(moved.Receipt)
-            : Fin.Fail<MotionReceipt>(new KernelFault.InvalidValue("skeleton", $"skeleton:component-{component}:arc-trace"))
+            ? Fin.Succ(moved.Evidence)
+            : Fin.Fail<ArcMotionEvidence>(new KernelFault.InvalidValue("skeleton", $"skeleton:component-{component}:arc-trace"))
         from elements in Elements(demand, origins, component, motion.Moves)
         select new SkeletonPass(
             component, origins, elements, engagement, clearance, nodes.Count, arcs.Count, walked.Visit, walked.TreeEdges);
@@ -529,7 +528,6 @@ public static class SkeletonBench {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -73,7 +73,7 @@ Addons bind `resolveConflictsOnCreate`/`resolveConflictsOnUpdate`, `VpcCniAddon`
 - `@pulumi/awsx`(`.api/pulumi-awsx.md`): `ec2.Vpc` outputs `vpcId`/`publicSubnetIds`/`privateSubnetIds` bind the `ClusterArgs` network axis, so the EKS plane rides the arm's realized VPC graph.
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): `cluster.kubeconfigJson` binds `new k8s.Provider({ kubeconfig, enableServerSideApply: true })`, and every `kube/*` row — `helm.v4.Chart` operators, `apiextensions.CustomResource` — rides the EKS plane through that one provider.
 - `@pulumi/postgresql`(`.api/pulumi-postgresql.md`): the `kube/data` CNPG `Cluster` declared through the k8s provider exposes its `-rw` service host into `postgresql.Provider`, so the data plane finalizes over the EKS-hosted CNPG operator.
-- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the component's children are typed resources under Pulumi diff and CrossGuard, and a construction failure folds into the `automation.UpResult` typed run receipt.
+- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the component's children are typed resources under Pulumi diff and CrossGuard, and a construction failure rejects the lifecycle operation and maps to `DeployFault`.
 - within-lib: the `provider/dispatch` `aws` arm promotes to a k8s-shaped estate by swapping only the provider seam — `ManagedNodeGroup`/`NodeGroupV2` capacity and `createOidcProvider` IRSA anchors ride the same `Cluster` the arm already constructs.
 
 [RAIL_LAW]:

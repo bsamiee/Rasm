@@ -15,26 +15,7 @@ from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
 from assay.core.govern import leased
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    BaseParams,
-    BridgeLifecycle,
-    Check,
-    Claim,
-    Completed,
-    Diagnostic,
-    Fault,
-    Language,
-    Match,
-    Mode,
-    RailStatus,
-    receipt,
-    Report,
-    Tool,
-    ToolArgs,
-    VerifySummary,
-)
+from assay.core.model import Artifact, ArtifactKind, BaseParams, BridgeLifecycle, Check, Claim, Completed, Diagnostic, Fault, Language, Match, Mode, RailStatus, Report, Tool, ToolArgs, VerifySummary
 from assay.core.routing import Routed, Scope
 from assay.diagnostics import fold
 
@@ -58,15 +39,9 @@ _EMPTY_CORPUS_NOTE: Final[str] = f"bridge.corpus=empty: scenario corpus empty un
 _TEXT_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset((".json", ".jsonl", ".log", ".txt"))
 _SHELL_SOURCE_DIRS: Final[tuple[str, ...]] = ("Shell", "Contract", "Cargo")
 RHINO_LINE_MAJOR: Final[int] = 9
-_INSTALLED_PLUGIN_GLOB: Final[str] = (
-    f"Library/Application Support/McNeel/Rhinoceros/packages/{RHINO_LINE_MAJOR}.0/rasm-bridge/*/Rasm.Bridge.Shell.dll"
-)
-_FRESHNESS_STALE: Final[str] = (
-    "bridge.freshness=stale: shell source newer than the installed plugin; run `assay package publish --slug rasm-bridge --version <v>`"
-)
-_FRESHNESS_ABSENT: Final[str] = (
-    "bridge.freshness=absent: rasm-bridge plugin not installed; run `assay package publish --slug rasm-bridge --version <v>`"
-)
+_INSTALLED_PLUGIN_GLOB: Final[str] = f"Library/Application Support/McNeel/Rhinoceros/packages/{RHINO_LINE_MAJOR}.0/rasm-bridge/*/Rasm.Bridge.Shell.dll"
+_FRESHNESS_STALE: Final[str] = "bridge.freshness=stale: shell source newer than the installed plugin; run `assay package publish --slug rasm-bridge --version <v>`"
+_FRESHNESS_ABSENT: Final[str] = "bridge.freshness=absent: rasm-bridge plugin not installed; run `assay package publish --slug rasm-bridge --version <v>`"
 _REFERENCE_UNPROMOTED_PREFIX: Final[str] = "reference.unpromoted:"
 type _CountRow[T] = tuple[str, Callable[[T], int]]
 
@@ -108,7 +83,7 @@ class _HostFingerprint(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
 class _CapabilityEntry(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     key: str = ""
     outcome: str = ""
-    receipt: str = ""
+    detail: str = ""
 
 
 class _ClosureManifest(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
@@ -128,7 +103,6 @@ class _SessionFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, r
     detail: str = ""
     prescription: str = ""
     capability: str = ""
-    probe_receipt: str = ""
     failing_check: str = ""
     scenario: str = ""
     elapsed_ms: float = 0.0
@@ -199,9 +173,11 @@ class _ScenarioCounts(msgspec.Struct, frozen=True, gc=False, omit_defaults=True,
     degraded: int = 0
 
 
-class _PhaseReceipt(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
+class _PhaseOutcome(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     phase: str = ""
     status: RailStatus = RailStatus.EMPTY
+    duration_ms: float = 0.0
+    fault: _SessionFault | None = None
 
 
 class _SpoolSummary(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
@@ -255,7 +231,7 @@ class _SessionEnvelope(msgspec.Struct, frozen=True, gc=False, omit_defaults=True
     first_session_fault: str = ""
     first_fault_phase: str | None = None
     fault: _SessionFault | None = None
-    phase_receipts: tuple[_PhaseReceipt, ...] = ()
+    phases: tuple[_PhaseOutcome, ...] = ()
     certificate_path: str = ""
     artifact_refs: tuple[_ArtifactRef, ...] = ()
     evidence_counts: _EvidenceCounts = msgspec.field(default_factory=_EvidenceCounts)
@@ -324,13 +300,7 @@ def _client_check(settings: AssaySettings, *args: str) -> Result[Check, Fault]:
     verb = args[0] if args else "status"
     match _supervisor_binary(settings):
         case None:
-            return Error(
-                Fault(
-                    ("bridge", "supervisor"),
-                    status=RailStatus.FAULTED,
-                    message="supervisor binary absent under the bridge build scope; run `uv run assay bridge build` first",
-                )
-            )
+            return Error(Fault(("bridge", "supervisor"), status=RailStatus.FAULTED, message="supervisor binary absent under the bridge build scope; run `uv run assay bridge build` first"))
         case binary:
             args_slice = ToolArgs(binary=str(binary), verb=verb, argv=args[1:])
             return _bridge_row(Mode.VERIFY).map(lambda tool: Check(tool=tool, cwd=Path(str(settings.root)), args=args_slice))
@@ -344,11 +314,7 @@ def client_run(settings: AssaySettings, *args: str, executor: Executor, timeout:
     """
     deadline = time.monotonic() + timeout if timeout is not None else None
     scope = ArtifactScope.build(settings, "bridge")
-    return (
-        _client_check(settings, *args)
-        .bind(lambda check: executor.run(check, settings=settings, scope=scope, routed=_routed(), deadline=deadline))
-        .map(_completed_from_stdout)
-    )
+    return _client_check(settings, *args).bind(lambda check: executor.run(check, settings=settings, scope=scope, routed=_routed(), deadline=deadline)).map(_completed_from_stdout)
 
 
 def first_fault(envelope: _SessionEnvelope) -> tuple[str, str]:
@@ -369,9 +335,7 @@ def _decode_envelope(run: Completed) -> _SessionEnvelope:
             return _ENVELOPE_DECODER.decode(raw)
         except msgspec.MsgspecError as exc:
             failures.append(f"stdout: {str(exc)[:120]}")
-    paths = tuple(
-        Path(artifact.path) for artifact in run.artifacts if artifact.kind is ArtifactKind.PROCESS and Path(artifact.path).name == "out.log"
-    )
+    paths = tuple(Path(artifact.path) for artifact in run.artifacts if artifact.kind is ArtifactKind.PROCESS and Path(artifact.path).name == "out.log")
     for path in paths:
         try:
             payload = path.read_bytes().strip()
@@ -381,20 +345,13 @@ def _decode_envelope(run: Completed) -> _SessionEnvelope:
         except (OSError, msgspec.MsgspecError) as exc:
             failures.append(f"{path}: {str(exc)[:120]}")
     text = (run.stderr or run.stdout).decode(errors="replace").strip()
-    return _SessionEnvelope(
-        status=RailStatus.FAILED, first_failure=text[:256] or "; ".join(failures)[:256] or "supervisor emitted no SessionEnvelope"
-    )
+    return _SessionEnvelope(status=RailStatus.FAILED, first_failure=text[:256] or "; ".join(failures)[:256] or "supervisor emitted no SessionEnvelope")
 
 
 def _completed_from_stdout(run: Completed) -> Completed:
     envelope = _decode_envelope(run)
     report_artifacts = _scenario_artifacts(Path(envelope.report_dir)) if envelope.report_dir else ()
-    return msgspec.structs.replace(
-        run,
-        status=envelope.status,
-        notes=(*run.notes, *(("bridge.reportDir=" + envelope.report_dir,) if envelope.report_dir else ())),
-        artifacts=(*run.artifacts, *report_artifacts),
-    )
+    return msgspec.structs.replace(run, status=envelope.status, notes=(*run.notes, *(("bridge.reportDir=" + envelope.report_dir,) if envelope.report_dir else ())), artifacts=(*run.artifacts, *report_artifacts))
 
 
 def _faulted(outcome: Result[Completed, Fault]) -> Result[Completed, Fault]:
@@ -467,15 +424,7 @@ def _aggregate_closure(settings: AssaySettings, scope: ArtifactScope, closure: t
     if not cargo_assemblies:
         return Error(Fault(("bridge", "closure-aggregate"), RailStatus.FAULTED, f"missing cargo output assemblies under {cargo_root}"))
     payload = _ClosureManifest(
-        assemblies=tuple(
-            sorted(
-                {
-                    str((path.parent / assembly).resolve()) if not Path(assembly).is_absolute() else str(Path(assembly).resolve())
-                    for assembly in manifest.assemblies
-                }
-                | {str(dll.resolve()) for dll in cargo_assemblies}
-            )
-        ),
+        assemblies=tuple(sorted({str((path.parent / assembly).resolve()) if not Path(assembly).is_absolute() else str(Path(assembly).resolve()) for assembly in manifest.assemblies} | {str(dll.resolve()) for dll in cargo_assemblies})),
         scenario_assemblies=(_SCENARIO_ASSEMBLY,),
         host_plugins=tuple(sorted(manifest.host_plugins)),
         built_against=manifest.built_against,
@@ -493,16 +442,7 @@ def _scenario_artifacts(report_dir: Path) -> tuple[Artifact, ...]:
     if certificate is None or problems:
         return ()
     return tuple(
-        Artifact(
-            id=ref.id,
-            kind=ArtifactKind.RHINO,
-            path=str(path),
-            bytes=ref.bytes or _size(path),
-            lines=_lines(path) if path.suffix in _TEXT_ARTIFACT_SUFFIXES else 0,
-        )
-        for ref in certificate.artifacts
-        for path, problem in (_admit_artifact(report_dir, ref),)
-        if path is not None and not problem
+        Artifact(id=ref.id, kind=ArtifactKind.RHINO, path=str(path), bytes=ref.bytes or _size(path), lines=_lines(path) if path.suffix in _TEXT_ARTIFACT_SUFFIXES else 0) for ref in certificate.artifacts for path, problem in (_admit_artifact(report_dir, ref),) if path is not None and not problem
     )
 
 
@@ -576,11 +516,7 @@ def _reference_problems(certificate: _EvidenceCertificate | None) -> tuple[str, 
         return ("certificate.missing",)
     if not certificate.references:
         return ("reference.missing",)
-    return tuple(
-        f"reference.{row.admission or 'unknown'}:{row.scenario or row.detail}"
-        for row in certificate.references
-        if not (row.matched and row.admission == "matched")
-    )
+    return tuple(f"reference.{row.admission or 'unknown'}:{row.scenario or row.detail}" for row in certificate.references if not (row.matched and row.admission == "matched"))
 
 
 def _reference_count_rows(certificate: _EvidenceCertificate | None) -> tuple[tuple[str, int], ...]:
@@ -614,23 +550,11 @@ def _sarif_artifacts(scope: ArtifactScope) -> tuple[Artifact, ...]:
 
 def _build_project(settings: AssaySettings, scope: ArtifactScope, project: str, executor: Executor) -> Result[Completed, Fault]:
     args = ToolArgs(configuration=settings.configuration.value, project=str(settings.root / project))
-    return _bridge_row(Mode.BUILD).bind(
-        lambda tool: executor.run(
-            Check(tool=tool, cwd=Path(str(settings.root)), args=args), settings=settings, scope=scope, routed=_routed(), deadline=None
-        )
-    )
+    return _bridge_row(Mode.BUILD).bind(lambda tool: executor.run(Check(tool=tool, cwd=Path(str(settings.root)), args=args), settings=settings, scope=scope, routed=_routed(), deadline=None))
 
 
 def _first_diagnostic(rows: tuple[Completed, ...]) -> str:
-    return next(
-        (
-            text[:256]
-            for row in rows
-            for text in (row.stdout + b"\n" + row.stderr).decode(errors="replace").splitlines()
-            if text.strip() and ("): error " in text or ": error " in text or " error " in text)
-        ),
-        "",
-    )
+    return next((text[:256] for row in rows for text in (row.stdout + b"\n" + row.stderr).decode(errors="replace").splitlines() if text.strip() and ("): error " in text or ": error " in text or " error " in text)), "")
 
 
 def _build_detail(done: Completed) -> Diagnostic | None:
@@ -657,18 +581,14 @@ def _build_closure(settings: AssaySettings, executor: Executor) -> Result[Comple
                     return Error(fault)
         status = RailStatus.fold(*(row.status for row in rows))
         return Ok(
-            receipt(
+            Completed(
                 ("rasm-bridge-build",),
                 status.exit_code,
                 stdout=b"\n".join(row.stdout for row in rows if row.stdout),
                 stderr=b"\n".join(row.stderr for row in rows if row.stderr),
                 status=status,
                 duration_ms=sum(row.duration_ms for row in rows),
-                notes=(
-                    *tuple(note for row in rows for note in row.notes),
-                    *tuple(f"build.{Path(project).name}={row.status.value}" for project, row in zip(_BUILD_PROJECTS, rows, strict=False)),
-                    *((f"bridge.firstDiagnostic={first}",) if (first := _first_diagnostic(tuple(rows))) else ()),
-                ),
+                notes=(*tuple(note for row in rows for note in row.notes), *tuple(f"build.{Path(project).name}={row.status.value}" for project, row in zip(_BUILD_PROJECTS, rows, strict=False)), *((f"bridge.firstDiagnostic={first}",) if (first := _first_diagnostic(tuple(rows))) else ())),
                 artifacts=(*tuple(artifact for row in rows for artifact in row.artifacts), *_sarif_artifacts(scope)),
             )
         )
@@ -691,34 +611,22 @@ def bridge_lease[T](settings: AssaySettings, action: Callable[[], Result[T, Faul
 def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, executor: Executor) -> Result[Report, Fault]:
     """Verify typed bridge scenarios under the live host lease.
 
-    An empty scenario corpus short-circuits to a typed UNSUPPORTED receipt before any build or host launch.
+    An empty scenario corpus short-circuits to UNSUPPORTED before any build or host launch.
 
     Returns:
         Verification report or setup/session fault.
     """
     argv = ("bridge", "verify", params.pattern, f"--evidence={params.evidence}")
     if not _corpus_sources(settings):
-        empty = receipt(argv, RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, notes=(_EMPTY_CORPUS_NOTE,))
+        empty = Completed(argv, RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, notes=(_EMPTY_CORPUS_NOTE,))
         return Ok(fold(Claim.BRIDGE, "verify", (empty,), promote_empty=True))
     return bridge_lease(settings, lambda: _verify_locked(settings, scope, params, argv, executor))
 
 
-def _verify_locked(
-    settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...], executor: Executor
-) -> Result[Report, Fault]:
+def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...], executor: Executor) -> Result[Report, Fault]:
     _ = scope
     build_scope = ArtifactScope.build(settings, "bridge")
-    prelude = (
-        _build_closure(settings, executor)
-        .bind(
-            lambda built: (
-                _scenario_closure(build_scope)
-                if _build_ready(built)
-                else Error(Fault(built.argv, built.status, _first_diagnostic((built,)) or "bridge build failed"))
-            )
-        )
-        .bind(lambda closure: _aggregate_closure(settings, build_scope, closure))
-    )
+    prelude = _build_closure(settings, executor).bind(lambda built: _scenario_closure(build_scope) if _build_ready(built) else Error(Fault(built.argv, built.status, _first_diagnostic((built,)) or "bridge build failed"))).bind(lambda closure: _aggregate_closure(settings, build_scope, closure))
     match prelude:
         case Result(tag="ok", ok=closure):
             return _fold_session(settings, _selection(params.pattern), closure, argv, evidence=params.evidence, executor=executor)
@@ -726,9 +634,7 @@ def _verify_locked(
             return Error(fault)
 
 
-def _fold_session(
-    settings: AssaySettings, selection: str, closure: Path, argv: tuple[str, ...], *, evidence: Literal["verify", "author"], executor: Executor
-) -> Result[Report, Fault]:
+def _fold_session(settings: AssaySettings, selection: str, closure: Path, argv: tuple[str, ...], *, evidence: Literal["verify", "author"], executor: Executor) -> Result[Report, Fault]:
     outcome = client_run(settings, "verify", selection, str(closure), evidence, executor=executor, timeout=_SCENARIO_TIMEOUT_S)
     match outcome:
         case Result(tag="ok", ok=done):
@@ -741,9 +647,7 @@ def _fold_session(
             return Error(fault)
 
 
-def _evidence_projection(
-    *, settings: AssaySettings, envelope: _SessionEnvelope, done: RailStatus, evidence: Literal["verify", "author"]
-) -> _EvidenceProjection:
+def _evidence_projection(*, settings: AssaySettings, envelope: _SessionEnvelope, done: RailStatus, evidence: Literal["verify", "author"]) -> _EvidenceProjection:
     certificate, certificate_problems = _read_certificate(envelope)
     reference_problems = _reference_problems(certificate)
     return _EvidenceProjection(
@@ -751,9 +655,7 @@ def _evidence_projection(
         certificate=certificate,
         certificate_problems=certificate_problems,
         reference_problems=reference_problems,
-        status=_evidence_status(
-            evidence=evidence, done=done, certificate_ok=certificate is not None and not certificate_problems, reference_problems=reference_problems
-        ),
+        status=_evidence_status(evidence=evidence, done=done, certificate_ok=certificate is not None and not certificate_problems, reference_problems=reference_problems),
     )
 
 
@@ -793,7 +695,7 @@ def _verify_summary(envelope: _SessionEnvelope, projection: _EvidenceProjection)
         capture_count=envelope.evidence_counts.captures,
         manifest_count=_manifest_count(envelope.evidence_counts),
         certificate_path=envelope.certificate_path,
-        phase_status=tuple((phase.phase, phase.status.value) for phase in envelope.phase_receipts),
+        phase_status=tuple((phase.phase, phase.status.value) for phase in envelope.phases),
         facts=tuple(_fact_row(evt) for evt in envelope.evidence if evt.kind == "fact"),
         captures=tuple(_capture_row(evt) for evt in envelope.evidence if evt.kind == "capture"),
     )
@@ -803,9 +705,7 @@ def _manifest_count(counts: _EvidenceCounts) -> int:
     return counts.object_manifests + counts.geometry_manifests + counts.viewport_manifests + counts.gh2_canvas_manifests + counts.scratch_manifests
 
 
-def _evidence_status(
-    *, evidence: Literal["verify", "author"], done: RailStatus, certificate_ok: bool, reference_problems: tuple[str, ...]
-) -> RailStatus:
+def _evidence_status(*, evidence: Literal["verify", "author"], done: RailStatus, certificate_ok: bool, reference_problems: tuple[str, ...]) -> RailStatus:
     if done.severity > RailStatus.OK.severity:
         return done
     if evidence == "author":
@@ -844,12 +744,7 @@ def _scenario_row(row: _SessionScenario) -> Match:
     return Match(
         id=row.scenario or "bridge.scenario",
         kind=ArtifactKind.RHINO,
-        text=msgspec.json.encode({
-            "status": row.status.value,
-            "scenarioStatus": status.value,
-            "durationMs": row.duration_ms,
-            "firstScenarioFailure": row.first_scenario_failure or "",
-        }).decode(),
+        text=msgspec.json.encode({"status": row.status.value, "scenarioStatus": status.value, "durationMs": row.duration_ms, "firstScenarioFailure": row.first_scenario_failure or ""}).decode(),
         severity=None if status.severity <= RailStatus.OK.severity else "failed",
     )
 
@@ -859,10 +754,7 @@ def _fact_row(evt: _SessionEvidence) -> tuple[str, str]:
 
 
 def _capture_row(evt: _SessionEvidence) -> tuple[str, str]:
-    return (
-        evt.stamp.scenario or Path(evt.path).stem,
-        msgspec.json.encode({"path": evt.path, "width": evt.width, "height": evt.height, "onFailure": evt.on_failure}).decode(),
-    )
+    return (evt.stamp.scenario or Path(evt.path).stem, msgspec.json.encode({"path": evt.path, "width": evt.width, "height": evt.height, "onFailure": evt.on_failure}).decode())
 
 
 def _freshness(settings: AssaySettings) -> str:
@@ -886,16 +778,7 @@ def _freshness_note(state: str) -> tuple[str, ...]:
 
 
 def _host_rows(host: _HostFingerprint) -> tuple[tuple[str, str], ...]:
-    return tuple(
-        (axis, version)
-        for axis, version in (
-            ("bundle", host.bundle_version),
-            ("rhinoCommon", host.rhino_common_version),
-            ("grasshopper2", host.grasshopper2_version),
-            ("runtime", host.runtime_version),
-        )
-        if version
-    )
+    return tuple((axis, version) for axis, version in (("bundle", host.bundle_version), ("rhinoCommon", host.rhino_common_version), ("grasshopper2", host.grasshopper2_version), ("runtime", host.runtime_version)) if version)
 
 
 def _lifecycle(settings: AssaySettings, verb: str, *args: str, executor: Executor) -> Result[Report, Fault]:
@@ -908,15 +791,7 @@ def _lifecycle(settings: AssaySettings, verb: str, *args: str, executor: Executo
             verb,
             (msgspec.structs.replace(done, notes=(*done.notes, *_freshness_note(freshness))),),
             promote_empty=True,
-            detail=BridgeLifecycle(
-                verb=verb,
-                report_dir=envelope.report_dir,
-                freshness=freshness,
-                host=_host_rows(envelope.host),
-                capabilities=tuple((cap.key, cap.outcome, cap.receipt) for cap in envelope.capabilities),
-                first_fault_phase=phase,
-                first_fault_output=output,
-            ),
+            detail=BridgeLifecycle(verb=verb, report_dir=envelope.report_dir, freshness=freshness, host=_host_rows(envelope.host), capabilities=tuple((cap.key, cap.outcome, cap.detail) for cap in envelope.capabilities), first_fault_phase=phase, first_fault_output=output),
         )
 
     return bridge_lease(settings, lambda: client_run(settings, verb, *args, executor=executor).map(_fold_lifecycle))
@@ -949,16 +824,7 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, e
         Build report or build fault.
     """
     _ = (scope, params)
-    return _build_closure(settings, executor).map(
-        lambda done: fold(
-            Claim.BRIDGE,
-            "build",
-            (done,),
-            detail=_build_detail(done),
-            sarif_dir=str(ArtifactScope.build(settings, "bridge").path),
-            promote_empty=True,
-        )
-    )
+    return _build_closure(settings, executor).map(lambda done: fold(Claim.BRIDGE, "build", (done,), detail=_build_detail(done), sarif_dir=str(ArtifactScope.build(settings, "bridge").path), promote_empty=True))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

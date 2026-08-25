@@ -162,7 +162,7 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 |  [05]   | `PropertyDefaultOperationStageType`                        | `Init` / `MenuOpening` stage discriminant |
 |  [06]   | `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` | focus events (`RoutedEventArgs`)          |
 |  [07]   | `CellPropertyChangedEventArgs`                             | cell-value change (`EventArgs`)           |
-|  [08]   | `RoutedCommandExecutedEventArgs`                           | command receipt (`RoutedEventArgs`)       |
+|  [08]   | `RoutedCommandExecutedEventArgs`                           | command completion (`RoutedEventArgs`)    |
 |  [09]   | `RoutedCommandExecutingEventArgs`                          | command veto (row [08] subtype)           |
 
 - `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` carry one readonly `Context : PropertyCellContext`; `CustomPropertyDescriptorFilterEventArgs` carries readonly `TargetObject : object` and `PropertyDescriptor : PropertyDescriptor` beside a settable `IsVisible : bool`.
@@ -303,7 +303,7 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 |  [08]   | `ParentContext : PropertyCellContext?` | enclosing cell for nested descriptors                 |
 |  [09]   | `GetCellEditFactoryCollection()`       | the resolving factory set                             |
 
-- `SetPropertyValue` is the ONE write path a presented editor commits through: it mints a `GenericCancelableCommand` per changed cell, raises `PropertyGrid.CommandExecuting` (cancellable), executes, then raises `PropertyGrid.CommandExecuted` — all inside one synchronous frame — so a control writing `context.Property.SetValue(context.Target, value)` directly bypasses the veto edge, the receipt edge, and the undo recorder at once. `GetPropertyValue` is `context.GetValue()`.
+- `SetPropertyValue` is the ONE write path a presented editor commits through: it mints a `GenericCancelableCommand` per changed cell, raises `PropertyGrid.CommandExecuting` (cancellable), executes, then raises `PropertyGrid.CommandExecuted` — all inside one synchronous frame — so a control writing `context.Property.SetValue(context.Target, value)` directly bypasses the veto edge, the completion event, and the undo recorder at once. `GetPropertyValue` is `context.GetValue()`.
 
 [FACTORY_REGISTRY]: `ICellEditFactoryCollection` operations, resolved through `CellEditFactoryService.Default`.
 
@@ -326,8 +326,8 @@ Namespaces below drop the shared `Avalonia.PropertyGrid.` prefix.
 |  [02]   | `CustomNameBlock`                        | name rendering                        |
 |  [03]   | `CustomPropertyOperationControl`         | operation surface                     |
 |  [04]   | `CustomPropertyOperationMenuOpening`     | operation menu                        |
-|  [05]   | `CommandExecuting` / `CommandExecuted`   | command gate / receipt                |
-|  [06]   | `PropertyGotFocus` / `PropertyLostFocus` | focus receipts                        |
+|  [05]   | `CommandExecuting` / `CommandExecuted`   | command gate / completion             |
+|  [06]   | `PropertyGotFocus` / `PropertyLostFocus` | focus events                          |
 |  [07]   | `NameWidthChanged`                       | name-column width change              |
 
 [EDITOR_ENTRYPOINTS]: list, color, and slider editor operations

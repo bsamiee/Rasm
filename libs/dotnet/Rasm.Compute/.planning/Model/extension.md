@@ -2,7 +2,7 @@
 
 Rasm.Compute model extension-ops: one `CustomOps` owner folds extension and custom-op registration into the `Model/sessions#SESSION_CAPSULE` admission AND reads the non-tensor model boundary the custom-op lane produces — `string`-tensor outputs and the structured `ZipMap` sequence/map outputs the numeric tensor egress cannot carry. ONNX Runtime owns the custom-op library lifetime through `RegisterCustomOpLibrary(path)`, freed when the `SessionOptions` and every session built from them release, so registration tracks no caller handle; the `out`-handle `RegisterCustomOpLibraryV2(path, out nint)` whose discarded handle leaks the library is the rejected form.
 
-Registration extends the `ModelSessions` boundary capsule and rides `Microsoft.ML.OnnxRuntime.Extensions`/`Microsoft.ML.OnnxRuntime`; `SessionPolicy` arrives settled from `Model/sessions#SESSION_CAPSULE`, native-asset evidence rides the `Model/identity#MODEL_IDENTITY` `ModelLoad` receipt, and string INGRESS rides `Model/run#RUN_MODES` `RunInput.Strings`. Non-tensor `Egress` is the catalogued completion of that ingress: `RunInput.Strings` admits a `Tensor<string>` through the `Tensor/residency` `TensorBridge.Ingress` `OrtValue.CreateFromStringTensor` factory (the sole `OrtValue` C-data factory, never re-minted here), and the `OnnxType`-discriminated `Egress` reads the model's non-tensor outputs back — never a second string-input factory and never the interior `System.Numerics.Tensors` carrier, because a string tensor is a model-boundary `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` only.
+Registration extends the `ModelSessions` boundary capsule and rides `Microsoft.ML.OnnxRuntime.Extensions`/`Microsoft.ML.OnnxRuntime`; `SessionPolicy` arrives settled from `Model/sessions#SESSION_CAPSULE`, and string INGRESS rides `Model/run#RUN_MODES` `RunInput.Strings`. Non-tensor `Egress` is the catalogued completion of that ingress: `RunInput.Strings` admits a `Tensor<string>` through the `Tensor/residency` `TensorBridge.Ingress` `OrtValue.CreateFromStringTensor` factory (the sole `OrtValue` C-data factory, never re-minted here), and the `OnnxType`-discriminated `Egress` reads the model's non-tensor outputs back — never a second string-input factory and never the interior `System.Numerics.Tensors` carrier, because a string tensor is a model-boundary `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` only.
 
 ## [01]-[INDEX]
 
@@ -15,7 +15,7 @@ Registration extends the `ModelSessions` boundary capsule and rides `Microsoft.M
 - Law: coverage is CLOSED against the identity snapshot, and `Egress` PROVES it. `Model/identity#MODEL_IDENTITY` `SlotShape` admits sequence and map slots by NAME because a slot describes a shape while a value carries one, and this grammar is where that value proves — the declared slot rides into `Egress` and `Covers` is the joint gate, because a coverage law stated in prose closes nothing. Every `SlotShape` case reachable from a snapshot therefore has a disposition here: a tensor leaf reads through `Strings` or `Numeric`, a sequence recurses through `Sequence`, a map reads through `Mapping`, an optional recurses through `Optional`, and a sparse tensor NESTED in a container refuses by name. Anything short of that leaves a schema the admitter accepts with no reader at run, which is the asymmetry that made a legal `seq(tensor(float))` output an unexplained refusal.
 - Law: the sparse carve is OUTER-LEVEL routing, not a gap. A sparse output at the top is the caller's own undisposed value and crosses whole to `Tensor/residency#ORT_BRIDGE`; a sparse child dies with the container walk, and a sparse value's three-buffer residency is that owner's shape rather than a byte run this page could copy out. Reopens only on the residency owner publishing an owned sparse snapshot.
 - Entry: `Register` accumulates asset probes before `Op.Catch` admits native registration; `Egress` captures native metadata reads and proves the projected value against its declared slot.
-- Receipt: native-asset evidence rides the `Model/identity#MODEL_IDENTITY` `ModelLoad` receipt; the missing-path set (or the native fault message) is the `ExtensionAssetMissing` payload.
+- Result: `Register` returns the same `SessionOptions` after every configured library verifies and registers; a missing asset or native registration fault remains on the typed rail.
 - Packages: Microsoft.ML.OnnxRuntime.Extensions, Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new custom-op library is one `CustomOpLibrary` row on `SessionPolicy.CustomOpLibraries` and a new registration MECHANISM is one case on that union, carrying its own probe, identity, and fingerprint column; a new ONNX value kind is one `OpOutput` case with one `OnnxType` arm on `Egress`, landing beside the `SlotShape` case the identity snapshot grows in the same change; a new map-value domain is one `MapValue` case and one `Valued` arm. Container growth costs nothing: `Sequence` and `Optional` recurse through the one reader, so a sequence of sequences of maps reads today.
 - Boundary: `CustomOps` extends the session capsule; `RegisterCustomOpLibrary` transfers lifetime to its `SessionOptions`, and each `OrtValue` child is read within its native lease.
@@ -212,11 +212,3 @@ public static class CustomOps {
                 EgressRefusal.CardinalityMismatched.Fault());
 }
 ```
-
-## [03]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

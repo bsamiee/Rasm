@@ -21,7 +21,6 @@
 - Law: admission ACCUMULATES. A page declaration carries five independent columns a caller supplies, so a missing content tree and a missing answer delegate are reported together rather than sending the caller back twice.
 - Law: the object-page kind is an ADMITTED row off the host enum, so an identity cannot be built around a page type that came from nowhere.
 - Boundary: the object-type vocabulary is `Document`'s `ObjectKind`/`ObjectKinds`, composed here and never re-declared, so one set serves this page scope and the modal object asks that share the concept.
-- Receipt: `PagePlan` itself — the admitted declaration a realize consumes; no separate evidence value exists because the plan IS the evidence.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`OptionsDialogPage`, `ObjectPropertiesPage`, `PropertyPageType`, `RhinoEtoApp.DocumentPropertiesWindowForPage`/`ApplicationPreferencesWindowForPage`); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md` (the three page-collection callbacks); `libs/dotnet/.api/api-system-drawing-common.md` (the page image the stacked base publishes); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation`, `Apply`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Interaction` (`ControlSpec`, `UiFault`); `Rasm/Domain` (`Op`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`ObjectKinds`, `DocKey`).
 - Growth: a new registration target is one `PageSeat` row plus its host callback at the load root; a new reveal window is one `PageReveal` row carrying its own resolver; a new selection axis is one `SelectionReach` row and no consumer edit.
 
@@ -185,11 +184,11 @@ public abstract partial record PagePlan {
 - Owner: `PageSignal` closes every callback the host page bases expose; `PageActivation` names the two lifecycle edges; `SelectionEvidence` is the detached selection fact.
 - Cases: activation, apply, cancel, script, defaults, help, native-parent lifecycle, selection visibility, selection refresh, and a refusal the visibility gate could not otherwise report.
 - Entry: `PageSignal.Sized` is the one parent-extent admission both leaves reach, so the host's two raw pixel counts are admitted once rather than at each override.
-- Auto: `SelectionEvidence` compares by its object roster in ORDER, so two evidence values naming the same objects in different sequence stay two facts and a receipt diff reads them apart.
+- Auto: `SelectionEvidence` compares by its object roster in ORDER, so two evidence values naming the same objects in different sequence stay two facts and an evidence diff reads them apart.
 - Law: `Scripted` carries an admitted `SessionMode`; a foreign `RunMode` never crosses a leaf.
 - Law: evidence detaches IDENTITIES, never handles — a retained host object outlives the callback that produced it, and the identity is what a later read re-resolves against a live document.
 - Law: the native parent handle rides a CASE and never a retained field. `OnCreateParent` hands a raw window handle the host owns for exactly the duration of the callback, so the boundary reports it and keeps nothing.
-- Receipt: `SelectionEvidence` — document, event ordinal, count, object identities, view, and viewport, all read before callback exit.
+- Output: `SelectionEvidence` — document, event ordinal, count, object identities, view, and viewport, all read before callback exit.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`ObjectPropertiesPageEventArgs`); LanguageExt.Core (`Fin`, `Option`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`); Generator.Equals (`[Equatable]`, `[OrderedEquality]`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `SessionMode`).
 - Growth: a new callback is one `PageSignal` case breaking every answering consumer loudly; a new evidence column is one field on the record.
 
@@ -237,7 +236,7 @@ public sealed partial record SelectionEvidence(
 
 - Owner: `HostPage` is the realized handle and the estate's page `IMount`; `PageLeaf` closes the internal host-base alternatives; `PageOwner` names who claimed a registration; `PageCustody` is the re-entrancy and adoption machine over the kernel mount floor.
 - Entry: `Realize` is the sole page mint and runs only inside an existing command-thread frame; `Navigate`, `Reveal`, `Selection`, and `Modify` expose the distinct result regimes of the handle; `Release` is the `IMount` teardown every owner reaches through.
-- Auto: realization brackets its own unwind through the leased receipt, so a refused style hop releases the control tree it had already grown, the cleanup fault aggregates into the primary, and the hand dispose-then-return block has no site.
+- Auto: realization brackets its own unwind through the leased `ElementMount`, so a refused style hop releases the control tree it had already grown, the cleanup fault aggregates into the primary, and the hand dispose-then-return block has no site.
 - Law: this page answers the kernel `IMount` floor, so it is adoptable by every mount in the estate as ITSELF, its child forest is `Seq<IMount>`, and its phase rows are the kernel `MountPhase` with the `Closes` consequence each row carries. NAMED LOSS: none — the local two-row phase vocabulary deletes.
 - Law: the re-entrancy machine MIRRORS the kernel custody shape rather than composing it, and the discriminant is an access modifier, not a design: `MountCustody` publishes its enter, leave, close, and adopt transitions `internal` to the kernel assembly, so a boundary mount can answer the floor and hold the phase rows but cannot step the machine. Every transition here takes and answers the kernel's own public types, so the local machine deletes with no call-site change the moment those transitions publish.
 - Law: the claim cell is the other half and stays host-specific by CONCEPT: the kernel custody owner band is an `IMount`, while a registration is claimed by a MOUNT TOKEN or transferred to the HOST COLLECTION, neither of which is a mount this page could hand it. Enter, leave, close, and adopt are custody; claim, unclaim, and transfer are the token's.
@@ -249,8 +248,8 @@ public sealed partial record SelectionEvidence(
 - Law: `Release` and operation exits carry teardown faults on their typed rails; only the host-required `IDisposable` adapter parks a discarded verdict on the bounded ring.
 - Exemption: the custody seat is `lock`-held rather than compare-and-swap, because the release it hands back disposes host controls and a replayable transition body would run that disposal on every contended retry. It is contained in this class and no consumer writes one.
 - Boundary: `Realize` and every entry below are the published surface a command body in the `apps/<app>/` plugin shell composes; the app root is the sole producer and no in-package fence mints a page.
-- Receipt: `HostPage` retains its leased `ElementReceipt` and publishes its release faults; the handle IS the evidence and no second receipt exists.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`OptionsDialogPage`, `ObjectPropertiesPage`, `ObjectPropertiesPageEventArgs`, `StackedDialogPage`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Window`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`); `Rasm/Interaction` (`ControlForge.Realize`, `ElementReceipt`, `ElementRuntime`, `IMount`, `MountPhase`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>.Use`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`ObjectKinds`, `DocKey`, `SessionMode`).
+- Output: `HostPage` retains its leased `ElementMount` and publishes its release faults; the handle IS the evidence and no second value exists.
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`OptionsDialogPage`, `ObjectPropertiesPage`, `ObjectPropertiesPageEventArgs`, `StackedDialogPage`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Window`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`); `Rasm/Interaction` (`ControlForge.Realize`, `ElementMount`, `ElementRuntime`, `IMount`, `MountPhase`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>.Use`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`ObjectKinds`, `DocKey`, `SessionMode`).
 - Growth: a new post-realization regime is one entry over the same custody window; a new host base is one `PageLeaf` case with its own leaf class; a new lifecycle phase is one kernel `MountPhase` row and no edit here.
 
 ```csharp
@@ -324,14 +323,14 @@ public sealed class HostPage : IMount, IDisposable {
 
     private readonly PagePlan plan;
     private readonly PageLeaf leaf;
-    private readonly Lease<ElementReceipt> content;
+    private readonly Lease<ElementMount> content;
     private readonly object sync = new();
     private readonly Atom<Option<PageOwner>> claim = Atom(Option<PageOwner>.None);
     private readonly Ring<Error> teardown = new(cap: TeardownCap);
     private PageCustody custody = new PageCustody.Live(
         Active: None, Children: Seq<IMount>(), Phase: MountPhase.Open);
 
-    private HostPage(PagePlan plan, PageLeaf leaf, Lease<ElementReceipt> content, Op key) =>
+    private HostPage(PagePlan plan, PageLeaf leaf, Lease<ElementMount> content, Op key) =>
         (this.plan, this.leaf, this.content, Key) = (plan, leaf, content, key);
 
     public Op Key { get; }
@@ -438,15 +437,15 @@ public sealed class HostPage : IMount, IDisposable {
         Op op,
         Func<TPlan, Control, Op, PageLeaf> seat)
         where TPlan : PagePlan =>
-        ControlForge.Realize(spec: tree, runtime: runtime, key: op).Bind(receipt => op
+        ControlForge.Realize(spec: tree, runtime: runtime, key: op).Bind(outcome => op
             .Catch(() => {
-                EtoExtensions.UseRhinoStyle(receipt.Resource.Host);
+                EtoExtensions.UseRhinoStyle(outcome.Resource.Host);
                 return Fin.Succ(value: new HostPage(
-                    plan: plan, leaf: seat(plan, receipt.Resource.Host, op), content: receipt, key: op));
+                    plan: plan, leaf: seat(plan, outcome.Resource.Host, op), content: outcome, key: op));
             })
             .Match(
                 Succ: page => Fin.Succ(value: page),
-                Fail: fault => receipt.Use(_ => Fin.Fail<HostPage>(error: fault), op)));
+                Fail: fault => outcome.Use(_ => Fin.Fail<HostPage>(error: fault), op)));
 
     internal Fin<Unit> Retain(HostPage child, Action land, Action rollback, Op op) => Within(
         body: () => {
@@ -525,7 +524,7 @@ public sealed class HostPage : IMount, IDisposable {
 
     private Fin<Unit> ReleaseTree(Seq<IMount> children, Op key) =>
         Custody.Release(held: children, release: static child => child.Release(), key: key)
-            .Settled(release: () => content.Use(receipt => receipt.Release(), key), key: key);
+            .Settled(release: () => content.Use(outcome => outcome.Release(), key), key: key);
 
     private static Error Absent(string member, Op op) =>
         new UiFault.HostRejected(Key: op, Detail: $"this page publishes no {member}");
@@ -638,7 +637,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
 - Law: the navigation ink is a `PerceptualColor` and quantizes at the host slot alone, so no host colour crosses this owner's public signature.
 - Law: the navigation-style members exist on the platforms whose toolkit backend the host resolved, and that roster is DECLARED rather than probed. An ambient operating-system test answers which system is running, not which backend published the member, and the platform owner already holds the admitted answer.
 - Boundary: the child page's own seat is checked before adoption, so a page seated for options or document properties cannot be added as a child of a stacked page.
-- Receipt: `Fin<Unit>` per verb — the host publishes no navigation evidence and a fabricated receipt would assert one.
+- Output: `Fin<Unit>` per verb — the host publishes no navigation evidence and a fabricated outcome would assert one.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`StackedDialogPage.MakeActivePage`/`SetActivePageTo`/`RemovePage`/`AddChildPage`/`Modified`/`SetEnglishPageTitle`/`NavigationTextIsBold`/`NavigationTextColor`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); `Rasm/Interaction` (`HostPlatform.Snapshot`, `PlatformRow`, `UiFault`); `Rasm/Numerics` (`PerceptualColor`).
 - Growth: a new stacked verb is one `PageNav` case with one arm; a new backend publishing the style members is one row in the declared set.
 
@@ -723,17 +722,17 @@ public abstract partial record PageNav {
 
 ## [06]-[MOUNT]
 
-- Owner: `PageBasket` closes the host registration collection shapes; `PageMountReceipt` is the live registration custody a caller releases through; `PageRegistration` is one removable registration under its own state machine; `PageMountLease` is the registration bundle; `PageMount.Land` is the entry.
-- Entry: `Land` pre-admits the whole batch applicatively, claims every page under one token, then commits by a halting fold and answers a receipt naming what a release will actually reach.
+- Owner: `PageBasket` closes the host registration collection shapes; `MountedPages` is the live registration custody a caller releases through; `PageRegistration` is one removable registration under its own state machine; `PageMountLease` is the registration bundle; `PageMount.Land` is the entry.
+- Entry: `Land` pre-admits the whole batch applicatively, claims every page under one token, then commits by a halting fold and answers `MountedPages` naming what a release will actually reach.
 - Auto: the claim fold's rollback is the kernel mount fold's own shape — a refusal unclaims every seat already taken, in reverse, with every step running — so the hand fold-state record that carried a fault sentinel has no site.
 - Auto: the pending set on a refusal is what the fold has NOT landed, read off the landed counts rather than mirrored on the state; a stored remaining column and the counts beside it were two authorities over one position.
 - Law: the basket carries its own SEAT, so the registration target is data the gate compares rather than a literal one side re-derives. The document-properties callback and the options callback hand the same collection type, and a gate comparing against one literal refused every page seated for the other — a live refusal on the only registration path a document page had.
-- Law: the receipt states what a release REACHES. The object-properties collection publishes no removal member, so its registrations are permanent and their custody transfers to the host; splitting the applied count into releasable and permanent is how a caller reads its own reach instead of watching `Release` no-op.
-- Law: `PageMountReceipt` is a CLASS, never a record — it holds a live lease, and two receipts naming one applied count are not one registration, so the completed and partial regimes are the fault slot's presence on one carrier rather than structurally equal cases over live custody.
+- Law: `MountedPages` states what a release REACHES. The object-properties collection publishes no removal member, so its registrations are permanent and their custody transfers to the host; splitting the applied count into releasable and permanent is how a caller reads its own reach instead of watching `Release` no-op.
+- Law: `MountedPages` is a CLASS, never a record — it holds a live lease, and two values naming one applied count are not one registration, so the completed and partial regimes are the fault slot's presence on one carrier rather than structurally equal cases over live custody.
 - Law: a registration's lifecycle is a closed STATE, never a shutdown flag — live, unclaimed, or released — and the transition is a guarded step whose declined arm is READ, because a boolean latch reports success to a second releaser that never won the transition.
-- Boundary: options rollback accepts only a true removal result; a false removal leaves a live receipt-owned registration and joins the partial fault.
+- Boundary: options rollback accepts only a true removal result; a false removal leaves a live mount-owned registration and joins the partial fault.
 - Boundary: `Land` is reached through the load root's page-callback program, which is an `apps/<app>/` plugin-shell delegate — the app root is the sole producer and no in-package fence calls it.
-- Receipt: `PageMountReceipt` — releasable count, permanent count, and the fault of a partial landing, over a live lease it alone releases.
+- Output: `MountedPages` — releasable count, permanent count, and the fault of a partial landing, over a live lease it alone releases.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-plugins.md` (the three page-collection callbacks and the absent removal overload on `ObjectPropertiesPageCollection`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`ObjectPropertiesPageCollection.Add`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`, `Traverse`, `foldWhile`); Thinktecture.Runtime.Extensions (`[Union]`); `Rasm/Domain` (`Op`, `Cell`, `Transition`); `Rasm/Numerics` (`Dimension`); `Rasm/Interaction` (`UiFault`).
 - Growth: a new host collection is one `PageBasket` case with its own landing pair; a new registration state is one `RegistrationState` case breaking every transition loudly.
 
@@ -758,10 +757,10 @@ internal abstract partial record RegistrationState {
 internal sealed record PageLanding(HostPage Page, Action Add, Option<Func<Fin<Unit>>> Remove);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class PageMountReceipt : IDisposable {
+public sealed class MountedPages : IDisposable {
     private readonly PageMountLease lease;
 
-    internal PageMountReceipt(Rasm.Numerics.Dimension releasable, Rasm.Numerics.Dimension permanent, Option<Error> fault, PageMountLease lease) =>
+    internal MountedPages(Rasm.Numerics.Dimension releasable, Rasm.Numerics.Dimension permanent, Option<Error> fault, PageMountLease lease) =>
         (this.lease, Releasable, Permanent, Fault) = (lease, releasable, permanent, fault);
 
     public Rasm.Numerics.Dimension Releasable { get; }
@@ -821,10 +820,10 @@ internal sealed class PageMountLease {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PageMount {
-    public static Fin<PageMountReceipt> Land(PageBasket basket, Seq<HostPage> pages, Op? key = null) {
+    public static Fin<MountedPages> Land(PageBasket basket, Seq<HostPage> pages, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(basket).Bind(_ => HostThread.Run(
-            work: new HostWork<PageMountReceipt>.Required(Body: () => pages
+            work: new HostWork<MountedPages>.Required(Body: () => pages
                 .Traverse(page => Prepared(page: page, basket: basket, op: op).ToValidation())
                 .As()
                 .ToFin()
@@ -868,7 +867,7 @@ public static class PageMount {
                     Fin.Fail<Seq<PageLanding>>(error: fault)).Item2)))
             .Map(static _ => unit);
 
-    private static Fin<PageMountReceipt> Commit(Seq<PageLanding> landings, Guid token, Op op) {
+    private static Fin<MountedPages> Commit(Seq<PageLanding> landings, Guid token, Op op) {
         (Rasm.Numerics.Dimension Releasable, Rasm.Numerics.Dimension Permanent, Seq<PageRegistration> Registrations, Option<Error> Fault) seed = (
             Releasable: Rasm.Numerics.Dimension.Create(value: 0),
             Permanent: Rasm.Numerics.Dimension.Create(value: 0),
@@ -895,10 +894,10 @@ public static class PageMount {
                     .Skip(state.Releasable.Value + state.Permanent.Value)
                     .Iter(landing => ignore(landing.Page.UnclaimMount(token)));
                 Error fault = lease.Unclaim(op).Match(Succ: _ => primary, Fail: unclaim => primary + unclaim);
-                return Fin.Succ(value: new PageMountReceipt(
+                return Fin.Succ(value: new MountedPages(
                     releasable: lease.LiveCount, permanent: state.Permanent, fault: Some(fault), lease: lease));
             },
-            None: () => Fin.Succ(value: new PageMountReceipt(
+            None: () => Fin.Succ(value: new MountedPages(
                 releasable: state.Releasable, permanent: state.Permanent, fault: None, lease: lease)));
     }
 }
@@ -908,7 +907,6 @@ public static class PageMount {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

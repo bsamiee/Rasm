@@ -1,8 +1,8 @@
 # [APPUI]
 
-`Rasm.AppUi` is the one Avalonia product surface, shell to viewport: every plane the router seats reads the receipt spine as settled vocabulary, every visual literal traces to the theme vocabulary, every screen windows through one virtualization fabric, every fault crosses one typed envelope, and every collaborative surface converges through one merge authority.
+`Rasm.AppUi` is the one Avalonia product surface, shell to viewport: every plane the router seats returns its canonical domain result and publishes through the AppUi hook rail, every visual literal traces to the theme vocabulary, every screen windows through one virtualization fabric, every fault crosses one typed envelope, and every collaborative surface converges through one merge authority.
 
-Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute receipts inward; it references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
+Its shell mounts onto any admitted substrate through the `SurfaceMount` and host-surface axes a supplied profile row carries, folding AppHost ports, Persistence queries, and Compute results inward; it references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
 
 ## [01]-[ROUTER]
 
@@ -37,7 +37,7 @@ Its shell mounts onto any admitted substrate through the `SurfaceMount` and host
 [CHARTS]:
 - [25]-[GRAMMAR](.planning/Charts/grammar.md): Chart declarations admitted once — encodings, layers, the kind catalog, axes, legends.
 - [26]-[INK](.planning/Charts/ink.md): Chart paint resolved once from theme, with the severity ladder and the fault family.
-- [27]-[STREAMS](.planning/Charts/streams.md): Every reshape between a live feed and a rendered series, planning receipts included.
+- [27]-[STREAMS](.planning/Charts/streams.md): Every reshape between a live feed and a rendered series, planning results included.
 - [28]-[TILES](.planning/Charts/tiles.md): Dashboards that monitor — one tile family bound to one aggregate spine with alerting.
 - [29]-[BOARDS](.planning/Charts/boards.md): Board-lifetime state every tile reads — variables, ranges, deep links, linked brushing.
 - [30]-[CUSTOM](.planning/Charts/custom.md): Every diagram and geo layer the chart package structurally cannot supply, drawn on Skia.

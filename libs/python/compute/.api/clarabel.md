@@ -18,7 +18,7 @@
 |  [01]   | `DefaultSolver`   | class         | `(P, q, A, b, cones, settings)` construct; owns solve and warm `update`              |
 |  [02]   | `DefaultSettings` | class         | tolerances, iteration/time caps, equilibration, presolve, KKT method, regularization |
 |  [03]   | `DefaultSolution` | value-object  | primal `x`, dual `z`, slack `s`, status, `obj_val`/`obj_val_dual`, residuals         |
-|  [04]   | `DefaultInfo`     | value-object  | `get_info()` convergence receipt: costs, gaps, residuals, ktratio, step, linsolver   |
+|  [04]   | `DefaultInfo`     | value-object  | `get_info()` convergence measures: costs, gaps, residuals, ktratio, step, linsolver   |
 |  [05]   | `SolverStatus`    | enum          | closed `DefaultSolution.status` verdict set                                          |
 
 `[SolverStatus]`: `Unsolved` `Solved` `PrimalInfeasible` `DualInfeasible` `AlmostSolved` `AlmostPrimalInfeasible` `AlmostDualInfeasible` `MaxIterations` `MaxTime` `NumericalError` `InsufficientProgress` `CallbackTerminated`
@@ -61,7 +61,7 @@
 |  [01]   | `DefaultSolver(P, q, A, b, cones, settings)`      | ctor     | construct from standard-form sparse QP + ordered cones |
 |  [02]   | `DefaultSolver.solve() -> DefaultSolution`        | instance | run the interior-point solve                           |
 |  [03]   | `DefaultSolver.update(P=, q=, A=, b=, settings=)` | instance | in-place data/settings warm re-solve                   |
-|  [04]   | `DefaultSolver.get_info() -> DefaultInfo`         | instance | detailed convergence/iteration receipt                 |
+|  [04]   | `DefaultSolver.get_info() -> DefaultInfo`         | instance | detailed convergence/iteration measures                 |
 |  [05]   | `DefaultSolver.set_termination_callback(fn)`      | instance | early-stop hook; fires `CallbackTerminated`            |
 |  [06]   | `load_from_file(filename, settings=None)`         | static   | load a serialized problem into a solver                |
 |  [07]   | `get_infinity()` / `set_infinity(v)`              | static   | unbounded cone-bound sentinel threshold                |
@@ -78,12 +78,12 @@
 - `cones` is the single ordered partition of the constraint rows — zero, nonnegative, second-order, exponential, power, generalized-power, and PSD memberships are cone rows whose dimensions sum to the row count, never a per-cone solver or manual slack reformulation.
 - `DefaultSettings` carries tolerances, caps, equilibration, presolve, KKT method, and verbosity as one settings row; tune by field, never a parallel solver subclass.
 - A sweep changing only `P`/`q`/`A`/`b` magnitudes re-solves through `update(...)` then `solve()`, reusing the symbolic factorization; rebuild a fresh `DefaultSolver` only when the sparsity pattern or cone partition changes.
-- Each solve folds status, `x`, `z`, `s`, objective, iterations, time, and residuals into one conic-solve receipt; dual `z` with the residual pair is the optimality certificate, and `PrimalInfeasible`/`DualInfeasible` and their `Almost*` neighbours carry the infeasibility certificate.
+- Each solve folds status, `x`, `z`, `s`, objective, iterations, time, and residuals into one `ConvexOptimum`; dual `z` with the residual pair is the optimality certificate, and `PrimalInfeasible`/`DualInfeasible` and their `Almost*` neighbours carry the infeasibility certificate.
 
 [STACKING]:
-- `cvxpy`(`.api/cvxpy.md`): `cp.Problem.solve(solver=cp.CLARABEL)` reduces a disciplined-convex model to the exact `(P, q, A, b, cones)` standard form; `get_problem_data(cp.CLARABEL)` exposes that reduction so an offline study drives `DefaultSolver` directly and reads the `DefaultSolution`/`DefaultInfo` receipt with no modeling layer in the hot loop.
+- `cvxpy`(`.api/cvxpy.md`): `cp.Problem.solve(solver=cp.CLARABEL)` reduces a disciplined-convex model to the exact `(P, q, A, b, cones)` standard form; `get_problem_data(cp.CLARABEL)` exposes that reduction so an offline study drives `DefaultSolver` directly and reads `DefaultSolution`/`DefaultInfo` with no modeling layer in the hot loop.
 - `scipy`(`.api/scipy.md`): `P`/`A` are `scipy.sparse.csc_matrix` — upper-triangular `P` via `scipy.sparse.triu(P).tocsc()`, the cone-block stack assembled with `scipy.sparse.vstack` in cone-list order.
-- compute convex backend: `status`/`iterations`/`solve_time`/`r_prim`/`r_dual` and the richer `get_info()` fields fold into the conic-solve receipt handed across the graduation wire; dual `z` is the certificate the consumer reads, never recomputed.
+- compute convex backend: `status`/`iterations`/`solve_time`/`r_prim`/`r_dual` and the richer `get_info()` fields fold into the `ConvexOptimum` handed across the graduation wire; dual `z` is the certificate the consumer reads, never recomputed.
 
 [LOCAL_ADMISSION]:
 - `clarabel` is the standalone conic path when the problem is already in cone-standard form, and the `cvxpy`-selected default conic backend for modeled problems.

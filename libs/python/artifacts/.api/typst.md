@@ -78,18 +78,17 @@ Compiled source drives these built-in markup functions. `alt` rides the inner `i
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `compile`/`compile_with_warnings` is one render surface keyed by `format` and `output`; the owner always takes `compile_with_warnings` so the warning count rides the receipt.
+- `compile`/`compile_with_warnings` is one render surface keyed by `format` and `output`; the owner takes `compile_with_warnings` and returns its warning count in `EmitFact.warnings`.
 - One `Compiler` mints per plan through `DocumentPlan.world(title=)`; the compile, query, and eval arms share the one mint so the tree lowers to Typst source once per emission.
 - `query`/`eval` run over THIS plan's own single-shot world, never a held head world that introspects the wrong document in a batch.
 - `pdf_standards` selects the archival PDF/A + accessible PDF/UA target; `UA_1` projects to `("ua-1",)` alone, an archival-plus-tagged deliverable projects the combined tuple, and archival conformance is a render row, never a signer path.
 - Lowering authors `image(.., alt: ..)` and `figure(.., caption: ..)`, Typst-string-escapes interpolated `alt`/`title`, wraps decorative content in `pdf.artifact`, and sets `mime-type:` on every `pdf.attach` under a PDF/A row.
-- `TypstError` raises into the `async_boundary` capsule, converting to the runtime `BoundaryFault` carrying its structured `.message`/`.diagnostic`/`.hints`/`.trace`; `compile_with_warnings` collects `TypstWarning` onto the receipt count, never raising it.
-- Each render captures source identity, output format, page/byte count, PDF standard, resolved font set, and warning count as a document receipt; `query`/`eval` capture the queried byte length.
+- `TypstError` converts to `BoundaryFault` at `async_boundary`; `compile_with_warnings` returns `TypstWarning` values and `_typst_emit` records their count in `EmitFact`.
+- `_typst_emit` returns compiled bytes and warnings in `EmitFact`; `query`/`eval` return bytes with `EmitFact.queried`.
 
 [STACKING]:
 - `expression`(`libs/python/.api/expression.md`) / `msgspec`(`libs/python/.api/msgspec.md`): a Typst arm is a pure `Arm = Callable[[DocumentPlan], EmitFact]` returning one frozen `EmitFact(data, warnings=..)`; `DocumentPlan` admits its `EmitSpec` through the closed `EmitPayload` `TypedDict` + `pydantic.TypeAdapter`, `DocumentPlan.of` returns `Result[Self, EmitFault]`, and the `TypstError` raise converts to `BoundaryFault` at the capsule rather than folding into the `EmitFault` admission vocabulary.
 - `anyio`(`libs/python/.api/anyio.md`): the `Compiler` mints inside the offloaded arm (the font-discovery scan is GIL-releasing native), and each `CORE`-band render crosses the runtime `LanePolicy.offload` seam as a `KernelTrait.RELEASING` kernel — in-process, never inline on the loop.
-- `structlog`(`libs/python/.api/structlog.md`) / `opentelemetry-api`(`libs/python/.api/opentelemetry-api.md`): the `@receipted` weave over the pure `_emit` drains `DocumentPlan.contribute` into the `core/receipt#RECEIPT` `ArtifactReceipt.Pdf(key, bytes, pages)` case and emits through `Signals.emit_async`; the warning count, resolved-face set, and queried length ride the `EmitFact` the receipt reads.
 - `vl-convert-python`(`vl-convert-python.md`): a `vl_convert.vegalite_to_svg` chart embeds into the source via `image(<svg-bytes>, alt: ..)` and Typst paginates it into one `format="pdf"` render; inversely a `format="svg"` render rasterizes through `vl_convert.svg_to_pdf`/`svg_to_png`, keeping one SVG-to-raster owner.
 - `fonttools`(`fonttools.md`) / `uharfbuzz`(`uharfbuzz.md`): `Fonts(font_paths=[..]).fonts()` reads back the same OTF/TTF the shaping rails own and `typography/font` subset; the owner registers via `font_paths` and confirms `Fonts.families()`/`FontInfo.path` matches the shaped face before an `ignore_system_fonts=True` archival render.
 - `document/tagged#ACCESS` (`pikepdf`): the emitted `figure`/`image`/`heading`/`table` + `pdf.artifact`/`pdf.attach` structure produces marked content `pikepdf` reads when authoring the `/StructTreeRoot`; typst draws the taggable content, `pikepdf` closes the tree.

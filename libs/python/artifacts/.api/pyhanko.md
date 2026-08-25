@@ -85,7 +85,7 @@
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [CAPABILITY]                                                                  |
 | :-----: | :-------------------------- | :------------------- | :---------------------------------------------------------------------------- |
 |  [01]   | `CAdESSignedAttrSpec`       | signed-attr spec     | `commitment_type`, signature-policy, signer-attribute CAdES signed attributes |
-|  [02]   | `GenericCommitment`         | commitment-type enum | `PROOF_OF_{ORIGIN,RECEIPT,DELIVERY,SENDER,APPROVAL,CREATION}`                 |
+|  [02]   | `GenericCommitment`         | commitment-type enum | predefined ETSI commitment identifiers with `.asn1` projections       |
 |  [03]   | `DSSContentSettings`        | DSS write policy     | `include_vri`, `placement` controlling the DSS/VRI revision write             |
 |  [04]   | `SigDSSPlacementPreference` | DSS placement enum   | `SEPARATE_REVISION` / `TOGETHER_WITH_NEXT_TS` / `TOGETHER_WITH_SIGNATURE`     |
 
@@ -156,7 +156,7 @@
 |  [01]   | `TextStampStyle(…)`                             | text seal ctor   | positioned seal fed to `PdfSigner(stamp_style=)`                |
 |  [02]   | `QRStampStyle(…, qr_position=)`                 | QR seal ctor     | scan-to-verify seal; `appearance_text_params` carries `%(url)s` |
 |  [03]   | `CAdESSignedAttrSpec(commitment_type=, …)`      | signed-attr ctor | attach a CAdES commitment-type + policy signed attribute        |
-|  [04]   | `GenericCommitment.<PROOF_OF_*>.asn1`           | commitment value | ASN.1 commitment-type object for `CAdESSignedAttrSpec`          |
+|  [04]   | `GenericCommitment.<member>.asn1`               | commitment value | ASN.1 commitment-type object for `CAdESSignedAttrSpec`          |
 |  [05]   | `DSSContentSettings(include_vri=, placement=…)` | DSS policy ctor  | control the DSS/VRI revision placement at sign time             |
 
 [ENTRYPOINT_SCOPE]: validation, DSS, and raw CMS — `pyhanko.sign.validation`
@@ -195,17 +195,17 @@
 - Two-phase signing folds `digest_doc_for_signing(pdf_out, *, appearance_text_params=, output=) -> (PreparedByteRangeDigest, PdfTBSDocument, IO)`, then `ExternalSigner.signed_attrs(digest, algorithm, use_pades=True)` over `PreparedByteRangeDigest.document_digest`; the external service signs `CMSAttributes.dump()`, a sealed `ExternalSigner(signature_value=raw_sig)` finalizes through `sign_prescribed_attributes`, and `PreparedByteRangeDigest.fill_with_cms(output, cms)` fills the reserved region — the only path for a non-exportable key, an `int` `signature_value` the size-estimation placeholder.
 - Timestamping passes `HTTPTimeStamper(url, https=True, …)` as the `timestamper` (PAdES B-T) or drives `PdfTimeStamper` directly; `DummyTimeStamper` is test-only.
 - PAdES ladder: `subfilter=SigSeedSubFilter.PADES` is B-B, a `timestamper` adds B-T, `embed_validation_info=True` with a `validation_context` adds B-LT, `use_pades_lta=True` and `update_archival_timestamp_chain` add B-LTA archival refresh.
-- Validation folds `PdfFileReader(stream)` -> `EmbeddedPdfSignature` (from `reader.embedded_signatures`) -> `validate_pdf_signature(sig, signer_validation_context=ValidationContext(...), diff_policy=DEFAULT_DIFF_POLICY)` -> `PdfSignatureStatus`; the receipt reads the status fields, never a stringified `summary`.
+- Validation folds `PdfFileReader(stream)` -> `EmbeddedPdfSignature` -> `validate_pdf_signature(...)` -> `PdfSignatureStatus`; `ConformanceVerdict` projects the typed status fields directly.
 - `diff_analysis` supplies `DEFAULT_DIFF_POLICY`/`NO_CHANGES_DIFF_POLICY` and `StandardDiffPolicy(global_rules, form_rule, reject_object_freeing=True)`; a certify-then-fill workflow accepts form fills and rejects structural edits through the policy, never a manual revision byte-compare.
 - `add_validation_info(sig, validation_context)` writes OCSP/CRL + cert material into a `DocumentSecurityStore`, keeping the signature verifiable past issuer-cert expiry; `collect_validation_info` gathers the same material without writing.
-- Each sign/validate op captures field name, subfilter, certify + DocMDP level, coverage level, trust + revocation outcome, modification level, timestamp validity, and DSS presence as one pdf-signature receipt.
+- `ConformanceVerdict` carries the field, subfilter, coverage, trust, revocation, modification, timestamp, and DSS facts the provider measures.
 
 [STACKING]:
 - `pypdf`(`.api/pypdf.md`) / `pikepdf`(`.api/pikepdf.md`): the assembled, repaired, linearized, and sanitized bytes are the `IncrementalPdfFileWriter` input pyhanko signs append-only; `pikepdf.sanitize`/`flatten_annotations` precede the sign.
 - `pymupdf`(`.api/pymupdf.md`) / `pypdfium2`(`.api/pypdfium2.md`): render the page raster the `SigFieldSpec` + `TextStampStyle`/`QRStampStyle` visible seal draws over.
 - `pdf-oxide`(`.api/pdf-oxide.md`): the dependency-free byte-level PAdES signer stands in where pyhanko's cryptography stack is barred.
 - within-lib: `exchange/conformance` composes the PAdES ladder and the two-phase HSM/remote flow, whose synchronous CMS offload enters once through `anyio.run`(`libs/python/.api/anyio.md`).
-- within-lib: `expression`(`libs/python/.api/expression.md`) maps the `PdfSignatureStatus` verdict (`trusted`/`revoked`/`coverage`/`modification_level`) and validation faults onto `Result`; `msgspec`(`libs/python/.api/msgspec.md`) + `structlog`(`libs/python/.api/structlog.md`) carry the signature receipt and its span.
+- within-lib: `expression`(`libs/python/.api/expression.md`) maps validation faults onto `Result`; `ConformanceVerdict` projects `PdfSignatureStatus`, and `structlog` binds it to the signature span.
 
 [LOCAL_ADMISSION]:
 - `import pyhanko` at boundary scope; sign over `IncrementalPdfFileWriter`, resolve trust/revocation through one `pyhanko_certvalidator.ValidationContext`.

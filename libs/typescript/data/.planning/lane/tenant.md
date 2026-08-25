@@ -194,7 +194,7 @@ const Tenancy: Data.TaggedEnum.Constructor<Tenancy> & {
 - Owner: `ScopeKey` — the `(app, tenancy)` structural identity and the `Live` discriminant it projects — `Tenant`, the per-scope service publishing the locus and the `within` write path, and `Stores`, the one `LayerMap.Service` whose lookup dispatches the tenancy family into a per-scope `Tenant | Capability` subgraph: base client selected by isolation case and CONSUMED by the subgraph (`Layer.provide`, never `provideMerge`), capability probes and ensure verification composed at construction, dialect core grants and demand pairs seeded.
 - Packages: `effect` (`Data`, `LayerMap`, `Layer`, `Duration`, `Effect`, `Context`, `Schema`); `lane/postgres.md` (`Pg.client`, `Pg.fromPool`, `Pg.rows`, `Pg.core`, `Pg.demands`); `lane/capability.md` (`Capability`); `read/live.md` (`Live.Keys.Name` — the coordinate alphabet the discriminant decodes into); the journal pages publish the ensure roster as data.
 - Entry: `Stores.get(scope)` yields the keyed Layer to provide around any data effect; `Stores.invalidate(scope)` evicts on revocation, credential rotation, or a poisoned pool — the next acquisition rebuilds while every other scope keeps its instance.
-- Receipt: the scope's `Capability.Report` is readable through the provided service — startup verification evidence per scope, never a global assumption.
+- Output: the scope's `Capability.Report` is readable through the provided service — startup verification evidence per scope, never a global assumption.
 - Growth: a new tenancy arm is one `$match` arm in `_lookup`; a new verified surface merges its ensure rows into the roster the app root passes; the sqlite profiles publish their own layer rows and never enter this lookup.
 - Law: the raw client never leaves the lookup — the subgraph provides `Tenant | Capability` and hides `SqlClient` behind `Layer.provide`, so a port build under `Stores.get(scope)` can reach a client ONLY through `Tenant.within` and the tenancy pin is structural on the shared-pool path and the dedicated-database path alike.
 - Law: the shared spine is one adopted pool — `Rls` and `SchemaPerApp` scopes share ONE `pooled` arm body by declaration (their store construction is identical; the tenancy difference is the locus fold inside `within`), so a diamond of N apps on one database costs one pool; `DatabasePerApp` builds a dedicated `Pg.client` whose database is the scope's locus.
@@ -303,7 +303,6 @@ export { ScopeKey, Stores, Tenancy, Tenant, Wiring }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

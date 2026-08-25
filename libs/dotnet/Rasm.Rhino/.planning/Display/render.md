@@ -2,7 +2,7 @@
 
 `RenderJob` owns batch execution and scoped framebuffer operations, detached onto an engine thread through `JobAsync` when an `AsyncProgram` rides the open; `RealtimeEngine` owns progressive viewport participation, `LightAuthorities` owns engine-side custom-light authority over the host light manager, and `SceneQueue` owns live scene-change delivery beside them over the host `ChangeQueue`. `Effects.Configure` owns settings mutation, and `TextureBake` resolves content identities inside a document demand. Every settled host outcome is a VALUE — a `RenderOutcome` carrying the host's own return-code row with its retriability classification — and every registry claim is TOKENED, so a registrant retires only the seat it proved.
 
-`RenderPipeline`, `RenderWindow`, `RenderTexture`, and every `ChangeQueue` payload remain internal host handles. Consumers receive `RenderReceipt`, `RealtimeStart`, `EffectRoster`, detached texture results, or detached `SceneDelta` batches off a channel reader. The engines mount at plug-in load: `HostUi/shell.md`'s composition capsule registers `RenderJob` capability, the realtime engine plans, and the scene queue as `ShellMount.Engines`, so this page's owners are reached from the one in-package load root rather than waiting for an `apps/` shell.
+`RenderPipeline`, `RenderWindow`, `RenderTexture`, and every `ChangeQueue` payload remain internal host handles. Consumers receive `RenderYield`, `RealtimeStart`, `EffectRoster`, detached texture results, or detached `SceneDelta` batches off a channel reader. The engines mount at plug-in load: `HostUi/shell.md`'s composition capsule registers `RenderJob` capability, the realtime engine plans, and the scene queue as `ShellMount.Engines`, so this page's owners are reached from the one in-package load root rather than waiting for an `apps/` shell.
 
 ## [01]-[INDEX]
 
@@ -16,11 +16,11 @@
 
 - Owner: `RenderRun` closes full-frame and region execution; `FramebufferScope` closes pipeline, viewport-target, and detached window acquisition; `WindowOp` closes framebuffer widening, channel census, pixel writes, gamma/dither adjustment, component reads, raster snapshot, and file egress, each answering one `WindowYield` case; `RenderOutcome` closes the settled host verdict over the `RenderCode` roster, so `Render() == Ok` — a bool collapsing eleven distinct host failures — is the deleted form and a caller reads WHICH code halted the run beside its retriability classification.
 - Entry: `RenderJob.Open(DocumentSession, PlugIn, Size2i, CapabilitySet<RenderChannel>, RenderProgram, Option<AsyncProgram>, Option<Func<EffectId, Fin<bool>>>, Op?) : Fin<RenderJob>` admits the plan; every `Configure` re-resolves the document, proves request-owned needs, and binds the matching pipeline inside that demand.
-- Law: the host outcome is DATA, never a rail failure — a run that settled `Cancel` or `EmptyScene` is a measured verdict the receipt carries as `RenderOutcome.Halted(code)`, while the rail fails only on a crossing fault the host raised. `RenderCode` keys on the host's own `RenderReturnCode` (all twelve members, `api-rhinocommon-render.md [ENUM_ROSTERS]`) and each row CLASSIFIES its retriability as a kernel `Retriability` value — `EnterModalLoop` and `ErrorStartingRender` are transient-shaped, a user `Cancel` is terminal by definition — so a root-bound executor reads the classification off the row and this library executes no retry of its own (branch RULINGS `[02]`).
+- Law: the host outcome is DATA, never a rail failure — a run that settled `Cancel` or `EmptyScene` is a measured verdict `RenderYield.Ran` carries as `RenderOutcome.Halted(code)`, while the rail fails only on a crossing fault the host raised. `RenderCode` keys on the host's own `RenderReturnCode` (all twelve members, `api-rhinocommon-render.md [ENUM_ROSTERS]`) and each row CLASSIFIES its retriability as a kernel `Retriability` value — `EnterModalLoop` and `ErrorStartingRender` are transient-shaped, a user `Cancel` is terminal by definition — so a root-bound executor reads the classification off the row and this library executes no retry of its own (branch RULINGS `[02]`).
 - Law: one lifecycle gate excludes disposal across a complete configuration demand; a document-serial change retires the prior pipeline before the current demand mints its replacement. The release latch is the kernel `MountPhase` row stepped through `Cell.Step` — a second release reads a REFUSED transition rather than no-opping — while the demand-versus-dispose exclusion keeps its lock, because a host demand cannot ride a CAS body.
 - Law: every `GetRenderWindow*` call remains inside private `WithWindow`; `WindowOp` is the only public operation vocabulary.
 - Law: batch and realtime never merge — a `RenderJob` produces a finished window, a `RealtimeEngine` participates per frame; one owner claiming both is the collapsed form the host API's own split forecloses.
-- Law: the framebuffer roster is a job-level fact carried as ONE `CapabilitySet<RenderChannel>` — `RenderChannel` realizes `ICapability`, so admission, membership, wire text, and the host flag word all ride the kernel set algebra and the former `ChannelSet` carrier deletes whole. `Add` widens the roster through `AddChannel` with a `bool`-confirmed receipt and `Census` reads availability, roster visibility, and post-effect demand back as `ChannelFact` rows whose `CapabilitySet<FramebufferState>` admits through `FramebufferState.Law` — a shown-but-unavailable channel is an ILLEGAL corner the census refuses typed rather than publishing. Per-pixel write is `PixelBlock` through `SetRGBAChannelColors`; per-pixel READ is `Read`, whose `OpenChannel` cursor lives exactly one arm and fills a caller-owned component buffer through `GetValues`, so a raw buffer pointer stays unrepresentable and no native pixel port outlives the borrow. Inside a post-effect execute body the reader is `[04]`'s `ChannelView` instead, and the framebuffer publishes no GPU-channel opener at all.
+- Law: the framebuffer roster is a job-level fact carried as ONE `CapabilitySet<RenderChannel>` — `RenderChannel` realizes `ICapability`, so admission, membership, wire text, and the host flag word all ride the kernel set algebra and the former `ChannelSet` carrier deletes whole. `Add` widens the roster through `AddChannel` with a `bool`-confirmed outcome and `Census` reads availability, roster visibility, and post-effect demand back as `ChannelFact` rows whose `CapabilitySet<FramebufferState>` admits through `FramebufferState.Law` — a shown-but-unavailable channel is an ILLEGAL corner the census refuses typed rather than publishing. Per-pixel write is `PixelBlock` through `SetRGBAChannelColors`; per-pixel READ is `Read`, whose `OpenChannel` cursor lives exactly one arm and fills a caller-owned component buffer through `GetValues`, so a raw buffer pointer stays unrepresentable and no native pixel port outlives the borrow. Inside a post-effect execute body the reader is `[04]`'s `ChannelView` instead, and the framebuffer publishes no GPU-channel opener at all.
 - Law: framebuffer egress is a `WindowOp` arm over an ALREADY-SETTLED path — `Snapshot` answers the host bitmap as a `CaptureArtifact` under the same custody a viewport capture takes, and `SaveAs` takes the `DocumentPath` its caller settled and writes it directly, because both host file writers dispatch on the destination extension. Path settlement is the publish leg's: `Exchange/publish.md`'s `Landing.Save` arm resolves `OutputPolicy` BEFORE building the op, so this page keeps the sink-free write capability and the Exchange-owned settle never re-enters a Display fence (E-R8 arms-up).
 - Law: `DitherMethod` is `Rasm.Rhino.Render`'s, composed by name — the framebuffer adjust and the document dither state name one owner, so a mode admitted for one is the mode the other reads.
 - Law: the post-effect gate is a JOB-lifetime policy, never a window operation. Registration transfers the native control to the window and leaves the host holding only a weak reference, so the job registers once per pipeline against the session-lifetime framebuffer, roots the instance for its own lifetime, and releases by dropping that root — a gate registered inside a per-batch window borrow is consulted by no render, and an unrooted one silently refuses every effect.
@@ -297,11 +297,11 @@ public abstract partial record RenderRequest : IValidityEvidence {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RenderReceipt : IDetachedDocumentResult {
-    private RenderReceipt() { }
-    public sealed record Ran(RenderRun Scope, RenderOutcome Outcome) : RenderReceipt;
-    public sealed record Gated(RunGate Posture) : RenderReceipt;
-    public sealed record Windowed(int Operations, Seq<WindowYield> Yields) : RenderReceipt;
+public abstract partial record RenderYield : IDetachedDocumentResult {
+    private RenderYield() { }
+    public sealed record Ran(RenderRun Scope, RenderOutcome Outcome) : RenderYield;
+    public sealed record Gated(RunGate Posture) : RenderYield;
+    public sealed record Windowed(int Operations, Seq<WindowYield> Yields) : RenderYield;
 
     public Option<RunOutcome> Summary(HostText label) => Switch(
         state: label,
@@ -312,8 +312,8 @@ public abstract partial record RenderReceipt : IDetachedDocumentResult {
         windowed: static (text, row) => Some<RunOutcome>(new RunOutcome.Completed(
             Label: text,
             Scale: new Dictionary<string, string>(StringComparer.Ordinal) {
-                [nameof(RenderReceipt.Windowed.Operations)] = row.Operations.ToString(CultureInfo.InvariantCulture),
-                [nameof(RenderReceipt.Windowed.Yields)] = row.Yields.Count.ToString(CultureInfo.InvariantCulture),
+                [nameof(RenderYield.Windowed.Operations)] = row.Operations.ToString(CultureInfo.InvariantCulture),
+                [nameof(RenderYield.Windowed.Yields)] = row.Yields.Count.ToString(CultureInfo.InvariantCulture),
             }.ToFrozenDictionary(StringComparer.Ordinal))));
 
     private static FrozenDictionary<string, string> Scaled(RenderRun scope) => scope.Switch(
@@ -647,7 +647,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
     public Seq<Error> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    public Fin<RenderReceipt> Configure(RenderRequest request, Op? key = null) {
+    public Fin<RenderYield> Configure(RenderRequest request, Op? key = null) {
         Op op = key.OrDefault();
         lock (lifecycle) {
             return guard(!phase.Value.Closes, op.InvalidContext()).ToFin()
@@ -659,15 +659,15 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
         }
     }
 
-    private Fin<RenderReceipt> Apply(JobPipeline current, RenderRequest request, Op key) => request.Switch(
+    private Fin<RenderYield> Apply(JobPipeline current, RenderRequest request, Op key) => request.Switch(
         (Job: this, Pipeline: current, Op: key),
         run: static (ctx, row) => ctx.Job.Run(ctx.Pipeline, row.Scope, ctx.Op)
-            .Map(outcome => (RenderReceipt)new RenderReceipt.Ran(row.Scope, outcome)),
+            .Map(outcome => (RenderYield)new RenderYield.Ran(row.Scope, outcome)),
         gate: static (ctx, row) => ctx.Pipeline.Seat(posture: row.Posture)
-            .Map(_ => (RenderReceipt)new RenderReceipt.Gated(row.Posture)),
+            .Map(_ => (RenderYield)new RenderYield.Gated(row.Posture)),
         window: static (ctx, row) => ctx.Job.WithWindow(ctx.Pipeline, row.Scope, window => row.Operations
             .TraverseM(operation => operation.Apply(window, ctx.Op)).As()
-            .Map(done => (RenderReceipt)new RenderReceipt.Windowed(Operations: done.Count, Yields: done.Strict())), ctx.Op));
+            .Map(done => (RenderYield)new RenderYield.Windowed(Operations: done.Count, Yields: done.Strict())), ctx.Op));
 
     private Fin<JobPipeline> Current(RhinoDoc document, Op op) =>
         pipeline is { } current && documentSerial == document.RuntimeSerialNumber
@@ -787,7 +787,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 - Law: the engine ANSWERS the host and the program DRIVES the engine — `RealtimeSignal` is the back-channel a progressive body holds: `Pass` steps the ordinal, `Settle` closes convergence, `Redraw` requests the host repaint. `SignalRedraw` was a public engine member no program reaches, so the redraw capability stood declared and unreachable.
 - Law: render extent is adapter state, not a program poll — `StartRenderer` seeds it and `OnRenderSizeChanged` steps it, so `GetRenderSize` reads what the host itself last supplied and a program answering a stale extent is unspellable.
 - Law: the HUD binds the roster the host publishes — nine controls carrying a press and three click gestures, less the two post-effect toggles that publish no press — so `HudSignal.TouchCase` carries control and gesture as columns and `Wire` subscribes one row per real event. A control's pressability is the PRESENCE of its press subscription in the row table, never a mirrored column. `HudRendererPaused` and `HudRendererLocked` answer the host's own `Paused`/`Locked` properties and `HudMaximumPasses` answers the policy's budget, so those three are derived reads, not chrome capabilities: `HudFeature` carries the five the chrome declares.
-- Law: framebuffer and middleground hooks project `Seq<DisplayMark>` and complete through `Marks.Paint` over `Canvas.Pipeline` — the adapter alone receives `DisplayPipeline`, reads viewport identity off the pipeline's own live viewport, stamps the seam's honest `ConduitPhase` row, and parks the draw receipt's refusal rows. Each projection is GAUGED on `DispatchLane.Paced` through the plan's injected `MonotonicTimeline`, so an over-budget frame reads as a breached span instead of as nothing at all.
+- Law: framebuffer and middleground hooks project `Seq<DisplayMark>` and complete through `Marks.Paint` over `Canvas.Pipeline` — the adapter alone receives `DisplayPipeline`, reads viewport identity off the pipeline's own live viewport, stamps the seam's honest `ConduitPhase` row, and parks the `DrawTally` refusal rows. Each projection is GAUGED on `DispatchLane.Paced` through the plan's injected `MonotonicTimeline`, so an over-budget frame reads as a breached span instead of as nothing at all.
 - Law: `RealtimePort` is the engine's pixel and progress carrier — `Write` blits a `PixelBlock`, `Progress` reports the host's own caption-and-fraction pair, `Rendering` seats the host's in-flight flag, and `Invalidate` requests the repaint of a written region. It stays live for the progressive session, closes before `Shutdown`, and never exports `RenderWindow`; `[02]`'s detached batch body writes through this same carrier.
 - Law: the registered authority is the one source of truth for engine-owned lights — document lights stay on the Objects lights rail, a parallel light registry beside the authority is rejected, and every authority hook receives the detached `DocKey`, never the live document. A refusal is TYPED: the three host `bool` returns that once conflated "answered no" with "the rail refused" now answer `Fin<Unit>`, `Fin<SwitchState>`, and a `LightRetirement` row, so the host's scalar is projected from a verdict rather than standing in for one.
 - Law: every long-lived ledger on this page is the bounded kernel `Ring<Error>` under the ONE declared `DisplayFaults.Cap` (`Display/conduit.md`) — the registry, an activated engine, and a light authority all outlive any single render, so each sheds under a countable `Shed` rather than growing one `Error` per faulted frame.
@@ -1353,23 +1353,23 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         Some: read,
         None: () => (Observe(new RenderFault.Unbound(Key: key, Member: member)), fallback).Item2);
 
-    private Fin<DrawReceipt> Project(
+    private Fin<DrawTally> Project(
         RealtimeEnginePlan plan, DisplayPipeline pipeline, ConduitPhase phase, Func<ConduitFrame, Fin<Seq<DisplayMark>>> project) {
         RealtimeEngine self = this;
-        return Observe(plan.Clock.Gauged<DrawReceipt, DispatchLane>(
+        return Observe(plan.Clock.Gauged<DrawTally, DispatchLane>(
                 lane: DispatchLane.Paced,
                 work: key,
                 body: () => self.lifecycle.Value.Held.ToFin(Fail: self.key.InvalidContext()).Bind(held =>
                     from frame in Fin.Succ(ConduitFrame.Of(pipeline, pipeline.Viewport, phase))
                     from marks in self.key.Catch(() => project(frame))
-                    from receipt in Marks.Paint(new Canvas.Pipeline(frame, held.Sprites), marks, self.key)
-                    select receipt),
+                    from outcome in Marks.Paint(new Canvas.Pipeline(frame, held.Sprites), marks, self.key)
+                    select outcome),
                 key: key))
             .Bind(measured => (
                 Op.SideWhen(measured.Span.Breached, () => ignore(self.Observe(new RenderFault.HostRefused(
                     Key: self.key, Member: nameof(Project), Detail: $"{phase.Key} overran {measured.Span.Overrun}")))),
                 measured.Value).Item2)
-            .Map(receipt => (receipt.Refused.Iter(cause => ignore(Observe(cause))), receipt).Item2);
+            .Map(outcome => (outcome.Refused.Iter(cause => ignore(Observe(cause))), outcome).Item2);
     }
 
     private RealtimeSignal Signal() {
@@ -2235,7 +2235,7 @@ public sealed class ChannelEffect() : EffectHost(program: Program) {
 - Law: geometry identity composes the kernel reconciliation chain — `MeshSpace.Of` admits the duplicated patch, `EncodeForm.Of` canonicalizes, `Reconciliation.Apply` digests, and `GeometryHash` is minted only through that chain, never a second hash; GPU residency rides `Encode.Apply` into `EncodedGeometry` when the policy carries a `PackPolicy` row.
 - Law: duplicated geometry enters owned custody before admission, reconciliation, or residency work; any downstream refusal releases the duplicate through `Custody.Rollback`, while a successful patch transfers the lease into the batch.
 - Law: staging, sealing, and closing are ONE cell of three cases stepped through `Cell.Step`, and every payload a caller needs rides the transition's own POST-STATE — `Sealing` carries the batch it just cut beside the deltas that arrived during the cut, and `Closed` carries the stranded set — so the three captured-local writes inside replayable swap bodies (each of which re-ran on every CAS retry) have no spelling left. A delta staged into a closed cell reads `Refused` and releases immediately; a second close reads `Refused` and strands nothing twice.
-- Law: hooks mint detached deltas inside the host grant and seal them at `NotifyEndUpdates` into one bounded channel write — the host callback never runs a consumer continuation inline, the reader is the only egress, and a refused or evicted batch releases its leases and lands as a typed `QueueLoss` receipt on a BOUNDED ring. `NotifyBeginUpdates` stamps the batch's open, so `SceneBatch` carries the host's own build span rather than one seal instant a consumer cannot difference.
+- Law: hooks mint detached deltas inside the host grant and seal them at `NotifyEndUpdates` into one bounded channel write — the host callback never runs a consumer continuation inline, the reader is the only egress, and a refused or evicted batch releases its leases and lands as a typed `QueueLoss` row on a BOUNDED ring. `NotifyBeginUpdates` stamps the batch's open, so `SceneBatch` carries the host's own build span rather than one seal instant a consumer cannot difference.
 - Law: each host change list converts atomically — a failed member records its fault, releases every detached predecessor in reverse custody through `Custody.Release`, and stages no partial delta.
 - Law: the drain runs EVERY batch it read. A refused apply releases its own batch and its cause accumulates, so a residue sweep sees every outcome instead of halting on the first — a first-failure return left later batches in the reader with no owner. A direct environment poll carries `Errors.Cancelled`; only `Op.Catch` mints a cause-bearing cancellation from a caught exception.
 - Law: `ProvideOriginalObject`, `bNotifyChanges`, and `bRespectDisplayPipelineAttributes` are ONE `CapabilitySet<QueueTrait>` column on the policy — three independent host switches the queue's constructors and one override read, so `QueuePolicy.Live` and `QueuePolicy.Preview` are the canonical rows and the `= true`/`= false` literals that once encoded those decisions at a default-argument site are gone. `OriginalObjects` is what makes `Mesh.Object`/`Attributes` readable at all, so hardcoding it off stranded two host columns.
@@ -2957,7 +2957,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class SceneMarks {
-    public static Fin<DrawReceipt> Render(
+    public static Fin<DrawTally> Render(
         SceneBatch batch,
         Canvas canvas,
         Func<MeshPatch, ShadedMaterial> material,
@@ -2982,7 +2982,7 @@ public static class SceneMarks {
 
 | [INDEX] | [OWNER]            | [INGRESS]                            | [RAIL]                                | [EGRESS]                    |
 | :-----: | :----------------- | :----------------------------------- | :------------------------------------ | :-------------------------- |
-|  [01]   | `RenderJob`        | `RenderRequest` · `FramebufferScope` | demand · `WindowOp.Apply`             | `RenderReceipt`             |
+|  [01]   | `RenderJob`        | `RenderRequest` · `FramebufferScope` | demand · `WindowOp.Apply`             | `RenderYield`             |
 |  [02]   | `JobAsync`         | `AsyncProgram`                       | engine thread · `EndAsyncRender`      | `RealtimePort` writes       |
 |  [03]   | `RealtimeEngines`  | `RealtimeEnginePlan`                 | `SeatRegistry.Claim` · host scan      | `SeatToken` · descriptors   |
 |  [04]   | `RealtimeEngine`   | host activation · `PostConstruct`    | lifecycle steps · gauged paint        | framebuffer · HUD answers   |
@@ -2991,13 +2991,12 @@ public static class SceneMarks {
 |  [07]   | `EffectHost`       | `EffectProgram`                      | change bracket · `EffectPass` borrows | host effect answers         |
 |  [08]   | `TextureBake`      | `ContentRef` · mode row              | evaluator or bake inside a demand     | caller-shaped detached row  |
 |  [09]   | `SceneQueue`       | host `Apply*` hooks · `QueueDrive`   | `QueueCell` steps · bounded channel   | `SceneBatch` off the reader |
-|  [10]   | `SceneMarks`       | `SceneBatch` · `Canvas`              | held custody · `Marks.Paint`          | `DrawReceipt`               |
+|  [10]   | `SceneMarks`       | `SceneBatch` · `Canvas`              | held custody · `Marks.Paint`          | `DrawTally`               |
 
 ## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

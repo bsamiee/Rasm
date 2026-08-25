@@ -10,16 +10,9 @@ import shutil
 from expression import Error, Ok
 import pytest
 
-from assay.core.model import Fault, RailStatus, receipt
+from assay.core.model import Completed, Fault, RailStatus
 from assay.rails import contracts as contracts_rail
-from assay.rails.contracts_generation import (
-    changes,
-    compose_image,
-    freshness_rows,
-    GenerationImage,
-    render,
-    tree,
-)
+from assay.rails.contracts_generation import changes, compose_image, freshness_rows, GenerationImage, render, tree
 from tests.python._testkit.spec import assert_error_status, assert_ok, refutes
 from tests.python.tools.assay.kit import AssayHarness
 from tests.python.tools.assay.rails import test_rail_contracts as corpus_kit
@@ -48,11 +41,7 @@ def _committed_bytes(root: Path) -> tuple[tuple[str, bytes], ...]:
     template = assert_ok(contracts_rail.read_template(root))
     manifest = assert_ok(contracts_rail.load_manifest(root / contracts_rail.CORPUS))
     paths = tuple(root / rel for rel in (*contracts_rail.out_dirs(template), *contracts_rail._owned_files(template, manifest)))
-    return tuple(
-        (path.relative_to(root).as_posix(), path.read_bytes())
-        for target in paths
-        for path in ((target,) if target.is_file() else tuple(sorted(row for row in target.rglob("*") if row.is_file())))
-    )
+    return tuple((path.relative_to(root).as_posix(), path.read_bytes()) for target in paths for path in ((target,) if target.is_file() else tuple(sorted(row for row in target.rglob("*") if row.is_file()))))
 
 
 # --- [ATOMIC_COMMIT]
@@ -74,7 +63,7 @@ def test_late_staged_emission_failure_leaves_every_committed_target_byte_unchang
 def test_generator_failure_leaves_every_committed_target_byte_unchanged(assay_root: AssayHarness) -> None:
     root = corpus_kit._corpus(assay_root.root)
     before = _committed_bytes(root)
-    failed = Ok(receipt(("buf", "generate"), 1, stderr=b"plugin failed", status=RailStatus.FAILED))
+    failed = Ok(Completed(argv=("buf", "generate"), returncode=1, stderr=b"plugin failed", status=RailStatus.FAILED))
 
     report = assert_ok(corpus_kit._run(assay_root, corpus_kit._fan(root, outcomes={"buf-generate": failed}), "generate"))
 

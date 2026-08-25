@@ -75,7 +75,7 @@ Unconditional shell reads run on every preview/up with no CRUD lifecycle or stat
 - `@pulumi/tls`(`.api/pulumi-tls.md`): `PrivateKey.privateKeyPem` binds `ConnectionArgs.privateKey`.
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): `Secret.value` and `getSecrets` map refs bind `ConnectionArgs.password`/`hostKey`; `logging: "none"` gates any credential-echoing step.
 - `@pulumi/random`(`.api/pulumi-random.md`): `RandomId.hex` in `triggers` is the replacement discriminator whose change re-bootstraps.
-- `effect`(`libs/typescript/.api/effect.md`): a `Match.exhaustive` arm builds the connection from a `Schema`-decoded `StackSpec` and folds a non-zero CRUD exit into the `@pulumi/pulumi` `automation.UpResult` receipt (`.api/pulumi-pulumi.md`).
+- `effect`(`libs/typescript/.api/effect.md`): a `Match.exhaustive` arm builds the connection from a `Schema`-decoded `StackSpec`; a non-zero CRUD exit rejects the Pulumi lifecycle operation and maps to `DeployFault` at the Automation boundary.
 - within-lib: `provider/surface` cluster-bootstrap and the `provider/dispatch` `selfhosted-k8s` arm compose `remote.Command` + `CopyToRemote`, staging a `FileArchive` of rendered install artifacts with `tls` cert material and `doppler` secrets.
 
 [LOCAL_ADMISSION]:

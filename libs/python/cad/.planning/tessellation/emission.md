@@ -13,11 +13,11 @@ Byte admission here is EVIDENCE, never preemption. OCCT's bound filename writer 
 - Owner: `emitted` — one writer call per admitted document, returning the byte extent the artifact gate admitted so the publish confirms against a measured number.
 - Law: `RWGltf_CafWriter(TCollection_AsciiString(path), True)` writes the binary container; the boolean is the GLB-versus-glTF discriminant and this provider emits GLB alone, so no caller carries a container knob.
 - Law: `Perform` demands `fileInfo` and `progress` positionally — neither is optional, so passing an empty map and an empty range is argument satisfaction rather than a declared capability left unread.
-- Law: `TColStd_IndexedDataMapOfStringString` goes in EMPTY, so no glTF asset metadata is emitted: product identity, schema pin, and source digest reach a consumer through the artifact receipt alone, never through the container.
+- Law: `TColStd_IndexedDataMapOfStringString` goes in EMPTY, so no glTF asset metadata is emitted: product identity, schema pin, and source digest reach a consumer through the `ArtifactRef` alone, never through the container.
 - Law: `Message_ProgressRange()` is constructed empty and never read, so a long native fold reports nothing and a deadline cannot observe its progress; cancellation stays the lane's scope-level concern at `service/lane#LANE`.
 - Law: `Perform` returning false refuses on `EMIT_WRITE` — OCCT publishes no typed failure reason for the writer, so the coordinate names the call and the partial file is the call-owned path's own cleanup.
 - Law: a zero extent and an over-ceiling extent are DIFFERENT refusals — zero means the writer reported success over bytes it never produced and grades `EMIT_WRITE`, while over-ceiling is an admission verdict on real output and grades `EMIT_EXTENT`.
-- Law: the old single `artifact-bytes:{n}` coordinate collapsed both onto one row, so a caller reading the receipt had no way to tell a silent write failure from a source that legitimately outgrew its budget.
+- Law: the old single `artifact-bytes:{n}` coordinate collapsed both onto one row, so a caller reading the refusal had no way to tell a silent write failure from a source that legitimately outgrew its budget.
 - Law: `stat()` raising is a host failure on a path the writer just claimed to have filled, so it grades `EMIT_WRITE` beside the writer's own false verdict rather than minting a third disposition.
 - Boundary: post-write extent is ADMISSION EVIDENCE, never a filesystem-growth bound — the bound OCCT filename writer exposes no bounded output callback, so the disk is already committed when the gate reads it, and confining that write belongs to the app root's worker quotas and the call-owned spool.
 - Boundary: this owner writes bytes and admits their extent. Counting what those bytes decode to belongs to `metrology/census#CENSUS`, and publishing them to `service/spool#SPOOL`.
@@ -63,5 +63,4 @@ def emitted(document: TDocStd_Document, glb_path: Path, ceiling: int, /) -> CadR
 
 ## [03]-[RESEARCH]
 
-- [GLTF_METADATA]-[OPEN]: does `RWGltf_CafWriter` surface `fileInfo` entries into the emitted container's `asset.extras` where a decoder reads them back, and which key spellings survive the round trip; write one document with a probe map, re-read it through `trimesh.load_scene`, then either grow the map from the admitted `exchange/identity#CANONICAL` fields or delete the argument's ambition and say so.
-- [PROGRESS_ARMING]-[OPEN]: does `Message_ProgressRange` arm from a `Message_ProgressIndicator` so a long `Perform` reports progress a deadline scope observes; probe the installed `OCP.Message` surface, land the member roster on `.api/cadquery-ocp.md`, and route the cancellation consequence to `service/lane#LANE`.
+(none)

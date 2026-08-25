@@ -5,9 +5,9 @@ ONE resumable content-addressed rail moves bounded chunks, resumes at verified o
 ## [01]-[INDEX]
 
 - [02]-[BYTE_INGRESS]: BYOB lift, bounded form-data seam, backpressure law.
-- [03]-[CHUNK_STAGE]: owned FastCDC wasm surface, chunk receipts, sub-key identity.
+- [03]-[CHUNK_STAGE]: owned FastCDC wasm surface, chunk marks, sub-key identity.
 - [04]-[IDENTITY_FOLD]: incremental digest session, one-identity law, checkpointed resume state.
-- [05]-[RESUME_RAIL]: tus server over the S3 staging store, hooks, finalize re-home, receipt route, protocol growth.
+- [05]-[RESUME_RAIL]: tus server over the S3 staging store, hooks, finalize re-home, landed route, protocol growth.
 - [06]-[RANGE_READS]: ranged resumable reads over content and staging bands.
 
 ## [02]-[BYTE_INGRESS]
@@ -59,11 +59,11 @@ const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A
 
 ## [03]-[CHUNK_STAGE]
 
-- Owner: the content-defined chunk stage — `Rail.chunked`, a stream transform re-cutting the byte flow at Gear-hash boundaries so an insert or delete re-aligns cut points and versioned payloads dedup maximally — and the `ChunkMark` receipt carrying each chunk's span and sub-key.
+- Owner: the content-defined chunk stage — `Rail.chunked`, a stream transform re-cutting the byte flow at Gear-hash boundaries so an insert or delete re-aligns cut points and versioned payloads dedup maximally — and `ChunkMark` carrying each chunk's span and sub-key.
 - Packages: the owned FastCDC wasm surface (a `wasm-pack` build of the maintained Rust `fastcdc` crate, normalized-chunking v2020, held as a folder-owned artifact behind a capability Tag per the wasm boundary law — every published JS/wasm npm binding is years stale and refused); `@rasm/core` (`Digest` — the sub-key mint); `effect` (`Stream`, `Chunk`).
 - Entry: `Rail.chunked(bytes, policy)` between ingress and the identity fold; the policy row carries `{ min, avg, max }` cut bounds; consumers that need whole-payload identity only skip the stage — chunking earns its cost where dedup or chunk-level proofs are real.
-- Receipt: `ChunkMark` — `{ seq, offset, bytes, sub }` — the sub-key is `Digest.mint("content", chunkBytes)`, the SAME algebra as the object key at finer grain, so chunk identity and object identity share one mint and a second hashing vocabulary is unspellable.
-- Law: the Merkle proof tree is one fold over the chunk receipts — `Rail.prove(marks)` folds the proven-non-empty mark set through the core digest's `proof` row (`createBLAKE3(256)`, the `ProofKey` brand): each leaf mints over its sub-key's decoded bytes under the leaf framing byte, pairs join under the node byte, an odd node promotes, and the receipt carries `{ root, leaves, depth, paths }`; every path is the ordered sibling-key and side sequence for its `ChunkMark.seq`, so a range consumer verifies any admitted leaf in `O(log n)` without rebuilding the tree.
+- Output: `ChunkMark` — `{ seq, offset, bytes, sub }` — the sub-key is `Digest.mint("content", chunkBytes)`, the SAME algebra as the object key at finer grain, so chunk identity and object identity share one mint and a second hashing vocabulary is unspellable.
+- Law: the Merkle proof tree is one fold over the chunk marks — `Rail.prove(marks)` folds the proven-non-empty mark set through the core digest's `proof` row (`createBLAKE3(256)`, the `ProofKey` brand): each leaf mints over its sub-key's decoded bytes under the leaf framing byte, pairs join under the node byte, an odd node promotes, and the proof carries `{ root, leaves, depth, paths }`; every path is the ordered sibling-key and side sequence for its `ChunkMark.seq`, so a range consumer verifies any admitted leaf in `O(log n)` without rebuilding the tree.
 - Law: the leaf census has ONE source and it is the mark set — `_fold` answers the root, the height, and the paths a level determines and returns no `leaves` at all, while `_prove` supplies `marks.length` once at the mint; a count re-derived per level is both an O(n) walk the tree does not need and a second authority the mint overwrites anyway.
 - Law: proof decoding stays on the object integrity rail — a malformed branded key or an impossible empty reduction is `ObjectFault { reason: "integrity" }`, never `die`, `orDie`, or an unchecked assertion hidden beneath the proof surface.
 - Law: the wasm module is capability, not code — instantiation is a scoped acquisition behind the Tag, cuts run through the marked kernel, and no linear-memory view escapes; the stage is a pure `Stream` transform above that seam.
@@ -166,7 +166,7 @@ const _prove = (marks: Array.NonEmptyReadonlyArray<Rail.ChunkMark>): Effect.Effe
 - Owner: `Rail.identity` folds chunks to `Digest.Key<"content">`; its serializable actor carries a sealed checkpoint at the verified offset.
 - Packages: core `Digest.Session`; `@effect/experimental` serializable machines; `effect` streams, effects, and schemas.
 - Entry: the finalize fold runs `Rail.identity` over the staged read; a client-side leg runs the same fold in the browser (the core digest is isomorphic across runtimes) so the announced key and the server-verified key are one mint by construction.
-- Receipt: `{ key, bytes, chunks, checkpoint, frozen }` — the object key, total span, chunk census, live checkpoint, and schema-encoded machine snapshot; transport-level `x-amz-checksum` verification rides the object client's checksum policy in parallel, and the two proofs answer different questions: the trailer proves the wire, the mint proves identity.
+- Output: `{ key, bytes, chunks, checkpoint, frozen }` — the object key, total span, chunk census, live checkpoint, and schema-encoded machine snapshot; transport-level `x-amz-checksum` verification rides the object client's checksum policy in parallel, and the two proofs answer different questions: the trailer proves the wire, the mint proves identity.
 - Growth: a windowed rolling digest for chunk-run verification is a consumer fold over `absorb`/`finish` — the session algebra already carries it.
 - Law: one identity end to end — client-computed address, store-verified checksum, and core key converge on the same digest value; a second hashing or chunking vocabulary anywhere on the rail is the named cross-language drift defect the core key page seals.
 - Law: the resume checkpoint is `{ offset, chunks, session }` — `Absorb` advances bytes, chunk census, and digest state atomically on the machine's serialized request plane; `IdentityActor.changes` exposes each acknowledged checkpoint for the durable subscriber to `freeze`, the terminal fold always snapshots its final state, and `Machine.restore` re-admits persisted state through the checkpoint schema before another byte can enter.
@@ -257,8 +257,8 @@ const _identity = <R>(
 
 - Owner: the tus assembly — staged `S3Store`, hook-armed `Server`, PATCH-exclusive `MemoryLocker`, finalize re-home, staging groom, and the protocol row that swaps to the IETF form without store or hook edits; beneath it the shared custody landing every byte source on this page spends, and `Rail.preserve`, the `journal/retain.md` `Preserve` port it satisfies.
 - Packages: `@tus/server` (`Server`, `Upload`, `EVENTS`, `MemoryLocker`, `RouteHandler`, `server.get`, `ServerOptions` — `onUploadCreate`/`onIncomingRequest`/`onResponseError`/`lockDrainTimeout`/`postReceiveInterval`/`namingFunction`/`getFileIdFromRequest`); `@tus/s3-store` (`S3Store` — `partSize`/`minPartSize`/`maxConcurrentPartUploads`/`useTags`/`cache`, the `DataStore` `getUpload`/`read`/`remove` members); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Exit`, `Layer`, `Metric`, `Runtime`, `Schedule`); `@rasm/core` (`Convention` — the throughput instrument row; `Fault.Class` — the status projection's lattice); `journal/append.md` (`Hook` — the `objectAdmit` veto and observe taps); `journal/retain.md` (`SubjectKey`, `Retain.slice` — the preservation port's subject and its collection rendering).
-- Entry: the serving plane mounts `rail.node` (node req/res) or `rail.web` (fetch Request→Response) under its route; the browser leg is `tus-js-client` driving POST/PATCH/HEAD against this mount and the receipt GET beside it — a ui-branch consumer of the wire protocol, never of this module.
-- Receipt: `onUploadFinish` returns the finalize receipt onto the reply — `{ key, bytes, written }` — so the client learns its content key in the completing response; the 412 case reads `written: false`, the dedup success; `${route}/receipt?upload=<id>` answers the SAME receipt for a staged id, which is the only road a resumed leg has to it.
+- Entry: the serving plane mounts `rail.node` (node req/res) or `rail.web` (fetch Request→Response) under its route; the browser leg is `tus-js-client` driving POST/PATCH/HEAD against this mount and the `/landed` GET beside it — a ui-branch consumer of the wire protocol, never of this module.
+- Output: `onUploadFinish` returns `ObjectStore.Landed` onto the reply — `{ key, bytes, written }` — so the client learns its content key in the completing response; the 412 case reads `written: false`, the dedup success; `${route}/landed?upload=<id>` answers the SAME value for a staged id, which is the only road a resumed leg has to it.
 - Growth: a per-caller quota is the `maxSize` function reading the caller's admission; a second staging band (media versus artifact) is a second `Rail.of` with its own cut policy and retention row; RUFH lands as the protocol row swap.
 - Law: staging and content never share keys — tus ids are random staging identity, `namingFunction` prefixes the staging band, and identity exists only after the finalize fold; a staging key leaking as a content coordinate is the named defect.
 - Law: the band prefix binds mint to extraction as ONE pair — the mount route publishes only the id's last segment, so `namingFunction` and `getFileIdFromRequest` are written together and a band prefix landed without its extractor resolves every resume against a key the store never held; a custom extractor also OWNS the traversal refusal, since the built-in check it replaces is what otherwise rejects a `/`, a `\`, or a NUL reaching the store as a key.
@@ -267,13 +267,13 @@ const _identity = <R>(
 - Law: the hook seams are the admission and gate rows — `onUploadCreate` stamps the staging owner into the upload metadata before creation, `onIncomingRequest` runs the spec's `gate` (the serving plane's admission handoff) per request, `onResponseError` folds every error reply into one structured log, and `postReceiveInterval` paces the progress events the `EVENTS` taps observe — every seam a `Rail.Spec` value, never a fork of the handler classes.
 - Law: the create seam IS the `rasm.data.object.admit` veto point — after the spec's `admit` enriches metadata, `Hook.gated("objectAdmit", ...)` runs the app-armed veto with the staging id, resolved owner, and declared length (`Option`-carried because a deferred-length upload declares none), and a refusal reaches the client through `_bridged` as its own class-derived status; the finalize fold fans the same point's observe taps with the landed content key AFTER the conditional re-home and reference row commit, so no subscriber sees a key that is not yet durable.
 - Law: `_bridged` is the ONE hook bridge and `_STATUS` its one projection — the fiber's `Exit` folds through `Fault.Class.of`, which reads typed failures by their `class` and defects onto the `defect` rung, so both channels answer one status roster and neither escapes unclassified; `Runtime.runPromise` rejects with a `FiberFailure` carrying no `class`, so a hook rejecting straight through collapses every refusal — the admission veto, the absent staged body, the integrity failure — onto one opaque server fault a resumable client cannot tell from a transient one, and the veto's 403 and the exhausted rung's 429 exist only because the projection runs before the rejection leaves the fiber.
-- Law: `_finalized` is ONE fold TWO seams enter — `onUploadFinish` on the completing PATCH, and the `${route}/receipt` GET for a staged id — because the handler commits the written offset to the store BEFORE the finish hook and rethrows the hook's refusal, so a failed finalize leaves a staged upload sitting at `offset === size`; a resuming client HEADs that upload, reads a complete offset, and emits SUCCESS off a reply carrying no receipt at all, which reports a landed content object where none exists. Re-entry costs nothing because the fold is already idempotent, and an incomplete staged body refuses on the `missing` reason rather than hashing a partial payload into a wrong key.
+- Law: `_finalized` is ONE fold TWO seams enter — `onUploadFinish` on the completing PATCH, and the `${route}/landed` GET for a staged id — because the handler commits the written offset to the store BEFORE the finish hook and rethrows the hook's refusal, so a failed finalize leaves a staged upload sitting at `offset === size`; a resuming client HEADs that upload, reads a complete offset, and emits SUCCESS off a reply carrying no landed value at all, which reports a landed content object where none exists. Re-entry costs nothing because the fold is already idempotent, and an incomplete staged body refuses on the `missing` reason rather than hashing a partial payload into a wrong key.
 - Law: `server.get` registers an EXACT pathname and never a pattern, so the staged id rides the query string — a path segment falls through to the GET handler's own staged-byte serve, which streams a completed staging body to any id the gate admits.
 - Law: `_STATUS` binds the browser leg, whose default predicate retries every non-4xx reply and, among 4xx, only 409 and 423, abandoning the rest — `conflicted` 409 self-heals through the HEAD that re-reads the offset, `unavailable` 503 backs off, `absent` 404 and `expired` 410 clear the stored url and restart from byte zero ONLY where that leg carries `endpoint` beside its upload url, and `exhausted` 429 — the one rung whose whole meaning is retry-later — abandons unless the leg widens the carve through `onShouldRetry`; retry attempts also RESET whenever the offset advanced since the last one, so a 5xx arriving after accepted bytes retries unboundedly, which is what `unavailable` wants and what `defect` must never ride.
-- Law: the ui leg therefore states three things this page cannot: `endpoint` beside the upload url, the 429 widening on `onShouldRetry`, and a receipt read that falls to `${route}/receipt` whenever success arrives off a HEAD carrying no body.
+- Law: the ui leg therefore states three things this page cannot: `endpoint` beside the upload url, the 429 widening on `onShouldRetry`, and a landed read that falls to `${route}/landed` whenever success arrives off a HEAD carrying no body.
 - Law: `onResponseError` OBSERVES and never re-projects a shaped arrival — its parameter union is the discriminant tus supplies, so the bridge's own `{ status_code, body }` passes through and only a bare internal `Error` classifies; a second projection over an already-shaped refusal reads a value no longer carrying the fault and overwrites the status the bridge decided.
-- Law: resumable-upload throughput projects from the finalize receipt — the landed span increments `streamSize` once per completed upload, so the rate is throughput; a per-PATCH meter double-counts retries.
-- Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed` carrying the proven span), record the reference row through `store.refer` (the derived retention tag lands with it), remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay, the reference upsert re-arms, and the staging removal is the only destructive step, ordered last and best-effort — once `store.refer` commits, the receipt is settled truth, a failed staging delete logs as cleanup debt, and groom's `deleteExpired` retires the orphan, so no delete failure can fail `onUploadFinish` after durability.
+- Law: resumable-upload throughput projects from the landed value — its span increments `streamSize` once per completed upload, so the rate is throughput; a per-PATCH meter double-counts retries.
+- Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed` carrying the proven span), record the reference row through `store.refer` (the derived retention tag lands with it), remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay, the reference upsert re-arms, and the staging removal is the only destructive step, ordered last and best-effort — once `store.refer` commits, the landed value is settled truth, a failed staging delete logs as cleanup debt, and groom's `deleteExpired` retires the orphan, so no delete failure can fail `onUploadFinish` after durability.
 - Law: finalize is TWO bounded staging reads by the same law that governs disk intake — the content key cannot exist before the last byte is hashed, so the identity pass precedes the re-home pass and memory stays constant at any size; a buffering tee that halves staging egress buys bytes with unbounded memory and is the rejected trade. Both byte sources on this page spend ONE landing across those two passes, taking a re-runnable slice and its cut policy, so the tus finalize and the preservation port can never disagree on identity, span, or reference ordering.
 - Law: the owner is INGRESS at BOTH tus seams — the create hook admits the client's declared metadata through `ObjectStore.admit` and the finalize fold re-admits the stamped value, because that value crossed the staging store as text and a resumed leg witnessed no create-seam verdict; an undeclared owner takes the band's own mint, and the minted-below prefixes refuse, so an upload can neither stamp itself into a subject's DSAR export nor join a hold it never earned.
 - Law: `Rail.preserve` is the object-plane end of the hold's preservation contract — it decodes the subject's custody owner at this boundary, folds the handed slice through the same identity pass, and lands the reference row whose retag reads the live hold; the class rides the declaration's own choice rather than a literal here, because the journal owns what evidence a matter is worth.
@@ -422,7 +422,7 @@ const _finalized = (spec: Rail.Spec, store: ObjectStore, staging: S3Store, uploa
       onNone: () => Effect.succeed(ObjectStore.owner("tus", spec.staging)),
       onSome: ObjectStore.admit(upload.id),
     })
-    const receipt = yield* _landed(
+    const landed = yield* _landed(
       store,
       owner,
       spec.retention,
@@ -434,11 +434,11 @@ const _finalized = (spec: Rail.Spec, store: ObjectStore, staging: S3Store, uploa
       try: () => staging.remove(upload.id),
       catch: (caught) => new ObjectFault({ case: { reason: "io", key: upload.id, detail: String(caught) } }),
     }).pipe(Effect.ignoreLogged)
-    yield* Effect.ignore(Metric.incrementBy(_streamed, receipt.bytes))
+    yield* Effect.ignore(Metric.incrementBy(_streamed, landed.bytes))
     yield* Effect.ignore(
-      Hook.tapped("objectAdmit", { key: receipt.key, owner, bytes: Option.some(receipt.bytes) }),
+      Hook.tapped("objectAdmit", { key: landed.key, owner, bytes: Option.some(landed.bytes) }),
     )
-    return receipt
+    return landed
   })
 
 const _rail = (spec: Rail.Spec) =>
@@ -494,12 +494,12 @@ const _rail = (spec: Rail.Spec) =>
         body: JSON.stringify(await _bridged(runtime, _finalized(spec, store, staging, upload))),
       }),
     })
-    server.get(`${spec.route}/receipt`, (req) =>
+    server.get(`${spec.route}/landed`, (req) =>
       _served(
         runtime,
         Effect.flatMap(
           Option.match(Option.fromNullable(new URL(req.url).searchParams.get("upload")), {
-            onNone: () => Effect.fail(new ObjectFault({ case: { reason: "missing", key: spec.staging, detail: "<receipt:upload>" } })),
+            onNone: () => Effect.fail(new ObjectFault({ case: { reason: "missing", key: spec.staging, detail: "<landed:upload>" } })),
             onSome: (id) =>
               Effect.tryPromise({
                 try: () => staging.getUpload(id),
@@ -509,7 +509,7 @@ const _rail = (spec: Rail.Spec) =>
           (upload) =>
             upload.offset === upload.size
               ? _finalized(spec, store, staging, upload)
-              : Effect.fail(new ObjectFault({ case: { reason: "missing", key: upload.id, detail: "<receipt:incomplete>" } })),
+              : Effect.fail(new ObjectFault({ case: { reason: "missing", key: upload.id, detail: "<landed:incomplete>" } })),
         ),
       ))
     server.on(EVENTS.POST_TERMINATE, (_req, _res, id) => {

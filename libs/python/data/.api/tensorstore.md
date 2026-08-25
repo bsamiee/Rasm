@@ -138,7 +138,7 @@ Each property reads the resolved schema after `open`; `origin`/`shape`/`size`, `
 - transaction axis: `Transaction(atomic=...)` stages grouped modifications behind one `commit_async`/`abort`, bound via `open(..., transaction=txn)` or `store.with_transaction(txn)`; `Batch` coalesces concurrent reads into one backend round-trip.
 - context axis: one `Context` (JSON resource spec: `cache_pool`, `data_copy_concurrency`, `file_io_concurrency`, credential resources) pools cache, concurrency limits, and credentials across every open.
 - metrics axis: `tensorstore.experimental` collects internal metrics in Prometheus format for the observability owner.
-- evidence: each open captures driver id, kvstore url, resolved dtype, domain shape, chunk-grid layout, codec chain, and committed generation as an array-store receipt.
+- evidence: the opened array and its provider metadata expose driver id, kvstore url, resolved dtype, domain shape, chunk-grid layout, codec chain, and committed generation directly.
 - boundary: tensorstore owns chunked zarr-v3 read/write, sharding, cache coherence, and the `KvStore` backend abstraction; NumPy arrays cross the wire at `read`/`write`; raster/mesh post-processing and archive packaging route to their own owners; identity/path minting stays with the runtime owner.
 
 [STACKING]:

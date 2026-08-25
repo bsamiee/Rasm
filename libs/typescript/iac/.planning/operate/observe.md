@@ -1463,7 +1463,7 @@ const _urls = (bind: {
 - Law: fleet rolls annotate beside deploys — each `rolls` row is the AppHost roll wire consumed as data (`wave`, `channel`, `verdict`, `hosts`), realized as one `oss.Annotation` whose text carries the roll coordinates and whose tone rides the `_ROLL_TONES` verdict row so a rollback reads as loud as an advance on every board; the record shape is the AppHost mint, this fold never re-derives roll facts.
 - Law: profiles compile as typed queries and links, never as a fabricated panel — the pinned SDK ships `grafanapyroscope.DataqueryBuilder` and no visualization builder at all, so `_profiled` renders the profile selector once and every board carries it as a data link into the Pyroscope explorer scoped by the reading tenant; hand-written JSON for a panel the SDK cannot type is exactly the drift this compile leg deletes, and a provisioned datasource nothing exercises is the same defect wearing the opposite sign.
 - Law: tenancy is organizations, realized org-scoped — one `oss.Organization` per `spec.tenants` slug with the per-tenant folder, source set, and board fleet threaded `orgId` from the realized org's own output, so a tenant's boards and sources scope to its org while the default org carries the operator fleet, alerts, and machine identity.
-- Law: the deployment annotates itself — one `oss.Annotation` carries the deploy plane's time-ordered identity and stack coordinates as board-visible text, so every dashboard reads deploys against its own series; richer run evidence stays receipt material on the automation plane.
+- Law: one `oss.Annotation` carries deploy identity and stack coordinates as board-visible text; Pulumi update history retains the lifecycle detail.
 - Law: the machine identity is minted least-privilege — one `oss.ServiceAccount` (`role: "Editor"`) holds exactly the folder-Admin grant one `oss.FolderPermissionItem` lands, and one `oss.ServiceAccountRotatingToken` (rotation window as `_ROTATION` policy data, `deleteOnDestroy` so a torn-down stack leaves no live credential) realizes the durable automation credential; the token key egresses as the tier's `automation` output for the composing arm to land in a Doppler `{ value }` entry, and the chart-seeded `admin:password` binding remains the one in-graph provider auth.
 - Law: one provider per stack — every resource in the tier threads `{ provider }` through `child()`; a second provider instance is the split-diamond defect; auth never rides env here — the in-graph read is the canonical binding for deploy-time application.
 - Entry: `new Boards("boards", { spec, urls, targets, auth, boards, packs, library, alerts, objectives, contacts, deploy, rolls }, opts)` — the k8s arm feeds `lgtm.{urls,targets}`, the docker arm `dev.{urls,targets}`; `boards`/`alerts`/`objectives` produced by the app's core observe suite call against those same targets, `packs` by the producer censuses, `rolls` by the AppHost fleet ledger.
@@ -1536,7 +1536,6 @@ const _GROUPED = [Convention.attr.serviceName, Convention.rasm.tenant, Conventio
 
 const _PACKS = [
   "apphost.instrument",
-  "compute.receipt",
   "fabrication.slo",
   "grasshopper.fan",
   "materials.catalogue",
@@ -2173,12 +2172,3 @@ class Boards extends Tier {
 
 export { Boards, Dev, Lgtm }
 ```
-
-## [08]-[RESEARCH]
-
-(none)
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->

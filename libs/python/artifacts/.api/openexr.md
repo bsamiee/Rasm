@@ -86,7 +86,7 @@ Every enum is exported twice — as a class with members and as bare module cons
 - `pyvips`(`.api/pyvips.md`): resampling, mip folding, and every pixel transform stay upstream; this owner serializes the planes it is handed and reads them back, and holds no image operation.
 - `msgspec`(`.api/msgspec.md`): the header dict is authored from a typed policy struct — compression row, storage type, envmap tag, channel roster — so a header key is a validated tag rather than a free-form string reaching the attribute dict.
 - `beartype`(`.api/beartype.md`): the boundary contract is `dict[str, NDArray] -> None` on write and `str -> dict[str, NDArray]` on read; a wrong-dtype channel rejects at the contract naming the channel, not inside pybind11.
-- `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each document write stamps a receipt — part count, channel roster, compression row, storage type, level mode, byte length — on the owning span.
+- `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): each document write binds part count, channels, compression, storage type, level mode, and byte length to its span.
 - `anyio`(`.api/anyio.md`): reads and writes are blocking native file IO that releases the GIL, so a multi-part or many-channel document crosses the runtime `RELEASING` thread arm rather than blocking the loop.
 
 [LOCAL_ADMISSION]:

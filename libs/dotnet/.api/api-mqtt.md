@@ -309,10 +309,10 @@ Five reason-code enums share one MQTT v5 code space, so a lane column marks memb
 - Inbound payloads arrive as `ReadOnlySequence<byte>` on `MqttApplicationMessage.Payload`; decode at the boundary, never re-buffer per handler.
 - QoS, retain, last-will, and session-expiry are policy columns on the composing row, never new transports or cases.
 - Settlement posture and the receiving lane's overflow policy are ONE bargain a composing row states together: a row settling on admission over a dropping lane refuses `ExactlyOnce` at its own mint, since a discarded delivery the broker already released never redelivers.
-- MQTT reason codes map to typed receipts at the edge; `MqttProtocolViolationException` and `InvalidOperationException` never cross an outbound boundary.
+- MQTT reason codes map to typed transport outcomes at the edge; `MqttProtocolViolationException` and `InvalidOperationException` never cross an outbound boundary.
 
 [RAIL_LAW]:
 - Package: `MQTTnet`
 - Owns: legacy and v5 broker-client transport in both directions — session and channel assembly, builder-composed message assembly, the `UserProperties` tracing carrier, reason-code-typed results, and the subscribe leg beside its delivery event and acknowledgement control
-- Accept: factory-minted clients, builder-composed v5 sessions and subscriptions, `CancellationToken`-scoped publish and subscribe, handler-owned acknowledgement, and results folded to a typed receipt at the boundary
+- Accept: factory-minted clients, builder-composed v5 sessions and subscriptions, `CancellationToken`-scoped publish and subscribe, handler-owned acknowledgement, and typed transport outcomes at the boundary
 - Reject: a direct `MqttClient` instantiation, a hand-rolled MQTT packet framer or second poller, exception-driven publish and subscribe flow, work inside the delivery handler, the `[Obsolete]` `MqttUserProperty.Value` read, and a raw result value crossing into an interior

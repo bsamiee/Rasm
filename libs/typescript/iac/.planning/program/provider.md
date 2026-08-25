@@ -138,7 +138,7 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
 - Entry: `Effect.flatMap(Dispatch.material, (material) => Dispatch.program(spec, material, pins))` then `Automation.stack(spec, program)`.
 - Growth: one record row and one map column per cloud; a new shared deploy-time fact is one `Pins` field, a new shared secret fact is one `material` field; a new spec coordinate a tier requires is one `_coord` call in its arm's proof.
-- Boundary: the run and receipt are `automation.md`'s; outputs keys are `spec.md`'s contract.
+- Boundary: `automation.md` owns execution and native lifecycle results; `spec.md` owns output keys.
 - Law: `Dispatch.EstateFault` is the program body's whole failure vocabulary: tier admissions plus `DeployFault`. A new admitting tier widens one type alias and every arm body inherits it.
 - Packages: `effect` (`Array`, `Config`, `Effect`, `Option`, `Record`, `Redacted`); `./spec.ts` (`StackSpec`); `./source.ts` (`Source.AssetInput`, `Source.Distribution`); `./automation.ts` (`DeployFault`); `../kube/data.ts` (`DataRefused`, `Postgres`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/converge.ts` (`Converge`, `ConvergeRefused`); `../operate/observe.ts` (`Lgtm.Versions`); `@rasm/data` (`Backend`).
 
@@ -1201,12 +1201,3 @@ const Dispatch = {
 
 export { Bootstrap, Dispatch }
 ```
-
-## [06]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

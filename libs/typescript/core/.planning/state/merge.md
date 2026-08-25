@@ -14,7 +14,7 @@ The lawful merge owner. `Merge.Instance<A>` couples a semigroup, `Merge.Law`, eq
 
 [INSTANCE_CONTRACT]:
 - Owner: `Merge.Instance<A>` carries `combine`, `Merge.Law`, `alike`, and an optional lawful identity.
-- Law: `Merge.Law` is the estate's commutation vocabulary, row-identical to the `dotnet:Rasm.Persistence/Version/ledger#CHANGEFEED` `OpLaw` a lane stance and a CRDT op arm both answer; a mutation kind grading `ordered` needs a total order to settle a concurrent pair, so exactly one side loses and the loss is evidence a receipt carries rather than a merge silently absorbing it.
+- Law: `Merge.Law` is the estate's commutation vocabulary, row-identical to the `dotnet:Rasm.Persistence/Version/ledger#CHANGEFEED` `OpLaw` a lane stance and a CRDT op arm both answer; a mutation kind grading `ordered` needs a total order to settle a concurrent pair, so exactly one side loses and the loss lands as a column on the settling outcome rather than a merge silently absorbing it.
 - Growth: a new merge semantic is a new constructor row or a `data/*` atom lift; the `Instance` shape never widens per semantic.
 
 ```typescript
@@ -421,7 +421,6 @@ export { Merge }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

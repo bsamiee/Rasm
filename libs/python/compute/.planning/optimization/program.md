@@ -4,11 +4,11 @@ Constrained, global, and discrete counterpart of the gradient-driven design loop
 
 Two backends serve the LP and MIP arms and the VALUE selects between them: the `scipy.optimize` facade is a one-shot cold rebuild per call, while a `Warm` payload on the intent carries a retained `highspy.Highs` whose model is mutated in place so the simplex basis survives every re-solve — the design and study sweeps re-solve one program per perturbed right-hand side, where the facade pays a full rebuild each time. The retained solver also surfaces evidence the facade has no channel for: a `HighsRanging` stability band bounding how far a cost coefficient may move before the optimal basis fails, and a certificate size — an irreducible infeasible subsystem, or a dual/primal ray where presolve proved the refusal without isolating one — so `INFEASIBLE` and `UNBOUNDED` name a subsystem rather than standing as bare verdicts.
 
-Every route folds its termination verdict, the objective, and the maximum constraint-violation residual into the `program` case of the shared `OutcomeReceipt` on `optimization/design#DESIGN`, carrying the `SolveStatus` vocabulary `solvers/receipt#RECEIPT` owns — so an infeasible, unbounded, or iteration-limited program is a distinct first-class verdict the C# graduation gate reads, never a boolean collapsing every non-success cause to `False`. Program data admits through `numerics/array#PAYLOAD` on the same `ContentIdentity` seed, and the certified optimum graduates on the existing `solver` `HandoffAxis` case through the shared `OutcomeReceipt.graduates` projection clearing the `program` ceiling row.
+Every successful route folds its optimized vector or assignment pair, termination verdict, objective, and maximum constraint violation into the `program` case of the shared `Optimum` on `optimization/design#DESIGN`; a refusal retains absence for values the backend did not produce. Program data admits through `numerics/array#PAYLOAD` on the same `ContentIdentity` seed, and the successful optimum graduates on the existing `solver` `HandoffAxis` case through `Optimum.graduates`.
 
 ## [01]-[INDEX]
 
-- [02]-[PROGRAM]: linear/integer/global/constrained/assignment programs over the scipy facade and the retained-HiGHS arm, one `_PROGRAM_ROUTES` row per route, folding the `program` case of the shared `OutcomeReceipt` on one `ProgramIntent` owner.
+- [02]-[PROGRAM]: linear/integer/global/constrained/assignment programs over the scipy facade and the retained-HiGHS arm, one `_PROGRAM_ROUTES` row per route, folding the `program` case of the shared `Optimum` on one `ProgramIntent` owner.
 
 ## [02]-[PROGRAM]
 
@@ -17,8 +17,8 @@ Every route folds its termination verdict, the objective, and the maximum constr
 - Law: objective and violation are read on a CONVERGED carrier alone and spell absence on every refusal, because an `inf` in either slot enters the graduation ledger as a value and breaches the hub's finiteness refinement on every infeasible crossing — an absent slot leaves the ledger instead, and the hub's key-coverage gate refuses the crossing against the `violation` ceiling as the rejection it is. The stability band and the certificate size are likewise absent wherever the backend surfaces neither, so a facade solve never reports a zero indistinguishable from a measured margin of nothing, and an all-unbounded cost-range set reports no binding margin rather than an `inf`.
 - Entry: `ProgramSolve` is one closed family over the three carrier shapes a solve produces — the scipy carrier bound to its own adjudicator shape, the assignment pair, the retained solver with its verdict and evidence — so the iterate read, the verdict fold, and the evidence read are each ONE total match and the route row sheds the `iterate` and `termination` columns it once carried in step. Nothing is derived at construction: an infeasible `linprog` whose `result.x`/`result.fun` are `None` folds its typed `INFEASIBLE` verdict, never a `float(None)` crash captured as a generic fault; the violation reduces through one typed carrier `match`, never a `hasattr(con, "A")` reflective probe.
 - Auto: the retained-solver payload's PRESENCE is the discriminant, recoverable from the intent itself, so no `backend: str` knob rides beside a value that already answers; the `direct` route column declares which routes admit the arm at all, and a `None` there makes an unsupported warm solve unspellable rather than a runtime refusal. An integer program carrying a `NonlinearConstraint` declines the direct arm and keeps the `milp` facade, because HiGHS reads a two-sided linear row band and dropping the row silently would solve a different program. The model thunk assembles once — `getNumCol() == 0` is the not-yet-loaded probe — so a caller mutating columns, rows, or coefficients between solves pays back-substitution, never re-encoding. The retained handle rides the `RELEASING` thread band the LP and MIP routes already declare, which is what makes the arm expressible at all: a shared address space carries a live native handle where the `TERMINAL` process crossing the stochastic route declares would have to pickle it, so the one route that cannot hold a retained solver is also the one that declares no direct arm.
-- Receipt: this owner mints only the `OutcomeReceipt.Program` factory case — the `.facts` projection, the `contribute` fold, and the `graduates` solver-axis crossing live on the shared owner at `optimization/design#DESIGN`, never a program-specific body.
-- Packages: exit code `4` diverges between `linprog` ("numerical") and `milp` ("other") and neither is the matrix-conditioning verdict `solvers/receipt#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`; `HighsModelStatus` is strictly richer than that five-code table, so `_HIGHS_STATUS` separates the declared-limit haltings from resource exhaustion, the stage errors, and an external interrupt; `getRanging`/`getIis`/`getDualRay`/`getPrimalRay` each answer a status-led tuple and each cost range is a `HighsRangingRecord` whose `value_` array spans columns and rows, so the read slices to the column count; `shgo` and `direct` are deterministic and take no `rng` keyword; the scipy carriers annotate through the `TYPE_CHECKING`-only `opt` alias while the live entrypoints ride module-scope `lazy` binds, so the SciPy and HiGHS trees load on the first route that solves rather than at page import.
+- Output: this owner mints `Optimum.Program` with the optimized vector or assignment pair when successful; `.facts`, telemetry, and graduation remain on the shared owner at `optimization/design#DESIGN`.
+- Packages: exit code `4` diverges between `linprog` ("numerical") and `milp` ("other") and neither is the matrix-conditioning verdict `solvers/solve#SOLVE` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`; `HighsModelStatus` is strictly richer than that five-code table, so `_HIGHS_STATUS` separates the declared-limit haltings from resource exhaustion, the stage errors, and an external interrupt; `getRanging`/`getIis`/`getDualRay`/`getPrimalRay` each answer a status-led tuple and each cost range is a `HighsRangingRecord` whose `value_` array spans columns and rows, so the read slices to the column count; `shgo` and `direct` are deterministic and take no `rng` keyword; the scipy carriers annotate through the `TYPE_CHECKING`-only `opt` alias while the live entrypoints ride module-scope `lazy` binds, so the SciPy and HiGHS trees load on the first route that solves rather than at page import.
 - Faults: one `PROGRAM_SOLVE` fence row spans every route — the intent tag is a span fact, never a subject spelling — and `highspy` contributes no exception family to its `catch`, answering through status codes rather than raises.
 - Growth: a new route is one `ProgramIntent` case, one `Carried` arm, one `_PROGRAM_ROUTES` row, and one `_project` arm; a new backend for an existing route is one `direct` column value and one entry closure, the carrier family absorbing its result shape as one case; a new global solver is one `GlobalMethod` case and one `solve` arm, never a new `ProgramIntent` tag; a new facade result shape is one `Termination` member and one `adjudicate` arm; a new host code is one `_PROGRAM_STATUS` or `_HIGHS_STATUS` row.
 
@@ -33,12 +33,12 @@ from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
-from rasm.compute.optimization.design import OutcomeReceipt
-from rasm.compute.solvers.receipt import SolveStatus
+from rasm.compute.optimization.design import Optimum
+from rasm.compute.solvers.solve import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
 
 lazy import highspy
@@ -304,8 +304,8 @@ class ProgramRoute(Struct, frozen=True):
 
 async def solve(
     intent: ProgramIntent, lane: LanePolicy, *, seed: int = _SEED, composition: ScopeKey = DEFAULT_SCOPE
-) -> "RuntimeRail[OutcomeReceipt]":
-    async def dispatch() -> "RuntimeRail[OutcomeReceipt]":
+) -> "RuntimeRail[Optimum]":
+    async def dispatch() -> "RuntimeRail[Optimum]":
         kernel = Kernel.of(
             _program_kernel,
             KernelTrait.RELEASING,
@@ -323,28 +323,31 @@ PROGRAM_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([PROGRAM_SOLVE]))
 
 
-def _program_kernel(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":
+def _program_kernel(intent: ProgramIntent, seed: int) -> "RuntimeRail[Optimum]":
     return boundary(
-        PROGRAM_SOLVE, lambda: _program_receipt(intent, seed), catch=(np.linalg.LinAlgError, ValueError, TypeError)
+        PROGRAM_SOLVE, lambda: _program_optimum(intent, seed), catch=(np.linalg.LinAlgError, ValueError, TypeError)
     ).bind(lambda r: r)
 
 
-def _program_receipt(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":
+def _program_optimum(intent: ProgramIntent, seed: int) -> "RuntimeRail[Optimum]":
     route = _PROGRAM_ROUTES[intent.tag]
     fields = _project(intent)
     warm = _warmed(intent)
     outcome = route.direct(fields, warm) if warm is not None and route.direct is not None else route.entry(fields, seed)
     status = outcome.status
-    graded = _graded(route, fields, outcome) if status is SolveStatus.SUCCESS else (None, None)
+    graded = _graded(route, fields, outcome) if status is SolveStatus.SUCCESS else (None, None, None)
     fragility, witness = outcome.evidence
     return _program_key(intent, fields, seed if route.seeded else None).map(
-        lambda key: OutcomeReceipt.Program(intent.tag, graded[0], status, graded[1], key, fragility=fragility, witness=witness)
+        lambda key: Optimum.Program(graded[0], intent.tag, graded[1], status, graded[2], key, fragility=fragility, witness=witness)
     )
 
 
-def _graded(route: ProgramRoute, fields: Carried, outcome: ProgramSolve) -> tuple[float, float]:
-    x, objective = _iterate(fields, outcome)
-    return objective, _violation(route.carriers(fields, outcome), x)
+def _graded(
+    route: ProgramRoute, fields: Carried, outcome: ProgramSolve
+) -> tuple[np.ndarray | tuple[np.ndarray, np.ndarray], float, float]:
+    value, objective = _iterate(fields, outcome)
+    violation = 0.0 if isinstance(value, tuple) else _violation(route.carriers(fields, outcome), value)
+    return value, objective, violation
 
 
 def _warmed(intent: ProgramIntent) -> "Warm | None":
@@ -463,7 +466,7 @@ def _direct_integer(fields: Carried, warm: Warm) -> ProgramSolve:
     return warm.solved(lambda: _highs_model(cost, mat, lower, upper, box, flags))
 
 
-def _iterate(fields: Carried, outcome: ProgramSolve) -> tuple[np.ndarray, float]:
+def _iterate(fields: Carried, outcome: ProgramSolve) -> tuple[np.ndarray | tuple[np.ndarray, np.ndarray], float]:
     match outcome:
         case ProgramSolve(tag="host", host=(result, _)):
             return np.asarray(result.x, dtype=float), float(result.fun)
@@ -472,7 +475,7 @@ def _iterate(fields: Carried, outcome: ProgramSolve) -> tuple[np.ndarray, float]
         case ProgramSolve(tag="matched", matched=(rows, cols)):
             (matrix,) = fields
             selected = matrix[rows, cols]
-            return np.asarray(selected, dtype=float), float(selected.sum())
+            return (np.asarray(rows), np.asarray(cols)), float(selected.sum())
         case _ as unreachable:
             assert_never(unreachable)
 

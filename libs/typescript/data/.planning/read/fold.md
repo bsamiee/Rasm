@@ -193,11 +193,11 @@ const _at = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
 - Owner: `Lane.inline` — the budget-zero slot the publish transaction executes — and `_apply`, the one seeded batch fold every staleness budget shares: one held-state read over the touched cells, one in-memory reduction, one upsert per touched cell.
 - Packages: `effect` (`Array`, `BigInt`, `Effect`, `HashMap`, `Option`, `Schema`); `@effect/sql` (`SqlSchema.findAll`, `sql.onDialectOrElse`, `sql.insert`, `sql.in`); `read/live.md` (`Live.band`, `Live.cell` — the slot's coordinate and the per-cell mint).
 - Entry: `journal/append.md`'s publish transaction runs the returned `Journal.Slot` inside its own commit, so the event and its projection land or roll back as one.
-- Receipt: the slot answers the touched cell roster, which the publish transaction stamps as this lane's invalidation coordinates.
+- Output: the slot answers the touched cell roster, which the publish transaction stamps as this lane's invalidation coordinates.
 - Law: read-your-writes is structural at budget zero — the fold runs INSIDE the publish transaction, so no reader can observe the event without its projection.
 - Law: held state locks wherever the dialect can lock — the pg arm reads `FOR UPDATE` so two commits touching one cell serialize on the row, and the neutral arm rests on its profile's own writer exclusion; a posture offering neither interleaves two seeded folds over one cell and loses the earlier reduction.
 - Law: one cell answers one key — a batch mapping two distinct plan keys onto one cell refuses `Fold.Fault` before any state moves, because a cell collision merges two aggregates into one row with no error anywhere.
-- Law: the commit point is the batch's own maximum — the slot folds the receipt's NonEmpty row roster for its top sequence and stamps the last event's `Clock.Hlc`, so the persisted coordinate is exactly what this transaction wrote.
+- Law: the commit point is the batch's own maximum — the slot folds the appended NonEmpty row roster for its top sequence and stamps the last event's `Clock.Hlc`, so the persisted coordinate is exactly what this transaction wrote.
 - Growth: a lane changing staleness budget keeps this fold — `[4]` and `[5]` compose `_apply` unchanged, so budget is a driver choice and never a second reduction.
 - Boundary: the slot opens no transaction, stamps no coordinates, and never retries — the publish owner holds all three.
 
@@ -265,12 +265,12 @@ const _apply = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =
 const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
   Effect.map(_apply(spec), (apply): Journal.Slot<A> => ({
     keys: () => Live.band(spec.name),
-    project: (_stream, events, receipt) =>
+    project: (_stream, events, appended) =>
       Effect.asVoid(apply(events, Fold.AsOf.at(
         spec.stamp(Array.lastNonEmpty(events)),
         Array.reduce(
-          Array.tailNonEmpty(receipt.rows),
-          Array.headNonEmpty(receipt.rows).sequence,
+          Array.tailNonEmpty(appended.rows),
+          Array.headNonEmpty(appended.rows).sequence,
           (top, row) => BigInt.max(top, row.sequence),
         ),
       ))),
@@ -282,7 +282,7 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) 
 - Owner: `Lane.daemon` — the seconds-budget lane: the checkpoint and quarantine ledgers, the claim, the paged drain cycle, the two-road wake, and the `Machine` actor whose held state is the lag read.
 - Packages: `@effect/experimental` (`Machine.makeWith`, `Machine.procedures`, `Machine.boot`, `Machine.retry`; `Reactivity`); `@effect/sql` (`SqlClient.SafeIntegers`, `sql.withTransaction`); `effect` (`Layer`, `Metric`, `Request`, `Schedule`, `Stream`); `journal/append.md` (`Journal.wake` — the one notify road; `Journal.retryable` — the statement-fault gate); `@rasm/core` (`Convention`, `Fault.Budget`, `Identity.App`).
 - Entry: an owning app composes `Lane.daemon(spec, app)` once per lane; every replica composes the same Layer and the claim alone decides which one drains.
-- Receipt: `Lane.Mark` carries lane, advanced checkpoint, and drained count; the mounted gauge tags by lane name and the actor's `Lane.State` is the subscription a lag dashboard reads.
+- Output: `Lane.Mark` carries lane, advanced checkpoint, and drained count; the mounted gauge tags by lane name and the actor's `Lane.State` is the subscription a lag dashboard reads.
 - Law: replicas cooperate with zero coordination — the claim is `FOR UPDATE SKIP LOCKED` over the lane's checkpoint row, so a losing replica answers `Option.none()` and idles instead of blocking, and no leader election, lease table, or external lock exists.
 - Law: the drain's tenancy is `multi` and STATED, never inherited — `_page` predicates on `app` alone across every tenant, the checkpoint carries no tenant column, and the daemon's `SqlClient` is the app root's spine client (the same unpinned client the relay drains through), never a `Stores` subgraph and never `Tenant.within`: the subgraph hides the client behind the pin, and a drain started inside one tenant's pin folds that tenant's events alone while the checkpoint advances past every other tenant's rows — silent projection loss reporting a healthy `Mark`.
 - Law: the retry gate is the journal's OWN classifier, never the core default and never a blanket claim — a raw `SqlError` carries no `class` column, so the default property grader reads every connection blip as `defect` and never re-drives, while a whole-channel transience claim re-drives an absent relation or a violated check on the lease forever; `Journal.retryable` grades the driver fault through the append owner's code-and-message tables, and a decode refusal falls through the gate as shape-wrong evidence the machine reboot surfaces.
@@ -310,7 +310,7 @@ sequenceDiagram
     A->>C: claim FOR UPDATE SKIP LOCKED
     A->>J: page sequence > checkpoint LIMIT size
     A->>Q: divert every decode refusal
-    Q-->>A: quarantine receipts
+    Q-->>A: quarantined rows
     alt batch folded
       A->>M: one seeded fold, one upsert per touched cell
       M-->>A: committed position
@@ -789,7 +789,6 @@ const Organization = {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

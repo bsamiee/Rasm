@@ -77,7 +77,7 @@
 - `optimize` runs the `RULES` pipeline with `qualify` first; `schema` is a `{table:{col:type}}`/`{db:...}`/`{catalog:...}` mapping or a `Schema`, and a subset run slices `rules=`.
 - `lineage.lineage(column, sql, schema=...)` produces the column-lineage `Node` tree; `diff(source, target)` produces the `Edit` list for query-evolution and migration analysis.
 - Every failure descends from `SqlglotError` over the `ParseError`/`TokenError`/`UnsupportedError`/`OptimizeError`/`SchemaError` rows; `ErrorLevel` selects the parser policy; the boundary maps these onto the data rail's typed result.
-- Each op emits a query-IR receipt: parse keys dialect and statement/node counts, transpile the `read`/`write` dialects, optimize the applied rule names and schema presence, lineage the target column and source-table set, diff the edit-op counts.
+- Each query-IR operation retains its native facts: parse keys dialect and statement/node counts, transpile the `read`/`write` dialects, optimize the applied rule names and schema presence, lineage the target column and source-table set, diff the edit-op counts.
 
 [STACKING]:
 - `ibis-framework`(`.api/ibis-framework.md`): compiles its expression graph to SQL through sqlglot, so centralizing sqlglot here pins the `ibis` transitive SQL backend.

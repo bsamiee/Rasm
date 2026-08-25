@@ -1,13 +1,13 @@
 # [PERSISTENCE_ELEMENT_IDENTITY]
 
-Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the kernel-`TenantId` `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity and event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. `ConverterRail.Compose` GENERATES the whole EF surface rather than hand-mapping it, mounting `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. MODEL IDENTITY IS PROFILE-SCOPED: each `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` row carries its own compiled `Model` that `UseModel` mounts, `IdentityShapeRow` carries the provider-divergent column decisions as row data keyed alongside that profile, and `IdentityDesignFactory` builds the model per profile at design time — so `OnModelCreating` never executes at runtime, the framework model cache never arbitrates between two engines, and no interior provider probe survives. Every relational interaction is a value in the closed `IdentityOp` family that ONE `IdentityRail.Run` bracket folds — pooled acquisition, the profile's execution strategy, transaction posture, the tracking codec, `TagWith` provenance, and provider-fault conversion — beneath the three-altitude `IdentitySpine` whose save gate turns the placement's `Writes` authority into a refusal the store enforces and whose interception tap carries each statement's owning slot to `Store/observability#PLAN_PROFILE`. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key, a derivation flip, and a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this DEK envelope mints out-of-band. `SchemaGate` folds the boot posture — Marten startup, the store's published generation digest, and the MEASURED `ModelFingerprint` over the mounted compiled model — into one typed `SchemaVerdict`, and the generation owner (`IdentityDdl` with the EF.Design emission lanes) emits each profile's DDL through that profile's own model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.StoreIdentity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `StoreProfile` with its `Model`/`Capabilities`/`Ef`/`Admits` columns and `ServerExtension` from `Store/provisioning#SERVER_EXTENSIONS`; `StoreSlot` from `Store/observability#SLOT_REGISTRY`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
+Rasm.Persistence anchors every persisted `ElementGraph` to one relational identity tier that commits ATOMICALLY with the Marten event in the same `IDocumentSession`: `ElementIdentity` is the per-model document/row carrying the `Element/graph#STREAM_GRAIN` `ModelId` PK, the kernel-`TenantId` `Tenant` RLS column, the set of rooted `NodeId`s, the Bim-projected IFC GlobalId strings (each rooted node's seam `Node.Object.ExternalId`), the H3 spatial cell, the PostGIS `Bounds` polygon, the pgvector embedding reference, the `ObjectAcl` (the `Element/authority` frozen vocabulary), and the classification — so identity and event are one transaction with no two-ORM gap and the relational columns serve the spatial/vector/ACL/tenant lanes off the one tier. `ConverterRail.Compose` GENERATES the whole EF surface rather than hand-mapping it, mounting `UseThinktectureValueConverters(Configuration.Default)` + `UseSnakeCaseNamingConvention()` + the provider row (`UseNpgsql(…, UseNetTopologySuite() + UseNodaTime() + UseVector())` or `UseSqlite`) on the ONE `IdentityContext`, so every `[ValueObject]`/`[SmartEnum]`/keyed-`[Union]` column converts with zero hand-written converter classes and only the LanguageExt carrier forms (`Option<Vector>`/`Seq<NodeId>`/`HashMap`) keep their Persistence-owned conversions. MODEL IDENTITY IS PROFILE-SCOPED: each `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile` row carries its own compiled `Model` that `UseModel` mounts, `IdentityShapeRow` carries the provider-divergent column decisions as row data keyed alongside that profile, and `IdentityDesignFactory` builds the model per profile at design time — so `OnModelCreating` never executes at runtime, the framework model cache never arbitrates between two engines, and no interior provider probe survives. Every relational interaction is a value in the closed `IdentityOp` family that ONE `IdentityRail.Run` bracket folds — pooled acquisition, the profile's execution strategy, transaction posture, the tracking codec, `TagWith` provenance, and provider-fault conversion — beneath the two-altitude `IdentitySpine` whose save gate turns the placement's `Writes` authority into a refusal the store enforces. `IdentityPolicy` is the `[SmartEnum<string>]` key axis dispatching mint and decode per row through one generated `Switch`, big-endian transcription preserving order, so an identity change is an expand-wave second key, a derivation flip, and a contract-wave drop, never an `AlterColumn`. `#KMS_CUSTODY` is the crypto tier the authz split leaves here (`Element/authority` owns WHO MAY; this page owns PROOF and KEYS): `SignedAuthorship` is the KMS-signed actor attestation tying a delta to a verified blame `StoreActor`, `Custody` folds attestation, verification, and DEK envelope minting/unwrapping into one `CustodyVerdict`, and `EnvelopeKeyring` is the DEK envelope surface the SAME `KmsProvider` axis selects beside `SigningKeyring` — provider-neutral `Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe` delegates wrapping a data-encryption key against the cloud CMK (AWS `GenerateDataKey`/`GenerateDataKeyWithoutPlaintext`/`Decrypt`/`ReEncrypt` encrypt-as-wrap, Azure native `WrapKey`/`UnwrapKey`, GCP `Encrypt`/`Decrypt` + CRC32C + `UpdateCryptoKeyPrimaryVersion` primary repoint), so the DEK-envelope owner is THIS tier and the `Store/blobstore#BLOB_GC` `ObjectEncryption` consumes only the server-side-SSE key-id STRING this DEK envelope mints out-of-band. `SchemaGate` folds the boot posture — Marten startup, the store's published generation digest, and the MEASURED `ModelFingerprint` over the mounted compiled model — into one typed `SchemaVerdict`, and the generation owner (`IdentityDdl` with the EF.Design emission lanes) emits each profile's DDL through that profile's own model. Every identity-tier failure rails the typed `IdentityFault` band (`FaultBand.StoreIdentity`, 834x — `Element/authority` composes it, no new band). `ModelId`/`StoreActor`/`ProjectionContext` arrive from the Persistence sibling `Element/graph#STORE_RAIL`; `StoreProfile` with its `Model`/`Capabilities`/`Ef`/`Admits` columns and `ServerExtension` from `Store/provisioning#SERVER_EXTENSIONS`; `NodeId`/`ContentAddress` from `Rasm.Element`; `ContentHash.Of` from the `Rasm` kernel; only the `SecretLease`-class KMS handle crosses from `Rasm.AppHost` through the `Runtime/secrets#SECRET_LEASE` seam (the host resolves and leases the cloud-KMS credential; the concrete provider axis stays Persistence-side).
 
 ## [01]-[INDEX]
 
 - [02]-[ELEMENT_IDENTITY]: relational identity tier, generated converter rail over both provider rows, co-transactional Marten-document stamp, H3/PostGIS/vector/tenant join columns, and profile-scoped model identity.
 - [03]-[IDENTITY_POLICY]: key axis, big-endian transcription, per-row mint/decode, and content addressing.
 - [04]-[STORE_OPERATION_BRACKET]: closed `IdentityOp` request family, one bracket owning acquisition/strategy/transaction/tracking/provenance/fault, and the keyset page.
-- [05]-[SAVE_INTERCEPTOR_SPINE]: three interceptor altitudes as declared rows, the write-authority gate and its tracker disposition, and the interception-altitude provenance tap.
+- [05]-[SAVE_INTERCEPTOR_SPINE]: two interceptor altitudes as declared rows, the write-authority gate and its tracker disposition.
 - [06]-[KMS_CUSTODY]: KMS-signed authorship, DEK-envelope `EnvelopeKeyring` (`Mint`/`MintSealed`/`Unwrap`/`Rewrap`/`Probe`), and one `Custody` attestation-and-DEK-envelope fold over `CustodyVerdict`.
 - [07]-[SCHEMA_VERDICT]: boot fold over the Marten startup-assertion posture and the published generation digest, the measured compiled-model fingerprint gate, and the `IdentityDdl` generation owner.
 
@@ -17,7 +17,6 @@ Rasm.Persistence anchors every persisted `ElementGraph` to one relational identi
 - Cases: `Roots` is the set of rooted `NodeId`s the model owns (the `IfcRoot` mirror nodes), `GlobalIds` the 1:1 map from rooted `NodeId` to the compressed IFC GlobalId string projected from each seam `Node.Object.ExternalId` (the rooted `NodeId` is the neutral kernel-minted durable key, the IFC GlobalId is the `ExternalId` projection the `Version/merge#STRUCTURAL_DIFF` re-ingest `Reconcile` correlates on, never the key), `Cell` the Uber-H3 cell over the model bounding-envelope centroid (bucket-equality joins), `Bounds` the `Envelope`-derived `geometry(Polygon, 4326)` PostGIS column beside the `ZMin`/`ZMax` vertical span (the three rows on the ONE spatial-key axis: cells for bucket joins, geometry for exact XY predicates, z-span for storey banding), `Embedding` the optional pgvector reference keying the ANN lane — the per-model bounding-envelope locator, distinct in grain from the corpus-grain retrieval index (`Query/retrieval`), `Acl` the `Element/authority` `ObjectAcl` grant, `Classification` the `DataClassification` ceiling.
 - Entry: `IdentityStore.Bind(StoreProfile)` ADMITS that profile's compiled model onto the rail and derives an immutable `IdentityWriter` from it, accumulating every absent metadata slot into one `IdentityFault.ModelIncomplete`; `Stamp(IDocumentSession, ElementIdentity, IdentityWriter)` queues it on the event session. `Cell(Envelope, int)` mints either model or element cells without a forwarding sibling, and `BoundsOf(Envelope)` mints the exact footprint. `IdentityShapeRow.Of(StoreProfile)` resolves the divergence row; `IdentityDesignFactory.CreateDbContext(string[])` reads the profile key off the design-time arguments.
 - Auto: the identity row rides the one `IDocumentSession` the `Element/graph#STORE_RAIL` write op uses. `IdentityWriter` captures the profile's table, schema, primary key, relational casts, and value converters at composition off `StoreProfile.Model()`, so the writer's model SOURCE is the profile row and no process-global writer can reuse a PostgreSQL model for SQLite. `UseThinktectureValueConverters(Configuration.Default)` converts generated owners, while Persistence-owned conversions cover LanguageExt carriers, recursive ACL JSON, geometry, and — as ONE `ConverterRail.Tenant` pair both tenant-bearing relations bind — the `TenantId` column over the kernel's `Text`/`Of` inverse. `H3Index.FromPoint` mints cells and rejects `H3Index.Invalid`. RLS compares that canonical tenant text with `current_setting('rasm.tenant', true)` on the two-arm `[SESSION_GUC]` policy without a fictional `UInt128`→`uuid` provider mapping.
-- Receipt: an identity stamp rides `store.element.identity` carrying the `Roots` count; every relational read and lane rides its own `#STORE_OPERATION_BRACKET` arity slot.
 - Packages: Marten (`IDocumentSession.QueueSqlCommand`), Npgsql.EntityFrameworkCore.PostgreSQL (`UseNpgsql`), Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite (`UseNetTopologySuite` + `IsWithinDistance`/`DistanceKnn`), Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime (`Instant`), Thinktecture.Runtime.Extensions.EntityFrameworkCore10 (`UseThinktectureValueConverters`), EFCore.NamingConventions (`UseSnakeCaseNamingConvention`), Microsoft.EntityFrameworkCore.Sqlite (`UseSqlite`), Microsoft.EntityFrameworkCore (`DbContextOptionsBuilder.UseModel`, `PooledDbContextFactory<TContext>`, `IDbContextFactory<TContext>`), Microsoft.EntityFrameworkCore.Design (`IDesignTimeDbContextFactory<TContext>.CreateDbContext(string[])`), Pgvector.EntityFrameworkCore (`UseVector`), pocketken.H3 (`H3Index.FromPoint`), NetTopologySuite, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new identity join column is one field on `ElementIdentity` — the conventions derive its mapping unless it is a LanguageExt carrier or a geometry, in which case ONE `IdentityShape` clause joins the residual set; a new spatial resolution is one H3 cell policy; a new engine is one `StoreBinding` case, one `IdentityShapeRow` row under the matching profile key, and one compiled model; a new provider divergence is one COLUMN on `IdentityShapeRow`; zero new surface — a separate identity transaction, a second identity ORM committing apart from the event, a parallel `NodeId`-keyed identity table, a hand ADO mapping beside the generated rail, an `IModelCacheKeyFactory` replacement, a per-profile context TYPE, a boolean shape argument deciding three unrelated columns, or an EF-versus-Marten atomicity dance is the deleted form.
 - Boundary: the ONE transaction owner for identity beside event is the `IDocumentSession` — `IdentityStore.Stamp` is the lone stamp primitive the `GraphStore` rail composes (a queued model-derived upsert, never a Marten document: a document is an id+jsonb row structurally incapable of being the EF-shaped relation, and a `session.Store(identity)` claiming otherwise was the split-brain the queued statement deletes); EF/Npgsql is the READ projection and the DDL owner over the ONE declared `element_identity` relation, never a second write authority (a `DbContext.SaveChanges` over the identity table beside the Marten append is the deleted two-ORM gap); the rooted `NodeId` is the neutral kernel-minted DURABLE key and the IFC GlobalId is each node's seam `Node.Object.ExternalId` projection the `GlobalIds` map mirrors — a re-import mints fresh neutral `NodeId`s and the `Version/merge#STRUCTURAL_DIFF` `Reconcile` aligns them back on the stable GlobalId, so the durable key and every foreign reference survive re-import unchanged; THREE spatial planes live on the one tier and never duplicate — the H3 CELL plane (`Cell` per-model + `NodeCell.Cell` per-element, both `bigint` reinterpretations matching the `h3-pg` convention, bucket-equality joins the GiST/BRIN index answers), the GEOMETRY plane (`Bounds` `geometry(Polygon, 4326)` + GiST, exact XY predicates riding the `EF.Functions` translators SERVER-side — `IsWithinDistance` → `ST_DWithin`, `DistanceKnn` → the `<->` KNN order, `.Intersects`/`.Distance` instance translators, `ST_Union`/`ST_Extent` aggregates — never a client scan), and the VERTICAL plane (`ZMin`/`ZMax` per-model span + `NodeCell.Z` per-element elevation, plain indexed range predicates, so stacked elements sharing a footprint discriminate server-side and a storey band is one clause on the `Within` and `Route` op shapes, never a client elevation scan); `Rasm.Element` projects the seam-stable representation-bounds the `Bounds` producer contract names (Persistence is the recorded demanding consumer); `Bounds` is a nullable CLR `Polygon?` because the PostGIS translators bind the CLR geometry type directly in LINQ predicates — an `Option` wrapper here forfeits server-side translation, so null IS the absent-bounds state at this EF boundary; MODEL IDENTITY resolves per PROFILE and never per process: the framework's model cache keys on context type and design-time flag alone, so one context type against two engines serves the first-built model to the second, and the escape landed here is ONE COMPILED MODEL PER PROFILE — `StoreProfile.Model()` mounts through `UseModel`, which bypasses the model cache whole, so the cache-key hazard ceases to exist rather than getting keyed correctly, the profile row IS the model identity, and the two rejected escapes stay rejected because per-profile context types duplicate the declaration against this folder's ONE-`IdentityContext` ruling while `IModelCacheKeyFactory` forecloses compiled models whole, deleting the `#SCHEMA_VERDICT` `Optimize` deploy row outright; the EMBEDDED floor is provider-divergent model DATA on the one context, never a second mapping and never an interior probe — `IdentityShapeRow` carries the divergence as COLUMNS (`Bounds` degrades to a WKB `byte[]` column beside the H3 `bigint` cell where the geometry slot is absent, the JSON columns store as `text` rather than `jsonb`, and an absent vector slot ignores `Embedding` entirely, the embedded charter being the relational identity floor and `EngineOps` checkpoint tier, never SoR and never ANN), so a `Database.IsSqlite()` call inside model construction is the deleted form and a fourth divergence lands as a fourth column rather than a fourth predicate; `OnModelCreating` executes at DESIGN TIME alone under `IdentityDesignFactory`, which reads the profile key off the `dotnet ef` arguments so the scaffold, the `Optimize` compiled model, and the idempotent script each emit ONCE PER PROFILE off the one context type, and each profile's emission lands in its own generation namespace the runtime options bind; the per-ELEMENT `NodeCell` grain stays element-distinct so the `pgrouting` cell-mesh route lands back on real element ids; the `Tenant` RLS column is the coarse partition and the `Element/authority` `ObjectAcl` the fine within-tenant grant, two altitudes never duplicated.
@@ -399,14 +398,13 @@ public sealed partial class IdentityPolicy {
 
 ## [04]-[STORE_OPERATION_BRACKET]
 
-- Owner: `IdentityOp` the `[Union]` closed request family every relational interaction is a value in, modelled on the folder's landed `Element/graph#STORE_RAIL` `GraphStoreOp` precedent; `IdentityFilter` the closed predicate-SHAPE family the read arities compose, disjoint from arity so a new predicate never mints an entrypoint; `IdentityCursor` the opaque keyset cursor; `IdentityView`/`NodeCellView` the value projections ops return; `IdentityOutcome` the closed payload union; `IdentityReceipt` the per-op evidence; `IdentityOpFacts` the ONE derived fact stream per op (slot, plan tag, replay posture, commit probe); `CommitProbe` the non-idempotent tail's measured commit read; `TrackingCodec` the tracking-posture row; `NodeCellBulkPolicy` the copy-lane row the profile's `BulkCopy` capability selects; `IdentityLease` the composed acquisition value carrying the pooled factory, the `StoreProfile` row, the `Placement`, and the codec; `IdentityRail` the static surface owning the ONE bracket and its slot roster.
+- Owner: `IdentityOp` the `[Union]` closed request family every relational interaction is a value in, modelled on the folder's landed `Element/graph#STORE_RAIL` `GraphStoreOp` precedent; `IdentityFilter` the closed predicate-SHAPE family the read arities compose, disjoint from arity so a new predicate never mints an entrypoint; `IdentityCursor` the opaque keyset cursor; `IdentityView`/`NodeCellView` the value projections ops return; `IdentityOutcome` the closed payload union every op returns; `IdentityOpFacts` the ONE derived fact row per op (verb, plan tag, replay posture, commit probe); `CommitProbe` the non-idempotent tail's measured commit read; `TrackingCodec` the tracking-posture row; `NodeCellBulkPolicy` the copy-lane row the profile's `BulkCopy` capability selects; `IdentityLease` the composed acquisition value carrying the pooled factory, the `StoreProfile` row, the `Placement`, and the codec; `IdentityRail` the static surface owning the ONE bracket and its slot roster.
 - Cases: ARITY discriminates on the input value — `Point` resolves one key to an optional projection, `Batch` a key set to a batch, `Page` a predicate with `Option<IdentityCursor>` to a window, `Drain` a predicate alone to a bracket-internal stream, `Route` a cell with an optional storey band to `NodeCell` vertices, `Ingest` a collection to the copy lane, `Maintain` a parameterized statement to the maintenance lane. `IdentityFilter` is `All | Near(H3Cell, int) | Within(Point, double, Option<(double, double)>)`. `IdentityOutcome` is `Resolved | Batched | Paged | Routed | Drained | Affected`.
-- Entry: `IdentityRail.Run(IdentityLease, IdentityOp, ProjectionContext, CancellationToken)` folds the closed family through one generated total `Switch`, so a new op breaks the build at the dispatch rather than falling into a runtime-silent arm; `IdentityOp.Facts` projects the op's slot, plan tag, replay posture, and commit probe in one pass.
-- Auto: `Admit` refuses BEFORE acquisition, so a non-writing `Placement` never opens a mutating lane and a retrying strategy never re-drives a tail whose commit it cannot verify. Inputs travel as `TState` through STATIC lambdas, so a retry re-runs a closed value rather than a captured closure. Non-replayable tails open and commit their transaction INSIDE the strategy callback. Each leg stamps its registered slot as the FIRST `TagWith` line and its filter discriminant as the second, parameterizes every value, and projects through the ONE `Projection` expression.
-- Receipt: each arity rides its own slot — `store.identity.point`, `store.identity.batch`, `store.identity.page`, `store.identity.drain`, `store.identity.route`, `store.identity.ingest`, `store.identity.maintain` — carrying the measured row count, the elapsed `Duration`, and the frame's `CorrelationId`; the filter discriminant rides the receipt payload and the plan tag, never the slot string, so the `Store/observability#SLOT_REGISTRY` census stays frozen.
+- Entry: `IdentityRail.Run(IdentityLease, IdentityOp, ProjectionContext, CancellationToken)` folds the closed family through one generated total `Switch`, so a new op breaks the build at the dispatch rather than falling into a runtime-silent arm; `IdentityOp.Facts` projects the op's verb, plan tag, replay posture, and commit probe in one pass.
+- Auto: `Admit` refuses BEFORE acquisition, so a non-writing `Placement` never opens a mutating lane and a retrying strategy never re-drives a tail whose commit it cannot verify. Inputs travel as `TState` through STATIC lambdas, so a retry re-runs a closed value rather than a captured closure. Non-replayable tails open and commit their transaction INSIDE the strategy callback. Each leg stamps its verb as the FIRST `TagWith` line and its filter discriminant as the second, parameterizes every value, and projects through the ONE `Projection` expression.
 - Packages: Microsoft.EntityFrameworkCore (`IDbContextFactory<TContext>.CreateDbContextAsync`, `DatabaseFacade.CreateExecutionStrategy`/`BeginTransactionAsync`/`AutoTransactionBehavior`/`AutoSavepointsEnabled`, `IExecutionStrategy.ExecuteAsync` with `verifySucceeded`, `ExecutionResult<TResult>`, `TagWith`, `AsAsyncEnumerable`, `ChangeTracker.QueryTrackingBehavior`), Microsoft.EntityFrameworkCore.Relational (`DatabaseFacade.ExecuteSqlAsync(FormattableString, CancellationToken)`), Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite (`EF.Functions.IsWithinDistance`/`DistanceKnn`), pocketken.H3 (`GridDiskDistancesSafe`), linq2db.EntityFrameworkCore (`BulkCopyAsync`, `BulkCopyOptions`, `BulkCopyRowsCopied.RowsCopied`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions.
 - Growth: a new interaction is one `IdentityOp` case and one arm; a new predicate is one `IdentityFilter` case and one shape; a new cross-cutting concern is one bracket row touching zero ops; a new payload is one `IdentityOutcome` case; zero new surface — a repository per relation, a public static returning `IQueryable`, an offset page, a `GetById`/`GetMany` family, a per-call-site `try`/`catch` around a provider exception, or a second transaction scope beside the Marten session is the deleted form.
-- Boundary: this bracket owns READS, the maintenance lane, and the bulk lane, while identity WRITES ride the Marten `IDocumentSession` through `IdentityStore.Stamp` — the bracket COMPOSES that session rather than opening a second transaction scope beside it, because a second scope re-mints exactly the two-ORM gap `#ELEMENT_IDENTITY` deletes; ops return VALUE projections and never entities, so no consumer couples to the mapped shape or drags the tracker across the seam, and the `Drain` arity folds INSIDE the bracket because a live enumerable handed out after the context pools enumerates reclaimed state; the page op is KEYSET-ONLY — offset cost grows with depth and concurrent writes shift boundaries into duplicates and gaps — its ordering tuple ends in the unique `Model` tiebreaker, its predicate is the LEXICOGRAPHIC EXPANSION because tuple row-value comparison does not translate, its cursor values bind as PARAMETERS so page depth never changes the SQL shape, and its ordering tuple is the contiguous prefix of the `#ELEMENT_IDENTITY` composite index declared in the same breath; the cursor is the projected ordering tuple of the last row, opaque to callers, and its anchor's disappearance is the typed `IdentityFault.CursorStale` rejection rather than a silent empty page, because an empty page reads as exhaustion to every caller; DISTANCE ranking is not a keyset ordering, so the `Within` filter ranks nearest-first under the unpaged `Drain` arity and orders by the declared tuple under `Page`; the bracket converts provider exceptions through the ONE `IdentityFault.Rejected` Lift at ITS boundary — which CLASSIFIES on the driver's own `DbException.IsTransient` so the band publishes the kernel `Retriability` the strategy above it reads, a bare untyped rejection having left that whole class unreadable to every predicate — and interior op bodies never see them, while caller cancellation passes through UNTYPED and is never converted to a store rejection; RELATIONAL RETRY lands here at the owner `ARCHITECTURE.md` `[05]-[BOUNDARIES]` reserves for it, reading the profile's `StoreCapability.StrategyRedrive` row — `verifySucceeded` is MANDATORY for a non-idempotent tail under a re-driving profile because an ambiguous commit double-applies delta-shaped work, and the probe returns the tail's MEASURED outcome rather than a fabricated zero-row success — `CommitProbe` is the typed SHAPE that obligation takes and `Store/coordination#COORDINATION_OP` `Coordinate.Verified` is the instance the fenced-store caller supplies to the strategy this rail seats, so the probe is a value each caller states rather than a discipline a comment describes; every op stamps provenance through `TagWith` from its own registered slot and parameterizes every value, so one cached plan serves one op and the interception-altitude fact `#SAVE_INTERCEPTOR_SPINE` emits carries a statement key byte-identical to the one `Store/observability#PLAN_PROFILE` mints over the same text through the SAME kernel seed-zero entry; the copy lane reads the profile's `StoreCapability.BulkCopy` membership rather than taking a caller policy, so an engine without a native COPY lane routes the multi-row batch by profile data and never by a call-site knob.
+- Boundary: this bracket owns READS, the maintenance lane, and the bulk lane, while identity WRITES ride the Marten `IDocumentSession` through `IdentityStore.Stamp` — the bracket COMPOSES that session rather than opening a second transaction scope beside it, because a second scope re-mints exactly the two-ORM gap `#ELEMENT_IDENTITY` deletes; ops return VALUE projections and never entities, so no consumer couples to the mapped shape or drags the tracker across the seam, and the `Drain` arity folds INSIDE the bracket because a live enumerable handed out after the context pools enumerates reclaimed state; the page op is KEYSET-ONLY — offset cost grows with depth and concurrent writes shift boundaries into duplicates and gaps — its ordering tuple ends in the unique `Model` tiebreaker, its predicate is the LEXICOGRAPHIC EXPANSION because tuple row-value comparison does not translate, its cursor values bind as PARAMETERS so page depth never changes the SQL shape, and its ordering tuple is the contiguous prefix of the `#ELEMENT_IDENTITY` composite index declared in the same breath; the cursor is the projected ordering tuple of the last row, opaque to callers, and its anchor's disappearance is the typed `IdentityFault.CursorStale` rejection rather than a silent empty page, because an empty page reads as exhaustion to every caller; DISTANCE ranking is not a keyset ordering, so the `Within` filter ranks nearest-first under the unpaged `Drain` arity and orders by the declared tuple under `Page`; the bracket converts provider exceptions through the ONE `IdentityFault.Rejected` Lift at ITS boundary — which CLASSIFIES on the driver's own `DbException.IsTransient` so the band publishes the kernel `Retriability` the strategy above it reads, a bare untyped rejection having left that whole class unreadable to every predicate — and interior op bodies never see them, while caller cancellation passes through UNTYPED and is never converted to a store rejection; RELATIONAL RETRY lands here at the owner `ARCHITECTURE.md` `[05]-[BOUNDARIES]` reserves for it, reading the profile's `StoreCapability.StrategyRedrive` row — `verifySucceeded` is MANDATORY for a non-idempotent tail under a re-driving profile because an ambiguous commit double-applies delta-shaped work, and the probe returns the tail's MEASURED outcome rather than a fabricated zero-row success — `CommitProbe` is the typed SHAPE that obligation takes and `Store/coordination#COORDINATION_OP` `Coordinate.Verified` is the instance the fenced-store caller supplies to the strategy this rail seats, so the probe is a value each caller states rather than a discipline a comment describes; every op stamps provenance through `TagWith` from its own verb and parameterizes every value, so one cached plan serves one op and the `Store/observability#PLAN_PROFILE` statement key mints over the same tagged text; the copy lane reads the profile's `StoreCapability.BulkCopy` membership rather than taking a caller policy, so an engine without a native COPY lane routes the multi-row batch by profile data and never by a call-site knob.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -475,10 +473,7 @@ public abstract partial record IdentityOutcome {
         affected: static a => a.Rows);
 }
 
-public readonly record struct IdentityReceipt(StoreSlot Slot, string Tag, long Rows, Duration Elapsed, Instant At, CorrelationId Correlation);
-public sealed record IdentityResult(IdentityOutcome Outcome, IdentityReceipt Receipt);
-
-public readonly record struct IdentityOpFacts(StoreSlot Slot, string Tag, bool Replayable, Option<CommitProbe> Verify);
+public readonly record struct IdentityOpFacts(string Verb, string Tag, bool Replayable, Option<CommitProbe> Verify);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IdentityOp {
@@ -493,69 +488,54 @@ public abstract partial record IdentityOp {
     public sealed record Maintain(FormattableString Statement, Option<CommitProbe> Verify) : IdentityOp;
 
     public IdentityOpFacts Facts => this.Switch(
-        point:    static _ => new IdentityOpFacts(IdentityRail.PointSlot, "key", Replayable: true, None),
-        batch:    static _ => new IdentityOpFacts(IdentityRail.BatchSlot, "keys", Replayable: true, None),
-        page:     static p => new IdentityOpFacts(IdentityRail.PageSlot, p.Filter.Key, Replayable: true, None),
-        drain:    static d => new IdentityOpFacts(IdentityRail.DrainSlot, d.Filter.Key, Replayable: true, None),
-        route:    static _ => new IdentityOpFacts(IdentityRail.RouteSlot, "cell", Replayable: true, None),
-        ingest:   static i => new IdentityOpFacts(IdentityRail.IngestSlot, "copy", Replayable: false, i.Verify),
-        maintain: static m => new IdentityOpFacts(IdentityRail.MaintainSlot, "raw", Replayable: false, m.Verify));
+        point:    static _ => new IdentityOpFacts("point", "key", Replayable: true, None),
+        batch:    static _ => new IdentityOpFacts("batch", "keys", Replayable: true, None),
+        page:     static p => new IdentityOpFacts("page", p.Filter.Key, Replayable: true, None),
+        drain:    static d => new IdentityOpFacts("drain", d.Filter.Key, Replayable: true, None),
+        route:    static _ => new IdentityOpFacts("route", "cell", Replayable: true, None),
+        ingest:   static i => new IdentityOpFacts("ingest", "copy", Replayable: false, i.Verify),
+        maintain: static m => new IdentityOpFacts("maintain", "raw", Replayable: false, m.Verify));
 }
 
 public sealed record IdentityLease(IDbContextFactory<IdentityContext> Pool, StoreProfile Profile, Placement Placement, TrackingCodec Codec);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IdentityRail {
-    public static readonly StoreSlot PointSlot = StoreSlot.Create("store.identity.point");
-    public static readonly StoreSlot BatchSlot = StoreSlot.Create("store.identity.batch");
-    public static readonly StoreSlot PageSlot = StoreSlot.Create("store.identity.page");
-    public static readonly StoreSlot DrainSlot = StoreSlot.Create("store.identity.drain");
-    public static readonly StoreSlot RouteSlot = StoreSlot.Create("store.identity.route");
-    public static readonly StoreSlot IngestSlot = StoreSlot.Create("store.identity.ingest");
-    public static readonly StoreSlot MaintainSlot = StoreSlot.Create("store.identity.maintain");
-
-    public static readonly Seq<StoreSlot> Slots = Seq(
-        PointSlot, BatchSlot, PageSlot, DrainSlot, RouteSlot, IngestSlot, MaintainSlot, IdentitySpine.InterceptSlot);
-
     static readonly Expression<Func<ElementIdentity, IdentityView>> Projection =
         static e => new IdentityView(e.Model, e.Tenant, e.Cell, e.ZMin, e.ZMax, e.Classification, e.At);
 
-    public static IO<Fin<IdentityResult>> Run(IdentityLease lease, IdentityOp op, ProjectionContext frame, CancellationToken cancellationToken) {
+    public static IO<Fin<IdentityOutcome>> Run(IdentityLease lease, IdentityOp op, ProjectionContext frame, CancellationToken cancellationToken) {
         ArgumentNullException.ThrowIfNull(lease);
         ArgumentNullException.ThrowIfNull(op);
-        return from mark in IO.lift(frame.Mark)
-               from result in Admit(lease, op).Match(
-                   Succ: facts => Bracket(lease, op, facts, frame, mark, cancellationToken),
-                   Fail: error => IO.pure(Fin<IdentityResult>.Fail(error)))
-               select result;
+        return Admit(lease, op).Match(
+            Succ: facts => Bracket(lease, op, facts, frame, cancellationToken),
+            Fail: error => IO.pure(Fin<IdentityOutcome>.Fail(error)));
     }
 
     static Fin<IdentityOpFacts> Admit(IdentityLease lease, IdentityOp op) =>
         op.Facts is { Replayable: false } tail
             ? lease.Placement.Held
                 .Require(Placement.Mutating, missing =>
-                    new IdentityFault.WriteRefused($"<placement:{lease.Placement.Key}:{tail.Slot}:{missing.Wire}>"))
+                    new IdentityFault.WriteRefused($"<placement:{lease.Placement.Key}:{tail.Verb}:{missing.Wire}>"))
                 .Match(
                     Some: Fin<IdentityOpFacts>.Fail,
                     None: () => lease.Profile.Capabilities.Admits(StoreCapability.StrategyRedrive) && tail.Verify.IsNone
-                        ? Fin<IdentityOpFacts>.Fail(new IdentityFault.WriteRefused($"<unverifiable-retry:{tail.Slot}>"))
+                        ? Fin<IdentityOpFacts>.Fail(new IdentityFault.WriteRefused($"<unverifiable-retry:{tail.Verb}>"))
                         : Fin<IdentityOpFacts>.Succ(tail))
             : Fin<IdentityOpFacts>.Succ(op.Facts);
 
-    static IO<Fin<IdentityResult>> Bracket(IdentityLease lease, IdentityOp op, IdentityOpFacts facts, ProjectionContext frame, long mark, CancellationToken cancellationToken) =>
+    static IO<Fin<IdentityOutcome>> Bracket(IdentityLease lease, IdentityOp op, IdentityOpFacts facts, ProjectionContext frame, CancellationToken cancellationToken) =>
         IO.liftAsync(async () => await Op.Of().Catch(async token => {
             await using IdentityContext store = await lease.Pool.CreateDbContextAsync(token).ConfigureAwait(false);
             store.ChangeTracker.QueryTrackingBehavior = lease.Codec.Tracking;
             store.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
             store.Database.AutoSavepointsEnabled = true;
-            Fin<IdentityOutcome> outcome = await store.Database.CreateExecutionStrategy().ExecuteAsync(
+            return await store.Database.CreateExecutionStrategy().ExecuteAsync(
                 (Store: store, Op: op, Facts: facts, Profile: lease.Profile),
                 static (state, inner) => Execute(state.Store, state.Op, state.Facts, state.Profile, inner),
                 Probe(facts),
                 token).ConfigureAwait(false);
-            return outcome.Map(landed => new IdentityResult(landed, new IdentityReceipt(
-                facts.Slot, facts.Tag, landed.Rows, frame.Elapsed(mark), frame.Now(), frame.Correlation)));
-        }, error => IdentityFault.Rejected(facts.Slot, error), cancellationToken).ConfigureAwait(false));
+        }, error => IdentityFault.Rejected(facts.Verb, error), cancellationToken).ConfigureAwait(false));
 
     static Func<(IdentityContext Store, IdentityOp Op, IdentityOpFacts Facts, StoreProfile Profile), CancellationToken, Task<ExecutionResult<Fin<IdentityOutcome>>>>? Probe(IdentityOpFacts facts) =>
         facts.Verify.Match(
@@ -608,7 +588,7 @@ public static class IdentityRail {
             .OrderBy(static e => e.At).ThenBy(static e => e.Model).Take(op.Width).Select(Projection), facts)
             .ToArrayAsync(token).ConfigureAwait(false);
         return window.Length == 0 && op.After.IsSome && !await Anchored(store, op.After, token).ConfigureAwait(false)
-            ? Fin<IdentityOutcome>.Fail(new IdentityFault.CursorStale($"<cursor:{facts.Slot}>"))
+            ? Fin<IdentityOutcome>.Fail(new IdentityFault.CursorStale($"<cursor:{facts.Verb}>"))
             : Fin<IdentityOutcome>.Succ(new IdentityOutcome.Paged(toSeq(window),
                 window.Length == op.Width ? Some(new IdentityCursor(window[^1].At, window[^1].Model)) : None));
     }
@@ -637,20 +617,20 @@ public static class IdentityRail {
     }
 
     static async Task<Fin<IdentityOutcome>> Copy(IdentityContext store, IdentityOp.Ingest op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) {
-        LinqToDB.Data.BulkCopyRowsCopied receipt = await store
+        LinqToDB.Data.BulkCopyRowsCopied copied = await store
             .BulkCopyAsync(NodeCellBulkPolicy.Of(profile).Options, op.Cells, token).ConfigureAwait(false);
-        return receipt.RowsCopied == op.Cells.Count
-            ? Fin<IdentityOutcome>.Succ(new IdentityOutcome.Affected(receipt.RowsCopied))
-            : Fin<IdentityOutcome>.Fail(new IdentityFault.WriteRefused($"<{facts.Slot}:lost:{op.Cells.Count - receipt.RowsCopied}>"));
+        return copied.RowsCopied == op.Cells.Count
+            ? Fin<IdentityOutcome>.Succ(new IdentityOutcome.Affected(copied.RowsCopied))
+            : Fin<IdentityOutcome>.Fail(new IdentityFault.WriteRefused($"<{facts.Verb}:lost:{op.Cells.Count - copied.RowsCopied}>"));
     }
 
     static async Task<Fin<IdentityOutcome>> Raw(IdentityContext store, IdentityOp.Maintain op, IdentityOpFacts facts, CancellationToken token) =>
         Fin<IdentityOutcome>.Succ(new IdentityOutcome.Affected(await store.Database.ExecuteSqlAsync(
-            System.Runtime.CompilerServices.FormattableStringFactory.Create($"-- {facts.Slot}\n{op.Statement.Format}", op.Statement.GetArguments()),
+            System.Runtime.CompilerServices.FormattableStringFactory.Create($"-- identity.{facts.Verb}\n{op.Statement.Format}", op.Statement.GetArguments()),
             token).ConfigureAwait(false)));
 
     static IQueryable<T> Tagged<T>(IQueryable<T> rows, IdentityOpFacts facts) =>
-        rows.TagWith(facts.Slot.ToString()).TagWith(facts.Tag);
+        rows.TagWith(facts.Verb).TagWith(facts.Tag);
 
     static IQueryable<ElementIdentity> Shaped(IdentityContext store, IdentityFilter filter) => filter.Switch(
         state: store.Identities.AsQueryable(),
@@ -687,21 +667,20 @@ public static class IdentityRail {
 |  [04]   | retry            | `StoreCapability.StrategyRedrive`             | `verifySucceeded` mandatory for a non-replayable tail          |
 |  [05]   | transaction      | opened inside the strategy callback           | mutating tails only; savepoints nest under a caller scope      |
 |  [06]   | egress           | `IdentityView` / `NodeCellView`               | no entity leaves; one `Projection` expression                  |
-|  [07]   | provenance       | `TagWith` slot line then predicate line       | one cached plan per op; intercept tap and plan harvest read it |
+|  [07]   | provenance       | `TagWith` verb line then predicate line       | one cached plan per op; the statement harvest reads the tag    |
 |  [08]   | fault conversion | one `IdentityFault.Rejected` Lift at the edge | classifies on `DbException.IsTransient`; cancellation untyped  |
 |  [09]   | write authority  | Marten `IDocumentSession` via `IdentityStore` | bracket composes that session; no second transaction scope     |
 |  [10]   | copy lane        | `NodeCellBulkPolicy.Of(StoreProfile)`         | `BulkCopy` selects COPY over multi-row batch; never a knob     |
 
 ## [05]-[SAVE_INTERCEPTOR_SPINE]
 
-- Owner: `TrackerDisposition` the `[SmartEnum<string>]` delegate-bearing tracker policy a suppressing gate declares; `ResolutionPolicy` the row selecting the BUILT-IN identity-resolution pair; `SpineAltitude` the closed three-row altitude vocabulary carrying each altitude's mount delegate; `SpineMount` the composition input the profile row fills; `IdentityWriteGate` the unit-of-work write-authority gate; `IdentityTap` the interception-altitude provenance tap; `InterceptFact` its per-statement evidence; `IdentitySpine` the static surface composing the roster in declared order and escalating warnings at the same options row.
-- Cases: `SpineAltitude` is `Compilation | UnitOfWork | Interception`. `TrackerDisposition` is `Clear | Detach | Hold`. `ResolutionPolicy` is `Ignoring | Updating`, each mounting its framework interceptor.
+- Owner: `TrackerDisposition` the `[SmartEnum<string>]` delegate-bearing tracker policy a suppressing gate declares; `ResolutionPolicy` the row selecting the BUILT-IN identity-resolution pair; `SpineAltitude` the closed two-row altitude vocabulary carrying each altitude's mount delegate; `SpineMount` the composition input the profile row fills; `IdentityWriteGate` the unit-of-work write-authority gate; `IdentitySpine` the static surface composing the roster in declared order and escalating warnings at the same options row.
+- Cases: `SpineAltitude` is `Compilation | UnitOfWork`. `TrackerDisposition` is `Clear | Detach | Hold`. `ResolutionPolicy` is `Ignoring | Updating`, each mounting its framework interceptor.
 - Entry: `IdentitySpine.Compose(DbContextOptionsBuilder, SpineMount)` folds the altitude roster into `AddInterceptors` in DECLARED order and escalates the chosen runtime warnings through `ConfigureWarnings`.
 - Auto: registration order IS execution order, so the declared roster is the runtime order and no composition root re-sequences it. Save-altitude gating reads `HasResult` first, so a later interceptor never re-suppresses an already-suppressed save. Every declared member lands BOTH modality twins.
-- Receipt: the interception tap emits `store.identity.intercept` per executed statement carrying the owning slot read off the leading tag line, the statement key digested through the kernel seed-zero `ContentHash.Of`, the provider-measured elapsed span, and the failure flag.
-- Packages: Microsoft.EntityFrameworkCore (`ISaveChangesInterceptor`, `IMaterializationInterceptor`, `IQueryExpressionInterceptor`, `IIdentityResolutionInterceptor`, `IgnoringIdentityResolutionInterceptor`, `UpdatingIdentityResolutionInterceptor`, `InterceptionResult<T>.SuppressWithResult`/`HasResult`, `DbContextOptionsBuilder.AddInterceptors`/`ConfigureWarnings`, `WarningsConfigurationBuilder.Throw`, `CoreEventId`, `ChangeTracker.Clear`/`Entries`, `EntityState.Detached`), Microsoft.EntityFrameworkCore.Relational (`IDbCommandInterceptor`, `CommandExecutedEventData.Duration`, `CommandErrorEventData`, `RelationalEventId`), Rasm (`ContentHash.Of`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions.
+- Packages: Microsoft.EntityFrameworkCore (`ISaveChangesInterceptor`, `IMaterializationInterceptor`, `IQueryExpressionInterceptor`, `IIdentityResolutionInterceptor`, `IgnoringIdentityResolutionInterceptor`, `UpdatingIdentityResolutionInterceptor`, `InterceptionResult<T>.SuppressWithResult`/`HasResult`, `DbContextOptionsBuilder.AddInterceptors`/`ConfigureWarnings`, `WarningsConfigurationBuilder.Throw`, `CoreEventId`, `ChangeTracker.Clear`/`Entries`, `EntityState.Detached`), Microsoft.EntityFrameworkCore.Relational (`RelationalEventId`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 - Growth: a new altitude row is one `SpineAltitude` case with its mount delegate; a new tracker policy is one `TrackerDisposition` row; a new escalated warning is one `EventId` in the `Throw` roster; zero new surface — a hand-rolled identity-resolution walk, a service-layer `try`/`catch` around a save, a per-call-site write-authority check, or a sync-only interceptor member is the deleted form.
-- Boundary: write authority stops being a column callers honor and becomes the gate the store REFUSES at — the save altitude suppresses through `InterceptionResult<int>.SuppressWithResult` under a non-writing `Placement`, and a suppressing gate DECLARES its tracker disposition as a closed row because the next bracket otherwise inherits phantom dirty state the pool carries forward; BOTH modality twins are mandatory on every declared member, since each member carries a pass-through default and a sync-only interceptor compiles while silently leaving the async path unintercepted, which is the path every rail leg takes; tracked-conflict policy selects the BUILT-IN `IIdentityResolutionInterceptor` pair as ONE row and a hand-rolled resolution walk is the deleted form; `IQueryExpressionInterceptor` output CACHES WITH THE QUERY, so only a rewrite that is a pure function of expression shape may ride it and a per-execution rewrite replays its first execution forever — the COMPILATION altitude therefore mounts an EMPTY roster on this tier, a recorded negative rather than an absence, because every op returns a value projection so no entity materializes for `IMaterializationInterceptor` and every per-execution value binds as a rail parameter rather than a rewrite; the spine is provider-invariant and engine variance is observable ONLY at the interception altitude, carried as `StoreProfile` columns, while `ConfigureWarnings` is the escalation seam turning chosen runtime warnings into typed failures at the options row; the SET-BASED and BULK lanes BYPASS the save altitude by construction and surface only at the interception altitude, so their fact emission is self-emitted by the op and this spine claims NO coverage there — a spine advertising a gate over writes it cannot see is the false claim the carve deletes.
+- Boundary: write authority stops being a column callers honor and becomes the gate the store REFUSES at — the save altitude suppresses through `InterceptionResult<int>.SuppressWithResult` under a non-writing `Placement`, and a suppressing gate DECLARES its tracker disposition as a closed row because the next bracket otherwise inherits phantom dirty state the pool carries forward; BOTH modality twins are mandatory on every declared member, since each member carries a pass-through default and a sync-only interceptor compiles while silently leaving the async path unintercepted, which is the path every rail leg takes; tracked-conflict policy selects the BUILT-IN `IIdentityResolutionInterceptor` pair as ONE row and a hand-rolled resolution walk is the deleted form; `IQueryExpressionInterceptor` output CACHES WITH THE QUERY, so only a rewrite that is a pure function of expression shape may ride it and a per-execution rewrite replays its first execution forever — the COMPILATION altitude therefore mounts an EMPTY roster on this tier, a recorded negative rather than an absence, because every op returns a value projection so no entity materializes for `IMaterializationInterceptor` and every per-execution value binds as a rail parameter rather than a rewrite; the spine is provider-invariant and engine variance is carried as `StoreProfile` columns, while `ConfigureWarnings` is the escalation seam turning chosen runtime warnings into typed failures at the options row; the SET-BASED and BULK lanes BYPASS the save altitude by construction and prove their own row counts on the op's result, so this spine claims NO coverage there — a spine advertising a gate over writes it cannot see is the false claim the carve deletes.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -735,9 +714,7 @@ public sealed partial class ResolutionPolicy {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record SpineMount(Placement Placement, TrackerDisposition Disposition, ResolutionPolicy Resolution, Func<InterceptFact, Unit> Emit);
-
-public readonly record struct InterceptFact(Option<StoreSlot> Slot, UInt128 Statement, Duration Elapsed, bool Failed);
+public sealed record SpineMount(Placement Placement, TrackerDisposition Disposition, ResolutionPolicy Resolution);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 [SmartEnum<string>]
@@ -746,7 +723,6 @@ public sealed partial class SpineAltitude {
     public static readonly SpineAltitude Compilation = new("compilation", static _ => Seq<IInterceptor>.Empty);
     public static readonly SpineAltitude UnitOfWork = new("unit-of-work",
         static mount => Seq<IInterceptor>(mount.Resolution.Mount(), new IdentityWriteGate(mount.Placement, mount.Disposition)));
-    public static readonly SpineAltitude Interception = new("interception", static mount => Seq<IInterceptor>(new IdentityTap(mount.Emit)));
 
     [UseDelegateFromConstructor]
     public partial Seq<IInterceptor> Mount(SpineMount mount);
@@ -765,45 +741,9 @@ public sealed class IdentityWriteGate(Placement placement, TrackerDisposition di
     }
 }
 
-public sealed class IdentityTap(Func<InterceptFact, Unit> emit) : IDbCommandInterceptor {
-    public DbDataReader ReaderExecuted(DbCommand command, CommandExecutedEventData eventData, DbDataReader result) => Observe(command, eventData, result);
-
-    public ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData, DbDataReader result, CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult(Observe(command, eventData, result));
-
-    public int NonQueryExecuted(DbCommand command, CommandExecutedEventData eventData, int result) => Observe(command, eventData, result);
-
-    public ValueTask<int> NonQueryExecutedAsync(DbCommand command, CommandExecutedEventData eventData, int result, CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult(Observe(command, eventData, result));
-
-    public object? ScalarExecuted(DbCommand command, CommandExecutedEventData eventData, object? result) => Observe(command, eventData, result);
-
-    public ValueTask<object?> ScalarExecutedAsync(DbCommand command, CommandExecutedEventData eventData, object? result, CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult(Observe(command, eventData, result));
-
-    public void CommandFailed(DbCommand command, CommandErrorEventData eventData) => Fact(command, eventData, failed: true);
-
-    public Task CommandFailedAsync(DbCommand command, CommandErrorEventData eventData, CancellationToken cancellationToken = default) {
-        Fact(command, eventData, failed: true);
-        return Task.CompletedTask;
-    }
-
-    TResult Observe<TResult>(DbCommand command, CommandEndEventData eventData, TResult result) {
-        Fact(command, eventData, failed: false);
-        return result;
-    }
-
-    void Fact(DbCommand command, CommandEndEventData eventData, bool failed) =>
-        _ = emit(new InterceptFact(StoreSlot.Owned(command.CommandText), ContentHash.Of(Encoding.UTF8.GetBytes(command.CommandText)),
-            Duration.FromTimeSpan(eventData.Duration), failed));
-
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class IdentitySpine {
-    public static readonly StoreSlot InterceptSlot = StoreSlot.Create("store.identity.intercept");
-
-    static readonly Seq<SpineAltitude> Order = Seq(SpineAltitude.Compilation, SpineAltitude.UnitOfWork, SpineAltitude.Interception);
+    static readonly Seq<SpineAltitude> Order = Seq(SpineAltitude.Compilation, SpineAltitude.UnitOfWork);
 
     public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options, SpineMount mount) {
         ArgumentNullException.ThrowIfNull(options);
@@ -820,7 +760,7 @@ public static class IdentitySpine {
 
 | [INDEX] | [POLICY]           | [VALUE]                                         | [BINDING]                                                      |
 | :-----: | :----------------- | :---------------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | altitudes          | `SpineAltitude` three declared rows             | registration order is execution order; roster is spelled       |
+|  [01]   | altitudes          | `SpineAltitude` two declared rows               | registration order is execution order; roster is spelled       |
 |  [02]   | compilation row    | `Seq<IInterceptor>.Empty`, recorded negative    | projections materialize no entity; no shape rewrite exists     |
 |  [03]   | write gate         | `InterceptionResult<int>.SuppressWithResult`    | the `Writes` authority refuses at the store, not the call site |
 |  [04]   | tracker settlement | `TrackerDisposition` delegate row               | clear, detach, or hold; never phantom dirty state              |
@@ -828,7 +768,7 @@ public static class IdentitySpine {
 |  [06]   | tracked conflict   | built-in `IIdentityResolutionInterceptor` pair  | one row selects ignoring or updating                           |
 |  [07]   | query rewrite      | `IQueryExpressionInterceptor` caches its output | pure expression-shape rewrites only; values bind at the rail   |
 |  [08]   | warning escalation | `ConfigureWarnings(...Throw)`                   | chosen runtime warnings fail typed at the options row          |
-|  [09]   | bulk carve         | `IdentityOp.Ingest` bypasses the save altitude  | facts self-emit at the op; spine claims no coverage there      |
+|  [09]   | bulk carve         | `IdentityOp.Ingest` bypasses the save altitude  | the op proves its own row count; spine claims no coverage there|
 
 ## [06]-[KMS_CUSTODY]
 
@@ -1077,7 +1017,7 @@ public abstract partial record IdentityFault : Fault {
     [FaultCase(4)] public sealed partial record CellUnresolvable(string Detail) : IdentityFault;
     [FaultCase(5)] public sealed partial record KeyMalformed(string Detail) : IdentityFault;
     [FaultCase(6)] public sealed partial record ModelStale(UInt128 Mounted, UInt128 Published) : IdentityFault;
-    [FaultCase(7)] public sealed partial record StoreRejected(StoreSlot Slot, Error Cause, Retriability Class) : IdentityFault, ICausedFault {
+    [FaultCase(7)] public sealed partial record StoreRejected(string Verb, Error Cause, Retriability Class) : IdentityFault, ICausedFault {
         public override Retriability Retriability => Class;
     }
     [FaultCase(8)] public sealed partial record CursorStale(string Detail) : IdentityFault;
@@ -1090,14 +1030,14 @@ public abstract partial record IdentityFault : Fault {
         cellUnresolvable: static c => $"<cell-unresolvable:{c.Detail}>",
         keyMalformed:     static c => $"<key-malformed:{c.Detail}>",
         modelStale:       static c => $"<model-stale:{c.Mounted:x32}!={c.Published:x32}>",
-        storeRejected:    static c => $"<store-rejected:{c.Slot}:{c.Cause.Message}>",
+        storeRejected:    static c => $"<store-rejected:{c.Verb}:{c.Cause.Message}>",
         cursorStale:      static c => $"<cursor-stale:{c.Detail}>",
         writeRefused:     static c => $"<write-refused:{c.Detail}>",
         modelIncomplete:  static c => $"<model-incomplete:{string.Join(',', c.Absent)}>");
 
-    public static Option<StoreRejected> Rejected(StoreSlot slot, Error error) =>
+    public static Option<StoreRejected> Rejected(string verb, Error error) =>
         error.Exception.Case is DbException failure
-            ? Some(new StoreRejected(slot, error,
+            ? Some(new StoreRejected(verb, error,
                 failure.IsTransient ? Retriability.Transient : Retriability.Terminal))
             : None;
 
@@ -1206,7 +1146,6 @@ public static class SchemaGate {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

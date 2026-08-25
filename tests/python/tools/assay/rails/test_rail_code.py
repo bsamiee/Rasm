@@ -21,52 +21,11 @@ from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import apply_row_status, EngineExecutor
-from assay.core.model import (
-    ArtifactKind,
-    Check,
-    Claim,
-    Fault,
-    Input,
-    Language,
-    Mode,
-    RailStatus,
-    receipt,
-    Runner,
-    Tool,
-    ToolGroup,
-)
+from assay.core.model import ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Mode, RailStatus, Runner, Tool, ToolGroup
 from assay.core.routing import resolve_languages, Routed, Scope
-from assay.diagnostics import (
-    AstMatch,
-    cap_note,
-    Capture,
-    CAPTURE_ENCODER,
-    CAPTURES,
-    node_text,
-    ts_query,
-)
+from assay.diagnostics import AstMatch, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, node_text, ts_query
 import assay.rails.code as code_rail
-from assay.rails.code import (
-    _AG_SPEC,
-    _artifact,
-    _checks,
-    _content_args,
-    _dispatch,
-    _eq_needles,
-    _project_rows,
-    _RG_SPEC,
-    _rg_status,
-    _search_splice,
-    _targets,
-    _top_level_patterns,
-    _ts_grammar,
-    _TS_SPEC,
-    _ts_thunk,
-    CodeParams,
-    query,
-    search,
-    ts_language,
-)
+from assay.rails.code import _AG_SPEC, _artifact, _checks, _content_args, _dispatch, _eq_needles, _project_rows, _RG_SPEC, _rg_status, _search_splice, _targets, _top_level_patterns, _ts_grammar, _TS_SPEC, _ts_thunk, CodeParams, query, search, ts_language
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python._testkit.strategies import resolve
 from tests.python.tools.assay.kit import SeamExecutor
@@ -74,7 +33,7 @@ from tests.python.tools.assay.kit import SeamExecutor
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from assay.core.model import Completed, Report
+    from assay.core.model import Report
     from tests.python.tools.assay.kit import AssayHarness
 
 
@@ -165,18 +124,18 @@ def test_ts_thunk_tsx_uses_tsx_grammar(assay_root: AssayHarness) -> None:
     """TSX files are parsed with the TSX grammar — JSX elements are captured."""
     assay_root.write("src/view.tsx", "export const View = () => <div />;\n")
     ts_tool = msgspec.structs.replace(_QUERY_TOOL, language=Language.TYPESCRIPT)
-    done = _thunk(assay_root, "(jsx_self_closing_element) @jsx", "src/view.tsx", tool=ts_tool)
-    caps = CAPTURES.decode(done.stdout)
-    assert done.status.value == "ok"
+    completed = _thunk(assay_root, "(jsx_self_closing_element) @jsx", "src/view.tsx", tool=ts_tool)
+    caps = CAPTURES.decode(completed.stdout)
+    assert completed.status.value == "ok"
     assert caps[0].name == "jsx"
     assert caps[0].file == "src/view.tsx"
 
 
-def test_ts_thunk_missing_file_yields_empty_receipt(assay_root: AssayHarness) -> None:
+def test_ts_thunk_missing_file_yields_empty_outcome(assay_root: AssayHarness) -> None:
     """A path that does not exist on disk is silently skipped — no captures, EMPTY status."""
-    done = _thunk(assay_root, _PY_FUNC_QUERY, "nonexistent.py")
-    assert done.status is RailStatus.EMPTY
-    assert done.returncode == 0
+    completed = _thunk(assay_root, _PY_FUNC_QUERY, "nonexistent.py")
+    assert completed.status is RailStatus.EMPTY
+    assert completed.returncode == 0
 
 
 def test_ts_thunk_literal_prefilters_admit_and_skip(assay_root: AssayHarness) -> None:
@@ -194,22 +153,22 @@ def test_ts_thunk_literal_prefilters_admit_and_skip(assay_root: AssayHarness) ->
     assert (hit.status.value, CAPTURES.decode(hit.stdout)[0].text) == ("ok", "beta")
 
 
-def test_ts_thunk_receipt_argv_and_cap_fallback(assay_root: AssayHarness) -> None:
+def test_ts_thunk_outcome_argv_and_cap_fallback(assay_root: AssayHarness) -> None:
     """_ts_thunk preserves argv provenance and falls back when limit=0."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    done = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/mod.py", limit=0)
-    assert done.argv == ("tree-sitter", "query", Language.PYTHON, "pkg/mod.py")
-    assert done.status is RailStatus.OK
-    assert len(CAPTURES.decode(done.stdout)) == 1
+    completed = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/mod.py", limit=0)
+    assert completed.argv == ("tree-sitter", "query", Language.PYTHON, "pkg/mod.py")
+    assert completed.status is RailStatus.OK
+    assert len(CAPTURES.decode(completed.stdout)) == 1
 
 
 def test_ts_capture_full_byte_shape(assay_root: AssayHarness) -> None:
     """Captures preserve byte offsets, exact-cap boundaries, and cursor-level truncation on overflow."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    done = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/mod.py")
+    completed = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/mod.py")
     expected = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, end_line=1, end_column=10, start_byte=4, end_byte=9)
-    assert done.status.value == "ok"
-    assert tuple(CAPTURES.decode(done.stdout)) == (expected,)
+    assert completed.status.value == "ok"
+    assert tuple(CAPTURES.decode(completed.stdout)) == (expected,)
     assay_root.write("pkg/two.py", "def a():\n    pass\ndef b():\n    pass\n")
     exact = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/two.py", limit=2)
     assert [(c.ordinal, c.truncated) for c in CAPTURES.decode(exact.stdout)] == [(0, False), (1, False)]
@@ -220,13 +179,13 @@ def test_ts_capture_full_byte_shape(assay_root: AssayHarness) -> None:
 
 
 def test_ts_capture_error_row_identity(assay_root: AssayHarness) -> None:
-    """Capture error rows preserve query, parse, file, and truncation identity; every error receipt carries returncode 1."""
+    """Capture error rows preserve query, parse, file, truncation identity, and returncode 1."""
     assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
-    qerr_done = _thunk(assay_root, "(", "pkg/mod.py")
-    qerr = CAPTURES.decode(qerr_done.stdout)
-    assert qerr_done.returncode == 1
-    assert (qerr[0].name, qerr[0].file, qerr[0].line, qerr[0].parse_error) == ("query_error", "pkg/mod.py", 1, True)
-    assert "EOF" in qerr[0].text
+    query_failure = _thunk(assay_root, "(", "pkg/mod.py")
+    query_errors = CAPTURES.decode(query_failure.stdout)
+    assert query_failure.returncode == 1
+    assert (query_errors[0].name, query_errors[0].file, query_errors[0].line, query_errors[0].parse_error) == ("query_error", "pkg/mod.py", 1, True)
+    assert "EOF" in query_errors[0].text
     assay_root.write("pkg/bad.py", "def broken(:\n")
     plain = _thunk(assay_root, _PY_FUNC_QUERY, "pkg/bad.py")
     assert plain.returncode == 1
@@ -282,25 +241,12 @@ def test_checks_and_dispatch_empty_routed(assay_root: AssayHarness) -> None:
     """_checks() and _dispatch() on Routed with no files return empty tuples without spawning."""
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=())
     assert _checks(routed, Mode.CHECK, lambda t, _r: Check(tool=t)) == ()
-    empty = _dispatch(
-        routed,
-        settings=assay_root.settings,
-        scope=assay_root.scope(Claim.CODE),
-        mode=Mode.CHECK,
-        splice=lambda t, _r: Check(tool=t),
-        executor=SeamExecutor(),
-    )
+    empty = _dispatch(routed, settings=assay_root.settings, scope=assay_root.scope(Claim.CODE), mode=Mode.CHECK, splice=lambda t, _r: Check(tool=t), executor=SeamExecutor())
     assert empty == ()
 
 
-@pytest.mark.parametrize(
-    "paths, setup, expected_contains, expected_excludes",
-    [((), None, (".",), ()), (("pkg/mod.py", "no_such_dir/"), "pkg/mod.py", ("pkg/mod.py",), ("no_such_dir/",))],
-    ids=["targets_empty_paths_returns_default_target", "targets_existing_paths_returned"],
-)
-def test_targets(
-    assay_root: AssayHarness, paths: tuple[str, ...], setup: str | None, expected_contains: tuple[str, ...], expected_excludes: tuple[str, ...]
-) -> None:
+@pytest.mark.parametrize("paths, setup, expected_contains, expected_excludes", [((), None, (".",), ()), (("pkg/mod.py", "no_such_dir/"), "pkg/mod.py", ("pkg/mod.py",), ("no_such_dir/",))], ids=["targets_empty_paths_returns_default_target", "targets_existing_paths_returned"])
+def test_targets(assay_root: AssayHarness, paths: tuple[str, ...], setup: str | None, expected_contains: tuple[str, ...], expected_excludes: tuple[str, ...]) -> None:
     """_targets returns ('.',) for empty paths; for non-empty paths keeps existing, drops stale."""
     if setup:
         assay_root.write(setup, "x = 1\n")
@@ -352,7 +298,7 @@ def test_rg_status_exact_note_bytes(
 def test_rg_rows_skips_non_match_events() -> None:
     """_RG_SPEC skips begin events and non-JSON NDJSON lines without faulting."""
     raw = b'{"type":"begin","data":{"path":{"text":"src/a.py"}}}\nnot-json\n'
-    rows, listing, notes = _project_rows((receipt(("rg",), 0, stdout=raw, status=RailStatus.OK),), 100, "alpha", spec=_RG_SPEC)
+    rows, listing, notes = _project_rows((Completed(argv=("rg",), returncode=0, stdout=raw, status=RailStatus.OK),), 100, "alpha", spec=_RG_SPEC)
     assert len(rows) == 0
     assert not listing
     assert notes == ()
@@ -372,20 +318,15 @@ def test_rg_rows_skips_non_match_events() -> None:
     ],
     ids=["group_exit1_matcharray", "group_exit1_nonarray_json", "group_exit1_garbage", "group_exit0_unchanged", "no_group_unchanged"],
 )
-def test_apply_row_status_empty_on_exit1(
-    groups: tuple[ToolGroup, ...], stdout: bytes, rc: int, status_in: RailStatus, expected_status: RailStatus
-) -> None:
+def test_apply_row_status_empty_on_exit1(groups: tuple[ToolGroup, ...], stdout: bytes, rc: int, status_in: RailStatus, expected_status: RailStatus) -> None:
     """apply_row_status maps a match array on rc=1 to EMPTY; a valid-JSON non-array or garbage stays FAILED; a group-less row is untouched."""
     tool = Tool("ast-grep", Runner.PNPM, ("ast-grep", "run"), Input.NONE, Language.PYTHON, Claim.CODE, groups=groups)
-    assert apply_row_status(tool, receipt(("ast-grep",), rc, stdout=stdout, status=status_in)).status is expected_status
+    assert apply_row_status(tool, Completed(argv=("ast-grep",), returncode=rc, stdout=stdout, status=status_in)).status is expected_status
 
 
 @pytest.mark.parametrize(
     "name, text, parse_error, rc, status_in, expected_id_fragment, expected_severity",
-    [
-        ("name", "alpha", False, 0, RailStatus.OK, "tree-sitter:pkg/mod.py:1:name", None),
-        ("parse_error", "tree-sitter parse error", True, 1, RailStatus.FAILED, "tree-sitter:pkg/bad.py:", "failed"),
-    ],
+    [("name", "alpha", False, 0, RailStatus.OK, "tree-sitter:pkg/mod.py:1:name", None), ("parse_error", "tree-sitter parse error", True, 1, RailStatus.FAILED, "tree-sitter:pkg/bad.py:", "failed")],
     ids=["match_row", "parse_error_row"],
 )
 def test_ts_rows_produces_match_rows_and_listing(
@@ -399,8 +340,8 @@ def test_ts_rows_produces_match_rows_and_listing(
 ) -> None:
     """_TS_SPEC projects captures into match rows, severity, and listing text."""
     cap = Capture(name=name, text=text, file="pkg/mod.py" if not parse_error else "pkg/bad.py", line=1, column=5, ordinal=0, parse_error=parse_error)
-    done = receipt(("tree-sitter",), rc, stdout=CAPTURE_ENCODER.encode((cap,)), status=status_in)
-    rows, listing, _notes = _project_rows((done,), 100, "(function_definition)", spec=_TS_SPEC)
+    completed = Completed(argv=("tree-sitter",), returncode=rc, stdout=CAPTURE_ENCODER.encode((cap,)), status=status_in)
+    rows, listing, _notes = _project_rows((completed,), 100, "(function_definition)", spec=_TS_SPEC)
     assert len(rows) == 1
     assert expected_id_fragment in rows[0].id
     assert rows[0].severity == expected_severity
@@ -418,32 +359,18 @@ def test_project_rows_shape_parity() -> None:
     """Each projector preserves its source-prefixed id, text, listing, and uncapped-note shape."""
     ts_cap = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, ordinal=0, pattern=0)
     rg_line = b'{"type":"match","data":{"path":{"text":"src/a.py"},"lines":{"text":"alpha = 1 \\n"},"line_number":3}}\n'
-    ag = _project_rows((receipt(("ast-grep",), 0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK),), 10, "$X", spec=_AG_SPEC)
-    ts = _project_rows((receipt(("tree-sitter",), 0, stdout=CAPTURE_ENCODER.encode((ts_cap,)), status=RailStatus.OK),), 10, "(q)", spec=_TS_SPEC)
-    rg = _project_rows((receipt(("rg",), 0, stdout=rg_line, status=RailStatus.OK),), 10, "alpha", spec=_RG_SPEC)
-    assert (ag[0][0].id, ag[0][0].text, ag[1], ag[2]) == (
-        "ast-grep:pkg/mod.py:1",
-        "alpha = 1 => let alpha = 1",
-        "pkg/mod.py:1: alpha = 1 => let alpha = 1",
-        (),
-    )
-    assert (ts[0][0].id, ts[0][0].text, ts[0][0].severity, ts[1], ts[2]) == (
-        "tree-sitter:pkg/mod.py:1:name",
-        "@name alpha",
-        None,
-        "pkg/mod.py:1:5: @name#0/0 alpha",
-        (),
-    )
+    ag = _project_rows((Completed(argv=("ast-grep",), returncode=0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK),), 10, "$X", spec=_AG_SPEC)
+    ts = _project_rows((Completed(argv=("tree-sitter",), returncode=0, stdout=CAPTURE_ENCODER.encode((ts_cap,)), status=RailStatus.OK),), 10, "(q)", spec=_TS_SPEC)
+    rg = _project_rows((Completed(argv=("rg",), returncode=0, stdout=rg_line, status=RailStatus.OK),), 10, "alpha", spec=_RG_SPEC)
+    assert (ag[0][0].id, ag[0][0].text, ag[1], ag[2]) == ("ast-grep:pkg/mod.py:1", "alpha = 1 => let alpha = 1", "pkg/mod.py:1: alpha = 1 => let alpha = 1", ())
+    assert (ts[0][0].id, ts[0][0].text, ts[0][0].severity, ts[1], ts[2]) == ("tree-sitter:pkg/mod.py:1:name", "@name alpha", None, "pkg/mod.py:1:5: @name#0/0 alpha", ())
     assert (rg[0][0].id, rg[0][0].text, rg[1], rg[2]) == ("ripgrep:src/a.py:3", "alpha = 1", "src/a.py:3: alpha = 1", ())
 
 
 def test_content_search_forced_cap_emits_results_note(assay_root: AssayHarness) -> None:
     """Content search overflow emits the capped-results artifact note."""
-    two = (
-        b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n'
-        b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
-    )
-    executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(receipt(("rg",), 0, stdout=two, status=RailStatus.OK)))
+    two = b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(Completed(argv=("rg",), returncode=0, stdout=two, status=RailStatus.OK)))
     report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=(), max_results=1), executor))
     assert "results: 1 of 2 (cap=1); full listing in artifact" in report.notes
 
@@ -452,7 +379,7 @@ def test_structural_search_forced_cap_emits_results_note(assay_root: AssayHarnes
     """Structural (ast-grep) search with max_results=1 over 2 matches emits the exact N-of-M cap note."""
     assay_root.write("pkg/mod.py", "alpha = 1\nbeta = 2\n")
     two = msgspec.json.encode((_AG_MATCH, AstMatch(text="beta = 2", file="pkg/mod.py", lines="beta = 2\n")))
-    executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(receipt(("ast-grep",), 0, stdout=two, status=RailStatus.OK)),))
+    executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(Completed(argv=("ast-grep",), returncode=0, stdout=two, status=RailStatus.OK)),))
     params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=(), max_results=1)
     report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params, executor))
     assert "results: 1 of 2 (cap=1); full listing in artifact" in report.notes
@@ -469,14 +396,7 @@ def test_query_forced_cap_emits_saturation_note(assay_root: AssayHarness) -> Non
 # --- [PUBLIC_VERB_LAWS]
 
 
-@pytest.mark.parametrize(
-    "content, pattern, check_fn",
-    [
-        ("def alpha():\n    return 1\n", _PY_FUNC_QUERY, lambda r: r.counts.total >= 1),
-        ("x = 1\n", _PY_FUNC_QUERY, lambda r: r.status in {RailStatus.EMPTY, RailStatus.OK}),
-    ],
-    ids=["query_ok_on_valid_tree", "query_empty_on_no_match"],
-)
+@pytest.mark.parametrize("content, pattern, check_fn", [("def alpha():\n    return 1\n", _PY_FUNC_QUERY, lambda r: r.counts.total >= 1), ("x = 1\n", _PY_FUNC_QUERY, lambda r: r.status in {RailStatus.EMPTY, RailStatus.OK})], ids=["query_ok_on_valid_tree", "query_empty_on_no_match"])
 def test_query_public(assay_root: AssayHarness, content: str, pattern: str, check_fn: Callable[[Report], bool]) -> None:
     """query() returns Ok Report matching expected status and count predicate."""
     assay_root.write("pkg/mod.py", content)
@@ -485,11 +405,7 @@ def test_query_public(assay_root: AssayHarness, content: str, pattern: str, chec
     check_fn(report)
 
 
-@pytest.mark.parametrize(
-    "content, pattern, binary",
-    [("alpha = 1\nbeta = 2\n", "$NAME = $VAL", "ast-grep"), ("def alpha():\n    return 1\n", "alpha", "rg")],
-    ids=["search_structural_on_metavar", "search_content_ok_on_literal_pattern"],
-)
+@pytest.mark.parametrize("content, pattern, binary", [("alpha = 1\nbeta = 2\n", "$NAME = $VAL", "ast-grep"), ("def alpha():\n    return 1\n", "alpha", "rg")], ids=["search_structural_on_metavar", "search_content_ok_on_literal_pattern"])
 def test_search_public(assay_root: AssayHarness, content: str, pattern: str, binary: str) -> None:
     """search() routes structural patterns to ast-grep and literal patterns to ripgrep."""
     assay_root.write("pkg/mod.py", content)
@@ -518,11 +434,9 @@ def test_search_public(assay_root: AssayHarness, content: str, pattern: str, bin
     ],
     ids=["hit_ok", "no_match_empty", "failure_exit_failed", "rg_warning_note"],
 )
-def test_content_search_monkeypatched(
-    assay_root: AssayHarness, stdout: bytes, rc: int, status_in: RailStatus, expected_report_status: RailStatus
-) -> None:
+def test_content_search_monkeypatched(assay_root: AssayHarness, stdout: bytes, rc: int, status_in: RailStatus, expected_report_status: RailStatus) -> None:
     """search() literal: canned executor.run outcomes drive report status across rc x rows matrix."""
-    executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(receipt(("rg",), rc, stdout=stdout, status=status_in)))
+    executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(Completed(argv=("rg",), returncode=rc, stdout=stdout, status=status_in)))
     report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=()), executor))
     assert report.status is expected_report_status
     if expected_report_status is RailStatus.OK and rc == 0:
@@ -541,9 +455,7 @@ def test_content_search_no_catalog_row_returns_fault(assay_root: AssayHarness, m
 
 
 @pytest.mark.parametrize(
-    "query_src, expected",
-    [("(a)", 1), ("(a) (b)", 2), ("(a (b))", 1), ('(a (#eq? @x "(y)"))', 1), ("; note (c)\n(a)", 1), (")(a)", 1), ("", 0)],
-    ids=["single", "two_top_level", "nested_uncounted", "string_masked_paren", "comment_masked_paren", "unbalanced_close_clamped", "empty"],
+    "query_src, expected", [("(a)", 1), ("(a) (b)", 2), ("(a (b))", 1), ('(a (#eq? @x "(y)"))', 1), ("; note (c)\n(a)", 1), (")(a)", 1), ("", 0)], ids=["single", "two_top_level", "nested_uncounted", "string_masked_paren", "comment_masked_paren", "unbalanced_close_clamped", "empty"]
 )
 def test_top_level_patterns_masked_depth_count(query_src: str, expected: int) -> None:
     """_top_level_patterns counts only unmasked top-level query forms."""
@@ -555,10 +467,7 @@ def test_top_level_patterns_masked_depth_count(query_src: str, expected: int) ->
     [
         ('(function_definition name: (identifier) @name (#eq? @name "alpha"))', (frozenset((b"alpha",)),)),
         ('(function_definition name: (identifier) @name (#any-of? @name "alpha" "beta"))', (frozenset((b"alpha", b"beta")),)),
-        (
-            '(call function: (identifier) @f (#eq? @f "go") arguments: (argument_list (string) @s (#any-of? @s "x" "y")))',
-            (frozenset((b"go",)), frozenset((b"x", b"y"))),
-        ),
+        ('(call function: (identifier) @f (#eq? @f "go") arguments: (argument_list (string) @s (#any-of? @s "x" "y")))', (frozenset((b"go",)), frozenset((b"x", b"y")))),
         ("(a) (b)", None),
         ('(a (#match? @x "re"))', None),
         ("(function_definition) @def", None),
@@ -584,18 +493,13 @@ def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
     assert tail == ("-e", "alpha", "--", ".")
     assert (globs[::2], set(globs[1::2])) == (("--glob", "--glob"), {"*.py", "*.pyi"})
     bare = _content_args(CodeParams(pattern="alpha"), assay_root.root).fill(rg_row.command)
-    assert bare == ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git", "-e", "alpha", "--", "."), (
-        "an unset language drops the {globs*} splice whole"
-    )
+    assert bare == ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git", "-e", "alpha", "--", "."), "an unset language drops the {globs*} splice whole"
 
 
 def test_content_report_byte_shape(assay_root: AssayHarness) -> None:
     """Content reports preserve stderr decoding, row scores, and artifact identity."""
-    two = (
-        b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n'
-        b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
-    )
-    canned = receipt(("rg",), 2, stdout=two, stderr=b"warn \xff tail", status=RailStatus.FAILED)
+    two = b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
+    canned = Completed(argv=("rg",), returncode=2, stdout=two, stderr=b"warn \xff tail", status=RailStatus.FAILED)
     executor = SeamExecutor(run_fn=lambda *_a, **_kw: Ok(canned))
     report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=()), executor))
     assert (report.verb, report.status) == ("search", RailStatus.OK)
@@ -613,12 +517,12 @@ def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness) -
     assay_root.write("pkg/mod.py", "alpha = 1\n")
     params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=())
     hit = msgspec.json.encode((_AG_MATCH,))
-    hit_executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(receipt(("ast-grep", "run"), 0, stdout=hit, status=RailStatus.EMPTY)),))
+    hit_executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(Completed(argv=("ast-grep", "run"), returncode=0, stdout=hit, status=RailStatus.EMPTY)),))
     promoted = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params, hit_executor))
     assert (promoted.verb, promoted.status) == ("search", RailStatus.OK)
     assert tuple((r.id, r.score) for r in promoted.results) == (("ast-grep:pkg/mod.py:1", 100),)
     assert promoted.artifacts[0].id == sha256(b"pkg/mod.py:1: alpha = 1 => let alpha = 1").hexdigest()[:12]
-    panic = receipt(("ast-grep", "run"), 2, stdout=b"ast-grep panicked", status=RailStatus.FAILED)
+    panic = Completed(argv=("ast-grep", "run"), returncode=2, stdout=b"ast-grep panicked", status=RailStatus.FAILED)
     panic_executor = SeamExecutor(fan_fn=lambda *_a, **_kw: (Ok(panic),))
     failed = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params, panic_executor))
     assert (failed.verb, failed.status, failed.artifacts) == ("search", RailStatus.FAILED, ())

@@ -6,13 +6,13 @@
 
 The `Rasm.Element` `CanonicalWriter` is the one byte codec every preimage composes — MUTABLE-FLUENT, each primitive returning the same writer, so a discarded return is the ordinary spelling and no site copies a result — and `FabricationCanon` is the one facade over it, framing through `Coords`, `Basis`, `Maybe`, `Rows`, and `Discriminant` and closing through `Keyed` and `Ordered`. `ContentKey.Of` length-frames `EgressKind` ahead of those bytes, so equal payloads in different families stay distinct.
 
-`Receipt<TEvidence>` is the settled-receipt carrier a lane output carrying a content key, evidence, band, or stamp seats on — the lane sweep landed, and every surviving `*Receipt` record carries its own evidence or stamp under its RULINGS row. `RunEvidence` is the run spine's own instance of that spine, and `QuantityArrow` the one dimension-text entry a plane outside `Process` reaches, parameterized by the fault its own plane raises.
+Each lane returns its canonical domain result, carrying a content key or measured facts only when that result owns them; `RunEvidence` is the sealed run itself, and `QuantityArrow` the one dimension-text entry a plane outside `Process` reaches, parameterized by the fault its own plane raises.
 
 ## [01]-[INDEX]
 
 - [02]-[CONTENT_KEY]: `EgressKind`, `ContentKey`, `DeliveryTarget`, `EgressRequest`, `EgressContract`.
 - [03]-[POLICY]: `FabricationPolicy` and `PostSource`.
-- [04]-[RECEIPT]: `FabricationResult`, `Receipt<TEvidence>`, `RunProvenance`, `RunEvidence`, `RunLineage`.
+- [04]-[RESULT]: `FabricationResult`, `RunProvenance`, `RunEvidence`, `RunLineage`.
 - [05]-[RUN_FOLD]: `FabricationInput`, `RunStage`, `FabricationRuntime`.
 - [06]-[RUN_DISPATCH]: `FabricationCanon`, `QuantityArrow`, `Fabrication.Run`, `Fabrication.Lineage`, and the provenance fold.
 
@@ -174,7 +174,7 @@ public abstract partial record FabricationPolicy {
     public sealed record Post(PostSource Source, PostDialect Dialect, PostPolicy Policy) : FabricationPolicy;
     public sealed record Document(
         Seq<FabricationResult> Results,
-        TravelerReceiptCorpus Corpus,
+        TravelerCorpus Corpus,
         Option<PostDialect> Dialect) : FabricationPolicy;
     public sealed record Derive(
         AdmittedComponent Component,
@@ -232,17 +232,15 @@ public abstract partial record PostSource {
 }
 ```
 
-## [04]-[RECEIPT]
+## [04]-[RESULT]
 
-- Owner: `FabricationResult` owns plane-specific evidence; `Receipt<TEvidence>` owns the settled-receipt spine every lane output carries; `RunEvidence` owns the run spine's own settled receipt; `RunProvenance` owns the lineage walk's named outputs; `RunLineage` owns the projection a caller reads off a settled run.
+- Owner: `FabricationResult` owns plane-specific evidence; `RunEvidence` owns the sealed run; `RunProvenance` owns the lineage walk's named outputs; `RunLineage` owns the projection a caller reads off a sealed run.
 - Cases: each `FabricationResult` case names only the evidence its own plane produced, so `Keys` and `Evidence` are one arm per case rather than a re-spelling of every slot.
-- Entry: `FabricationResult.Evidence(input, consumed)` seals the receipt and proves the produced keys cover the request; `Receipt<TEvidence>.CanonicalBytes(writer, frame)` is the ONE preimage facade a lane payload frames itself through.
-- Law: `Receipt<TEvidence>` makes `Key`, `Concern`, and `Stamped` REQUIRED, so a lane output carrying none of them is not a receipt at all. Lane pages seat content key, evidence band, and stamp on this carrier and keep only their lane evidence as `TEvidence` — the sweep landed, and each surviving `*Receipt` record is individually ratified in the folder RULINGS; `RunEvidence` is the run spine's own instance of the same spine and keeps its name.
-- Receipt: `RunEvidence` carries requested and produced artifacts, motion diagnostics, inspection outcomes, verification state, content keys, the ancestral roots its provenance walk reached, and the GENERATION depth that walk measured.
+- Entry: `FabricationResult.Evidence(input, consumed)` seals the run and proves the produced keys cover the request.
+- Output: `RunEvidence` carries requested and produced artifacts, motion diagnostics, inspection outcomes, verification state, content keys, the ancestral roots its provenance walk reached, and the GENERATION depth that walk measured.
 - Boundary: consumers preserve field order while the `Rasm.Element` `CanonicalWriter` owns ordinal, IEEE-754 double with `-0.0` and NaN normalization, `U128`, `I64`, length-prefixed UTF-8, and presence-tag framing; a second byte codec beside it is the deleted form.
 
 ```csharp
-// --- [RECEIPT]
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FabricationResult {
     private FabricationResult() { }
@@ -280,7 +278,7 @@ public abstract partial record FabricationResult {
         Seq<PlannedStep> Steps,
         OperationTopology Topology,
         Option<CapabilityRequirement> Requirement,
-        Option<Receipt<LotEvidence>> LotSchedule,
+        Option<LotSchedule> LotSchedule,
         Option<CapabilityVerdict> Capability,
         Set<EgressKind> RequestedArtifacts,
         Seq<ContentKey> Artifacts,
@@ -332,24 +330,6 @@ public abstract partial record FabricationResult {
             ? Fin.Succ(evidence)
             : Fin.Fail<RunEvidence>(new KernelFault.InvalidValue("owner", $"egress:missing:{string.Join(',', missing.Map(static kind => kind.Key))}"));
     }
-}
-
-public sealed record Receipt<TEvidence>
-    where TEvidence : notnull {
-    public required TEvidence Evidence { get; init; }
-    public required FabConcern Concern { get; init; }
-    public required ContentKey Key { get; init; }
-    public Seq<ContentKey> Consumed { get; init; } = Seq<ContentKey>();
-    public Seq<ContentKey> Produced { get; init; } = Seq<ContentKey>();
-    public Seq<RunWarning> Warnings { get; init; } = Seq<RunWarning>();
-    public required Instant Stamped { get; init; }
-    public Option<bool> Verified { get; init; }
-
-    public CanonicalWriter CanonicalBytes(
-        CanonicalWriter writer, Func<TEvidence, CanonicalWriter, CanonicalWriter> frame) =>
-        frame(Evidence, writer.Discriminant(Concern))
-            .Rows(Consumed, static (row, key) => key.CanonicalBytes(row))
-            .Rows(Produced, static (row, key) => key.CanonicalBytes(row));
 }
 
 public sealed record RunProvenance(Seq<ContentKey> Roots, Map<ContentKey, int> Generation) {
@@ -407,11 +387,11 @@ public sealed record RunLineage(
 
 ## [05]-[RUN_FOLD]
 
-- Owner: `FabricationInput` owns the columns EVERY policy reads — geometry, markings, edge-preparation demand, routing axes, ancestry, and the egress request; `RunStage` owns the declared governance boundaries; `FabricationRuntime` owns clock, cancellation, progress, tap, the kernel hook rail, and the memo tier.
+- Owner: `FabricationInput` owns the columns EVERY policy reads — geometry, markings, edge-preparation demand, routing axes, ancestry, and the egress request; `RunStage` owns the declared governance boundaries; `FabricationRuntime` owns clock, cancellation, progress, the mounted instrument set, the span band, the kernel hook rail, and the memo tier.
 - Entry: `FabricationInput.Admit` accumulates its seven independent gates applicatively, so a caller reads every violated invariant at once rather than the first.
 - Auto: run governance is one read per `RunStage` boundary; a requested cancellation lowers `Errors.Cancelled`, while a live run publishes that row's declared fraction.
-- Receipt: `Run`'s terminal fold fires `FabricationFact.Run.Of(evidence, elapsed)` through `FabricationRuntime.Telemetry` with elapsed read from `Clock`, projecting duration, artifact kinds, and warnings onto `rasm.fabrication.run.duration`, `rasm.fabrication.run.artifacts`, and `rasm.fabrication.run.warnings` through `Process/telemetry#FACT_PROJECTION` as kind `run`.
-- Boundary: `Run` fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points off the settled result, and the delivery hand-off after evidence — all five through the ONE kernel `HookRail` the runtime carries (`Process/telemetry#HOOK_RAIL`), so any app observes, vetoes, or replays the spine without a code edit — and domain kernels stay tap-free: facts fire only where receipts settle on the run spine. `FabricationRuntime.Admit` binds the default rail on the rail rather than collapsing it with `??`, because seating every point is itself a refusable composition.
+- Output: `Run`'s terminal fold writes the sealed run onto `FabricationInstruments.RunDuration`, `RunArtifacts`, and `RunWarnings` through `runtime.Instruments` (`Process/telemetry#OBSERVE`) with elapsed read from `Clock`, so the run's own measures leave from the site that sealed them.
+- Boundary: `Run` fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points from the canonical domain value, and the delivery hand-off after evidence through the kernel `HookRail` carried by the runtime. Domain kernels fire nothing; durable announcements belong to the app root's observe subscription. `FabricationRuntime.Admit` binds the default rail on the rail rather than collapsing it with `??`, because seating every point is itself a refusable composition.
 
 ```csharp
 // --- [RUN_FOLD]
@@ -499,9 +479,12 @@ internal sealed partial class RunStage {
 public sealed partial class FabricationRuntime {
     public IClock Clock { get; }
     public CancellationToken Cancel { get; }
-    public FabricationTap Telemetry { get; }
 
     public FabricationRail Hooks { get; }
+
+    public Option<InstrumentSet> Instruments { get; }
+
+    public Option<SpanBand> Band { get; }
 
     public Option<IProgress<double>> Progress { get; }
 
@@ -511,12 +494,13 @@ public sealed partial class FabricationRuntime {
         IClock clock,
         CancellationToken cancel,
         Op key,
-        FabricationTap? telemetry = null,
         FabricationRail? hooks = null,
         Option<IProgress<double>> progress = default,
-        Option<HybridCache> memo = default) =>
+        Option<HybridCache> memo = default,
+        Option<InstrumentSet> instruments = default,
+        Option<SpanBand> band = default) =>
         Optional(hooks).Match(Some: Fin.Succ, None: () => FabricationHooks.Live(key))
-            .Bind(rail => Validate(clock, cancel, telemetry ?? FabricationTap.Silent, rail, progress, memo,
+            .Bind(rail => Validate(clock, cancel, rail, instruments, band, progress, memo,
                 out FabricationRuntime runtime).Admitted(runtime));
 
     internal Unit Reached(RunStage stage) {
@@ -533,7 +517,7 @@ public sealed partial class FabricationRuntime {
 - Law: the writer's constructor is PRIVATE and its two mints answer two different closes, so the facade owns both — `Keyed` opens `Retaining` and closes on the `Fin` rail, `Ordered` opens `Streaming` and closes on the digest. A lane spelling either mint itself carries the close's refusal as its own concern, and a lane spelling `new CanonicalWriter(...)` names no member at all.
 - Entry: `QuantityArrow(axis, raised, locus).Admit(text)` routes to `ProcessPhysics.Admit`, the one textual boundary, and re-raises on the CALLER's plane — a `PhysicsQuantity.<axis>.Admit` at a consuming page is a second text boundary answering on a foreign plane and is the deleted form.
 - Auto: provenance rails ITS OWN acyclicity before any traversal. A content-addressed key covers its own descendants, so a cycle in child-to-parent lineage is a FORGED key rather than a modelling mistake, and the gate answers `PolicyInadmissible` at the forgery rather than letting a sort throw.
-- Receipt: the walk's outputs land as NAMED columns — `RunProvenance.Roots` and `RunProvenance.Generation` — and the graph container never leaves the fold.
+- Output: the walk's outputs land as NAMED columns — `RunProvenance.Roots` and `RunProvenance.Generation` — and the graph container never leaves the fold.
 - Boundary: only the nest arm is genuinely asynchronous, so `Sync` is the one lift the other nine arms take and no arm hand-spells a completed task. `Fired` dispatches through the generated total `Switch`, so a new result case cannot silently lose its hook point, and each fired result is folded rather than discarded.
 - Law: `Raised` is the ONE refusal-only raise and carries four of the five points, proving the admitted fact equals the fired one — an egress-mint gate rewriting a content key forges an identity nothing produced, exactly as a lineage cycle does, and an observe or replay point holds no gate to move it. `Admission` alone takes the kernel's guarded arity, because rewriting the request is what an admission veto exists for; no site spells a point, since `At` is the fact's own column.
 - Packages: `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `Sinks`, `BreadthFirstSearchAlgorithm`, `VertexDistanceRecorderObserver`), `Rasm.Element` `CanonicalWriter`, `System.IO.Hashing` (`XxHash128` at the streaming close), LanguageExt.Core rails.
@@ -643,21 +627,22 @@ public static class Fabrication {
             cam:        static (state, policy) => Sync(Cam.Solve(policy, state.Input)),
             nest:       static (state, policy) => Nest.Solve(policy, state.Input, state.Runtime),
             additive:   static (state, policy) => Sync(Slice.Solve(policy, state.Input)),
-            verify:     static (state, policy) => Sync(Removal.Verify(policy, state.Input, state.Runtime.Telemetry)),
-            inspect:    static (state, policy) => Sync(Probe.Inspect(policy.Policy, state.Input, state.Runtime.Telemetry)),
+            verify:     static (state, policy) => Sync(Removal.Verify(policy, state.Input, state.Runtime.Instruments)),
+            inspect:    static (state, policy) => Sync(Probe.Inspect(policy.Policy, state.Input, state.Runtime.Instruments, state.Runtime.Band)),
             post:       static (state, policy) => Sync(Post.Lower(policy.Source, policy.Dialect, state.Input, policy.Policy)),
             document:   static (state, policy) => Sync(Traveler.Assemble(
                 policy,
                 state.Input,
                 state.Runtime.Clock,
-                static artifact => new FabricationResult.TravelerDocument(artifact))),
-            derive:     static (state, policy) => Sync(Derivation.Plan(policy, state.Input, state.Runtime.Telemetry)),
+                static artifact => new FabricationResult.TravelerDocument(artifact),
+                state.Runtime.Instruments)),
+            derive:     static (state, policy) => Sync(Derivation.Plan(policy, state.Input, state.Runtime.Instruments)),
             form:       static (state, policy) => Sync(policy.Source.Switch(
                 state: state,
                 sheet: static (run, source) =>
                     from unfold in FlatPattern.Unfold(source.Policy, run.Input)
                     from bends in BendSequence.Plan(
-                        unfold, source.Policy, source.Envelope, run.Runtime.Telemetry, run.Runtime.Cancel)
+                        unfold, source.Policy, source.Envelope, run.Runtime.Instruments, run.Runtime.Cancel)
                     from result in FlatPattern.Formed(unfold, bends.Steps)
                     select result,
                 tube: static (run, source) => TubeProgram
@@ -676,7 +661,14 @@ public static class Fabrication {
                    .TraverseM(produced => Raised(runtime.Hooks, new FabricationHookFact.EgressMint(produced), key)).As().Map(static _ => unit)
                from _points in Fired(runtime.Hooks, result, key)
                from _handoff in Raised(runtime.Hooks, new FabricationHookFact.Delivery(sealedEvidence), key)
-               let _fact = runtime.Telemetry.Fire(FabricationFact.Run.Of(sealedEvidence, runtime.Clock.GetCurrentInstant() - started))
+               from _duration in runtime.Instruments.Write(FabricationInstruments.RunDuration, (runtime.Clock.GetCurrentInstant() - started).TotalSeconds,
+                   (FabricationInstruments.ProcessSlot, input.Process.Key),
+                   (FabricationInstruments.VerificationSlot, sealedEvidence.Verified.Match(
+                       Some: static clean => clean ? FabricationInstruments.Verified : FabricationInstruments.Fail,
+                       None: static () => FabricationInstruments.Unverified)))
+               from _warnings in runtime.Instruments.Write(FabricationInstruments.RunWarnings, sealedEvidence.Warnings.Count)
+               from _artifacts in sealedEvidence.Produced
+                   .TraverseM(produced => runtime.Instruments.Write(FabricationInstruments.RunArtifacts, 1d, (FabricationInstruments.KindSlot, produced.Kind.Key))).As()
                let _sealed = runtime.Reached(RunStage.Sealed)
                select sealedEvidence;
     }
@@ -761,7 +753,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

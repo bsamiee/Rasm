@@ -92,12 +92,12 @@
 - `Microsoft.Diagnostics.NETCore.Client`(`.api/api-diagnostics-client.md`): `EventPipeSession.EventStream` feeds `new EventPipeEventSource(stream).Process()` on a dedicated pump — the one capture→decode hand-off composing the `event-trace` `SupportArtifact` row.
 - capture fan: the `event-trace` artifact row owns capture caps and redaction; TraceEvent contributes the decode-and-summarize step, never a second capture surface.
 - fault band: decode failures land as the typed `SupportFault` case in registry band 4810, the dump-capture band.
-- receipt: the decoded summary is one `SupportReceipt` row content-hashed through `Rasm.Domain.ContentHash.Of`.
+- output: the decoded summary is one `SupportManifest` entry content-hashed through `Rasm.Domain.ContentHash.Of`.
 
 [LOCAL_ADMISSION]:
 - TraceEvent is the decode half of the support-bundle event artifact: `DiagnosticsClient.StartEventPipeSession` produces the stream and `new EventPipeEventSource(stream)` decodes it, composing one `event-trace` `SupportArtifact` row.
 - Parser and provider selection is policy DATA on the artifact row — the `EventPipeProvider` set and the subscribed callbacks derive from the same row, so a capture profile is one data decision, never a call-site literal.
-- Decode runs on a dedicated pump inside the capture window's `DeadlineClass` bound; a malformed or truncated stream ends `Process()` with the partial events dispatched, folded to `SupportReceipt.Partial`.
+- Decode runs on a dedicated pump inside the capture window's `DeadlineClass` bound; a malformed or truncated stream ends `Process()` with the partial events dispatched and a typed `SupportFault` manifest entry.
 - Decoded event summary output — GC pause histogram, allocation top-N, exception counts — passes the redaction and truncation law before entering the manifest; raw event payloads never cross the wire un-redacted.
 - Profile artifacts state their symbolization posture on the row: a streaming `SampleProfilerTraceEventParser` decode yields instruction pointers alone, so the artifact carries module-relative addresses and names the absent symbol source rather than presenting pointers as frames.
 

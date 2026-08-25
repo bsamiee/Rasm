@@ -93,7 +93,7 @@ One explicit `Provider` per target project binds every resource in the arm. Cred
 - Prepared-row worth is the equivalence map, not the resource count: each `lane/capability` and `selfhosted-k8s` concern names one `service.Resource`, and a new capability is one more map row, never a structural change.
 
 [STACKING]:
-- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the `gcp` arm is a `Layer`-composed inline program run by `LocalWorkspace.createOrSelectStack`; realized `Output`s (Cloud SQL host, GKE endpoint, bucket URL) decode through `Schema` into the `RunReceipt` `StackOutputs` record — the `iac`→`work` `ShardingConfig` crossing — and `ProviderArgs.credentials` crosses that boundary only as a `pulumi.secret(...)`-marked `Output`, redacted in state and in the receipt.
+- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): the `gcp` arm is a `Layer`-composed inline program run by `LocalWorkspace.createOrSelectStack`; realized `Output`s decode from `UpResult.outputs` through `Schema` into `StackOutputs`, and `ProviderArgs.credentials` crosses resource boundaries only as a `pulumi.secret(...)`-marked `Output` redacted in state.
 - `@pulumi/policy`(`.api/pulumi-policy.md`): `validateResourceOfType(gcp.storage.Bucket, …)` / `validateResourceOfType(gcp.sql.DatabaseInstance, …)` narrow the CrossGuard pack against the exact classes exported here, gating every prepared-row run.
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): the SA-key `credentials` value arrives as a Doppler `getSecrets` `Output`, never a literal.
 - `@pulumi/kubernetes`(`.api/pulumi-kubernetes.md`): the equivalence map mirrors the `selfhosted-k8s` spine (GKE↔`apiextensions`-declared workloads, Cloud SQL↔CNPG `Cluster`), so an app crosses profiles without touching resource code.
@@ -103,4 +103,4 @@ One explicit `Provider` per target project binds every resource in the arm. Cred
 - Package: `@pulumi/gcp`
 - Owns: every service namespace's `CustomResource` quadruple, the `Provider` credential boundary, and the `selfhosted-k8s`→managed equivalence map — the whole managed-GCP resource surface
 - Accept: `pulumi.Input<T>` for every arg; the discriminated `credentials`/`accessToken`/`impersonateServiceAccount` family; resources instantiated only under the `gcp` dispatch arm, for the capability profile the `StackSpec` names
-- Reject: a bespoke per-resource client; a credential-mode enum where field presence discriminates; an in-arm typed error rail — apply faults fold through the `pulumi-pulumi.md` run-receipt event stream
+- Reject: a bespoke per-resource client; a credential-mode enum where field presence discriminates; an in-arm typed error rail — apply faults map to `DeployFault` at the Automation boundary

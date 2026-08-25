@@ -32,7 +32,7 @@
 |  [13]   | `UpdateSchema`     | class         | schema-mutation builder, commit on `with`-exit                                    |
 |  [14]   | `Schema`           | class         | Iceberg schema of `NestedField` columns; `as_arrow()`                             |
 |  [15]   | `NestedField`      | class         | typed column descriptor (id, name, type, required, doc)                           |
-|  [16]   | `UpsertResult`     | class         | upsert receipt carrying `rows_updated` and `rows_inserted`                        |
+|  [16]   | `UpsertResult`     | class         | native upsert result carrying `rows_updated` and `rows_inserted`                  |
 |  [17]   | `Summary`          | class         | snapshot summary: `operation` and `additional_properties`                         |
 
 [PUBLIC_TYPE_SCOPE]: schema types, transforms, and expression vocabulary

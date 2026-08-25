@@ -23,7 +23,7 @@
 |  [02]   | `IExcelExportService` | model → XLSX codec  | `ExcelExportResult Export(Stream, ExcelModel, …)` |
 |  [03]   | `IExcelValidator`     | pre-codec validator | `ValidateForImport`/`ValidateForExport`           |
 
-[PUBLIC_TYPE_SCOPE]: model root, base contracts, and receipts (`SAF.DataAccess.Models`)
+[PUBLIC_TYPE_SCOPE]: model root, base contracts, and results (`SAF.DataAccess.Models`)
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]             | [CAPABILITY]                                                      |
 | :-----: | :------------------------- | :------------------------ | :---------------------------------------------------------------- |
@@ -31,8 +31,8 @@
 |  [02]   | `IExcelModuleObject`       | wire-row base             | `RowNumber`, `ObjectGrouping`, `ObjectName`, `ObjectIdentifier`   |
 |  [03]   | `IExcelObject`             | identified object         | `: IExcelHasUniqueName, IExcelModuleObject` + `Guid Id`           |
 |  [04]   | `ExcelObjectBase`          | object base (`abstract`)  | `Name`, `Guid Id`, overridden `ObjectIdentifier`                  |
-|  [05]   | `ExcelExportResult`        | export receipt (`sealed`) | `IsSuccess`, `ExcelModel Model`, `ValidationResults`              |
-|  [06]   | `ExcelValidationResult`    | validation receipt        | `Identifier`, `ValidationResults`, `Severity`, `Format(...)`      |
+|  [05]   | `ExcelExportResult`        | export result (`sealed`)  | `IsSuccess`, `ExcelModel Model`, `ValidationResults`              |
+|  [06]   | `ExcelValidationResult`    | validation result         | `Identifier`, `ValidationResults`, `Severity`, `Format(...)`      |
 |  [07]   | `ExcelModelInformation`    | header row                | `: ExcelObjectBase`; `NationalCode`, `SystemOfUnits`, provenance  |
 |  [08]   | `ExcelProjectInformation`  | header row                | project metadata object                                           |
 |  [09]   | `Interfaces.IExcelHas*<T>` | capability markers        | quantity-parameterized object traits                              |
@@ -140,7 +140,7 @@
 |  [05]   | `IExcelValidator.ValidateForImport(ExcelModel, Version, Version)` | instance | pre-import FluentValidation pass        |
 |  [06]   | `IExcelValidator.ValidateForExport(ExcelModel, Version, Version)` | instance | pre-export FluentValidation pass        |
 
-[ENTRYPOINT_SCOPE]: model construction, receipts, and UnitsNet helpers
+[ENTRYPOINT_SCOPE]: model construction, results, and UnitsNet helpers
 - note: `ExcelModel` ctor is `(IReadOnlyCollection<IExcelModuleObject>, IReadOnlyCollection<ExcelValidationResult>, ExcelSystemOfUnits)`
 
 | [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                          |
@@ -149,7 +149,7 @@
 |  [02]   | `ExcelModel.Objects`                                        | property | `IReadOnlyList<IExcelModuleObject>` by type           |
 |  [03]   | `.SystemOfUnits`/`.OriginalVersion`/`.ValidationErrors`     | property | units regime, source SAF version, decode errors       |
 |  [04]   | `ExcelExportResult.IsSuccess`/`.Model`/`.ValidationResults` | property | outcome + revalidated model + messages                |
-|  [05]   | `Format(IReadOnlyList<ExcelValidationResult>)`              | static   | flatten validation receipts to a report string        |
+|  [05]   | `Format(IReadOnlyList<ExcelValidationResult>)`              | static   | flatten validation results to a report string         |
 |  [06]   | `UnitsNetExtensions.CreateUnit<TUnit>(this double)`         | static   | lift a SAF cell scalar to a typed `UnitsNet` quantity |
 |  [07]   | `ExcelFlexibleEnum<T>` ctor `(T)`/`(string)`, `→ T`/`T?`    | ctor     | known SAF enum value OR arbitrary "other" cell text   |
 

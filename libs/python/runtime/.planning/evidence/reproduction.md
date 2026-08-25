@@ -1,8 +1,8 @@
 # [PY_RUNTIME_REPRODUCTION]
 
-Cross-runtime seed parity binds here, the module `rasm.runtime.reproduction`: `SeedReproduction` asserts `ContentIdentity` reproduces every frozen seed-zero `XxHash128` reference whose `libs/contracts/manifest.json` case names the `python:runtime/evidence/reproduction#SEED_REPRODUCTION` consumer actor. It re-mints no digest and authors no fixture byte — it consumes the production `ContentIdentity.of`/`ContentKey.project` surface, so a derivation or render regression surfaces as a failed parity receipt, never a pass against a parallel path.
+Cross-runtime seed parity binds here, the module `rasm.runtime.reproduction`: `SeedReproduction` asserts `ContentIdentity` reproduces every frozen seed-zero `XxHash128` reference whose `libs/contracts/manifest.json` case names the `python:runtime/evidence/reproduction#SEED_REPRODUCTION` consumer actor. It re-mints no digest and authors no fixture byte — it consumes the production `ContentIdentity.of`/`ContentKey.project` surface, so a derivation or render regression surfaces as a failed `Parity` row, never a pass against a parallel path.
 
-One fault-combining fold carries the suite — `reliability/faults#FAULT` `traversed(by=Disposition.ACCUMULATE)` — so a single fixture's fault never masks a later fixture's evidence, and `contribute` satisfies the `observability/receipts#RECEIPT` `ReceiptContributor` port, each pending fixture riding a `planned` obligation keyed to the anchor owing its freeze. This module splits out of `evidence/identity` so its `receipts` import stays DAG-legal (`identity < receipts < reproduction`).
+One fault-combining fold carries the suite — `reliability/faults#FAULT` `traversed(by=Disposition.ACCUMULATE)` — so a single fixture's fault never masks a later fixture's evidence, and a pending fixture stays readable on the corpus as a row whose `reference` is `Nothing`, keyed to the anchor owing its freeze. This module splits out of `evidence/identity` so the corpus fixtures never load into the identity mint path (`identity < reproduction`).
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,6 @@ One fault-combining fold carries the suite — `reliability/faults#FAULT` `trave
 - Boundary: the reference is read-only — a Python-fabricated byte set for an unfrozen row is the one forbidden authorship, a `domain` row decodes its producer's semantics and never re-derives them, and an `infrastructure` row grades this branch's own mint against the vector every branch reproduces. The grammar is the identity owner's and is read here, never re-spelled — a second pattern beside `KEY_FMT` would let the census admit a tag the derivation refuses. Pending rows graduate at the anchor their `source` names; the harness driver feeding payloads and grading rows is a `libs/contracts/conformance` consumer of this same corpus, never a second fixture store here.
 
 ```python
-from collections.abc import Iterable
 from typing import Final, Literal
 
 from expression import Error, Nothing, Ok, Option, Some, identity
@@ -26,7 +25,6 @@ from msgspec import Struct
 
 from rasm.runtime.faults import CORPUS_DOUBLED, CORPUS_FMT, Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import KEY_FMT, ContentIdentity, ContentKey, KeyRender, KeyView
-from rasm.runtime.receipts import Receipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -38,7 +36,6 @@ type FixturePayload = bytes | tuple[bytes, ...] | tuple[ContentKey, ...]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 MESH_FMT: Final[str] = "geometry-topology"
-SUITE: Final[str] = "seed-reproduction"
 MESH_STREAM: Final[bytes] = bytes.fromhex(
     "03000000030000000000000001000000000000000200000001000000020000000100000003000000000000000100000002000000"
 )
@@ -49,7 +46,7 @@ MESH_HEX: Final[str] = f"{MESH_DIGEST:032x}:{MESH_FMT}"
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class ParityReceipt(Struct, frozen=True, gc=False):
+class Parity(Struct, frozen=True, gc=False):
     fixture: str
     aspect: ParityAspect
     expected: KeyRender
@@ -66,9 +63,9 @@ class ParityRow(Struct, frozen=True, gc=False):
     view: KeyView
     expected: KeyRender
 
-    def grade(self, fixture: str, key: ContentKey) -> ParityReceipt:
+    def grade(self, fixture: str, key: ContentKey) -> Parity:
         observed = key.project(self.view)
-        return ParityReceipt(fixture=fixture, aspect=self.aspect, expected=self.expected, observed=observed, verified=observed == self.expected)
+        return Parity(fixture=fixture, aspect=self.aspect, expected=self.expected, observed=observed, verified=observed == self.expected)
 
 
 class FrozenReference(Struct, frozen=True, gc=False):
@@ -189,7 +186,7 @@ class SeedReproduction(Struct, frozen=True):
             else Error(CORPUS_DOUBLED.raised())
         )
 
-    def grade(self) -> RuntimeRail[Block[ParityReceipt]]:
+    def grade(self) -> RuntimeRail[Block[Parity]]:
         rails = self.corpus.choose(
             lambda fixture: fixture.reference.map(
                 lambda frozen: ContentIdentity.of(fixture.fmt, frozen.payload, seed=Some(0)).map(
@@ -199,19 +196,8 @@ class SeedReproduction(Struct, frozen=True):
         )
         return self.claimed().bind(lambda _tags: traversed(rails, by=Disposition.ACCUMULATE).map(lambda graded: graded.collect(identity)))
 
-    def contribute(self) -> Iterable[Receipt]:
-        graded = (
-            self.grade()
-            .map(lambda rows: Receipt.of(SUITE, ("emitted", SUITE, dict(rows.map(lambda receipt: receipt.fact)))))
-            .map_error(lambda fault: Receipt.of(SUITE, fault))
-            .merge()
-        )
-        pending = self.corpus.choose(
-            lambda fixture: (
-                Some(Receipt.of(fixture.name, ("planned", fixture.name, {fixture.kind: fixture.source}))) if fixture.reference.is_none() else Nothing
-            )
-        )
-        return (graded, *pending)
+    def pending(self) -> Block[CorpusFixture]:
+        return self.corpus.filter(lambda fixture: fixture.reference.is_none())
 ```
 
 ## [03]-[RESEARCH]

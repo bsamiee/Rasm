@@ -24,7 +24,7 @@ The estate is GENERIC over the fact band it carries. `IUiFact` is the floor, `Ui
 - Law: `Locked` returns `Option<bool>` gated on the platform's supported-lock set: a platform that does not report caps-lock answers absence, never `false`, because `false` is a measurement and absence is not (`FORGED_ZERO`).
 - Law: pressure is a MEASURED column and a device that does not report it admits its own absent value at the seam — an interior default of one is a fabricated reading, and the host's own args seed exactly that constant, so the absence decision is the admission's and never the platform's.
 - Law: applying a cursor touches the control tree, so both cursor verbs cross `UiThread` and answer a rail; a `Unit`-returning setter would hide an off-marshal write behind a value that cannot report it.
-- Receipt: `DisplayFacts` and `PointerFact` are their own evidence and carry `IValidityEvidence` folds; nothing here mints a receipt.
+- Output: `DisplayFacts` and `PointerFact` are their own evidence and carry `IValidityEvidence` folds.
 - Packages: Eto.Forms for `Screen`, `Mouse`, `Keyboard`, `Cursor`, and `Cursors` (rosters verified in `libs/dotnet/.api/api-eto-runtime.md`); Eto.Drawing for the geometry carriers (prelude-aliased); `Numerics/atoms` for the admitted scalars.
 - Growth: a new ambient fact is one column on `DisplayFacts`; a new cursor is one `CursorRow`.
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino viewport pointer seam keeps its whole family, because `MouseCallbackEventArgs` carries a VETO the host reads back and `RhinoView`'s static event tables have no host-neutral form; the Grasshopper canvas keeps its hit plane for the same reason.
@@ -155,7 +155,7 @@ public static class InputState {
 - Law: the fact band is EXTENSIBLE by type parameter, not by case. `UiFact` stays the closed Eto band with a private root constructor, and a boundary declaring its own `IUiFact` union with a wrapping case over `UiFact` rides every owner on this page — so the kernel's dispatch stays total over what the kernel can construct, and a canvas or document fact is never a case the kernel cannot name.
 - Law: `IUiFact` carries `Kind` alone. A wire token is the one column every band shares, and a floor demanding more would force a host band to fabricate a coordinate its own events never measured.
 - Law: `Verdict` at the Grasshopper boundary loses its host column here — `InputVerdict` carries the precedence fold alone, and each boundary supplies its own `OfHost`/`Host` projection. NAMED LOSS stated: a boundary can no longer read a host verdict off a kernel value, and it re-derives one from the case it answered.
-- Receipt: `UiEvent<TFact>` carries the source, the fact, the monotonic stamp, and the drain-minted `Ordinal` — a consumer ordering two sources reads the ordinal, never arrival order and never a stamp two sources can tie on.
+- Output: `UiEvent<TFact>` carries the source, the fact, the monotonic stamp, and the drain-minted `Ordinal` — a consumer ordering two sources reads the ordinal, never arrival order and never a stamp two sources can tie on.
 - Growth: a new Eto fact is one `UiFact` case that breaks every kernel dispatch loudly; a new host fact is one case on that host's own union; a new phase is one row.
 - Boundary: `KeyEventArgs` and `TextInputEventArgs` cross as host types on the responder slots ALONE, because their veto members are read back by the host after the handler returns — a projected copy would drop the veto the host is waiting for.
 
@@ -379,7 +379,7 @@ public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact
 - Law: `EvidenceDrain` is BOUNDED and accounts BOTH losses — a shed count for evidence the bound dropped and a refused count for a thunk whose admission failed. A UI event storm drops rather than growing a queue for process lifetime, and each count is what makes its own loss observable; a drop-mode channel reports ADMISSION, never delivery, so a write result is not the evidence.
 - Law: writer completion is idempotent and keyed — `Complete` terminates the reader's loop exactly once no matter how many detach paths reach it, which is what a single-reader consumer needs to finish rather than block on a channel nothing will write again.
 - Law: every attach and detach marshals through `UiThread` — a subscription wired off the marshal races the host's own table.
-- Receipt: `UiSubscription` carries the rows it seated beside the rows it refused; `Shed` and `Refused` are the drain's own accounting. Neither is a return value.
+- Output: `UiSubscription` carries the rows it seated beside the rows it refused; `Shed` and `Refused` are the drain's own accounting. Neither is a return value.
 - Packages: Eto.Forms for the event surfaces (rosters verified in `libs/dotnet/.api/api-eto-forms.md` and `api-eto-runtime.md`); `System.Threading.Channels` for the bounded drain; `Parametric/projections` for the timeline that stamps; LanguageExt.Core for the leases and rails.
 - Growth: a new Eto source is one `UiSource` row carrying its own table; a source over an existing phase costs no new table at all; a new HOST source roster is one `IUiSource<TFact>` implementation at that boundary; a new pick axis is one `PickAxis` row.
 - Boundary: a host event table is named on a ROW and nowhere else — the phase rosters own every pointer, key, and drag pair, and this roster owns the rest — so a consumer subscribes by row and never by `+=`.
@@ -699,7 +699,6 @@ public static class UiEvents {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

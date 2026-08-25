@@ -2,7 +2,7 @@
 
 `Probe.Inspect` owns post-cycle metrology truth: one admitted `InspectPolicy` generates feature-complete contact targets, correlates exact controller cycles with repeat observations, compensates calibrated stylus behavior in the probe's own frame, reconciles datum registration with its anisotropic uncertainty, and projects transformed residuals onto `FabricationResult.InspectionResult`.
 
-`FabricationPolicy.Inspect`, `GCommand`, `DatumLineage`, `FitReceipt`, `Capability.Assess`, and `InspectionFeature` remain frozen seams. Contact generation composes the kernel `Deterministic` equidistribution owner, robust aggregation composes `MathNet.Numerics.Statistics`, primitive fitting composes the kernel `FitKind` roster, and residual statistics compose `AnalysisQuery.Conformance`; this page mints no draw sequence, no summary statistic, and no fit primitive of its own. Decoded measurement rows enter as typed data; controller transport and work-offset mutation remain outside the Verify plane.
+`FabricationPolicy.Inspect`, `GCommand`, `DatumLineage`, `Fitted`, `Capability.Assess`, and `InspectionFeature` remain frozen seams. Contact generation composes the kernel `Deterministic` equidistribution owner, robust aggregation composes `MathNet.Numerics.Statistics`, primitive fitting composes the kernel `FitKind` roster, and residual statistics compose `AnalysisQuery.Conformance`; this page mints no draw sequence, no summary statistic, and no fit primitive of its own. Decoded measurement rows enter as typed data; controller transport and work-offset mutation remain outside the Verify plane.
 
 ## [01]-[INDEX]
 
@@ -471,7 +471,7 @@ public sealed partial class ProbePlan {
 - Cases: `ProbeCycle` rows retain exact `G31`, `G38.2`, `G38.3`, `G38.4`, and `G38.5` semantics, their posted `GCommand`, and the approach direction they orient; `ProbeOutcome` closes contact, optional miss, and rejection so a hit always carries its observation and compensated point.
 - Law: lobing is a function of the direction the stylus DEFLECTS, resolved in the calibrated probe frame. A world-XY azimuth gives every probe on every plane the same phase, which measures nothing the calibration recorded; a deflection along the stylus axis has no azimuth at all, so its lobing term is a measured zero stating that reason rather than an arbitrary phase.
 - Auto: `Interval.Contains` gates source and calibration time; `ProbeAddress` retains cycle, feature, sample, and attempt, and correlation runs through one keyed index so contact count never drives quadratic scanning. Observation rows sort by attempt then instant before evaluation, so a repeat fold never reads ingress order.
-- Receipt: robust aggregation composes `MathNet.Numerics.Statistics` for the median centre, the median absolute deviation, and the accepted-set RMS repeatability; combined uncertainty then conserves calibration, thermal, lobing, and repeatability contributions.
+- Law: robust aggregation composes `MathNet.Numerics.Statistics` for the median centre, the median absolute deviation, and the accepted-set RMS repeatability; combined uncertainty then conserves calibration, thermal, lobing, and repeatability contributions.
 - Packages: `MathNet.Numerics.Statistics` (`Statistics.Median`, `Statistics.RootMeanSquare`) — every member answers `double.NaN` on an empty population rather than throwing, so an empty accepted set exits on the absence arm BEFORE any statistic is read.
 - Boundary: observations carry ball centers; axial travel, lateral approach, and thermal-scale rejection stay on the affected touch, and the aggregate required-hit verdict runs after every target retains its outcomes. Stylus radius and lobing add along the approach while pre-travel subtracts, and inverse thermal scaling restores reference-temperature geometry.
 
@@ -670,17 +670,17 @@ file sealed record UnregisteredFeature(
 ## [04]-[DATUM_AND_RESULT]
 
 - Owner: `DatumPolicy` closes assigned transform, best-fit registration, primitive substitution, and memo replay over the current `DatumLineage` wire; `RegistrationSpread` owns the anisotropic registration budget; `ProbeMemo` mints the registration content identity; `ProbeReport` owns the pre-egress evidence fold.
-- Law: NO result, receipt, or content key depends on hash iteration order. Grouping serves lookup alone — the substitute fit is computed once per plan key over a keyed index and then READ BACK onto the features in their own admitted order, so residual ordinals, the census population, and the projected atoms all keep the deterministic order the target fold assigned. Where a fold must emit groups it orders on the declared `ProbePlan.Key` ascending, so even the refusal that reports first is fixed.
+- Law: NO result or content key depends on hash iteration order. Grouping serves lookup alone — the substitute fit is computed once per plan key over a keyed index and then READ BACK onto the features in their own admitted order, so residual ordinals, the census population, and the projected atoms all keep the deterministic order the target fold assigned. Where a fold must emit groups it orders on the declared `ProbePlan.Key` ascending, so even the refusal that reports first is fixed.
 - Law: registration propagates ANISOTROPICALLY. A point residual over an inlier cloud of characteristic radius bounds the residual rotation at residual-over-radius, which displaces a feature at its lever arm by that angle times the arm. One uniform term understates every feature outside the cloud and overstates the datum origin itself, so both the cloud radius and the per-feature lever arm enter the budget; an assigned setup transform carries no alignment residual and states its absence rather than a zero.
 - Law: the kernel conformance metrics are defined over an UNSIGNED residual — `ConformanceMetric.Maximum` ranks by magnitude and carries no sign — so the census residual carries the absolute deviation while the signed deviation stays a named column on `MeasuredFeature`. Feeding a signed value into that slot makes the worst-sample rank the most positive rather than the worst, which reports a clean surface for a wholly undersize feature set.
-- Entry: `Probe.Inspect(InspectPolicy, FabricationInput, FabricationTap? tap = null, SpanBand? band = null)` — the tap and band both default, so a headless run emits and traces nothing with no branch of its own.
-- Entry: `ProbeBench.Workload` admits the `icp-probe-fit` measured workload — a best-fit datum lane over the feature-census floor — and `ProbeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.IcpProbeFit`; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
+- Entry: `Probe.Inspect(InspectPolicy, FabricationInput, Option<InstrumentSet> set = default, Option<SpanBand> band = default)` — the set and band both default absent, so a headless run measures and traces nothing with no branch of its own.
+- Entry: `ProbeBench.Workload` admits the `icp-probe-fit` measured workload — a best-fit datum lane over the feature-census floor — and `ProbeBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.IcpProbeFit`; measurement and benchmark projection stay the bench edge's under the AppHost claim-field map.
 - Law: the fit memo lane is one content key and one cache ride on the standing owner pattern — `ProbeMemo.Key` folds every fit-shifting input through `FabricationCanon.Ordered`, the S0 streaming close, the cache key spells the `icp:` prefix the Persistence solver-memo band dispatches on through the branch `HybridCache` L2, a hit re-enters as `DatumPolicy.Replay` with the memoized transform, residual, and radius, and a miss solves `BestFit` then publishes `(Transform, FinalDelta, RadiusMm)`; the lane composes at the cache-owning boundary, so `Probe.Inspect` and the statement kernel stay memo-free and synchronous.
 - Law: the memo preimage frames the alignment policy's LANE KEYS and its Procrustes closing row, not the scalars a context resolves those lanes to. A project override moves the number a fit converges against without re-keying every memoized registration, and the scale decision reads off the `PoseFit` row the policy chose rather than a separate flag stating the same fact twice.
 - Exemption: the two-cloud registration region is a statement kernel — resource release is not expressible on the `Fin` rail, and one region releasing both clouds on every exit path replaces a compensating dispose inside a failure lambda, which is a second custody path that leaks the moment a third resource joins.
-- Auto: `AlignKind.AlignDetailed` projects a transform only through `AlignmentReceipt.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `FitReceipt` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
-- Receipt: `ProbeReport` closes the pre-egress evidence fold — cycles, datum, fitted features, the kernel residual spread and its worst sample, and the capability study — while the frozen `InspectionResult` projects only `InspectionFeature` atoms. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and the worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection. The worst deviation reads the census's own ranked sample, so the instrument, the receipt, and the kernel ranking are ONE quantity and no seeded fold stands beside them. The whole fold runs inside the `FabricationEngine.Probe` bracket the run spine's `SpanBand` opens, with `EnginePhase.DatumRegistered` and `EnginePhase.FeaturesFitted` as its span marks; the settled datum alignment fires the `FabricationFact.Engine.Of` ICP-iteration row through the same tap.
-- Packages: `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Conformance`, `ConformanceMetric`, `ResidualSample`, `Distribution`), `Rasm.Solving` (`Fit.Apply`, `FitKind`, `FitOp`, `FitPolicy`, `FitReceipt.Inliers`), `Rasm.Processing` (`AlignKind.AlignDetailed`, `AlignmentReceipt`), `Rasm.Spatial` (`VectorCloud.Cluster`), `Rasm.Domain` (`ToleranceLane.Neglect` through `Context.For`, `ValidityClaim`, `FabricationCanon.Ordered`), `Rasm.Numerics` (`Dimension`, `PositiveMagnitude`).
+- Auto: `AlignKind.AlignDetailed` projects a transform only through `Alignment.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `Fitted` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
+- Output: `ProbeReport` closes the pre-egress evidence fold — cycles, datum, fitted features, the kernel residual spread and its worst sample, and the capability study — while the frozen `InspectionResult` projects only `InspectionFeature` atoms. `Probe.Inspect` writes conformance counts and the worst deviation through `FabricationInstruments.ProbeFeatures` and `ProbeDeviation` from that file-scoped report. The worst deviation reads the census's own ranked sample, so the instrument, the result, and the kernel ranking are ONE quantity and no seeded fold stands beside them. The whole fold runs inside the `FabricationEngine.Probe` bracket the run spine's `SpanBand` opens, with `EnginePhase.DatumRegistered` and `EnginePhase.FeaturesFitted` as its span marks; the settled datum alignment writes the ICP iteration count through `FabricationInstruments.Steps`.
+- Packages: `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Conformance`, `ConformanceMetric`, `ResidualSample`, `Distribution`), `Rasm.Solving` (`Fit.Apply`, `FitKind`, `FitOp`, `FitPolicy`, `Fitted.Inliers`), `Rasm.Processing` (`AlignKind.AlignDetailed`, `Alignment`), `Rasm.Spatial` (`VectorCloud.Cluster`), `Rasm.Domain` (`ToleranceLane.Neglect` through `Context.For`, `ValidityClaim`, `FabricationCanon.Ordered`), `Rasm.Numerics` (`Dimension`, `PositiveMagnitude`).
 - Boundary: one residual tranche feeds both consumers — `Capability.Assess(new CapabilityStudy.Variables(...), tolerance)` for the SPC study and the kernel `AnalysisQuery.Conformance` measured arity for the run's own statistics, whose `Distribution` row carries the public `Stat` summary beside median and interquartile range. Band conformance derives per sample from the tolerance each `ResidualSample` already carries and lands on `InspectionFeature.Pass`, so no second kernel reach and no package-local mean, RMS, or quantile fold stands beside the rows; a local QIF-shaped record claiming a standard contract the package does not admit is the deleted form.
 
 ```csharp
@@ -698,7 +698,7 @@ public abstract partial record DatumPolicy {
         AlignmentPolicy Alignment) : DatumPolicy;
     public sealed record Replay(DatumLineage Datum, Transform Registration, double DeltaMm, double RadiusMm) : DatumPolicy;
 
-    public DatumLineage Receipt => Switch(
+    public DatumLineage Lineage => Switch(
         setup: static row => row.Datum,
         bestFit: static row => row.Datum,
         substitute: static row => row.Datum,
@@ -772,7 +772,7 @@ public sealed record MeasuredFeature(
     double UncertaintyMm,
     double RepeatabilityMm,
     Instant At,
-    Option<FitReceipt> Fit);
+    Option<Fitted> Fit);
 
 file readonly record struct RegistrationSpread(double DeltaMm, double RadiusMm) {
     public double At(double leverArmMm) =>
@@ -786,8 +786,8 @@ file sealed record ProbeDatum(
     Transform Registration,
     Point3d Origin,
     Option<RegistrationSpread> Spread,
-    Option<AlignmentReceipt> Alignment,
-    Option<FitReceipt> Fit);
+    Option<Alignment> Alignment,
+    Option<Fitted> Fit);
 
 file sealed record ProbeReport(
     UInt128 SourceEvidence,
@@ -806,7 +806,7 @@ public static class Probe {
     internal static readonly Op ProbeOp = Op.Of(name: "fabrication:probe");
 
     public static Fin<FabricationResult> Inspect(
-        InspectPolicy policy, FabricationInput input, FabricationTap? tap = null, SpanBand? band = null) =>
+        InspectPolicy policy, FabricationInput input, Option<InstrumentSet> set = default, Option<SpanBand> band = default) =>
         band.Traced(FabricationEngine.Probe, ProbeOp, span =>
             from context in Context.Millimeters().ToFin()
             from _policy in AdmitPolicy(policy)
@@ -824,15 +824,14 @@ public static class Probe {
                 .ToFin(FabricationFault.Inadmissible(FabConcern.Verify, "probe:no-measurements"))
                 .Bind(_ => Reconcile(policy.Datum, unregistered, context))
             let _registered = FabricationTrace.Mark(span, EnginePhase.DatumRegistered)
-            let _icp = datum.Alignment.Map(receipt =>
-                FabricationFact.Engine.Of(receipt).Map((tap ?? FabricationTap.Silent).Fire).Strict())
+            from _icp in datum.Alignment.Map(alignment => set.Steps((EnginePhase.IcpIterations, alignment.Iterations))).IfNone(Fin.Succ(unit))
             let transformed = TransformFeatures(unregistered, datum)
             from features in Fits(transformed, policy.FeatureFit, context)
             let _fitted = FabricationTrace.Mark(span, EnginePhase.FeaturesFitted)
             from census in Census(features.Map(static row => row.Residual))
             from capability in policy.Capability
                 .Traverse(demand => Capability.Assess(
-                    new CapabilityStudy.Variables(features.Map(static row => row.Residual)), demand))
+                    new CapabilityStudy.Variables(features.Map(static row => row.Residual)), demand, set))
                 .As()
             let report = new ProbeReport(
                 policy.Source.EvidenceKey,
@@ -843,7 +842,7 @@ public static class Probe {
                 census.Worst,
                 capability,
                 policy.Clock.GetCurrentInstant())
-            from result in ToResult(report, input.Sources + input.ParentRuns, tap ?? FabricationTap.Silent)
+            from result in ToResult(report, input.Sources + input.ParentRuns, set)
             select result);
 
     private static Fin<Seq<ProbeTarget>> Targets(InspectPolicy policy, Context context) =>
@@ -874,7 +873,7 @@ public static class Probe {
              FabConcern.Verify, "probe:evidence-identity", FabricationFault.Inadmissible),
          AdmissionSlots.Gate(policy.Source.Rows.ForAll(row => policy.Calibration.Validity.Contains(row.At)),
              FabConcern.Verify, "probe:calibration-window", FabricationFault.Inadmissible),
-         AdmissionSlots.Gate(DatumValid(policy.Datum) && policy.Datum.Receipt.Traceable,
+         AdmissionSlots.Gate(DatumValid(policy.Datum) && policy.Datum.Lineage.Traceable,
              FabConcern.Verify, "probe:datum-traceability", FabricationFault.Inadmissible))
         .Apply(static (_, _, _, _) => unit)
         .As()
@@ -1048,9 +1047,9 @@ public static class Probe {
 
     private static ProbeDatum Seated(
         DatumLineage datum,
-        (Transform Transform, AlignmentReceipt Receipt) aligned,
+        (Transform Transform, Alignment Alignment) aligned,
         Seq<UnregisteredFeature> registered,
-        Option<FitReceipt> fit,
+        Option<Fitted> fit,
         Context model) {
         Point3d origin = Centroid(registered);
         double radius = Statistics.RootMeanSquare(registered.Map(row => row.Measured.DistanceTo(origin)));
@@ -1058,15 +1057,15 @@ public static class Probe {
             datum,
             aligned.Transform,
             origin,
-            Spread(aligned.Receipt.FinalDelta, radius, model),
-            Some(aligned.Receipt),
+            Spread(aligned.Alignment.FinalDelta, radius, model),
+            Some(aligned.Alignment),
             fit);
     }
 
     private static Point3d Centroid(Seq<UnregisteredFeature> features) =>
         MeanPoint(features.Map(static row => row.Measured));
 
-    private static Fin<(Transform Transform, AlignmentReceipt Receipt)> Align(
+    private static Fin<(Transform Transform, Alignment Alignment)> Align(
         Seq<UnregisteredFeature> features,
         Context context,
         AlignKind kind,
@@ -1076,9 +1075,9 @@ public static class Probe {
         try {
             return from measured in source
                    from nominal in target
-                   from receipt in kind.AlignDetailed(measured, nominal, policy, ProbeOp)
-                   from transform in receipt.Project<Transform>(ProbeOp)
-                   select (transform, receipt);
+                   from alignment in kind.AlignDetailed(measured, nominal, policy, ProbeOp)
+                   from transform in alignment.Project<Transform>(ProbeOp)
+                   select (transform, alignment);
         } finally {
             (source.ToSeq() + target.ToSeq()).Iter(static cloud => cloud.Dispose());
         }
@@ -1094,7 +1093,7 @@ public static class Probe {
             double uncertainty = Math.Sqrt(
                 Squared(row.MeasurementUncertaintyMm)
                 + Squared(registration)
-                + datum.Fit.Map(static receipt => Squared(receipt.Residual)).IfNone(0.0));
+                + datum.Fit.Map(static fitted => Squared(fitted.Residual)).IfNone(0.0));
             return new MeasuredFeature(
                 row.Target.Key,
                 row.Target.Plan,
@@ -1124,13 +1123,13 @@ public static class Probe {
         toSeq(Index(features, static feature => feature.Plan.Key))
             .OrderBy(static entry => entry.Key.Value)
             .ToSeq()
-            .TraverseM(entry => Fitted(entry.Value, policy, context).Map(receipt => (entry.Key, Receipt: receipt)))
+            .TraverseM(entry => Fitted(entry.Value, policy, context).Map(fitted => (entry.Key, Fit: fitted)))
             .As()
             .Map(static rows => toMap(rows))
-            .Map(receipts => features.Map(row =>
-                row with { Fit = receipts.Find(row.Plan.Key).Bind(identity) }));
+            .Map(fits => features.Map(row =>
+                row with { Fit = fits.Find(row.Plan.Key).Bind(identity) }));
 
-    private static Fin<Option<FitReceipt>> Fitted(Seq<MeasuredFeature> group, FitPolicy policy, Context context) =>
+    private static Fin<Option<Fitted>> Fitted(Seq<MeasuredFeature> group, FitPolicy policy, Context context) =>
         group.Head
             .ToFin(FabricationFault.Inadmissible(FabConcern.Verify, "probe:fit-group"))
             .Bind(head => {
@@ -1149,15 +1148,13 @@ public static class Probe {
                     .As();
             });
 
-    private static Fin<FabricationResult> ToResult(ProbeReport report, Seq<ContentKey> subjects, FabricationTap tap) =>
-        report.Features.TraverseM(ToAtom).As()
-            .Map(atoms => {
-                _ = tap.Fire(new FabricationFact.Probe(
-                    atoms.Count,
-                    atoms.Filter(static row => row.Pass.IfNone(false)).Count,
-                    report.Worst.Distance));
-                return (FabricationResult)new FabricationResult.InspectionResult(atoms, subjects.Distinct());
-            });
+    private static Fin<FabricationResult> ToResult(ProbeReport report, Seq<ContentKey> subjects, Option<InstrumentSet> set) =>
+        from atoms in report.Features.TraverseM(ToAtom).As()
+        let conforming = atoms.Filter(static row => row.Pass.IfNone(false)).Count
+        from _pass in set.Write(FabricationInstruments.ProbeFeatures, conforming, (FabricationInstruments.VerdictSlot, FabricationInstruments.Pass))
+        from _fail in set.Write(FabricationInstruments.ProbeFeatures, atoms.Count - conforming, (FabricationInstruments.VerdictSlot, FabricationInstruments.Fail))
+        from _worst in set.Write(FabricationInstruments.ProbeDeviation, report.Worst.Distance)
+        select (FabricationResult)new FabricationResult.InspectionResult(atoms, subjects.Distinct());
 
     private static Fin<InspectionFeature> ToAtom(MeasuredFeature feature) =>
         InspectionFeature.Admit(
@@ -1210,7 +1207,6 @@ public static class ProbeBench {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

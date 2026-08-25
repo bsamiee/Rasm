@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_ARCHITECTURE]
 
-`Rasm.Compute` maps APP-PLATFORM measured execution over `{Rasm, Rasm.Element}`: one intent rail admits work once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and one `ComputeReceipt` union records every outcome across the Tensor, Symbolic, Model, Solver, Stats, Runtime, and Analysis folders. Each folder maps to exactly one namespace, and one polymorphic owner closes its axis over the `ComputeReceipt`/`ComputeFault` pair.
+`Rasm.Compute` maps APP-PLATFORM measured execution over `{Rasm, Rasm.Element}`: one intent rail admits work once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and each producing lane returns its own result while the dispatch spine closes on `ComputeOutput`. Each folder maps to exactly one namespace, and producer-site instruments observe results without a parallel fact family.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -11,7 +11,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Layout.cs          # LayoutForm named shapes, Contiguity over stride facts, AxisPermutation proving each bijection
 │   ├── Dispatch.cs        # Each op-family row binds one arity kernel, claim-gated partition route, equivalence proof, and device lowering
 │   ├── Residency.cs       # OrtResidency lattice; TensorBridge ingress/egress, DeviceMemory allocation, BoundFlow steady-state binding
-│   ├── Memory.cs          # AllocationClass staging granted once against the intent-declared payload bound; AllocationEvidence fact stream
+│   ├── Memory.cs          # AllocationClass staging granted once against the intent-declared payload bound; AllocationEvidence manager events
 │   ├── Blas.cs            # Operand shape routes every dense solve — definite, square, overdetermined, symmetric — never the call site
 │   ├── Factor.cs          # SparseFormat ingestion over CSR reality; FactoredOp recovers capability from the factor kind
 │   ├── Quadrature.cs      # Kernel integration floor composed WHOLE; package-local re-declarations of that surface are the deleted form
@@ -20,7 +20,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Expression.cs      # SymbolicExpr [ComplexValueObject] whose identity is the simplified normal-form content key ALONE
 │   ├── Dimensional.cs     # DimensionMonomial as one Seq<ERational> of exponents; DimensionProof accumulates every compound mismatch
 │   ├── Lowering.cs        # One IL-compiling lower per simplified expression; analytic-Jacobian arm, Enclosure interval pre-gate
-│   └── Units.cs           # Frozen QuantityFamily rows admit unit-bearing input once and emit the seam conversion receipt
+│   └── Units.cs           # Frozen QuantityFamily rows admit unit-bearing input once and emit the seam conversion result
 ├── Model/                 # ONNX model identity, sessions, inference, and generative runs
 │   ├── Identity.cs        # ModelIdentity checksum, SlotShape trees, and provenance; ModelSource folds the acquisition arms
 │   ├── Sessions.cs        # One InferenceSession per policy-complete ResidentKey; capped shape buckets carry measured warm evidence
@@ -50,14 +50,12 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Families.cs        # [UseDelegateFromConstructor] binds every roster; TemporalSpec/DetectorSpec/CurveSpec, EstimatorKernels, IterativeEngine
 │   ├── Signal.cs          # SpectralTransform rows carry transform and inverse delegates; IO<Fin<T>> keeps effect and fault distinct
 │   └── Monitor.cs         # StreamMonitor stateful capsules advanced per sample by MonitorLane; every verdict a typed fact
-├── Runtime/               # Admit-to-receipt boundary
+├── Runtime/               # Admit-to-result boundary
 │   ├── Admission.cs       # ComputeIntent union under the spine Spec policy; the Substrate axis routes with total dispatch
-│   ├── Scheduling.cs      # Bounded WorkLane channel rows behind one LaneRuntime capsule; drops emit correlated Backpressure receipts
+│   ├── Scheduling.cs      # Bounded WorkLane channel rows behind one LaneRuntime capsule; drops emit correlated LanePressure facts
 │   ├── Progress.cs        # Monotonic ProgressPhase family; ProgressCell commits under rank guards; ProgressStream serves Watch
-│   ├── Receipts.cs        # ComputeReceipt the only fact vocabulary — payload spine, telemetry projection, folds
 │   ├── Claims.cs          # BenchmarkInput admits, BenchDistribution measures, ProfileArtifact addresses, BenchmarkClaim binds, HostClaims forecasts
 │   ├── Ledger.cs          # CostVector the per-axis monoid, CostPolicy the admitted rate table proving substrate coverage, ChargebackDataset
-│   ├── Board.cs           # FactSelector samples facts, ComputeObjective binds a kernel indicator, PanelRow/ComputeDescriptors and ComputeHookRail
 │   ├── Wire.cs            # Proto vocabulary, ParseGuard admission, the WireKeys lowering, and the client fault rail over Rasm.Contracts
 │   ├── Channels.cs        # RemoteTransport dial axis warmed by its row's WarmProbe; one GrpcChannelPolicy; WireLimits and the artifact-frame law
 │   ├── Ingest.cs          # BrokerBinding carries MQTT 5.0 and NATS whole; CaptureAdmission fans each delivery two ways; BsddTransport the REST leg
@@ -69,7 +67,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   └── Payload.cs         # Four encode arms on one ResidencyKind axis; cone-cullable clusters and level-clamped quantization
 └── Analysis/              # C#-first discipline-assessment rail over the ElementGraph
     ├── Assessment.cs      # Route/request/fact algebra, commissioning, AnalysisReads planar owner
-    ├── Dispatch.cs        # RerunPolicy carries the stale read; AssessmentSink three legs, AssessmentRow the neutral row, ComputeReceipt.Assessment
+    ├── Dispatch.cs        # RerunPolicy carries the stale read; AssessmentSink three legs, AssessmentRow the neutral row, AssessmentPayload
     ├── Aggregator.cs      # AssemblyAggregator folds a seam composition into layered-construction physics; analysis, never authoring
     ├── Frame.cs           # FrameModel folds member axes, SectionProperties, and projected edges; Solve bounds one signed MemberResponse per member
     ├── Capacity.cs        # (DesignCode, LimitState) capacity table with generator-built cells; the response-spectrum seismic route
@@ -82,13 +80,13 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type: `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Fault` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
 
-`ComputeFault` projects through AppHost `FaultWire.Raise` onto one `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant` off the threaded `IClock` and `Duration` off kernel `MonotonicTimeline`, both built at the app root where `ClockPolicy` stays.
+`ComputeFault` projects through AppHost `FaultWire.Raise` onto one `FaultDetail` at the wire edge; results stamp NodaTime `Instant` off the threaded `IClock` and `Duration` off kernel `MonotonicTimeline`, both built at the app root where `ClockPolicy` stays.
 
 ## [02]-[STRATA]
 
 Strata rank the interior; `Runtime` seats lowest as the vocabulary mint, its dispatch table routes to the work-lane owners, and every consumption edge points down.
 
-- S0 law — the `ComputeReceipt` union gains cases as partials DECLARED by the owning stratum: co-ownership, never an upward import.
+- S0 law — `ComputeOutput` closes substrate dispatch while every discipline result remains owned by its producing stratum.
 - S0 `Runtime` — `LaneProfiles` keys on the spine `WorkLane` roster.
 - S1 law — `Tensor` and `Symbolic` co-seat with no edge between them; numeric lowering and symbolic compilation meet only at the solver stratum.
 - S2 law — `Model` guards its rank at the `GraduationEnvelope` gate, so an offline-learned artifact enters as content-keyed evidence, not an import.
@@ -128,19 +126,15 @@ flowchart TB
         Compiled[CompiledExpr]
     end
     subgraph S0["S0 RUNTIME"]
-        Receipt[ComputeReceipt]
         Lane[LaneProfiles]
     end
-    Assessment e1@-->|"[IMPORT]: ComputeReceipt"| Receipt
     Daylight e2@-->|"[IMPORT]: ClashScale"| Clash
     Sweep e3@-->|"[IMPORT]: GraduationEnvelope"| Envelope
     Optimizer e4@-->|"[IMPORT]: CompiledExpr"| Compiled
     Sweep e5@-->|"[IMPORT]: LowDiscrepancy"| Sampling
     Estimator e6@-->|"[IMPORT]: TensorOps"| Ops
-    Identity e7@-->|"[IMPORT]: ComputeReceipt"| Receipt
     Mesh e8@-->|"[IMPORT]: Tensor<T>"| Ops
     Sweep e9@-->|"[IMPORT]: LaneProfiles"| Lane
-    Receipt f1@-->|"forbidden: substrate upward"| S4
 ```
 
 ## [03]-[SEAMS]
@@ -173,7 +167,6 @@ flowchart LR
     Fabrication[Rasm.Fabrication]
     Bim[Rasm.Bim]
     Rasm e1@-->|"[CONTENT_KEY]: ContentHash"| Model
-    Rasm e2@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Runtime
     Rasm e3@-->|"[SHAPE]: Predicate"| Solver
     Rasm e4@-->|"[SHAPE]: ObjectiveSense"| Solver
     Tensor e5@<-->|"[SHAPE]: DiscreteCalculus"| Rasm
@@ -228,7 +221,7 @@ config:
 ---
 flowchart LR
     accTitle: Compute platform and cross-runtime seams
-    accDescr: Compute owners exchanging port, receipt, projection, wire, content-key, and graduation contracts with platform and cross-runtime peers.
+    accDescr: Compute owners exchanging port, result, projection, wire, content-key, and graduation contracts with platform and cross-runtime peers.
     subgraph compute[RASM.COMPUTE]
         Model[Model runtime]
         Tensor[Tensor core]
@@ -246,9 +239,8 @@ flowchart LR
     AppHost e2@-->|"[PORT]: IChatClient"| Model
     AppHost e3@-->|"[PORT]: Admission"| Runtime
     AppHost e4@-->|"[PORT]: Spec"| Runtime
-    Solver e5@-->|"[RECEIPT]: DigitalTwin"| AppHost
+    Solver e5@-->|"[RESULT]: DigitalTwin"| AppHost
     Tensor e6@<-->|"[SHAPE]: PackKind"| AppHost
-    Runtime e7@-->|"[PORT]: ComputeHookRail"| AppHost
     Runtime e8@-->|"[PROJECTION]: ResidencyPayload"| AppUi
     Tensor e9@<-->|"[SHAPE]: WgpuDevice"| AppUi
     Runtime e10@<-->|"[WIRE]: ComputeService"| Geometry
@@ -259,7 +251,7 @@ flowchart LR
     Model e15@-->|"[GRADUATION]: GraduationEvidence"| Compute
     Solver e16@-->|"[SHAPE]: DoeDataset"| Data
     Data e17@-->|"[SHAPE]: GeoArrow"| Runtime
-    Runtime e18@-->|"[WIRE]: ReceiptHeaderWire + BenchmarkClaimWire"| Core
+    Runtime e18@-->|"[WIRE]: BenchmarkClaimWire"| Core
     Runtime e19@-->|"[WIRE]: FieldContainer"| Data
     Compute e20@-->|"[WIRE]: GraduationEnvelope"| Model
     Tensor e21@<-->|"[WIRE]: SparseExchange"| Compute
@@ -277,32 +269,28 @@ config:
 ---
 flowchart LR
     accTitle: Rasm.Compute measured execution spine
-    accDescr: How an admitted intent flows from boundary admission through dispatch to its receipt, with progress marks delivered on cadence.
+    accDescr: How an admitted intent flows from boundary admission through dispatch to its result, with progress marks delivered on cadence.
     ComputeIntent(["ComputeIntent"]) e1@-->|Admit| AdmittedIntent["AdmittedIntent.Admit"]
     AdmittedIntent f1@-.->|Fin fail| ComputeFault["ComputeFault"]
     AdmittedIntent e2@-->|Plan| SubstrateSelection["SubstrateSelection"]
-    SubstrateSelection e3@--> SelectionReceipt["SelectionReceipt"]
+    SubstrateSelection e3@--> Selection["Selection"]
     SubstrateSelection f2@-.->|Fin fail| ComputeFault
     AdmittedIntent e4@-->|Enqueue| LaneRuntime["LaneRuntime"]
     LaneRuntime e5@-->|Pump| DispatchTable["DispatchTable"]
-    SelectionReceipt e6@-->|Run| DispatchTable
+    Selection e6@-->|Run| DispatchTable
     DispatchTable e7@--> TensorOps["TensorOps"]
     DispatchTable e8@--> ModelSessions["ModelSessions"]
     DispatchTable e9@--> WireChannels["WireChannels"]
-    TensorOps e10@--> ComputeReceipt["ComputeReceipt"]
-    ModelSessions e11@--> ComputeReceipt
-    WireChannels e12@--> ComputeReceipt
-    ComputeReceipt e13@-->|Emit| ReceiptSurface["ReceiptSurface"]
-    ReceiptSurface e14@-->|Send| ReceiptSinkPort(["ReceiptSinkPort"])
+    DispatchTable e10@--> ComputeOutput["ComputeOutput"]
     LaneRuntime e15@-->|Advance| ProgressCell["ProgressCell"]
-    ProgressCell e16@-->|Observe / Stream / Instrument| Observers(["UiSchedulerPort / wire / InstrumentSet"])
+    ProgressCell e16@-->|Observe / Stream| Observers(["UiSchedulerPort / wire"])
 ```
 
-Spine admits once, selects substrate over row data, enqueues on bounded lanes, dispatches to the tensor, model, or remote lane, and lands every outcome on a `ComputeReceipt` case at the sink while admission and selection failures fall to `ComputeFault` and `ProgressCell` streams cadence-gated marks. Per-stage guards, conditioning, and rails each lane composes live on the owning implementation pages.
+Spine admits once, selects substrate over row data, enqueues on bounded lanes, and dispatches to the tensor, model, or remote lane. `ComputeOutput` carries the selected value and `ComputeFault` carries failure.
 
 One owner per concern rules the interior: `Tensor<T>` is the tensor and `TensorBridge` the sole `OrtValue` C-data factory feeding the single `BoundFlow` capsule; oracles couple only through the `Func<DesignPoint, Fin<Seq<double>>>` contract; one `HybridCache` binds per cache lane and one session per model identity.
 
-Assessment outcome is the one `ComputeReceipt.Assessment` case `Analysis/assessment` declares as a `Runtime/receipts` partial, every discipline runner returning the uniform `AssessmentResult` stream. `ComputeFault` is one 2200-band union `Runtime/admission` custodies across partial lanes; each lane appends its arm at the band's free frontier, and every fault crosses the wire through the compact `FaultDetail` envelope with `domain` and `case` as its sole identity.
+Every discipline runner returns `AssessmentResult`; write-back persists the corresponding `AssessmentPayload`. `ComputeFault` is one 2200-band union `Runtime/admission` custodies across partial lanes; each lane appends its arm at the band's free frontier, and every fault crosses the wire through the compact `FaultDetail` envelope with `domain` and `case` as its sole identity.
 
 ## [05]-[ROUTING]
 
@@ -341,7 +329,6 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
 - `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` payload.
 - Daylight content key folds the assessment content key, so a re-shaded site re-keys; site evidence is the EPW header or the explicit `SolarSite`.
-- `Runtime/receipts` descriptor and chargeback rows stay Compute-owned data a composition owner encodes onward; Compute owns no IaC surface.
 - Every ledger fold reads the kernel `TenantContext` stamped on the message envelope as its tenant partition, never a Compute-minted tenancy.
 - `Runtime/ingest` owns ONE pump over both `BrokerBinding` rows; the pump opens no span, and parent adoption stays the kernel causal-frame band's.
 - `Runtime/codecs` owns the ONE HDF5 archive session; every composing cluster reaches the library through it and opens no `H5File` of its own.

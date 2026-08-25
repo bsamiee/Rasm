@@ -2,7 +2,7 @@
 
 `Dimension` owns ISO 129-1 and ISO 1101 production through one closed `DimOp` union. ISO 129-1 cases carry their construction geometry, `DimStyleFamily`, and `DimTol`; GD&T cases carry `GdtFrame` or datum-feature data. Native cases lower through verified `ezdxf` builders with `Standard.dimstyle(family)` overrides, while `Fcf` and `DatumFeature` lower through `TOLERANCE` entities. `GdtFrame.decode` reads the corpus `rasm.contracts.fabrication.FeatureControl` message alone — `from_binary` plus one total fold onto the drawing vocabulary — seating every fact the `tolerance-frame` entry spells: no hand reader, no parallel tolerance owner, no producer-admitted field this frame drops.
 
-Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native path (`DXF` the `Drawing.write` blob, `SVG` the `SVGBackend`, `PDF` the `PyMuPdfBackend`) LEADS with `add_*_dim().render()` and the ISO tolerance as native DIM-variables (`dimtol`/`dimtp`/`dimtm`, `dimlim`, `MTextEditor.stack` for the stacked deviation), while the `LAYERED` path DECOMPOSES each dimension into named editable `graphic/layer#LAYER` `LayerNode` rows at full semantic parity — the extension/dimension-line geometry from `ezdxf.math.Construction*` anchor math (never hand-rolled trig) authored as `drawsvg` elements (never hand-formatted `<path d>` strings), per-case ISO 129-1 terminators anchored where the case actually terminates (arc ends tangent to the measured arc, one leader arrow on a radial, a datum triangle on a datum feature), the true measured value for EVERY case including the angular degrees and the `⌢`-prefixed arc length, the ISO 3098 measurement text outlined through `ziafont` (`typography/shape#SHAPE` owns the shaped run), and every `DimTol` mode typeset through the `typography/math#MATH` `Formula` owner seated through `seat` — `\pm` symmetric, stacked deviation, stacked limits, boxed basic — all penned by the discipline sRGB `Standard.rgb` resolves. `kiwisolver` `Solver` + `strength` bands solve the dimension-line offset STACK a fixed offset gets wrong. Rendering offloads through the owner's `lane: LanePolicy` instance seam onto the runtime thread lane, and the owner contributes one `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` case (or reused `ArtifactReceipt.Pdf` on the `PDF` backend) and one `core/plan#PLAN` `ArtifactWork` node — minting no IFC (`dotnet:Rasm.Bim`) and computing no sheet placement, the dimensioned SVG/PDF bytes feeding `composition/sheet#SHEET`'s `FigurePlacement` as a bytes seam.
+Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native path (`DXF` the `Drawing.write` blob, `SVG` the `SVGBackend`, `PDF` the `PyMuPdfBackend`) LEADS with `add_*_dim().render()` and the ISO tolerance as native DIM-variables (`dimtol`/`dimtp`/`dimtm`, `dimlim`, `MTextEditor.stack` for the stacked deviation), while the `LAYERED` path DECOMPOSES each dimension into named editable `graphic/layer#LAYER` `LayerNode` rows at full semantic parity — the extension/dimension-line geometry from `ezdxf.math.Construction*` anchor math (never hand-rolled trig) authored as `drawsvg` elements (never hand-formatted `<path d>` strings), per-case ISO 129-1 terminators anchored where the case actually terminates (arc ends tangent to the measured arc, one leader arrow on a radial, a datum triangle on a datum feature), the true measured value for EVERY case including the angular degrees and the `⌢`-prefixed arc length, the ISO 3098 measurement text outlined through `ziafont` (`typography/shape#SHAPE` owns the shaped run), and every `DimTol` mode typeset through the `typography/math#MATH` `Formula` owner seated through `seat` — `\pm` symmetric, stacked deviation, stacked limits, boxed basic — all penned by the discipline sRGB `Standard.rgb` resolves. `kiwisolver` `Solver` + `strength` bands solve the dimension-line offset STACK a fixed offset gets wrong. Rendering offloads through the owner's `lane: LanePolicy` instance seam onto the runtime thread lane, and `ArtifactWork` returns the dimensioned SVG/PDF layers that feed `composition/sheet#SHEET`'s `FigurePlacement`.
 
 ## [01]-[INDEX]
 
@@ -14,12 +14,11 @@ Each dimension DUAL-lowers over the `DimTarget` policy value. `ezdxf`'s native p
 - Cases: each dimensional `DimOp` case ends in the `(DimStyleFamily, DimTol)` facet pair and lowers onto its verified `ezdxf` builder (`add_linear_dim`/`add_aligned_dim`/`add_angular_dim_2l`/`_3p`/`_cra`/`add_radius_dim`/`add_diameter_dim`/`add_ordinate_x_dim`/`_y_dim`/`add_arc_dim_3p`/`_cra`/the self-rendering `add_multi_point_linear_dim` chain, `Baseline` a fold of `add_linear_dim` stepping by DIMDLI), matched by one total `match` in `_lower` — the `Angular3P`/`Arc3P` and `AngularCRA`/`ArcCRA` payload shapes coincide but each lowers onto a distinct builder. `OrdinateAxis` routes `add_ordinate_x_dim`/`_y_dim`. `Fcf` and `DatumFeature` lower onto `add_leader` plus the `TOLERANCE` entity whose `content` `_gdt_content` derives from the frame value.
 - Entry: `Dimension.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `DimOp | Iterable[DimOp]` by a structural `match` at the head — never a `batch` knob. `emit` returns `ArtifactWork` beside the `layered()` `RuntimeRail[LayerPlan]` projection; both execution paths ride `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING), ...)`, whose returned rail composes directly. `_native` seeds `Standard`, solves the offset stack, lowers every `DimOp`, and egresses through the target `DimBackend`; `_layered` decomposes each dimension into named rows over `ezdxf.math`, `drawsvg`, `ziafont`, and the `typography/math#MATH` `Formula` owner, with `aec=Some(_DIMS)` deriving ISO 13567 names downstream.
 - Auto: `_facets` projects each case's `(family, tol)` once through one total or-pattern; `over = dict(standard.dimstyle(family)) | _tol_over(tol)` scales the DIM-variables by the ISO 5455 factor so a `1:50` dimension draws its 2.5 mm text at paper scale with zero per-arm literal. Each `DimTol` mode lowers onto its native mechanism — `Symmetric` onto `dimtol`, `Deviation` onto an `MTextEditor.stack` stacked fraction, `Limits` onto `dimlim`, `Basic` onto a negative-`dimgap` boxed value — never a hand-formatted `± ` string, and the `LAYERED` tolerance layer typesets ALL FOUR through `_tol_latex`, so no admitted tolerance is silently absent on either arm. `_stack` threads one `kiwisolver.Solver`: a `required` anchor, `required` min-separation ≥ DIMDLI, and a custom `strength.create(0,1,0,4)` equal-gap band above plain `weak`; `Constraint.violated()` reads which soft gaps the solve sacrificed, and a dense chain that collapses the distribution falls back to deterministic fixed DIMDLI stepping. `LAYERED`'s `_construction` DECOMPOSES a curved dimension to the actual `ConstructionArc`/`ConstructionCircle` it MEASURES (`.flattening(_SAGITTA)`) and an ordinate to its axis dogleg; `_measurement` reads the true value per case — length, `R`/`⌀`, the angular degrees off the construction geometry, the `⌢` arc length — `_terminator_anchors` places each mark where its case terminates with the tangent the mark aligns to, and `_terminator_kind` recovers the drawn end from the LOWERED DIM-variables against regime's one terminator row, so the layered arm marks exactly what the native arm renders. Text and tolerance runs are MEASURED via `getsize()`/`getyofst()` so the text floats above the dimension line and the tolerance clears the value, the annotation font falls to the bundled `ziafont` face when the profile names an `.shx` CAD font no sfnt reader parses, and `_PRECISION` pins the emitted `d`-floats so the content key stays deterministic.
-- Receipt: `_emit` awaits `Journal.record` over `receipt.evidence()` at that fold for whichever case the target minted — `ArtifactReceipt.Drawing` on the DXF/SVG/LAYERED arms, the reused `ArtifactReceipt.Pdf` on the PDF backend — both `OPERATIONAL` production trail charging `STORAGE` on their byte volume, and `evidence` is total over the roster so no arm here names a kind. Recording suspends, so the seat is the awaitable `_emit`, and `layered()` crosses for the layer tree alone.
 - Wire: `GdtFrame.decode` is `FeatureControl.from_binary` plus `_framed`, one total fold onto the drawing vocabulary — a malformed body is the `ValueError` protobuf-py raises, and the corpus message tolerates a trailing unknown field where the retired hand reader refused it, which is the right posture for a wire that grows. Every closed vocabulary crosses as a corpus enum and lands by MEMBER NAME — `Characteristic`/`Scope`/`ZoneKind`/`Modifier` onto `GdtChar`/`GdtScope`/`GdtZone`/`GdtZoneModifier`, one derivation each and no ingest table — while `Material` lands through the three-row `_MATERIAL` correspondence because its `REGARDLESS` member names the ISO 1101 default reading this vocabulary spells `NONE`. The second dimension is `has_field("second_mm")` under the corpus `feature_control.second_dimension` rule, the datum budget the corpus `max_items = 3`, and the one law the corpus cannot hold — the ISO 5459 datum letter set — stays `_admit_label`'s.
 - Law: decimal presentation is THIS standard's DIMDEC and never a producer-side rounding — `_gdt_magnitude` falls to shortest-round-trip on a zone the drawing's own precision rounds away, since a drawn zero reads as perfect form.
 - Growth: a new ISO 129-1 dimension kind or construction form is one `DimOp` case plus one `_lower` builder arm; a new ISO 1101 characteristic is one corpus `Characteristic` member, one same-named `GdtChar` member, and one `_GDT_GLYPH` row; a new zone kind, scope, or zone modifier is one enum member and its glyph row; a new egress is one `DimTarget` member plus one `_ENGINES` row (and one `_BACKENDS` row for a native backend); a new tolerance presentation is one `DimTol` case plus one `_tol_over`/`_tol_latex` arm; a new DIM-variable axis is one key on the `drawing/standard#STANDARD` `dimstyle` derivation; a new stacking rule is one `kiwisolver` constraint at its `strength` band; a new `LAYERED` component author is one layer function over the existing owners. Zero new surface for a new dimension or a new layer.
 - Boundary: no IFC, sheet-placement, or annotation-leader logic — `dotnet:Rasm.Bim`, `composition/sheet#SHEET`, `drawing/annotate#ANNOTATE`. `ezdxf` owns the ISO 129-1 dimension entity, the `TOLERANCE` entity, and the render; `drawing/standard#STANDARD` the DIM-variable derivation and discipline pen; `graphic/vector/region#REGION` the landed `outline`/`boolean` the tapered-terminator premium composes; `ziafont` the ISO 3098 text outline; `typography/math#MATH` the tolerance math; `kiwisolver` the offset solve; `graphic/layer#LAYER` the layer vocabulary; `composition/sheet#SHEET` the placement; identity minting is the runtime's.
-- Packages: `ezdxf` the ISO 129-1 dimension family (`add_*_dim` each returning a `DimStyleOverride` whose `.render()` authors geometry, the `new_entity("TOLERANCE", ...)` GD&T frame, the `math.Construction*`/`.flattening` anchor + measured-arc geometry, `MTextEditor.stack`, the `Frontend`/`SVGBackend`/`PyMuPdfBackend` render), its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `drawsvg` the LAYERED geometry authoring (`Drawing`/`Group`/`Lines`/`Circle` — no hand-formatted `d` string); `kiwisolver` the offset stack with the custom equal-gap band and `Constraint.violated` overlap QA; `typography/math#MATH` `Formula`/`LatexSpec` the tolerance-math typeset, seat-placed, measured; `ziafont` the ISO 3098 text outline, measured, centred, baseline-seated; `numpy` the perpendicular offset normal and the angular/arc measurement; `expression`/`msgspec`/`beartype` the vocabulary, value objects, and `over` contract; `graphic/vector/region#REGION` a bare owner pointer — the landed `outline` the tapered-terminator premium composes, NOT imported for the base where the self-contained marks are the default; `core/receipt#RECEIPT` `ArtifactReceipt.Drawing`/`Pdf`. `drawing/standard#STANDARD` composes as bare owner pointers, its `DimStyleFamily`/`Standard.dimstyle`/`seed`/`extent`/`LayerName` lowering onto the `ezdxf` tables.
+- Packages: `ezdxf` the ISO 129-1 dimension family (`add_*_dim` each returning a `DimStyleOverride` whose `.render()` authors geometry, the `new_entity("TOLERANCE", ...)` GD&T frame, the `math.Construction*`/`.flattening` anchor + measured-arc geometry, `MTextEditor.stack`, the `Frontend`/`SVGBackend`/`PyMuPdfBackend` render), its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `drawsvg` the LAYERED geometry authoring (`Drawing`/`Group`/`Lines`/`Circle` — no hand-formatted `d` string); `kiwisolver` the offset stack with the custom equal-gap band and `Constraint.violated` overlap QA; `typography/math#MATH` `Formula`/`LatexSpec` the tolerance-math typeset, seat-placed, measured; `ziafont` the ISO 3098 text outline, measured, centred, baseline-seated; `numpy` the perpendicular offset normal and the angular/arc measurement; `expression`/`msgspec`/`beartype` the vocabulary, value objects, and `over` contract; `graphic/vector/region#REGION` a bare owner pointer — the landed `outline` the tapered-terminator premium composes, NOT imported for the base where the self-contained marks are the default. `drawing/standard#STANDARD` composes as bare owner pointers, its `DimStyleFamily`/`Standard.dimstyle`/`seed`/`extent`/`LayerName` lowering onto the `ezdxf` tables.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -33,7 +32,7 @@ from xml.etree.ElementTree import Element, fromstring, tostring
 import numpy as np
 from beartype import beartype
 from builtins import frozendict
-from expression import Error, Nothing, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.msgpack import Encoder
@@ -41,12 +40,12 @@ from msgspec.msgpack import Encoder
 from rasm.contracts.rasm.contracts.fabrication.fabrication_pb import Characteristic, Datum, Egress, FeatureControl, Material, Modifier, Scope, Segment as WireSegment, ZoneKind
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactKind
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import INGRESS, Discipline, LayerName, LayerSchema, Terminator
 from rasm.artifacts.drawing.standard import DimStyleFamily, Standard, extent
 from rasm.artifacts.graphic.layer import LayerNode, LayerPlan
@@ -81,7 +80,7 @@ type DimTag = Literal[
 ]
 type TolTag = Literal["auto", "custom", "symmetric", "deviation", "limits", "basic"]
 type MarkKind = Terminator | Literal["datum"]
-type DimArm = Callable[["Dimension"], tuple[tuple[LayerNode, ...], ArtifactReceipt]]
+type DimArm = Callable[["Dimension"], tuple[LayerNode, ...]]
 type GdtRow = tuple[str, float, "GdtModifier", "tuple[GdtZoneModifier, ...]", "tuple[GdtDatum, ...]"]
 
 
@@ -286,7 +285,6 @@ def _framed(wire: FeatureControl, /) -> GdtFrame:
 
 class DimBackend(Struct, frozen=True):
     egress: "Callable[[Drawing, Modelspace, float, float], bytes]"
-    kind: Literal["drawing", "pdf"]
 
 
 # --- [VOCABULARY] -----------------------------------------------------------------------
@@ -402,24 +400,27 @@ class Dimension(Struct, frozen=True):
             case _:
                 return cls(ops=tuple(ops), standard=standard, target=target, lane=lane)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[tuple[LayerNode, ...]]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.ops)))
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"drawing-dimension-{self.target}", _CANON.encode((self.ops, self.standard, self.target)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        settled = (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(lambda pair: pair[1])
+    async def _emit(self) -> RuntimeRail[tuple[LayerNode, ...]]:
+        settled = await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)
         match settled:
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=layers):
+                size = sum(len(node.leaf[1].fragment) for node in layers if node.tag == "leaf" and node.leaf[1].tag == "fragment")
+                kind: ArtifactKind = "pdf" if self.target is DimTarget.PDF else "drawing"
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind=kind, scope=self.lane.scope)
+                return Ok(layers)
             case refused:
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         return (await self.lane.offload(Kernel.of(_layered, KernelTrait.RELEASING), self)).map(
-            lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
+            lambda layers: LayerPlan(schema=LayerSchema.ISO13567, roots=layers)
         )
 
 
@@ -582,7 +583,7 @@ def _lower(msp: "Modelspace", op: DimOp, standard: Standard, offset: Option[floa
             assert_never(unreachable)
 
 
-def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace", int]:
+def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace"]:
     doc = ezdxf.new("R2018", setup=True)
     msp = doc.modelspace()
     families = tuple(dict.fromkeys(_facets(op)[0] for op in dim.ops))
@@ -590,7 +591,7 @@ def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace", int]:
     offsets = _stack(dim)
     for index, op in enumerate(dim.ops):
         _lower(msp, op, dim.standard, offsets.try_find(index))
-    return doc, msp, len(dim.ops)
+    return doc, msp
 
 
 def _page(width: float, height: float, /) -> "dxflayout.Page":
@@ -1205,26 +1206,21 @@ def _egress_pdf(doc: "Drawing", msp: "Modelspace", width: float, height: float, 
 
 
 _BACKENDS: frozendict[DimTarget, DimBackend] = frozendict({
-    DimTarget.DXF: DimBackend(egress=_egress_dxf, kind="drawing"),
-    DimTarget.SVG: DimBackend(egress=_egress_svg, kind="drawing"),
-    DimTarget.PDF: DimBackend(egress=_egress_pdf, kind="pdf"),
+    DimTarget.DXF: DimBackend(egress=_egress_dxf),
+    DimTarget.SVG: DimBackend(egress=_egress_svg),
+    DimTarget.PDF: DimBackend(egress=_egress_pdf),
 })
 
 
-def _native(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    doc, msp, count = _lowered(dim)
+def _native(dim: Dimension, /) -> tuple[LayerNode, ...]:
+    doc, msp = _lowered(dim)
     width, height = extent(msp)
     backend = _BACKENDS[dim.target]
     data = backend.egress(doc, msp, width, height)
-    receipt: ArtifactReceipt = (
-        ArtifactReceipt.Pdf(dim._key, len(data), 1)
-        if backend.kind == "pdf"
-        else ArtifactReceipt.Drawing(dim._key, "dimension", count, "ezdxf", round(width), round(height), len(data))
-    )
-    return (LayerNode.Annotation(f"dimension.{dim.target.value}", data, aec=Some(_DIMS)),), receipt
+    return (LayerNode.Annotation(f"dimension.{dim.target.value}", data, aec=Some(_DIMS)),)
 
 
-def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+def _layered(dim: Dimension, /) -> tuple[LayerNode, ...]:
     ziafont.config.precision = _PRECISION
     geometry, pen = Block.empty(), _pen(dim.standard)
     envelope, offsets = _scene_box(dim), _stack(dim)
@@ -1239,16 +1235,7 @@ def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
         ("dimension-tolerance", _tolerance_bytes(dim, pen, envelope, offsets)),
     )
     layers = tuple(LayerNode.Annotation(name, source, aec=Some(_DIMS), z=z) for z, (name, source) in enumerate(rows))
-    facts = ArtifactReceipt.Drawing(
-        dim._key,
-        "dimension",
-        len(dim.ops),
-        "drawsvg",
-        round(envelope[2] - envelope[0]),
-        round(envelope[3] - envelope[1]),
-        sum(len(source) for _name, source in rows),
-    )
-    return layers, facts
+    return layers
 
 
 _ENGINES: frozendict[DimTarget, DimArm] = frozendict({

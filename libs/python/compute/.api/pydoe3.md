@@ -98,7 +98,7 @@
 [LOCAL_ADMISSION]:
 - Generate classical DOE cohorts through the coded factorial/response-surface generators; route pure space-filling QMC to `scipy.stats.qmc` and variance-based sensitivity to the SALib samplers.
 - Map each family's coordinates onto physical bounds through the study per-axis fold; a bare unit-hypercube sample uses `scale_samples` directly.
-- Capture the design method, factor count, center/star controls, and `seed` in the study receipt so a resumed run rebuilds the identical coded cohort.
+- Capture the design, responses, method, center/star controls, and `seed` on `StudyRun` so resume reads the original cohort directly.
 
 [RAIL_LAW]:
 - Package: `pyDOE3`

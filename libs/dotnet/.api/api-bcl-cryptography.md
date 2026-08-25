@@ -1,6 +1,6 @@
 # [RASM_API_BCL_CRYPTOGRAPHY]
 
-`System.Security.Cryptography` owns RFC-7468 armor, X.509 and bare SubjectPublicKeyInfo admission and export, AEAD sealing, ECDSA attestation, and buffer zeroization for every credential wire, sealed object, and signed receipt the branch mints. Each allocating form carries a caller-buffer span twin sized by the surface's own probe, so credential material rides one rented destination from armor through overwrite. Confidentiality and authenticity are the claims this surface binds.
+`System.Security.Cryptography` owns RFC-7468 armor, X.509 and bare SubjectPublicKeyInfo admission and export, AEAD sealing, ECDSA attestation, and buffer zeroization for every credential wire, sealed object, and signed artifact the branch mints. Each allocating form carries a caller-buffer span twin sized by the surface's own probe, so credential material rides one rented destination from armor through overwrite. Confidentiality and authenticity are the claims this surface binds.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -188,7 +188,7 @@
 - `api-highperformance`(`.api/api-highperformance.md`): `MemoryOwner<T>.Allocate` rents the destination `GetEncodedSize` sizes, and `ZeroMemory` overwrites it before `Dispose` returns the rental to the pool.
 - `Rasm.AppHost` credential lifecycle: public material crosses as raw DER — `X509CertificateLoader.LoadCertificate` proves each chain element and `PublicKey.CreateFromSubjectPublicKeyInfo` each bare key, both copying out inside the proving scope — while the secret lease holds the live rented copy and drives its `ZeroMemory` terminal, so material never carries two encodings and no armor rides the wire.
 - `Rasm.Persistence` object store: the client-side seal binds one `AesGcm` per KMS-unwrapped DEK and derives its nonce from the content address, so a resumed multipart replays byte-identical ciphertext and the DEK zeroizes at the same terminal.
-- `Rasm.Fabrication` attestation: `GetECDsaPrivateKey` signs the receipt preimage under `Rfc3279DerSequence`, and verification runs `CreateFromPem` with `GetECDsaPublicKey` over the exported certificate.
+- `Rasm.Fabrication` attestation: `GetECDsaPrivateKey` signs the attestation preimage under `Rfc3279DerSequence`, and verification runs `CreateFromPem` with `GetECDsaPublicKey` over the exported certificate.
 - `Rasm.Persistence` derived identity: `CreateHash` folds the namespace bytes then the name bytes and `GetHashAndReset` closes into a `stackalloc` span, so the RFC 4122 name-based mint spends no concatenation buffer between the two segments.
 
 [LOCAL_ADMISSION]:

@@ -1,10 +1,10 @@
 # [RASM_RHINO_ACQUISITION]
 
-`Acquisition.Get` interprets one admitted `Acquire` value inside a document acquire grant. Custom getters, options, point callbacks, modal routes, and native references remain scoped to that window; egress is one detached `AcquiredReceipt`. The page also declares the folder's ONE rule-roster spine: `RulePlan<TRule, TSlot>` carries the roster, the one-per-slot admission, and the two folds every rule family on this page — and the selection page's pick rules and the options page's option roster — compose instead of re-spelling.
+`Acquisition.Get` interprets one admitted `Acquire` value inside a document acquire grant. Custom getters, options, point callbacks, modal routes, and native references remain scoped to that window; egress is one detached `AcquireOutcome`. The page also declares the folder's ONE rule-roster spine: `RulePlan<TRule, TSlot>` carries the roster, the one-per-slot admission, and the two folds every rule family on this page — and the selection page's pick rules and the options page's option roster — compose instead of re-spelling.
 
 ## [01]-[INDEX]
 
-- [02]-[PAYLOAD]: `Acquired`, `AcquireTerminal`, `AcquiredReceipt`, `DragCensus`, the `ISlotted<TSlot>` contract, and the `RulePlan<TRule, TSlot>` spine.
+- [02]-[PAYLOAD]: `Acquired`, `AcquireTerminal`, `AcquireOutcome`, `DragCensus`, the `ISlotted<TSlot>` contract, and the `RulePlan<TRule, TSlot>` spine.
 - [03]-[ACCEPTANCE]: `AcceptSlot`, `AcceptGate`, `AcceptRule`, and `AcceptPlan` — the parameterless accept calls, the presence-cased modalities, and the terminal-derived widening.
 - [04]-[POINT_ALGEBRA]: `PickOff`, `PointConstraint`, `PointGate`, `PointerShape`, `SnapBarSpan`, `SnapBarAxis`, `ArrowSense`, `BaseTrait`, `PointSlot`, `PointRule`, `PointerKey`, `PointFeedback`, `GetPointFact`, and `PointPlan`.
 - [05]-[REQUEST]: `TextMeaning`, `PromptCase`, `ObjectGate`/`ObjectSlot`/`ObjectRule`/`ObjectPlan`, `DragSelection`, `ShapeAsk`, `FileAsk`, `ModalInput`, `RequestColumn`, `AcquireIntent`, `InputDefault`, `ViewportFact`, `InputMap`, and `Acquire`.
@@ -15,11 +15,11 @@
 
 ## [02]-[PAYLOAD]
 
-`Acquired` closes interactive, screen-space, scalar, object, geometry, view, transform, and file payloads at THIRTEEN cases. The seven single-field geometry wrappers collapse onto ONE `Shape` case whose payload is the kernel form recovery's own answer — `Lease<GeometryBase>`, owned by the receipt's consumer — because every producer already erased the static shape type into `Func<Fin<Acquired>>` and no consumer dispatched on it. NAMED LOSS: the per-shape static payload type; witness: `ShapeAsk.Segment` projected `new Acquired.Segment(Line)` and now projects `value.GeometryForm(key)` into `Shape`, and the one former consumer read the receipt's payload erased either way. `AcquireTerminal` preserves every non-fault control terminal, including native timeout. `DragCensus` (RENAMED from `DragEvidence` — the kernel `Interaction/input` owns `DragEvidence` as the pointer-slop fact and one assembly resolves bare names, E-R31) detaches the drag buffer's object, grip, and owner census with its measured extent and applied-pose count, so the host buffer itself dies inside the drive.
+`Acquired` closes interactive, screen-space, scalar, object, geometry, view, transform, and file payloads at THIRTEEN cases. The seven single-field geometry wrappers collapse onto ONE `Shape` case whose payload is the kernel form recovery's own answer — `Lease<GeometryBase>`, owned by the outcome's consumer — because every producer already erased the static shape type into `Func<Fin<Acquired>>` and no consumer dispatched on it. NAMED LOSS: the per-shape static payload type; witness: `ShapeAsk.Segment` projected `new Acquired.Segment(Line)` and now projects `value.GeometryForm(key)` into `Shape`, and the one former consumer read the outcome's payload erased either way. `AcquireTerminal` preserves every non-fault control terminal, including native timeout. `DragCensus` (RENAMED from `DragEvidence` — the kernel `Interaction/input` owns `DragEvidence` as the pointer-slop fact and one assembly resolves bare names, E-R31) detaches the drag buffer's object, grip, and owner census with its measured extent and applied-pose count, so the host buffer itself dies inside the drive.
 
-`Acquired.Distance` pairs its magnitude with the kernel `ModelUnit` read off the document at parse time — the pairing `Document/session.md`'s `UnitText.LengthValueCase` already detaches on. Receipts outlive their acquire window, so a `UnitRegime` change between acquisition and use re-reads a bare magnitude in a regime that no longer produced it; consumers re-entering the value rescale through `ModelUnit.ScaleTo`, the branch's one scale owner. `Acquired.Angle` carries no regime: radians ARE the canonical measure its name spells, `AngleGrammar` owns the degree/radian dialect on the TEXT side alone, and a regime column there names a fact no document holds.
+`Acquired.Distance` pairs its magnitude with the kernel `ModelUnit` read off the document at parse time — the pairing `Document/session.md`'s `UnitText.LengthValueCase` already detaches on. An `AcquireOutcome` outlives its acquire window, so a `UnitRegime` change between acquisition and use re-reads a bare magnitude in a regime that no longer produced it; consumers re-entering the value rescale through `ModelUnit.ScaleTo`, the branch's one scale owner. `Acquired.Angle` carries no regime: radians ARE the canonical measure its name spells, `AngleGrammar` owns the degree/radian dialect on the TEXT side alone, and a regime column there names a fact no document holds.
 
-`Acquired.Paint` carries the kernel `PerceptualColor`, admitted through `Slots.Shade` at the getter seam and quantized back through `Slots.Rgb` — which now composes the kernel `ToDrawing` egress and REFUSES an out-of-gamut colour instead of hand-building `Color.FromArgb` off the clipping byte leg; the shim that bypassed the kernel's refusal is deleted and every write seam rides the rail. `Acquired.Objects` carries the selection page's own `PickReceipt` — survivors, named casualties, and the participating-getter fact — rather than a bare capture sequence, so a stale reference inside a multi-object pick no longer voids the whole acquisition and the caller reads which references refused. `Acquired.ScreenPoint` keeps `System.Drawing.Point` — a screen struct IS the host's pixel frame and has no kernel counterpart — and that carve is confined to the detached fact: no operation on this page reads it back into a host call.
+`Acquired.Paint` carries the kernel `PerceptualColor`, admitted through `Slots.Shade` at the getter seam and quantized back through `Slots.Rgb` — which now composes the kernel `ToDrawing` egress and REFUSES an out-of-gamut colour instead of hand-building `Color.FromArgb` off the clipping byte leg; the shim that bypassed the kernel's refusal is deleted and every write seam rides the rail. `Acquired.Objects` carries the selection page's own `PickOutcome` — survivors, named casualties, and the participating-getter fact — rather than a bare capture sequence, so a stale reference inside a multi-object pick no longer voids the whole acquisition and the caller reads which references refused. `Acquired.ScreenPoint` keeps `System.Drawing.Point` — a screen struct IS the host's pixel frame and has no kernel counterpart — and that carve is confined to the detached fact: no operation on this page reads it back into a host call.
 
 `RulePlan<TRule, TSlot>` is the folder's rule-roster spine (E-R30): five owners spelled `Seq<TRule>` + one-per-slot + `Traverse`-admit + apply independently — `AcceptPlan`, `PointPlan`, `ObjectPlan` here, `PickPolicy` on the selection page, `OptionSet` on the options page — and the spine owns the roster, the null screen, the slot-injectivity gate with its stated exemption, and the two folds; each family keeps only its typed wrapper and its own apply delegate. `ISlotted<TSlot>` types the slot identity: the erased `object SlotKey` compared through `object.Equals` deletes, and each family declares the closed slot vocabulary its knobs actually address.
 
@@ -54,7 +54,7 @@ public abstract partial record Acquired {
     private Acquired() { }
     public sealed record Point(Point3d Value, PointEvidence Evidence) : Acquired;
     public sealed record ScreenPoint(System.Drawing.Point Value) : Acquired;
-    public sealed record Objects(PickReceipt Picked) : Acquired;
+    public sealed record Objects(PickOutcome Picked) : Acquired;
     public sealed record Number(double Value) : Acquired;
     public sealed record Count(int Value) : Acquired;
     public sealed record Text(string Value) : Acquired;
@@ -97,7 +97,7 @@ public sealed record DragCensus(
     int Poses);
 
 [Equatable]
-public sealed partial record AcquiredReceipt(
+public sealed partial record AcquireOutcome(
     AcquireTerminal Terminal,
     [property: OrderedEquality] Seq<OptionChoice> Options,
     [property: OrderedEquality] Seq<OptionSetting> Settled,
@@ -592,7 +592,7 @@ public sealed record PointPlan {
 
 The modal object asks take `Document`'s `ObjectKinds`, never a raw `ObjectType`. The view asks project `ViewportFact` at the seam. `FileAsk` keys the host's sparse `GetFileNameMode` roster, and the file ask's `Option<string> Title` IS the route discriminant: a caption drives `GetFileName` and its absence drives `GetFileNameScripted`. `InputMap` is the `[Mapper]` seam for the three host-args projections — the getter mouse args, a viewport, and a view — so the detachment correspondence is generated with its derived columns declared, never three hand bodies (`[05]` seam `InputMap`).
 
-The gumball wire closes here: the point getter IS the consumer `Display/interaction`'s gumball surface names — a `PointFeedback.Pose` drive borrows `PickContext`/`GetPoint` from this page and `Gumballs.Configure` returns its evidence on this request rail, so the 251-line gumball surface has its producer and no detached gumball stream exists.
+The point getter lends `PickContext` and `GetPoint` to `GumballRig.Pick`; move and completion return transform evidence directly from the rig.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1061,10 +1061,10 @@ public sealed record Acquire {
 - Law: a mixed object-and-grip selection destined for a dynamic transform lands in the HOST's own buffer — `DragBuffer.Of` folds a completed `GetObject` into `TransformObjectList.AddObjects(getter, scope.Grips)`, so the census, the arrays, and `GetBoundingBox` all read one drag truth; a per-object re-projection loses the grip-to-owner correspondence the buffer alone carries.
 - Law: the drag set is a request column, never a fifth intent — `Acquire.Drag` rides beside `Options` and `Default` under the `RequestColumn.Drag` admission, so the point drive and the transform drive admit one selection through one gate, and a `PointFeedback.Pose` row without a selection refuses on the same line through `NeedsDrag`.
 - Law: the two drives consume the buffer differently and the buffer never learns which — `GetTransform` takes it through `AddTransformObjects` and the native getter paints its own feedback, while a `GetPoint` drag drives `UpdateDisplayFeedbackTransform(Transform)` per `PointFeedback.Pose` sample under `DisplayFeedbackEnabled`, re-posing the whole dragged set in one host call.
-- Law: `TransformObjectList` is `IDisposable` and dies inside the drive's bracket — `DragCensus` is read off the live buffer at seal time and is the only drag fact reaching `AcquiredReceipt`.
+- Law: `TransformObjectList` is `IDisposable` and dies inside the drive's bracket — `DragCensus` is read off the live buffer at seal time and is the only drag fact reaching `AcquireOutcome`.
 - Law: the terminal ladder is a ROW TABLE, not a switch — `TerminalRow` binds each non-value `GetResult` to the `AcquireTerminal` it seals, so a new host terminal is one row. NAMED LOSS: the per-arm `Fin.Fail(detail: raw.ToString())` prose detail — the refusal now carries the typed row key; witness: the `NoResult`/`Miss` arm refuses with the terminal name as its typed detail rather than a hand string.
-- Law: a receipt carries two DIFFERENT option facts. `Options` is the touch HISTORY — one `OptionChoice` per cycle, in the order the user drove them, carrying the localized display the host published at that moment — and `Settled` is the state, every bound option's final value read once at seal off the still-live lease. Folding the history latest-wins to recover the settled values re-derives what the snapshot already answers, and an option the user never touched appears in `Settled` alone.
-- Law: the point getter is the gumball surface's producer — a `Pose` drive borrows `PickContext`/`GetPoint` from this page and `Gumballs.Configure` (`Display/interaction`) returns its evidence on this request rail, so no detached gumball stream exists.
+- Law: `AcquireOutcome` carries two DIFFERENT option facts. `Options` is the touch HISTORY — one `OptionChoice` per cycle, in the order the user drove them, carrying the localized display the host published at that moment — and `Settled` is the state, every bound option's final value read once at seal off the still-live lease. Folding the history latest-wins to recover the settled values re-derives what the snapshot already answers, and an option the user never touched appears in `Settled` alone.
+- Law: a `Pose` drive lends `PickContext` and `GetPoint` to `GumballRig.Pick`; move and completion return transform evidence directly from the rig.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1087,12 +1087,12 @@ internal sealed record GetterCycle(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Acquisition {
-    public static Fin<AcquiredReceipt> Get(DocumentSession session, Acquire request, Op? key = null) {
+    public static Fin<AcquireOutcome> Get(DocumentSession session, Acquire request, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
                from target in op.Need(session)
                from active in op.Need(request)
-               from receipt in target.Demand(
+               from outcome in target.Demand(
                    use: document => active.Intent.Switch(
                        state: (Request: active, Document: document, Op: op),
                        interactive: static (held, intent) => Interactive(held.Request, intent, held.Document, held.Op),
@@ -1101,10 +1101,10 @@ public static class Acquisition {
                        modal: static (held, intent) => Modal(held.Request, intent.Input, held.Document, held.Op)),
                    key: op,
                    needs: [SessionNeed.Acquire])
-               select receipt;
+               select outcome;
     }
 
-    private static Fin<AcquiredReceipt> Interactive(
+    private static Fin<AcquireOutcome> Interactive(
         Acquire request,
         AcquireIntent.Interactive intent,
         RhinoDoc document,
@@ -1130,7 +1130,7 @@ public static class Acquisition {
                 .Bind(row => row.Project(getter, document, op)),
             op: op);
 
-    private static Fin<AcquiredReceipt> Objects(Acquire request, ObjectPlan plan, Op op) => GetterDrive.Run(
+    private static Fin<AcquireOutcome> Objects(Acquire request, ObjectPlan plan, Op op) => GetterDrive.Run(
         request: request,
         create: static () => new GetObject(),
         prepare: getter => plan.Plan.Apply(
@@ -1142,7 +1142,7 @@ public static class Acquisition {
             : Fin.Fail<Acquired>(op.InvalidResult(detail: raw.ToString())),
         op: op);
 
-    private static Fin<AcquiredReceipt> Transform(
+    private static Fin<AcquireOutcome> Transform(
         Acquire request,
         Func<RhinoViewport, Point3d, Transform> calculate,
         Op op) => GetterDrive.Run(
@@ -1157,7 +1157,7 @@ public static class Acquisition {
                 .ToFin(Fail: op.InvalidResult(detail: raw.ToString()))),
         op: op);
 
-    private static Fin<AcquiredReceipt> Modal(
+    private static Fin<AcquireOutcome> Modal(
         Acquire request,
         ModalInput input,
         RhinoDoc document,
@@ -1231,29 +1231,29 @@ public static class Acquisition {
                 Some: caption => RhinoGet.GetFileName(modal.Ask.Key, modal.DefaultName, caption, parent: null),
                 None: () => RhinoGet.GetFileNameScripted(modal.Ask.Key, modal.DefaultName));
             return string.IsNullOrWhiteSpace(value)
-                ? Fin.Succ(Receipt(new AcquireTerminal.Cancelled()))
-                : Fin.Succ(Receipt(new AcquireTerminal.Value(new Acquired.FileName(Value: value))));
+                ? Fin.Succ(Outcome(new AcquireTerminal.Cancelled()))
+                : Fin.Succ(Outcome(new AcquireTerminal.Value(new Acquired.FileName(Value: value))));
         }));
 
-    private static Fin<AcquiredReceipt> ModalResult(
+    private static Fin<AcquireOutcome> ModalResult(
         Op op,
         Func<(Result Native, Func<Fin<Acquired>> Project)> run) => op.Catch(() => {
         (Result native, Func<Fin<Acquired>> project) = run();
         return native switch {
-            Result.Success => project().Map(payload => Receipt(new AcquireTerminal.Value(Payload: payload))),
-            Result.Cancel => Fin.Succ(Receipt(new AcquireTerminal.Cancelled())),
-            Result.Nothing => Fin.Succ(Receipt(new AcquireTerminal.Nothing())),
-            Result.ExitRhino => Fin.Succ(Receipt(new AcquireTerminal.Exit())),
-            _ => Fin.Fail<AcquiredReceipt>(op.InvalidResult(detail: native.ToString())),
+            Result.Success => project().Map(payload => Outcome(new AcquireTerminal.Value(Payload: payload))),
+            Result.Cancel => Fin.Succ(Outcome(new AcquireTerminal.Cancelled())),
+            Result.Nothing => Fin.Succ(Outcome(new AcquireTerminal.Nothing())),
+            Result.ExitRhino => Fin.Succ(Outcome(new AcquireTerminal.Exit())),
+            _ => Fin.Fail<AcquireOutcome>(op.InvalidResult(detail: native.ToString())),
         };
     });
 
-    private static AcquiredReceipt Receipt(AcquireTerminal terminal) =>
+    private static AcquireOutcome Outcome(AcquireTerminal terminal) =>
         new(Terminal: terminal, Options: [], Settled: [], GotDefault: false, Dragged: None);
 }
 
 internal static class GetterDrive {
-    internal static Fin<AcquiredReceipt> Run<TGetter>(
+    internal static Fin<AcquireOutcome> Run<TGetter>(
         Acquire request,
         Func<TGetter> create,
         Func<TGetter, Fin<Unit>> prepare,
@@ -1262,7 +1262,7 @@ internal static class GetterDrive {
         Op op)
         where TGetter : GetBaseClass => op.Catch(() => {
             TGetter getter = create();
-            Fin<AcquiredReceipt> outcome =
+            Fin<AcquireOutcome> outcome =
                 (from _ in op.Catch(() => {
                      getter.SetCommandPrompt(request.Prompt);
                      _ = request.PromptDefault.Iter(value => getter.SetCommandPromptDefault(value));
@@ -1273,14 +1273,14 @@ internal static class GetterDrive {
                      None: static () => Fin.Succ(unit))
                  from ___ in request.Accept.Apply(getter, op)
                  from ____ in prepare(getter)
-                 from receipt in Dragged(request.Drag, op, dragging =>
+                 from outcome in Dragged(request.Drag, op, dragging =>
                      dragging.Map(buffer => buffer.Bind(getter)).IfNone(Fin.Succ(unit))
                          .Bind(_ => request.Options.Match(
                              Some: options => options.Bind(getter, op),
                              None: static () => Fin.Succ(new OptionLease())))
                          .Bind(lease => Cycle(request, getter, dragging, receive, project, lease, op)
                              .Settled(held: Seq(lease), release: held => held.Release(op), key: op)))
-                 select receipt)
+                 select outcome)
                 .Settled(
                     held: Seq(getter),
                     release: held => op.Catch(() => { held.Dispose(); return Fin.Succ(unit); }),
@@ -1288,10 +1288,10 @@ internal static class GetterDrive {
             return outcome;
         });
 
-    private static Fin<AcquiredReceipt> Dragged(
+    private static Fin<AcquireOutcome> Dragged(
         Option<DragSelection> plan,
         Op op,
-        Func<Option<DragBuffer>, Fin<AcquiredReceipt>> body) => plan.Match(
+        Func<Option<DragBuffer>, Fin<AcquireOutcome>> body) => plan.Match(
         Some: row => DragBuffer.Of(row, op).Bind(buffer =>
             body(Some(buffer))
                 .Settled(
@@ -1300,7 +1300,7 @@ internal static class GetterDrive {
                     key: op)),
         None: () => body(None));
 
-    private static Fin<AcquiredReceipt> Cycle<TGetter>(
+    private static Fin<AcquireOutcome> Cycle<TGetter>(
         Acquire request,
         TGetter getter,
         Option<DragBuffer> dragging,
@@ -1320,11 +1320,11 @@ internal static class GetterDrive {
                 .Bind(raw => TerminalRow.TryGet(raw, out TerminalRow? row)
                     ? Sealed(row.Seal(), getter, cycle.Choices, lease, dragging, op)
                     : raw is GetResult.NoResult or GetResult.Miss
-                        ? Fin.Fail<AcquiredReceipt>(op.InvalidResult(detail: raw.ToString()))
+                        ? Fin.Fail<AcquireOutcome>(op.InvalidResult(detail: raw.ToString()))
                         : project(getter, raw).Bind(payload => Sealed(
                             new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging, op))));
 
-    private static Fin<AcquiredReceipt> Sealed(
+    private static Fin<AcquireOutcome> Sealed(
         AcquireTerminal terminal,
         GetBaseClass getter,
         Seq<OptionChoice> choices,
@@ -1335,7 +1335,7 @@ internal static class GetterDrive {
         from census in dragging.Match(
             Some: buffer => buffer.Census(op).Map(Some),
             None: static () => Fin.Succ(Option<DragCensus>.None))
-        select new AcquiredReceipt(
+        select new AcquireOutcome(
             Terminal: terminal,
             Options: choices,
             Settled: settled,
@@ -1512,7 +1512,7 @@ internal sealed class TransformGetter(Func<RhinoViewport, Point3d, Transform> ca
 
 ## [08]-[BOUNDARY]
 
-`AcquireIntent` is the sole modality entry, `AcquireTerminal` is the sole control egress, and `Acquired` is the sole value egress. `OptionLease`, `PointFeedbackLease`, `DragBuffer` with its `TransformObjectList`, `GetBaseClass`, `ObjRef`, and every one-shot `out` value terminate before the receipt crosses the session boundary; `DragCensus` is the dragged set's detached census, and `Acquired.Shape`'s recovered form is the ONE owned lease a receipt carries — the same consumer-custody posture `PickCapture`'s retained geometry holds, stated here rather than smuggled.
+`AcquireIntent` is the sole modality entry, `AcquireTerminal` is the sole control egress, and `Acquired` is the sole value egress. `OptionLease`, `PointFeedbackLease`, `DragBuffer` with its `TransformObjectList`, `GetBaseClass`, `ObjRef`, and every one-shot `out` value terminate before the outcome crosses the session boundary; `DragCensus` is the dragged set's detached census, and `Acquired.Shape`'s recovered form is the ONE owned lease an outcome carries — the same consumer-custody posture `PickCapture`'s retained geometry holds, stated here rather than smuggled.
 
 A caller-supplied delegate takes a detached fact, never a host handle: `GetPointFact` for the pointer arms, `ViewportFact` for both view asks, `ObjectKinds` for the object filters. Three carves stand and each is named rather than tolerated:
 
@@ -1532,7 +1532,6 @@ Unit identity crosses as the kernel `ModelUnit` and nothing else: `UnitSystem`, 
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

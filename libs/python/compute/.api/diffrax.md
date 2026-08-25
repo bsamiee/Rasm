@@ -102,7 +102,7 @@
 
 | [INDEX] | [SYMBOL]    | [PACKAGE_ROLE] | [CAPABILITY]                                                                                             |
 | :-----: | :---------- | :------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Solution`  | result carrier | solve result carrier; `stats`+`result` receipt, `interpolation` dense output (fields below)              |
+|  [01]   | `Solution`  | result carrier | solve result carrier; `stats`+`result` measures, `interpolation` dense output (fields below)              |
 |  [02]   | `SaveAt`    | save spec      | selects which times and fields to save                                                                   |
 |  [03]   | `SubSaveAt` | save spec      | per-subsolve save specification within `SaveAt`                                                          |
 |  [04]   | `ODETerm`   | ODE term       | wraps a vector field callable `f(t, y, args)`                                                            |
@@ -164,7 +164,7 @@
 - `equinox`(`.api/equinox.md`): a `diffeqsolve` call is a pure JAX function over `equinox.Module` pytree state, composing inside `filter_jit`/`filter_grad`/`filter_vmap` — a batched parameter sweep is one `filter_vmap(diffeqsolve, ...)` and a gradient-through-solve is `filter_grad` over the chosen `adjoint`; `RESULTS` inherits the `equinox.Enumeration` termination base.
 - `lineax`(`.api/lineax.md`) / `optimistix`(`.api/optimistix.md`): an `AbstractImplicitSolver` (`ImplicitEuler`/`Kvaerno*`/`KenCarp*`) runs an `optimistix` root-find each step whose linear sub-solve is a `lineax` operator solve, and `ImplicitAdjoint` threads the same `optimistix`/`lineax` implicit-function solve — the stiff step reuses the sibling solver stack.
 - `interpax`(`.api/interpax.md`) / `quadax`(`.api/quadax.md`): dense output (`SaveAt(dense=True)` -> `Solution.interpolation`) yields a continuous trajectory the `interpax`/`quadax` rails resample or integrate; a CDE control path builds with `backward_hermite_coefficients` + `CubicInterpolation` passed as the `ControlTerm` control.
-- within-lib: the `DifferentialIntent` route folds the `Solution` receipt (`stats` step counts + `result` verdict) onto `SolverReceipt`, and `RecursiveCheckpointAdjoint` bounds reverse-mode memory for the graduation gradient study.
+- within-lib: the `DifferentialIntent` route folds the `Solution` (`stats` step counts + `result` verdict) onto `Solve`, and `RecursiveCheckpointAdjoint` bounds reverse-mode memory for the graduation gradient study.
 
 [LOCAL_ADMISSION]:
 - every `NumericIntent` differential-equation case dispatches through `diffeqsolve` with an explicit solver, controller, and adjoint; an SDE Brownian path carries the `levy_area` its solver demands, and `diffrax` stays a compute-plane solver.
@@ -172,5 +172,5 @@
 [RAIL_LAW]:
 - Package: `diffrax`
 - Owns: JAX-native ODE/SDE/CDE integration, adaptive step control, Ito/Stratonovich and high-order Levy-area SDE solvers, continuous/discrete event detection, and four adjoint differentiation modes
-- Accept: a `NumericIntent` differential-equation case dispatched through `diffeqsolve` with an explicit solver, controller, and adjoint; a Brownian path whose `levy_area` matches the SDE solver; `RecursiveCheckpointAdjoint` for memory-constrained gradient studies; a `Solution` receipt capturing `stats` and `result`
-- Reject: hand-rolled Runge-Kutta or Euler integrators; a hand-rolled Newton iteration where the implicit solver's `optimistix`/`lineax` root-find applies; `diffrax` on any product runtime path; adjoint claims without a captured `Solution.stats` receipt
+- Accept: a `NumericIntent` differential-equation case dispatched through `diffeqsolve` with an explicit solver, controller, and adjoint; a Brownian path whose `levy_area` matches the SDE solver; `RecursiveCheckpointAdjoint` for memory-constrained gradient studies; a `Solution` capturing `stats` and `result`
+- Reject: hand-rolled Runge-Kutta or Euler integrators; a hand-rolled Newton iteration where the implicit solver's `optimistix`/`lineax` root-find applies; `diffrax` on any product runtime path; adjoint claims without captured `Solution.stats`

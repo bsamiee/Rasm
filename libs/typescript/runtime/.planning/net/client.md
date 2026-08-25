@@ -186,7 +186,6 @@ const Breaker = { guard: _guard } as const;
 - Law: the stamped header never leaks and this plane adds no scrub — `authorization` is already in the platform's default `Headers.currentRedactedNames`, so every `Headers` inspection, log line, and span attribute renders it `Redacted`; the value stays `Redacted` from the security plane to the one `Redacted.value` at the stamp, which is the exact point the wire demands a string.
 - Boundary: the client binding is the runtime row's (`proc/exec#RUNTIME_ROWS`); OTLP export composes the `batch` lane so telemetry egress inherits the same posture as every other call — an exporter with a private client is the named fork. Principal mint, rotation, introspection, and revocation are `security:authn/workload`'s; this owner mounts the projection and decides nothing about the grant.
 - Entry: `Client.dial(lane, request[, shape])` and `Client.authorized(lane, request)`; `R` carries `HttpClient` and `Scope`, and the app root overrides `Machine` where workload identity exists.
-- Receipt: the overload annotations are the whole seam contract — fault union and requirement set readable without opening the body.
 - Packages: `@effect/platform` (`HttpClient`, `HttpClientError`, `HttpClientRequest`, `HttpClientResponse`, `Headers.get`), `effect` (`Data`, `DateTime`, `Duration`, `Effect`, `Number`, `Option`, `Redacted`, `Schema`), `@rasm/core` (`Fault.Budget`, `Fault.Class`), `@rasm/security` (`MachinePrincipal`).
 
 ```typescript

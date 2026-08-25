@@ -2,12 +2,12 @@
 
 <page-charter-lead-one-paragraph: the owner's charter in owning voice — the capability it owns, the piece it plays in the unit's system, and the boundary it holds; never the doc-set, realization status, or a sibling recap.>
 
-<page-composition-lead-one-paragraph: the settled facts a rebuild composes without re-derivation — reused axes and their owning pages, seam obligations and frozen wire names, admission and receipt rails, modality and policy rows the page binds; present only when the page carries them, never process narration or restated higher law.>
+<page-composition-lead-one-paragraph: the settled facts a rebuild composes without re-derivation — reused axes and their owning pages, seam obligations and frozen wire names, admission rails, modality and policy rows the page binds; present only when the page carries them, never process narration or restated higher law.>
 
 ## [01]-[INDEX]
 
 - [01]-[<cluster-token>]: <route-hook-mechanism-owner>
-- [02]-[SHAPE_FOLD]: `ShapeFold` op dispatch, its case vocabulary, and the content-keyed receipt
+- [02]-[SHAPE_FOLD]: `ShapeFold` op dispatch, its case vocabulary, and the content-keyed `Shaped` result
 
 ## [02]-[<cluster-token>]
 
@@ -15,7 +15,6 @@
 - Cases: <cases-bounded-vocabulary-earned>
 - Entry: <entry-polymorphic-earned>
 - Auto: <auto-internalized-machinery-earned>
-- Receipt: <receipt-typed-case-earned>
 - Packages: <packages-admitted-composed>
 - Growth: <growth-one-row-rule>
 - Boundary: <boundary-refusal>
@@ -29,17 +28,17 @@
 - Owner: `ShapeFold` mints the one shape-op entry and owns op dispatch
 - Cases: `ShapeOp` cases Refine, Merge, and Split
 - Entry: `apply` discriminates single, batch, and stream by input shape
-- Receipt: `ShapeReceipt.contribute` folds evidence into the run
+- Output: `Shaped` carries the content key and the census the planner reads
 - Packages: `shape-core` for the refinement kernel
 - Growth: a new op is one `ShapeOp` case and one dispatch arm
 - Boundary: this owner refuses wire decode, deferred to the codec seam
 
 ```python
 class ShapeFold:
-    def apply(self, op: ShapeOp) -> Result[ShapeReceipt, ShapeFault]: ...
+    def apply(self, op: ShapeOp) -> Result[Shaped, ShapeFault]: ...
 ```
 
-<logic-flow diagram: one entry discriminating op cases into kernel arms folding to one receipt>
+<logic-flow diagram: one entry discriminating op cases into kernel arms folding to one `Shaped` result>
 
 ## [04]-[RESEARCH]
 

@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_IMPLICIT]
 
-Implicit additive geometry admits one compatible operation set containing periodic fields, lattices, content-addressed voxel wires, or VDB sources; binds one operation-scoped PicoGK runtime; calibrates physical distance; consumes every native handle inside the lease; and projects only durable receipts. `FieldExpression` generates the periodic space and differentiates itself, `SpectralExpression` generates the frequency-domain space the same way, `FieldDefinition.Generated` carries per-occurrence programs without mutating `FieldKind.Items`, and `Sdf.Voxelize` scopes every native handle to one callback.
+Implicit additive geometry admits one compatible operation set containing periodic fields, lattices, content-addressed voxel wires, or VDB sources; binds one operation-scoped PicoGK runtime; calibrates physical distance; consumes every native handle inside the lease; and projects only durable results. `FieldExpression` generates the periodic space and differentiates itself, `SpectralExpression` generates the frequency-domain space the same way, `FieldDefinition.Generated` carries per-occurrence programs without mutating `FieldKind.Items`, and `Sdf.Voxelize` scopes every native handle to one callback.
 
 Wire posture is host-local: `Voxels`, `Lattice`, `Mesh`, `ScalarField`, `VectorField`, `OpenVdbFile`, and `Library.GlobalInstance` never cross a result boundary. Every provider selector this page admits is an OWNED `[SmartEnum<string>]` row carrying its PicoGK enum as a column, so `FabricationCanon.Discriminant` writes the row's own key into a preimage and a provider reordering its enum members re-keys nothing. Support geometry composes the ONE `SupportTopology` `support#SUPPORT_TOPOLOGY` publishes on `SupportPlan`; this page reconstructs no edge set. Refusals ride `FabricationFault` through `Admission.Admitted`, and every native failure carries the provider's own cause forward because the provider owns that taxonomy.
 
@@ -378,7 +378,7 @@ public readonly record struct FieldThreshold(float Iso, Length HalfWidth, Calibr
 - Auto: the three landed rows reproduce their closed forms exactly — an anisotropic Gaussian is `Gaussian(Anisotropic, GaussianDecay)`, a radial band-pass is `Gaussian(Offset, UnitDecay)`, and a gradient-magnitude response is `Product(Derivative(1), Gaussian(Scaled, GaussianDecay))`.
 - Packages: BCL inbox (`System.Numerics.Complex`), `Rhino.Geometry` value vectors, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new frequency measure is one `SpectralMetric` row; a new response family is one `SpectralExpression` case, which breaks every symbol program at compile time.
-- Boundary: a symbol reads the bin's per-axis cycles-per-millimetre off the transform receipt's own axes and never re-derives a spectrum axis beside the lattice that produced it; the shape pair is the step's anisotropy ratio and cut-off wavelength, the ONE pair every metric reads.
+- Boundary: a symbol reads the bin's per-axis cycles-per-millimetre off the transform result's own axes and never re-derives a spectrum axis beside the lattice that produced it; the shape pair is the step's anisotropy ratio and cut-off wavelength, the ONE pair every metric reads.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -459,7 +459,7 @@ public sealed partial class SpectralSymbol {
 - Exemption: `Apply`'s provider bodies, `SpectralMorphology.Rasterize`, and `FilteredField.fSignedDistance` are statement capsules — a native handle mutates or is replaced in place, and the reconstruction is a per-query lattice fold with no expression form.
 - Entry: `VoxelMorphologyStep.Apply(Voxels, ImplicitPolicy)` is the one rail, so the morphology fold never learns which capsule class a step belongs to.
 - Auto: the provider bracket releases the held handle on the failure arm, so a mid-chain native throw never strands a lease; the reconstruction interpolates TRILINEARLY over the eight surrounding cell centres, so the filtered field is continuous and the smoothness the spectral law spends a transform pair to obtain survives its return.
-- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `SpectralReceipt`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket), LanguageExt.Core.
+- Packages: `PicoGK` (`Voxels` morphology entry points, `IImplicit`), `Rasm.Numerics` (`CellLattice` the ONE addressing owner both sides of the boundary read, `SpectralArena`, `Spectrum`, `SpectralSense`, `SpectralScaling`, `SignedAxis`, `PositiveMagnitude`), kernel `Rasm.Domain` (`Custody.Rollback` — the failure-arm release under every provider bracket), LanguageExt.Core.
 - Growth: a native transform is one `VoxelMorphologyStep` case; a frequency-domain transform is one `SpectralSymbol` row under the single `Spectral` case.
 - Boundary: a native failure carries the provider's own cause forward on the composed error, because the provider owns that taxonomy and the fabrication case names only the operation and its budget.
 
@@ -567,7 +567,7 @@ file static class SpectralMorphology {
                select rebuilt;
     }
 
-    private static Fin<Voxels> Rasterize(Voxels held, SpectralReceipt filtered, CellLattice lattice, ImplicitPolicy policy) =>
+    private static Fin<Voxels> Rasterize(Voxels held, Spectrum filtered, CellLattice lattice, ImplicitPolicy policy) =>
         Op.Of(name: "implicit:spectral-raster").Catch(() => {
             Voxels result = new(new FilteredField(held, filtered, lattice), FieldMath.Bounds(policy.Budget.Bounds));
             held.Dispose();
@@ -575,7 +575,7 @@ file static class SpectralMorphology {
         }).Rollback(held);
 }
 
-file sealed class FilteredField(Voxels source, SpectralReceipt filtered, CellLattice lattice) : IImplicit {
+file sealed class FilteredField(Voxels source, Spectrum filtered, CellLattice lattice) : IImplicit {
     private readonly Complex[] values = filtered.Arena is SpectralArena.Interleaved grid ? grid.Values : [];
 
     public float fSignedDistance(in Vector3 point) {
@@ -844,7 +844,7 @@ public abstract partial record ImplicitOp(
 - Exemption: `VoxelRuntime.Use`, `Combine`, `LatticeVoxels`, `Subtract`, `Measure`, and `Sealed` are lifetime and provider statement capsules — each guards its own native acquire or aggregate, which has no expression form. `Consume` holds no exemption: its rasters arrive already acquired and never transfer custody, so the both-arms release rides kernel `Custody.Bracket`.
 - Entry: `Sdf.Voxelize<T>(Seq<ImplicitOp>, Func<Arr<VoxelScope>, Fin<T>>)` is the single materializing rail for one or many compatible fields.
 - Auto: admission accumulates every operation fault before native allocation. `Raster` intersects the field operation's own `Envelope` occupancy through `voxIntersectImplicit` rather than rasterizing the whole budget box, because a full-bounds construction allocates the entire budget before discarding almost all of it. `Occupied` rejects an empty rasterization before it posts an empty program. Lattice scaffolds read the ONE `SupportTopology` `support#SUPPORT_TOPOLOGY` publishes, so the support edge set is never reconstructed and a missing parent is impossible by the owner's own admission.
-- Receipt: `VoxelMetrics` carries physical volume, queried bounds, native memory, committed field identity, and the `CalibrationStats` the quantile pass measured.
+- Result: `VoxelMetrics` carries physical volume, queried bounds, native memory, committed field identity, and the `CalibrationStats` the quantile pass measured.
 - Packages: `PicoGK` (implicit rasterization and intersection, lattice beams and nodes, metrics, ray-cast, mesh extraction, VDB read and write with field metadata), QuikGraph (`SEquatableEdge` endpoints off the published topology), kernel `Rasm.Domain` (`Custody.Rollback` the failure-arm release every acquire-chain fold composes, `Custody.Bracket` the both-arms release under `Consume` — disposer faults appended onto the primary), LanguageExt.Core.
 - Growth: a materializing consumer is one `Voxelize` callback.
 - Boundary: `PeriodicImplicit.fSignedDistance` copies the provider's by-reference callback value before use; VDB source identity travels with its field name and required metadata; the document container is what NAMES a field, so the direct single-field write cannot serve an egress whose import lane resolves by name.
@@ -1388,12 +1388,12 @@ file sealed class FieldCalibration : IDisposable {
 
 ## [08]-[LAYER_EGRESS]
 
-- Owner: `Sdf.Cli` owns the single layer-stack rail and the three egress lanes under it; `CliStack` owns the settled layer receipt; `CliImport` owns the reader receipt a round trip produces.
+- Owner: `Sdf.Cli` owns the single layer-stack rail and the three egress lanes under it; `CliStack` owns the settled layer result; `CliImport` owns the reader result a round trip produces.
 - Law: the sink enters as the runtime's own `Option<IProgress<double>>` carrier, absent by default so a headless caller spells nothing, and reaches the provider's trailing parameter directly on all three egress entry points — a page-local reporter, a percentage tally, or a polling thread beside the native call is the deleted form. Vectorize and write are two reported phases of ONE egress and take the SAME sink, so a caller never sees the file phase stall silently.
 - Exemption: `Vector`, `Grayscale`, and `Direct` are provider statement capsules — the grayscale loop in particular owns its statement form because PicoGK writes every slice into one mutable `ref ImageGrayScale` buffer.
 - Entry: `Sdf.Cli(ImplicitOp, Option<IProgress<double>>)` is the one layer-stack rail; `slicing#DEPOSITION` threads its implicit arm into this signature.
 - Auto: the mask loop reads its elevation law and its slice fetch off ONE admitted `MaskSampling` row, so the lane branches nowhere; header date, unit scale, and reader warnings ride `CliImport`, because discarding them loses the only evidence that a round-tripped program degraded.
-- Receipt: `CliStack` carries layers, canonical `.cli` identity, mask identities, committed field identities, optional `VoxelMetrics`, and the optional reader receipt.
+- Result: `CliStack` carries layers, canonical `.cli` identity, mask identities, committed field identities, optional `VoxelMetrics`, and the optional reader result.
 - Packages: `PicoGK` (`oVectorize`, `CliIo`, `Vdb2Cli`, grayscale slice reads), LanguageExt.Core.
 - Growth: a layer encoding is one `CliMode` case and one lane here.
 - Boundary: the stack is INSPECTED between the field and the file — the layer census and the slices are the canonical identity preimage — so the vectorize-then-write staging earns its place; where a lane writes a single field and reads nothing back, the collapsed single-call write is the form and no container materializes.
@@ -1506,7 +1506,7 @@ public static partial class Sdf {
 - Owner: `ImplicitCanonical` owns every layer-stack, mask, and mask-index KEY this page mints; each rides the `FabricationCanon` keyed close whole, so no lane opens a writer, spells a mint, or discards the close's own refusal.
 - Law: a preimage carries NO provider enum ordinal — every closed selector writes through `FabricationCanon.Discriminant`, which frames the owned row's own key, so a provider renumbering its enum re-keys nothing. The writer binds to the operation's own voxel size, so the declared quantization grid is a policy axis rather than a spelled constant.
 - Auto: `FabricationCanon.Rows` writes the count before its rows, so every collection layout is self-delimiting and no length-free concatenation can forge equality; `ContourWinding.Of` computes the winding from the contour's own vertices rather than reading a value the last detection happened to leave behind.
-- Receipt: a mask preimage carries its `RasterFrame` — pitch, origin, and census — because a grayscale payload is addressable only with the grid beside it, so the same raster at two voxel sizes cannot mint one key.
+- Result: a mask preimage carries its `RasterFrame` — pitch, origin, and census — because a grayscale payload is addressable only with the grid beside it, so the same raster at two voxel sizes cannot mint one key.
 - Packages: `Rasm.Element` `CanonicalWriter` through the ONE `FabricationCanon` family, `PicoGK` slice and contour reads.
 - Growth: a new preimage is one method here composing the same family.
 - Boundary: canonical keys include every behavior-bearing policy value, emission setting, and field identity; a float raster writes through the double primitive, which canonicalizes signed zero and every NaN payload, so a bit pattern the provider happens to emit cannot fork a key.
@@ -1579,7 +1579,6 @@ public static class ImplicitCanonical {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

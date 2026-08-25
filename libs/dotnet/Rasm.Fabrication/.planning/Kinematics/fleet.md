@@ -428,7 +428,7 @@ internal sealed record StationAssessment(
 - Law: maintenance is GENERATED from `MaintenanceRule` rows, never handed in as a literal interval roster. A caller-supplied roster cannot recur, so a yearly plant shutdown had to be re-authored every year and a horizon that outran the roster silently reported full availability.
 - Law: a yearly span containing a wrap — a December-to-January shutdown — is tested against BOTH the date's own year and the year before it, so the turn of the year is inside the window rather than a two-row workaround the author has to remember.
 - Auto: `Windows` canonicalizes overlapping blocks onto one non-overlapping edge partition carrying the best staffing, so an overtime block overlapping a pattern block is counted once at the richer staffing; `Advance` consumes effort across successive staffed windows, so an eight-hour job on a one-shift calendar lands on the next working morning rather than eight hours after release; `Horizon` reports working duration per `YearMonth`, so a capacity plan reads months rather than re-deriving spans.
-- Receipt: `ShiftCalendar.Horizon` returns one row per month with its generated working duration; `AvailabilityPlan.Finish` returns the machine's actual completion instant for `Process/derivation` to convert into a promise date.
+- Result: `ShiftCalendar.Horizon` returns one row per month with its generated working duration; `AvailabilityPlan.Finish` returns the machine's actual completion instant for `Process/derivation` to convert into a promise date.
 - Exemption: none — every fold here is expression-shaped over generated rows.
 - Packages: NodaTime owns `Instant`, `Interval`, `DateInterval`, `AnnualDate`, `YearMonth`, `LocalTime.InZone`, and `Resolvers.CreateMappingResolver`; `Thinktecture.Runtime.Extensions` owns the closed rows.
 - Growth: a new calendar posture is one `CalendarExceptionKind` row carrying its own `BlockDisposition`; a new recurrence is one `CalendarSpan` case with its `Contains` arm; a new routing refusal is one `RoutingStanding` row.
@@ -741,7 +741,7 @@ public sealed partial class AvailabilityPlan {
 - Law: an instance is identified by `MachineInstanceKey`, the S0 station identity `Process/atoms#PLAN` declares and `PlannedStep.Instance` reserves. A bare instance string forks the key space between the schedule, the registry, and the observation window that measures it.
 - Law: `MachinePerformance` publishes availability ONCE. The prior row carried an availability ratio and a reliability ratio that were the same derivation under two names, so the dispatch reliability that took their minimum could never read anything but the one; service availability derives from the failure spacing and repair time the same fold already measured.
 - Auto: registration-to-instance is a GENERATED projection — eighteen members crossed by hand drifted the moment one column moved, and the mapper's both-side completeness makes an unmapped column a build failure rather than a silent default. The registry seats admitted equipment through `Machine.Register` BEFORE resolving it, so real shop equipment enters the keyed resolution space instead of presupposing an archetype; registration is first-writer-wins by key.
-- Receipt: `MachinePerformance.Of` folds a decoded `Kinematics/observation` window into the refreshed measured row — producing fraction, fault-episode availability, failure spacing, repair time, and load-scaled observed power — the registry re-admits under `FleetPolicy.PerformanceHorizon`, and `FleetSlots` names the `store.fabrication.fleet.<verb>` streams the refreshed rows and the re-admitted census ride on the Persistence slot registry.
+- Result: `MachinePerformance.Of` folds a decoded `Kinematics/observation` window into the refreshed measured row — producing fraction, fault-episode availability, failure spacing, repair time, and load-scaled observed power — the registry re-admits under `FleetPolicy.PerformanceHorizon`, and `FleetSlots` names the `store.fabrication.fleet.<verb>` streams the refreshed rows and the re-admitted census ride on the Persistence slot registry.
 - Packages: `Riok.Mapperly` owns the registration projection; `Process/family` supplies `Machine`, `ProcessKind`, `PostDialect`, and topology; `Tooling/magazine` supplies `SlotMap` and `SlotState`; `Spec/capability` supplies `ItGrade`; NodaTime owns the instants.
 - Boundary: no Persistence type crosses `FleetSlots` — the spellings are value federation onto the slot registry's contributed span.
 
@@ -1023,11 +1023,11 @@ public static class FleetSlots {
 - Law: a process names NO dialect — a controller is a property of the machine that runs the process — so controller fitness asks whether the instance carries a dialect admitting the process MODALITY. Reading a dialect off the process would fabricate a correspondence the shop never declared.
 - Law: the spindle criterion is TWO criteria. Speed and power are independent limits with independent units; one fused verdict refused on either and then published the power margin as its evidence, so a station rejected for an out-of-band speed reported a power number that never decided anything.
 - Law: the context is SHAPED — demanded, measured, and station columns each ride their own record, and the capability columns ride the kernel's `CapabilitySet<FleetCapability>`. A twenty-four-slot positional tail with five adjacent booleans admits a silent transposition at every construction site, a hazard already realized elsewhere in this package.
-- Law: the capability POSTURE here is fold-out-for-absence, never refuse-at-admission, so the kernel `Require` door is deliberately uncomposed: every declared `(instance, process)` pair reaches a receipt and a missing capability is retained evidence rather than a refusal. `Held.Missing(Required)` is what a match publishes, and `Fleet.Capable` still returns every pair — `Process/derivation` alone converts an empty feasible selection into a refusal.
+- Law: the capability POSTURE here is fold-out-for-absence, never refuse-at-admission, so the kernel `Require` door is deliberately uncomposed: every declared `(instance, process)` pair reaches a result and a missing capability is retained evidence rather than a refusal. `Held.Missing(Required)` is what a match publishes, and `Fleet.Capable` still returns every pair — `Process/derivation` alone converts an empty feasible selection into a refusal.
 - Law: an objective's priority and its scale are ONE row, not two maps. Two parallel `HashMap<FleetObjective, double>` columns keyed by the same roster were one row split in half: the validator proved key coverage twice by hand, and `Burden` read each half through its own `IfNone` — `0.0` silently retiring an objective and `1.0` silently leaving one unscaled. Totality is the roster's now, and a shop supplies OVERRIDES.
-- Entry: `Fleet.Capable(AdmittedComponent, MachineFleet, FabricationTap?)` returns every installed `(instance, process)` assessment, feasible rows first and then lowest excess-capability cost, firing each assessment as it settles and defaulting silent for a headless join. `Fleet.AdmitInstance(MachineRegistration)` is the one textual registry boundary and the one `Machine.Register` producer.
+- Entry: `Fleet.Capable(AdmittedComponent, MachineFleet, Option<InstrumentSet>)` returns every installed `(instance, process)` assessment, feasible rows first and then lowest excess-capability cost, writing each assessment as it settles and defaulting absent for a headless join. `Fleet.AdmitInstance(MachineRegistration)` is the one textual registry boundary and the one `Machine.Register` producer.
 - Auto: component geometry, material, and every `DemandKey` scalar accumulate through one applicative admission. `ProcessKind.Physics` selects the material law through the `Physics` fact, and `ConstitutiveLaw.At(ConstitutiveState)` derives spindle demand from temperature, hardness, and strain rate. `CapabilityCriterion.Items` generates exactly one fact per dimension, `FleetCapability.Items` generates both the required and the held set off the context, `Sense` orients each margin so an over-capable value reads positive whichever direction the dimension improves, and `FleetPolicy.Burden` folds every `FleetObjective` penalty through its own `ObjectiveTuning` into one dimensionless lower-is-better score.
-- Receipt: `MachineMatch` carries the instance, process, typed facts, the capability rows the pair lacked, operating-envelope and grade margins, score, assessment instant, and freshness-qualified rate, power, reliability, and utilization evidence. `Checks.Feasible` remains the frozen derivation and estimation read; every `(instance, process)` pair the registry declares reaches a receipt, so a material whose physics omits the process is rejected evidence rather than a silent absence. `FabricationFact.FleetMatch.Of` projects utilization and effectiveness onto `rasm.fabrication.fleet.utilization` and `rasm.fabrication.fleet.effectiveness` through `Process/telemetry#FACT_PROJECTION` as kind `fleet-match`, and every assessment counts once on `rasm.fabrication.fleet.matches` carrying its ranking evidence as a dimension.
+- Result: `MachineMatch` carries the instance, process, typed facts, the capability rows the pair lacked, operating-envelope and grade margins, score, assessment instant, and freshness-qualified rate, power, reliability, and utilization evidence. `Checks.Feasible` remains the frozen derivation and estimation read; every `(instance, process)` pair the registry declares reaches a result, so a material whose physics omits the process is rejected evidence rather than a silent absence. The producer writes utilization and effectiveness onto `FabricationInstruments.FleetUtilization` and `FleetEffectiveness`, counts every assessment once on `FleetMatches`, and holds the keyed load on `FleetLoad`.
 - Growth: a new assessment dimension is one behavior-bearing `CapabilityCriterion` row carrying its own `Sense`; a new ranking concern is one `FleetObjective` row carrying its penalty and its canonical `ObjectiveTuning`, and no policy value changes.
 - Boundary: `Process/derivation` alone converts an empty feasible selection to `RoutingInfeasible`; fleet owns the calendar and returns verdicts. `Forming/brake` consumes the frozen `ProcessEnvelope.Brake` case, `Verify/estimation` consumes the effective metrics retained by `MachineMatch`, and `RobotProgram` owns path-level robot reach; fleet admits only the declared operating envelope, payload, and external-axis evidence available at component-routing altitude.
 
@@ -1339,11 +1339,11 @@ public static class Fleet {
             : Fin.Fail<DeliveryLane>(Inadmissible($"fleet:delivery:{instance.Id.Value}:{process.Key}"));
 
     public static Fin<Seq<MachineMatch>> Capable(
-        AdmittedComponent component, MachineFleet fleet, FabricationTap? tap = null) =>
+        AdmittedComponent component, MachineFleet fleet, Option<InstrumentSet> set = default) =>
         from demand in Demand(component)
         from matches in fleet.Instances
             .Bind(instance => toSeq(instance.EnabledProcesses)
-                .Map(process => Match(demand, instance, process, fleet, tap ?? FabricationTap.Silent)))
+                .Map(process => Match(demand, instance, process, fleet, set)))
             .Traverse(static match => match.ToValidation())
             .As()
             .ToFin()
@@ -1388,7 +1388,7 @@ public static class Fleet {
         select demand;
 
     private static Fin<MachineMatch> Match(
-        FleetDemand demand, MachineInstance instance, ProcessKind process, MachineFleet fleet, FabricationTap tap) {
+        FleetDemand demand, MachineInstance instance, ProcessKind process, MachineFleet fleet, Option<InstrumentSet> set) {
         StationAssessment station = Station(instance, process, demand);
         double headroom = Headroom(demand.Part, instance.Envelope);
         Option<CapabilityEnrollment> enrollment = fleet.CapabilityEvidence.Find((instance.Id, process));
@@ -1417,16 +1417,23 @@ public static class Fleet {
             .As()
             .ToFin()
             .Bind(CapabilityCheck.Of)
-            .Map(checks => Fired(new MachineMatch(
-                instance, process, checks, context.Missing, headroom, demanded.GradeMargin,
-                fleet.Policy.Burden(context), fleet.RoutingAt, measured.HourlyRate, measured.Source,
-                measured.Reliability, measured.Utilization, measured.Effectiveness), performance, tap));
-    }
-
-    private static MachineMatch Fired(
-        MachineMatch match, Option<MachinePerformance> observed, FabricationTap tap) {
-        _ = tap.Fire(FabricationFact.FleetMatch.Of(match, observed.IsSome));
-        return match;
+            .Bind(checks => {
+                MachineMatch match = new(
+                    instance, process, checks, context.Missing, headroom, demanded.GradeMargin,
+                    fleet.Policy.Burden(context), fleet.RoutingAt, measured.HourlyRate, measured.Source,
+                    measured.Reliability, measured.Utilization, measured.Effectiveness);
+                return from _match in set.Write(FabricationInstruments.FleetMatches, 1d,
+                           (FabricationInstruments.ProcessSlot, match.Process.Key),
+                           (FabricationInstruments.EvidenceSlot, performance.IsSome
+                               ? FabricationInstruments.Measured
+                               : FabricationInstruments.Declared))
+                       from _utilization in set.Write(FabricationInstruments.FleetUtilization, match.Utilization,
+                           (FabricationInstruments.ProcessSlot, match.Process.Key))
+                       from _effectiveness in set.Write(FabricationInstruments.FleetEffectiveness, match.Effectiveness,
+                           (FabricationInstruments.ProcessSlot, match.Process.Key))
+                       from _level in set.Level(FabricationInstruments.FleetLoad, match.Utilization, Some(match.Process.Key))
+                       select match;
+            });
     }
 
     private static StationAssessment Station(MachineInstance instance, ProcessKind process, FleetDemand demand) {
@@ -1578,12 +1585,12 @@ public static class Fleet {
 
 ## [07]-[INSTANCE_CONTENTION]
 
-- Owner: `InstanceWindow` owns one staffed span on one physical station; `FleetAvailability` owns the window census per `MachineInstanceKey` and composes `AvailabilityPlan.Finish` as its finite-capacity seat; `AssignmentCost` owns one demand-to-instance promise row; `FleetAssignment` owns the cover receipt.
+- Owner: `InstanceWindow` owns one staffed span on one physical station; `FleetAvailability` owns the window census per `MachineInstanceKey` and composes `AvailabilityPlan.Finish` as its finite-capacity seat; `AssignmentCost` owns one demand-to-instance promise row; `FleetAssignment` owns the cover result.
 - Law: capacity is finite PER STATION. A machine CLASS with two installed instances runs two lots at once and a class with one runs one; scheduling against the class treats every instance as unbounded parallelism, which is exactly the promise a shop cannot keep. `PlannedStep.Instance` is the reservation this census answers.
 - Law: the assignment's own cost matrix is RETAINED. A solver that hands back a seat and drops the promise interval that justified it leaves a schedule no reader can audit, so every considered pair publishes its cost row beside the chosen cover.
 - Entry: `FleetAvailability.Of(MachineFleet, DateInterval)` generates the census; `FleetAvailability.Seat(key, ready, effort)` returns the completion instant or refuses `MachineInstanceUnavailable`; `Fleet.Assign(Seq<DemandSlot>, FleetAvailability)` covers a demand roster and refuses `FleetAssignmentInfeasible` where no cover exists.
-- Auto: `HungarianAlgorithm` binds no graph container — its whole input is the rectangular cost matrix — so the fold builds one `int[,]` of promise seconds, computes the assignment, and reads `AgentsTasks` back as demand-to-instance seats. A pair whose instance cannot seat the effort costs `Blocked`, a saturating value the receipt never publishes as a promise: a seat landing on one is what makes the cover infeasible.
-- Receipt: `FleetAssignment` carries the seated pairs with their promise instants, EVERY considered cost row, and the unassigned demand ordinals.
+- Auto: `HungarianAlgorithm` binds no graph container — its whole input is the rectangular cost matrix — so the fold builds one `int[,]` of promise seconds, computes the assignment, and reads `AgentsTasks` back as demand-to-instance seats. A pair whose instance cannot seat the effort costs `Blocked`, a saturating value the result never publishes as a promise: a seat landing on one is what makes the cover infeasible.
+- Result: `FleetAssignment` carries the seated pairs with their promise instants, EVERY considered cost row, and the unassigned demand ordinals.
 - Exemption: `Costs` fills a rectangular `int[,]` because that array IS the solver's whole input contract; the fold that reads it back is expression-shaped.
 - Packages: `QuikGraph.Algorithms.Assignment` `HungarianAlgorithm`; NodaTime owns the instants and durations.
 - Boundary: this cluster seats EFFORT on stations and returns instants; the lot promise, its due-date comparison, and the `LotOverdue` refusal stay at `Process/derivation`.
@@ -1692,7 +1699,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

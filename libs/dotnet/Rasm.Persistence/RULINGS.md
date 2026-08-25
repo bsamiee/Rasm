@@ -26,8 +26,6 @@
 - Member patches are binary — `FieldMask` diff over `NodeWire`, `IsValid` gate, `Merge` apply; ProtoJSON renders `PatchOp` leaves, never a target.
 - `EntityEdit` lowers onto `Element.EntityEditWire` through `EditWire` — key and base cross as 16-byte addresses, one `PatchOp` per mask path.
 - `SnapshotHeader` is the native 88-byte artifact trust frame — fixed offsets, pre-parser CRC, and digests through `ContentHash.Wire`/`Admit`.
-- Usage levels carry `rasm.tenant` alone — class and tier stay `UsageReceipt` facts, so no meter dimension multiplies the capped tenant series.
-- Settlement fans every column `EgressReceipt.Drained` partitions, duplicates included — an omitted column reports a rate above its own traffic.
 - Residence literals render through the declared `ColumnType` — a stringified operand kills pruning, coerces on PostgreSQL, raises on ClickHouse.
 - Read SCOPE parts from SHAPE at the residence entry — tenant rides the frame and window `ResidenceWindow`, so no plan expresses a cross-tenant scan.
 - Rollups materialize SUMMARY STATE and readers name the accessor — a stored `avg` over an irregular series ships a mean the tile never claimed.
@@ -42,7 +40,6 @@
 - `ArrowLanding.Build` derives batches from the DECLARED schema, reading `ColumnType`'s own Arrow type and builder — a positional list forks it.
 - Producer admission at a residence seam ACCUMULATES every offending column — a producer refused on the first never sees the second.
 - Compute's `AssessmentRow` crosses IN as producer-handed row data — a Persistence-declared result-row twin re-mints vocabulary its owner closes.
-- `ReadRouter.Observed` and the read receipt answer DISJOINT questions — where reads spend versus how one resolved; a lifted phase twins one number.
 - CRDT payload equality rides `CrdtBytes` on `ReadOnlyMemory<byte>` — an `ImmutableArray<byte>` swap re-types the `CrdtWire.Decode` zero-copy seam.
 - `Crdt.Apply` takes the entry `OperationId` beside the generated op — MV-register context never substitutes for the outer dot.
 - OR tombstones key by element; RGA routes retain predecessor and value identity without retired bytes.
@@ -100,7 +97,6 @@
 - `OutboxCursor` owns one optional `OutboxDeferred` per sink; the committed op-log never stores delivery state.
 - First-terminal handling is one atomic `QuarantineAndAdvance`; separate letter and cursor writes are forbidden.
 - Cursor sequence and CloudEvents `D20` ordinal are store-local drain positions, never HLC or portable order.
-- `SweepReceipt` conserves across its whole sweep-slot roster — a refused key booked as `Evicted` reports reclaim never released.
 - `LeaseGuard` is advisory DETECTION — read as a gate it re-mints the frozen-guard scar each guarded write's own `fence <= @token` predicate closes.
 - Residence floors spell `Fits`/`Admit`/`Tenancy`/`Lifetime`/`Degrade` — `Ingest` names one entry kind and `Retain` asks no owner to end a row.
 - `Lifetime` states the extent AND the owner ending it — a window stated without its scheduler promises an expiry no owner runs.
@@ -137,7 +133,6 @@
 - `HandleBridge` is the ONE raw-SQLite-handle bridge over every `sqlite3_*` crossing — a second `SqliteConnection.Handle` reach re-opens disposal.
 - Reads and writes ride ONE coordination fold — a read names no lock and no guarded statement, so a second read leg is the deleted twin.
 - LWT posture rides the bound `CacheProfile` row — a per-call options object re-spells the retry and serial levels the roster already declares.
-- Tag-line owner reads seat at the `StoreSlot` owner — the wire tap and the plan harvest read one grammar, so a second parse forks it.
 - ONE presigner keyed by dialed ENDPOINT — S3 and self-hosted share `GrantSigner`, so no row mints a per-provider signer.
 - `RetentionSweep.Execute` evicts SET-SHAPED through one arrow — a per-key arrow degrades retention lanes to round trips and strands `EraseMany`.
 - `BudgetCredit` IS the seed — its `ON CONFLICT` establishes an absent unit, so a seeding case beside it is the deleted twin of one write.

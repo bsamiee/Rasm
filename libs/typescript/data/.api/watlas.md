@@ -68,7 +68,7 @@ Its one consumer seam on this branch is injection: `@gltf-transform/functions` `
 [LOCAL_ADMISSION]:
 - UV generation only — the atlas extent (`width`/`height`) sizes a bake TARGET; the raster plane mints the bytes, and `watlas` never touches a texel.
 - One readiness proof per process: `Initialize()` races safely but the branch proves it once at engine construction beside the meshopt `ready` awaits, never per transform call.
-- The result's split-vertex census (`vertexCount` growth) is evidence the receipt carries; a consumer assuming input-count parity mis-gathers every attribute after the first seam split.
+- The result's split-vertex census (`vertexCount` growth) rides the result; a consumer assuming input-count parity mis-gathers every attribute after the first seam split.
 
 [RAIL_LAW]:
 - Package: `watlas`

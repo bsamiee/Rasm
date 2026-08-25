@@ -79,7 +79,7 @@
 - `enable_load_extension` then `load_extension` registers a native SQLite loadable extension by setting `LOAD_EXTENSION_ENABLED`, `LOAD_EXTENSION_PATH`, and optional `LOAD_EXTENSION_ENTRYPOINT`; extension policy admits only trusted, handle-relative paths beneath each handle's root and gates the entrypoint before the load.
 - `Cursor.adbc_ingest` streams a `pyarrow.Table`/`RecordBatch`/`RecordBatchReader` (any `__arrow_c_stream__` producer) into a table keyed by `mode` (`append`/`create`/`create_append`/`replace`), returning the row count.
 - `StatementOptions.BATCH_ROWS` bounds each assembled Arrow batch; every result `RecordBatchReader` exposes `__arrow_c_stream__` for zero-copy handoff.
-- each connection captures the resolved URI, extension-load arming and loaded paths, ingest mode and row count, and Arrow schema as a partition receipt.
+- each connection exposes the resolved URI, extension-load arming and loaded paths, ingest mode and row count, and Arrow schema as partition metadata.
 
 [STACKING]:
 - `adbc-driver-manager`(`adbc-driver-manager.md`): loading, the DBAPI surface (`Connection`/`Cursor`/`Error` tree), transaction control, metadata (`adbc_get_objects`/`adbc_get_table_schema`/`adbc_get_statistics`), `Cursor.adbc_ingest`, and `AdbcStatusCode` mapping are the manager's; this catalog adds only the sqlite option vocabulary and the loadable-extension pair.

@@ -39,7 +39,7 @@
 - Its processor latches OFF permanently the first time it ends a span under a parent provider that is not a `TracerProvider`, so a flush seat mounted on the wrong provider degrades silently rather than faulting — registration through this verb is the only mount that cannot reach that state.
 - Each registration verb WRAPS the caller predicate in the swallow and the processors run that wrapper, never the raw seat, so a throw reads as false — the baggage key drops, the flush is skipped — and the verb logs `BaggageKeyActivityPredicateException`, `BaggageKeyLogRecordPredicateException`, or the flush fault on `OpenTelemetryExtensionsEventSource`.
 - `BaggageActivityProcessor` declares an `internal` constructor, so `AddBaggageActivityProcessor` is its one mint and `AllowAllBaggageKeys` its one reachable member: a composition naming the type reads that predicate or holds the registered instance, never constructs one.
-- `RateLimitingSampler(int maxTracesPerSecond)` throws `ArgumentOutOfRangeException` at or below zero, and its `Description` reads `RateLimitingSampler{<rate:0.00>}` — the string a sampling-posture receipt carries verbatim.
+- `RateLimitingSampler(int maxTracesPerSecond)` throws `ArgumentOutOfRangeException` at or below zero, and its `Description` reads `RateLimitingSampler{<rate:0.00>}` — telemetry emits that sampling-posture string verbatim.
 - Both verdicts stamp `sampler.type` = `ratelimiting` beside `sampler.param` = the rate as a `double`, so a dropped trace and a kept one are distinguishable by decision alone, never by attribute presence.
 
 [ENTRYPOINT_SCOPE]: log-side registration and the conversion seats it configures

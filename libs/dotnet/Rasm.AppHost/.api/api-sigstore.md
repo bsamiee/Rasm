@@ -40,7 +40,7 @@
 
 - `VerificationPolicy`: carries `CertificateIdentity?`, `RequireTransparencyLog` with `TransparencyLogThreshold` (default `1`), `RequireSignedTimestamps` with `SignedTimestampThreshold`, `RequireSignedCertificateTimestamps` (default `true`), and DER-SPKI `PublicKey` for managed-key mode.
 - `VerificationResult`: `SignerIdentity` (`VerifiedIdentity?`), `VerifiedTimestamps` (`IReadOnlyList<VerifiedTimestamp>`), `Statement` (`InTotoStatement?`), `FailureReason` (`string?`); every member is `init`-only and `VerifiedTimestamps` defaults to `Array.Empty<VerifiedTimestamp>()`, so an empty list is the no-timestamp read and never `null`.
-- `VerifiedTimestamp` is a `sealed record` with `required TimestampSource Source` and `required DateTimeOffset Timestamp` plus `Uri? AuthorityUri` — object-initializer construction only, no positional ctor, so a receipt row reads `Source` — `TimestampSource.TimestampAuthority` or `TimestampSource.TransparencyLog` — to tell an RFC-3161 instant from a Rekor-integrated one rather than collapsing both into a count.
+- `VerifiedTimestamp` is a `sealed record` with `required TimestampSource Source` and `required DateTimeOffset Timestamp` plus `Uri? AuthorityUri` — object-initializer construction only, no positional ctor, so `SupplyChainAdmission` reads `Source` — `TimestampSource.TimestampAuthority` or `TimestampSource.TransparencyLog` — to tell an RFC-3161 instant from a Rekor-integrated one rather than collapsing both into a count.
 - `CertificateIdentity`: `SubjectAlternativeName` (`Pattern`), `Issuer`, and `Extensions` (`CertificateExtensionPolicy`).
 - `VerificationException`: throwing members raise it on policy or material failure; the `TryVerify*` mirrors fold it into `(false, null)`.
 

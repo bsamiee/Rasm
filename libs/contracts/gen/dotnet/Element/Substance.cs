@@ -1713,10 +1713,6 @@ namespace Rasm.Contracts.Element {
 
   }
 
-  /// <summary>
-  /// The producer lifts this receipt WHOLE, so every column is required and a zero is an engineering value, not
-  /// absence: a zero shear centre reads doubly-symmetric, and a zero axis distance reads non-reinforced.
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class SectionPropertiesWire : pb::IMessage<SectionPropertiesWire>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE

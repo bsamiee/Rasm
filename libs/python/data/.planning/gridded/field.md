@@ -1,14 +1,14 @@
 # [PY_DATA_FIELD]
 
-The labelled and raw field-plane owner: `FieldDataset` reads and writes CF-metadata field cubes over the `FieldEngine` axis, `FieldSelection` owns CF-aware selection and flox-vectorized grouped/binned/resampled reduction and grouped cumulative scan as one closed axis, `FieldReceipt` folds the content-keyed egress, `FieldContainer` is the read leg for the corpus-minted raw field container the C# codec emits, and `EnsembleCorpus` is the replicate-chunked ensemble container for python UQ campaigns. The CF plane and the raw-container plane stay two owners on one page because they share the receipt family and nothing else — the container is raw HDF5 with NO dimension scales by the corpus entry's own pick, so it never routes through `FieldEngine`. This is the labelled-field counterpart of the dense `gridded/store#STORE` chunk-grid — a distinct owner, never a second labelled-array store inside `store` — and the byte-range virtual-datacube concern lives whole on `gridded/virtual#VIRTUAL`.
+The labelled and raw field-plane owner: `FieldDataset` reads and writes CF-metadata field cubes over the `FieldEngine` axis, `FieldSelection` owns CF-aware selection and flox-vectorized grouped/binned/resampled reduction and grouped cumulative scan as one closed axis, `FieldContainer` reads the corpus-minted raw field container the C# codec emits, and `EnsembleCorpus` is the replicate-chunked ensemble container for python UQ campaigns. The raw container has no dimension scales, so it never routes through `FieldEngine`; the byte-range virtual-datacube concern lives whole on `gridded/virtual#VIRTUAL`.
 
-Import gating is tri-state: `xarray` and the `flox` lowering that rides it defer through one module-scope `lazy import`/`lazy from` per fence, so the labelled plane declares itself once at the module boundary and costs nothing until a call reifies the proxy — the eager module-level form the manifest bans never appears, and an unearned function-local one is the same deleted form; `netcdf4` is an ungated Forge source build importing module-top, and `h5py` is ungated module-top for the raw-container plane; the vectorized lowering reifies behind the `_HAS_FLOX` floor gate alone, and only the `numba`/`numbagg` `ReductionEngine` rows stay gated on the numba cp315 activation. Egress materializes to the content-keyed `pyarrow`/Zarr surfaces `tabular/columnar#SCAN` and `gridded/store#STORE` speak, and the absorbed virtual owner mints this same `FieldReceipt` family downward — one receipt family for the labelled plane.
+Import gating is tri-state: `xarray` and the `flox` lowering that rides it defer through one module-scope `lazy import`/`lazy from` per fence; `netcdf4` is an ungated Forge source build, and `h5py` is ungated for the raw-container plane. Egress materializes to the content-keyed `pyarrow` and Zarr surfaces `tabular/columnar#SCAN` and `gridded/store#STORE` speak, returning each emitted payload's `ContentKey` directly.
 
 ## [01]-[INDEX]
 
 - [02]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` axis — one CF open/read/write entrypoint.
 - [03]-[SELECT]: the `FieldSelection` selection/reduction/scan axis threaded by one `ReductionPolicy` through one lowering per kernel.
-- [04]-[EGRESS]: the `FieldReceipt` content-keyed `pyarrow`/Zarr egress fold.
+- [04]-[EGRESS]: content-keyed `pyarrow` and Zarr egress folded into `FieldDataset`.
 - [05]-[CONTAINER]: the `FieldContainer` read leg over the `libs/contracts/manifest.json` `hdf5-exchange/field` raw-container case.
 - [06]-[ENSEMBLE]: the `EnsembleCorpus` replicate-chunked design-beside-responses container with regenerating-state attributes.
 
@@ -183,9 +183,12 @@ class FieldDataset(Struct, frozen=True):
         with _TRACER.start_as_current_span("field.read", attributes={"rasm.field.engine": self.engine.value}):
             return boundary(FIELD_READ, self.engine.open(str(self.ref.path)), catch=_CF_RAISES)
 
-    def write(self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()) -> "RuntimeRail[FieldReceipt]":
+    def write(self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()) -> "RuntimeRail[ContentKey]":
         with _TRACER.start_as_current_span("field.write", attributes={"rasm.field.engine": self.engine.value}):
             return boundary(FIELD_WRITE, lambda: _write(self, dataset, target, encoding), catch=_CF_RAISES).bind(lambda railed: railed)
+
+    def to_arrow(self, dataset: "xr.Dataset") -> "RuntimeRail[tuple[pa.Table, ContentKey]]":
+        return boundary(FIELD_ARROW, lambda: _to_arrow(dataset), catch=_arrow_raises()).bind(lambda lowered: _arrow_keyed(*lowered))
 
 
 def _open(ref: ResourceRef, engine: FieldEngine) -> FieldDataset:
@@ -198,7 +201,7 @@ def _open(ref: ResourceRef, engine: FieldEngine) -> FieldDataset:
 
 - Owner: `FieldSelection` — one closed axis keeping label-vs-position, point-vs-group, and reduce-vs-scan as cases, never a `sel`/`isel`/`groupby`/`resample` sibling-method family on `FieldDataset`. `ReductionPolicy` is the one frozen behaviour carrier every grouped/binned/resampled/scanned arm threads; the reduce `func` and scan `scan` slots are distinct because `xarray_reduce` and `groupby_scan` are distinct kernels, and `ReindexStrategy` replaces the bare-`bool` reindex so `array_type` selects a dense against `SPARSE_COO` intermediate for high-cardinality groups. The fallback is the `flox`-absent install band alone — one `_FALLBACK_CALL` grouper row per kind plus the nan-strip maps — never a per-reduction route; the band is total over every reduction the bare grouper natively exposes, with `mode` the documented flox-only narrowing rather than a silently-broken arm.
 - Cases: `Scan` is the one running-total/forward-fill modality the reduce family cannot express, returning one value per input element rather than one per group; `Resample` rides the same `_reduce` lowering with the frequency on the policy, never a second reduction code path.
-- Receipt: the selection emits no receipt — it transforms the live dataset; the receipt folds once at egress.
+- Boundary: selection transforms the live dataset and emits nothing.
 - Growth: a new selection intent is one `FieldSelection` case; a new flox reduction or scan func is one literal member the nan-strip maps derive automatically with zero map edit; a custom reduction is one `flox.Aggregation` on the `func` slot, a custom scan one `flox.Scan` on the `scan` slot; a new parallelization strategy, engine, or reindex intermediate is one literal member on `ReductionPolicy`; zero new surface.
 - Boundary: no compute numeric kernel, no durable selection store; never a `FloxReduction`/`BareReduction` split routing `std`/`var`/`prod` to a slow bare path where flox registers them as `func` values, and never two lowering paths for the grouped versus resampled arm.
 
@@ -421,89 +424,43 @@ def _scan(dataset: "xr.Dataset", by: tuple[str, ...], policy: ReductionPolicy, f
 
 ## [04]-[EGRESS]
 
-- Owner: `FieldReceipt` — one content-keyed receipt mirroring `gridded/store#STORE` `TensorReceipt`: the `engine` slot is the closed `FieldEngine | EgressTag` family exactly as `TensorReceipt.backend` is the typed `TensorBackend` enum, never a bare `str`. The egress reuses the engine `write` delegate the owner already holds, never a second per-format writer family.
+- Owner: `FieldDataset` reuses its engine's `write` delegate and returns the content key minted over the emitted bytes; `to_arrow` returns the lowered table beside its key.
 - Auto: the content key derives from the written bytes — a Zarr cube hashes its `zarr.json` root-metadata bytes (`zarr_format=3` is the default the `gridded/store` grid writes, never the v2 `.zmetadata` consolidated file), a netCDF cube its on-disk bytes, the Arrow lowering the coalesced record-batch payload — so the field slice carries the same content identity the `columnar` egress expects.
-- Receipt: one `FieldReceipt` per egress, never a per-selection rail; the family is shared by the `[02]-[FIELD]` write path and the `gridded/virtual#VIRTUAL` absorbed aggregation.
-- Growth: a new egress engine is one `FieldEngine` `write` delegate; a new receipt fact is one entry on the fact dict; zero new surface.
+- Growth: a new egress engine is one `FieldEngine` `write` delegate; zero new surface.
 - Boundary: composes the `gridded/store#STORE` Zarr egress and the `tabular/columnar#SCAN` Arrow egress, never re-minting either.
 
 ```python
-from collections.abc import Iterable
-from typing import TYPE_CHECKING, Literal
-
-from beartype import beartype
-from msgspec import Struct
+from typing import TYPE_CHECKING
 
 lazy import pyarrow as pa
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.faults import FAULT_CONF, Catch, RuntimeRail, boundary, scoped
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.faults import Catch, RuntimeRail, boundary
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
     import xarray as xr
 
 
-type EgressTag = Literal["virtual", "arrow", "ensemble", "tree", "cube"]
-
-
 def _arrow_raises() -> Catch:
     return (pa.ArrowException, IndexError, KeyError, MemoryError, TypeError, ValueError, OSError)
 
 
-class FieldReceipt(Struct, frozen=True):
-    engine: "FieldEngine | EgressTag"
-    dims: tuple[str, ...]
-    variables: int
-    bytes_stored: int
-    content_key: ContentKey
-
-    @beartype(conf=FAULT_CONF)
-    def to_arrow(self, dataset: "xr.Dataset") -> "RuntimeRail[tuple[pa.Table, FieldReceipt]]":
-        return boundary(FIELD_ARROW, lambda: _to_arrow(dataset), catch=_arrow_raises()).bind(lambda lowered: _arrow_receipt(*lowered))
-
-    def contribute(self) -> Iterable[Receipt]:
-        Metrics.record({"rasm.field.byte_volume": float(self.bytes_stored)}, domain="field", kind=str(self.engine))
-        yield Receipt.of(
-            "field",
-            (
-                "emitted",
-                str(self.engine),
-                {
-                    "domain": "field",
-                    "kind": str(self.engine),
-                    "key": self.content_key.hex,
-                    "dims": ",".join(self.dims),
-                    "variables": self.variables,
-                    "stored": self.bytes_stored,
-                },
-            ),
-        )
-
-
-def _write(field: "FieldDataset", dataset: "xr.Dataset", target: ResourceRef, encoding: "FieldEncoding") -> "RuntimeRail[FieldReceipt]":
+def _write(field: "FieldDataset", dataset: "xr.Dataset", target: ResourceRef, encoding: "FieldEncoding") -> "RuntimeRail[ContentKey]":
     path = str(target.path)
     field.engine.write(dataset, path, encoding)()
     source = target.path.read_bytes() if target.path.is_file() else (target.path / "zarr.json").read_bytes()
-    return ContentIdentity.of("field", source).map(
-        lambda key: FieldReceipt(
-            engine=field.engine, dims=tuple(dataset.sizes), variables=len(dataset.data_vars), bytes_stored=int(dataset.nbytes), content_key=key
-        )
-    )
+    return ContentIdentity.of("field", source)
 
 
-def _to_arrow(dataset: "xr.Dataset") -> "tuple[pa.Table, tuple[str, ...], int, bytes]":
+def _to_arrow(dataset: "xr.Dataset") -> "tuple[pa.Table, bytes]":
     table = pa.Table.from_pandas(dataset.to_dataframe().reset_index())
     payload = bytes(table.combine_chunks().to_batches()[0].serialize()) if table.num_rows else b""
-    return table, tuple(dataset.sizes), len(dataset.data_vars), payload
+    return table, payload
 
 
-def _arrow_receipt(table: "pa.Table", dims: tuple[str, ...], variables: int, payload: bytes) -> "RuntimeRail[tuple[pa.Table, FieldReceipt]]":
-    return ContentIdentity.of("field.arrow", payload).map(
-        lambda key: (table, FieldReceipt(engine="arrow", dims=dims, variables=variables, bytes_stored=len(payload), content_key=key))
-    )
+def _arrow_keyed(table: "pa.Table", payload: bytes) -> "RuntimeRail[tuple[pa.Table, ContentKey]]":
+    return ContentIdentity.of("field.arrow", payload).map(lambda key: (table, key))
 ```
 
 ## [05]-[CONTAINER]
@@ -512,7 +469,7 @@ def _arrow_receipt(table: "pa.Table", dims: tuple[str, ...], variables: int, pay
 - Cases: `ContainerMeta` is the typed projection of the producer's ROOT attribute roster — `format-key`/`residence`/`bits`/`bound`/`max-residual` wire spellings mapped once at the edge onto canonical snake fields; `residence` is the closed `exact`/`quantized` pair because the producer's `predicted` case refuses HDF5 egress at its own fence.
 - Entry: `FieldContainer.open` probes the `/field` dataset before any resolve and refuses typed on an absent roster, requires a little-endian float32 element, a chunked station-leading grid, and the Shuffle→Deflate-compatible h5py filter view, and refuses a ROOT attribute the roster names but the container omits; `window` reads one station slab, `read` the whole cube, `labelled` the phony-dims lift.
 - Auto: station slabs are chunk-aligned by construction — the `Grid` derivation chunks the station axis at 1, so ANY station range lands on chunk boundaries and the h5py slice IS the producer's `HyperslabSelection` window; readers accept any deflate level a foreign producer wrote while the C# writer holds its own four-value grade set.
-- Receipt: reads emit no receipt or duplicate whole-file content key — the receipt family folds at egress, this owner has no write half, and the manifest proof owns the frozen specimen digest. Opening a screening-scale field therefore never stages the entire HDF5 file merely to name bytes no consumer reads.
+- Boundary: reads mint no duplicate whole-file content key; the manifest proof owns the frozen specimen digest, so opening a screening-scale field never stages the entire HDF5 file merely to name bytes no consumer reads.
 - Growth: a new producer attribute is one `ContainerMeta` field with its wire spelling in `_META`; a second dataset path is `libs/contracts/manifest.json` `hdf5-exchange/field` case growth, never a reader knob; zero new surface.
 - Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the rail on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
 
@@ -678,7 +635,7 @@ def _slab(ref: ResourceRef, stations: slice) -> np.ndarray:
 - Owner: `EnsembleCorpus` — the design-matrix-beside-responses ensemble container for python UQ and surrogate campaigns, a gridded citizen on this branch's own merit citing no cross-branch corpus: `/design` carries the sample-by-factor float64 matrix, each `/responses/<name>` dataset chunks one replicate per chunk so a campaign appends and slices at replicate grain, and the root attributes carry the REGENERATING sampler state — engine name, seed, sample count, factor roster — so a resumed campaign re-derives its sampler from attributes and never unpickles state.
 - Cases: `EnsembleMeta` is the attribute projection; the factor roster rides a vlen-string dataset-independent attribute so the design columns stay self-describing without dimension scales, matching the plane's raw-container stance.
 - Entry: `EnsembleCorpus.create` is create-only in the plane's own law — mode `x`, shuffle+deflate on every chunked dataset, one call landing design, responses, and attributes whole; `open` reads the meta and shapes; `replicate` slices one replicate slab across every response.
-- Receipt: `create` mints the page's one `FieldReceipt` with `engine="ensemble"`, content-keyed over the written container bytes — one receipt family for the labelled plane, the corpus entry's container excluded by its no-write law.
+- Law: `create` returns the `EnsembleCorpus` beside the content key minted over the written container bytes.
 - Growth: a new response family is one dataset row under `/responses`; a new sampler fact is one `EnsembleMeta` field with its attribute spelling; zero new surface.
 - Boundary: design generation is compute's (`SALib`/`pyDOE3` at the study spine) — this owner is the container residence alone, admitting a design any sampler produced; no C# consumer exists and none is claimed, so no corpus entry binds this layout.
 
@@ -703,7 +660,7 @@ class EnsembleCorpus(Struct, frozen=True):
     @beartype(conf=FAULT_CONF)
     def create(
         cls, ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
-    ) -> "RuntimeRail[tuple[EnsembleCorpus, FieldReceipt]]":
+    ) -> "RuntimeRail[tuple[EnsembleCorpus, ContentKey]]":
         return boundary(CORPUS_CREATE, lambda: _create(ref, meta, design, responses), catch=_H5_RAISES).bind(lambda railed: railed)
 
     @classmethod
@@ -721,7 +678,7 @@ class EnsembleCorpus(Struct, frozen=True):
 
 def _create(
     ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
-) -> "RuntimeRail[tuple[EnsembleCorpus, FieldReceipt]]":
+) -> "RuntimeRail[tuple[EnsembleCorpus, ContentKey]]":
     with h5py.File(str(ref.path), "x") as file:
         file.create_dataset("design", data=np.asarray(design, dtype="<f8"), compression="gzip", shuffle=True)
         group = file.create_group("responses")
@@ -734,12 +691,7 @@ def _create(
         file.attrs.create("factors", data=list(meta.factors), dtype=h5py.string_dtype(encoding="utf-8"))
     source = ref.path.read_bytes()
     corpus = EnsembleCorpus(ref=ref, meta=meta, responses=tuple(sorted(responses)))
-    return ContentIdentity.of("field.ensemble", source).map(
-        lambda key: (
-            corpus,
-            FieldReceipt(engine="ensemble", dims=("sample", "factor"), variables=len(corpus.responses), bytes_stored=len(source), content_key=key),
-        )
-    )
+    return ContentIdentity.of("field.ensemble", source).map(lambda key: (corpus, key))
 
 
 def _open_ensemble(ref: ResourceRef) -> EnsembleCorpus:

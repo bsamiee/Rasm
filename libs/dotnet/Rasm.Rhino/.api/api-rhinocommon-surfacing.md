@@ -228,16 +228,16 @@ Members dot off `Curve`.
 
 [STACKING]:
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`Line`/`BoundingBox`/`Interval` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
-- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a nullable single build lifts to `Option<NurbsSurface>`/`Option<Curve>`, a possibly-null-or-empty `Curve[]`/`Surface[]` lands as `Seq<A>`, a `bool`-with-`out` op folds into a `Fin` keyed to the payload, the `out int error` network code and the projection source-index maps fold into a typed construction receipt, and the rolling-ball and tween arrays project as `Seq<Surface>`.
+- `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): a nullable single build lifts to `Option<NurbsSurface>`/`Option<Curve>`, a possibly-null-or-empty `Curve[]`/`Surface[]` lands as `Seq<A>`, a `bool`-with-`out` op folds into a `Fin` keyed to the payload, the `out int error` network code and the projection source-index maps fold into typed build facts, and the rolling-ball and tween arrays project as `Seq<Surface>`.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the closed policy vocabularies — `CurveOffsetCornerStyle`, `CurveOffsetEndStyle`, `CurveExtensionStyle`, `CurveEnd`, `SmoothingCoordinateSystem`, and the `[Flags]` `CurveSimplifyOptions` — wrap as `[SmartEnum<TKey>]`/`[Flags]`-backed owners; the curve host op models as a `[Union]` over the offset, refine, extend/trim/split, pull/project, and construct arms.
 - `Rasm` kernel: host-neutral NURBS evaluation, division, curvature, and tessellation stand at the kernel altitude and the boundary re-derives none of them; degrees, tolerances, angles, and station parameters compose the kernel numeric owners before the native call.
 
 [LOCAL_ADMISSION]:
 - construction enters through the surface or curve op union: each arm binds its native member, projects the outcome onto the rail, and pairs parameter/distance or curve/brep parallel arrays into equal-cardinality rows before the native call; the caller-owned fillet output lists for `FilletSurfaceToRail` drain into detached brep records.
-- native `Surface`, `NurbsSurface`, `Curve`, and `NurbsCurve` values stay inside the construction grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed construction receipt, or an explicitly owned geometry lease.
+- native `Surface`, `NurbsSurface`, `Curve`, and `NurbsCurve` values stay inside the construction grant; downstream code receives duplicated canonical geometry keyed by content hash, the typed build facts, or an explicitly owned geometry lease.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon` (`Rhino.Geometry` freeform surface and curve host-fidelity construction)
 - Owns: nurbs-surface network/rail-revolve/through-points/curve-on-surface/ruled build, the surface/rev/sum/plane generation set, and the curve offset, refine, extend/trim/split, pull/project, and blend/fillet/tween/fit host ops.
-- Accept: native surface and curve outcomes projected onto `Fin`/`Option`/`Seq` rails, parameter/distance and source-index parallel arrays paired into rows, `out`-error and index maps folded into typed receipts.
+- Accept: native surface and curve outcomes projected onto `Fin`/`Option`/`Seq` rails, parameter/distance and source-index parallel arrays paired into rows, `out`-error and index maps folded into typed build facts.
 - Reject: re-deriving kernel-altitude NURBS evaluation and division, exception-style handling of null construction results, unpaired parallel-array inputs, and leaking host surface/curve types past the boundary.

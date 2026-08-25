@@ -20,7 +20,7 @@
 |  [02]   | `JetStreamManager`      | admin           | `streams.add/update/info/delete`, `consumers.*`; stream ensure at Layer build            |
 |  [03]   | `StreamConfig`          | stream shape    | topic rows compiled to streams; durations in nanoseconds; fields keyed below             |
 |  [04]   | `ConsumerConfig`        | consumer shape  | anchored replay + durable consumption; fields keyed below                                |
-|  [05]   | `PubAck`                | receipt         | `stream`, `seq`, `duplicate` — `Fanout.Receipt`; `duplicate` is idempotency evidence     |
+|  [05]   | `PubAck`                | publish ack     | `stream`, `seq`, `duplicate` — `Fanout.Landing`; `duplicate` is idempotency evidence     |
 |  [06]   | `JsMsg`                 | message         | `subject`, `seq`, `data`, `headers?`; the ack algebra the consume lane folds             |
 |  [07]   | `ConsumerMessages`      | delivery        | async iterable + `close()`; lifted through `Stream.fromAsyncIterable`                    |
 |  [08]   | `DeliverPolicy`         | anchor rows     | `All`/`Last`/`New`/`LastPerSubject`/`StartSequence`/`StartTime` — `Fanout.Anchor` target |
@@ -37,7 +37,7 @@
 |  [19]   | `Lister`                | census          | pages a census one turn at a time                                                        |
 |  [20]   | `ConsumerNotification`  | consumer status | the 15-arm union `ConsumerMessages.status()` yields; keyed below                         |
 |  [21]   | `ConsumeOptions`        | pull options    | the long-lived pull loop's own bounds; keyed below                                       |
-|  [22]   | `Batch` / `BatchAck`    | atomic stage    | `startBatch` handle and its one settled receipt; keyed below                             |
+|  [22]   | `Batch` / `BatchAck`    | atomic stage    | `startBatch` handle and its one settled `BatchAck`; keyed below                          |
 
 [STREAMCONFIG]: `name` `subjects` `max_age` `duplicate_window` `retention` `storage` `num_replicas` `allow_atomic` `allow_batched`
 [CONSUMERCONFIG]: `ack_policy` `deliver_policy` `durable_name` `opt_start_seq` `opt_start_time` `replay_policy` `idle_heartbeat` `flow_control`

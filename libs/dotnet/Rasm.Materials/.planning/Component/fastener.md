@@ -11,7 +11,7 @@ THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` roster and law, the t
 
 - Owner: `FastenerSeed` owns the `ComponentFamily.Fastener` roster, seed law, and capacity producer; `Threads` owns the thread table and `component#MATERIAL_GRADE` the grade rows; `FastenerKind` owns the complete IFC entity/token binding, the realization token, and its `CapabilitySet<FastenerTrait>` column; `BoltCategory`, `FayingSurface`, `ThreadSeries`, `ShearPlane`, and `HeadForm` own policy; `GradeProperties.Fastener` owns the size-banded grade physics; `Fastening` owns the design values; `FastenerAssembly` owns installed-bolt state; `FastenerDetail` owns the realization bag.
 - Cases: kind {`bolt` · `nut` · `nail` · `screw` · `anchor` · `dowel` · `rivet` · `coupler` · `kerf` · `pin`} × stock form {threaded hardware over a `ThreadRow`/`MaterialGrade` pair · plain shank over its published designation, diameter, length, tensile strength, authority, and material pair}; the joint category is a `FastenerAssembly` decision, never a type-row column; the stone-cladding pair carries the `AnchorRole` body/restraint axis driving the seam `AnchorType` stamp.
-- Entry: `ComponentSeed.Rows(context, FastenerSeed.Roster, FastenerSeed.Law)` — this page states the roster and the policy, never the fold. `FastenerSeed.Capacity` dispatches the `FastenerPlacement` the connection carries into the matching `CapacityReceipt`; `Fastening` owns the EN 1993-1-8 §3.6 resistances, the ISO 4014 length bands, and the EC5 §8.5 dowel-type check.
+- Entry: `ComponentSeed.Rows(context, FastenerSeed.Roster, FastenerSeed.Law)` — this page states the roster and the policy, never the fold. `FastenerSeed.Capacity` dispatches the `FastenerPlacement` the connection carries into the matching `CapacityLift`; `Fastening` owns the EN 1993-1-8 §3.6 resistances, the ISO 4014 length bands, and the EC5 §8.5 dowel-type check.
 - Packages: Rasm.Numerics (`Dimension` aliased `Count` — the discrete grip-ply/shear-plane columns), Rasm.Domain (`Op`/`Context`/`AcceptValidated`, `ICapability`/`CapabilitySet`), Rasm.Element (`MaterialId`, `EvidenceGrade`, `DetailSchema`, `PropertyBag`, `PropertyName`, `PropertyValue`, the SI `Dimension` axis the bag mints over), Rasm.Materials.Component (the parent owner: `Component`/`ComponentRow`/`ComponentFamily`/`SectionProfile.Circle.Of`/`IfcBinding`/`Coring`/`ComponentStandard`/`ComponentAuthority`/`ComponentFault`/`ComponentDetail`/`SeedLaw`/`ComponentSeed`, `MaterialGrade`+`GradeProperties`, the `capacity#SECTION_CAPACITY` `DesignBasis`/`SafetyFormat`/`CapacityPlacement`, and the sibling `TimberPartialFactor`/`ServiceClass`/`LoadDuration` the EC5 join reads), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + `[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]`, `[UseDelegateFromConstructor]`, `[Union]`, `[ComplexValueObject]`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Traverse`/`.Apply`/`guard`/`Option`), BCL (`ImmutableArray`, `FrozenDictionary`).
 - Growth: a new threaded combination is one `StockRow.Threaded`; a new plain-shank product one `StockRow.Plain`; a new kind one `FastenerKind` row with its trait set and stock case; a new thread one `Threads` entry carrying its own diameter and pitch; a new property class one `MaterialGrade` fastener row on `component#MATERIAL_GRADE`; a new connection category one `BoltCategory` row; a new head geometry one `HeadForm` row; a new bolt-group position one `BoltPosition` row; a new fastener or joint trait one roster row and its membership on the subjects that hold it.
 - Boundary: every fastener uses `SectionProfile.Circle` and the seed-built realization bag. Thread semantics and grade payload exist only on `StockRow.Threaded`; `StockRow.Plain` carries its own published diameter, length, tensile strength, authority, and substance/appearance pair — so `StockFacts.UltimateMpa` is OPTIONAL, absent exactly where a threaded row's grade carries no fastener arm, a state the coherence census refuses before any row reaches a capacity read. `Fastening.TimberDowelShearKn` takes the SCALARS EC5 §8.5 consumes plus the two `GradeProperties.Timber` arms whose density and k90 intercept it reads, never a threaded currency a plain product does not carry. The stone-cladding `kerf`/`pin` kinds are CLOSED VOCABULARY without stock — no captured source prints their section dimensions to the two-source bar — so a proven product lands as one `StockRow.Plain` row.
@@ -451,13 +451,13 @@ public static class FastenerSeed {
         from row in Resolve(component, key)
         from connection in placement.Fastener.ToFin(
             new ComponentFault.ConnectionMissing(key, component.Designation))
-        from receipt in connection.Switch(
+        from lift in connection.Switch(
             bearing: state =>
                 from assembly in Assembly(row, state.Category, FayingSurface.None, state.Head, state.GripPlies, state.ShearPlanes, state.Washer, key)
-                select (CapacityReceipt)new CapacityReceipt.Bolt(component.Designation, assembly, state.Ply, state.Plane),
+                select (CapacityLift)new CapacityLift.Bolt(component.Designation, assembly, state.Ply, state.Plane),
             slipCritical: state =>
                 from assembly in Assembly(row, state.Category, state.Faying, state.Head, state.GripPlies, state.ShearPlanes, state.Washer, key)
-                select (CapacityReceipt)new CapacityReceipt.SlipCritical(component.Designation, assembly, state.Install),
+                select (CapacityLift)new CapacityLift.SlipCritical(component.Designation, assembly, state.Install),
             timberDowel: state =>
                 from ultimate in row.Facts.UltimateMpa.ToFin(
                     new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(StockFacts)))
@@ -466,8 +466,8 @@ public static class FastenerSeed {
                 from perPlane in Fastening.TimberDowelShearKn(
                     row.Facts.DiameterMm, ultimate, state.LoadToGrainDeg,
                     side1, state.Thickness1Mm, side2, state.Thickness2Mm, state.Service, state.Duration, key)
-                select (CapacityReceipt)new CapacityReceipt.TimberDowel(component.Designation, perPlane, state.ShearPlanes))
-        from capacity in SectionCapacity.Lift(receipt, key)
+                select (CapacityLift)new CapacityLift.TimberDowel(component.Designation, perPlane, state.ShearPlanes))
+        from capacity in SectionCapacity.Lift(lift, key)
         select capacity;
 
     static Fin<FastenerAssembly> Assembly(StockRow row, BoltCategory category, FayingSurface faying, HeadForm head, int gripPlies, int shearPlanes, Option<HexHardware> washer, Op key) =>

@@ -74,7 +74,7 @@
 [LOCAL_ADMISSION]:
 - `Ply.Net` decodes and inspects PLY bytes only — no mesh algebra, no normal/tangent generation, no write-side encoder.
 - Frame normalization, unit coercion, and the canonical `BimElement` projection are downstream import concerns.
-- `Format`, per-`Element` `Count`, and per-`Property` `DataType` are the receipt facts the import fold records.
+- `Format`, per-`Element` `Count`, and per-`Property` `DataType` are the facts the import fold carries on its result.
 
 [RAIL_LAW]:
 - Package: `Ply.Net`

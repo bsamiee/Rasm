@@ -2,7 +2,7 @@
 
 Recover-TO half of the bidirectional `document` seam: `DocumentLens` recovers a `DocumentNode` tree back OUT of an emitted PDF, a scanned raster, or an office/structured-text payload — one owner discriminating recovery operation over the closed `LensOp`, routed by the one `_ROUTES` `Route` table whose rows carry the arm, the default provider, AND the admissible provider set, never a `get_text`/`get_words` verb family. Production and extraction are inverses over the one node algebra, so a `document/emit#DOCUMENT` emission and a `DocumentLens` recovery round-trip through `DocumentNode` with `document/model#DELTA` defined once. Beyond content recovery the op family carries the prepress/forensic examination plane — per-glyph geometry, computed layout metrics, document/page classification, ruled-table extraction quality, OCG layer and separation-ink census, page-label trees, and FDF/XFDF form-data export — the incoming-file triage a delivery plane accepting consultant files runs before it accepts.
 
-Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-core engine carrying reading-order XY-cut recovery, region crop, in-process OCR, and `FormField`-flag AcroForm recovery — the commercial-safe path where the AGPL `pymupdf` arms are barred on a closed-distributed pipeline, `pymupdf` retained for the permissive/internal lane. Each provider carries its own runtime `band`: the native and pure-Python readers resolve in-process on the core, and only the process-isolated companions (`ocrmypdf`, `python-calamine`, `lxml`) cross as `KernelTrait.HOSTILE` kernels onto the warm process pool; every reader arm is a `@beartype` boundary narrowing the recovered provider shapes to the model-legal `DocumentNode` before crossing back. `LensSpec` admits exactly once at `.of` under the per-op `_REQUIRED` precondition and the `Route.providers` admission — an op/provider pair outside the row refuses as `LensFault.provider`, so no reader arm can fall through to an engine the caller never named; the `@receipted(OPEN)` weave drains the stepped owner and `contribute` mints the `core/receipt#RECEIPT` `ArtifactReceipt.Introspection` case.
+Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-core engine carrying reading-order XY-cut recovery, region crop, in-process OCR, and `FormField`-flag AcroForm recovery — the commercial-safe path where the AGPL `pymupdf` arms are barred on a closed-distributed pipeline, `pymupdf` retained for the permissive/internal lane. Each provider carries its own runtime `band`: the native and pure-Python readers resolve in-process on the core, and only the process-isolated companions (`ocrmypdf`, `python-calamine`, `lxml`) cross as `KernelTrait.HOSTILE` kernels onto the warm process pool; every reader arm is a `@beartype` boundary narrowing the recovered provider shapes to the model-legal `DocumentNode` before crossing back. `LensSpec` admits exactly once at `.of` under the per-op `_REQUIRED` precondition and the `Route.providers` admission.
 
 ## [01]-[INDEX]
 
@@ -13,15 +13,14 @@ Layout-dominant ops default to `LensProvider.PDFOXIDE` — the MIT/Apache Rust-c
 - Owner: `DocumentLens` — the ops dispatch a provider VALUE rather than reconstructing the engine choice, the band recovered once from `provider.band`, the offload crossed through the owner's own `lane: LanePolicy` instance (`self.lane.offload`, the runtime-owned bound — never a class-qualified call nor a folder-minted limiter). One polymorphic `_node` constructor mints every node variant over a `NodeMeta` whose content key joins the structural `path` — the `tuple[int, ...]` of child ordinals from the recovery root, the node's structural uid — to the content payload, so identical-content siblings under one parent never collapse onto one slot and a content change at a fixed path re-keys without stealing a sibling's identity; `bounds` stays geometric evidence on the meta, never an identity substitute. Per-kind material admits through the closed `NodeSlot` `TypedDict`, honoring each variant's real field contract — never a per-kind sibling-factory family.
 - Cases: the non-obvious per-arm rules the fence cannot self-justify — TABLE under PDFOXIDE reads the native `extract_tables` row dicts (`rows[].cells[].text`, `is_header` folding `header_rows`, the `(x, y, w, h)` bbox converted once), under MUPDF reads the `Table.header.external` discriminant into `header_rows` (an above-body synthesized header `0`, an in-grid header row `1`, never the always-truthy `Table.header` object), and under PLUMBER folds the `Table.cells` bbox set into merged-cell `spans` quads; TABLE_AUDIT runs the SAME `_table_settings` band through `debug_tablefinder` and mints one `TableAudit` per page off the pipeline's own intermediates — an unruled page reports its stray edge count and a zero crossing ratio where a bare `find_tables` result reports nothing a threshold could read, and `TableAudit.read` is the inverse `delivery/gate#GATE` recovers typed scalars through so no consumer re-parses a rendered field string; REGION converts the model `(x0,y0,x1,y1)` bbox once to the pdf_oxide `(x, y, w, h)` convention; OCR defaults to the in-process pdf_oxide Rust engine (no subprocess hop, no PDF/A rewrite), the gated `ocrmypdf` alternate RESERVED for the PDF/A output path with its `ExitCode` return gating the sidecar text feed, and a non-PDF raster wraps losslessly through `new_page`/`insert_image` before OCR; WIDGET folds pdf_oxide `FormField.is_required`/`is_readonly` onto `FieldNode.required`/`readonly` — the policy pair the pymupdf widget accessor cannot fill — reads `FormField.flags` as the raw AcroForm `/Ff` bitmask so `_text_mode` selects `TextMode.PASSWORD` ahead of `TextMode.MULTILINE` on a field setting both bits (a `None` there means the field dict omits `/Ff`, never a cleared bit), and builds the per-mode model `FieldValue` case through the one `_FIELD_BUILDERS` token table (a raw AcroForm `/Btn` reads back as the `"button"` token, so a bool value discriminates it to `CheckboxField`), the pymupdf alternate resolving `field_type` ints via the catalogued `PDF_WIDGET_TYPE_*` names into the same token space; CLASSIFY decodes the engine's JSON verdict strings through `msgspec.json.decode`, never a rendered-string regex; DOCX_READ groups consecutive list-styled paragraphs through `groupby` into one `ListNode` and recovers `Paragraph.hyperlinks` as `AnnotationNode` link children, the inverse of the emit `List Bullet`/`List Number` lowering; YAML_READ rides `load_all` with the single-document case subsumed, never a `multi` knob; XML_READ admits through the `document/model#NODE` `hardened_parse` fold — the axis's one stated libxml2 posture — and ONLY the serialized `DocumentNode` tree crosses back across the interpreter seam.
 - Auto: every recursive foreign source — the pikepdf `/K` spine, the pdfplumber structure branches, the lxml element tree, a YAML/TOML value graph — rebuilds post-order through the one `_grown` expand/combine marker frontier on an immutable `Block` stack, so adversarial nesting depth never overflows the interpreter frame limit and every rebuilt node receives its structural path from the same frontier; the flattening walks (pypdf outline, ODT containers) run small explicit stacks under the same depth law.
-- Entry: the key mints PRE-RUN over `(op, payload, provider, scoped spec)` ONCE at `of` and rides the owner as `key` — the spec preimage narrowed by `_minted` to the op's `Route.observed` roster so an unobserved knob edit never forks an op's key, and never the recovered tree, whose digest stays a `document/model#NODE` `node_digest` projection downstream consumers derive on demand. Carrying the mint rather than re-deriving it keeps `receipt.slot == node.key` structural across both the async rail and the synchronous `contribute` port, and spares the whole-payload re-encode and the second `content.derive` span a property read costs. A GATED row crosses onto the worker that re-resolves the SAME `_ROUTES` row and reifies the module-scope `lazy` bindings there, so the worker lane carries no second dispatch.
-- Receipt: `contribute` reads the stepped `recovered` directly and never re-runs `_emit`, so a worker-gated arm is never re-imported on the core during the receipt harvest; the `Introspection` counts project by `walk` over the node variants, the tag riding the encoded `kind` field, never a runtime `.tag` attribute; `_emit` awaits `Journal.record` over `receipt.evidence()` — the awaitable seat the durable plane demands, since `contribute` cannot suspend — and appends no positional diff, because those counts already ARE the recovery's whole evidence.
+- Entry: `of` mints the key over `(op, payload, provider, scoped spec)` and narrows the spec preimage to the selected `Route.observed` fields. A gated row crosses onto the worker that re-resolves the same `_ROUTES` row.
+- Output: `_emit` returns the recovered `DocumentNode` tuple; `Metrics.record` records its encoded byte volume.
 - Growth: a new recovery op is one `LensOp` member, one `Route` row (arm, default, providers, observed), and one `_REQUIRED` row when it needs material; a new provider for an existing op is one member in the row's `providers` set with its arm branch; a new provider knob is one `LensSpec` field, one `LensPayload` row, and its op's `observed` entry; a richer recovered field is one `NodeSlot` key honored by `_node`; a new AcroForm mode is one `_FIELD_BUILDERS` row; a new table-quality measure is one `TableAudit` field, whose projection and inverse both derive from the roster.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from enum import StrEnum
-from functools import partial
 from io import BytesIO
 from itertools import groupby
 from typing import Final, Literal, NotRequired, ReadOnly, Self, TypedDict, Unpack, assert_never
@@ -34,9 +33,8 @@ from expression.collections import Block, Map
 from msgspec import Struct, field, structs
 from pydantic import TypeAdapter, ValidationError
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import (
     AnnotKind,
     AnnotTarget,
@@ -84,10 +82,9 @@ from rasm.artifacts.document.model import (
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.receipts import OPEN, Receipt, receipted
 
 lazy import docx
 lazy import ocrmypdf
@@ -342,10 +339,9 @@ class DocumentLens(Struct, frozen=True):
     spec: LensSpec = field(default_factory=LensSpec)
     recovered: tuple[DocumentNode, ...] = ()
 
-    def emit(self, /) -> ArtifactWork:
-        return ArtifactWork(key=self.key, work=partial(self._emit, self.key), parents=(), admission=Admission(keyed=None), cost=float(len(self.payload)))
+    def emit(self, /) -> ArtifactWork[tuple[DocumentNode, ...]]:
+        return ArtifactWork(key=self.key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.payload)))
 
-    @receipted(OPEN)
     async def _recovered(self) -> Self:
         route = _ROUTES[self.op]
         crossed = (
@@ -355,26 +351,14 @@ class DocumentLens(Struct, frozen=True):
         )
         return structs.replace(self, recovered=crossed.default_with(lapsed))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        railed = await async_boundary(LENS_RECOVER, self._recovered, catch=_RECOVER_RAISES)
-        match railed.map(lambda stepped: stepped._receipt(key)):
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+    async def _emit(self) -> RuntimeRail[tuple[DocumentNode, ...]]:
+        match await async_boundary(LENS_RECOVER, self._recovered, catch=_RECOVER_RAISES):
+            case Result(tag="ok", ok=stepped):
+                size = len(msgspec.msgpack.encode(stepped.recovered))
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind="introspection", scope=self.lane.scope)
+                return Ok(stepped.recovered)
             case refused:
                 return Error(refused.error)
-
-    def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
-        flat = tuple(child for node in self.recovered for child in walk(node))
-        return ArtifactReceipt.Introspection(
-            key,
-            len(flat),
-            sum(len(node.text) for node in flat if isinstance(node, RunNode)),
-            sum(isinstance(node, FigureNode) for node in flat),
-            sum(isinstance(node, AnnotationNode) for node in flat),
-        )
-
-    def contribute(self) -> Iterable[Receipt]:
-        yield from self._receipt(self.key).contribute()
 
     @classmethod
     def of(cls, op: LensOp, payload: bytes, /, *, lane: LanePolicy, provider: LensProvider | None = None, **raw: Unpack[LensPayload]) -> Result[Self, LensFault]:

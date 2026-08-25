@@ -2,7 +2,7 @@
 
 `Remnant` owns one connected, arc-preserving offcut, canonical content identity, material and stock lineage, reusable-region evidence, and the generation carried into the next nesting inventory. Equivalent loop rotations and hole orderings mint one identity, while winding remains part of that identity.
 
-`RemnantInventory` owns one material lane. `RemnantOp` admits stock, reservation, disposition, and physical-census events through one `Reconcile` fold; revision conflicts remain typed receipt evidence, geometry faults remain on `Fin`, and every successful transition retains its before-and-after row.
+`RemnantInventory` owns one material lane. `RemnantOp` admits stock, reservation, disposition, and physical-census events through one `Reconcile` fold; revision conflicts remain typed result evidence, geometry faults remain on `Fin`, and every successful transition retains its before-and-after row.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@
 ## [02]-[LIFECYCLE]
 
 - Owner: `RemnantState`, `RemnantCondition`, `ReservationDisposition`, `ReuseTrait`, `RetireCause`, `RemnantConflict`, and `RemnantOp` close lifecycle behaviour and evidence; `ReusePolicy` owns reuse admission.
-- Cases: `RemnantOp` carries `Stocking`, `Claim`, `Close`, and `Sweep`; `ReservationDisposition.Consume` subtracts its used region and stocks each surviving connected child in the same receipt.
+- Cases: `RemnantOp` carries `Stocking`, `Claim`, `Close`, and `Sweep`; `ReservationDisposition.Consume` subtracts its used region and stocks each surviving connected child in the same result.
 - Entry: `Admit(Seq<Loop>, MaterialId, RemnantOrigin, RemnantProfile)` mints each connected component, `Reconcile(RemnantOp, RemnantInventory)` folds lifecycle operations, `From(Stock, Seq<Loop>, double)` inverts consumed stock, `Holds(Seq<Loop>, Option<double>, ReusePolicy)` answers policy-inset fit with grain, and `Stockable(RemnantInventory)` projects the next inventory smallest-adequate first.
 - Packages: `CommunityToolkit.HighPerformance`, `LanguageExt.Core`, `NodaTime`, `QuikGraph`, `Rasm` (`ICapability`/`CapabilitySet`, `Context`/`ToleranceLane`), `Rasm.Element`, `RhinoCommon`, `Thinktecture.Runtime.Extensions`, and `UnitsNet` (`Length`, `Area`, `Ratio` on the reuse policy's own floors) compose the owner.
 - Law: `ReuseTrait` carries the kernel `ICapability` floor, so a traceability demand is a `CapabilitySet<ReuseTrait>` value and never a hand-walked predicate roster — `Missing` answers the accumulating retire causes and `Require` guards the one admission that genuinely refuses, the salvage floor that cannot be stated without the valuation trait carrying it. `Rank` stays the interface's DERIVED declaration order; an ordinal column beside the roster is the refused form.
@@ -150,12 +150,12 @@ public abstract partial record RemnantOp {
 
 ## [03]-[INVENTORY]
 
-- Owner: `RemnantProfile` carries traceability, gauge, grain, the inherited symmetry law, cost, and exclusion facts; `RemnantRow` is one inventory line with its state, condition, revision, claim census, and optional lease; `RemnantInventory` owns one material lane; `RemnantPlan` is the settled reconciliation receipt.
+- Owner: `RemnantProfile` carries traceability, gauge, grain, the inherited symmetry law, cost, and exclusion facts; `RemnantRow` is one inventory line with its state, condition, revision, claim census, and optional lease; `RemnantInventory` owns one material lane; `RemnantPlan` is the settled reconciliation result.
 - Law: an offcut is the SAME substance as the stock it came off, so its placement legality travels with the geometry and `Stock.FromRemnant` projects the profile's `Law` straight back into inventory — a re-read from appearance at re-entry would let one sheet's offcut nest under a law its parent refused.
 - Law: a row's identity IS its content key — `Row.Key.Digest == Remnant.Identity` is an admitted invariant, so an inventory keyed by anything else cannot exist and the batch dedup threads ONE seen-set rather than re-digesting each prior remnant per candidate. `Remnant.Key` is an ADMITTED COLUMN minted once on the `Keyed` rail and re-derived by the validator as its proof, never a property re-folding the canonical preimage on every `Identity` read.
 - Law: `ReusePolicy` carries typed measures — `Length`, `Area`, `Ratio`, `Duration` — and reads its arc and grain budgets off the admitted `Context` lanes, because `ToleranceLane` owns every band it derives; a tolerance column beside a lane is a copy that drifts from it. Only the salvage floor stays a bare double, and it says so: a shop currency has no admitted dimension.
 - Law: lineage is a forest by construction — single-parent edges plus acyclicity — so transitive closure and reduction prove nothing here and are refused by name; the load-bearing law is generation succession and root-stock agreement along every retained parent edge, checked against the resolved parent row.
-- Receipt: `RemnantPlan` carries the next inventory, admissions, accumulated retirement causes, conflicts, validated transitions, per-source-stock `RemnantYield` rows, and the standing potential, consumed, and scrapped `RemnantMeasure` pairs of area and value.
+- Result: `RemnantPlan` carries the next inventory, admissions, accumulated retirement causes, conflicts, validated transitions, per-source-stock `RemnantYield` rows, and the standing potential, consumed, and scrapped `RemnantMeasure` pairs of area and value.
 - Boundary: `RemnantSlots` names the `store.fabrication.remnant.<verb>` streams the validated transitions and the re-admitted inventory census ride on the Persistence slot registry, so shop offcuts survive restart and share across apps without collision.
 
 ```csharp
@@ -372,7 +372,7 @@ file readonly struct InventoryGate(RemnantInventory inventory, RemnantRow[] rows
 - Law: an absent measure is carried, never forged. Value resolves from the remnant's own figure or the profile rate over its usable area, and a remnant with neither stays UNPRICED through every total and sorts behind every priced row; aspect is absent where the calipers walk returns no `OrientedEnvelope` and the sliver gate retires on that absence with the absence in its cause. A zero standing in for either fact makes an unmeasured offcut indistinguishable from a worthless one and scraps stock under a verdict nobody reached, and a provider failure rides the typed rail rather than becoming a measure.
 - Auto: arc-exact offsets and Booleans route through `ArcAlgebra.Apply`; chord projection routes through `ArcAlgebra.Densify`; exact measures route through `Loop.Area` and `Loop.Length`; independent row gates partition through `ParallelHelper`; lineage acyclicity and order route through `QuikGraph`; lease membership routes through `Interval.Contains`.
 - Exemption: `InventoryGate` is the measured per-row partition boundary and `AdmitLineage` the bounded graph-population kernel; mutation stays inside their own admitted containers.
-- Boundary: `Remnant.Key` is the lifecycle key, `Stock.FromRemnant` is the next-nest carrier, and `FabricationResult.Placement.Remnants` is the placement receipt seam.
+- Boundary: `Remnant.Key` is the lifecycle key, `Stock.FromRemnant` is the next-nest carrier, and `FabricationResult.Placement.Remnants` is the placement result seam.
 
 ```csharp
 using LanguageExt;
@@ -883,7 +883,7 @@ public static class Remnants {
     private static Fin<ArcRelation> Relation(Loop first, Loop second) =>
         ArcForest.Admit(Seq(first, second), first.Tolerance, first.Plane)
             .Bind(forest => ArcAlgebra.Apply(new ArcOp.Inspect(forest, new ArcProbe.Pair(first, second))))
-            .Bind(static trace => trace is ArcTrace.Inspection { Result: ArcInspection.Pair pair }
+            .Bind(static trace => trace is ArcTrace.Inspection { Evidence: ArcInspection.Pair pair }
                 ? Fin.Succ(pair.Relation)
                 : Fin.Fail<ArcRelation>(new KernelFault.InvalidValue("remnant", "remnant:relation-trace")));
 
@@ -891,11 +891,11 @@ public static class Remnants {
         ArcAlgebra.Densify(new ArcProjection.Lower(loop, error))
             .Bind(static trace => trace
                 .Lowering(new KernelFault.InvalidValue("remnant", "remnant:projection-trace"))
-                .Map(static evidence => evidence.Result));
+                .Map(static evidence => evidence.Output));
 
     private static Fin<Seq<Loop>> ArcPaths(ArcTrace trace) => trace switch {
-        ArcTrace.Forest forest => Fin.Succ(forest.Result.Loops),
-        ArcTrace.Paths paths => Fin.Succ(paths.Result),
+        ArcTrace.Forest forest => Fin.Succ(forest.Geometry.Loops),
+        ArcTrace.Paths paths => Fin.Succ(paths.Geometry),
         _ => Fin.Fail<Seq<Loop>>(new KernelFault.InvalidValue("remnant", "remnant:arc-trace")),
     };
 
@@ -1074,7 +1074,6 @@ public static class Remnants {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

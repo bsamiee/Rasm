@@ -6,7 +6,7 @@ This page founds no clipping kernel: regions normalize once through `Arrangement
 
 ## [01]-[INDEX]
 
-- [02]-[HATCHING]: `HatchPattern` rhythm rows over `HatchFamily`/`HatchRhythm` columns; `HatchPlan`/`HatchPolicy` the per-region and solve policy rows; `HatchOp` folded by ONE `Hatching.Apply`; the overlay normalization, exact crossing-parity course weave, dash carve, and `Patterning` motif arm; `HatchResult` the successor-linked SoA wire with its `HatchArm` discriminant and `HatchReceipt` evidence over the `HatchCount` census vocabulary.
+- [02]-[HATCHING]: `HatchPattern` rhythm rows over `HatchFamily`/`HatchRhythm` columns; `HatchPlan`/`HatchPolicy` the per-region and solve policy rows; `HatchOp` folded by ONE `Hatching.Apply`; the overlay normalization, exact crossing-parity course weave, dash carve, and `Patterning` motif arm; `HatchResult` the successor-linked SoA wire with its `HatchArm` discriminant and `HatchCensus` evidence over the `HatchCount` census vocabulary.
 - [03]-[DENSITY_BAR]: per-axis owner, rail, and case partition this page holds.
 
 ## [02]-[HATCHING]
@@ -15,7 +15,7 @@ This page founds no clipping kernel: regions normalize once through `Arrangement
 - Cases: `HatchOp` cases `Regions` (per-region ring sets, each with its own plan — per-region policy IS the request shape) · `Projection` (a `DrawingProjection` whose `Fill` loops seed one plan); `HatchPattern` rows `Parallel` · `Crosshatch` · `Staggered` · `Motif` — the first three are family-table data over one weave, `Motif` carries no families because its plan's orbit realizes it; both op cases meet at one `Weave` fold, so ingress never forks the algebra.
 - Entry: `public static Fin<HatchResult> Hatching.Apply(HatchOp op, Op? key = null)` — the ONE entrypoint discriminating by op case, no `HatchRegion`/`HatchDrawing`/`HatchMotif` sibling statics. `DegenerateInput` routes the empty region SET; an empty covered region (a fully-clipped fill) hatches to nothing and is legal; an open boundary chain, a course or dash census over `CourseBudget`, or an orbit extent under the region radius routes `HatchFault` naming the pattern row and region ordinal, while an unadmissible plan refuses at `HatchPlan.Of` naming the claim that failed; a composed sibling fault — overlay, crossing, orbit — surfaces unchanged, and non-geometric refusals ride the `Op` channel.
 - Auto: `Normalize` resolves each raw ring set ONCE through `ArrangementOp.PlanarOverlay` (`BooleanOp.Union`, `Axis.Z`) so every region enters as the canonical covered-region loops — outer CCW, holes CW — and the `Projection` case reads the SAME loops off `DrawingProjection.Fill`; `Frames` projects the loop ordinates ONCE per region and reduces them per family through `TensorPrimitives` into the course frame (direction `d`, normal `n`, spacing, phase), each frame proving its own `int` course count on the rail; `Courses` gates the summed census against `CourseBudget` BEFORE any generation and prunes candidates per course through one BVH `SpatialQuery.Range`; `Rows` decides each crossing by exact `Predicate.Orient2D` endpoint signs under the closed-open lift (a `Zero` sign reads `Positive`), the strict straddle minting its point through `IntersectOp.SegmentSegment` and a grazing vertex contributing its own explicit point, each row carrying the exact ±1 winding delta and the whole scan riding one `Fin` fold so no crossing is read off a forged empty answer; the winding walk opens a run at 0→nonzero and closes at nonzero→0, `Dashes` carves runs on the world dash grid anchored at the plan origin over LONG ordinals under the same census budget (`Stagger` phase-shifts alternate courses), and `Motifs` orbits the motif through `Patterning.Apply`, mints the loop-invariant orbit turn once, stamps each planar site by its spin and mirror parity, and clips each instance through `PlanarOverlay` intersection so per-instance provenance survives as columns.
-- Receipt: `HatchReceipt` is ONE `HashMap<HatchCount, int>` census — region, course, crossing, grazing-incidence, instance, and culled-instance slots read through named `Option<int>` accessors, so a seventh census axis is one `HatchCount` row and zero signature edits. Every slot the taken arm measures seeds at zero in `Weave`, so a measured zero is PRESENT and an untaken arm's slot is ABSENT; `HatchResult` registers `IValidityEvidence`, its claims rejecting torn columns, out-of-range links, or a culled count that outruns or outlives its instance census.
+- Output: `HatchCensus` is ONE `HashMap<HatchCount, int>` census — region, course, crossing, grazing-incidence, instance, and culled-instance slots read through named `Option<int>` accessors, so a seventh census axis is one `HatchCount` row and zero signature edits. Every slot the taken arm measures seeds at zero in `Weave`, so a measured zero is PRESENT and an untaken arm's slot is ABSENT; `HatchResult` registers `IValidityEvidence`, its claims rejecting torn columns, out-of-range links, or a culled count that outruns or outlives its instance census.
 - Packages: `Rasm.Meshing` (`Arrangement.Apply`/`ArrangementOp.PlanarOverlay`/`BooleanOp`, `Intersection.Apply`/`IntersectOp.SegmentSegment`, `Chain`), `Rasm.Spatial` (`Spatial.Apply` — `Build`/`Range`), `Rasm.Parametric` (`Patterning.Apply`, `PatternOp.Orbit`, `PatternPlan`, `InstanceStream.Planar` — the wallpaper-group symmetry vocabulary composed, never re-minted), `Rasm.Numerics` (`Predicate.Orient2D`, `Implicit`, `Sign`, `Axis`, `Band`, `Dimension`, `PositiveMagnitude`, `GeometryFault` family), `Rasm.Domain` (`Op`, `Fault`, `Admit.Claims`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Drawing/view` (`DrawingProjection`, `SuccessorChain` the shared chain walk), `System.Numerics.Tensors` (`TensorPrimitives` extent reduction), `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter`/`MemoryOwner` arenas), `Rhino.Geometry`, Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new pattern is one `HatchPattern` row of family data; a new rhythm axis (a dot rhythm, a per-course weight) is one `HatchFamily`/`HatchRhythm` column; a new ingress is one `HatchOp` case over the SAME `Weave` fold; a new per-region knob is one `HatchPlan` column; a new census axis is one `HatchCount` row; a new emission arm is one `HatchArm` row; a per-course render cue is one `HatchRow` column projected by `Freeze`; the frieze census (the 7 border groups, for curve-borne hatches) enters through `Patterning`'s own vocabulary, never a second orbit fold here; zero new entry surfaces.
 - Law: `HatchLaws` is the tier-2 law matrix over this owner — the parity verdict agrees with a point-in-polygon oracle at every emitted segment midpoint, the closed-open lift keeps the winding walk total through vertex and collinear incidences (a boundary-through-vertex crossing counts exactly once, a tangent touch nets zero), the dash grid aligns across courses and regions because `s` measures from the plan origin, a mirrored orbit seat places a mirrored motif, the wire's links partition into disjoint chains, and emission is a deterministic function of the input.
@@ -154,8 +154,8 @@ public sealed record HatchPlan {
 public readonly partial record struct HatchRegion([property: OrderedEquality] Seq<Polyline> Rings, HatchPlan Plan);
 
 [Equatable]
-public sealed partial record HatchReceipt([property: UnorderedEquality] HashMap<HatchCount, int> Counts) {
-    public static readonly HatchReceipt Empty = new(HashMap<HatchCount, int>());
+public sealed partial record HatchCensus([property: UnorderedEquality] HashMap<HatchCount, int> Counts) {
+    public static readonly HatchCensus Empty = new(HashMap<HatchCount, int>());
 
     public Option<int> Of(HatchCount slot) => Counts.Find(slot);
     public Option<int> Regions => Of(HatchCount.Regions);
@@ -172,7 +172,7 @@ public sealed partial record HatchResult(
     [property: OrderedEquality] Arr<int> Region, [property: OrderedEquality] Arr<int> Family,
     [property: OrderedEquality] Arr<int> Course, [property: OrderedEquality] Arr<int> Next,
     [property: OrderedEquality] Arr<HatchArm> Arm,
-    HatchReceipt Receipt) : IValidityEvidence {
+    HatchCensus Census) : IValidityEvidence {
 
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: End.Count, expected: Start.Count),
@@ -182,11 +182,11 @@ public sealed partial record HatchResult(
         ValidityClaim.CountExactly(count: Next.Count, expected: Start.Count),
         ValidityClaim.CountExactly(count: Arm.Count, expected: Start.Count),
         Next.All(link => link >= -1 && link < Start.Count),
-        Receipt.Crossings.Map(static census => census >= 0).IfNone(true),
-        Receipt.Grazed.Map(static census => census >= 0).IfNone(true),
-        Receipt.Instances.Match(
-            Some: total => Receipt.Culled.Map(culled => culled <= total).IfNone(false),
-            None: () => Receipt.Culled.IsNone));
+        Census.Crossings.Map(static census => census >= 0).IfNone(true),
+        Census.Grazed.Map(static census => census >= 0).IfNone(true),
+        Census.Instances.Match(
+            Some: total => Census.Culled.Map(culled => culled <= total).IfNone(false),
+            None: () => Census.Culled.IsNone));
 
     public Seq<Line> ToSegments() => toSeq(Enumerable.Range(0, Start.Count).Select(i => new Line(Start[i], End[i])));
 
@@ -229,7 +229,7 @@ internal sealed class HatchStore : IDisposable {
             (start[i], end[i], region[i], family[i], course[i], next[i], arm[i]) =
                 (written[i].A, written[i].B, written[i].Region, written[i].Family, written[i].Course, written[i].Next, written[i].Arm);
         }
-        return new(new(start), new(end), new(region), new(family), new(course), new(next), new(arm), new HatchReceipt(counts));
+        return new(new(start), new(end), new(region), new(family), new(course), new(next), new(arm), new HatchCensus(counts));
     }
 
     public void Dispose() => rows.Dispose();
@@ -536,7 +536,7 @@ flowchart LR
     Orbit -->|"seat spin + mirror parity stamp"| Clip["per-instance PlanarOverlay intersection"]
     Dashes --> Wire["HatchResult — successor-linked SoA wire"]
     Clip --> Wire
-    Wire -->|"HatchCount slot census"| Receipt["HatchReceipt"]
+    Wire -->|"HatchCount slot census"| Census["HatchCensus"]
     Wire -->|"ToSegments / ToPolylines"| Sheet["Fabrication Documentation/projection sheet layer"]
     HatchOp -.->|"DegenerateInput / HatchFault"| GeometryFault
 ```
@@ -552,7 +552,7 @@ flowchart LR
 |  [03]   | Family rhythm  | `HatchFamily`  | `Create → HatchFamily` (band-guarded) |    —    |
 |  [04]   | Region plan    | `HatchPlan`    | `Of(…) → Fin<HatchPlan>`              |    —    |
 |  [05]   | Solve policy   | `HatchPolicy`  | value (`IValidityEvidence`)           |    —    |
-|  [06]   | Census slots   | `HatchCount`   | receipt rows (pure)                   |    6    |
+|  [06]   | Census slots   | `HatchCount`   | census rows (pure)                    |    6    |
 |  [07]   | Result carrier | `HatchResult`  | carrier (`ToSegments`/`ToPolylines`)  |    —    |
 |  [08]   | Emission arm   | `HatchArm`     | row discriminant (pure)               |    2    |
 
@@ -561,8 +561,8 @@ flowchart LR
 - [03]-[FAMILY_RHYTHM]: `[ComplexValueObject]` relative angle/spacing/phase and the spacing-unit dash law, bounds read off `Band` rows at construction and default validation evidence crossing through the kernel bridge; absolute scale enters once on the plan.
 - [04]-[REGION_PLAN]: per-region pattern, angle, `PositiveMagnitude` spacing, origin, and the optional `Patterning` orbit — policy on the request shape, five claims accumulated once at `Of`.
 - [05]-[SOLVE_POLICY]: composed `ArrangementPolicy`/`IntersectPolicy`/`BuildPolicy` rows + the `Dimension` `CourseBudget` census ceiling.
-- [06]-[CENSUS_SLOTS]: `[SmartEnum<int>]` six slots over ONE `HashMap`-backed fact stream, read through named `Option<int>` `HatchReceipt` accessors so an unmeasured slot never reads as a measured zero.
-- [07]-[RESULT_CARRIER]: successor-linked SoA columns with the `HatchArm` discriminant + the slot-keyed `HatchReceipt`; chaining composes `SuccessorChain`, and every collection member carries its equality attribute.
+- [06]-[CENSUS_SLOTS]: `[SmartEnum<int>]` six slots over ONE `HashMap`-backed fact stream, read through named `Option<int>` `HatchCensus` accessors so an unmeasured slot never reads as a measured zero.
+- [07]-[RESULT_CARRIER]: successor-linked SoA columns with the `HatchArm` discriminant + the slot-keyed `HatchCensus`; chaining composes `SuccessorChain`, and every collection member carries its equality attribute.
 - [08]-[EMISSION_ARM]: `[SmartEnum<int>]` course/motif — separating a family ordinal from an orbit seat, a course ordinal from an instance one.
 
 Every cluster — `[NORMALIZE]`, `[WEAVE]`, `[COURSES]`, `[PARITY]`, `[DASHES]`, `[MOTIF]`, `[PRIMITIVES]` — composes only landed public seams; no member depends on a host spelling beyond the stable `Point3d`/`Line`/`Polyline`/`Plane`/`Transform` surface the siblings pin.
@@ -571,7 +571,6 @@ Every cluster — `[NORMALIZE]`, `[WEAVE]`, `[COURSES]`, `[PARITY]`, `[DASHES]`,
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

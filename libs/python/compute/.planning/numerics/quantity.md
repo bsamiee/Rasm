@@ -13,19 +13,19 @@ One read-only frozen application registry owns the unit vocabulary, shared throu
 - Owner: `UncertainQuantity` — the `Magnitude` structural tag IS the propagation mode, so no parallel mode field shadows it, and no parallel uncertain type stands beside the unit-bearing one.
 - Cases: `Magnitude.join` subsumes the unary map — a scalar with no peers stays scalar — so unary and n-ary propagation are one fold rather than two near-identical rebuild branches; `Umath` members carry their own `arity`, and `propagate` gates the supplied operand count BEFORE the lifted call, so an arity mismatch is the rostered `ARITY` reject carrying both counts as named slots instead of the opaque `wrap`-call `TypeError` the fence would flatten; cohort admission is symmetric with the `CORRELATION` view — a cohort built from a correlation matrix reads back as one.
 - Entry: each cohort member re-keys over the cohort key and its own unique tag, so two siblings never share a `content_key` — a shared key collides them as cache keys and as propagation-operand bytes, returning a stale propagation for a different operand; a converted or propagated value re-keys because it is a new value, never a source-key cache collision.
-- Receipt: the hub `evidence_run` weave rides the two OPERAND-SCALED entries — the cohort reconstruction and the `CohortView` read, whose inverse arms run a cubic uncertainty-propagating solve — so the branch's universal evidence floor holds at this owner and the folder's most expensive numerics kernel reports its own resource band. The scalar mint, convert, and propagate entries stay bare: banding a single `ufloat` construction prices the instrument rather than the kernel. Composition custody is the caller's on the weave and on the graduation projection alike, defaulted so the root call shape stays scope-free.
+- Law: the hub `evidence_run` weave rides the two OPERAND-SCALED entries — the cohort reconstruction and the `CohortView` read, whose inverse arms run a cubic uncertainty-propagating solve — so the branch's universal evidence floor holds at this owner and the folder's most expensive numerics kernel reports its own resource band. The scalar mint, convert, and propagate entries stay bare: banding a single `ufloat` construction prices the instrument rather than the kernel. Composition custody is the caller's on the weave and on the graduation projection alike, defaulted so the root call shape stays scope-free.
 - Growth: a new refusal is one `RAISES` row whose `slots` name its coordinates and whose `catch` anchor names the provider set its fence reaches; a new elementary function is one `Umath` member carrying its `(value, arity)` the arity gate consumes for free; a new propagation algebra is one `Propagation` case with its `lifted`/`label` arms; a new cohort construction is one `Covariance` case with its `reconstruct` AND `canonical` arms — the second so the payload participates in the content key as its own framed fields; a new provenance view is one `CohortView` row with its fold arm; a stricter unit bar is one tighter `_UNIT_CEILING` row or the caller's override.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from enum import StrEnum
 from math import isqrt
 from typing import Final, Literal, assert_never
 
 import numpy as np
 import pint
-from expression import Block, Error, Some, case, tag, tagged_union
+from expression import Block, Error, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from numpy.linalg import LinAlgError
@@ -33,10 +33,12 @@ from uncertainties import UFloat, correlated_values, correlated_values_norm, cor
 from uncertainties.core import NegativeStdDev
 from uncertainties.unumpy import ulinalg
 
-from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from opentelemetry import trace
+
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, railed, rostered, traversed
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 _UREG: pint.UnitRegistry = pint.get_application_registry()
 
@@ -268,50 +270,6 @@ RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([MINT, CONVER
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class QuantityReceipt(Struct, frozen=True, gc=False):
-    unit_expr: str
-    dimensionality: str
-    nominal: float
-    std_dev: float
-    rel_error: float
-    band: Block[str]
-    mode: str
-    correlated_with: tuple[str, ...]
-    components: tuple[tuple[str, float], ...]
-    content_key: ContentKey
-
-    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
-        measured = {"consistency": float(len(self.band))}
-        return GraduationReceipt.graduates(
-            EvidenceScope.QUANTITY.value,
-            HandoffAxis(unit_law=self.unit_expr),
-            self.content_key,
-            measured,
-            ceiling or dict(_UNIT_CEILING.items()),
-            composition=composition,
-        )
-
-    def contribute(self) -> Iterable[Receipt]:
-        facts: dict[str, object] = {
-            "dim": self.dimensionality,
-            "nominal": self.nominal,
-            "std_dev": self.std_dev,
-            "rel_error": self.rel_error,
-            "mode": self.mode,
-            "correlated_with": self.correlated_with,
-            "components": self.components,
-        }
-        return (
-            Receipt.of(
-                EvidenceScope.QUANTITY.value,
-                ("emitted", self.unit_expr, facts),
-                key=Some(self.content_key),
-                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
-                band=self.band,
-            ),
-        )
-
-
 class UncertainQuantity(Struct, frozen=True):
     measurement: pint.Measurement
     magnitude: Magnitude
@@ -321,7 +279,7 @@ class UncertainQuantity(Struct, frozen=True):
     def of(cls, nominal: float, std_dev: float, unit: str, /) -> "RuntimeRail[UncertainQuantity]":
         def _build() -> "RuntimeRail[UncertainQuantity]":
             cell = ufloat(nominal, std_dev)
-            measurement = _UREG.Measurement(nominal, std_dev, unit)
+            measurement = _UREG.Measurement(cell, unit)
             return _scalar_key(nominal, std_dev, unit).map(lambda key: cls(measurement, Magnitude.Scalar(cell), key))
 
         return boundary(MINT, _build, catch=_UNIT_CATCH).bind(lambda outcome: outcome)
@@ -338,7 +296,7 @@ class UncertainQuantity(Struct, frozen=True):
                 Block.of_seq(
                     _member_key(cohort, self_tag).map(
                         lambda key, cell=cell, self_tag=self_tag: cls(
-                            _UREG.Measurement(cell.nominal_value, cell.std_dev, unit),
+                            _UREG.Measurement(cell, unit),
                             Magnitude.Correlated(cell, tuple(t for t in tags if t != self_tag)),
                             key,
                         )
@@ -372,27 +330,36 @@ class UncertainQuantity(Struct, frozen=True):
             mag = self.magnitude.join(tuple(o.magnitude for o in operands), propagation.apply)
             out = mag.cell
             return _propagated_key(propagation, unit, (self, *operands)).map(
-                lambda key: UncertainQuantity(_UREG.Measurement(out.nominal_value, out.std_dev, unit), mag, key)
+                lambda key: UncertainQuantity(_UREG.Measurement(out, unit), mag, key)
             )
 
         return boundary(PROPAGATE, _build, catch=_PROPAGATE_CATCH).bind(lambda outcome: outcome)
 
-    def claim(self) -> QuantityReceipt:
+    def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Graduation]":
         cell = self.magnitude.cell
         rel = float(abs(cell.std_dev / cell.nominal_value)) if cell.nominal_value else (0.0 if cell.std_dev == 0.0 else float("inf"))
         dim = dict(self.measurement.units.dimensionality)
         reduced = boundary(CONSISTENT, self.measurement.to_base_units, catch=_UNIT_CATCH)
-        return QuantityReceipt(
-            unit_expr=f"{self.measurement.units:~}",
-            dimensionality=str(dim),
-            nominal=float(cell.nominal_value),
-            std_dev=float(cell.std_dev),
-            rel_error=rel,
-            band=Block.of_seq(reduced.swap().to_option().map(lambda fault: fault.subject).to_list()),
-            mode=self.magnitude.tag,
-            correlated_with=self.magnitude.peers,
-            components=tuple((var.tag or repr(var), float(err)) for var, err in cell.error_components().items()),
-            content_key=self.content_key,
+        band = Block.of_seq(reduced.swap().to_option().map(lambda fault: fault.subject).to_list())
+        unit_expr = f"{self.measurement.units:~}"
+        trace.get_current_span().set_attributes({
+            "unit": unit_expr,
+            "key": self.content_key.hex,
+            "dim": str(dim),
+            "nominal": float(cell.nominal_value),
+            "std_dev": float(cell.std_dev),
+            "rel_error": rel,
+            "mode": self.magnitude.tag,
+            "correlated_with": ",".join(self.magnitude.peers),
+            "band": ";".join(band),
+        })
+        return Graduation.graduates(
+            EvidenceScope.QUANTITY.value,
+            HandoffAxis(unit_law=unit_expr),
+            self.content_key,
+            {"consistency": float(len(band))},
+            ceiling or dict(_UNIT_CEILING.items()),
+            composition=composition,
         )
 
 

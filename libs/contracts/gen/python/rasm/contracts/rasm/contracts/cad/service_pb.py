@@ -13,18 +13,16 @@ from protobuf._codegen import file_desc
 
 from . import operations_pb, types_pb
 from ....buf.validate import validate_pb
-from ..artifact import artifact_pb
 from ..geometry import tessellation_pb
 
 if TYPE_CHECKING:
-    from protobuf import DescFile, Oneof
+    from protobuf import DescFile
 
-    from ..artifact.artifact_pb import ArtifactRef
     from ..geometry.tessellation_pb import TessellationPolicy
-    from .types_pb import SealedStep
+    from .types_pb import SealedBody
 
 
-_TessellateRequestFields: TypeAlias = Literal["step", "iges", "policy"]
+_TessellateRequestFields: TypeAlias = Literal["source", "policy"]
 
 class TessellateRequest(Message[_TessellateRequestFields]):
     """
@@ -35,7 +33,7 @@ class TessellateRequest(Message[_TessellateRequestFields]):
     Attributes:
         source:
             ```proto
-            oneof source
+            optional rasm.contracts.cad.SealedBody source = 4;
             ```
         policy:
             ```proto
@@ -43,27 +41,26 @@ class TessellateRequest(Message[_TessellateRequestFields]):
             ```
     """
 
-    __slots__ = ("policy", "source")
+    __slots__ = ("source", "policy")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            source: Oneof[Literal["step"], SealedStep] | Oneof[Literal["iges"], ArtifactRef] | None = None,
+            source: SealedBody | None = None,
             policy: TessellationPolicy | None = None,
         ) -> None:
             pass
 
-        source: Oneof[Literal["step"], SealedStep] | Oneof[Literal["iges"], ArtifactRef] | None
+        source: SealedBody | None
         policy: TessellationPolicy | None
 
 
 _DESC = file_desc(
-    b'\n rasm/contracts/cad/service.proto\x12\x12rasm.contracts.cad\x1a\x1bbuf/validate/validate.proto\x1a&rasm/contracts/artifact/artifact.proto\x1a#rasm/contracts/cad/operations.proto\x1a\x1erasm/contracts/cad/types.proto\x1a*rasm/contracts/geometry/tessellation.proto"\xe3\x01\n\x11TessellateRequest\x124\n\x04step\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedStepH\x00R\x04step\x12:\n\x04iges\x18\x02 \x01(\x0b2$.rasm.contracts.artifact.ArtifactRefH\x00R\x04iges\x12K\n\x06policy\x18\x03 \x01(\x0b2+.rasm.contracts.geometry.TessellationPolicyR\x06policyB\x06\xbaH\x03\xc8\x01\x01B\x0f\n\x06source\x12\x05\xbaH\x02\x08\x012\xc7\x01\n\nCadService\x12W\n\x07Execute\x12".rasm.contracts.cad.ExecuteRequest\x1a#.rasm.contracts.cad.ExecuteResponse"\x03\x90\x02\x02\x12`\n\nTessellate\x12%.rasm.contracts.cad.TessellateRequest\x1a&.rasm.contracts.cad.TessellateResponse"\x03\x90\x02\x02B\x15\xaa\x02\x12Rasm.Contracts.Cadb\x06proto3',
+    b'\n rasm/contracts/cad/service.proto\x12\x12rasm.contracts.cad\x1a\x1bbuf/validate/validate.proto\x1a#rasm/contracts/cad/operations.proto\x1a\x1erasm/contracts/cad/types.proto\x1a*rasm/contracts/geometry/tessellation.proto"\xb8\x01\n\x11TessellateRequest\x12>\n\x06source\x18\x04 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12K\n\x06policy\x18\x03 \x01(\x0b2+.rasm.contracts.geometry.TessellationPolicyR\x06policyB\x06\xbaH\x03\xc8\x01\x01J\x04\x08\x01\x10\x02J\x04\x08\x02\x10\x03R\x04stepR\x04iges2\xc7\x01\n\nCadService\x12W\n\x07Execute\x12".rasm.contracts.cad.ExecuteRequest\x1a#.rasm.contracts.cad.ExecuteResponse"\x03\x90\x02\x02\x12`\n\nTessellate\x12%.rasm.contracts.cad.TessellateRequest\x1a&.rasm.contracts.cad.TessellateResponse"\x03\x90\x02\x02B\x15\xaa\x02\x12Rasm.Contracts.Cadb\x06proto3',
     [
         validate_pb.desc(),
-        artifact_pb.desc(),
         operations_pb.desc(),
         types_pb.desc(),
         tessellation_pb.desc(),

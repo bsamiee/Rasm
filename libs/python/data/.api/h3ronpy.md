@@ -102,7 +102,7 @@ Raster defaults omitted from rows: `nodata_value=None`, `axis_order='yx'`, `comp
 - `geometry_to_cells`/`wkb_to_cells` discriminate coverage by the `ContainmentMode` enum, never a boolean-flag tangle or a per-mode function.
 - `set_failing_to_invalid` and `booleanarray` emit null or a boolean mask on parse and validation failure, keeping array length stable; an invalid cell is a data row, never a raised exception.
 - `h3o`, the Rust kernel, owns cell indexing and traversal; `h3ronpy.vector` and `h3ronpy.raster` meet the pipeline at the Arrow buffer, never re-decoding WKB or pixels locally.
-- Each operation captures resolution, cell count, k-radius, containment mode, area unit, and Arrow schema as a `GRID_DGGS` receipt.
+- Each operation returns the Arrow result directly; resolution, cell count, k-radius, containment mode, area unit, and schema stay on that result or its span when consumed.
 
 [STACKING]:
 - `arro3-core`(`.api/arro3-core.md`): every surface consumes and returns `arro3.core.Array`/`RecordBatch`; cells cross as `u64` columns with no copy and no direct `arro3.core` import.

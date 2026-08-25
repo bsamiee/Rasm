@@ -343,7 +343,6 @@ declare namespace Carrier {
 
 const _BIN = {
   "rasm-stamp-bin": "HlcStampWire",
-  "rasm-tenant-bin": "TenantContextWire",
 } as const satisfies Record.ReadonlyRecord<`rasm-${string}-bin`, Wire.Family>
 
 const _recordRow = <Value>(
@@ -1150,7 +1149,6 @@ export { Carrier, Event }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

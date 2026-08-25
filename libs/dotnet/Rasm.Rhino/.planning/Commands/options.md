@@ -479,7 +479,7 @@ public abstract partial record OptionValue {
 
 - Law: the capsule is ONE atom. Bound rows, owned carriers, accumulated faults, and the lease state are columns of one immutable record swapped as a unit, so a release can never observe a half-appended carrier roster and drop the newest carrier — the exact leak the lease exists to prevent. Three disciplines guarding one lifetime — a bare field, an `Interlocked` flag, a second `Atom` — is the deleted form.
 - Law: the bound roster is KEYED by the native option index, so the selected-option probe and the ordered snapshot read one authority — an ordered map answers both, where a sequence beside a linear scan answered neither well.
-- Law: a receipt carries two DIFFERENT option facts. `OptionChoice` is the touch history — one entry per option cycle, in the order the user drove them, carrying the localized display the host published at that moment. `OptionSetting` is the settled state — every bound option's final value, read once at seal. A consumer folding the history to recover the settled state re-derives what the snapshot already answers.
+- Law: `AcquireOutcome` carries two DIFFERENT option facts. `OptionChoice` is the touch history — one entry per option cycle, in the order the user drove them, carrying the localized display the host published at that moment. `OptionSetting` is the settled state — every bound option's final value, read once at seal. A consumer folding the history to recover the settled state re-derives what the snapshot already answers.
 - Boundary: `OptionSet.Seeded` is the SETTINGS re-seat, not a second scripted-token parser. The host's own getter parses macro tokens inside its loop and publishes them through `Result()`/`Option()` exactly as it does an interactive pick; `Seeded` re-seats a vocabulary from persisted text BEFORE any getter exists, which no host member answers.
 
 `OptionLease` exists before the first bind and receives each carrier as it is created. Any failed row releases the partial lease; success returns the same capsule to acquisition. One `OptionValue.Read` projection admits pointer-backed values for both the selected-option answer and the settled snapshot before detached evidence leaves the getter window; one `OptionMark` threads the shared native identity through the evidence.
@@ -691,7 +691,6 @@ The command-thread carve: `RhinoApp.IsOnMainThread` at `Bind` and at every live-
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

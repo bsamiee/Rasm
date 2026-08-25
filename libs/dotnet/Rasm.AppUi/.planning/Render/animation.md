@@ -441,12 +441,12 @@ public static class Scrub {
 ## [05]-[WALKTHROUGH]
 
 - Owner: `WalkthroughSpec` the offline-render specification; `WalkthroughFold` the fault-carrying accumulation; `Walkthrough` the frame-sequence render fold — the ONE walkthrough engine the tour projection rides.
-- Entry: `public static IO<RenderReceipt> Render(VisualRuntime runtime, Timeline timeline, WalkthroughSpec spec, Func<Duration, TimelineSample, SKImageInfo, Fin<SKImage>> frame)` — the delegate carries the sampled instant beside the sample, so a frame renderer can draw anything time-varying beside the tracks (the tour's caption overlay is the first consumer) — renders every frame of the timeline to the encode rail and seals one receipt for the sequence; the frame count is the timeline duration over the frame rate.
-- Auto: the walkthrough steps the playhead frame by frame from zero to the timeline duration, samples the composed state at each frame through the track cases' own blends, renders the frame to an `SKImage` through the supplied frame delegate (which binds the viewport or the chart render), and encodes each frame through the visuals codec under the spec's DECLARED `EncodeRow` — the row selects codec, quality, color policy, artifact-key suffix, and the receipt color-space, so an offline walkthrough is a deterministic frame sequence; every frame is content-hashed by the encode leg so a regression is attributable to a frame index; the FLYTHROUGH CLIP composes the capture `ClipEncoder.Mux` FFmpeg rows off a STREAMED frame pipe — animation keeps the frame sequence, the encode is capture's row (`Render/capture#VIDEO_ENCODE`), and the resulting MP4 delivers through the export destination union.
+- Entry: `public static IO<VisualArtifact> Render(VisualRuntime runtime, Timeline timeline, WalkthroughSpec spec, Func<Duration, TimelineSample, SKImageInfo, Fin<SKImage>> frame)` — the delegate carries the sampled instant beside the sample, so a frame renderer can draw anything time-varying beside the tracks (the tour's caption overlay is the first consumer) — renders every frame of the timeline to the encode rail and seals one artifact for the sequence; the frame count is the timeline duration over the frame rate.
+- Auto: the walkthrough steps the playhead frame by frame from zero to the timeline duration, samples the composed state at each frame through the track cases' own blends, renders the frame to an `SKImage` through the supplied frame delegate (which binds the viewport or the chart render), and encodes each frame through the visuals codec under the spec's DECLARED `EncodeRow` — the row selects codec, quality, color policy, artifact-key suffix, and the artifact color-space, so an offline walkthrough is a deterministic frame sequence; every frame is content-hashed by the encode leg so a regression is attributable to a frame index; the FLYTHROUGH CLIP composes the capture `ClipEncoder.Mux` FFmpeg rows off a STREAMED frame pipe — animation keeps the frame sequence, the encode is capture's row (`Render/capture#VIDEO_ENCODE`), and the resulting MP4 delivers through the export destination union.
 - Law: the clip arm is a PRODUCER/CONSUMER seam, never a retention. The fold writes each frame or terminal refusal into a one-slot bounded `Channel<Fin<SKImage>>` and the muxer drains it as it encodes, so the resident set is one frame at any walkthrough depth and backpressure is the bound — a slow muxer stalls the renderer instead of growing a sequence the process cannot hold. The prior whole-sequence retention grew to the frame count: a 4021-frame 1920x1080 walkthrough held tens of gigabytes of native surface to hand the muxer a `Seq` it consumed once, in order, and dropped.
 - Law: the sequence hash is a kernel `ContentHash.Of` preimage over a COUNT-FRAMED row stream.
 - Law: the parked fault is WRAPPED at its own leg and its cause rides a typed column. `FrameRenderFailed` carries the frame index the delegate refused at and `ClipEncodeFailed` the artifact key the codec refused, each carrying the exact `Error` through `ICausedFault` — so a sequence that failed at frame 4021 is attributable rather than an anonymous encode failure, and recovery probes the codec's own case instead of parsing a rendered message.
-- Receipt: one `RenderReceipt` of kind walkthrough per sequence carrying the frame count and the total bytes; one kind-clip receipt per muxed flythrough; sealed through the visuals encode sink.
+- Output: one `VisualArtifact` of kind walkthrough per sequence carrying the frame count and the total bytes; one kind-clip artifact per muxed flythrough; sealed through the visuals encode sink.
 - Packages: Rasm (project — `ContentHash`/`CanonicalWriter` the framed preimage, `MonotonicTimeline` the measured span, `RedrivePolicy`/`Redrive` the encode re-drive), SkiaSharp, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox (`System.Threading.Channels` the frame pipe, `CultureInfo.InvariantCulture` for the frame-key ordinal)
 - Growth: a new walkthrough output is one `WalkthroughSpec` value; zero new surface.
 - Boundary: the walkthrough is deterministic frame-indexed playback so an offline render reproduces the interactive scrub exactly — a wall-clock-paced offline render is the rejected form; each frame renders through the supplied frame delegate so the walkthrough composes the viewport, chart, or simulation render and mints no second renderer; each frame encodes through the visuals codec so the walkthrough mints no second encode owner; the encode leg re-drives under one `RedrivePolicy` whose curve admits TRANSIENT faults alone, so a device-pressure refusal clears and a malformed-input refusal parks on the first pass; the fold PARKS its fault in state and never fails, because a failed acquisition never runs its release and a mid-walkthrough abort would strand whatever the pipe still held — the ONE release drains the reader, so a parked fault, a refused mux, and a landed clip all reach it and the producer can never block against a consumer that stopped reading; the offline frame sequence delivers through the export `VisualDestination` union so the walkthrough mints no second destination owner; video muxing is capture's `ClipEncoder` row — a walkthrough-local video pipeline is the deleted form; `Collab/tour.md` collapses onto THIS fold (stops onto camera `Track` keyframes; its former `WalkthroughTour.Render` clone is deleted).
@@ -469,7 +469,7 @@ public static class Walkthrough {
     static readonly RedrivePolicy EncodeRedrive =
         RedrivePolicy.Of(law: Schedule.linear(seed: LanguageExt.Duration.FromMilliseconds(20)), bound: 2);
 
-    public static IO<RenderReceipt> Render(
+    public static IO<VisualArtifact> Render(
         VisualRuntime runtime,
         Timeline timeline,
         WalkthroughSpec spec,
@@ -478,7 +478,7 @@ public static class Walkthrough {
             Some: row => Clipped(runtime, timeline, spec, frame, row),
             None: () => Sequenced(runtime, timeline, spec, frame));
 
-    static IO<RenderReceipt> Clipped(
+    static IO<VisualArtifact> Clipped(
         VisualRuntime runtime, Timeline timeline, WalkthroughSpec spec,
         Func<Duration, TimelineSample, SKImageInfo, Fin<SKImage>> frame, VideoEncodeRow row) =>
         from pipe in IO.lift(static () => Channel.CreateBounded<Fin<SKImage>>(new BoundedChannelOptions(capacity: 1) {
@@ -496,27 +496,27 @@ public static class Walkthrough {
                 return unit;
             }))
         from totals in pump.Await
-        from receipt in totals.Fault.Match(Some: IO.fail<RenderReceipt>, None: () => IO.pure(clip))
-        select receipt;
+        from artifact in totals.Fault.Match(Some: IO.fail<VisualArtifact>, None: () => IO.pure(clip))
+        select artifact;
 
-    static IO<RenderReceipt> Sequenced(
+    static IO<VisualArtifact> Sequenced(
         VisualRuntime runtime, Timeline timeline, WalkthroughSpec spec, Func<Duration, TimelineSample, SKImageInfo, Fin<SKImage>> frame) =>
         from start in IO.lift(() => runtime.Line.Capture(AnimationOps.Walk))
         from totals in Advance(runtime, timeline, spec, frame, None)
-        from receipt in totals.Fault.Match(
-            Some: IO.fail<RenderReceipt>,
+        from artifact in totals.Fault.Match(
+            Some: IO.fail<VisualArtifact>,
             None: () =>
                 from end in IO.lift(() => runtime.Line.Capture(AnimationOps.Walk))
                 from elapsed in IO.lift(() => runtime.Line.Elapsed(start, end, AnimationOps.Walk))
-                let sequence = new RenderReceipt(
+                let sequence = new VisualArtifact(
                     Kind, "frame-sequence",
                     ContentHash.Hex(ContentHash.Of(totals.Hashes,
                         static (rows, writer) => writer.Rows(rows, static (hash, field) => field.String(hash)))),
                     None, None, totals.Bytes, Duration.FromTimeSpan(elapsed), runtime.Correlation, None,
                     spec.Encode.Color.Key)
-                from _ in runtime.Sink(sequence)
-                select sequence)
-        select receipt;
+                from published in runtime.Publish(sequence)
+                select published)
+        select artifact;
 
     static IO<WalkthroughFold> Advance(
         VisualRuntime runtime, Timeline timeline, WalkthroughSpec spec,
@@ -542,9 +542,9 @@ public static class Walkthrough {
             : timeline.Playhead().TimeOf(index) switch { var at =>
               frame(at, timeline.SampleAt(at), new SKImageInfo(spec.Width, spec.Height)) }.Match(
                 Succ: image => Sealed(runtime, spec, image, index).Bind(landed => landed.Match(
-                    Succ: receipt => Terminal(sink, image).Map(_ => state with {
-                        Hashes = state.Hashes.Add(receipt.FrameHash),
-                        Bytes = state.Bytes + receipt.Bytes,
+                    Succ: artifact => Terminal(sink, image).Map(_ => state with {
+                        Hashes = state.Hashes.Add(artifact.FrameHash),
+                        Bytes = state.Bytes + artifact.Bytes,
                     }),
                     Fail: error => IO.lift(() => ignore(image.Dispose())).Map(_ => state with {
                         Fault = Some((Error)new AnimationFault.ClipEncodeFailed(KeyOf(spec, index), error)),
@@ -561,9 +561,9 @@ public static class Walkthrough {
             }),
             None: () => IO.lift(() => ignore(image.Dispose())));
 
-    static IO<Fin<RenderReceipt>> Sealed(VisualRuntime runtime, WalkthroughSpec spec, SKImage image, long index) =>
+    static IO<Fin<VisualArtifact>> Sealed(VisualRuntime runtime, WalkthroughSpec spec, SKImage image, long index) =>
         (Redrive.Run(EncodeRedrive, VisualCodec.Encode(runtime, image, spec.Encode, Kind, KeyOf(spec, index))).Map(Fin.Succ)
-            | @catch<IO, Fin<RenderReceipt>>(static error => error is VisualFault, static error => IO.pure(Fin.Fail<RenderReceipt>(error))))
+            | @catch<IO, Fin<VisualArtifact>>(static error => error is VisualFault, static error => IO.pure(Fin.Fail<VisualArtifact>(error))))
             .As();
 
     static string KeyOf(WalkthroughSpec spec, long index) =>
@@ -596,7 +596,7 @@ flowchart LR
     Timeline --> Walkthrough
     Walkthrough -->|frame sequence| VisualCodec
     Walkthrough -->|bounded frame pipe| ClipEncoder
-    Walkthrough --> RenderReceipt
+    Walkthrough --> VisualArtifact
 ```
 
 ## [06]-[TIMELINE_EDITOR]
@@ -610,7 +610,7 @@ flowchart LR
 - Law: every structural edit re-enters the `Track.Of*` admission through `Track.Rebuilt`, so a moved, added, deleted, or re-eased track is re-sorted and re-proved non-empty by the gate an authored track passes; an editor rewriting a `Keyframes<T>` carrier in place leaves the binary-search bracket walking an unsorted run, which answers a plausible wrong value at every sample rather than failing where the defect is.
 - Packages: Rasm (project — `CapabilitySet`/`ICapability` the lane flags, `PositiveMagnitude` the board metrics, `PaceBand` the cadence band, `Op` the operation key), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new lane column is one `LaneRow` member and a new lane posture one `LaneFlag` row; a new snap target is one `KeySnap` row carrying its candidate reader; a new manipulation is one `KeyEdit` case the fold breaks on at compile time; a new transport verb is one `TransportVerb` row with its state fold; a new speed is one `SpeedRung` row spliced into the ladder's own successor chain; zero new surface.
-- Boundary: the editor edits VALUES and drives no frame — `Apply` answers a new `Timeline`, `TransportVerb.Fold` a new `TransportState`, and `TimelineEditor.Raise` a new editor around it, so the composing surface holds the one transport and paces through `[04]-[SCRUB]` `Kinematic`, which READS that held value per tick on the surface boundary's own scheduler — this owner mints no clock, no timer, and no second playhead; `TransportState` is the ONE playback state the scrub and the editor share, so a scrub-local play/pause record beside it is the deleted second grammar; lane RENDERING is the `Charts/custom#SKIA_KINDS` span plane, which draws the sealed lane record, so the two pages meet at a committed payload and neither carries the other's half; the schedule lane payload the plan grammar owns is fed by `Rasm.Bim` planning receipts through `PlanFeed`, so a construction sequence edited here commits back through that owner and this page re-solves no critical path; the deterministic clock is the `Playhead`, so a wall-clock playback loop and an editor-local timer are the rejected forms; the transport verbs raise `Shell/commands#INTENT_TABLE` rows by key, so an editor-local button command is the deleted form; the media track carries a cue and never a player handle, because a handle makes the timeline hold a resource whose lifetime the document owner manages; the seated program's body is a `ControlIntent` tree like every other screen's, so the editor mints no control vocabulary and the keyframe canvas mounts as the custom span visual rather than as a case on the shell's control union.
+- Boundary: the editor edits VALUES and drives no frame — `Apply` answers a new `Timeline`, `TransportVerb.Fold` a new `TransportState`, and `TimelineEditor.Raise` a new editor around it, so the composing surface holds the one transport and paces through `[04]-[SCRUB]` `Kinematic`, which READS that held value per tick on the surface boundary's own scheduler — this owner mints no clock, no timer, and no second playhead; `TransportState` is the ONE playback state the scrub and the editor share, so a scrub-local play/pause record beside it is the deleted second grammar; lane RENDERING is the `Charts/custom#SKIA_KINDS` span plane, which draws the sealed lane record, so the two pages meet at a committed payload and neither carries the other's half; the schedule lane payload the plan grammar owns is fed by `Rasm.Bim` planning results through `PlanFeed`, so a construction sequence edited here commits back through that owner and this page re-solves no critical path; the deterministic clock is the `Playhead`, so a wall-clock playback loop and an editor-local timer are the rejected forms; the transport verbs raise `Shell/commands#INTENT_TABLE` rows by key, so an editor-local button command is the deleted form; the media track carries a cue and never a player handle, because a handle makes the timeline hold a resource whose lifetime the document owner manages; the seated program's body is a `ControlIntent` tree like every other screen's, so the editor mints no control vocabulary and the keyframe canvas mounts as the custom span visual rather than as a case on the shell's control union.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------

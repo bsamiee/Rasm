@@ -1,12 +1,12 @@
 # [RUNTIME_LIFE]
 
-Lifecycle and health are one owner because they are one skeleton: register ranked rows at Layer construction, run each row under its own budget on a severed fiber, convert every outcome to evidence, fold the evidence into a graded receipt. `Life` holds the closed phase spine — `booting → running → draining → halted` — in one `SubscriptionRef` every lifecycle question projects from, the ranked drain registry whose fold runs on interrupt before the graph's finalizers release resources, and the probe registry whose kind rows — `started`, `ready`, `live`, each carrying its canonical k8s route — feed a memoized concurrent report fold. The budgeted row executor is spelled exactly once: drain rows and probe rows are two registries over one `_bounded` fold, their verdicts two graders of one `Exit`-of-`Option` evidence shape. Readiness composes the phase — outside `running` the ready report fails by fold, so the drain flip stops traffic instantly — while liveness ignores it so an orderly drain is never mistaken for a hang. The drain total budget is the number `iac` mirrors into `terminationGracePeriod`; a `process.on("SIGTERM")` listener, an exit-hook library, and teardown-as-ordinary-step are unspellable because the runtime row's `runMain` already owns the signal edge. The module is `runtime/src/proc/life.ts`.
+Lifecycle and health are one owner because they are one skeleton: register ranked rows at Layer construction, run each row under its own budget on a severed fiber, convert every outcome to evidence, fold the evidence into one graded `Drained` tally. `Life` holds the closed phase spine — `booting → running → draining → halted` — in one `SubscriptionRef` every lifecycle question projects from, the ranked drain registry whose fold runs on interrupt before the graph's finalizers release resources, and the probe registry whose kind rows — `started`, `ready`, `live`, each carrying its canonical k8s route — feed a memoized concurrent report fold. The budgeted row executor is spelled exactly once: drain rows and probe rows are two registries over one `_bounded` fold, their verdicts two graders of one `Exit`-of-`Option` evidence shape. Readiness composes the phase — outside `running` the ready report fails by fold, so the drain flip stops traffic instantly — while liveness ignores it so an orderly drain is never mistaken for a hang. The drain total budget is the number `iac` mirrors into `terminationGracePeriod`; a `process.on("SIGTERM")` listener, an exit-hook library, and teardown-as-ordinary-step are unspellable because the runtime row's `runMain` already owns the signal edge. The module is `runtime/src/proc/life.ts`.
 
 ## [01]-[INDEX]
 
 - [02]-[PHASE_SPINE]: the phase vocabulary, the cell, the parked boot entry; `Life`.
 - [03]-[RANKED_FOLD]: the one budgeted row executor both registries share; `Life`.
-- [04]-[DRAIN_BANDS]: ranked drain rows, the two-tier budget, the drain receipt; `Life`.
+- [04]-[DRAIN_BANDS]: ranked drain rows, the two-tier budget, the `Drained` tally; `Life`.
 - [05]-[PROBE_ROUTES]: the kind/route anchor, the grade lattice, the memoized phase-gated report; `Life`.
 
 ## [02]-[PHASE_SPINE]
@@ -22,7 +22,7 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 ## [03]-[RANKED_FOLD]
 
 [RANKED_FOLD]:
-- Owner: `_bounded` — the one budgeted row executor: measure the open and close through monotonic `Clock.currentTimeNanos`, run the row's effect under `Effect.exit` with the budget applied as `Effect.timeoutOption` over `Effect.disconnect`, and return the `Exit`-of-`Option` evidence beside the elapsed span; a wall-clock adjustment therefore cannot mint a negative or inflated receipt, and both registries fold through the same executor, so the lapse-is-a-verdict law, the crash-is-evidence law, and the severed-deadline law are stated once.
+- Owner: `_bounded` — the one budgeted row executor: measure the open and close through monotonic `Clock.currentTimeNanos`, run the row's effect under `Effect.exit` with the budget applied as `Effect.timeoutOption` over `Effect.disconnect`, and return the `Exit`-of-`Option` evidence beside the elapsed span; a wall-clock adjustment therefore cannot mint a negative or inflated elapsed, and both registries fold through the same executor, so the lapse-is-a-verdict law, the crash-is-evidence law, and the severed-deadline law are stated once.
 - Law: every deadline rides a severed fiber — the drain fold runs inside the interrupt's masked finalizer, where a bare timeout waits instead of interrupting, so `Effect.disconnect` severs the row's work onto its own fiber and the deadline settles on time while the shielded work finishes in background; a lapse is a verdict, never an abort.
 - Law: a row never fails its fold — a typed refusal or defect converts through `Effect.exit`, a lapse folds from `Option.none`, so the surrounding report is total and the serving edge carries zero recovery arms; the graders are the only per-surface difference — the drain grader folds to `drained | lapsed | crashed`, while the probe grader preserves a typed failure's message (and a defect's pretty cause) beside `fail` instead of erasing every refusal into the word `crashed`.
 - Growth: a third ranked surface (a warm-up band, a maintenance sweep) is one registry plus one grader over the same executor.
@@ -80,7 +80,7 @@ class _Row extends Schema.Class<_Row>('Life/Row')({
     elapsed: Schema.DurationFromMillis,
 }) {}
 
-class _Receipt extends Schema.Class<_Receipt>('Life/Receipt')({
+class _Drained extends Schema.Class<_Drained>('Life/Drained')({
     at: Schema.DateTimeUtc,
     rows: Schema.Array(_Row),
     pending: Schema.Array(Schema.NonEmptyString),
@@ -133,7 +133,7 @@ declare namespace Life {
     type Probe = { readonly label: string; readonly kind: Kind; readonly run: Effect.Effect<Grade, ProbeFault> };
     type Row = _Row;
     type Graded = _Graded;
-    type Receipt = _Receipt;
+    type Drained = _Drained;
     type Report = _Report;
     type _Kinds<T extends Record<Kind, { readonly route: string }> = typeof _KINDS> = T;
     type _Grades<T extends Record<Grade, { readonly rank: number }> = typeof _GRADES> = T;
@@ -250,9 +250,9 @@ const _backendProbe = (setting: Setting, files: FileSystem.FileSystem, paths: Pa
 [DRAIN_BANDS]:
 - Owner: the drain fold — a step is a row (`label`, `rank`, `budget: Option<Duration>`, `run`) admitted while the phase is `booting | running`; one semaphore linearizes registration with the transition-and-snapshot seam, and late registration fails as `LifeFault` rather than disappearing behind the snapshot. The total `_TRANSITIONS` matrix prevents `draining | halted → running`, the fold flips to `draining` before reading the ranked queue, and `halt` remains terminal under every disposition.
 - Law: budgets are two-tier by construction — the per-row `Option<Duration>` bounds its row and `Setting.life.drain` bounds the whole fold, both over the severed-fiber executor; a step that ignores its budget cannot stall the process, and the total is the number `iac` mirrors into the pod's grace period.
-- Law: the receipt is total and truthful — `Life.Row` and `Life.Receipt` are `Schema.Class` authorities, each graded drain row appends to the interior ledger and leaves the pending queue as it settles; `disposition: drained | expired` distinguishes normal completion from total-budget expiry, and `pending` names every snapshotted domain row the total budget omitted. The terminal phase stamps BEFORE the `Deferred` settles so the receipt's `landed` equals the cell the moment it is observable; every drain disposition settles `life.settled`, and no shutdown observer can suspend indefinitely. The report band runs after the settle, so a terminal reporter — the `otel/emit` flush is the standing rank-90 registrant — reads the settled receipt without awaiting evidence its own completion gates, and report-band rows are post-receipt forensics, never receipt members.
+- Law: the tally is total and truthful — `Life.Row` and `Life.Drained` are `Schema.Class` authorities, each graded drain row appends to the interior ledger and leaves the pending queue as it settles; `disposition: drained | expired` distinguishes normal completion from total-budget expiry, and `pending` names every snapshotted domain row the total budget omitted. The terminal phase stamps BEFORE the `Deferred` settles so the tally's `landed` equals the cell the moment it is observable; every drain disposition settles `life.settled`, and no shutdown observer can suspend indefinitely. The report band runs after the settle, so a terminal reporter — the `otel/emit` flush is the standing rank-90 registrant — reads the settled tally without awaiting evidence its own completion gates, and report-band rows are post-settle forensics, never tally rows.
 - Law: growth is a row — a new graceful concern (stop intake, pause queues, flush spans, checkpoint state) is one `register` call at its owner's Layer build with a rank inside the `_BANDS` anchor (0–9 intake, 10–89 domain, 90+ reporters); no new surface, hook API, or event bus.
-- Receipt: `Life.Receipt` via `life.settled`.
+- Output: `Life.Drained` through `life.settled`.
 
 ## [05]-[PROBE_ROUTES]
 
@@ -263,7 +263,7 @@ const _backendProbe = (setting: Setting, files: FileSystem.FileSystem, paths: Pa
 - Law: the ready fold gates on the phase first — outside `running` the report is `fail` with the phase as detail before any probe runs; liveness never reads the phase.
 - Law: memo posture follows kind semantics — `started` uses `Effect.cached` and settles once per boot, while `ready | live` use `Effect.cachedWithTTL`; the readiness phase gate remains outside the cached probe sweep, so a transition to `draining` returns failure immediately even when the prior probe result remains warm.
 - Law: routes are data — `Life.route(kind)` projects the row; the serving edge mounts the three routes from this anchor and encodes the report (`pass/warn → 200`, `fail → 503`), `iac` writes the same three paths into workload manifests, so the path never exists twice.
-- Receipt: `Life.Report` — one `Schema.Class` (kind, overall grade, `Life.Graded` rows with millis-encoded elapsed and `Option` detail, instant) riding the owner as a static, so the serving edge encodes the derived wire twin (`pass/warn → 200`, `fail → 503`), telemetry consumes the same rows, and no hand-serialized health body or second health shape exists.
+- Output: `Life.Report` — one `Schema.Class` (kind, overall grade, `Life.Graded` rows with millis-encoded elapsed and `Option` detail, instant) riding the owner as a static, so the serving edge encodes the derived wire twin (`pass/warn → 200`, `fail → 503`), telemetry consumes the same rows, and no hand-serialized health body or second health shape exists.
 
 ```typescript
 class Life extends Effect.Service<Life>()('runtime/Life', {
@@ -280,7 +280,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
         );
         const ledger = yield* Ref.make(Chunk.empty<Life.Row>());
         const pending = yield* Ref.make(Chunk.empty<Life.Step>());
-        const settled = yield* Deferred.make<Life.Receipt>();
+        const settled = yield* Deferred.make<Life.Drained>();
         const gate = yield* Effect.makeSemaphore(1);
         const advance = (signal: keyof typeof _TRANSITIONS): Effect.Effect<void> =>
             gate.withPermits(1)(SubscriptionRef.update(cell, (held) => _TRANSITIONS[signal][held]));
@@ -297,11 +297,11 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
                     }),
             );
 
-        const receipt = (disposition: Life.Receipt['disposition']): Effect.Effect<Life.Receipt> =>
+        const tally = (disposition: Life.Drained['disposition']): Effect.Effect<Life.Drained> =>
             Effect.map(
                 Effect.all({ at: DateTime.now, rows: Ref.get(ledger), remaining: Ref.get(pending) }),
                 ({ at, rows, remaining }) =>
-                    new _Receipt({
+                    new _Drained({
                         at,
                         rows: Chunk.toReadonlyArray(rows),
                         pending: Array.map(Chunk.toReadonlyArray(remaining), (step) => step.label),
@@ -329,7 +329,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
                 { concurrency: 1, discard: true },
             );
             yield* advance('halt');
-            yield* Effect.flatMap(receipt('drained'), (evidence) => Deferred.succeed(settled, evidence));
+            yield* Effect.flatMap(tally('drained'), (evidence) => Deferred.succeed(settled, evidence));
             yield* Effect.forEach(report, ran, { concurrency: 1, discard: true });
         }).pipe(
             Effect.disconnect,
@@ -338,7 +338,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
             Effect.ensuring(
                 Effect.zipRight(
                     advance('halt'),
-                    Effect.flatMap(receipt('expired'), (evidence) => Deferred.succeed(settled, evidence)),
+                    Effect.flatMap(tally('expired'), (evidence) => Deferred.succeed(settled, evidence)),
                 ),
             ),
         );
@@ -420,7 +420,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
     static readonly Graded = _Graded;
     static readonly Report = _Report;
     static readonly Row = _Row;
-    static readonly Receipt = _Receipt;
+    static readonly Drained = _Drained;
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
@@ -432,7 +432,6 @@ export { BackendMountFault, Life, LifeFault };
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

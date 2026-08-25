@@ -141,5 +141,4 @@ _FEATURES: Final[frozendict[str, Callable[[TopoDS_Shape], Charged]]] = frozendic
 
 ## [04]-[RESEARCH]
 
-- [VARIABLE_RADIUS]-[OPEN]: does a variable-radius fillet earn a wire arm through the `BRepFilletAPI_MakeFillet.Add(r1, r2, edge)` overload, and what request shape carries the two radii; verify the overload against the folder `.api` catalogue and price the proto change.
-- [FACE_SELECTION]-[OPEN]: does `cad` need a `FaceSelection` beside `EdgeSelection` for face-scoped features and shelling; verify against `libs/contracts/proto/rasm/contracts/cad/operations.proto` and the wire-contract law.
+(none)

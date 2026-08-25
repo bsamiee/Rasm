@@ -1,24 +1,23 @@
 # [APPUI_CONFLICT_EDITING]
 
-Three-way conflict resolution as one projection: `ConflictFacts` extracts the Persistence-owned conflict receipt generically, `ThreeWay` aligns base/local/remote by exact LCS over the divergent middle and hunks by REGION, `HunkVerdict` decides stable/auto-merged/conflicted once, `ConflictPane` renders and `PreviewMerge` seals only when every conflicted hunk carries a choice, and the in-editor chrome (`HunkBands`/`HunkMargin` under a `HunkPosture` row) paints and raises over one live segment collection. The resolution verbs are `ConflictIntent` rows the frozen command deck generates from.
+Three-way conflict resolution as one projection: `ThreeWay` aligns base/local/remote by exact LCS over the divergent middle and hunks by REGION, `HunkVerdict` decides stable/auto-merged/conflicted once, `ConflictPane` renders and `PreviewMerge` completes only when every conflicted hunk carries a choice, and the in-editor chrome (`HunkBands`/`HunkMargin` under a `HunkPosture` row) paints and raises over one live segment collection. The resolution verbs are `ConflictIntent` rows the frozen command deck generates from.
 
 ## [01]-[INDEX]
 
-- [02]-[CONFLICT_MODEL]: The extraction record, the differ policy, the side and grain axes, the intent roster, the region hunk with its one verdict.
+- [02]-[CONFLICT_MODEL]: The differ policy, the side and grain axes, the intent roster, the region hunk with its one verdict.
 - [03]-[THREE_WAY]: The LCS alignment, the region hunking fold, and the admitted line ceiling.
 - [04]-[HUNK_CHROME]: In-editor bands and the verb gutter over one segment collection; the posture rows; the published mount.
 
 ## [02]-[CONFLICT_MODEL]
 
-- Owner: `ConflictFacts<TReceipt>` the one extraction record; `DiffPolicy` the differ's admission row; `ConflictSide` the resolution-side axis; `ConflictGrain` the verb-grain axis carrying its admitted payload domain; `ConflictIntent` the non-generic resolution-verb vocabulary the frozen deck reads; `HunkVerdict` the one region verdict; `ThreeWayHunk` the region hunk; `ConflictPreview`, `GeometryDiff`, `ConflictPane<TReceipt>` the projection.
+- Owner: `DiffPolicy` the differ's admission row; `ConflictSide` the resolution-side axis; `ConflictGrain` the verb-grain axis carrying its admitted payload domain; `ConflictIntent` the non-generic resolution-verb vocabulary the frozen deck reads; `HunkVerdict` the one region verdict; `ThreeWayHunk` the region hunk; `ConflictPreview`, `GeometryDiff`, `ConflictPane` the projection.
 - Cases: kind keys local-win, remote-win, merged, rejected arrive as projection values from the Persistence conflict union; `ConflictSide` = local | remote | both | base; `ConflictGrain` = target | hunk, each row carrying the payload domain its verbs admit; `HunkVerdict` = Stable | AutoMerged(side) | Conflicted — decided ONCE in `ThreeWay.Region`, so the merged projection, the gutter admission, and the preview gate read one verdict and no consumer re-derives it from run equality.
-- Entry: `ConflictPane.Project(TReceipt receipt, ConflictFacts<TReceipt> facts, DiffPolicy policy)` — `Fin<ConflictPane<TReceipt>>` gated on the differ's admitted line ceiling, zero re-modeling of the source union; `PreviewMerge(HashMap<int, ConflictSide> choices)` returns the merged text and the ordered resolution evidence only after every conflicted hunk has a choice; `ConflictIntent.ForHunk(ConflictSide)` the gutter's side-to-key read.
-- Law: receipts enter generically through ONE `ConflictFacts` extraction record because Persistence owns the conflict vocabulary and publishes no frozen receipt type yet — the record replaced seven positional delegates nothing type-checked; when Persistence freezes the receipt, `TReceipt` closes there and the record collapses onto one typed projection (SEAT row filed). `Stamp` carries the HLC text of the op-log message envelope.
+- Entry: `ConflictPane.Project(string kind, string target, string local, string remote, string baseText, string stamp, Option<GeometryDiff> geometry, DiffPolicy policy)` — `Fin<ConflictPane>` gated on the differ's admitted line ceiling; `PreviewMerge(HashMap<int, ConflictSide> choices)` returns the merged text and the ordered resolution evidence only after every conflicted hunk has a choice; `ConflictIntent.ForHunk(ConflictSide)` the gutter's side-to-key read.
 - Law: a hunk side is a LINE SEQUENCE, never a joined string — the empty run a deletion leaves and the one-blank-line run an edit leaves are the same string and different merges; `Both` concatenates line-wise with no separator to invent, and the preview flattens taken runs so an accepted deletion contributes no line.
-- Receipt: chosen verbs sink an `EditReceipt` under `ReceiptKind.Conflict` whose outcome carries the resolution; modal presentation reuses the Form dialog intent with one conflict content-template row.
+- Result: chosen verbs return their command outcome through the deck; modal presentation reuses the Form dialog intent with one conflict content-template row.
 - Packages: Avalonia.AvaloniaEdit, CommunityToolkit.HighPerformance, LanguageExt.Core
 - Growth: one resolution intent is one `ConflictIntent` row — key, grain, side, chord — whose deck row generates at `Shell/commands#INTENT_TABLE` `DeckRows.Conflict` with no edit there; one gutter reading is one `HunkPosture` row; one payload domain is one `ConflictGrain` column value.
-- Boundary: the differ stays PAGE-OWNED against the admitted package estate — `DiffPlex` (proof cluster) is two-way only, `LoroCs` merges CRDT history between two `Frontiers` of one document, and `JsonPatch` applies RFC 6902 patches; none answers three unrelated texts, so admission would replace the alignment alone and leave the region law, the verdict, and the ceiling exactly where they are while adding a package, a pin, a catalog, and a boundary. `GeometryDiff` projects the geometry-diff viewport — added/removed/modified ids beside the two `Viewpoint` cameras — SPIKE-gated on the viewport GPU surface over the 2D-fallback projection; the side-by-side text body renders `Local`, `Remote`, and `Base` through three read-only `Editing/codepane.md` viewers. The verbs REACH the pane through the one frozen registry: the deck freezes before any conflict receipt type exists, so the eight keys live on the non-generic `ConflictIntent`, `Project` seeds `ResolutionIntents` from the roster, and a chord, a gutter press, and a replayed journal entry raise ONE intent over the same `Invoke` route. The gutter's `take` arrow is the surface-owned lifting arrow: it lowers `(index, side)` through `ConflictIntent.ForHunk` onto the addressed payload and runs the frozen row; the Navigating posture's `Base` press stays the read-only seat's navigation arrow and reaches no resolution channel.
+- Boundary: the differ stays PAGE-OWNED against the admitted package estate — `DiffPlex` (proof cluster) is two-way only, `LoroCs` merges CRDT history between two `Frontiers` of one document, and `JsonPatch` applies RFC 6902 patches; none answers three unrelated texts, so admission would replace the alignment alone and leave the region law, the verdict, and the ceiling exactly where they are while adding a package, a pin, a catalog, and a boundary. `GeometryDiff` projects the geometry-diff viewport — added/removed/modified ids beside the two `Viewpoint` cameras — SPIKE-gated on the viewport GPU surface over the 2D-fallback projection; the side-by-side text body renders `Local`, `Remote`, and `Base` through three read-only `Editing/codepane.md` viewers. The verbs REACH the pane through the one frozen registry: the eight keys live on `ConflictIntent`, `Project` seeds `ResolutionIntents` from the roster, and a chord, a gutter press, and a replayed journal entry raise ONE intent over the same `Invoke` route. The gutter's `take` arrow is the surface-owned lifting arrow: it lowers `(index, side)` through `ConflictIntent.ForHunk` onto the addressed payload and runs the frozen row; the Navigating posture's `Base` press stays the read-only seat's navigation arrow and reaches no resolution channel.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -73,15 +72,6 @@ public sealed partial class ConflictIntent {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record ConflictFacts<TReceipt>(
-    Func<TReceipt, string> Kind,
-    Func<TReceipt, string> Target,
-    Func<TReceipt, string> Local,
-    Func<TReceipt, string> Remote,
-    Func<TReceipt, string> Base,
-    Func<TReceipt, string> Stamp,
-    Func<TReceipt, Option<GeometryDiff>> Geometry);
-
 public sealed record DiffPolicy(Dimension LineCeiling) {
     public static readonly DiffPolicy Default = new(Dimension.Create(value: 2_000));
 }
@@ -116,8 +106,7 @@ public readonly record struct GeometryDiff(
     Option<Viewpoint> LocalView,
     Option<Viewpoint> RemoteView);
 
-public sealed record ConflictPane<TReceipt>(
-    TReceipt Receipt,
+public sealed record ConflictPane(
     string Kind,
     string Target,
     string Local,
@@ -127,14 +116,12 @@ public sealed record ConflictPane<TReceipt>(
     Seq<ThreeWayHunk> Hunks,
     Option<GeometryDiff> Geometry,
     Seq<string> ResolutionIntents) {
-    public static Fin<ConflictPane<TReceipt>> Project(TReceipt receipt, ConflictFacts<TReceipt> facts, DiffPolicy policy) =>
-        ThreeWay.Diff(facts.Target(receipt), facts.Base(receipt), facts.Local(receipt), facts.Remote(receipt), policy)
-            .Map(hunks => new ConflictPane<TReceipt>(
-                receipt, facts.Kind(receipt), facts.Target(receipt), facts.Local(receipt), facts.Remote(receipt),
-                facts.Base(receipt), facts.Stamp(receipt),
-                hunks,
-                facts.Geometry(receipt),
-                ConflictIntent.Keys));
+    public static Fin<ConflictPane> Project(
+        string kind, string target, string local, string remote, string baseText, string stamp,
+        Option<GeometryDiff> geometry, DiffPolicy policy) =>
+        ThreeWay.Diff(target, baseText, local, remote, policy)
+            .Map(hunks => new ConflictPane(
+                kind, target, local, remote, baseText, stamp, hunks, geometry, ConflictIntent.Keys));
 
     public Fin<ConflictPreview> PreviewMerge(HashMap<int, ConflictSide> choices) {
         Seq<int> unresolved = Hunks.Map(static (hunk, index) => (hunk, index))
@@ -414,7 +401,3 @@ public sealed class HunkMargin(TextSegmentCollection<HunkSegment> segments, Hunk
     public void Dispose() => subscriptions.Dispose();
 }
 ```
-
-## [05]-[RESEARCH]
-
-(none)

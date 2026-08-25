@@ -2,7 +2,7 @@
 
 The variable-length nested-array owner over `awkward`: `RaggedArray` owns the irregular row — variable-length lists, option types, record and union arrays over columnar memory — through one `RaggedSource` admission union, one `RaggedOp` transform axis, and one `RaggedSink` egress. It is the irregular counterpart of the dense `gridded/store#STORE` chunk-grid store — a distinct owner composing the existing Arrow carrier and runtime content key, never a ragged backend tag on `TensorBackend`.
 
-The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes a `pyarrow.Table` whose native `__arrow_c_stream__` capsule crosses to the `tabular/interop#INTEROP` carrier through `ArrowCStream.of`, the carrier staying pyarrow-free because the capsule, not pyarrow's compute, crosses the seam. The `Table` lowering is load-bearing over `ak.to_arrow` — the `pyarrow.Array` it returns exports only `__arrow_c_array__`, no native stream — and it folds a fieldless ragged array into a struct-top schema without a manual `ak.zip` re-wrap. The `arrow` sink serializes through the folder's ONE `arrow_bytes` IPC fold imported from `tabular/interop#INTEROP`, so a ragged frame and a columnar table of the same schema key identically and neither mints a schema-less record-batch message two frames differing only in schema would collide on. `RaggedReceipt` content-keys over the chosen sink's bytes through one runtime `ContentIdentity`, carrying the sink that produced them, the `ak.validity_error` layout-soundness witness, and the `ak.parameters` behavior map as typed evidence.
+The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes a `pyarrow.Table` whose native `__arrow_c_stream__` capsule crosses to the `tabular/interop#INTEROP` carrier through `ArrowCStream.of`, the carrier staying pyarrow-free because the capsule, not pyarrow's compute, crosses the seam. The `Table` lowering is load-bearing over `ak.to_arrow` — the `pyarrow.Array` it returns exports only `__arrow_c_array__`, no native stream — and it folds a fieldless ragged array into a struct-top schema without a manual `ak.zip` re-wrap. The `arrow` sink serializes through the folder's ONE `arrow_bytes` IPC fold imported from `tabular/interop#INTEROP`, and `egress` returns the `ContentKey` minted over the chosen sink's bytes.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ The Arrow bridge is the Arrow C Data Interface: `ak.to_arrow_table` materializes
 - Owner: `RaggedArray` — one frozen owner carrying the live `ak.Array`, its field names, its type descriptor, and the recovered backend. The backend is the `awkward` `"cpu"`/`"cuda"`/`"jax"` axis recovered through `ak.backend` and moved through `ak.to_backend`, never a parallel ragged-list class per backend; field access is named, never positional-only.
 - Cases: `RaggedSource.raises` and `RaggedSink.raises` are DERIVED columns pairing each arm's `FaultRow` with its provider catch set, so the one store-reading arm of each union declares the posture a re-issue may clear while the in-memory arms declare terminal, and neither entrypoint grows a per-tag branch. The `drop` arm's `int | None` payload threads the catalogued `ak.drop_none(axis=None)` all-levels modality through the same `axis=` call-head, so the `_AXIS_OP` collapse drops no capability to a per-list-only axis. One `FoldPolicy` carries the full knob union and `apply` reads exactly one `_FOLD` closure row owning its member's call-head, so the dispatch never rebuilds a dict, never branches on member family, and never drops a knob to an axis-only call.
 - Entry: one `admit`/`transform`/`to_backend`/`to_arrow`/`c_stream`/`to_layout`/`metadata`/`egress` family owns every modality by input shape, never a per-operation method family; `metadata` reads the parquet descriptor without materializing a single column.
-- Receipt: `validity` is structural evidence the irregular layout admits no broken offset or option mismatch — the irregular counterpart of the dense store's residual witness, never a generic reported value — and it rides `Option[str]` because the provider spells soundness as the EMPTY string, so the wire edge omits the key instead of filling a series with a minted word; `sink` names WHICH egress produced the keyed bytes, the bounded three-member dimension the metered row keys on where `type_repr` would fork one series per distinct ragged type; `parameters` and the facts map stay plain `dict[str, object]`, never `Map`-coerced.
+- Law: admission owns structural validity through `_admit`; egress serializes the admitted array once and returns its content key without a second evidence projection.
 - Growth: a new transform is one `RaggedOp` case; a new single-axis structure op is one `_AXIS_OP` row plus one case; a new reducer, paired statistic, or order kind is one `_FOLD` row plus one literal; a new fold knob is one `FoldPolicy` field plus one read in its closure builder; a new ingest is one `RaggedSource` case (`from_rdataframe` the ROOT columnar ingest); a new egress is one `RaggedSink` case (`dataframe` over `ak.to_dataframe`); a new backend is one `ak.to_backend` move; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.RAGGED` in this module's one `RAISES` table.
 - Boundary: no compute-package numeric trio, no production tensor session, no durable product store — `data` emits a portable content-addressed irregular array bridged to the Arrow carrier, not a runtime compute graph; the carrier constructs only through `ArrowCStream.of`, never an inline capsule-plus-schema re-mint.
 
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import awkward as ak
 from beartype import beartype
-from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
@@ -32,12 +32,10 @@ lazy import pyarrow as pa
 from rasm.data.tabular.interop import ArrowCStream, DataLeg, arrow_bytes
 from rasm.runtime.faults import FAULT_CONF, TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
+    from collections.abc import Callable, Sequence
 
     import numpy as np
 
@@ -274,38 +272,6 @@ class RaggedSink:
         return (RAGGED_SINK, _parquet_raises()) if self.tag == "parquet" else (RAGGED_EGRESS, _RAGGED_RAISES)
 
 
-class RaggedReceipt(Struct, frozen=True):
-    rows: int
-    fields: tuple[str, ...]
-    ndim: int
-    nbytes: int
-    type_repr: str
-    sink: str
-    validity: Option[str]
-    parameters: dict[str, object]
-    content_key: ContentKey
-
-    def contribute(self) -> "Iterable[Receipt]":
-        Metrics.record({"rasm.ragged.rows": float(self.rows)}, domain="ragged", kind=self.sink)
-        yield Receipt.of(
-            "ragged",
-            (
-                "emitted",
-                self.type_repr,
-                {
-                    "domain": "ragged",
-                    "kind": self.sink,
-                    "key": self.content_key.hex,
-                    "rows": self.rows,
-                    "fields": self.fields,
-                    "ndim": self.ndim,
-                    "nbytes": self.nbytes,
-                }
-                | self.validity.map(lambda report: {"validity": report}).default_value({}),
-            ),
-        )
-
-
 class RaggedArray(Struct, frozen=True):
     array: ak.Array
     fields: tuple[str, ...]
@@ -334,11 +300,11 @@ class RaggedArray(Struct, frozen=True):
     def to_layout(self) -> "RuntimeRail[Buffers]":
         return boundary(RAGGED_LAYOUT, lambda: _to_buffers(self.array), catch=_RAGGED_RAISES)
 
-    def egress(self, sink: RaggedSink) -> "RuntimeRail[RaggedReceipt]":
+    def egress(self, sink: RaggedSink) -> "RuntimeRail[ContentKey]":
         at, catch = sink.raises
         with _TRACER.start_as_current_span(f"ragged.egress.{sink.tag}", attributes={"rasm.ragged.rows": len(self.array)}):
             return boundary(at, lambda: _serialize(self.array, sink), catch=catch).bind(
-                lambda payload: ContentIdentity.of(f"ragged.{sink.tag}", payload).map(lambda key: _receipt(self, sink.tag, key))
+                lambda payload: ContentIdentity.of(f"ragged.{sink.tag}", payload)
             )
 
     @staticmethod
@@ -444,19 +410,6 @@ def _serialize(array: ak.Array, sink: RaggedSink) -> bytes:
             assert_never(unreachable)
 
 
-def _receipt(ragged: RaggedArray, sink: str, key: ContentKey) -> RaggedReceipt:
-    report = ak.validity_error(ragged.array, exception=False)
-    return RaggedReceipt(
-        rows=len(ragged.array),
-        fields=ragged.fields,
-        ndim=ragged.array.ndim,
-        nbytes=ragged.array.nbytes,
-        type_repr=ragged.type_repr,
-        sink=sink,
-        validity=Some(report) if report else Nothing,
-        parameters=dict(ak.parameters(ragged.array)),
-        content_key=key,
-    )
 ```
 
 ```mermaid
@@ -469,7 +422,7 @@ config:
 ---
 flowchart LR
     accTitle: Ragged array flow
-    accDescr: RaggedSource admission into the RaggedArray owner, transform dispatch over the op tables, Arrow carrier crossing, and content-keyed egress into the receipt.
+    accDescr: RaggedSource admission into the RaggedArray owner, transform dispatch over the op tables, Arrow carrier crossing, and content-keyed egress.
     Source["RaggedSource iter/numpy/json/arrow/parquet/buffers/builder"] --> Admit["RaggedArray.admit @beartype FAULT_CONF"]
     Admit --> Owner["RaggedArray ak.Array + fields + type + backend"]
     Owner --> Transform["transform RaggedOp _apply _AXIS_OP / FoldPolicy _FOLD"]
@@ -478,7 +431,7 @@ flowchart LR
     Arrow --> Stream["c_stream ArrowCStream.of (tabular/interop#INTEROP)"]
     Owner --> Serialize["egress _serialize arrow/parquet/json bytes"]
     Serialize --> Key["ContentIdentity.of .bind/.map RuntimeRail[ContentKey]"]
-    Key --> Receipt["RaggedReceipt validity/parameters + ReceiptContributor.contribute"]
+    Egress --> Key["ContentKey over serialized bytes"]
 ```
 
 ## [03]-[RESEARCH]

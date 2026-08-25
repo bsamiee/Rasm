@@ -36,7 +36,7 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 │   ├── Texture.cs         # TextureSource sampling under AddressMode/FilterMode bands; ProceduralNoise seeds over the NoiseBasis band
 │   ├── Photometric.cs     # PhotometricQuantity band rows each carrying one closed Coercion discriminant; the 683 lm/W efficacy divide
 │   ├── Weathering.cs      # WeatheringEffect policy rows drive a library row along AgeParameter, so a row carries its trajectory
-│   ├── Acquisition.cs     # Acquisition.Import produces AcquiredMaterial with its CaptureProvenance receipt and admitted plane set
+│   ├── Acquisition.cs     # Acquisition.Import produces AcquiredMaterial with its CaptureProvenance and admitted plane set
 │   ├── Finish.cs          # Finish.Resolve over a pigment-weight vector and coat stack; spectrally-grounded BaseColor, measured provenance
 │   ├── Interchange.cs     # Generated appearance egress, descriptor-admitted Set boundary, MaterialX, and the interior stage crossing
 │   ├── Environment.cs     # SkyModel [Union], EnvironmentMap admission, and the IBL prefilter; scene-linear radiance end to end
@@ -189,7 +189,7 @@ flowchart LR
     Rasm e9@-->|"[SHAPE]: RgbProfile"| Appearance
     Rasm e10@-->|"[SHAPE]: TapSeries"| Appearance
     Rasm e11@-->|"[SHAPE]: SparseMatrix"| Raster
-    Rasm e12@-->|"[PORT]: ReceiptSinkPort"| Projection
+    Rasm e12@-->|"[SHAPE]: InstrumentSet"| Projection
     Rasm e13@-->|"[SHAPE]: BenchClaim"| Projection
     Component e14@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e15@-->|"[WIRE]: MaterialPropertySet"| Compute
@@ -205,7 +205,7 @@ flowchart LR
     PyData e25@-->|"[WIRE]: DeclarationRecord"| Properties
     Host e26@-->|"[WIRE]: CaptureSource"| Appearance
     Projection e27@-->|"[PORT]: TelemetryContributorPort"| AppHost
-    Projection e28@-->|"[WIRE]: BenchmarkReceipt"| AppHost
+    Projection e28@-->|"[SHAPE]: Benchmark"| AppHost
     Projection e29@-->|"[WIRE]: MaterialsDataset"| Persistence
     Raster e30@-->|"[CONTENT_KEY]: TextureSet"| Persistence
 ```
@@ -279,7 +279,7 @@ flowchart LR
 |  [18]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its golden row    |
 |  [19]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
 |  [20]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |
-|  [21]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` receipt row      |
+|  [21]   | new photo-to-PBR capture modality   | `Appearance/acquisition.md` | one `CaptureSource` case and its `CaptureMethod` row              |
 |  [22]   | new declaration modality or EPD row | `Properties/assessment.md`  | one `AssessmentRecord` case with its `Admit` and resolution arms  |
 |  [23]   | new durability binder or mix        | `Properties/properties.md`  | one `CementType` row plus its published `DurabilityMix` entries   |
 |  [24]   | new design code over a cased family | `Component/capacity.md`     | one `DesignBasis` row plus the family page's per-basis arm        |

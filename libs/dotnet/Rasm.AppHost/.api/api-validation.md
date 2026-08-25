@@ -36,7 +36,7 @@
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [CAPABILITY]               |
 | :-----: | :-------------------------------------------- | :------------------ | :------------------------- |
-|  [01]   | `ValidationResult`                            | result value        | validation receipt         |
+|  [01]   | `ValidationResult`                            | result value        | validation outcome         |
 |  [02]   | `ValidationFailure`                           | failure value       | field failure              |
 |  [03]   | `ValidationException`                         | exception value     | throw-on-failure path      |
 |  [04]   | `Severity`                                    | severity enum       | failure severity           |

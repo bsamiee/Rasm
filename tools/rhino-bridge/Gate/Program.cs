@@ -86,8 +86,8 @@ internal static partial class Program {
             bool aliveSilent = Posix.Alive(child) && !exitSeen;
             SessionState connecting = new SessionState.Connecting(Host: host, PollsRemaining: 0);
             SessionState dialog = SessionDispatch.Apply(connecting, new SessionSignal.HeartbeatSilent(SilentFor: policy.HeartbeatWindow + TimeSpan.FromSeconds(1)), policy);
-            SessionState running = new SessionState.Running(Host: host, Cargo: new CargoReceipt("hash", 0, [], []),
-                Done: Seq<ScenarioReceipt>(), Remaining: Seq(new ScenarioEntry("gate", "gate.standin", [], 0)));
+            SessionState running = new SessionState.Running(Host: host, Cargo: new LoadedCargo("hash", 0, [], []),
+                Done: Seq<ScenarioOutcome>(), Remaining: Seq(new ScenarioEntry("gate", "gate.standin", [], 0)));
             SessionState wedged = SessionDispatch.Apply(running, new SessionSignal.HeartbeatSilent(SilentFor: policy.HeartbeatWindow + TimeSpan.FromSeconds(1)), policy);
             Signal(child, "-CONT");
             bool pass = aliveSilent
@@ -210,8 +210,8 @@ internal static partial class Program {
 
     private static async Task RowQuitPrepareReassertAsync(SessionPolicy policy, string scratch) {
         TimeSpan bound = policy.QuitRungDeadline;
-        static QuitPrepareReceipt Clean(int marked) => new(Documents: marked, MarkedClean: marked, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []);
-        async Task<QuitPrepareReceipt> StallThenCleanAsync(int[] calls, CancellationToken ct) {
+        static QuitScrub Clean(int marked) => new(Documents: marked, MarkedClean: marked, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []);
+        async Task<QuitScrub> StallThenCleanAsync(int[] calls, CancellationToken ct) {
             calls[0]++;
             if (calls[0] == 1) {
                 await Task.Delay(bound + TimeSpan.FromSeconds(2), TimeProvider.System, ct).ConfigureAwait(false);
@@ -219,8 +219,8 @@ internal static partial class Program {
             }
             return Clean(1);
         }
-        static Task<QuitPrepareReceipt> AlwaysDirtyAsync(CancellationToken ct) =>
-            Task.FromResult(new QuitPrepareReceipt(Documents: 1, MarkedClean: 1, ResidualDirty: 1, Gh2: "documents=0;unmodified=0", SavedPaths: []));
+        static Task<QuitScrub> AlwaysDirtyAsync(CancellationToken ct) =>
+            Task.FromResult(new QuitScrub(Documents: 1, MarkedClean: 1, ResidualDirty: 1, Gh2: "documents=0;unmodified=0", SavedPaths: []));
         List<BridgeEvent> retried = [];
         int[] attempts = [0];
         await QuitPrepare.RunAsync(ct => StallThenCleanAsync(attempts, ct), bound, TimeProvider.System, Guid.NewGuid(), retried.Add, CancellationToken.None).ConfigureAwait(false);
@@ -453,13 +453,13 @@ internal static partial class Program {
             Lease: Atom(Option<LeaseToken>.None), LiveHostPid: Atom(Option<int>.None), Clock: TimeProvider.System, Policy: policy,
             ArtifactRoot: Environment.CurrentDirectory, LeasePath: Lease.CanonicalPath, JournalPath: QuitJournal.CanonicalPath,
             Bundle: bundle, Root: CancellationToken.None);
-        (Option<QuitPrepareReceipt> scrub, BridgeEvent[] prepEvents) = await DirtyThenPrepareAsync(host, policy).ConfigureAwait(false);
+        (Option<QuitScrub> scrub, BridgeEvent[] prepEvents) = await DirtyThenPrepareAsync(host, policy).ConfigureAwait(false);
         List<BridgeEvent> published = [.. prepEvents];
         Fin<PhaseStatus> outcome = QuitLadder.Run(host, Guid.NewGuid(), published.Add).Run(runtime);
         _ = raised.Wait(TimeSpan.FromSeconds(5));
         string[] rungs = [.. published.OfType<BridgeEvent.PhaseCase>().Select(static phase => $"{phase.Phase.Key}:{phase.Status.Key}")];
         bool prepared = published.OfType<BridgeEvent.FactCase>().Any(static f => f.Key is "quit.prepared");
-        bool scrubbed = scrub.Case is QuitPrepareReceipt receipt && receipt.Scrubbed;
+        bool scrubbed = scrub.Case is QuitScrub settled && settled.Scrubbed;
         int litterAfter = CountDocs(litterRoots, bundle);
         bool pass = scrubbed && prepared
             && outcome is Fin<PhaseStatus>.Succ(PhaseStatus status) && status == PhaseStatus.Ok
@@ -467,14 +467,14 @@ internal static partial class Program {
             && litterAfter <= litterBefore;
         Report("live-clean-quit", pass, new JsonObject {
             ["pid"] = hostPid, ["rungs"] = new JsonArray(rungs.Select(static rung => (JsonNode)rung).ToArray()),
-            ["scrub"] = scrub.Case is QuitPrepareReceipt r ? string.Create(CultureInfo.InvariantCulture, $"documents={r.Documents};markedClean={r.MarkedClean};residualDirty={r.ResidualDirty};gh2={r.Gh2}") : "prepare seam unreachable",
+            ["scrub"] = scrub.Case is QuitScrub r ? string.Create(CultureInfo.InvariantCulture, $"documents={r.Documents};markedClean={r.MarkedClean};residualDirty={r.ResidualDirty};gh2={r.Gh2}") : "prepare seam unreachable",
             ["quitPrepared"] = prepared ? "quit.prepared rode the channel before terminate" : "MISSING prepare fact",
             ["kqueueConfirmed"] = exitSeen, ["watchMode"] = watch.Mode,
             ["dotThreeDmLitter"] = litterAfter <= litterBefore ? "none written" : string.Create(CultureInfo.InvariantCulture, $"LITTER: {litterAfter - litterBefore} new .3dm across scratch/cwd/temp/autosave"),
         });
     }
 
-    private static async Task<(Option<QuitPrepareReceipt> Receipt, BridgeEvent[] Events)> DirtyThenPrepareAsync(LiveHost host, SessionPolicy policy) {
+    private static async Task<(Option<QuitScrub> Scrub, BridgeEvent[] Events)> DirtyThenPrepareAsync(LiveHost host, SessionPolicy policy) {
         try {
             SupervisorConnection connection = await SupervisorConnection
                 .ConnectAsync(host.Endpoint.PipeName, policy.ConnectDeadline, CancellationToken.None).ConfigureAwait(false);
@@ -482,10 +482,10 @@ internal static partial class Program {
             _ = await connection.HelloAsync(CancellationToken.None).ConfigureAwait(false);
             using CancellationTokenSource scope = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken.None);
             scope.CancelAfter(policy.QuitRungDeadline);
-            QuitPrepareReceipt receipt = await connection.PrepareQuitAsync(scope.Token).ConfigureAwait(false);
-            return (Some(receipt), connection.Events);
+            QuitScrub settled = await connection.PrepareQuitAsync(scope.Token).ConfigureAwait(false);
+            return (Some(settled), connection.Events);
         } catch (Exception error) when (error is RemoteInvocationException or ConnectionLostException or IOException or ObjectDisposedException or OperationCanceledException or TimeoutException) {
-            return (Option<QuitPrepareReceipt>.None, []);
+            return (Option<QuitScrub>.None, []);
         }
     }
 

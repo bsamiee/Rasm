@@ -14,23 +14,7 @@ from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
-from assay.core.model import (
-    ArtifactKind,
-    BaseParams,
-    Check,
-    Claim,
-    Completed,
-    Fault,
-    InprocThunk,
-    Language,
-    Match,
-    Mode,
-    RailStatus,
-    receipt,
-    Report,
-    Runner,
-    ToolArgs,
-)
+from assay.core.model import ArtifactKind, BaseParams, Check, Claim, Completed, Fault, InprocThunk, Language, Match, Mode, RailStatus, Report, Runner, ToolArgs
 from assay.core.routing import route
 from assay.diagnostics import fold
 
@@ -98,15 +82,7 @@ def _decode(line: str) -> _Finding | None:
 
 def _findings(done: tuple[Completed, ...]) -> tuple[Match, ...]:
     return tuple(
-        Match(
-            id=f"docs:{kind}",
-            kind=ArtifactKind.CODE,
-            text=f"docs: {found.file}:{found.line}: {kind}: {found.detail}",
-            line=found.line,
-            severity=severity,
-            path=found.file,
-            message=found.detail,
-        )
+        Match(id=f"docs:{kind}", kind=ArtifactKind.CODE, text=f"docs: {found.file}:{found.line}: {kind}: {found.detail}", line=found.line, severity=severity, path=found.file, message=found.detail)
         for outcome in done
         for raw in outcome.stdout.decode(errors="replace").splitlines()
         if (line := raw.strip()).startswith("{")
@@ -152,11 +128,7 @@ def _research_row(rel: str, number: int, line: str, statuses: frozenset[str]) ->
             return (_fail(rel, number, "research-row", f"malformed research row; expected {grammar}"),)
         case found:
             tail = found.group(2)
-    hyphen = (
-        (_fail(rel, number, "research-row", f"hyphenated research token [{found.group(1)}]; tokens are UPPERCASE_SNAKE"),)
-        if "-" in found.group(1)
-        else ()
-    )
+    hyphen = (_fail(rel, number, "research-row", f"hyphenated research token [{found.group(1)}]; tokens are UPPERCASE_SNAKE"),) if "-" in found.group(1) else ()
     if _RESEARCH_RECORD.match(tail):
         return hyphen
     match _RESEARCH_TAIL.match(tail):
@@ -175,41 +147,16 @@ def _research_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bo
     statuses = _template_statuses(lines, flags, "RESEARCH")
     numbered = tuple(zip(range(1, len(lines) + 1), lines, flags, strict=True))
     headers = tuple(number for number, line, (_comment, fence) in numbered if not fence and _RESEARCH_HEADER.match(line))
-    deformed = tuple(
-        _fail(rel, number, "research-section", f"deformed RESEARCH section marker {line.strip()!r}; expected ## [NN]-[RESEARCH]")
-        for number, line, (_comment, fence) in numbered
-        if not fence and line.startswith("#") and "[RESEARCH]" in line and not _RESEARCH_HEADER.match(line)
-    )
+    deformed = tuple(_fail(rel, number, "research-section", f"deformed RESEARCH section marker {line.strip()!r}; expected ## [NN]-[RESEARCH]") for number, line, (_comment, fence) in numbered if not fence and line.startswith("#") and "[RESEARCH]" in line and not _RESEARCH_HEADER.match(line))
     if not headers:
-        orphan = next(
-            (
-                number
-                for number, line, (comment, fence) in numbered
-                if not fence
-                and not comment
-                and (row := _RESEARCH_ROW.match(line)) is not None
-                and (row_tail := _RESEARCH_TAIL.match(row.group(2))) is not None
-                and row_tail.group(1) in statuses
-                and ";" in row_tail.group(2)
-            ),
-            None,
-        )
+        orphan = next((number for number, line, (comment, fence) in numbered if not fence and not comment and (row := _RESEARCH_ROW.match(line)) is not None and (row_tail := _RESEARCH_TAIL.match(row.group(2))) is not None and row_tail.group(1) in statuses and ";" in row_tail.group(2)), None)
         missing = () if orphan is None else (_fail(rel, orphan, "research-section", "research rows orphaned; terminal [RESEARCH] section missing"),)
         return (*deformed, *missing)
     after = tuple(entry for entry in numbered if entry[0] > headers[0])
     duplicates = tuple(_fail(rel, number, "research-section", "duplicate [RESEARCH] section") for number in headers[1:])
-    displaced = tuple(
-        _fail(rel, number, "research-section", "[RESEARCH] section not terminal; a section follows it")
-        for number, line, (_comment, fence) in after
-        if not fence and _HEADING.match(line) and number not in headers
-    )
+    displaced = tuple(_fail(rel, number, "research-section", "[RESEARCH] section not terminal; a section follows it") for number, line, (_comment, fence) in after if not fence and _HEADING.match(line) and number not in headers)
     stop = next((number for number, line, (_comment, fence) in after if not fence and _HEADING.match(line)), len(lines) + 1)
-    rows = tuple(
-        finding
-        for number, line, (comment, fence) in after
-        if number < stop and not fence and not comment and line.startswith("- [")
-        for finding in _research_row(rel, number, line, statuses)
-    )
+    rows = tuple(finding for number, line, (comment, fence) in after if number < stop and not fence and not comment and line.startswith("- [") for finding in _research_row(rel, number, line, statuses))
     return (*deformed, *duplicates, *displaced, *rows)
 
 
@@ -242,24 +189,16 @@ def _planning(root: Path) -> InprocThunk:
         argv = ("planning-gate", "check", rel)
         findings = _planning_findings(rel, root)
         if findings is None:
-            return receipt(argv, 0, status=RailStatus.EMPTY)
+            return Completed(argv, 0, status=RailStatus.EMPTY)
         payload = b"\n".join(_FINDING_ROW.encode(row) for row in findings)
-        return receipt(argv, 1 if findings else 0, stdout=payload, status=RailStatus.FAILED if findings else RailStatus.OK)
+        return Completed(argv, 1 if findings else 0, stdout=payload, status=RailStatus.FAILED if findings else RailStatus.OK)
 
     return run
 
 
-def _outcomes(
-    routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode, executor: Executor
-) -> Result[Report, Fault]:
+def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode, executor: Executor) -> Result[Report, Fault]:
     thunk = _planning(Path(str(settings.root)))
-    checks = tuple(
-        Check(tool=t, args=ToolArgs(input=f), thunk=thunk if t.runner is Runner.INPROC else None)
-        for t in select(claim, routed.language)
-        if t.mode is mode
-        for f in routed.files
-        if PurePosixPath(f).suffix in _SUFFIXES.get(t.name, routed.language.suffixes)
-    )
+    checks = tuple(Check(tool=t, args=ToolArgs(input=f), thunk=thunk if t.runner is Runner.INPROC else None) for t in select(claim, routed.language) if t.mode is mode for f in routed.files if PurePosixPath(f).suffix in _SUFFIXES.get(t.name, routed.language.suffixes))
     slots = executor.fan(checks, settings=settings, scope=scope, routed=routed)
 
     def _promote(done: tuple[Completed, ...]) -> Report:
@@ -292,11 +231,7 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, exe
     Returns:
         Folded report, or a routing/spawn/strict-promotion fault.
     """
-    return route(Language.DOCS, params.paths, settings=settings).bind(
-        lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=executor).map(
-            lambda report: _strict(report, strict=params.strict)
-        )
-    )
+    return route(Language.DOCS, params.paths, settings=settings).bind(lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK, executor=executor).map(lambda report: _strict(report, strict=params.strict)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

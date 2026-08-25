@@ -2,11 +2,11 @@
 
 Brightway project and inventory custodian — the system-of-record leg of the impact plane: `Inventory` owns the `bw2data` project scope, the biosphere/LCIA bootstrap, and the whole LCI ingestion pipeline `bw2io` spells (`extract → apply_strategies → statistics → resolve → write_database`), and `MatrixPackage` owns the `bw_processing` matrix-datapackage substrate the solver consumes. Every operation is project-pinned: the owner carries its project name and every boundary leg re-selects it first, so an ambient current-project global never decides which store an import lands in — two same-process compositions with distinct projects cannot cross-write.
 
-The pipeline's linking quality is a RECEIPT, never a print: `statistics()`'s `(nodes, edges, unlinked, multifunctional)` tuple lands typed on `IngestReceipt`, the residual unlinked set resolves through one closed `Resolution` policy row — match another database, promote to biosphere, or refuse — and `drop_unlinked`'s reckless erasure is the named rejected form. The written `bw2data.Database` is the ONE hand-off to the solve leg; this page assembles no matrix and solves nothing, and the carrier page's demand keys arrive resolved from the project this custodian filled.
+The pipeline returns `IngestResult` with `statistics()`'s `(nodes, edges, unlinked, multifunctional)` measurements beside the written database and source key. The residual unlinked set resolves through one closed `Resolution` policy row — match another database, promote to biosphere, or refuse — and `drop_unlinked`'s reckless erasure is the named rejected form. The written `bw2data.Database` is the ONE hand-off to the solve leg; this page assembles no matrix and solves nothing, and the carrier page's demand keys arrive resolved from the project this custodian filled.
 
 ## [01]-[INDEX]
 
-- [02]-[INVENTORY]: the `Inventory` project custodian — bootstrap, the `IngestSource` importer axis, the `Resolution` policy, the typed `IngestReceipt`.
+- [02]-[INVENTORY]: the `Inventory` project custodian — bootstrap, the `IngestSource` importer axis, the `Resolution` policy, and `IngestResult`.
 - [03]-[PACKAGES]: the `MatrixPackage` owner over the `bw_processing` COO-triple datapackage substrate.
 
 ## [02]-[INVENTORY]
@@ -15,9 +15,9 @@ The pipeline's linking quality is a RECEIPT, never a print: `statistics()`'s `(n
 - Law: every leg is project-pinned — `bd.projects.set_current(self.project)` opens each boundary body, idempotent by the provider's own contract — so the process-global current project is re-asserted per operation, never trusted across an await or a sibling composition's switch; this is the per-composition binding law applied to the one provider whose scope has no handle form.
 - Law: `bootstrap` runs `bw2io.bw2setup()` once per project — biosphere3, bundled LCIA packs, core migrations — idempotent on an existing biosphere, so ingest never guards on a remembered out-of-band setup; the network one-shot imports ride the HTTP retry class on the banded thread hop because a release download is a transient-faulting remote leg.
 - Law: the residual unlinked set resolves by POLICY — `Resolution.matched(db, fields)` links against a sibling database, `Resolution.promoted(biosphere)` admits unlinked flows as new biosphere records, `Resolution.strict()` refuses with the unlinked count on the fault — and `drop_unlinked(i_am_reckless=True)` never appears: silently erasing exchanges is the data-loss arm the policy vocabulary forecloses. A custom project linker is one `list[dict] -> list[dict]` strategy handed to `apply_strategy`, never an importer subclass.
-- Receipt: `IngestReceipt` carries the `statistics()` quadruple as four `Option` slots, the written database name, and the source `ContentKey` (the file bytes, or the release coordinate for a network import), contributing under `domain="impact"`/`kind="ingest"` with the lifted `domain`/`kind`/`key` columns every residence row reads. Only the FILE pipeline runs `statistics()`, so a release import declares those slots ABSENT and the metric it never measured lands on no series — a zero there reads as a perfectly-linked empty import and grades the plane on a fact nothing computed.
+- Law: `IngestResult` carries the `statistics()` quadruple as four `Option` slots, the written database name, and the source `ContentKey` over file bytes or the release coordinate. Only the file pipeline runs `statistics()`, so a release import leaves those slots absent; zero remains a measured empty value rather than standing in for an unmeasured source.
 - Packages: `bw2data` (`projects.set_current`/`projects.create_project`, `databases`, the durable `Database` store, `errors.BW2Exception` the store family's root), `bw2io` (the importer classes, `bw2setup`, `apply_strategies`/`apply_strategy`/`statistics`/`match_database`/`add_unlinked_flows_to_biosphere_database`/`write_database`, `import_ecoinvent_release`/`useeio20`/`exiobase_monetary`, `errors.StrategyError`/`MultiprocessingError`), `bw_processing` (`errors.BrightwayProcessingError`), runtime (`RuntimeRail`/`boundary`/`Catch`/`FaultRow`/`ContentIdentity`/`scoped`/`RetryClass`/`guarded`/`on_thread`). Every provider binds `lazy`, so each raise set resolves at its call rather than as a module-scope tuple that would import the whole project stack to name an exception.
-- Growth: a new source format is one `IngestSource` case naming its importer; a new linking move is one `Resolution` case; a new receipt fact is one `IngestReceipt` field, `Option`-shaped wherever a source leg can leave it unmeasured; a new refusal law is one `FaultRow` row on this module's `RAISES` table; a project-specific remap is one strategy function, zero page edits.
+- Growth: a new source format is one `IngestSource` case naming its importer; a new linking move is one `Resolution` case; a new caller-required ingest measurement is one `IngestResult` field, `Option`-shaped wherever a source leg can leave it unmeasured; a new refusal law is one `FaultRow` row on this module's `RAISES` table; a project-specific remap is one strategy function, zero page edits.
 - Boundary: no matrix assembly, no solve, no prospective build (`impact/scenario#SCENARIO` owns premise), no EPD parsing (the carrier's declaration arms own wires); backup/restore (`backup_project_directory`) is composition-root operations, not an owner surface; `imp.data` never leaks — the pipeline's interior `list[dict]` stays inside the boundary leg.
 
 ```python
@@ -38,12 +38,10 @@ from rasm.data.tabular.interop import DataLeg
 from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.impact.inventory")
 
@@ -124,35 +122,13 @@ class Resolution:
     strict: None = case()
 
 
-class IngestReceipt(Struct, frozen=True, gc=False):
+class IngestResult(Struct, frozen=True, gc=False):
     database: str
     nodes: Option[int]
     edges: Option[int]
     unlinked: Option[int]
     multifunctional: Option[int]
     content_key: ContentKey
-
-    def contribute(self) -> "Iterable[Receipt]":
-        match self.nodes:
-            case Option(tag="some", some=counted):
-                Metrics.record({"rasm.impact.ingested": float(counted)}, domain="impact", kind="ingest")
-            case Option(tag="none"):
-                pass
-        measured = {
-            name: held
-            for name, slot in (
-                ("nodes", self.nodes),
-                ("edges", self.edges),
-                ("unlinked", self.unlinked),
-                ("multifunctional", self.multifunctional),
-            )
-            for held in slot.to_list()
-        }
-        yield Receipt.of(
-            "inventory",
-            ("emitted", self.database, {"domain": "impact", "kind": "ingest", "key": self.content_key.hex} | measured),
-        )
-
 
 class Inventory(Struct, frozen=True):
     project: str
@@ -168,19 +144,19 @@ class Inventory(Struct, frozen=True):
 
     async def ingest(
         self, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]" = ()
-    ) -> "RuntimeRail[IngestReceipt]":
-        def run() -> "RuntimeRail[IngestReceipt]":
+    ) -> "RuntimeRail[IngestResult]":
+        def run() -> "RuntimeRail[IngestResult]":
             bd.projects.set_current(self.project)
             match source:
                 case IngestSource(tag="ecoinvent_release", ecoinvent_release=(version, system_model)):
                     bw2io.import_ecoinvent_release(version, system_model)
-                    return Ok(self._release_receipt(f"ecoinvent:{version}:{system_model}"))
+                    return Ok(self._release_result(f"ecoinvent:{version}:{system_model}"))
                 case IngestSource(tag="useeio", useeio=name):
                     bw2io.useeio20(name=name)
-                    return Ok(self._release_receipt(f"useeio:{name}"))
+                    return Ok(self._release_result(f"useeio:{name}"))
                 case IngestSource(tag="exiobase", exiobase=(major, minor, patch)):
                     bw2io.exiobase_monetary(version=(major, minor, patch), name=self.database)
-                    return Ok(self._release_receipt(f"exiobase:{major}.{minor}.{patch}"))
+                    return Ok(self._release_result(f"exiobase:{major}.{minor}.{patch}"))
                 case filed:
                     return self._pipeline(filed, resolution, strategies)
 
@@ -194,7 +170,7 @@ class Inventory(Struct, frozen=True):
 
     def _pipeline(
         self, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]"
-    ) -> "RuntimeRail[IngestReceipt]":
+    ) -> "RuntimeRail[IngestResult]":
         path = getattr(source, source.tag)
         imp = getattr(bw2io, source.importer)(path, self.database)
         imp.apply_strategies(verbose=False)
@@ -214,15 +190,15 @@ class Inventory(Struct, frozen=True):
             return Error(INVENTORY_UNLINKED.raised(str(unlinked)))
         imp.write_database()
         key = ContentIdentity.key("impact", Path(path).read_bytes())
-        return Ok(IngestReceipt(
+        return Ok(IngestResult(
             database=self.database, nodes=Some(nodes), edges=Some(edges), unlinked=Some(unlinked),
             multifunctional=Some(multifunctional), content_key=key,
         ))
 
-    def _release_receipt(self, coordinate: str) -> IngestReceipt:
+    def _release_result(self, coordinate: str) -> IngestResult:
         key = ContentIdentity.key("impact", coordinate.encode())
         counted = Some(len(bd.Database(self.database))) if self.database in bd.databases else Nothing
-        return IngestReceipt(
+        return IngestResult(
             database=self.database, nodes=counted, edges=Nothing, unlinked=Nothing, multifunctional=Nothing, content_key=key
         )
 ```

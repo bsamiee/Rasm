@@ -8,7 +8,7 @@ Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER
 
 Space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` joint d-dimensional sampler under the `Scramble` policy, the sensitivity reductions ride `TensorPrimitives` SIMD folds, and the `ParetoFront` is the optimizer's own artifact crossing to Persistence content-keyed.
 
-`SweepLane.Dataset` projects a landed `SweepResult` onto the `DoeDataset` wire shape — the `[GRADUATION]` loop's training leg: this lane EXPORTS the labeled corpus, and the fitted ONNX asset arrives back by content key through the `Model/identity#MODEL_IDENTITY` `ModelSource.Acquire` admission under its `GraduationEnvelope` evidence key, where the `Solver/optimizer` neural-field surrogate reads it. External training — an environment this branch neither names nor constrains — produces that asset; the branch states its own domain, and the graduation contract is the whole of what crosses. `ComputeReceipt`, `WorkLane`, `CpuBudget`, `CorrelationId`, NodaTime `IClock` for a sweep receipt's semantic stamp with kernel `MonotonicTimeline` for its elapsed span (the app-stratum `ClockPolicy` stops at the app root), and the Thinktecture `ComparerAccessors.StringOrdinal` accessor arrive settled.
+`SweepLane.Dataset` projects a landed `SweepResult` onto the `DoeDataset` wire shape — the `[GRADUATION]` loop's training leg: this lane EXPORTS the labeled corpus, and the fitted ONNX asset arrives back by content key through the `Model/identity#MODEL_IDENTITY` `ModelSource.Acquire` admission under its `GraduationEnvelope` evidence key, where the `Solver/optimizer` neural-field surrogate reads it. External training — an environment this branch neither names nor constrains — produces that asset; the branch states its own domain, and the graduation contract is the whole of what crosses. `WorkLane`, `CpuBudget`, `CorrelationId`, NodaTime `IClock`, and the Thinktecture `ComparerAccessors.StringOrdinal` accessor arrive settled.
 
 ## [01]-[INDEX]
 
@@ -20,7 +20,7 @@ Space-filling rows draw the `Tensor/sampling#OWNED_BUILDS` `LowDiscrepancy` join
 - Cases: `SweepAxis` `Linear` · `Logarithmic` · `Enumerated`; `DesignFamily` factorial · space-filling · response-surface; `SequenceFamily` sobol · halton; `DoeDesign` full-factorial · fractional-factorial · plackett-burman · latin-hypercube · sobol · halton · central-composite · box-behnken (central-composite/box-behnken the two `ResponseSurface`-family rows on coded ±1/±α/0 grids, latin-hypercube/sobol/halton the three `SpaceFilling`-family JOINT designs); `SensitivityMethod` one-at-a-time · morris-elementary · sobol-variance (the three sampled rows) · dual-forward (the exact row reading the hyper-dual gradient); `Convergence` (composed from `Solver/contract`) `Converged` · `Exhausted` · `Stalled`, the verdict an `IterativeField` carries.
 - Entry: `public static (Option<ProgressCell> Progress, IO<Fin<SweepResult>> Result) Run(SweepGrid grid, CpuBudget budget, Func<DesignPoint, IO<Fin<Seq<double>>>> evaluate, Func<Seq<ImmutableArray<double>>, Option<(ProgressCell Parent, PhaseSubscription Wiring, Seq<ProgressCell> Points)>> progress, IClock clock)` — the scheduler-supplied factory owns admitted progress minting; invalid grids fault before materialization, and an individual point fault tallies incomplete rather than aborting. `Governed` wraps an iterative step and forks refinement onto `budget.Refinement` after a cooperative frame-budget expiry.
 - Auto: `SweepGrid.Design` dispatches the design matrix on the `DoeDesign` row; `Run` partitions the design into `CpuBudget.Workers` chunks, forks ONE effect per chunk, evaluates each chunk's points sequentially inside it, validates each objective vector, folds successes into `ParetoFront`, tallies faults, and projects `SensitivityTornado`; the injected progress bundle advances admitted point cells and disposes its `PhaseSubscription` through `Bracket`.
-- Receipt: `Sweep(long GridPoints, int Completed, int OnFront, int Dominated, int Unranked, int Failed)` from `Runtime/receipts#RECEIPT_UNION`; `SweepLane.Receipt` projects a `SweepResult` under the correlation — `GridPoints` the MATERIALIZED design count the run walked, `OnFront` the front size, dominated `Completed − OnFront`, `Unranked` the tornado's withheld-bar roster size, failed `GridPoints − Completed`; the frame-budget early-stop's per-iteration residual rides the iterative solve's own `Solve` receipt (`Solver/contract#SOLVE_REQUEST`), never a fabricated sweep flag.
+- Result: `SweepResult` carries the materialized design count, completed observations, Pareto front, sensitivity payload, withheld-bar count, failures, evaluation ledger, and timestamp. The frame-budget early-stop's per-iteration residual remains on `SolveResult` (`Solver/contract#SOLVE_REQUEST`).
 - Packages: System.Numerics.Tensors, System.IO.Hashing (`XxHash128` streaming `Append`/`GetCurrentHashAsUInt128` the `DoeDataset` content key — the corpus preimage folds incrementally, never held as a second frame), HyperJet (`DDScalar` the hyper-dual objective the exact sensitivity row differentiates, reached through `Tensor/dispatch#EQUIVALENCE_INTEROP` `SensitivityLaw.Gradient` and never bound here), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Validation<Error,T>` the accumulating admission through the `Solver/optimizer#OPTIMIZER_LANE` `Refusal` clause, `Schedule.recurs` + `RepeatWhile` the bounded refinement loop), NodaTime, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox (`BinaryPrimitives` little-endian value framing, `Enumerable.Chunk` the worker partition)
 - Growth: a new design-of-experiments strategy is one `DoeDesign` row and its `Materialize`/`Cardinality` arm; a new factor kind is one `SweepAxis` case carrying its `Levels`+`Map` lowering, its `Continuous` column, and its `Span`/`Chain` transform pair; a new sensitivity analysis is one `SensitivityMethod` row carrying its `Exact` column and its `Rank` fold, a new per-axis measure one slot on `SensitivityEvidence` the rows that take it read; a frame-deadline change is one field on `IterationBudget`/`DoePolicy`; zero new surface — a `FactorialSweep`/`LatinHypercubeSweep`/`SobolSweep`/`ResponseSurface` sibling collapses onto the one `DoeDesign` axis, and a per-axis `SweepAxis.LatinHypercube`/`SweepAxis.Sobol` case is rejected because a space-filling design is joint across dimensions, never a per-axis 1-D sequence Cartesian-producted.
 - Boundary: `evaluate` is the single `IO`-lifted solver coupling and the fan-out is CHUNKED to `CpuBudget.Workers` — each `ForkIO` spins a DEDICATED long-running thread, so one fork per design point turns a 4096-point sweep into 4096 threads and the machine spends its time scheduling rather than solving. One fork per chunk keeps the overlap the fan-out exists for at the governed thread count, and a bare `Traverse` over the evaluations — which sequences them outright — is the other deleted form.
@@ -553,13 +553,6 @@ public static class SweepLane {
             result.Grid.Strategy, points.Count, coordinates, responses, onFront, clock.GetCurrentInstant()));
     }
 
-    public static ComputeReceipt.Sweep Receipt(SweepResult result, CorrelationId correlation, Duration elapsed) =>
-        new(result.GridPoints, result.Completed, result.Front.Points.Count,
-            Math.Max(0, result.Completed - result.Front.Points.Count),
-            result.Tornado.Unranked.Count, result.Failed) {
-            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
-        };
-
     static SweepResult Reduce(SweepGrid grid, Seq<(ImmutableArray<double> Coords, Fin<Seq<double>> Result)> rows, int gridPoints, IClock clock) {
         (ParetoFront Front, Seq<DesignPoint> Points) folded = rows.Fold(
             (Front: new ParetoFront(Seq<DesignPoint>(), grid.Senses), Points: Seq<DesignPoint>()),
@@ -608,11 +601,3 @@ public static class SweepLane {
     }
 }
 ```
-
-## [03]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

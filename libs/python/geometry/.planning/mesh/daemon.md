@@ -2,35 +2,36 @@
 
 One persistent IfcOpenShell tessellation daemon resolves the generated IFC source reference through the branch's one artifact repository, materializes it onto a helper-owned input path, and writes GLB onto a helper-owned output path. The process seam carries request binary, path strings, bounded scalars, pulse proxy, and small census evidence only. Source bytes, GLB bytes, temporary-path custody, and hand-authored wire twins never cross through pickle.
 
-Every request enters `LanePolicy.drain` under a source key derived from the generated `ArtifactRef` identity and extent. Its policy-folded `ContentKey` writes each generated field coordinate before its value, so the C# requester can reproduce the same preimage without protobuf serialization, language-local format strings, or default seeds. The output is published before a receipt exposes its `ArtifactRef`; the source-index header remains a post-publication replay optimization whose refusal cannot erase a resolvable artifact.
+Every request enters `LanePolicy.drain` under a source key derived from the generated `ArtifactRef` identity and extent. Its policy-folded `ContentKey` writes each generated field coordinate before its value, so the C# requester can reproduce the same preimage without protobuf serialization, language-local format strings, or default seeds. The output is published before a result exposes its `ArtifactRef`; the source-index header remains a post-publication replay optimization whose refusal cannot erase a resolvable artifact.
 
 ## [01]-[INDEX]
 
-- [02]-[DAEMON]: Reference-resolved IFC tessellation, canonical request identity, required artifact publication, source-index replay, and drain-on-harvest receipts.
+- [02]-[DAEMON]: Reference-resolved IFC tessellation, canonical request identity, required artifact publication, and source-index replay.
 
 ## [02]-[DAEMON]
 
 - Owner: `TessellationDaemon` owns one required `ArtifactRepository` over one injected `ObjectStoreLane`; `GeometryServe` reaches that same repository through `daemon.repository` and cannot bind another store.
 - Law: `rasm.runtime.transport.artifact.stage` owns source materialization and proof, while `output(suffix=".glb")` owns the worker's format-bearing output path and `ArtifactSink.seal` mints the generated output reference. The worker admits the extension-neutral input with IfcOpenShell's explicit `.ifc` format and writes the helper-owned GLB path; no `Path.read_bytes`, raw-body process argument, or GLB process return exists.
 - Law: artifact publication is correctness-mandatory and uses the repository's path-backed atomic overwrite. A publication refusal rails the tessellation, so no unresolved reference can escape. Overwrite is safe because the helper proved the path's SHA-256 identity and the destination is derived from that identity; seed-zero XXH3 remains confined to the source and content cache keys.
-- Law: the source-index header is the cache optimization beneath `LanePolicy`'s session cache. It carries the generated artifact reference, generated semantic binary, and exact census. Header create-or-match refusal becomes `Spill.REFUSED` evidence after artifact publication; replay streams the referenced artifact through the same extent/hash proof as `Fetch` before admitting the cached receipt.
+- Law: the source-index header is the cache optimization beneath `LanePolicy`'s session cache. It carries the generated artifact reference, generated semantic binary, and exact census. Header create-or-match refusal becomes `Spill.REFUSED` on the result after artifact publication; replay streams the referenced artifact through the same extent/hash proof as `Fetch` before admitting the cached result.
 - Law: source identity writes the generated `TessellateRequest.source_artifact`, `ArtifactRef.sha256`, and `ArtifactRef.artifact_bytes` coordinates. Policy identity then writes every output-affecting generated field and nested coordinate in contract order.
-- Entry: `tessellate` returns admission-ordered `TessellationResult` values and drains facts through `contribute`. The caller budget rides the kernel deadline and never enters content identity.
+- Entry: `tessellate` returns admission-ordered `TessellationResult` values; a replay-header or index refusal that the result already carries as `Spill.REFUSED` writes ONE `structlog` warning at the daemon under the composition logger and never rails the tessellation. The caller budget rides the kernel deadline and never enters content identity.
 - Auto: each IFC unit admits as `Admit.whole`; `LaneGrant.width` becomes IfcOpenShell `num_threads`, so outer admission and native parallelism spend one allocator.
-- Receipt: `TessellationResult` carries a generated `ArtifactRef`, never a local artifact carrier or octets. `TessellateResponse` projection belongs to `mesh/serve`.
+- Output: `TessellationResult` carries a generated `ArtifactRef`, never a local artifact carrier or octets; the session-cache hit tally is the lane's own `Drained` count, so the result carries no replay phase. `TessellateResponse` projection belongs to `mesh/serve`.
 - Packages: `ifcopenshell`, `trimesh`, runtime `transport/artifact`, generated compute/geometry/artifact messages, and runtime identity/lane/store/journal rails.
 - Growth: a new output-affecting contract field lands in the canonical coordinate stream and provider projection together. A new artifact transport rule belongs to runtime `transport/artifact`; this page composes it and authors no parallel integrity state machine.
 - Boundary: IFC only. STEP, IGES, sealed B-rep, and OCCT exchange belong to generated `CadService` and the isolated CAD package.
 
 ```python
-from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from builtins import frozendict
 from enum import StrEnum
 from functools import partial
 from inspect import isasyncgenfunction
 from pathlib import Path
 from queue import Queue
-from typing import Final, Literal, assert_never
+from typing import Final, assert_never
+
 
 from expression import Error, Ok, Option, Result, Some, effect
 from expression.collections import Block, Map
@@ -51,14 +52,14 @@ from rasm.contracts.rasm.contracts.compute.compute_pb import (
 )
 from rasm.contracts.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
 
-from rasm.geometry.graduation import EVIDENCE_DOMAIN, GeometryLeg, GeometryPulse
+from rasm.geometry.graduation import GeometryLeg, GeometryPulse
 from rasm.runtime.faults import TERMINAL, BoundaryFault, Catch, FaultRow, RuntimeRail, boundary, rostered
 from rasm.runtime.shapes import custody
 from rasm.runtime.hooks import StageMark
 from rasm.runtime.identity import CanonicalWriter, ContentIdentity, ContentKey
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, MeterFact, Party, Resource, Retain
 from rasm.runtime.lanes import Admit, LaneGrant, LanePolicy, PulseFact, pulsed
-from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey, logger
 from rasm.runtime.roots import ObjectStoreLane, StoreFault, StoreOp, StoreOutcome, StoreStream
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -68,7 +69,6 @@ lazy import ifcopenshell.ifcopenshell_wrapper
 lazy import trimesh
 
 
-type ProducerTag = Literal["ifc"]
 type KernelYield = tuple[str, str, int, int]
 type TessellateKernel = Callable[..., KernelYield]
 
@@ -110,24 +110,7 @@ class TessellationResult(Struct, frozen=True, gc=False):
     element_count: int
     triangle_count: int
     semantic: Semantic
-    replay: Phase = "emitted"
     spill: Spill = Spill.UNBOUND
-
-    def fact(self, source: ProducerTag) -> Receipt:
-        return Receipt.of(
-            OWNER,
-            (
-                self.replay,
-                source,
-                {
-                    "content_key": self.content_key.hex,
-                    "artifact": self.artifact.sha256.hex(),
-                    "elements": self.element_count,
-                    "triangles": self.triangle_count,
-                    "spill": self.spill.value,
-                },
-            ),
-        )
 
 
 _SPILL_ENCODER: Final = msgjson.Encoder(order="deterministic")
@@ -313,7 +296,7 @@ def _stored(path: str, quantity: int, change: tuple[Assigned, ...], state: Spill
     return Block.of_seq(
         (
             AuditFact(
-                action=f"{EVIDENCE_DOMAIN}.spill",
+                action="geometry.spill",
                 actor=Party(kind=Actor.SERVICE, key=OWNER),
                 target=Party(kind="object", key=path),
                 retention=Retain.OPERATIONAL,
@@ -322,10 +305,6 @@ def _stored(path: str, quantity: int, change: tuple[Assigned, ...], state: Spill
             MeterFact(resource=Resource.STORAGE, quantity=quantity, surface=path),
         )
     )
-
-
-def _phase(result: TessellationResult, warm: Map[ContentKey, TessellationResult], key: ContentKey) -> TessellationResult:
-    return replace(result, replay="admitted" if key in warm or result.spill is Spill.REPLAYED else "emitted")
 
 
 def _present[T](slot: T | None, coordinate: str, /) -> RuntimeRail[T]:
@@ -516,8 +495,8 @@ def _framed(writer: CanonicalWriter, framed: tuple[int, tuple[str, ...]]) -> Can
     return writer
 
 
-def _dispatch(unit: TessellationUnit) -> RuntimeRail[tuple[TessellateKernel, tuple[object, ...], ContentKey, ProducerTag, ArtifactRef]]:
-    return _content_key(unit).map(lambda key: (_tessellate_ifc, (unit.request.to_binary(),), key, "ifc", unit.source))
+def _dispatch(unit: TessellationUnit) -> RuntimeRail[tuple[TessellateKernel, tuple[object, ...], ContentKey, ArtifactRef]]:
+    return _content_key(unit).map(lambda key: (_tessellate_ifc, (unit.request.to_binary(),), key, unit.source))
 
 
 class TessellationDaemon:
@@ -531,7 +510,6 @@ class TessellationDaemon:
         self._lane = lane
         self._repository = repository
         self._composition = composition
-        self._receipts: Block[Receipt] = Block.empty()
         self._cache: Map[ContentKey, TessellationResult] = Map.empty()
 
     @property
@@ -555,17 +533,16 @@ class TessellationDaemon:
                 pass
             case _ as unreachable:
                 assert_never(unreachable)
-        receipt = await self._lane.drain(units.map(lambda admitted: admitted[2]), warm)
-        self._cache = receipt.cache
-        self._fold(units, warm, receipt.faults)
-        results = units.choose(lambda admitted: self._cache.try_find(admitted[0]).map(lambda held: _phase(held, warm, admitted[0])))
-        return receipt.faults.try_head().map(Error).default_value(Ok(results))
+        drained = await self._lane.drain(units.map(lambda admitted: admitted[1]), warm)
+        self._cache = drained.cache
+        results = units.choose(lambda admitted: self._cache.try_find(admitted[0]))
+        return drained.faults.try_head().map(Error).default_value(Ok(results))
 
     def _admit(
         self,
         request: TessellateRequest,
         budget: "Option[float]",
-    ) -> RuntimeRail[tuple[ContentKey, ProducerTag, Admit[TessellationResult]]]:
+    ) -> RuntimeRail[tuple[ContentKey, Admit[TessellationResult]]]:
         return TessellationUnit.of(request).bind(_dispatch).map(lambda row: self._unit(*row, budget))
 
     def _unit(
@@ -573,10 +550,9 @@ class TessellationDaemon:
         kernel: TessellateKernel,
         args: tuple[object, ...],
         key: ContentKey,
-        tag: ProducerTag,
         source: ArtifactRef,
         budget: "Option[float]",
-    ) -> tuple[ContentKey, ProducerTag, Admit[TessellationResult]]:
+    ) -> tuple[ContentKey, Admit[TessellationResult]]:
         async def work(grant: LaneGrant) -> RuntimeRail[TessellationResult]:
             match await self._replayed(key):
                 case Option(tag="some", some=held):
@@ -586,7 +562,8 @@ class TessellationDaemon:
                 case _ as unreachable:
                     assert_never(unreachable)
 
-        return key, tag, Admit(whole=(Some(key), work))
+        return key, Admit(whole=(Some(key), work))
+
 
     async def _emitted(
         self,
@@ -684,21 +661,9 @@ class TessellationDaemon:
                 assert_never(unreachable)
 
     def _noted(self, fault: BoundaryFault) -> None:
-        self._receipts = self._receipts.append(Block.singleton(Receipt.of(OWNER, fault)))
-
-    def _fold(
-        self,
-        admitted: Block[tuple[ContentKey, ProducerTag, Admit[TessellationResult]]],
-        warm: Map[ContentKey, TessellationResult],
-        faults: Block[BoundaryFault],
-    ) -> None:
-        facts = admitted.choose(lambda row: self._cache.try_find(row[0]).map(lambda held: _phase(held, warm, row[0]).fact(row[1])))
-        self._receipts = self._receipts.append(facts).append(faults.map(lambda fault: Receipt.of(OWNER, fault)))
-
-    def contribute(self) -> Iterable[Receipt]:
-        drained, self._receipts = self._receipts, Block.empty()
-        return drained
+        logger(self._composition).warning("tessellation.spill", **fault.facts())
 ```
+
 
 ## [03]-[RESEARCH]
 

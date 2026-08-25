@@ -13,7 +13,7 @@ Rasm.Element/              # Neutral thing-model seam over the kernel; geometry 
 │   ├── WirePayload.cs     # NodeWire fold minting each node's content address beside object codecs
 │   ├── WireValue.cs       # Recursive PropertyValue support closure; decode legs re-mint through the OfSi gate
 │   ├── WireSubstance.cs   # Arms re-enter their accumulating Of* admissions; ProfileRef keys re-derive; SectionColumns one-table codec
-│   ├── WireEvidence.cs    # PayloadContent derives from flat wire columns through the owner's Open gate; EvidenceRun re-enters railed Of
+│   ├── WireCodec.Evidence.cs # PayloadContent derives from flat wire columns through the owner's Open gate; EvidenceRun re-enters railed Of
 │   ├── WireRaster.cs      # Base-as-level-0 rebuild from flat columns; palettes cross the one ToRgb quantizer the content key shares
 │   ├── Corpus.cs          # CorpusProfile closes density, depth, mix, cadence, and seed; Mint admits members through GraphDelta.AdmitOnto
 │   └── Table.cs           # Tabulate fold; a TableRow case IS the dataset and TableFamily carries columns, key, spine, rollup measure
@@ -29,7 +29,7 @@ Rasm.Element/              # Neutral thing-model seam over the kernel; geometry 
 ├── Composition/           # Material composition and intrinsic acoustic folds
 │   ├── Material.cs        # MaterialId-keyed nodes carrying one composition union and one Discipline-keyed property-set union
 │   └── Acoustic.cs        # One-third-octave AcousticBand spectra beside the material-intrinsic constants EN 12354 folds read
-├── Assessment/            # Generic analysis receipt and its measured-evidence sibling
+├── Assessment/            # Generic analysis result and its measured-evidence sibling
 │   ├── Assessment.cs      # One payload the Node.Assessment case wraps; AnalysisRoute token and UInt128 InputKey ride the key
 │   └── Observation.cs     # One series binds one deployed sensor to one observed aspect; SensorId identity beside the blob reference
 ├── Geospatial/            # Georeferenced coverage and CRS
@@ -59,7 +59,7 @@ Interior is one strongly-connected component at folder grain, since `Graph/Eleme
 - S4 observability — the `ElementHooks`-minted kernel rail and its `GraphInstrument` projection observe every lower stratum without entering one.
 - S4 corpus — `GraphForge` realizes whole graphs through the S3 admission rail it consumes.
 - S4 tabulation — `GraphTable` flattens the S3 snapshot into columnar row families and imports nothing above it.
-- S4 grade — `ModelAudit` folds the S3 snapshot through the S4 codec into a receipt, mutating nothing and minting no fault of its own.
+- S4 grade — `ModelAudit` folds the S3 snapshot through the S4 codec into one graded value, mutating nothing and minting no fault of its own.
 
 ```mermaid
 ---
@@ -189,7 +189,7 @@ flowchart LR
         Projection[Projection contracts]
         Composition[Composition folds]
         Properties[Property vocabulary]
-        Assessment[Assessment receipt]
+        Assessment[Assessment payload]
         Geospatial[Geospatial coverage]
     end
     Rasm{{Rasm}}
@@ -202,7 +202,7 @@ flowchart LR
     Projection e1@<-->|"[CONTENT_KEY]: XxHash128"| Rasm
     AppHost e2@-->|"[PORT]: ProjectionContext"| Projection
     AppHost e3@-->|"[PORT]: InstrumentSet + SpanBand"| Projection
-    Rasm e4@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand"| Projection
+    Rasm e4@-->|"[PORT]: Hlc + InstrumentSpec + RasmEventMint + SpanBand"| Projection
     Rasm e5@-->|"[SHAPE]: CellLattice"| Geospatial
     Projection e6@-->|"[CONTENT_KEY]: ContentAddress"| Persistence
     Graph e7@-->|"[SHAPE]: ElementGraph"| Persistence

@@ -26,15 +26,15 @@ flowchart TB
     subgraph L1[KERNEL]
         Frames[Frames]
         Identity[Identity]
-        Receipts[Receipts]
+        Solutions[Solutions]
     end
     App e1@-->|"[IMPORT]: HostFrame"| Host
     Host e2@--> L2
     App e3@--> L2
     Core e4@-->|"[IMPORT]: FrameShape"| Frames
-    Compute e5@-->|"[IMPORT]: SolveReceipt"| Receipts
+    Compute e5@-->|"[IMPORT]: Solution"| Solutions
     Frames r1@--> Identity
-    Receipts r2@--> Identity
+    Solutions r2@--> Identity
     Identity f1@-->|"forbidden: upward dep"| L4
 ```
 

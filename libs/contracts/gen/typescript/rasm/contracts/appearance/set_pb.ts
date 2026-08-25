@@ -347,8 +347,6 @@ export const Provenance_IngestSchema: GenMessage<Provenance_Ingest, {validType: 
   messageDesc(file_rasm_contracts_appearance_set, 0, 5);
 
 /**
- * The optional CPU-minted press receipt of a baked set.
- *
  * @generated from message rasm.contracts.appearance.Press
  */
 export type Press = Message<"rasm.contracts.appearance.Press"> & {
@@ -394,8 +392,6 @@ export type Press = Message<"rasm.contracts.appearance.Press"> & {
 };
 
 /**
- * The optional CPU-minted press receipt of a baked set.
- *
  * @generated from message rasm.contracts.appearance.Press
  */
 export type PressValid = Message<"rasm.contracts.appearance.Press"> & {

@@ -35,7 +35,7 @@
 |  [03]   | `receiveTransaction(state, steps, clientIDs, options) -> Transaction` | static  | folds authority steps, rebasing local work over them   |
 |  [04]   | `getVersion(state) -> number`                                         | static  | reports the version this client synced to              |
 
-- `sendableSteps` returns `readonly Step[]`; serialize each with `Step.toJSON()` and rehydrate on receipt with `Step.fromJSON(schema, json)`.
+- `sendableSteps` returns `readonly Step[]`; serialize each with `Step.toJSON()` and rehydrate on arrival with `Step.fromJSON(schema, json)`.
 - `origins` holds the original `Transaction` objects that produced each step, carrying timestamps and metadata; the steps themselves may have been rebased away from those transactions.
 - `receiveTransaction` requires `steps.length === clientIDs.length` with the arrays index-aligned; the client's own id in that list marks a confirmation rather than a foreign change.
 - `options.mapSelectionBackward` maps a text selection's sides with negative bias so content inserted at the cursor lands after it — off by default.

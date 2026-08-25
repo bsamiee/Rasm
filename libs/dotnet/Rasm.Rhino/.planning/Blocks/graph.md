@@ -517,7 +517,7 @@ Completion accounts for REFUSALS, not only for budgets. The walk counts targets 
 
 `ArchivePlane` is the platform seam stated once. Relative-to-a-pinned-handle opening is a POSIX capability with no Win32 peer — `openat` has no `CreateFileW` equivalent, and the segment walk is exactly what defeats a symlink race — so the plane vocabulary carries one row per servable ABI with its own `open` flag columns, its containment comparison, and its canonical-key fold, and `ArchivePlane.Current` REFUSES typed on any other platform instead of binding a `libc` entry point that platform does not export. Comparison is a per-plane column like the flags — Darwin's default APFS is case-insensitive, Linux ordinal — and the fold MATERIALIZES that policy once, at `Canonical`, into the `ArchivePath` every container keys on, so no traversal step re-asks which platform it is on and no container can forget the comparer the page's own defence names.
 
-The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontier, the seen set, every accumulator, and the terminal as ONE value, `ClosureWalk.Step` advances exactly one frontier entry, and the drive is a bounded fixpoint whose tick count derives from `ClosureBudget.MaxArchives` — a settled walk re-emits itself, so the fold is total. Deduplication happens at ENQUEUE, so every frontier entry is new and the archive budget is the exact step bound; a link resolving onto an already-failed archive receipts its broken re-reference there rather than re-entering the frontier.
+The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontier, the seen set, every accumulator, and the terminal as ONE value, `ClosureWalk.Step` advances exactly one frontier entry, and the drive is a bounded fixpoint whose tick count derives from `ClosureBudget.MaxArchives` — a settled walk re-emits itself, so the fold is total. Deduplication happens at ENQUEUE, so every frontier entry is new and the archive budget is the exact step bound; a link resolving onto an already-failed archive records its broken re-reference there rather than re-entering the frontier.
 
 The walk pins the canonical root directory and opens each dependency segment relative to that handle without following links. Handle length gates bytes before an exact owned snapshot reaches the native reader; link count and depth gate expansion. The snapshot copies through a pool lease sized from a declared chunk policy clamped to the archive's own extent, never a one-byte rent whose smallest bucket turns a real `.3dm` into millions of syscall pairs. Each rejected native read preserves its log beside the broken-link detail without aborting independent traversal; SCC analysis distinguishes shared dependencies from circular links after the bounded walk settles.
 
@@ -1061,7 +1061,6 @@ public static partial class BlockGraph {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

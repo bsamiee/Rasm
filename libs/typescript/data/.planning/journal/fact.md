@@ -25,7 +25,7 @@ Journal append is the system of record — a missing metric point is a dashboard
 - Law: meter quantities are integral AND safe by schema — count, milliseconds, bytes, tokens, each bounded at `Number.MAX_SAFE_INTEGER` — so the `BigInt` lift in rating is provably exact per row; a fractional need is a smaller unit row, never a decimal quantity, and a magnitude past the safe ceiling refuses at the writer rather than arriving as a rounded double.
 - Law: the rail alone mints each `Clock.Hlc`; its physical half records epoch ticks on the shared layout unit and its logical half distinguishes same-tick facts.
 - Law: app and optional tenant fields compose `Identity.App.fields.app` and `Identity.Tenant.fields.tenant`; no bare string enters.
-- Receipt: the encoded twins derive (`typeof AuditFact.Encoded`, `typeof MeterFact.Encoded`) — the row shapes the journal persists and downstream rollups read; no hand wire twin exists.
+- Output: the encoded twins derive (`typeof AuditFact.Encoded`, `typeof MeterFact.Encoded`) — the row shapes the journal persists and downstream rollups read; no hand wire twin exists.
 
 ```typescript
 import { Schema } from "effect"
@@ -611,7 +611,6 @@ export { AuditFact, Change, Fact, MeterFact }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

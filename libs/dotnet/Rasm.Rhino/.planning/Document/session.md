@@ -49,10 +49,10 @@ public abstract partial record DraftFault : Fault {
 - Auto: the snapshot's nine former bool columns ride `CapabilitySet<SessionCondition>`; the three pairwise clauses admit at the ONE mint through `FactoryValidation` — `UndoRecording` demands `UndoEnabled`, `Undoing` excludes `Redoing`, `Headless` excludes `Pointing` — so an illegal condition product is refused with every violated clause named. The kernel `CapabilityLaw` states exact-corner rosters and no per-row predicate arm, so the implication clause lives at this mint rather than as a law row; the set is constructible nowhere else.
 - Law: lifecycle precedence is closing, opening, initializing, creating, ready, unavailable; the tuple switch covers the complete flag product and names no default arm. `PhaseStance` is the phase's one openness column — `Open`, `Transitional`, `Closed` — so a capability row states the stances it admits as a set instead of two bools every reader re-conjoins.
 - Law: `SessionSnapshot` is immutable evidence from one read. Every capability use re-resolves the retained key and obtains a new snapshot inside `DocumentSession.Demand` immediately before invoking its host body.
-- Law: the host `Worksession` is a read-only roster — every transition rides the serial-pinned script rail: per verb one fresh membership precondition, one scripted host run, one membership postcondition, and one declared inverse; reload composes detach then attach inside one demand window, and the verb fold rides `DocumentCommit.Compensated`, the slice's one compensation algebra, so a failed suffix unwinds the completed prefix through the same landed-then-rollback shape every other rail uses. A receipt carries the before and after topology, never a bare success flag. `MembershipShift` is the verb's one membership column — the precondition is `Shift.Before`, the postcondition `Shift.After`, and the inverse verb carries the opposite row — so the two former bool columns and the drift they admitted between them are unrepresentable.
+- Law: the host `Worksession` is a read-only roster — every transition rides the serial-pinned script rail: per verb one fresh membership precondition, one scripted host run, one membership postcondition, and one declared inverse; reload composes detach then attach inside one demand window, and the verb fold rides `DocumentCommit.Compensated`, the slice's one compensation algebra, so a failed suffix unwinds the completed prefix through the same landed-then-rollback shape every other rail uses. `WorksessionOutcome` carries the before and after topology, never a bare success flag. `MembershipShift` is the verb's one membership column — the precondition is `Shift.Before`, the postcondition `Shift.After`, and the inverse verb carries the opposite row — so the two former bool columns and the drift they admitted between them are unrepresentable.
 - Boundary: the worksession transition rail is STRINGLY by host truth, and the carve is named rather than tolerated. `Rhino.DocObjects.Worksession` exposes reads alone — `Document`, `RuntimeSerialNumber`, `FileName`, `Name`, `ModelCount`, `ModelPaths`, plus the two serial resolvers — and declares no attach, detach, add, or remove member at any access level, so `RhinoApp.RunScript` against the `_-Worksession` command is the only managed route a model transition has. Everything the carve costs is paid back on the same rail: `WorksessionVerb` owns the script token so no call site composes command text, `DocumentPath` refuses anything but a fully qualified path, `Scriptable` refuses a path carrying a quote or a newline so the composed line cannot be broken out of, and each verb proves membership before and after its run so a silently-failed script is a typed refusal rather than an unnoticed no-op. A hand-composed `_-Worksession` string anywhere else in the boundary is the deleted form.
 - Boundary: the worksession rail is the boundary's single non-undoable host mutation and is exempt from `DocumentCommit.Sealed` by host truth — attach and detach reshape which files the session references, which Rhino's undo stack does not record, so a bracket here would seal an empty record and advertise a rollback the host cannot perform. Its inverse is the declared per-verb script, not an undo serial, which is why it carries no `SessionNeed.Undo` and no `RedrawPolicy`.
-- Boundary: `InGetPoint` proves only a point acquisition; the broader acquisition reentrancy token belongs to the command acquisition algebra. `Worksession.ModelCount` may exceed `ModelPaths.Length` by one for an unsaved active model; `UnsavedActive` preserves that state. Serial resolution admits unique requests, exact key coverage, distinct resolved paths, and membership in the model-path roster before map construction. Attach/detach observation stays on the events page's `WorksessionFile` family; this owner carries the transactional receipt.
+- Boundary: `InGetPoint` proves only a point acquisition; the broader acquisition reentrancy token belongs to the command acquisition algebra. `Worksession.ModelCount` may exceed `ModelPaths.Length` by one for an unsaved active model; `UnsavedActive` preserves that state. Serial resolution admits unique requests, exact key coverage, distinct resolved paths, and membership in the model-path roster before map construction. Attach/detach observation stays on the events page's `WorksessionFile` family; this owner carries the transactional outcome.
 - Packages: RhinoCommon `RhinoDoc`/`Worksession` (`.api/api-rhinocommon-document.md`); Riok.Mapperly for `SessionMap` (per-project, `PrivateAssets` — generator only); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp
@@ -530,7 +530,7 @@ public sealed record WorksessionOp {
     }
 }
 
-public sealed record WorksessionReceipt(
+public sealed record WorksessionOutcome(
     WorksessionOp Operation,
     WorksessionSnapshot Before,
     WorksessionSnapshot After) : IDetachedDocumentResult;
@@ -546,11 +546,11 @@ public static class SessionWorksession {
                 needs: [SessionNeed.Read]));
         }
 
-        public Fin<WorksessionReceipt> Worksession(WorksessionOp change, Op? key = null) {
+        public Fin<WorksessionOutcome> Worksession(WorksessionOp change, Op? key = null) {
             Op op = key.OrDefault();
             return from scope in op.Need(session)
                    from request in op.Need(change)
-                   from receipt in scope.Demand(
+                   from outcome in scope.Demand(
                        use: document =>
                            from before in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
                            from completed in DocumentCommit.Compensated(
@@ -567,10 +567,10 @@ public static class SessionWorksession {
                                    model: request.Model,
                                    completed: completed,
                                    op: op))
-                           select new WorksessionReceipt(Operation: request, Before: before, After: after),
+                           select new WorksessionOutcome(Operation: request, Before: before, After: after),
                        key: op,
                        needs: [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Acquire, SessionNeed.Interrupt])
-                   select receipt;
+                   select outcome;
         }
     }
 
@@ -755,7 +755,7 @@ public sealed partial class SessionNeed {
 - Entry: `SessionSource.Acquire` returns `Fin<Lease<RhinoDoc>>`; every deterministic source/mode refusal and file requirement completes before its host call, and the `Configured` case carries a typed `ArchiveMap` (Persistence/dictionary.md) minted into the native option payload inside the acquire arm, so the host receives a fresh dictionary no caller can mutate. `DocumentSession.Of` rejects empty, duplicate, or mode-incompatible capabilities, acquires, snapshots, checks lane/document agreement, validates the kernel context, and only then adopts the lease.
 - Auto: the lifecycle rides ONE `Atom<SessionGate>` stepped through `Cell.Step` — `Enter` declines on a disposing or released gate, `Exit` decrements and answers whether this exit owes the deferred disposal, and `Close` either releases immediately or parks the disposal on the open depth — so every transition answers a `Transition<SessionGate>` verdict and the three raw fields plus their lock this replaces cannot report a race they lost. NAMED LOSS: the lock's cross-thread serialization of headless demand bodies; the live lane serializes on the marshal it crosses, and a headless session is single-caller by its acquisition contract, stated here.
 - Law: a failed admission releases an owned lease before returning its original fault, the cleanup fault AGGREGATING into the primary through the `Error` monoid — never discarded. A successful admission never calls `Lease.Use`, because `Use` closes `Owned` when its projection returns; the session retains the lease and releases it exactly once through the gate's one terminal transition.
-- Law: `Demand<TResult>` is the sole capability surface. It validates a nonempty unique capability set and the consumer, re-resolves `Key`, proves every granted row against one fresh snapshot through `SessionNeed.Admit` — every violated need and axis reported together — and executes the host body through `Op.Catch`; its `IDetachedDocumentResult` bound rejects a raw `RhinoDoc` result at compile time on every demanding path, and the kernel `Context` crosses through the private detached `DetachedContext` capsule rather than an unconstrained core.
+- Law: `Demand` is the sole capability surface. Its command overload admits `Fin<Unit>` directly, while the generic overload retains the `IDetachedDocumentResult` bound that rejects a raw `RhinoDoc`; both enter the same private capability window, and the kernel `Context` crosses through the private detached `DetachedContext` capsule.
 - Law: the demand window is a BRACKET — `Enter` acquires, the body runs, `Exit` settles in the `Fin` arm of the same expression — so a body that raises still exits, a nested demand enters its own bracket, and `Dispose` issued mid-demand defers to the outermost exit, which runs the release and aggregates its fault into the body's outcome.
 - Law: the marshal is the kernel dispatch — a live-lane demand crosses `UiThread.Run(new UiDispatch<TResult>.Blocking(body), DispatchLane.Immediate, op)`, in-frame when the caller already holds the marshal and invoked otherwise, while a headless session runs the body on the caller thread because a headless process has no marshal to cross and the kernel entry would refuse `Headless` typed. The former hand marshal and its S2-ledger carve both delete; the gauged span is the kernel dispatch's own pulse.
 - Law: `Context()` re-enters `Context.Of(RhinoDoc)` on every call, so model-unit and tolerance changes cannot stale the context consumed by later geometry work.
@@ -940,7 +940,19 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
         Func<RhinoDoc, Fin<TResult>> use,
         Op? key = null,
         params ReadOnlySpan<SessionNeed> needs)
-        where TResult : IDetachedDocumentResult {
+        where TResult : IDetachedDocumentResult =>
+        Within(use: use, key: key, needs: needs);
+
+    internal Fin<Unit> Demand(
+        Func<RhinoDoc, Fin<Unit>> use,
+        Op? key = null,
+        params ReadOnlySpan<SessionNeed> needs) =>
+        Within(use: use, key: key, needs: needs);
+
+    private Fin<TResult> Within<TResult>(
+        Func<RhinoDoc, Fin<TResult>> use,
+        Op? key,
+        ReadOnlySpan<SessionNeed> needs) {
         Op op = key.OrDefault();
         return from admission in (
                    op.Need(use).ToValidation(),
@@ -999,8 +1011,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
     private Fin<TResult> Bracketed<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
         LanguageExt.HashSet<SessionNeed> requested,
-        Op op)
-        where TResult : IDetachedDocumentResult =>
+        Op op) =>
         IO.lift(() => Enter(op: op))
             .Bracket(
                 Use: _ => IO.lift(() => Proven(use: use, requested: requested, op: op)),
@@ -1011,8 +1022,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
     private Fin<TResult> Proven<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
         LanguageExt.HashSet<SessionNeed> requested,
-        Op op)
-        where TResult : IDetachedDocumentResult =>
+        Op op) =>
         op.Catch(() =>
             from grants in guard(requested.ForAll(granted.Contains), op.MissingContext()).ToFin()
             from document in Key.Resolve(key: op)
@@ -1139,7 +1149,7 @@ internal static class Admission {
 ## [06]-[REGIME]
 
 - Owner: `DocumentSpace` carries the model/page host-member axis as read, tolerance-write, and precision-write behavior columns. Kernel `ModelUnit` owns unit admission and equality; the native `LengthUnit` survives only beside the host call that reads or writes it. Closed `RegimeChange` cases expose one overloaded `Of` admission family and one mutation dispatch. The tolerance regime IS the kernel `Context` — model and page space are two `Context` values read through their own `DocumentSpace` rows — and display precision IS the kernel `DrawingPrecision`, derived from the drawing scale through the ISO 128-24 width ladder rather than authored as a digit count.
-- Entry: `session.Regime(space)` reads a validated `UnitRegime`. `session.Adjust(space, change)` captures the before regime, seals one undo record around the change, proves the exact requested postcondition, and returns `RegimeReceipt` with the sealed serial.
+- Entry: `session.Regime(space)` reads a validated `UnitRegime`. `session.Adjust(space, change)` captures the before regime, seals one undo record around the change, proves the exact requested postcondition, and returns `RegimeOutcome` with the sealed serial.
 - Law: `UnitScaling` replaces the host `bool scale` knob with `PreserveCoordinates` and `PreservePhysicalSize`. Known, custom, and native `LengthUnit` inputs all produce the private-constructed `RegimeChange.Units` case, so `AdjustLengthUnits` is the sole unit-system mutation path.
 - Law: tolerance values ride the kernel `Context` whole — `Context.Of(absolute:, relative:, angle:, units: native)` is the one admission and `DocumentSpace.SetTolerances` reads `.Absolute.Value`/`.Relative.Value`/`.Angle.Value` at the host write — so this page carries no tolerance value object, no numeric admission, and no radians/degrees duplication. The three former `[ValueObject<double>]` carriers (`AbsoluteTolerance`, `RelativeTolerance`, `AngleTolerance`) are DELETED kernel-wide; every composing site reads a `Tolerance` off a `Context` lane.
 - Law: display precision has ONE derivation — `DrawingPrecision.Of(scale, units).Form(key)` answers the digit count the smallest plottable feature implies through the scale, and the host `DistanceDisplayPrecision` int is the residue: a host member publishing decimal places alone, so a `Fraction` form refuses typed naming that host limit rather than flattening a denominator into digits. NAMED LOSS: the bare `Of(int digits)` entry; a caller states its scale and units and the count derives. Witness: the D72 drain — `DisplayPrecision` `[ValueObject<int>]` deletes whole and `RegimeChange.Of(DrawingScale, DrawingUnits)` is the one precision ingress.
@@ -1421,8 +1431,8 @@ public sealed record UnitRegime : IDetachedDocumentResult {
         .ToFin();
 }
 
-public sealed record RegimeReceipt : IDetachedDocumentResult {
-    private RegimeReceipt(
+public sealed record RegimeOutcome : IDetachedDocumentResult {
+    private RegimeOutcome(
         DocumentSpace space,
         RegimeChange change,
         UnitRegime before,
@@ -1436,14 +1446,14 @@ public sealed record RegimeReceipt : IDetachedDocumentResult {
     public UnitRegime After { get; }
     public Option<uint> UndoRecord { get; private init; }
 
-    internal static RegimeReceipt Pending(
+    internal static RegimeOutcome Pending(
         DocumentSpace space,
         RegimeChange change,
         UnitRegime before,
         UnitRegime after) =>
         new(space: space, change: change, before: before, after: after, undoRecord: None);
 
-    internal RegimeReceipt Seal(uint serial) => this with { UndoRecord = Some(serial) };
+    internal RegimeOutcome Seal(uint serial) => this with { UndoRecord = Some(serial) };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -1459,7 +1469,7 @@ public static class SessionRegimes {
                    select regime;
         }
 
-        public Fin<RegimeReceipt> Adjust(
+        public Fin<RegimeOutcome> Adjust(
             DocumentSpace space,
             RegimeChange change,
             Op? key = null) {
@@ -1474,7 +1484,7 @@ public static class SessionRegimes {
                            Request: request))
                        .As()
                        .ToFin()
-                   from receipt in admission.Scope.Demand(
+                   from outcome in admission.Scope.Demand(
                        use: document => DocumentCommit.Sealed(
                            document: document,
                            name: nameof(Adjust),
@@ -1496,16 +1506,17 @@ public static class SessionRegimes {
                                    space: admission.Axis,
                                    before: before,
                                    op: op))
-                               select RegimeReceipt.Pending(
+                               select RegimeOutcome.Pending(
                                    space: admission.Axis,
                                    change: admission.Request,
                                    before: before,
                                    after: after),
+                           project: Fin.Succ,
                            stamp: static (result, serial) => result.Seal(serial: serial),
                            op: op),
                        key: op,
                        needs: SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: RedrawPolicy.None).ToArray())
-                   select receipt;
+                   select outcome;
         }
     }
 }
@@ -1756,13 +1767,12 @@ public static class RegimeText {
 |  [08]   | regime mutation      | `RegimeChange`        | units/context/precision union     | `RegimeChange.Of` / `Adjust` |
 |  [09]   | unit correspondence  | `UnitText`            | encoded/semantic union            | `UnitText.Length` / `Text`   |
 |  [10]   | worksession topology | `WorksessionSnapshot` | detached active/reference rows    | `Worksession` / `FileOf`     |
-|  [11]   | worksession custody  | `WorksessionOp`       | scripted attach/detach/reload     | `Worksession` / receipt      |
+|  [11]   | worksession custody  | `WorksessionOp`       | scripted attach/detach/reload     | `Worksession` / `WorksessionOutcome` |
 
 ## [09]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

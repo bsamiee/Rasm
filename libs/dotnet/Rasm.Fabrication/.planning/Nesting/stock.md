@@ -6,10 +6,10 @@
 
 ## [01]-[INDEX]
 
-- [02]-[DOMAIN]: generated strategy, part, stock-frame, cut, receipt, and run owners.
+- [02]-[DOMAIN]: generated strategy, part, stock-frame, cut, result, and run owners.
 - [03]-[ADMISSION]: profile expansion, quarter-turn orientation, law-carrying stock-frame derivation, and the four-grade eligibility graph.
 - [04]-[PACKING]: bounded strategy evaluation over every `RectangleBinPack.CSharp` provider.
-- [05]-[PROOF]: containment, overlap, cardinality, area, cut-pattern, and content-identity receipts.
+- [05]-[PROOF]: containment, overlap, cardinality, area, cut-pattern, and content-identity results.
 
 ## [02]-[DOMAIN]
 
@@ -52,7 +52,7 @@
 - Law: `NestPlan.Validate` proves unique instance subset coverage, source containment, pairwise non-overlap, stock eligibility under the placement's own MOVE, finite coordinates, yield cardinality, the stock-minus-placement area balance, and that every retained refusal addresses a requested instance no placement seated; provider free rectangles remain bounded evidence, not an exact complement claim.
 - Output: `NestPlan.Evidence` retains the `StockSnapshot` kind beside the digest over canonical placements, indexed stock identities, cut spans, free rectangles, run policy, and yield scalars; process-random hashes never enter identity, and `NestPlan.Unplaced` stays outside that digest because a plan keyed on its own diagnosis re-addresses itself the day a grade order is refined.
 - Packages: `FabricationCanon` supplies both preimage closes over the one `Rasm.Element` `CanonicalWriter` — the retaining `Keyed` for the plan address, the streaming `Ordered` for a strategy's own total order; `Thinktecture` supplies the generated proof and grade families; `LanguageExt` supplies the validation applicative.
-- Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against. Rectangular area reads the packer's own placed set wherever every used sheet publishes one, and `NestPlan.Validate` re-derives it from the projected placements, so the two sources disagreeing is an admission failure rather than a silent drift.
+- Result: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against. Rectangular area reads the packer's own placed set wherever every used sheet publishes one, and `NestPlan.Validate` re-derives it from the projected placements, so the two sources disagreeing is an admission failure rather than a silent drift.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -944,7 +944,6 @@ internal sealed class EligibilityGraph {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

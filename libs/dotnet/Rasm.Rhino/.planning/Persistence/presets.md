@@ -1,15 +1,13 @@
 # [RASM_RHINO_PERSISTENCE_PRESETS]
 
-`Rasm.Rhino.Persistence` mints the sub-domain's one admission-refusal family here, seats the construction-plane value vocabulary the persisted preset and the live viewport read share, and closes named construction planes, named positions, and named layer states behind two entries. `Presets.Read` answers a detached census or one stored transform; `Presets.Commit` admits an ordered mutation program, frames it in the document's one commit envelope, and answers the shared fact stream. Named views remain viewport ownership.
+`Rasm.Rhino.Persistence` mints the sub-domain's one admission-refusal family here, seats the construction-plane value vocabulary the persisted preset and the live viewport read share, and closes named construction planes, named positions, and named layer states behind two entries. `Presets.Read` answers a detached census or one stored transform; `Presets.Commit` admits an ordered mutation program and frames it in the document's one commit envelope. Named views remain viewport ownership.
 
 ## [01]-[INDEX]
 
 - [02]-[FAULT]: `PersistenceFault` — the sub-domain's one admission-refusal family on the kernel band registry, and the folder law that seats it.
 - [03]-[CPLANE]: `CPlaneTrait`, `CPlaneGrid`, `CPlanePalette`, `CPlaneModel` — the construction-plane value vocabulary this page seats and `Viewport/camera` composes.
-- [04]-[VOCABULARY]: `PresetName`, `LayerFacet`, `LayerRestore`, `PositionRef`, `PositionVerb`, `PresetTable`, `PresetExecution`, `PresetQuery`, `PresetOperation`, and the detached census records.
-- [05]-[RECEIPTS]: `PresetBodyKind`, `PresetSlot`, `PresetBody`, `PresetReceipt` — this page's two declarations on the Document fact spine.
-- [06]-[INTERPRETER]: `Presets.Read` and `Presets.Commit` — the census entry and the framed mutation program.
-- [07]-[RESEARCH]
+- [04]-[VOCABULARY]: `PresetName`, `LayerFacet`, `LayerRestore`, `PositionRef`, `PositionVerb`, `PresetExecution`, `PresetQuery`, `PresetOperation`, and the detached census records.
+- [05]-[INTERPRETER]: `Presets.Read` and `Presets.Commit` — the census entry and the framed mutation program.
 
 ## [02]-[FAULT]
 
@@ -262,15 +260,15 @@ public sealed partial record CPlaneModel(
 
 ## [04]-[VOCABULARY]
 
-- Owner: `PresetName` admits the host key text; `LayerFacet` is the fifteen-row property vocabulary `RestoreLayerProperties` publishes and `LayerRestore` the two-case restore scope over it; `PositionRef` addresses a named position by id or name and `PositionVerb` carries the two reapply verbs with their execution posture; `PresetTable` names the three host tables with their census reader and their census order; `PresetExecution` is the commit posture roster; `PresetQuery` and `PresetOperation` are the two request families; `PositionObject`, `PositionSnapshot`, `LayerStateSnapshot`, and `PresetSnapshot` are the detached census records.
+- Owner: `PresetName` admits the host key text; `LayerFacet` is the fifteen-row property vocabulary `RestoreLayerProperties` publishes and `LayerRestore` the two-case restore scope over it; `PositionRef` addresses a named position by id or name and `PositionVerb` carries the two reapply verbs with their execution posture; `PresetExecution` is the commit posture roster; `PresetQuery` and `PresetOperation` are the two request families; `PositionObject`, `PositionSnapshot`, `LayerStateSnapshot`, and `PresetSnapshot` are the detached census records.
 - Entry: every request mints through a `public static` factory answering `Fin` — the case records are `internal`, so the factory is the only ingress and the generated `Switch` the only egress (`[SEALED_ADMISSION]`). The prior nine-member `Admit` family that re-admitted an already-constructed operation deletes whole: a request that exists is a request that passed its clauses.
-- Auto: `Execution` and `Table` are total projections off the operation family, so a new mutation verb declares its posture and its owning table on the case and every downstream fold picks both up. `Table` is TOTAL here, not optional — the read family lives on `PresetQuery`, so no mutation exists that touches no roster and no arm fabricates a table for a case that has none.
+- Auto: `Execution` is a total projection off the operation family, so a new mutation verb declares its posture on the case and the commit fold derives its session needs.
 - Auto: `LayerFacet.Bit` is the one authority for the host flag word — `CapabilitySet<LayerFacet>.Mask(row => row.Bit)` composes it forward and `OfMask` inverts it, so the hand `Fold` over `|` and the private `Native` column both delete.
 - Law: reads and mutations are TWO request families because they share no session need, no commit framing, and no answer shape. The prior single family paid for that with fifteen `InvalidInput` refusal arms, one per case the other verb refuses, and a reader ran the switch to learn which half a case belonged to. NAMED LOSS: one entrypoint; witness — `Presets.Read`'s two arms and `Presets.Commit`'s twelve are exactly the arms that carried a body before, with every refusal arm gone.
 - Law: `PresetName` REFUSES surrounding whitespace rather than trimming it. The admitted name IS the host key — `Delete`, `Rename`, and every roster lookup address the table by it — so a trim keys the host on a name it does not hold, silently misses the mutation, and reports a false refusal.
 - Law: `LayerRestore.AllCase` stays a case rather than folding into a full capability set, because the host sentinel is `RestoreLayerProperties.All = uint.MaxValue` — a word that names every bit including the fourteen the enum does not define. `CapabilitySet<LayerFacet>.All.Mask(bit)` answers `0x7FFF`, so the two are different requests to the host and the case is the discriminant.
 - Law: every address column takes its Document spine owner — `ResourceId` for object and position identity, `DocumentPath` for the import archive — so a host member reporting failure as an empty guid can never seat a request the interpreter then addresses. The `.3dm` requirement rides the import factory's own clause, because "an archive this table can read" is a preset fact and not a property of every document path.
-- Growth: a new host property group is one `LayerFacet` row; a new position verb is one `PositionVerb` row with its slot and posture; a new preset table is one `PresetTable` row with its census reader and order.
+- Growth: a new host property group is one `LayerFacet` row; a new position verb is one `PositionVerb` row with its posture.
 - Boundary: named views stay in `Viewport/operations`; the layer tree — topology, face, and per-detail overrides — lives on `Document/layers`, and `LayerRestore` consumes only the host's state mask.
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `NamedConstructionPlaneTable.Add`/`Find`/`Delete`/indexer, `NamedPositionTable.Save`/`Restore`/`Update`/`Append`/`Rename`/`Delete`/`ObjectXform`/`ObjectIds`/`Ids`/`Names`/`Id`/`Name`, `NamedLayerStateTable.Save`/`Restore`/`Rename`/`Delete`/`Import`/`Names`, `[Flags] RestoreLayerProperties : uint`); `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`, `DocumentPath`); `Document/tables` (`ResourceId`); `Document/commit` (`RedrawPolicy`); kernel `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
@@ -367,41 +365,16 @@ public abstract partial record PositionRef {
 public sealed partial class PositionVerb {
     public static readonly PositionVerb Restore = new(
         key: "restore",
-        slot: PresetSlot.PositionRestored,
         execution: PresetExecution.Restore,
         apply: static (table, id) => table.Restore(id));
     public static readonly PositionVerb Update = new(
         key: "update",
-        slot: PresetSlot.PositionUpdated,
         execution: PresetExecution.Mutate,
         apply: static (table, id) => table.Update(id));
-
-    internal PresetSlot Slot { get; }
 
     internal PresetExecution Execution { get; }
 
     [UseDelegateFromConstructor] internal partial bool Apply(NamedPositionTable table, Guid id);
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PresetTable {
-    public static readonly PresetTable ConstructionPlanes = new(
-        key: "construction-planes",
-        order: 0,
-        names: static document => document.NamedConstructionPlanes.Map(static value => value.Name));
-    public static readonly PresetTable Positions = new(
-        key: "positions",
-        order: 1,
-        names: static document => document.NamedPositions.Names);
-    public static readonly PresetTable LayerStates = new(
-        key: "layer-states",
-        order: 2,
-        names: static document => document.NamedLayerStates.Names);
-
-    internal int Order { get; }
-
-    [UseDelegateFromConstructor] internal partial IEnumerable<string> Names(RhinoDoc document);
 }
 
 [SmartEnum<string>]
@@ -566,20 +539,6 @@ public abstract partial record PresetOperation {
         deleteLayerStateCase:   static _ => PresetExecution.Mutate,
         importLayerStatesCase:  static _ => PresetExecution.Mutate);
 
-    internal PresetTable Table => Switch<PresetTable>(
-        putCPlaneCase:          static _ => PresetTable.ConstructionPlanes,
-        deleteCPlaneCase:       static _ => PresetTable.ConstructionPlanes,
-        savePositionCase:       static _ => PresetTable.Positions,
-        applyPositionCase:      static _ => PresetTable.Positions,
-        appendPositionCase:     static _ => PresetTable.Positions,
-        renamePositionCase:     static _ => PresetTable.Positions,
-        deletePositionCase:     static _ => PresetTable.Positions,
-        saveLayerStateCase:     static _ => PresetTable.LayerStates,
-        restoreLayerStateCase:  static _ => PresetTable.LayerStates,
-        renameLayerStateCase:   static _ => PresetTable.LayerStates,
-        deleteLayerStateCase:   static _ => PresetTable.LayerStates,
-        importLayerStatesCase:  static _ => PresetTable.LayerStates);
-
     private static Fin<PresetName> Named(string name, Op? key = null) =>
         key.OrDefault().AcceptValidated<PresetName>(candidate: name);
 
@@ -598,98 +557,16 @@ public abstract partial record PresetOperation {
 }
 ```
 
-## [05]-[RECEIPTS]
+## [05]-[INTERPRETER]
 
-- Owner: `PresetBodyKind` is the body-kind capability vocabulary; `PresetSlot` `[SmartEnum<int>] : IFactSlot<PresetBody, PresetBodyKind>` is the consequence vocabulary declaring its emitted kinds as one set column; `PresetBody` `[Union] : IFactBody<PresetBodyKind>` is the payload family answering its own kind; `PresetReceipt` and `PresetFact` are the closed instantiation of the Document spine's stream.
-- Law: the stream MACHINERY is not this page's. The accumulation, the cross-product gate, the undo projection, and the slot-keyed readers live once on `Document/facts.md`; a page-local receipt, fact, gate, or projection beside that owner is the deleted form. The retired `PresetMutationReceipt` was exactly that shape — one operation, one optional name, one optional id, one optional count, one roster, one optional serial — and it carried only the LAST operation of a program, being a record rather than an accumulation.
-- Law: `Affected` was an `Option<int>` because four host members answer `bool` and count nothing. The count is now a `Tally` body the two counting rails emit and the others do not, so absence is the absence of a fact rather than a `None` every reader interpreted.
-- Law: the roster census is a FACT, not a column — one `Rostered` fact per table the program moved, minted after the program and ordered by `PresetTable.Order` — so a program touching two tables publishes two rosters where the retired record published one.
-- Growth: a new consequence is one slot row naming its kind set; a new payload is one body case and one kind row.
-- Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
-
-```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using Rasm.Domain;
-using Rasm.Rhino.Document;
-using Thinktecture;
-
-namespace Rasm.Rhino.Persistence;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PresetBodyKind : ICapability<PresetBodyKind> {
-    public static readonly PresetBodyKind Named = new(key: "named");
-    public static readonly PresetBodyKind Addressed = new(key: "addressed");
-    public static readonly PresetBodyKind Tally = new(key: "tally");
-    public static readonly PresetBodyKind Roster = new(key: "roster");
-    public static readonly PresetBodyKind Record = new(key: "record");
-}
-
-[SmartEnum<int>]
-public sealed partial class PresetSlot : IFactSlot<PresetBody, PresetBodyKind> {
-    private static readonly CapabilitySet<PresetBodyKind> Titled = CapabilitySet<PresetBodyKind>.Of(PresetBodyKind.Named);
-    private static readonly CapabilitySet<PresetBodyKind> Located = CapabilitySet<PresetBodyKind>.Of(PresetBodyKind.Addressed);
-    private static readonly CapabilitySet<PresetBodyKind> Counted = CapabilitySet<PresetBodyKind>.Of(
-        PresetBodyKind.Addressed, PresetBodyKind.Tally);
-    private static readonly CapabilitySet<PresetBodyKind> Imported = CapabilitySet<PresetBodyKind>.Of(PresetBodyKind.Tally);
-    private static readonly CapabilitySet<PresetBodyKind> Censused = CapabilitySet<PresetBodyKind>.Of(PresetBodyKind.Roster);
-    private static readonly CapabilitySet<PresetBodyKind> Stamped = CapabilitySet<PresetBodyKind>.Of(PresetBodyKind.Record);
-
-    public static readonly PresetSlot CPlaneWritten = new(key: 0, bodies: Titled);
-    public static readonly PresetSlot CPlaneDeleted = new(key: 1, bodies: Titled);
-    public static readonly PresetSlot PositionSaved = new(key: 2, bodies: Counted);
-    public static readonly PresetSlot PositionRestored = new(key: 3, bodies: Located);
-    public static readonly PresetSlot PositionUpdated = new(key: 4, bodies: Located);
-    public static readonly PresetSlot PositionAppended = new(key: 5, bodies: Counted);
-    public static readonly PresetSlot PositionRenamed = new(key: 6, bodies: Located);
-    public static readonly PresetSlot PositionDeleted = new(key: 7, bodies: Located);
-    public static readonly PresetSlot LayerStateSaved = new(key: 8, bodies: Titled);
-    public static readonly PresetSlot LayerStateRestored = new(key: 9, bodies: Titled);
-    public static readonly PresetSlot LayerStateRenamed = new(key: 10, bodies: Titled);
-    public static readonly PresetSlot LayerStateDeleted = new(key: 11, bodies: Titled);
-    public static readonly PresetSlot LayerStatesImported = new(key: 12, bodies: Imported);
-    public static readonly PresetSlot Rostered = new(key: 13, bodies: Censused);
-    public static readonly PresetSlot Undo = new(key: 14, bodies: Stamped);
-
-    public CapabilitySet<PresetBodyKind> Bodies { get; }
-}
-
-// --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PresetBody : IFactBody<PresetBodyKind> {
-    private PresetBody() { }
-
-    public sealed record Named(PresetName Name) : PresetBody;
-    public sealed record Addressed(PresetName Name, ResourceId Id) : PresetBody;
-    public sealed record Tally(int Count) : PresetBody;
-    public sealed record Roster(PresetTable Table, Seq<PresetName> Names) : PresetBody;
-    public sealed record Record(UndoSerial Serial) : PresetBody;
-
-    public PresetBodyKind Kind => Map(
-        named:      PresetBodyKind.Named,
-        addressed:  PresetBodyKind.Addressed,
-        tally:      PresetBodyKind.Tally,
-        roster:     PresetBodyKind.Roster,
-        record:     PresetBodyKind.Record);
-}
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-global using PresetFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Persistence.PresetSlot, Rasm.Rhino.Persistence.PresetBody>;
-global using PresetReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persistence.PresetSlot, Rasm.Rhino.Persistence.PresetBody>;
-```
-
-## [06]-[INTERPRETER]
-
-- Owner: `Presets` — `Read` answers a detached census or one stored transform, and `Commit` admits an ordered mutation program, resolves its strongest posture, frames it in `DocumentCommit.Sealed`, and answers one `PresetReceipt` over the whole program.
+- Owner: `Presets` — `Read` answers a detached census or one stored transform, and `Commit` admits an ordered mutation program, resolves its strongest posture, and frames it in `DocumentCommit.Sealed`.
 - Entry: `Presets.Read(DocumentSession, PresetQuery, Op?)`; `Presets.Commit(DocumentSession, Op?, params ReadOnlySpan<PresetOperation>)`. The key precedes the span because an optional parameter after `params` forecloses the positional spread.
 - Auto: the program's session needs and redraw policy DERIVE from `PresetExecution.Strongest` over the operations' own posture rows — a program mixing a layer-state restore with a rename is framed once, under the restore's continuous redraw, rather than opening two brackets or silently using the first operation's posture.
-- Law: the commit is ONE envelope over the WHOLE program. The retired single-operation entry made a caller wanting a construction plane and a named position in one undo step open two records, and the host's undo stack then published two steps for one authored change. `DocumentCommit.Sealed` stamps the sealed serial onto the accumulated stream through `PresetSlot.Undo`, so a program that opened no record contributes no fact rather than one claiming record zero.
+- Law: the commit is one envelope over the whole program, so a caller applies construction-plane, position, and layer-state changes in one undo step.
 - Law: every host mutation settles on EVIDENCE, never on the returned `bool` alone: `Add` and `Save` refuse a negative index or an empty guid, the `bool` rails go through `Op.Confirm`, and the `ref`-parameter transform read rides `Op.Probe` so the host's seed-and-check idiom appears once. A member that answers `-1` or `Guid.Empty` on rejection is exactly a member whose success value is indistinguishable from its failure value, which is why the admission is typed at the boundary.
 - Law: name resolution is TOTAL for both address forms — an id resolves by membership in `Ids` and a name resolves through `Id(name)` and then by the same membership test — so an absent preset is a typed `AbsentEntry` naming the table and the entry, and the host's empty-guid miss never reaches a mutation.
-- Law: the census after a program reads the tables the program MOVED, ordered by `PresetTable.Order`, and the full three-table census belongs to `PresetQuery.Census` alone. Sweeping all three after a single-item edit reads two rosters the program never touched.
 - Boundary: Rhino's table mutation, its `ref`-parameter transform read, and its undo and redraw calls form the platform-forced statement seam. `Presets` composes `DocumentSession` and `DocumentCommit` directly and holds no host handle beyond the demand window.
-- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); `Document/facts` (`FactStream`, `UndoSerial`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
+- Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -732,7 +609,7 @@ public static class Presets {
                select answer;
     }
 
-    public static Fin<PresetReceipt> Commit(DocumentSession session, Op? key = null, params ReadOnlySpan<PresetOperation> operations) {
+    public static Fin<Unit> Commit(DocumentSession session, Op? key = null, params ReadOnlySpan<PresetOperation> operations) {
         Op op = key.OrDefault();
         return from owner in op.Need(value: session)
                from program in toSeq(operations.ToArray())
@@ -742,69 +619,45 @@ public static class Presets {
                from _nonempty in guard(!program.IsEmpty,
                    (Error)new KernelFault.InvalidValue(nameof(operations), string.Join(" | ", new object?[] { op, "at least one persistence operation" }))).ToFin()
                let posture = PresetExecution.Strongest(postures: program.Map(static value => value.Execution))
-               from receipt in owner.Demand(
+               from completed in owner.Demand(
                    use: document => DocumentCommit.Sealed(
                        document: document,
                        name: nameof(Commit),
                        recordsUndo: true,
                        redraw: posture.Redraw,
                        run: () => Run(document: document, program: program, key: op),
-                       stamp: static (receipt, serial) => receipt.Stamped(
-                           slot: PresetSlot.Undo,
-                           record: static value => new PresetBody.Record(Serial: value),
-                           serial: serial),
                        project: Fin.Succ,
                        op: op),
                    key: op,
                    needs: posture.Needs().ToArray())
-               select receipt;
+               select completed;
     }
 
-    private static Fin<PresetReceipt> Run(RhinoDoc document, Seq<PresetOperation> program, Op key) =>
-        from applied in program
+    private static Fin<Unit> Run(RhinoDoc document, Seq<PresetOperation> program, Op key) =>
+        program
             .TraverseM(operation => Apply(document: document, operation: operation, key: key))
             .As()
-        from rostered in Census(
-            document: document,
-            tables: program.Map(static value => value.Table).Distinct(),
-            key: key)
-        select applied.Fold(PresetReceipt.Empty, static (held, next) => held + next) + rostered;
+            .Map(static _ => unit);
 
-    private static Fin<PresetReceipt> Apply(RhinoDoc document, PresetOperation operation, Op key) =>
-        operation.Switch<(RhinoDoc Document, Op Op), Fin<PresetReceipt>>(
+    private static Fin<Unit> Apply(RhinoDoc document, PresetOperation operation, Op key) =>
+        operation.Switch<(RhinoDoc Document, Op Op), Fin<Unit>>(
             state: (document, key),
             putCPlaneCase: static (state, put) =>
                 from native in put.Model.Native(key: state.Op)
                 from index in state.Op.Catch(() => Fin.Succ(value: state.Document.NamedConstructionPlanes.Add(native)))
                 from _added in Landed(accepted: index >= 0, member: "NamedConstructionPlaneTable.Add", detail: put.Model.Name.Value, key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.CPlaneWritten,
-                    body: new PresetBody.Named(Name: put.Model.Name),
-                    key: state.Op)
-                select receipt,
-            deleteCPlaneCase: static (state, delete) =>
-                from _deleted in Confirmed(
+                select unit,
+            deleteCPlaneCase: static (state, delete) => Confirmed(
                     mutate: () => state.Document.NamedConstructionPlanes.Delete(delete.Name.Value),
                     member: "NamedConstructionPlaneTable.Delete",
                     detail: delete.Name.Value,
-                    key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.CPlaneDeleted,
-                    body: new PresetBody.Named(Name: delete.Name),
-                    key: state.Op)
-                select receipt,
+                    key: state.Op),
             savePositionCase: static (state, save) =>
                 from raw in state.Op.Catch(() => Fin.Succ(value: state.Document.NamedPositions.Save(
                     save.Name.Value,
                     save.ObjectIds.Map(static id => id.Value))))
-                from id in ResourceId.Admit(value: raw, key: state.Op)
-                from receipt in PresetReceipt.All(
-                    slot: PresetSlot.PositionSaved,
-                    bodies: Seq<PresetBody>(
-                        new PresetBody.Addressed(Name: save.Name, Id: id),
-                        new PresetBody.Tally(Count: save.ObjectIds.Count)),
-                    key: state.Op)
-                select receipt,
+                from _id in ResourceId.Admit(value: raw, key: state.Op)
+                select unit,
             applyPositionCase: static (state, apply) =>
                 from id in Resolve(table: state.Document.NamedPositions, position: apply.Position, key: state.Op)
                 from name in Named(table: state.Document.NamedPositions, id: id, key: state.Op)
@@ -813,11 +666,7 @@ public static class Presets {
                     member: $"NamedPositionTable.{apply.Verb.Key}",
                     detail: name.Value,
                     key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: apply.Verb.Slot,
-                    body: new PresetBody.Addressed(Name: name, Id: id),
-                    key: state.Op)
-                select receipt,
+                select unit,
             appendPositionCase: static (state, append) =>
                 from id in Resolve(table: state.Document.NamedPositions, position: append.Position, key: state.Op)
                 from name in Named(table: state.Document.NamedPositions, id: id, key: state.Op)
@@ -826,13 +675,7 @@ public static class Presets {
                     member: "NamedPositionTable.Append",
                     detail: name.Value,
                     key: state.Op)
-                from receipt in PresetReceipt.All(
-                    slot: PresetSlot.PositionAppended,
-                    bodies: Seq<PresetBody>(
-                        new PresetBody.Addressed(Name: name, Id: id),
-                        new PresetBody.Tally(Count: append.ObjectIds.Count)),
-                    key: state.Op)
-                select receipt,
+                select unit,
             renamePositionCase: static (state, rename) =>
                 from id in Resolve(table: state.Document.NamedPositions, position: rename.Position, key: state.Op)
                 from _renamed in Confirmed(
@@ -840,11 +683,7 @@ public static class Presets {
                     member: "NamedPositionTable.Rename",
                     detail: rename.Name.Value,
                     key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.PositionRenamed,
-                    body: new PresetBody.Addressed(Name: rename.Name, Id: id),
-                    key: state.Op)
-                select receipt,
+                select unit,
             deletePositionCase: static (state, delete) =>
                 from id in Resolve(table: state.Document.NamedPositions, position: delete.Position, key: state.Op)
                 from name in Named(table: state.Document.NamedPositions, id: id, key: state.Op)
@@ -853,64 +692,34 @@ public static class Presets {
                     member: "NamedPositionTable.Delete",
                     detail: name.Value,
                     key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.PositionDeleted,
-                    body: new PresetBody.Addressed(Name: name, Id: id),
-                    key: state.Op)
-                select receipt,
+                select unit,
             saveLayerStateCase: static (state, save) =>
                 from index in state.Op.Catch(() => Fin.Succ(value: save.ViewportId.Match(
                     Some: viewport => state.Document.NamedLayerStates.Save(save.Name.Value, viewport),
                     None: () => state.Document.NamedLayerStates.Save(save.Name.Value))))
                 from _saved in Landed(accepted: index >= 0, member: "NamedLayerStateTable.Save", detail: save.Name.Value, key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.LayerStateSaved,
-                    body: new PresetBody.Named(Name: save.Name),
-                    key: state.Op)
-                select receipt,
-            restoreLayerStateCase: static (state, restore) =>
-                from _restored in Confirmed(
+                select unit,
+            restoreLayerStateCase: static (state, restore) => Confirmed(
                     mutate: () => restore.ViewportId.Match(
                         Some: viewport => state.Document.NamedLayerStates.Restore(restore.Name.Value, restore.Properties.ToNative(), viewport),
                         None: () => state.Document.NamedLayerStates.Restore(restore.Name.Value, restore.Properties.ToNative())),
                     member: "NamedLayerStateTable.Restore",
                     detail: restore.Name.Value,
-                    key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.LayerStateRestored,
-                    body: new PresetBody.Named(Name: restore.Name),
-                    key: state.Op)
-                select receipt,
-            renameLayerStateCase: static (state, rename) =>
-                from _renamed in Confirmed(
+                    key: state.Op),
+            renameLayerStateCase: static (state, rename) => Confirmed(
                     mutate: () => state.Document.NamedLayerStates.Rename(rename.Current.Value, rename.Next.Value),
                     member: "NamedLayerStateTable.Rename",
                     detail: rename.Next.Value,
-                    key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.LayerStateRenamed,
-                    body: new PresetBody.Named(Name: rename.Next),
-                    key: state.Op)
-                select receipt,
-            deleteLayerStateCase: static (state, delete) =>
-                from _deleted in Confirmed(
+                    key: state.Op),
+            deleteLayerStateCase: static (state, delete) => Confirmed(
                     mutate: () => state.Document.NamedLayerStates.Delete(delete.Name.Value),
                     member: "NamedLayerStateTable.Delete",
                     detail: delete.Name.Value,
-                    key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.LayerStateDeleted,
-                    body: new PresetBody.Named(Name: delete.Name),
-                    key: state.Op)
-                select receipt,
+                    key: state.Op),
             importLayerStatesCase: static (state, import) =>
                 from count in state.Op.Catch(() => Fin.Succ(value: state.Document.NamedLayerStates.Import(import.Path.Value)))
                 from _imported in Landed(accepted: count >= 0, member: "NamedLayerStateTable.Import", detail: import.Path.Value, key: state.Op)
-                from receipt in PresetReceipt.Of(
-                    slot: PresetSlot.LayerStatesImported,
-                    body: new PresetBody.Tally(Count: count),
-                    key: state.Op)
-                select receipt);
+                select unit);
 
     private static Fin<PresetSnapshot> Census(RhinoDoc document, Op key) =>
         from planes in Project(
@@ -921,21 +730,11 @@ public static class Presets {
             source: () => document.NamedPositions.Ids,
             project: id => Captured(table: document.NamedPositions, id: id, key: key),
             key: key)
-        from states in Names(source: () => PresetTable.LayerStates.Names(document: document), key: key)
+        from states in Names(source: () => document.NamedLayerStates.Names, key: key)
         select new PresetSnapshot(
             ConstructionPlanes: planes,
             Positions: positions,
             LayerStates: new LayerStateSnapshot(Names: states));
-
-    private static Fin<PresetReceipt> Census(RhinoDoc document, Seq<PresetTable> tables, Op key) =>
-        tables.OrderBy(static table => table.Order).AsIterable().ToSeq()
-            .TraverseM(table => Names(source: () => table.Names(document: document), key: key)
-                .Bind(names => PresetReceipt.Of(
-                    slot: PresetSlot.Rostered,
-                    body: new PresetBody.Roster(Table: table, Names: names),
-                    key: key)))
-            .As()
-            .Map(static streams => streams.Fold(PresetReceipt.Empty, static (held, next) => held + next));
 
     private static Fin<PositionSnapshot> Captured(NamedPositionTable table, Guid id, Op key) =>
         from address in ResourceId.Admit(value: id, key: key)
@@ -964,13 +763,13 @@ public static class Presets {
             nameCase: static (state, named) => state.Op.Catch(() => Fin.Succ(value: state.Table.Id(named.Name.Value))))
         from present in key.Catch(() => Fin.Succ(value: table.Ids.Contains(candidate)))
         from _member in guard(present,
-            (Error)new PersistenceFault.AbsentEntry(Key: key, Table: PresetTable.Positions.Key, Entry: candidate.ToString())).ToFin()
+            (Error)new PersistenceFault.AbsentEntry(Key: key, Table: nameof(NamedPositionTable), Entry: candidate.ToString())).ToFin()
         from admitted in ResourceId.Admit(value: candidate, key: key)
         select admitted;
 
     private static Fin<PresetName> Named(NamedPositionTable table, ResourceId id, Op key) =>
         from raw in key.Catch(() => Fin.Succ(value: Op.Text(value: table.Name(id.Value))))
-        from present in raw.ToFin(Fail: new PersistenceFault.AbsentEntry(Key: key, Table: PresetTable.Positions.Key, Entry: id.Value.ToString()))
+        from present in raw.ToFin(Fail: new PersistenceFault.AbsentEntry(Key: key, Table: nameof(NamedPositionTable), Entry: id.Value.ToString()))
         from admitted in key.AcceptValidated<PresetName>(candidate: present)
         select admitted;
 
@@ -996,12 +795,3 @@ public static class Presets {
         : Fin.Fail<Unit>(error: new PersistenceFault.HostRefused(Key: key, Member: member, Detail: detail));
 }
 ```
-
-## [07]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

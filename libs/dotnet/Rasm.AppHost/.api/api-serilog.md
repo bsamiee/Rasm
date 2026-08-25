@@ -129,4 +129,4 @@
 - Package: `Serilog`
 - Owns: structured log projection
 - Accept: telemetry projected outward as `LogEvent`s
-- Reject: runtime receipts serialized as log strings
+- Reject: runtime outcomes serialized as log strings

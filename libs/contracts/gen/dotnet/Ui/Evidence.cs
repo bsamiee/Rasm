@@ -27,181 +27,177 @@ namespace Rasm.Contracts.Ui {
             "CiByYXNtL2NvbnRyYWN0cy91aS9ldmlkZW5jZS5wcm90bxIRcmFzbS5jb250",
             "cmFjdHMudWkaG2J1Zi92YWxpZGF0ZS92YWxpZGF0ZS5wcm90bxoeZ29vZ2xl",
             "L3Byb3RvYnVmL2R1cmF0aW9uLnByb3RvGh9nb29nbGUvcHJvdG9idWYvdGlt",
-            "ZXN0YW1wLnByb3RvGiByYXNtL2NvbnRyYWN0cy9mYXVsdC9mYXVsdC5wcm90",
-            "bxolcmFzbS9jb250cmFjdHMvcmVjZWlwdC9lbnZlbG9wZS5wcm90bxogcmFz",
-            "bS9jb250cmFjdHMvdWkvY29tbWFuZHMucHJvdG8itAEKEVBpeGVsSWRlbnRp",
-            "dHlXaXJlEkIKBmxheW91dBgBIAEoDjIeLnJhc20uY29udHJhY3RzLnVpLlBp",
-            "eGVsTGF5b3V0Qgq6SAeCAQQQASAAUgZsYXlvdXQSHQoFd2lkdGgYAiABKA1C",
-            "B7pIBCoCIABSBXdpZHRoEh8KBmhlaWdodBgDIAEoDUIHukgEKgIgAFIGaGVp",
-            "Z2h0EhsKBGhhc2gYBCABKAxCB7pIBHoCaBBSBGhhc2gipAEKE05hdGl2ZUFz",
-            "c2V0RmFjdFdpcmUSIQoHbGlicmFyeRgBIAEoCUIHukgEcgIQAVIHbGlicmFy",
-            "eRImCgd2ZXJzaW9uGAIgASgJQge6SARyAhABSABSB3ZlcnNpb26IAQESGwoE",
-            "cGF0aBgDIAEoCUIHukgEcgIQAVIEcGF0aBIZCgNyaWQYBCABKAlCB7pIBHIC",
-            "EAFSA3JpZEIKCghfdmVyc2lvbiL/KAoTRXZpZGVuY2VSZWNlaXB0V2lyZRJK",
-            "CgdzdXJmYWNlGAEgASgLMi4ucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VS",
-            "ZWNlaXB0V2lyZS5TdXJmYWNlSABSB3N1cmZhY2USRAoFZm9jdXMYAiABKAsy",
-            "LC5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLkZvY3Vz",
-            "SABSBWZvY3VzEkcKBnJlbmRlchgDIAEoCzItLnJhc20uY29udHJhY3RzLnVp",
-            "LkV2aWRlbmNlUmVjZWlwdFdpcmUuUmVuZGVySABSBnJlbmRlchJNCghkaXNw",
-            "b3NhbBgEIAEoCzIvLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlw",
-            "dFdpcmUuRGlzcG9zYWxIAFIIZGlzcG9zYWwSQQoEZWRpdBgFIAEoCzIrLnJh",
-            "c20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuRWRpdEgAUgRl",
-            "ZGl0Ej4KB2NvbW1hbmQYBiABKAsyIi5yYXNtLmNvbnRyYWN0cy51aS5EZWNr",
-            "UmVjZWlwdFdpcmVIAFIHY29tbWFuZBJLCgxuYXRpdmVfYXNzZXQYByABKAsy",
-            "Ji5yYXNtLmNvbnRyYWN0cy51aS5OYXRpdmVBc3NldEZhY3RXaXJlSABSC25h",
-            "dGl2ZUFzc2V0EkQKBXRoZW1lGAggASgLMiwucmFzbS5jb250cmFjdHMudWku",
-            "RXZpZGVuY2VSZWNlaXB0V2lyZS5UaGVtZUgAUgV0aGVtZRJHCgZtb3Rpb24Y",
-            "CSABKAsyLS5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJl",
-            "Lk1vdGlvbkgAUgZtb3Rpb24SRwoGZWZmZWN0GAogASgLMi0ucmFzbS5jb250",
-            "cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5FZmZlY3RIAFIGZWZmZWN0",
-            "EkQKBWFzc2V0GAsgASgLMiwucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VS",
-            "ZWNlaXB0V2lyZS5Bc3NldEgAUgVhc3NldBJOCglsaXZlX2RhdGEYDCABKAsy",
-            "Ly5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLkxpdmVE",
-            "YXRhSABSCGxpdmVEYXRhElQKC2NvbGxhYl9zeW5jGA0gASgLMjEucmFzbS5j",
-            "b250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5Db2xsYWJTeW5jSABS",
-            "CmNvbGxhYlN5bmMSWgoNY29sbGFiX3JldmVydBgOIAEoCzIzLnJhc20uY29u",
-            "dHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuQ29sbGFiUmV2ZXJ0SABS",
-            "DGNvbGxhYlJldmVydBJECgVtZWRpYRgPIAEoCzIsLnJhc20uY29udHJhY3Rz",
-            "LnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuTWVkaWFIAFIFbWVkaWESSgoHcXVh",
-            "bGl0eRgQIAEoCzIuLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlw",
-            "dFdpcmUuUXVhbGl0eUgAUgdxdWFsaXR5Ek4KCWdwdV9mcmFtZRgRIAEoCzIv",
-            "LnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuR3B1RnJh",
-            "bWVIAFIIZ3B1RnJhbWUSRwoGbGF5b3V0GBIgASgLMi0ucmFzbS5jb250cmFj",
-            "dHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5MYXlvdXRIAFIGbGF5b3V0El0K",
-            "DmRpc3BhdGNoZXJfbGFnGBMgASgLMjQucmFzbS5jb250cmFjdHMudWkuRXZp",
-            "ZGVuY2VSZWNlaXB0V2lyZS5EaXNwYXRjaGVyTGFnSABSDWRpc3BhdGNoZXJM",
-            "YWcSUQoKcHJlX2NvbW1pdBgUIAEoCzIwLnJhc20uY29udHJhY3RzLnVpLkV2",
-            "aWRlbmNlUmVjZWlwdFdpcmUuUHJlQ29tbWl0SABSCXByZUNvbW1pdBqoAQoH",
-            "U3VyZmFjZRIbCgRob3N0GAEgASgJQge6SARyAhABUgRob3N0EicKCmRlc2Ny",
-            "aXB0b3IYAiABKAlCB7pIBHICEAFSCmRlc2NyaXB0b3ISJgoFc2NhbGUYAyAB",
-            "KAFCELpIDRILQAEhAAAAAAAAAABSBXNjYWxlEiQKBmhhbmRsZRgEIAEoCUIH",
-            "ukgEcgIQAUgAUgZoYW5kbGWIAQFCCQoHX2hhbmRsZRpCCgVGb2N1cxIfCgZ0",
-            "YXJnZXQYASABKAlCB7pIBHICEAFSBnRhcmdldBIYCgdmb2N1c2VkGAIgASgI",
-            "Ugdmb2N1c2VkGqcDCgZSZW5kZXISGwoEc2xvdBgBIAEoCUIHukgEcgIQAVIE",
-            "c2xvdBIfCgZmb3JtYXQYAiABKAlCB7pIBHICEAFSBmZvcm1hdBImCgpmcmFt",
-            "ZV9oYXNoGAMgASgMQge6SAR6AmgQUglmcmFtZUhhc2gSFAoFYnl0ZXMYBCAB",
-            "KARSBWJ5dGVzEkAKB2VsYXBzZWQYBSABKAsyGS5nb29nbGUucHJvdG9idWYu",
-            "RHVyYXRpb25CC7pICMgBAaoBAjIAUgdlbGFwc2VkEigKC2NvbG9yX3NwYWNl",
-            "GAYgASgJQge6SARyAhABUgpjb2xvclNwYWNlEikKCWRyYXdfaGFzaBgHIAEo",
-            "DEIHukgEegJoEEgAUghkcmF3SGFzaIgBARI8CgZwaXhlbHMYCCABKAsyJC5y",
-            "YXNtLmNvbnRyYWN0cy51aS5QaXhlbElkZW50aXR5V2lyZVIGcGl4ZWxzEi4K",
-            "C2Rlc3RpbmF0aW9uGAkgASgJQge6SARyAhABSAFSC2Rlc3RpbmF0aW9uiAEB",
-            "QgwKCl9kcmF3X2hhc2hCDgoMX2Rlc3RpbmF0aW9uGpIBCghEaXNwb3NhbBIk",
-            "CglzY3JlZW5faWQYASABKAlCB7pIBHICEAFSCHNjcmVlbklkEj4KBmFjdGl2",
-            "ZRgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkILukgIyAEBqgEC",
-            "MgBSBmFjdGl2ZRIgCgtkaXNwb3NhYmxlcxgDIAEoDVILZGlzcG9zYWJsZXMa",
-            "qwEKBEVkaXQSGwoEc2xvdBgBIAEoCUIHukgEcgIQAVIEc2xvdBIhCgdzdXJm",
-            "YWNlGAIgASgJQge6SARyAhABUgdzdXJmYWNlEh8KBnRhcmdldBgDIAEoCUIH",
-            "ukgEcgIQAVIGdGFyZ2V0Eh8KBmVkaXRvchgEIAEoCUIHukgEcgIQAVIGZWRp",
-            "dG9yEiEKB291dGNvbWUYBSABKAlCB7pIBHICEAFSB291dGNvbWUakwEKBVRo",
-            "ZW1lEiEKB3ZhcmlhbnQYASABKAlCB7pIBHICEAFSB3ZhcmlhbnQSIQoHZGVu",
-            "c2l0eRgCIAEoCUIHukgEcgIQAVIHZGVuc2l0eRIhCgd0cmlnZ2VyGAMgASgJ",
-            "Qge6SARyAhABUgd0cmlnZ2VyEiEKDGNoYW5nZWRfa2V5cxgEIAEoDVILY2hh",
-            "bmdlZEtleXMaZgoGTW90aW9uEh0KBXRva2VuGAEgASgJQge6SARyAhABUgV0",
-            "b2tlbhIjCghyZXNvbHZlZBgCIAEoCUIHukgEcgIQAVIIcmVzb2x2ZWQSGAoH",
-            "cmVkdWNlZBgDIAEoCFIHcmVkdWNlZBrgAwoGRWZmZWN0Eh0KBXBsYW5lGAEg",
-            "ASgJQge6SARyAhABUgVwbGFuZRIZCgNrZXkYAiABKAlCB7pIBHICEAFSA2tl",
-            "eRIhCgdvdXRjb21lGAMgASgJQge6SARyAhABUgdvdXRjb21lEhIKBGZsYWcY",
-            "BCABKAhSBGZsYWcSFAoFY291bnQYBSABKA1SBWNvdW50Eh8KBXdob2xlGAYg",
-            "ASgDQge6SAQiAigASABSBXdob2xlEiEKBmRpZ2VzdBgHIAEoDEIHukgEegJo",
-            "EEgAUgZkaWdlc3QSTgoGZXh0ZW50GAggASgLMjQucmFzbS5jb250cmFjdHMu",
-            "dWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5FZmZlY3QuRXh0ZW50SABSBmV4dGVu",
-            "dBI0CgZtb21lbnQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1w",
-            "SABSBm1vbWVudBIpCgpjb29yZGluYXRlGAogASgJQge6SARyAhABSABSCmNv",
-            "b3JkaW5hdGUaSAoGRXh0ZW50EhsKBHJvd3MYASABKA1CB7pIBCoCIABSBHJv",
-            "d3MSIQoHY29sdW1ucxgCIAEoDUIHukgEKgIgAFIHY29sdW1uc0IQCgdtZWFz",
-            "dXJlEgW6SAIIARq/AQoFQXNzZXQSGQoDa2V5GAEgASgJQge6SARyAhABUgNr",
-            "ZXkSJgoKYXNzZXRfa2luZBgCIAEoCUIHukgEcgIQAVIJYXNzZXRLaW5kEh8K",
-            "Bm9yaWdpbhgDIAEoCUIHukgEcgIQAVIGb3JpZ2luEiYKBXNjYWxlGAQgASgB",
-            "QhC6SA0SC0ABIQAAAAAAAAAAUgVzY2FsZRIqCgxjb250ZW50X2hhc2gYBSAB",
-            "KAxCB7pIBHoCaBBSC2NvbnRlbnRIYXNoGo0BCghMaXZlRGF0YRIbCgRzbG90",
-            "GAEgASgJQge6SARyAhABUgRzbG90EhIKBGFkZHMYAiABKA1SBGFkZHMSGAoH",
-            "dXBkYXRlcxgDIAEoDVIHdXBkYXRlcxIYCgdyZW1vdmVzGAQgASgNUgdyZW1v",
-            "dmVzEhwKCXJlZnJlc2hlcxgFIAEoDVIJcmVmcmVzaGVzGpABCgpDb2xsYWJT",
-            "eW5jEiAKB2RvY19rZXkYASABKAlCB7pIBHICEAFSBmRvY0tleRIWCgZkZWx0",
-            "YXMYAiABKA1SBmRlbHRhcxIUCgVieXRlcxgDIAEoBFIFYnl0ZXMSGAoHcGVu",
-            "ZGluZxgEIAEoDVIHcGVuZGluZxIYCgdhcHBsaWVkGAUgASgIUgdhcHBsaWVk",
-            "GoMBCgxDb2xsYWJSZXZlcnQSIAoHZG9jX2tleRgBIAEoCUIHukgEcgIQAVIG",
-            "ZG9jS2V5EjAKD2Zyb250aWVyX2RpZ2VzdBgCIAEoDEIHukgEegJoEFIOZnJv",
-            "bnRpZXJEaWdlc3QSHwoLaW52ZXJzZV9vcHMYAyABKA1SCmludmVyc2VPcHMa",
-            "5wEKBU1lZGlhEhkKA2tleRgBIAEoCUIHukgEcgIQAVIDa2V5Eh0KBWNvZGVj",
-            "GAIgASgJQge6SARyAhABUgVjb2RlYxIfCgZzb3VyY2UYAyABKAlCB7pIBHIC",
-            "EAFSBnNvdXJjZRJFCgdvdXRjb21lGAQgASgOMh8ucmFzbS5jb250cmFjdHMu",
-            "dWkuTWVkaWFPdXRjb21lQgq6SAeCAQQQASAAUgdvdXRjb21lEjwKBWZhdWx0",
-            "GAUgASgLMiYucmFzbS5jb250cmFjdHMuZmF1bHQuRmF1bHRPYnNlcnZhdGlv",
-            "blIFZmF1bHQajAIKB1F1YWxpdHkSGwoEdGllchgBIAEoCUIHukgEcgIQAVIE",
-            "dGllchIsChJwYXRoX3RyYWNlX3NhbXBsZXMYAiABKA1SEHBhdGhUcmFjZVNh",
-            "bXBsZXMSOwoQd2F0ZXJtYXJrX2ZhY3RvchgDIAEoAUIQukgNEgtAASEAAAAA",
-            "AAAAAFIPd2F0ZXJtYXJrRmFjdG9yEh8KBm1vdGlvbhgEIAEoCUIHukgEcgIQ",
-            "AVIGbW90aW9uEicKD2ZvdmVhdGlvbl9sZXZlbBgFIAEoDVIOZm92ZWF0aW9u",
-            "TGV2ZWwSLwoKcmVmcmVzaF9oehgGIAEoAUIQukgNEgtAASEAAAAAAAAAAFIJ",
-            "cmVmcmVzaEh6GpoBCghHcHVGcmFtZRIjCg1mcmFtZV9vcmRpbmFsGAEgASgE",
-            "UgxmcmFtZU9yZGluYWwSFgoGcGFzc2VzGAIgASgNUgZwYXNzZXMSHgoKdW5t",
-            "ZWFzdXJlZBgDIAEoDVIKdW5tZWFzdXJlZBIxChRtZWFzdXJlZF9uYW5vc2Vj",
-            "b25kcxgEIAEoBFITbWVhc3VyZWROYW5vc2Vjb25kcxrJAQoGTGF5b3V0Eh0K",
-            "BXBhbmVsGAEgASgJQge6SARyAhABUgVwYW5lbBIgCgtjb25zdHJhaW50cxgC",
-            "IAEoDVILY29uc3RyYWludHMSQAoHZWxhcHNlZBgDIAEoCzIZLmdvb2dsZS5w",
-            "cm90b2J1Zi5EdXJhdGlvbkILukgIyAEBqgECMgBSB2VsYXBzZWQSPAoFZmF1",
-            "bHQYBCABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0",
-            "aW9uUgVmYXVsdBp2Cg1EaXNwYXRjaGVyTGFnEiMKCGJvdW5kYXJ5GAEgASgJ",
-            "Qge6SARyAhABUghib3VuZGFyeRJACgdlbGFwc2VkGAIgASgLMhkuZ29vZ2xl",
-            "LnByb3RvYnVmLkR1cmF0aW9uQgu6SAjIAQGqAQIyAFIHZWxhcHNlZBquAQoJ",
-            "UHJlQ29tbWl0EiAKB2RvY19rZXkYASABKAlCB7pIBHICEAFSBmRvY0tleRIY",
-            "CgdsYW1wb3J0GAIgASgEUgdsYW1wb3J0EhAKA29wcxgDIAEoBFIDb3BzEh8K",
-            "Bm9yaWdpbhgEIAEoCUIHukgEcgIQAVIGb3JpZ2luEiYKB21lc3NhZ2UYBSAB",
-            "KAlCB7pIBHICEAFIAFIHbWVzc2FnZYgBAUIKCghfbWVzc2FnZTquAbpIqgEa",
-            "pwEKFGV2aWRlbmNlLm1lZGlhLmZhdWx0EkVhIGZhaWxlZCBtZWRpYSBvdXRj",
-            "b21lIGNhcnJpZXMgaXRzIGZhdWx0IGFuZCBhIHJlYWR5IG9uZSBjYXJyaWVz",
-            "IG5vbmUaSCFoYXModGhpcy5tZWRpYSkgfHwgKCh0aGlzLm1lZGlhLm91dGNv",
-            "bWUgPT0gMikgPT0gaGFzKHRoaXMubWVkaWEuZmF1bHQpKUINCgRraW5kEgW6",
-            "SAIIASLjAQoMU2tld0JhbmRXaXJlEj4KCGVhcmxpZXN0GAEgASgLMhouZ29v",
-            "Z2xlLnByb3RvYnVmLlRpbWVzdGFtcEIGukgDyAEBUghlYXJsaWVzdBI6CgZs",
-            "YXRlc3QYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQga6SAPI",
-            "AQFSBmxhdGVzdDpXukhUGlIKE2V2aWRlbmNlLnNrZXdfb3JkZXISHXRoZSBz",
-            "a2V3IGJhbmQgbXVzdCBiZSBvcmRlcmVkGhx0aGlzLmVhcmxpZXN0IDw9IHRo",
-            "aXMubGF0ZXN0IqoCCg9FdmlkZW5jZVJvd1dpcmUSGAoHb3JkaW5hbBgBIAEo",
-            "DVIHb3JkaW5hbBIrChF1bmNlcnRhaW50eV9ncm91cBgCIAEoDVIQdW5jZXJ0",
-            "YWludHlHcm91cBJJCgZoZWFkZXIYAyABKAsyKS5yYXNtLmNvbnRyYWN0cy5y",
-            "ZWNlaXB0LlJlY2VpcHRIZWFkZXJXaXJlQga6SAPIAQFSBmhlYWRlchI7CgRi",
-            "YW5kGAQgASgLMh8ucmFzbS5jb250cmFjdHMudWkuU2tld0JhbmRXaXJlQga6",
-            "SAPIAQFSBGJhbmQSSAoHcmVjZWlwdBgFIAEoCzImLnJhc20uY29udHJhY3Rz",
-            "LnVpLkV2aWRlbmNlUmVjZWlwdFdpcmVCBrpIA8gBAVIHcmVjZWlwdCL/AQoU",
-            "RXZpZGVuY2VUaW1lbGluZVdpcmUSKQoLY29ycmVsYXRpb24YASABKAxCB7pI",
-            "BHoCaBBSC2NvcnJlbGF0aW9uEkEKBHJvd3MYAiADKAsyIi5yYXNtLmNvbnRy",
-            "YWN0cy51aS5FdmlkZW5jZVJvd1dpcmVCCbpIBpIBAxCAIFIEcm93czp5ukh2",
-            "GnQKIWV2aWRlbmNlLnRpbWVsaW5lX29yZGluYWxzX3VuaXF1ZRIpZXZpZGVu",
-            "Y2UgdGltZWxpbmUgb3JkaW5hbHMgbXVzdCBiZSB1bmlxdWUaJHRoaXMucm93",
-            "cy5tYXAociwgci5vcmRpbmFsKS51bmlxdWUoKSpdCgtQaXhlbExheW91dBIc",
-            "ChhQSVhFTF9MQVlPVVRfVU5TUEVDSUZJRUQQABIwCixQSVhFTF9MQVlPVVRf",
-            "UkdCQThfU1JHQl9TVFJBSUdIVF9UT1BfTEVGVF9WMhABKmAKDE1lZGlhT3V0",
-            "Y29tZRIdChlNRURJQV9PVVRDT01FX1VOU1BFQ0lGSUVEEAASFwoTTUVESUFf",
-            "T1VUQ09NRV9SRUFEWRABEhgKFE1FRElBX09VVENPTUVfRkFJTEVEEAJCFKoC",
-            "EVJhc20uQ29udHJhY3RzLlVpYgZwcm90bzM="));
+            "ZXN0YW1wLnByb3RvGh5yYXNtL2NvbnRyYWN0cy9jbG9jay9obGMucHJvdG8a",
+            "IHJhc20vY29udHJhY3RzL2ZhdWx0L2ZhdWx0LnByb3RvGiByYXNtL2NvbnRy",
+            "YWN0cy91aS9jb21tYW5kcy5wcm90byK0AQoRUGl4ZWxJZGVudGl0eVdpcmUS",
+            "QgoGbGF5b3V0GAEgASgOMh4ucmFzbS5jb250cmFjdHMudWkuUGl4ZWxMYXlv",
+            "dXRCCrpIB4IBBBABIABSBmxheW91dBIdCgV3aWR0aBgCIAEoDUIHukgEKgIg",
+            "AFIFd2lkdGgSHwoGaGVpZ2h0GAMgASgNQge6SAQqAiAAUgZoZWlnaHQSGwoE",
+            "aGFzaBgEIAEoDEIHukgEegJoEFIEaGFzaCKkAQoTTmF0aXZlQXNzZXRGYWN0",
+            "V2lyZRIhCgdsaWJyYXJ5GAEgASgJQge6SARyAhABUgdsaWJyYXJ5EiYKB3Zl",
+            "cnNpb24YAiABKAlCB7pIBHICEAFIAFIHdmVyc2lvbogBARIbCgRwYXRoGAMg",
+            "ASgJQge6SARyAhABUgRwYXRoEhkKA3JpZBgEIAEoCUIHukgEcgIQAVIDcmlk",
+            "QgoKCF92ZXJzaW9uIvMnCgxFdmlkZW5jZVdpcmUSQwoHc3VyZmFjZRgBIAEo",
+            "CzInLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5TdXJmYWNlSABS",
+            "B3N1cmZhY2USPQoFZm9jdXMYAiABKAsyJS5yYXNtLmNvbnRyYWN0cy51aS5F",
+            "dmlkZW5jZVdpcmUuRm9jdXNIAFIFZm9jdXMSQAoGcmVuZGVyGAMgASgLMiYu",
+            "cmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLlJlbmRlckgAUgZyZW5k",
+            "ZXISRgoIZGlzcG9zYWwYBCABKAsyKC5yYXNtLmNvbnRyYWN0cy51aS5Fdmlk",
+            "ZW5jZVdpcmUuRGlzcG9zYWxIAFIIZGlzcG9zYWwSOgoEZWRpdBgFIAEoCzIk",
+            "LnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5FZGl0SABSBGVkaXQS",
+            "PgoHY29tbWFuZBgGIAEoCzIiLnJhc20uY29udHJhY3RzLnVpLkRlY2tPdXRj",
+            "b21lV2lyZUgAUgdjb21tYW5kEksKDG5hdGl2ZV9hc3NldBgHIAEoCzImLnJh",
+            "c20uY29udHJhY3RzLnVpLk5hdGl2ZUFzc2V0RmFjdFdpcmVIAFILbmF0aXZl",
+            "QXNzZXQSPQoFdGhlbWUYCCABKAsyJS5yYXNtLmNvbnRyYWN0cy51aS5Fdmlk",
+            "ZW5jZVdpcmUuVGhlbWVIAFIFdGhlbWUSQAoGbW90aW9uGAkgASgLMiYucmFz",
+            "bS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLk1vdGlvbkgAUgZtb3Rpb24S",
+            "QAoGZWZmZWN0GAogASgLMiYucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VX",
+            "aXJlLkVmZmVjdEgAUgZlZmZlY3QSPQoFYXNzZXQYCyABKAsyJS5yYXNtLmNv",
+            "bnRyYWN0cy51aS5FdmlkZW5jZVdpcmUuQXNzZXRIAFIFYXNzZXQSRwoJbGl2",
+            "ZV9kYXRhGAwgASgLMigucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJl",
+            "LkxpdmVEYXRhSABSCGxpdmVEYXRhEk0KC2NvbGxhYl9zeW5jGA0gASgLMiou",
+            "cmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLkNvbGxhYlN5bmNIAFIK",
+            "Y29sbGFiU3luYxJTCg1jb2xsYWJfcmV2ZXJ0GA4gASgLMiwucmFzbS5jb250",
+            "cmFjdHMudWkuRXZpZGVuY2VXaXJlLkNvbGxhYlJldmVydEgAUgxjb2xsYWJS",
+            "ZXZlcnQSPQoFbWVkaWEYDyABKAsyJS5yYXNtLmNvbnRyYWN0cy51aS5Fdmlk",
+            "ZW5jZVdpcmUuTWVkaWFIAFIFbWVkaWESQwoHcXVhbGl0eRgQIAEoCzInLnJh",
+            "c20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5RdWFsaXR5SABSB3F1YWxp",
+            "dHkSRwoJZ3B1X2ZyYW1lGBEgASgLMigucmFzbS5jb250cmFjdHMudWkuRXZp",
+            "ZGVuY2VXaXJlLkdwdUZyYW1lSABSCGdwdUZyYW1lEkAKBmxheW91dBgSIAEo",
+            "CzImLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5MYXlvdXRIAFIG",
+            "bGF5b3V0ElYKDmRpc3BhdGNoZXJfbGFnGBMgASgLMi0ucmFzbS5jb250cmFj",
+            "dHMudWkuRXZpZGVuY2VXaXJlLkRpc3BhdGNoZXJMYWdIAFINZGlzcGF0Y2hl",
+            "ckxhZxJKCgpwcmVfY29tbWl0GBQgASgLMikucmFzbS5jb250cmFjdHMudWku",
+            "RXZpZGVuY2VXaXJlLlByZUNvbW1pdEgAUglwcmVDb21taXQaqAEKB1N1cmZh",
+            "Y2USGwoEaG9zdBgBIAEoCUIHukgEcgIQAVIEaG9zdBInCgpkZXNjcmlwdG9y",
+            "GAIgASgJQge6SARyAhABUgpkZXNjcmlwdG9yEiYKBXNjYWxlGAMgASgBQhC6",
+            "SA0SC0ABIQAAAAAAAAAAUgVzY2FsZRIkCgZoYW5kbGUYBCABKAlCB7pIBHIC",
+            "EAFIAFIGaGFuZGxliAEBQgkKB19oYW5kbGUaQgoFRm9jdXMSHwoGdGFyZ2V0",
+            "GAEgASgJQge6SARyAhABUgZ0YXJnZXQSGAoHZm9jdXNlZBgCIAEoCFIHZm9j",
+            "dXNlZBqnAwoGUmVuZGVyEhsKBHNsb3QYASABKAlCB7pIBHICEAFSBHNsb3QS",
+            "HwoGZm9ybWF0GAIgASgJQge6SARyAhABUgZmb3JtYXQSJgoKZnJhbWVfaGFz",
+            "aBgDIAEoDEIHukgEegJoEFIJZnJhbWVIYXNoEhQKBWJ5dGVzGAQgASgEUgVi",
+            "eXRlcxJACgdlbGFwc2VkGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0",
+            "aW9uQgu6SAjIAQGqAQIyAFIHZWxhcHNlZBIoCgtjb2xvcl9zcGFjZRgGIAEo",
+            "CUIHukgEcgIQAVIKY29sb3JTcGFjZRIpCglkcmF3X2hhc2gYByABKAxCB7pI",
+            "BHoCaBBIAFIIZHJhd0hhc2iIAQESPAoGcGl4ZWxzGAggASgLMiQucmFzbS5j",
+            "b250cmFjdHMudWkuUGl4ZWxJZGVudGl0eVdpcmVSBnBpeGVscxIuCgtkZXN0",
+            "aW5hdGlvbhgJIAEoCUIHukgEcgIQAUgBUgtkZXN0aW5hdGlvbogBAUIMCgpf",
+            "ZHJhd19oYXNoQg4KDF9kZXN0aW5hdGlvbhqSAQoIRGlzcG9zYWwSJAoJc2Ny",
+            "ZWVuX2lkGAEgASgJQge6SARyAhABUghzY3JlZW5JZBI+CgZhY3RpdmUYAiAB",
+            "KAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25CC7pICMgBAaoBAjIAUgZh",
+            "Y3RpdmUSIAoLZGlzcG9zYWJsZXMYAyABKA1SC2Rpc3Bvc2FibGVzGqsBCgRF",
+            "ZGl0EhsKBHNsb3QYASABKAlCB7pIBHICEAFSBHNsb3QSIQoHc3VyZmFjZRgC",
+            "IAEoCUIHukgEcgIQAVIHc3VyZmFjZRIfCgZ0YXJnZXQYAyABKAlCB7pIBHIC",
+            "EAFSBnRhcmdldBIfCgZlZGl0b3IYBCABKAlCB7pIBHICEAFSBmVkaXRvchIh",
+            "CgdvdXRjb21lGAUgASgJQge6SARyAhABUgdvdXRjb21lGpMBCgVUaGVtZRIh",
+            "Cgd2YXJpYW50GAEgASgJQge6SARyAhABUgd2YXJpYW50EiEKB2RlbnNpdHkY",
+            "AiABKAlCB7pIBHICEAFSB2RlbnNpdHkSIQoHdHJpZ2dlchgDIAEoCUIHukgE",
+            "cgIQAVIHdHJpZ2dlchIhCgxjaGFuZ2VkX2tleXMYBCABKA1SC2NoYW5nZWRL",
+            "ZXlzGmYKBk1vdGlvbhIdCgV0b2tlbhgBIAEoCUIHukgEcgIQAVIFdG9rZW4S",
+            "IwoIcmVzb2x2ZWQYAiABKAlCB7pIBHICEAFSCHJlc29sdmVkEhgKB3JlZHVj",
+            "ZWQYAyABKAhSB3JlZHVjZWQa2QMKBkVmZmVjdBIdCgVwbGFuZRgBIAEoCUIH",
+            "ukgEcgIQAVIFcGxhbmUSGQoDa2V5GAIgASgJQge6SARyAhABUgNrZXkSIQoH",
+            "b3V0Y29tZRgDIAEoCUIHukgEcgIQAVIHb3V0Y29tZRISCgRmbGFnGAQgASgI",
+            "UgRmbGFnEhQKBWNvdW50GAUgASgNUgVjb3VudBIfCgV3aG9sZRgGIAEoA0IH",
+            "ukgEIgIoAEgAUgV3aG9sZRIhCgZkaWdlc3QYByABKAxCB7pIBHoCaBBIAFIG",
+            "ZGlnZXN0EkcKBmV4dGVudBgIIAEoCzItLnJhc20uY29udHJhY3RzLnVpLkV2",
+            "aWRlbmNlV2lyZS5FZmZlY3QuRXh0ZW50SABSBmV4dGVudBI0CgZtb21lbnQY",
+            "CSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSABSBm1vbWVudBIp",
+            "Cgpjb29yZGluYXRlGAogASgJQge6SARyAhABSABSCmNvb3JkaW5hdGUaSAoG",
+            "RXh0ZW50EhsKBHJvd3MYASABKA1CB7pIBCoCIABSBHJvd3MSIQoHY29sdW1u",
+            "cxgCIAEoDUIHukgEKgIgAFIHY29sdW1uc0IQCgdtZWFzdXJlEgW6SAIIARq/",
+            "AQoFQXNzZXQSGQoDa2V5GAEgASgJQge6SARyAhABUgNrZXkSJgoKYXNzZXRf",
+            "a2luZBgCIAEoCUIHukgEcgIQAVIJYXNzZXRLaW5kEh8KBm9yaWdpbhgDIAEo",
+            "CUIHukgEcgIQAVIGb3JpZ2luEiYKBXNjYWxlGAQgASgBQhC6SA0SC0ABIQAA",
+            "AAAAAAAAUgVzY2FsZRIqCgxjb250ZW50X2hhc2gYBSABKAxCB7pIBHoCaBBS",
+            "C2NvbnRlbnRIYXNoGo0BCghMaXZlRGF0YRIbCgRzbG90GAEgASgJQge6SARy",
+            "AhABUgRzbG90EhIKBGFkZHMYAiABKA1SBGFkZHMSGAoHdXBkYXRlcxgDIAEo",
+            "DVIHdXBkYXRlcxIYCgdyZW1vdmVzGAQgASgNUgdyZW1vdmVzEhwKCXJlZnJl",
+            "c2hlcxgFIAEoDVIJcmVmcmVzaGVzGpABCgpDb2xsYWJTeW5jEiAKB2RvY19r",
+            "ZXkYASABKAlCB7pIBHICEAFSBmRvY0tleRIWCgZkZWx0YXMYAiABKA1SBmRl",
+            "bHRhcxIUCgVieXRlcxgDIAEoBFIFYnl0ZXMSGAoHcGVuZGluZxgEIAEoDVIH",
+            "cGVuZGluZxIYCgdhcHBsaWVkGAUgASgIUgdhcHBsaWVkGoMBCgxDb2xsYWJS",
+            "ZXZlcnQSIAoHZG9jX2tleRgBIAEoCUIHukgEcgIQAVIGZG9jS2V5EjAKD2Zy",
+            "b250aWVyX2RpZ2VzdBgCIAEoDEIHukgEegJoEFIOZnJvbnRpZXJEaWdlc3QS",
+            "HwoLaW52ZXJzZV9vcHMYAyABKA1SCmludmVyc2VPcHMa5wEKBU1lZGlhEhkK",
+            "A2tleRgBIAEoCUIHukgEcgIQAVIDa2V5Eh0KBWNvZGVjGAIgASgJQge6SARy",
+            "AhABUgVjb2RlYxIfCgZzb3VyY2UYAyABKAlCB7pIBHICEAFSBnNvdXJjZRJF",
+            "CgdvdXRjb21lGAQgASgOMh8ucmFzbS5jb250cmFjdHMudWkuTWVkaWFPdXRj",
+            "b21lQgq6SAeCAQQQASAAUgdvdXRjb21lEjwKBWZhdWx0GAUgASgLMiYucmFz",
+            "bS5jb250cmFjdHMuZmF1bHQuRmF1bHRPYnNlcnZhdGlvblIFZmF1bHQajAIK",
+            "B1F1YWxpdHkSGwoEdGllchgBIAEoCUIHukgEcgIQAVIEdGllchIsChJwYXRo",
+            "X3RyYWNlX3NhbXBsZXMYAiABKA1SEHBhdGhUcmFjZVNhbXBsZXMSOwoQd2F0",
+            "ZXJtYXJrX2ZhY3RvchgDIAEoAUIQukgNEgtAASEAAAAAAAAAAFIPd2F0ZXJt",
+            "YXJrRmFjdG9yEh8KBm1vdGlvbhgEIAEoCUIHukgEcgIQAVIGbW90aW9uEicK",
+            "D2ZvdmVhdGlvbl9sZXZlbBgFIAEoDVIOZm92ZWF0aW9uTGV2ZWwSLwoKcmVm",
+            "cmVzaF9oehgGIAEoAUIQukgNEgtAASEAAAAAAAAAAFIJcmVmcmVzaEh6GpoB",
+            "CghHcHVGcmFtZRIjCg1mcmFtZV9vcmRpbmFsGAEgASgEUgxmcmFtZU9yZGlu",
+            "YWwSFgoGcGFzc2VzGAIgASgNUgZwYXNzZXMSHgoKdW5tZWFzdXJlZBgDIAEo",
+            "DVIKdW5tZWFzdXJlZBIxChRtZWFzdXJlZF9uYW5vc2Vjb25kcxgEIAEoBFIT",
+            "bWVhc3VyZWROYW5vc2Vjb25kcxrJAQoGTGF5b3V0Eh0KBXBhbmVsGAEgASgJ",
+            "Qge6SARyAhABUgVwYW5lbBIgCgtjb25zdHJhaW50cxgCIAEoDVILY29uc3Ry",
+            "YWludHMSQAoHZWxhcHNlZBgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJh",
+            "dGlvbkILukgIyAEBqgECMgBSB2VsYXBzZWQSPAoFZmF1bHQYBCABKAsyJi5y",
+            "YXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uUgVmYXVsdBp2",
+            "Cg1EaXNwYXRjaGVyTGFnEiMKCGJvdW5kYXJ5GAEgASgJQge6SARyAhABUghi",
+            "b3VuZGFyeRJACgdlbGFwc2VkGAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1",
+            "cmF0aW9uQgu6SAjIAQGqAQIyAFIHZWxhcHNlZBquAQoJUHJlQ29tbWl0EiAK",
+            "B2RvY19rZXkYASABKAlCB7pIBHICEAFSBmRvY0tleRIYCgdsYW1wb3J0GAIg",
+            "ASgEUgdsYW1wb3J0EhAKA29wcxgDIAEoBFIDb3BzEh8KBm9yaWdpbhgEIAEo",
+            "CUIHukgEcgIQAVIGb3JpZ2luEiYKB21lc3NhZ2UYBSABKAlCB7pIBHICEAFI",
+            "AFIHbWVzc2FnZYgBAUIKCghfbWVzc2FnZTquAbpIqgEapwEKFGV2aWRlbmNl",
+            "Lm1lZGlhLmZhdWx0EkVhIGZhaWxlZCBtZWRpYSBvdXRjb21lIGNhcnJpZXMg",
+            "aXRzIGZhdWx0IGFuZCBhIHJlYWR5IG9uZSBjYXJyaWVzIG5vbmUaSCFoYXMo",
+            "dGhpcy5tZWRpYSkgfHwgKCh0aGlzLm1lZGlhLm91dGNvbWUgPT0gMikgPT0g",
+            "aGFzKHRoaXMubWVkaWEuZmF1bHQpKUINCgRraW5kEgW6SAIIASLjAQoMU2tl",
+            "d0JhbmRXaXJlEj4KCGVhcmxpZXN0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVm",
+            "LlRpbWVzdGFtcEIGukgDyAEBUghlYXJsaWVzdBI6CgZsYXRlc3QYAiABKAsy",
+            "Gi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQga6SAPIAQFSBmxhdGVzdDpX",
+            "ukhUGlIKE2V2aWRlbmNlLnNrZXdfb3JkZXISHXRoZSBza2V3IGJhbmQgbXVz",
+            "dCBiZSBvcmRlcmVkGhx0aGlzLmVhcmxpZXN0IDw9IHRoaXMubGF0ZXN0IpMC",
+            "Cg9FdmlkZW5jZVJvd1dpcmUSGAoHb3JkaW5hbBgBIAEoDVIHb3JkaW5hbBIr",
+            "ChF1bmNlcnRhaW50eV9ncm91cBgCIAEoDVIQdW5jZXJ0YWludHlHcm91cBI7",
+            "CgRiYW5kGAMgASgLMh8ucmFzbS5jb250cmFjdHMudWkuU2tld0JhbmRXaXJl",
+            "Qga6SAPIAQFSBGJhbmQSQwoIZXZpZGVuY2UYBCABKAsyHy5yYXNtLmNvbnRy",
+            "YWN0cy51aS5FdmlkZW5jZVdpcmVCBrpIA8gBAVIIZXZpZGVuY2USNwoFc3Rh",
+            "bXAYBSABKAsyGS5yYXNtLmNvbnRyYWN0cy5jbG9jay5IbGNCBrpIA8gBAVIF",
+            "c3RhbXAi/wEKFEV2aWRlbmNlVGltZWxpbmVXaXJlEikKC2NvcnJlbGF0aW9u",
+            "GAEgASgMQge6SAR6AmgQUgtjb3JyZWxhdGlvbhJBCgRyb3dzGAIgAygLMiIu",
+            "cmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSb3dXaXJlQgm6SAaSAQMQgCBS",
+            "BHJvd3M6ebpIdhp0CiFldmlkZW5jZS50aW1lbGluZV9vcmRpbmFsc191bmlx",
+            "dWUSKWV2aWRlbmNlIHRpbWVsaW5lIG9yZGluYWxzIG11c3QgYmUgdW5pcXVl",
+            "GiR0aGlzLnJvd3MubWFwKHIsIHIub3JkaW5hbCkudW5pcXVlKCkqXQoLUGl4",
+            "ZWxMYXlvdXQSHAoYUElYRUxfTEFZT1VUX1VOU1BFQ0lGSUVEEAASMAosUElY",
+            "RUxfTEFZT1VUX1JHQkE4X1NSR0JfU1RSQUlHSFRfVE9QX0xFRlRfVjIQASpg",
+            "CgxNZWRpYU91dGNvbWUSHQoZTUVESUFfT1VUQ09NRV9VTlNQRUNJRklFRBAA",
+            "EhcKE01FRElBX09VVENPTUVfUkVBRFkQARIYChRNRURJQV9PVVRDT01FX0ZB",
+            "SUxFRBACQhSqAhFSYXNtLkNvbnRyYWN0cy5VaWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Buf.Validate.ValidateReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.DurationReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Rasm.Contracts.Fault.FaultReflection.Descriptor, global::Rasm.Contracts.Receipt.EnvelopeReflection.Descriptor, global::Rasm.Contracts.Ui.CommandsReflection.Descriptor, },
+          new pbr::FileDescriptor[] { global::Buf.Validate.ValidateReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.DurationReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Rasm.Contracts.Clock.HlcReflection.Descriptor, global::Rasm.Contracts.Fault.FaultReflection.Descriptor, global::Rasm.Contracts.Ui.CommandsReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Rasm.Contracts.Ui.PixelLayout), typeof(global::Rasm.Contracts.Ui.MediaOutcome), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.PixelIdentityWire), global::Rasm.Contracts.Ui.PixelIdentityWire.Parser, new[]{ "Layout", "Width", "Height", "Hash" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.NativeAssetFactWire), global::Rasm.Contracts.Ui.NativeAssetFactWire.Parser, new[]{ "Library", "Version", "Path", "Rid" }, new[]{ "Version" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Parser, new[]{ "Surface", "Focus", "Render", "Disposal", "Edit", "Command", "NativeAsset", "Theme", "Motion", "Effect", "Asset", "LiveData", "CollabSync", "CollabRevert", "Media", "Quality", "GpuFrame", "Layout", "DispatcherLag", "PreCommit" }, new[]{ "Kind" }, null, null, new pbr::GeneratedClrTypeInfo[] { new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface.Parser, new[]{ "Host", "Descriptor_", "Scale", "Handle" }, new[]{ "Handle" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus.Parser, new[]{ "Target", "Focused" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render.Parser, new[]{ "Slot", "Format", "FrameHash", "Bytes", "Elapsed", "ColorSpace", "DrawHash", "Pixels", "Destination" }, new[]{ "DrawHash", "Destination" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal.Parser, new[]{ "ScreenId", "Active", "Disposables" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit.Parser, new[]{ "Slot", "Surface", "Target", "Editor", "Outcome" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme.Parser, new[]{ "Variant", "Density", "Trigger", "ChangedKeys" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion.Parser, new[]{ "Token", "Resolved", "Reduced" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Parser, new[]{ "Plane", "Key", "Outcome", "Flag", "Count", "Whole", "Digest", "Extent", "Moment", "Coordinate" }, new[]{ "Measure" }, null, null, new pbr::GeneratedClrTypeInfo[] { new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent.Parser, new[]{ "Rows", "Columns" }, null, null, null, null)}),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset.Parser, new[]{ "Key", "AssetKind", "Origin", "Scale", "ContentHash" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData.Parser, new[]{ "Slot", "Adds", "Updates", "Removes", "Refreshes" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync.Parser, new[]{ "DocKey", "Deltas", "Bytes", "Pending", "Applied" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert.Parser, new[]{ "DocKey", "FrontierDigest", "InverseOps" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media.Parser, new[]{ "Key", "Codec", "Source", "Outcome", "Fault" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality.Parser, new[]{ "Tier", "PathTraceSamples", "WatermarkFactor", "Motion", "FoveationLevel", "RefreshHz" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame.Parser, new[]{ "FrameOrdinal", "Passes", "Unmeasured", "MeasuredNanoseconds" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout.Parser, new[]{ "Panel", "Constraints", "Elapsed", "Fault" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag.Parser, new[]{ "Boundary", "Elapsed" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit), global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit.Parser, new[]{ "DocKey", "Lamport", "Ops", "Origin", "Message" }, new[]{ "Message" }, null, null, null)}),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire), global::Rasm.Contracts.Ui.EvidenceWire.Parser, new[]{ "Surface", "Focus", "Render", "Disposal", "Edit", "Command", "NativeAsset", "Theme", "Motion", "Effect", "Asset", "LiveData", "CollabSync", "CollabRevert", "Media", "Quality", "GpuFrame", "Layout", "DispatcherLag", "PreCommit" }, new[]{ "Kind" }, null, null, new pbr::GeneratedClrTypeInfo[] { new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface), global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface.Parser, new[]{ "Host", "Descriptor_", "Scale", "Handle" }, new[]{ "Handle" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus), global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus.Parser, new[]{ "Target", "Focused" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Render), global::Rasm.Contracts.Ui.EvidenceWire.Types.Render.Parser, new[]{ "Slot", "Format", "FrameHash", "Bytes", "Elapsed", "ColorSpace", "DrawHash", "Pixels", "Destination" }, new[]{ "DrawHash", "Destination" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal), global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal.Parser, new[]{ "ScreenId", "Active", "Disposables" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit), global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit.Parser, new[]{ "Slot", "Surface", "Target", "Editor", "Outcome" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme), global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme.Parser, new[]{ "Variant", "Density", "Trigger", "ChangedKeys" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion), global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion.Parser, new[]{ "Token", "Resolved", "Reduced" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect), global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Parser, new[]{ "Plane", "Key", "Outcome", "Flag", "Count", "Whole", "Digest", "Extent", "Moment", "Coordinate" }, new[]{ "Measure" }, null, null, new pbr::GeneratedClrTypeInfo[] { new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent), global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent.Parser, new[]{ "Rows", "Columns" }, null, null, null, null)}),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset), global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset.Parser, new[]{ "Key", "AssetKind", "Origin", "Scale", "ContentHash" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData), global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData.Parser, new[]{ "Slot", "Adds", "Updates", "Removes", "Refreshes" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync), global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync.Parser, new[]{ "DocKey", "Deltas", "Bytes", "Pending", "Applied" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert), global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert.Parser, new[]{ "DocKey", "FrontierDigest", "InverseOps" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Media), global::Rasm.Contracts.Ui.EvidenceWire.Types.Media.Parser, new[]{ "Key", "Codec", "Source", "Outcome", "Fault" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality), global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality.Parser, new[]{ "Tier", "PathTraceSamples", "WatermarkFactor", "Motion", "FoveationLevel", "RefreshHz" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame), global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame.Parser, new[]{ "FrameOrdinal", "Passes", "Unmeasured", "MeasuredNanoseconds" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout), global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout.Parser, new[]{ "Panel", "Constraints", "Elapsed", "Fault" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag), global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag.Parser, new[]{ "Boundary", "Elapsed" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit), global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit.Parser, new[]{ "DocKey", "Lamport", "Ops", "Origin", "Message" }, new[]{ "Message" }, null, null, null)}),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.SkewBandWire), global::Rasm.Contracts.Ui.SkewBandWire.Parser, new[]{ "Earliest", "Latest" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceRowWire), global::Rasm.Contracts.Ui.EvidenceRowWire.Parser, new[]{ "Ordinal", "UncertaintyGroup", "Header", "Band", "Receipt" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceRowWire), global::Rasm.Contracts.Ui.EvidenceRowWire.Parser, new[]{ "Ordinal", "UncertaintyGroup", "Band", "Evidence", "Stamp" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Rasm.Contracts.Ui.EvidenceTimelineWire), global::Rasm.Contracts.Ui.EvidenceTimelineWire.Parser, new[]{ "Correlation", "Rows" }, null, null, null, null)
           }));
     }
@@ -859,21 +855,17 @@ namespace Rasm.Contracts.Ui {
 
   }
 
-  /// <summary>
-  /// One arm per process-local evidence family; the sealed envelope carries correlation, tenant, and the HLC
-  /// stamp, so no arm repeats them beyond its own producer columns.
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class EvidenceReceiptWire : pb::IMessage<EvidenceReceiptWire>
+  public sealed partial class EvidenceWire : pb::IMessage<EvidenceWire>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<EvidenceReceiptWire> _parser = new pb::MessageParser<EvidenceReceiptWire>(() => new EvidenceReceiptWire());
+    private static readonly pb::MessageParser<EvidenceWire> _parser = new pb::MessageParser<EvidenceWire>(() => new EvidenceWire());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<EvidenceReceiptWire> Parser { get { return _parser; } }
+    public static pb::MessageParser<EvidenceWire> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -889,7 +881,7 @@ namespace Rasm.Contracts.Ui {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public EvidenceReceiptWire() {
+    public EvidenceWire() {
       OnConstruction();
     }
 
@@ -897,7 +889,7 @@ namespace Rasm.Contracts.Ui {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public EvidenceReceiptWire(EvidenceReceiptWire other) : this() {
+    public EvidenceWire(EvidenceWire other) : this() {
       switch (other.KindCase) {
         case KindOneofCase.Surface:
           Surface = other.Surface.Clone();
@@ -966,16 +958,16 @@ namespace Rasm.Contracts.Ui {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public EvidenceReceiptWire Clone() {
-      return new EvidenceReceiptWire(this);
+    public EvidenceWire Clone() {
+      return new EvidenceWire(this);
     }
 
     /// <summary>Field number for the "surface" field.</summary>
     public const int SurfaceFieldNumber = 1;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface Surface {
-      get { return kindCase_ == KindOneofCase.Surface ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface Surface {
+      get { return kindCase_ == KindOneofCase.Surface ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Surface;
@@ -986,8 +978,8 @@ namespace Rasm.Contracts.Ui {
     public const int FocusFieldNumber = 2;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus Focus {
-      get { return kindCase_ == KindOneofCase.Focus ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus Focus {
+      get { return kindCase_ == KindOneofCase.Focus ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Focus;
@@ -998,8 +990,8 @@ namespace Rasm.Contracts.Ui {
     public const int RenderFieldNumber = 3;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render Render {
-      get { return kindCase_ == KindOneofCase.Render ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Render Render {
+      get { return kindCase_ == KindOneofCase.Render ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Render) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Render;
@@ -1010,8 +1002,8 @@ namespace Rasm.Contracts.Ui {
     public const int DisposalFieldNumber = 4;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal Disposal {
-      get { return kindCase_ == KindOneofCase.Disposal ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal Disposal {
+      get { return kindCase_ == KindOneofCase.Disposal ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Disposal;
@@ -1022,8 +1014,8 @@ namespace Rasm.Contracts.Ui {
     public const int EditFieldNumber = 5;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit Edit {
-      get { return kindCase_ == KindOneofCase.Edit ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit Edit {
+      get { return kindCase_ == KindOneofCase.Edit ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Edit;
@@ -1034,8 +1026,8 @@ namespace Rasm.Contracts.Ui {
     public const int CommandFieldNumber = 6;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.DeckReceiptWire Command {
-      get { return kindCase_ == KindOneofCase.Command ? (global::Rasm.Contracts.Ui.DeckReceiptWire) kind_ : null; }
+    public global::Rasm.Contracts.Ui.DeckOutcomeWire Command {
+      get { return kindCase_ == KindOneofCase.Command ? (global::Rasm.Contracts.Ui.DeckOutcomeWire) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Command;
@@ -1058,8 +1050,8 @@ namespace Rasm.Contracts.Ui {
     public const int ThemeFieldNumber = 8;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme Theme {
-      get { return kindCase_ == KindOneofCase.Theme ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme Theme {
+      get { return kindCase_ == KindOneofCase.Theme ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Theme;
@@ -1070,8 +1062,8 @@ namespace Rasm.Contracts.Ui {
     public const int MotionFieldNumber = 9;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion Motion {
-      get { return kindCase_ == KindOneofCase.Motion ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion Motion {
+      get { return kindCase_ == KindOneofCase.Motion ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Motion;
@@ -1082,8 +1074,8 @@ namespace Rasm.Contracts.Ui {
     public const int EffectFieldNumber = 10;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect Effect {
-      get { return kindCase_ == KindOneofCase.Effect ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect Effect {
+      get { return kindCase_ == KindOneofCase.Effect ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Effect;
@@ -1094,8 +1086,8 @@ namespace Rasm.Contracts.Ui {
     public const int AssetFieldNumber = 11;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset Asset {
-      get { return kindCase_ == KindOneofCase.Asset ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset Asset {
+      get { return kindCase_ == KindOneofCase.Asset ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Asset;
@@ -1106,8 +1098,8 @@ namespace Rasm.Contracts.Ui {
     public const int LiveDataFieldNumber = 12;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData LiveData {
-      get { return kindCase_ == KindOneofCase.LiveData ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData LiveData {
+      get { return kindCase_ == KindOneofCase.LiveData ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.LiveData;
@@ -1118,8 +1110,8 @@ namespace Rasm.Contracts.Ui {
     public const int CollabSyncFieldNumber = 13;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync CollabSync {
-      get { return kindCase_ == KindOneofCase.CollabSync ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync CollabSync {
+      get { return kindCase_ == KindOneofCase.CollabSync ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.CollabSync;
@@ -1130,8 +1122,8 @@ namespace Rasm.Contracts.Ui {
     public const int CollabRevertFieldNumber = 14;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert CollabRevert {
-      get { return kindCase_ == KindOneofCase.CollabRevert ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert CollabRevert {
+      get { return kindCase_ == KindOneofCase.CollabRevert ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.CollabRevert;
@@ -1142,8 +1134,8 @@ namespace Rasm.Contracts.Ui {
     public const int MediaFieldNumber = 15;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media Media {
-      get { return kindCase_ == KindOneofCase.Media ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Media Media {
+      get { return kindCase_ == KindOneofCase.Media ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Media) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Media;
@@ -1154,8 +1146,8 @@ namespace Rasm.Contracts.Ui {
     public const int QualityFieldNumber = 16;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality Quality {
-      get { return kindCase_ == KindOneofCase.Quality ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality Quality {
+      get { return kindCase_ == KindOneofCase.Quality ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Quality;
@@ -1166,8 +1158,8 @@ namespace Rasm.Contracts.Ui {
     public const int GpuFrameFieldNumber = 17;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame GpuFrame {
-      get { return kindCase_ == KindOneofCase.GpuFrame ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame GpuFrame {
+      get { return kindCase_ == KindOneofCase.GpuFrame ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.GpuFrame;
@@ -1178,8 +1170,8 @@ namespace Rasm.Contracts.Ui {
     public const int LayoutFieldNumber = 18;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout Layout {
-      get { return kindCase_ == KindOneofCase.Layout ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout Layout {
+      get { return kindCase_ == KindOneofCase.Layout ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.Layout;
@@ -1190,8 +1182,8 @@ namespace Rasm.Contracts.Ui {
     public const int DispatcherLagFieldNumber = 19;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag DispatcherLag {
-      get { return kindCase_ == KindOneofCase.DispatcherLag ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag DispatcherLag {
+      get { return kindCase_ == KindOneofCase.DispatcherLag ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.DispatcherLag;
@@ -1202,8 +1194,8 @@ namespace Rasm.Contracts.Ui {
     public const int PreCommitFieldNumber = 20;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit PreCommit {
-      get { return kindCase_ == KindOneofCase.PreCommit ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit) kind_ : null; }
+    public global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit PreCommit {
+      get { return kindCase_ == KindOneofCase.PreCommit ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit) kind_ : null; }
       set {
         kind_ = value;
         kindCase_ = value == null ? KindOneofCase.None : KindOneofCase.PreCommit;
@@ -1252,12 +1244,12 @@ namespace Rasm.Contracts.Ui {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as EvidenceReceiptWire);
+      return Equals(other as EvidenceWire);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(EvidenceReceiptWire other) {
+    public bool Equals(EvidenceWire other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -1579,44 +1571,44 @@ namespace Rasm.Contracts.Ui {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(EvidenceReceiptWire other) {
+    public void MergeFrom(EvidenceWire other) {
       if (other == null) {
         return;
       }
       switch (other.KindCase) {
         case KindOneofCase.Surface:
           if (Surface == null) {
-            Surface = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface();
+            Surface = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface();
           }
           Surface.MergeFrom(other.Surface);
           break;
         case KindOneofCase.Focus:
           if (Focus == null) {
-            Focus = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus();
+            Focus = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus();
           }
           Focus.MergeFrom(other.Focus);
           break;
         case KindOneofCase.Render:
           if (Render == null) {
-            Render = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render();
+            Render = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Render();
           }
           Render.MergeFrom(other.Render);
           break;
         case KindOneofCase.Disposal:
           if (Disposal == null) {
-            Disposal = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal();
+            Disposal = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal();
           }
           Disposal.MergeFrom(other.Disposal);
           break;
         case KindOneofCase.Edit:
           if (Edit == null) {
-            Edit = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit();
+            Edit = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit();
           }
           Edit.MergeFrom(other.Edit);
           break;
         case KindOneofCase.Command:
           if (Command == null) {
-            Command = new global::Rasm.Contracts.Ui.DeckReceiptWire();
+            Command = new global::Rasm.Contracts.Ui.DeckOutcomeWire();
           }
           Command.MergeFrom(other.Command);
           break;
@@ -1628,79 +1620,79 @@ namespace Rasm.Contracts.Ui {
           break;
         case KindOneofCase.Theme:
           if (Theme == null) {
-            Theme = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme();
+            Theme = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme();
           }
           Theme.MergeFrom(other.Theme);
           break;
         case KindOneofCase.Motion:
           if (Motion == null) {
-            Motion = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion();
+            Motion = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion();
           }
           Motion.MergeFrom(other.Motion);
           break;
         case KindOneofCase.Effect:
           if (Effect == null) {
-            Effect = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect();
+            Effect = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect();
           }
           Effect.MergeFrom(other.Effect);
           break;
         case KindOneofCase.Asset:
           if (Asset == null) {
-            Asset = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset();
+            Asset = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset();
           }
           Asset.MergeFrom(other.Asset);
           break;
         case KindOneofCase.LiveData:
           if (LiveData == null) {
-            LiveData = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData();
+            LiveData = new global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData();
           }
           LiveData.MergeFrom(other.LiveData);
           break;
         case KindOneofCase.CollabSync:
           if (CollabSync == null) {
-            CollabSync = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync();
+            CollabSync = new global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync();
           }
           CollabSync.MergeFrom(other.CollabSync);
           break;
         case KindOneofCase.CollabRevert:
           if (CollabRevert == null) {
-            CollabRevert = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert();
+            CollabRevert = new global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert();
           }
           CollabRevert.MergeFrom(other.CollabRevert);
           break;
         case KindOneofCase.Media:
           if (Media == null) {
-            Media = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media();
+            Media = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Media();
           }
           Media.MergeFrom(other.Media);
           break;
         case KindOneofCase.Quality:
           if (Quality == null) {
-            Quality = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality();
+            Quality = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality();
           }
           Quality.MergeFrom(other.Quality);
           break;
         case KindOneofCase.GpuFrame:
           if (GpuFrame == null) {
-            GpuFrame = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame();
+            GpuFrame = new global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame();
           }
           GpuFrame.MergeFrom(other.GpuFrame);
           break;
         case KindOneofCase.Layout:
           if (Layout == null) {
-            Layout = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout();
+            Layout = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout();
           }
           Layout.MergeFrom(other.Layout);
           break;
         case KindOneofCase.DispatcherLag:
           if (DispatcherLag == null) {
-            DispatcherLag = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag();
+            DispatcherLag = new global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag();
           }
           DispatcherLag.MergeFrom(other.DispatcherLag);
           break;
         case KindOneofCase.PreCommit:
           if (PreCommit == null) {
-            PreCommit = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit();
+            PreCommit = new global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit();
           }
           PreCommit.MergeFrom(other.PreCommit);
           break;
@@ -1726,7 +1718,7 @@ namespace Rasm.Contracts.Ui {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface();
             if (kindCase_ == KindOneofCase.Surface) {
               subBuilder.MergeFrom(Surface);
             }
@@ -1735,7 +1727,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 18: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus();
             if (kindCase_ == KindOneofCase.Focus) {
               subBuilder.MergeFrom(Focus);
             }
@@ -1744,7 +1736,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 26: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Render subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Render();
             if (kindCase_ == KindOneofCase.Render) {
               subBuilder.MergeFrom(Render);
             }
@@ -1753,7 +1745,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 34: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal();
             if (kindCase_ == KindOneofCase.Disposal) {
               subBuilder.MergeFrom(Disposal);
             }
@@ -1762,7 +1754,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 42: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit();
             if (kindCase_ == KindOneofCase.Edit) {
               subBuilder.MergeFrom(Edit);
             }
@@ -1771,7 +1763,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 50: {
-            global::Rasm.Contracts.Ui.DeckReceiptWire subBuilder = new global::Rasm.Contracts.Ui.DeckReceiptWire();
+            global::Rasm.Contracts.Ui.DeckOutcomeWire subBuilder = new global::Rasm.Contracts.Ui.DeckOutcomeWire();
             if (kindCase_ == KindOneofCase.Command) {
               subBuilder.MergeFrom(Command);
             }
@@ -1789,7 +1781,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 66: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme();
             if (kindCase_ == KindOneofCase.Theme) {
               subBuilder.MergeFrom(Theme);
             }
@@ -1798,7 +1790,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 74: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion();
             if (kindCase_ == KindOneofCase.Motion) {
               subBuilder.MergeFrom(Motion);
             }
@@ -1807,7 +1799,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 82: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect();
             if (kindCase_ == KindOneofCase.Effect) {
               subBuilder.MergeFrom(Effect);
             }
@@ -1816,7 +1808,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 90: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset();
             if (kindCase_ == KindOneofCase.Asset) {
               subBuilder.MergeFrom(Asset);
             }
@@ -1825,7 +1817,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 98: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData();
             if (kindCase_ == KindOneofCase.LiveData) {
               subBuilder.MergeFrom(LiveData);
             }
@@ -1834,7 +1826,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 106: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync();
             if (kindCase_ == KindOneofCase.CollabSync) {
               subBuilder.MergeFrom(CollabSync);
             }
@@ -1843,7 +1835,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 114: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert();
             if (kindCase_ == KindOneofCase.CollabRevert) {
               subBuilder.MergeFrom(CollabRevert);
             }
@@ -1852,7 +1844,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 122: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Media subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Media();
             if (kindCase_ == KindOneofCase.Media) {
               subBuilder.MergeFrom(Media);
             }
@@ -1861,7 +1853,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 130: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality();
             if (kindCase_ == KindOneofCase.Quality) {
               subBuilder.MergeFrom(Quality);
             }
@@ -1870,7 +1862,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 138: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame();
             if (kindCase_ == KindOneofCase.GpuFrame) {
               subBuilder.MergeFrom(GpuFrame);
             }
@@ -1879,7 +1871,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 146: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout();
             if (kindCase_ == KindOneofCase.Layout) {
               subBuilder.MergeFrom(Layout);
             }
@@ -1888,7 +1880,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 154: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag();
             if (kindCase_ == KindOneofCase.DispatcherLag) {
               subBuilder.MergeFrom(DispatcherLag);
             }
@@ -1897,7 +1889,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 162: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit();
             if (kindCase_ == KindOneofCase.PreCommit) {
               subBuilder.MergeFrom(PreCommit);
             }
@@ -1925,7 +1917,7 @@ namespace Rasm.Contracts.Ui {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Surface();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Surface();
             if (kindCase_ == KindOneofCase.Surface) {
               subBuilder.MergeFrom(Surface);
             }
@@ -1934,7 +1926,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 18: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Focus();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Focus();
             if (kindCase_ == KindOneofCase.Focus) {
               subBuilder.MergeFrom(Focus);
             }
@@ -1943,7 +1935,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 26: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Render();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Render subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Render();
             if (kindCase_ == KindOneofCase.Render) {
               subBuilder.MergeFrom(Render);
             }
@@ -1952,7 +1944,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 34: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Disposal();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Disposal();
             if (kindCase_ == KindOneofCase.Disposal) {
               subBuilder.MergeFrom(Disposal);
             }
@@ -1961,7 +1953,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 42: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Edit();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Edit();
             if (kindCase_ == KindOneofCase.Edit) {
               subBuilder.MergeFrom(Edit);
             }
@@ -1970,7 +1962,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 50: {
-            global::Rasm.Contracts.Ui.DeckReceiptWire subBuilder = new global::Rasm.Contracts.Ui.DeckReceiptWire();
+            global::Rasm.Contracts.Ui.DeckOutcomeWire subBuilder = new global::Rasm.Contracts.Ui.DeckOutcomeWire();
             if (kindCase_ == KindOneofCase.Command) {
               subBuilder.MergeFrom(Command);
             }
@@ -1988,7 +1980,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 66: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Theme();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Theme();
             if (kindCase_ == KindOneofCase.Theme) {
               subBuilder.MergeFrom(Theme);
             }
@@ -1997,7 +1989,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 74: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Motion();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Motion();
             if (kindCase_ == KindOneofCase.Motion) {
               subBuilder.MergeFrom(Motion);
             }
@@ -2006,7 +1998,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 82: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect();
             if (kindCase_ == KindOneofCase.Effect) {
               subBuilder.MergeFrom(Effect);
             }
@@ -2015,7 +2007,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 90: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Asset();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Asset();
             if (kindCase_ == KindOneofCase.Asset) {
               subBuilder.MergeFrom(Asset);
             }
@@ -2024,7 +2016,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 98: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.LiveData();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.LiveData();
             if (kindCase_ == KindOneofCase.LiveData) {
               subBuilder.MergeFrom(LiveData);
             }
@@ -2033,7 +2025,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 106: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabSync();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabSync();
             if (kindCase_ == KindOneofCase.CollabSync) {
               subBuilder.MergeFrom(CollabSync);
             }
@@ -2042,7 +2034,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 114: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.CollabRevert();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.CollabRevert();
             if (kindCase_ == KindOneofCase.CollabRevert) {
               subBuilder.MergeFrom(CollabRevert);
             }
@@ -2051,7 +2043,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 122: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Media();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Media subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Media();
             if (kindCase_ == KindOneofCase.Media) {
               subBuilder.MergeFrom(Media);
             }
@@ -2060,7 +2052,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 130: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Quality();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Quality();
             if (kindCase_ == KindOneofCase.Quality) {
               subBuilder.MergeFrom(Quality);
             }
@@ -2069,7 +2061,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 138: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.GpuFrame();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.GpuFrame();
             if (kindCase_ == KindOneofCase.GpuFrame) {
               subBuilder.MergeFrom(GpuFrame);
             }
@@ -2078,7 +2070,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 146: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Layout();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Layout();
             if (kindCase_ == KindOneofCase.Layout) {
               subBuilder.MergeFrom(Layout);
             }
@@ -2087,7 +2079,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 154: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.DispatcherLag();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.DispatcherLag();
             if (kindCase_ == KindOneofCase.DispatcherLag) {
               subBuilder.MergeFrom(DispatcherLag);
             }
@@ -2096,7 +2088,7 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 162: {
-            global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.PreCommit();
+            global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.PreCommit();
             if (kindCase_ == KindOneofCase.PreCommit) {
               subBuilder.MergeFrom(PreCommit);
             }
@@ -2110,7 +2102,7 @@ namespace Rasm.Contracts.Ui {
     #endif
 
     #region Nested types
-    /// <summary>Container for nested types declared in the EvidenceReceiptWire message type.</summary>
+    /// <summary>Container for nested types declared in the EvidenceWire message type.</summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static partial class Types {
@@ -2129,7 +2121,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[0]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[0]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2452,7 +2444,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[1]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[1]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2687,7 +2679,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[2]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[2]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3227,7 +3219,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[3]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[3]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3508,7 +3500,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[4]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[4]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3854,7 +3846,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[5]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[5]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4163,7 +4155,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[6]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[6]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4435,7 +4427,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[7]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[7]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4603,8 +4595,8 @@ namespace Rasm.Contracts.Ui {
         public const int ExtentFieldNumber = 8;
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-        public global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent Extent {
-          get { return measureCase_ == MeasureOneofCase.Extent ? (global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent) measure_ : null; }
+        public global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent Extent {
+          get { return measureCase_ == MeasureOneofCase.Extent ? (global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent) measure_ : null; }
           set {
             measure_ = value;
             measureCase_ = value == null ? MeasureOneofCase.None : MeasureOneofCase.Extent;
@@ -4901,7 +4893,7 @@ namespace Rasm.Contracts.Ui {
               break;
             case MeasureOneofCase.Extent:
               if (Extent == null) {
-                Extent = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent();
+                Extent = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent();
               }
               Extent.MergeFrom(other.Extent);
               break;
@@ -4964,7 +4956,7 @@ namespace Rasm.Contracts.Ui {
                 break;
               }
               case 66: {
-                global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent();
+                global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent();
                 if (measureCase_ == MeasureOneofCase.Extent) {
                   subBuilder.MergeFrom(Extent);
                 }
@@ -5033,7 +5025,7 @@ namespace Rasm.Contracts.Ui {
                 break;
               }
               case 66: {
-                global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent subBuilder = new global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Types.Extent();
+                global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent subBuilder = new global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Types.Extent();
                 if (measureCase_ == MeasureOneofCase.Extent) {
                   subBuilder.MergeFrom(Extent);
                 }
@@ -5079,7 +5071,7 @@ namespace Rasm.Contracts.Ui {
             [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
             [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
             public static pbr::MessageDescriptor Descriptor {
-              get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Types.Effect.Descriptor.NestedTypes[0]; }
+              get { return global::Rasm.Contracts.Ui.EvidenceWire.Types.Effect.Descriptor.NestedTypes[0]; }
             }
 
             [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -5319,7 +5311,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[8]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[8]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -5665,7 +5657,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[9]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[9]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6011,7 +6003,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[10]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[10]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6357,7 +6349,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[11]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[11]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6629,7 +6621,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[12]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[12]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6984,7 +6976,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[13]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[13]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -7367,7 +7359,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[14]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[14]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -7676,7 +7668,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[15]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[15]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8003,7 +7995,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[16]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[16]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8247,7 +8239,7 @@ namespace Rasm.Contracts.Ui {
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
         [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
         public static pbr::MessageDescriptor Descriptor {
-          get { return global::Rasm.Contracts.Ui.EvidenceReceiptWire.Descriptor.NestedTypes[17]; }
+          get { return global::Rasm.Contracts.Ui.EvidenceWire.Descriptor.NestedTypes[17]; }
         }
 
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8854,10 +8846,6 @@ namespace Rasm.Contracts.Ui {
 
   }
 
-  /// <summary>
-  /// The composition site: the cross-package receipt spine beside THIS package's closed receipt family, so the
-  /// payload is exhaustive at every arm and the producing package derives from the arm rather than from a key.
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class EvidenceRowWire : pb::IMessage<EvidenceRowWire>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
@@ -8895,9 +8883,9 @@ namespace Rasm.Contracts.Ui {
     public EvidenceRowWire(EvidenceRowWire other) : this() {
       ordinal_ = other.ordinal_;
       uncertaintyGroup_ = other.uncertaintyGroup_;
-      header_ = other.header_ != null ? other.header_.Clone() : null;
       band_ = other.band_ != null ? other.band_.Clone() : null;
-      receipt_ = other.receipt_ != null ? other.receipt_.Clone() : null;
+      evidence_ = other.evidence_ != null ? other.evidence_.Clone() : null;
+      stamp_ = other.stamp_ != null ? other.stamp_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -8931,20 +8919,8 @@ namespace Rasm.Contracts.Ui {
       }
     }
 
-    /// <summary>Field number for the "header" field.</summary>
-    public const int HeaderFieldNumber = 3;
-    private global::Rasm.Contracts.Receipt.ReceiptHeaderWire header_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Receipt.ReceiptHeaderWire Header {
-      get { return header_; }
-      set {
-        header_ = value;
-      }
-    }
-
     /// <summary>Field number for the "band" field.</summary>
-    public const int BandFieldNumber = 4;
+    public const int BandFieldNumber = 3;
     private global::Rasm.Contracts.Ui.SkewBandWire band_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -8955,15 +8931,27 @@ namespace Rasm.Contracts.Ui {
       }
     }
 
-    /// <summary>Field number for the "receipt" field.</summary>
-    public const int ReceiptFieldNumber = 5;
-    private global::Rasm.Contracts.Ui.EvidenceReceiptWire receipt_;
+    /// <summary>Field number for the "evidence" field.</summary>
+    public const int EvidenceFieldNumber = 4;
+    private global::Rasm.Contracts.Ui.EvidenceWire evidence_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Rasm.Contracts.Ui.EvidenceReceiptWire Receipt {
-      get { return receipt_; }
+    public global::Rasm.Contracts.Ui.EvidenceWire Evidence {
+      get { return evidence_; }
       set {
-        receipt_ = value;
+        evidence_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "stamp" field.</summary>
+    public const int StampFieldNumber = 5;
+    private global::Rasm.Contracts.Clock.Hlc stamp_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Rasm.Contracts.Clock.Hlc Stamp {
+      get { return stamp_; }
+      set {
+        stamp_ = value;
       }
     }
 
@@ -8984,9 +8972,9 @@ namespace Rasm.Contracts.Ui {
       }
       if (Ordinal != other.Ordinal) return false;
       if (UncertaintyGroup != other.UncertaintyGroup) return false;
-      if (!object.Equals(Header, other.Header)) return false;
       if (!object.Equals(Band, other.Band)) return false;
-      if (!object.Equals(Receipt, other.Receipt)) return false;
+      if (!object.Equals(Evidence, other.Evidence)) return false;
+      if (!object.Equals(Stamp, other.Stamp)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -8996,9 +8984,9 @@ namespace Rasm.Contracts.Ui {
       int hash = 1;
       if (Ordinal != 0) hash ^= Ordinal.GetHashCode();
       if (UncertaintyGroup != 0) hash ^= UncertaintyGroup.GetHashCode();
-      if (header_ != null) hash ^= Header.GetHashCode();
       if (band_ != null) hash ^= Band.GetHashCode();
-      if (receipt_ != null) hash ^= Receipt.GetHashCode();
+      if (evidence_ != null) hash ^= Evidence.GetHashCode();
+      if (stamp_ != null) hash ^= Stamp.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -9025,17 +9013,17 @@ namespace Rasm.Contracts.Ui {
         output.WriteRawTag(16);
         output.WriteUInt32(UncertaintyGroup);
       }
-      if (header_ != null) {
-        output.WriteRawTag(26);
-        output.WriteMessage(Header);
-      }
       if (band_ != null) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(26);
         output.WriteMessage(Band);
       }
-      if (receipt_ != null) {
+      if (evidence_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(Evidence);
+      }
+      if (stamp_ != null) {
         output.WriteRawTag(42);
-        output.WriteMessage(Receipt);
+        output.WriteMessage(Stamp);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -9055,17 +9043,17 @@ namespace Rasm.Contracts.Ui {
         output.WriteRawTag(16);
         output.WriteUInt32(UncertaintyGroup);
       }
-      if (header_ != null) {
-        output.WriteRawTag(26);
-        output.WriteMessage(Header);
-      }
       if (band_ != null) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(26);
         output.WriteMessage(Band);
       }
-      if (receipt_ != null) {
+      if (evidence_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(Evidence);
+      }
+      if (stamp_ != null) {
         output.WriteRawTag(42);
-        output.WriteMessage(Receipt);
+        output.WriteMessage(Stamp);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -9083,14 +9071,14 @@ namespace Rasm.Contracts.Ui {
       if (UncertaintyGroup != 0) {
         size += 1 + pb::CodedOutputStream.ComputeUInt32Size(UncertaintyGroup);
       }
-      if (header_ != null) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Header);
-      }
       if (band_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Band);
       }
-      if (receipt_ != null) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Receipt);
+      if (evidence_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Evidence);
+      }
+      if (stamp_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Stamp);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -9110,23 +9098,23 @@ namespace Rasm.Contracts.Ui {
       if (other.UncertaintyGroup != 0) {
         UncertaintyGroup = other.UncertaintyGroup;
       }
-      if (other.header_ != null) {
-        if (header_ == null) {
-          Header = new global::Rasm.Contracts.Receipt.ReceiptHeaderWire();
-        }
-        Header.MergeFrom(other.Header);
-      }
       if (other.band_ != null) {
         if (band_ == null) {
           Band = new global::Rasm.Contracts.Ui.SkewBandWire();
         }
         Band.MergeFrom(other.Band);
       }
-      if (other.receipt_ != null) {
-        if (receipt_ == null) {
-          Receipt = new global::Rasm.Contracts.Ui.EvidenceReceiptWire();
+      if (other.evidence_ != null) {
+        if (evidence_ == null) {
+          Evidence = new global::Rasm.Contracts.Ui.EvidenceWire();
         }
-        Receipt.MergeFrom(other.Receipt);
+        Evidence.MergeFrom(other.Evidence);
+      }
+      if (other.stamp_ != null) {
+        if (stamp_ == null) {
+          Stamp = new global::Rasm.Contracts.Clock.Hlc();
+        }
+        Stamp.MergeFrom(other.Stamp);
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -9156,24 +9144,24 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 26: {
-            if (header_ == null) {
-              Header = new global::Rasm.Contracts.Receipt.ReceiptHeaderWire();
-            }
-            input.ReadMessage(Header);
-            break;
-          }
-          case 34: {
             if (band_ == null) {
               Band = new global::Rasm.Contracts.Ui.SkewBandWire();
             }
             input.ReadMessage(Band);
             break;
           }
-          case 42: {
-            if (receipt_ == null) {
-              Receipt = new global::Rasm.Contracts.Ui.EvidenceReceiptWire();
+          case 34: {
+            if (evidence_ == null) {
+              Evidence = new global::Rasm.Contracts.Ui.EvidenceWire();
             }
-            input.ReadMessage(Receipt);
+            input.ReadMessage(Evidence);
+            break;
+          }
+          case 42: {
+            if (stamp_ == null) {
+              Stamp = new global::Rasm.Contracts.Clock.Hlc();
+            }
+            input.ReadMessage(Stamp);
             break;
           }
         }
@@ -9204,24 +9192,24 @@ namespace Rasm.Contracts.Ui {
             break;
           }
           case 26: {
-            if (header_ == null) {
-              Header = new global::Rasm.Contracts.Receipt.ReceiptHeaderWire();
-            }
-            input.ReadMessage(Header);
-            break;
-          }
-          case 34: {
             if (band_ == null) {
               Band = new global::Rasm.Contracts.Ui.SkewBandWire();
             }
             input.ReadMessage(Band);
             break;
           }
-          case 42: {
-            if (receipt_ == null) {
-              Receipt = new global::Rasm.Contracts.Ui.EvidenceReceiptWire();
+          case 34: {
+            if (evidence_ == null) {
+              Evidence = new global::Rasm.Contracts.Ui.EvidenceWire();
             }
-            input.ReadMessage(Receipt);
+            input.ReadMessage(Evidence);
+            break;
+          }
+          case 42: {
+            if (stamp_ == null) {
+              Stamp = new global::Rasm.Contracts.Clock.Hlc();
+            }
+            input.ReadMessage(Stamp);
             break;
           }
         }

@@ -163,20 +163,20 @@ internal sealed class SupervisorConnection : IAsyncDisposable {
             SenderVersion: SupervisorVersion,
             Capabilities: [new CapabilityEntry(
                 Key: "client.pid", Outcome: PhaseStatus.Ok,
-                Receipt: Environment.ProcessId.ToString(provider: CultureInfo.InvariantCulture))],
+                Detail: Environment.ProcessId.ToString(provider: CultureInfo.InvariantCulture))],
             Fingerprint: null,
             Endpoint: null), ct: ct);
 
-    internal Task<CargoReceipt> LoadAsync(CargoManifest manifest, CancellationToken ct) =>
+    internal Task<LoadedCargo> LoadAsync(CargoManifest manifest, CancellationToken ct) =>
         shell.LoadCargoAsync(manifest: manifest, ct: ct);
 
-    internal Task<ScenarioReceipt[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
+    internal Task<ScenarioOutcome[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
         shell.RunAsync(selection: selection, ct: ct);
 
-    internal Task<UnloadReceipt> UnloadAsync(CancellationToken ct) =>
+    internal Task<UnloadOutcome> UnloadAsync(CancellationToken ct) =>
         shell.UnloadCargoAsync(ct: ct);
 
-    internal Task<QuitPrepareReceipt> PrepareQuitAsync(CancellationToken ct) =>
+    internal Task<QuitScrub> PrepareQuitAsync(CancellationToken ct) =>
         shell.PrepareQuitAsync(ct: ct);
 
     public async ValueTask DisposeAsync() {
@@ -380,7 +380,7 @@ internal sealed class HostWatch : IDisposable {
                 raise(new SessionSignal.HostExited(Pid: pid, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds()));
                 return;
             }
-            if (landed < 0 && Marshal.GetLastPInvokeError() != 4 )
+            if (landed < 0 && Marshal.GetLastPInvokeError() != 4)
                 return;
         }
     }
@@ -554,36 +554,36 @@ internal static class QuitJournal {
 internal static class QuitPrepare {
     private const int MaxAttempts = 2;
 
-    internal static async Task RunAsync(Func<CancellationToken, Task<QuitPrepareReceipt>> prepare, TimeSpan deadline, TimeProvider clock, Guid sessionId, Action<BridgeEvent> publish, CancellationToken root) {
+    internal static async Task RunAsync(Func<CancellationToken, Task<QuitScrub>> prepare, TimeSpan deadline, TimeProvider clock, Guid sessionId, Action<BridgeEvent> publish, CancellationToken root) {
         ArgumentNullException.ThrowIfNull(argument: prepare);
         ArgumentNullException.ThrowIfNull(argument: clock);
         ArgumentNullException.ThrowIfNull(argument: publish);
-        Option<QuitPrepareReceipt> scrubbed = Option<QuitPrepareReceipt>.None;
-        string lastDetail = "scrub never returned a receipt before the bound";
+        Option<QuitScrub> scrubbed = Option<QuitScrub>.None;
+        string lastDetail = "scrub never settled before the bound";
         for (int attempt = 1; attempt <= MaxAttempts && scrubbed.IsNone; attempt++) {
-            (Option<QuitPrepareReceipt> receipt, string detail) = await AttemptAsync(prepare: prepare, deadline: deadline, root: root).ConfigureAwait(false);
+            (Option<QuitScrub> scrub, string detail) = await AttemptAsync(prepare: prepare, deadline: deadline, root: root).ConfigureAwait(false);
             lastDetail = detail;
-            scrubbed = receipt.Filter(pred: static settled => settled.Scrubbed);
+            scrubbed = scrub.Filter(pred: static settled => settled.Scrubbed);
         }
         EventStamp stamp = new(SessionId: sessionId, Sequence: 0, AtUnixMs: clock.GetUtcNow().ToUnixTimeMilliseconds(), Scenario: null);
-        publish(scrubbed.Case is QuitPrepareReceipt clean
+        publish(scrubbed.Case is QuitScrub clean
             ? BridgeEvent.Fact(key: "quit.prepared", value: string.Create(provider: CultureInfo.InvariantCulture,
                 $"rhino-docs-marked-clean; documents={clean.Documents};markedClean={clean.MarkedClean};residualDirty={clean.ResidualDirty}; gh2={clean.Gh2}"), stamp: stamp)
             : BridgeEvent.Fact(key: "quit.prepare.incomplete", value: lastDetail, stamp: stamp));
     }
 
-    private static async Task<(Option<QuitPrepareReceipt> Receipt, string Detail)> AttemptAsync(Func<CancellationToken, Task<QuitPrepareReceipt>> prepare, TimeSpan deadline, CancellationToken root) {
+    private static async Task<(Option<QuitScrub> Scrub, string Detail)> AttemptAsync(Func<CancellationToken, Task<QuitScrub>> prepare, TimeSpan deadline, CancellationToken root) {
         using CancellationTokenSource scope = CancellationTokenSource.CreateLinkedTokenSource(root);
         scope.CancelAfter(delay: deadline);
         try {
-            QuitPrepareReceipt receipt = await prepare(scope.Token).ConfigureAwait(false);
-            return (Some(value: receipt), receipt.Scrubbed
+            QuitScrub scrub = await prepare(scope.Token).ConfigureAwait(false);
+            return (Some(value: scrub), scrub.Scrubbed
                 ? string.Empty
-                : string.Create(provider: CultureInfo.InvariantCulture, $"scrub left {receipt.ResidualDirty} doc(s) modified; savedPaths={string.Join(separator: ',', values: receipt.SavedPaths)}; gh2={receipt.Gh2}"));
+                : string.Create(provider: CultureInfo.InvariantCulture, $"scrub left {scrub.ResidualDirty} doc(s) modified; savedPaths={string.Join(separator: ',', values: scrub.SavedPaths)}; gh2={scrub.Gh2}"));
         } catch (OperationCanceledException) {
-            return (Option<QuitPrepareReceipt>.None, string.Create(provider: CultureInfo.InvariantCulture, $"scrub exceeded its {deadline.TotalMilliseconds:F0}ms bound"));
+            return (Option<QuitScrub>.None, string.Create(provider: CultureInfo.InvariantCulture, $"scrub exceeded its {deadline.TotalMilliseconds:F0}ms bound"));
         } catch (Exception error) when (error is RemoteRpcException or JsonException or IOException or ObjectDisposedException) {
-            return (Option<QuitPrepareReceipt>.None, $"{error.GetType().Name}: {error.Message}");
+            return (Option<QuitScrub>.None, $"{error.GetType().Name}: {error.Message}");
         }
     }
 }

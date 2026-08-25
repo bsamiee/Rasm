@@ -146,7 +146,6 @@
 - `docxtpl`(`.api/docxtpl.md`): a shared `Environment` passed to `DocxTemplate.render(context, jinja_env=...)` keeps filters, globals, and the autoescape/undefined policy identical across the HTML report body and the `.docx` body.
 - `InternationalizationExtension` stacks with `Babel` (the `i18n` extra) for locale-aware report strings beside the locale-aware `great-tables` cell formatting.
 - within-lib: `document/report` composes the one `Environment` — loader rows, registries, and the sync/async render path — into the `DocumentNode` tree.
-- universal rail: the render receipt is a `msgspec.Struct` admitted through `pydantic`, the boundary is `@beartype`-validated, and a `TemplateNotFound`/`UndefinedError`/`SecurityError` folds onto the `expression.Result` rail at the capsule while the `@receipted` weave carries the `structlog` event and `opentelemetry` span capturing template name, loader row, autoescape decision, undefined policy, and output byte length (`libs/python/.api`).
 
 [LOCAL_ADMISSION]:
 - BSD-3-Clause pure-Python wheel; admitted for the `document` report-templating rail. `MarkupSafe` is the runtime dependency; `Babel` enters only under the `i18n` extra.

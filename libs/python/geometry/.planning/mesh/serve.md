@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_MESH_SERVE]
 
-`GeometryServe` is the geometry-side owner of the generated `ComputeService` and complete generated `ArtifactService`. It returns tessellation receipts by reference, serves stored bodies through `Fetch`, and accepts verified bodies through `Put`. The runtime host seats `BodyAdmission(SERVER)` on both generated applications, while runtime `transport/artifact` alone owns cross-frame identity, extent, hashing, temporary-file custody, and framing.
+`GeometryServe` is the geometry-side owner of the generated `ComputeService` and complete generated `ArtifactService`. It returns tessellation responses by reference, serves stored bodies through `Fetch`, and accepts verified bodies through `Put`. The runtime host seats `BodyAdmission(SERVER)` on both generated applications, while runtime `transport/artifact` alone owns cross-frame identity, extent, hashing, temporary-file custody, and framing.
 
 The servicer has no ring, byte cache, frame state machine, or second store. `TessellationDaemon.repository` is the one required repository used by tessellation input resolution, output publication, replay, `Fetch`, and `Put`.
 
@@ -17,7 +17,7 @@ The servicer has no ring, byte cache, frame state machine, or second store. `Tes
 - Law: one `Resource.REQUEST` charge settles each handled route, including refusals. Decode-time contract refusals never reach a handler and therefore carry no handler charge.
 - Law: the caller deadline admitted by `ServerHost` rides the daemon kernel. Artifact helper contexts close on success, refusal, cancellation, and downstream stream termination.
 - Entry: generated overrides collapse runtime rails through `ServerHost.settle`; `mount` proves geometry graduation before registering either application.
-- Receipt: serve emits no parallel receipt family. `@receipted` harvests the daemon once after each drive.
+- Output: `_response` is the one `TessellationResult → TessellateResponse` projection, the generated reply carrying the daemon's result whole; serve mints no parallel fact family beside the daemon's own lines and the weave's span.
 - Packages: generated compute/artifact protocols, runtime `transport/artifact`, the daemon/graduation owners, and runtime host/journal custody.
 - Growth: a new artifact integrity rule lands in the contracts helper; a new generated RPC adds one override and route charge here. Neither change adds a local frame dialect or storage port.
 - Boundary: runtime owns bind, Connect codecs, body admission, health, typed fault egress, and lifecycle. Geometry contributes generated application rows and one servicer instance.
@@ -49,8 +49,8 @@ from rasm.geometry.mesh.daemon import TessellationDaemon, TessellationResult
 from rasm.runtime.admission import RuntimeContext, SecretBoundary
 from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.journal import Custody, Journal, Ledger, MeterFact, Resource
-from rasm.runtime.profiles import BenchmarkReceipt
-from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, ScopeKey, receipted
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
+from rasm.runtime.profiles import Benchmark
 from rasm.runtime.roots import StoreFault
 from rasm.runtime.serve import Served, ServerHost, companion_app
 
@@ -104,7 +104,7 @@ def _ledger(evidence: Option[tuple[DatasetRef, DatasetRef, SecretBoundary]]) -> 
             return Ok(Nothing)
 
 
-def _receipt(result: TessellationResult) -> TessellateResponse:
+def _response(result: TessellationResult) -> TessellateResponse:
     return TessellateResponse(
         content_key=result.content_key.wire_bytes,
         element_count=result.element_count,
@@ -192,7 +192,7 @@ class GeometryServe(ComputeService, ArtifactService):
         rail = await evidence_run(
             EvidenceScope.MESH_SERVE,
             TESSELLATE_ROUTE,
-            partial(self._drive, request, context.budget),
+            partial(self._daemon.tessellate, request, budget=context.budget),
             composition=self._composition,
         )
         return await _served(
@@ -200,23 +200,10 @@ class GeometryServe(ComputeService, ArtifactService):
             self._composition,
             rail.bind(
                 lambda results: results.try_head()
-                .map(lambda head: Ok(_receipt(head)))
+                .map(lambda head: Ok(_response(head)))
                 .default_value(Error(SERVE_EMPTY.raised()))
             ),
         )
-
-    async def _drive(
-        self,
-        request: TessellateRequest,
-        budget: Option[float],
-    ) -> RuntimeRail[Block[TessellationResult]]:
-        rail = await self._daemon.tessellate(request, budget=budget)
-        self._harvest(self._daemon)
-        return rail
-
-    @receipted(OPEN)
-    def _harvest(self, daemon: TessellationDaemon) -> TessellationDaemon:
-        return daemon
 
     async def _put(self, request: AsyncIterator[PutRequest]) -> RuntimeRail[ArtifactRef]:
         try:
@@ -241,14 +228,11 @@ class GeometryServe(ComputeService, ArtifactService):
         *,
         rounds: int = 32,
         warmup: int = 4,
-    ) -> RuntimeRail[BenchmarkReceipt]:
+    ) -> RuntimeRail[Benchmark]:
         return bench_seam(
-            bench_subject(EvidenceScope.MESH_SERVE, TESSELLATE_ROUTE),
-            partial(self._tessellate, request, context),
-            rounds=rounds,
-            warmup=warmup,
-            composition=self._composition,
+            bench_subject(EvidenceScope.MESH_SERVE, TESSELLATE_ROUTE), partial(self._tessellate, request, context), rounds=rounds, warmup=warmup
         )
+
 ```
 
 ## [03]-[RESEARCH]

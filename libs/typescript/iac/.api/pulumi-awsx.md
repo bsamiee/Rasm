@@ -78,7 +78,7 @@ One shape owns every family: `new X(name, XArgs, opts?: pulumi.ComponentResource
 - `@pulumi/aws`(`.api/pulumi-aws.md`): every awsx output is a raw `aws.*` resource (`vpc.subnets: aws.ec2.Subnet[]`, `alb.loadBalancer: aws.lb.LoadBalancer`) — the wiring currency the arm threads into the next resource's `Input` and the return type of every output.
 - `@pulumi/docker-build`(`.api/pulumi-docker-build.md`): `ecr.Image` bundles it as the buildx builder, and the ECR-pushed `imageUri` digest is the aws-arm counterpart to a direct `docker-build.Image` `ref`/`digest` selected by dispatch arm — canonical build ownership lives at that catalog's `[05]-[IMPLEMENTATION_LAW]`.
 - `@pulumiverse/doppler`(`.api/pulumiverse-doppler.md`): the shared `aws.Provider` creds decode from the `StackSpec` Doppler secret Output.
-- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): `opts.provider`/`opts.parent` thread the arm provider and the `stack/component` tier; a composition failure folds into the `automation.UpResult` run receipt.
+- `@pulumi/pulumi`(`.api/pulumi-pulumi.md`): `opts.provider`/`opts.parent` thread the arm provider and the `stack/component` tier; a composition failure rejects the lifecycle operation and maps to `DeployFault`.
 - within-lib: the `aws` `Match.exhaustive` arm (`effect`, `libs/typescript/.api/effect.md`) `Schema`-decodes a `StackSpec`, constructs the raw `aws.Provider`, threads it to every awsx composition via `opts.provider`, and projects the raw sub-resources into typed `StackOutputs`.
 
 [LOCAL_ADMISSION]:

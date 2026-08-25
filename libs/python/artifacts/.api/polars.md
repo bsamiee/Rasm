@@ -51,7 +51,6 @@
 [STACKING]:
 - `great-tables`(`.api/great-tables.md`): the BYO-DataFrame contract is polars-first — `GT(frame)` and `frame.style` take a `pl.DataFrame`, `summary_rows`/`grand_summary_rows` take `dict[str, pl.Expr]`, `loc.body(mask=)` takes a boolean `Expr`, `vals.fmt_*` takes a `pl.Series`; the styled frame folds the `TableOp` sequence and emits HTML/LaTeX/PDF with no intermediate interchange.
 - `expression`(`.api/expression.md`): `TablePlan.render`/`DiagramLayout.assign` thread every seam crossing through `RuntimeRail`/`boundary`, mapping the `pl.exceptions` family (`ColumnNotFoundError`, `SchemaError`, `ComputeError`) onto a typed `Result`/`Error` rather than raising.
-- `msgspec`(`.api/msgspec.md`): a `pl.DataFrame` rides as a frozen `Struct` field (`TablePlan.frame`, `DiagramLayout.adjacency`) — an opaque settled payload whose content key (`ContentIdentity.of`) and rendered bytes alone ride the `ArtifactReceipt`.
 - `beartype`(`.api/beartype.md`): an artifacts owner's ingress validates `pl.DataFrame`/`pl.Series`/`pl.Expr` as the declared annotation, faulting a wrong-shape input at the boundary.
 - `numpy`(`.api/numpy.md`): `to_numpy()`/`Series.to_numpy()` exits to the dense-array substrate for diagram coordinates and nanoplot vectors.
 - within-lib: `TablePlan` folds the `TableOp` sequence onto `frame.style` and indexes `VALS_TABLE[kind](series, opts)` for out-of-table Series formatting; `DiagramLayout` lowers `adjacency`/`attributes` through `to_dicts()` into a `rustworkx` graph.

@@ -2,7 +2,7 @@
 
 `Modes.Configure` owns display-mode appearance, descriptor policy, table operations, viewport binding, mode-scoped capture, and built-in analysis attachment as one request algebra. Raw host editors remain inside the fold, every viewport touch stays leased, and every successful mutation returns detached mode evidence.
 
-`ModeOp` is the display-mode table seam this page owns, `ViewportTarget` remains the viewport identity seam, and `CaptureArtifact` remains bitmap custody. `DisplayModeDescription`, `DisplayPipelineAttributes`, `RhinoViewport`, and `VisualAnalysisMode` never cross the receipt boundary. The page's flag estate rides ONE axis vocabulary: `DisplayAxis` names every boolean attribute slot the host publishes, each row carrying its own writer and reader, so a concern's flags are a `CapabilitySet<DisplayAxis>` and a sixty-five-member bool spread has no spelling left.
+`ModeOp` is the display-mode table seam this page owns, `ViewportTarget` remains the viewport identity seam, and `CaptureArtifact` remains bitmap custody. `DisplayModeDescription`, `DisplayPipelineAttributes`, `RhinoViewport`, and `VisualAnalysisMode` never cross the outcome boundary. The page's flag estate rides ONE axis vocabulary: `DisplayAxis` names every boolean attribute slot the host publishes, each row carrying its own writer and reader, so a concern's flags are a `CapabilitySet<DisplayAxis>` and a sixty-five-member bool spread has no spelling left.
 
 ## [01]-[INDEX]
 
@@ -23,7 +23,6 @@
 - Law: the concern sequence admits one row per case — duplicate discriminants reject at request admission, so no later row silently overwrites an earlier host write.
 - Law: the case set spans the WHOLE public attribute model, so an attribute family with no writer is a defect the case that owns its concern absorbs; the two genuinely homeless scene concerns (`BoundingBoxMode`, `DynamicDisplayUsage`) seat on `Pipeline`, and a sibling record beside the owning case is the deleted form.
 - Law: the per-face override product is two `CapabilitySet<FaceAxis>` columns under the stated corner law — the host publishes no back-face colour-override slot, so of the sixteen face-axis corners twelve are legal and `FaceAxis.BackLaw` refuses the four that hold `Color` on the back face at admission rather than skipping a write the value silently claimed.
-- Receipt: appearance contributes only through the enclosing `ModeReceipt.Configured` case.
 - Growth: a host flag is one `DisplayAxis` row naming its concern; a host appearance concern lands as one column or carrier field on the case that owns it, and only a genuinely new concern earns an `Appearance` case, one `ConcernRow` row, and one dispatch arm.
 - Boundary: colors quantize once at the writer through `Quant.Sys` — the folder's one `System.Drawing` egress composing the kernel `PerceptualColor.ToDrawing` at `Display/draw.md`; raw host colors and attribute editors stay inside the boundary.
 - Packages: RhinoCommon `Rhino.Display` (`DisplayPipelineAttributes` and its nested vocabularies — `.api/api-rhinocommon-display.md`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`, `[ComplexValueObject]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `ICapability`, `Op`).
@@ -734,7 +733,7 @@ public abstract partial record Appearance {
 - Owner: `ModeKind` carries built-in identity; `ModeTrait` is the descriptor's seven-row trait vocabulary, each row carrying its host writer and reader; `ModePolicy` closes the descriptor decision family at TWO cases — the name and the trait set; `ModePlan` distinguishes editing an existing descriptor from deriving and persisting a copy.
 - Law: the descriptor's seven booleans are `ModeTrait` rows, never policy cases — the set is DERIVED by sweeping the rows against a live descriptor, so the law is `Open` and admission is the sweep; a policy band round-trips as one set the same way a concern's flags do, and a compensating write needs no second reader. NAMED LOSS: the seven per-trait case names; bought back by the rows' own keys and by growth — an eighth descriptor trait is one row, no case, no summary column, no write arm.
 - Law: `ModeOp.FindCase` yields a detached host copy; appearance and policy writes remain local until `ModeOp.UpdateCase` persists the descriptor.
-- Law: copied modes always pass through `ModeOp.UpdateCase`; an in-memory copy never becomes a successful receipt.
+- Law: copied modes always pass through `ModeOp.UpdateCase`; an in-memory copy never becomes a `Configured` outcome.
 - Law: the built-in vocabulary is the REQUEST's discriminant — `ModeRequest.Builtin` binds a viewport to a rostered mode by row, which is the roster's one consumer and the reason the twelve identities are rows rather than raw `Guid`s at call sites.
 - Growth: a built-in mode is one `ModeKind` row; a descriptor trait is one `ModeTrait` row.
 - Packages: RhinoCommon `Rhino.Display.DisplayModeDescription` (`.api/api-rhinocommon-display.md`); Thinktecture.Runtime.Extensions; `Rasm.Domain` (`CapabilitySet`, `ICapability`).
@@ -822,8 +821,8 @@ public abstract partial record ModePlan {
 
 - Owner: `ModeOp` is the closed table request family consumed by `Modes.Configure`.
 - Entry: `ModeOp.Apply` returns resolved descriptors for every operation, including host-minted identities.
-- Law: every minted identifier re-resolves before egress; a dangling identifier never becomes a descriptor receipt.
-- Law: every case has a reachable public ingress on `ModeRequest`, so the vocabulary and the entry family agree case for case; a table verb whose only argument is a live `DisplayModeDescription` has no admissible ingress across the receipt boundary and does not exist here — `AddDisplayMode(string)` mints through `BlankCase` and `UpdateDisplayMode` persists a descriptor the fold already resolved.
+- Law: every minted identifier re-resolves before egress; a dangling identifier never becomes a `ModeSummary`.
+- Law: every case has a reachable public ingress on `ModeRequest`, so the vocabulary and the entry family agree case for case; a table verb whose only argument is a live `DisplayModeDescription` has no admissible ingress across the outcome boundary and does not exist here — `AddDisplayMode(string)` mints through `BlankCase` and `UpdateDisplayMode` persists a descriptor the fold already resolved.
 - Law: the host splits its table verbs by return shape — the four minting verbs answer a `Guid` that is `Guid.Empty` on refusal, and the three persisting verbs answer a `bool` — so `Mint` folds the identifier verbs onto one re-resolving rail and `Confirm` folds the boolean ones, and no arm reads a return the host does not publish.
 - Law: the `.ini` import's dialogue posture is the Document spine's `HostInteraction` row, never a bare bool — the row is the corpus-wide host-dialogue axis every folder's `quiet` argument reads.
 - Growth: a table verb is one request case, one dispatch arm, and one `ModeRequest` entry case in the same pass.
@@ -874,15 +873,15 @@ internal abstract partial record ModeOp {
 
 ## [05]-[CONFIGURE]
 
-- Owner: `ModeRequest` is the complete ingress family and `ModeReceipt` is the detached egress family; `ModeSummary` is the detached descriptor projection and `ModeMap` its one generated correspondence.
+- Owner: `ModeRequest` is the complete ingress family and `ModeOutcome` is the detached egress family; `ModeSummary` is the detached descriptor projection and `ModeMap` its one generated correspondence.
 - Entry: `Modes.Configure` dispatches every modality; request shape carries singular, batch, query, capture, and analysis intent without flags or sibling verbs; `ModeRequest.Builtin` is the rostered bind ingress.
 - Law: the ingress family covers every `ModeOp` case, so the table vocabulary and the public entry agree case for case, and a table verb whose only argument is a live descriptor has no admissible ingress and does not exist.
-- Law: a descriptor never crosses the receipt boundary; `ModeSummary` carries identity, both names, and the trait set, and its projection is the `ModeMap` `[Mapper]` — a hand member-by-member copy beside the generator is the deleted form, and the trait sweep is the mapper's one declared user mapping.
-- Law: analysis attachment admits a unique requested set, separates requested and changed subjects in the receipt, and lands through `DocumentCommit.Compensated` — the spine's one land-and-roll-back algebra — so a failed enable rolls every landed subject back to its measured prior state and the hand rollback fold this page carried is the deleted form. The prior state is an `AnalysisState` ROW measured per subject, never a bool.
+- Law: a descriptor never crosses the outcome boundary; `ModeSummary` carries identity, both names, and the trait set, and its projection is the `ModeMap` `[Mapper]` — a hand member-by-member copy beside the generator is the deleted form, and the trait sweep is the mapper's one declared user mapping.
+- Law: analysis attachment admits a unique requested set, separates requested and changed subjects in `AnalysisChanged`, and lands through `DocumentCommit.Compensated` — the spine's one land-and-roll-back algebra — so a failed enable rolls every landed subject back to its measured prior state and the hand rollback fold this page carried is the deleted form. The prior state is an `AnalysisState` ROW measured per subject, never a bool.
 - Law: this page is the analysis-mode MOUNT — `AnalysisEdit.Overlay` seats a false-colour `AnalysisLaw` on the conduit page's `AnalysisOverlay` singleton and `AnalysisEdit.Retain` opens the conduit page's `RetainedOverlay` capsule, so the two conduit owners have their one consumer here and an overlay reaches a viewport only through a mode request.
 - Law: `Apply` runs ONE write path for both plan cases and a written descriptor IS recoverable — `Appearance.Of` and the trait sweep read the whole concern and trait state back, so the commit captures the prior state before its first write and replays it onto the live descriptor when any stage fails, folding a failed restoration onto the primary fault. A staging clone stays unspellable because the host publishes no `DisplayPipelineAttributes` clone or assign, and it would buy nothing the compensating read does not.
 - Boundary: UI adjustment and analysis-dialog requests demand dialog capability; bitmap custody exits only as `CaptureArtifact`.
-- Growth: a new mode operation is one request case, one `ModeOp` case, and one receipt projection inside the existing dispatch.
+- Growth: a new mode operation is one request case, one `ModeOp` case, and one `ModeOutcome` case inside the existing dispatch.
 - Packages: RhinoCommon `Rhino.Display.VisualAnalysisMode` and `Rhino.DocObjects.RhinoObject` (`.api/api-rhinocommon-display.md`); Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]`, `[UserMapping]`); LanguageExt.Core; `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `DocumentCommit`, `HostInteraction`).
 
 ```csharp
@@ -1018,27 +1017,27 @@ internal static partial class ModeMap {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ModeReceipt : IDetachedDocumentResult {
-    private ModeReceipt() { }
-    public sealed record Configured(ModeId Mode) : ModeReceipt;
-    public sealed record Bound(ModeId Mode) : ModeReceipt;
-    public sealed record Inspected(ModeId Mode, Seq<Appearance> Concerns, CapabilitySet<ModeTrait> Traits) : ModeReceipt;
-    public sealed record Captured(CaptureArtifact Artifact) : ModeReceipt;
-    public sealed record Resolved(Seq<ModeSummary> Modes) : ModeReceipt;
-    public sealed record Retired(ModeId Mode) : ModeReceipt;
-    public sealed record Exported(ModeId Mode, string Path) : ModeReceipt;
-    public sealed record AnalysisChanged(Seq<Guid> Requested, Seq<Guid> Changed, AnalysisId Mode, AnalysisState State) : ModeReceipt;
-    public sealed record AnalysisCensus(Guid Object, Seq<AnalysisId> Active) : ModeReceipt;
-    public sealed record AnalysisAdjusted(AnalysisId Mode) : ModeReceipt;
-    public sealed record AnalysisInterface(AnalysisId Mode, PanelState Panel) : ModeReceipt;
-    public sealed record AnalysisRange(CurvatureRange Value) : ModeReceipt;
-    public sealed record OverlayBound(AnalysisId Mode) : ModeReceipt;
-    public sealed record Retained(RetainedOverlay Lease) : ModeReceipt;
+public abstract partial record ModeOutcome : IDetachedDocumentResult {
+    private ModeOutcome() { }
+    public sealed record Configured(ModeId Mode) : ModeOutcome;
+    public sealed record Bound(ModeId Mode) : ModeOutcome;
+    public sealed record Inspected(ModeId Mode, Seq<Appearance> Concerns, CapabilitySet<ModeTrait> Traits) : ModeOutcome;
+    public sealed record Captured(CaptureArtifact Artifact) : ModeOutcome;
+    public sealed record Resolved(Seq<ModeSummary> Modes) : ModeOutcome;
+    public sealed record Retired(ModeId Mode) : ModeOutcome;
+    public sealed record Exported(ModeId Mode, string Path) : ModeOutcome;
+    public sealed record AnalysisChanged(Seq<Guid> Requested, Seq<Guid> Changed, AnalysisId Mode, AnalysisState State) : ModeOutcome;
+    public sealed record AnalysisCensus(Guid Object, Seq<AnalysisId> Active) : ModeOutcome;
+    public sealed record AnalysisAdjusted(AnalysisId Mode) : ModeOutcome;
+    public sealed record AnalysisInterface(AnalysisId Mode, PanelState Panel) : ModeOutcome;
+    public sealed record AnalysisRange(CurvatureRange Value) : ModeOutcome;
+    public sealed record OverlayBound(AnalysisId Mode) : ModeOutcome;
+    public sealed record Retained(RetainedOverlay Lease) : ModeOutcome;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Modes {
-    public static Fin<ModeReceipt> Configure(ModeRequest request, Op? key = null) {
+    public static Fin<ModeOutcome> Configure(ModeRequest request, Op? key = null) {
         Op op = key.OrDefault();
         return guard(request is not null && request.Valid, op.InvalidInput()).ToFin().Bind(_ => request.Switch(
             op,
@@ -1050,66 +1049,66 @@ public static class Modes {
                     .Bind(modes => modes.Head.ToFin(held.Op.InvalidResult()))
                     .Bind(mode => Commit(mode, held.Policies, held.Concerns, held.Op)
                         .BindFail(failure => new ModeOp.DeleteCase(ModeId.Create(mode.Id)).Apply(held.Op).Match(
-                            Succ: _ => Fin.Fail<ModeReceipt>(failure),
-                            Fail: cleanup => Fin.Fail<ModeReceipt>(failure + cleanup))))),
+                            Succ: _ => Fin.Fail<ModeOutcome>(failure),
+                            Fail: cleanup => Fin.Fail<ModeOutcome>(failure + cleanup))))),
             bind: static (op, row) => Resolve(row.Mode, op)
                 .Bind(mode => ViewportLease.Of(row.Session, row.Target, op)
                     .Bind(lease => lease.Use(borrow => op.Catch(() => Fin.Succ((borrow.Viewport.DisplayMode = mode, unit).Item2)), op)))
-                .Map(_ => (ModeReceipt)new ModeReceipt.Bound(row.Mode)),
+                .Map(_ => (ModeOutcome)new ModeOutcome.Bound(row.Mode)),
             inspect: static (op, row) => ViewportLease.Of(row.Session, row.Target, op)
                 .Bind(lease => lease.Use(borrow => op.Catch(() => Optional(borrow.Viewport.DisplayMode).ToFin(op.InvalidResult()))
                     .Bind(mode => Appearance.Of(mode.DisplayAttributes, op).Map(concerns => (
                         Mode: ModeId.Create(mode.Id),
                         Concerns: concerns,
                         Traits: ModeTrait.Sweep(mode)))), op))
-                .Map(state => (ModeReceipt)new ModeReceipt.Inspected(state.Mode, state.Concerns, state.Traits)),
+                .Map(state => (ModeOutcome)new ModeOutcome.Inspected(state.Mode, state.Concerns, state.Traits)),
             capture: static (op, row) => Resolve(row.Mode, op)
                 .Bind(mode => ViewportLease.Of(row.Session, row.Target, op)
                     .Bind(lease => lease.Use(borrow => op.Catch(() => Optional(row.Extent.Match(
                         Some: size => borrow.View.CaptureToBitmap(size.Native, mode),
                         None: () => borrow.View.CaptureToBitmap(mode))).ToFin(op.InvalidResult())), op)))
                 .Bind(bitmap => CaptureArtifact.Raster(bitmap, op))
-                .Map(artifact => (ModeReceipt)new ModeReceipt.Captured(artifact)),
+                .Map(artifact => (ModeOutcome)new ModeOutcome.Captured(artifact)),
             analyze: static (op, row) => Analyze(row.Session, row.Edit, op),
             census: static (op, _) => Summarize(new ModeOp.CensusCase(), op),
             named: static (op, row) => Summarize(new ModeOp.NamedCase(row.Name), op),
             mint: static (op, row) => Summarize(new ModeOp.BlankCase(row.Name), op),
             retire: static (op, row) => new ModeOp.DeleteCase(row.Mode).Apply(op)
-                .Map(_ => (ModeReceipt)new ModeReceipt.Retired(row.Mode)),
+                .Map(_ => (ModeOutcome)new ModeOutcome.Retired(row.Mode)),
             import: static (op, row) => Summarize(new ModeOp.ImportCase(row.Path, row.Interaction), op),
             export: static (op, row) => new ModeOp.ExportCase(row.Mode, row.Path).Apply(op)
-                .Map(_ => (ModeReceipt)new ModeReceipt.Exported(row.Mode, row.Path))));
+                .Map(_ => (ModeOutcome)new ModeOutcome.Exported(row.Mode, row.Path))));
     }
 
     private static Fin<DisplayModeDescription> Resolve(ModeId id, Op key) =>
         new ModeOp.FindCase(id).Apply(key).Bind(modes => modes.Head.ToFin(key.InvalidResult()));
 
-    private static Fin<ModeReceipt> Summarize(ModeOp op, Op key) =>
+    private static Fin<ModeOutcome> Summarize(ModeOp op, Op key) =>
         op.Apply(key).Bind(modes => key.Catch(() =>
-            Fin.Succ<ModeReceipt>(new ModeReceipt.Resolved(modes.Map(ModeMap.Summary).Strict()))));
+            Fin.Succ<ModeOutcome>(new ModeOutcome.Resolved(modes.Map(ModeMap.Summary).Strict()))));
 
-    private static Fin<ModeReceipt> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns, Op key) =>
+    private static Fin<ModeOutcome> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns, Op key) =>
         from prior in Appearance.Of(mode.DisplayAttributes, key)
         from band in key.Catch(() => Fin.Succ(ModeTrait.Sweep(mode)))
-        from receipt in (from _ in Appearance.Write(concerns, mode.DisplayAttributes, key)
+        from outcome in (from _ in Appearance.Write(concerns, mode.DisplayAttributes, key)
                          from __ in ModePolicy.Write(policies, mode, key)
                          from ___ in new ModeOp.UpdateCase(mode).Apply(key)
-                         select (ModeReceipt)new ModeReceipt.Configured(ModeId.Create(mode.Id)))
+                         select (ModeOutcome)new ModeOutcome.Configured(ModeId.Create(mode.Id)))
             .BindFail(failure => Restore(mode, prior, band, key).Match(
-                Succ: _ => Fin.Fail<ModeReceipt>(failure),
-                Fail: cleanup => Fin.Fail<ModeReceipt>(failure + cleanup)))
-        select receipt;
+                Succ: _ => Fin.Fail<ModeOutcome>(failure),
+                Fail: cleanup => Fin.Fail<ModeOutcome>(failure + cleanup)))
+        select outcome;
 
     private static Fin<Unit> Restore(DisplayModeDescription mode, Seq<Appearance> concerns, CapabilitySet<ModeTrait> band, Op key) =>
         Appearance.Write(concerns, mode.DisplayAttributes, key)
             .Bind(_ => ModePolicy.Write(Seq<ModePolicy>(new ModePolicy.Traits(band)), mode, key));
 
-    private static Fin<ModeReceipt> Analyze(DocumentSession session, AnalysisEdit edit, Op key) => edit.Switch(
+    private static Fin<ModeOutcome> Analyze(DocumentSession session, AnalysisEdit edit, Op key) => edit.Switch(
         (Session: session, Op: key),
         set: static (ctx, row) => Set(ctx.Session, row.Objects, row.Kind, row.State, ctx.Op),
         census: static (ctx, row) => ctx.Session.Demand(
             document => ctx.Op.Catch(() => Optional(document.Objects.FindId(row.Object)).ToFin(ctx.Op.InvalidInput())
-                .Map(subject => (ModeReceipt)new ModeReceipt.AnalysisCensus(
+                .Map(subject => (ModeOutcome)new ModeOutcome.AnalysisCensus(
                     row.Object,
                     toSeq(subject.GetActiveVisualAnalysisModes()).Map(static mode => AnalysisId.Create(mode.Id))))),
             ctx.Op,
@@ -1117,27 +1116,27 @@ public static class Modes {
         adjustMeshes: static (ctx, row) => ctx.Session.Demand(
             document => Analysis(row.Kind, ctx.Op).Bind(mode => ctx.Op.Catch(() =>
                 ctx.Op.Confirm(VisualAnalysisMode.AdjustAnalysisMeshes(document, mode.Id)))
-                .Map(_ => (ModeReceipt)new ModeReceipt.AnalysisAdjusted(AnalysisId.Create(mode.Id)))),
+                .Map(_ => (ModeOutcome)new ModeOutcome.AnalysisAdjusted(AnalysisId.Create(mode.Id)))),
             ctx.Op,
             [SessionNeed.Read, SessionNeed.Mutate, SessionNeed.Dialog]),
         userInterface: static (ctx, row) => ctx.Session.Demand(
             _ => Analysis(row.Kind, ctx.Op)
                 .Bind(mode => ctx.Op.Catch(() => Fin.Succ((
                     Op.Side(() => mode.EnableUserInterface(row.Panel.Key)),
-                    (ModeReceipt)new ModeReceipt.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2))),
+                    (ModeOutcome)new ModeOutcome.AnalysisInterface(AnalysisId.Create(mode.Id), row.Panel)).Item2))),
             ctx.Op,
             [SessionNeed.Dialog]),
         range: static (ctx, row) => ctx.Session.Demand(
-            _ => ctx.Op.Catch(() => Fin.Succ((row.Value.Apply(), (ModeReceipt)new ModeReceipt.AnalysisRange(row.Value)).Item2)),
+            _ => ctx.Op.Catch(() => Fin.Succ((row.Value.Apply(), (ModeOutcome)new ModeOutcome.AnalysisRange(row.Value)).Item2)),
             ctx.Op,
             [SessionNeed.Dialog]),
         overlay: static (ctx, row) => AnalysisMode.Register<AnalysisOverlay>(ctx.Op)
             .Bind(mode => ((AnalysisOverlay)mode).Bind(row.Law)
-                .Map(_ => (ModeReceipt)new ModeReceipt.OverlayBound(AnalysisId.Create(mode.Id)))),
+                .Map(_ => (ModeOutcome)new ModeOutcome.OverlayBound(AnalysisId.Create(mode.Id)))),
         retain: static (ctx, row) => RetainedOverlay.Of(row.Visibility.Key, ctx.Op)
-            .Map(lease => (ModeReceipt)new ModeReceipt.Retained(lease)));
+            .Map(lease => (ModeOutcome)new ModeOutcome.Retained(lease)));
 
-    private static Fin<ModeReceipt> Set(DocumentSession session, Seq<Guid> objects, AnalysisKind kind, AnalysisState state, Op key) =>
+    private static Fin<ModeOutcome> Set(DocumentSession session, Seq<Guid> objects, AnalysisKind kind, AnalysisState state, Op key) =>
         session.Demand(
             document => Analysis(kind, key).Bind(mode => objects.TraverseM(id => key.Catch(() =>
                     from subject in Optional(document.Objects.FindId(id)).ToFin(key.InvalidInput())
@@ -1150,7 +1149,7 @@ public static class Modes {
                         rollback: row => key.Catch(() => key.Confirm(row.Subject.EnableVisualAnalysisMode(mode, row.Prior.Enabled))).Map(static _ => unit))
                     .Bind(touched => key.Catch(() => {
                         document.Views.Redraw();
-                        return Fin.Succ<ModeReceipt>(new ModeReceipt.AnalysisChanged(
+                        return Fin.Succ<ModeOutcome>(new ModeOutcome.AnalysisChanged(
                             subjects.Map(static row => row.Id),
                             touched.Map(static row => row.Id),
                             AnalysisId.Create(mode.Id),
@@ -1168,7 +1167,6 @@ public static class Modes {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

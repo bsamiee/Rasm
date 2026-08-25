@@ -194,7 +194,7 @@ internal static class Seam {
 ## [03]-[ADDRESS]
 
 - Owner: `ContentRef` `[Union]` — `ById` over the content instance guid, `AtSlot` over a root guid and a child-slot-name path; one `Resolve` fold answers the live `RenderContent` and every arm treats missing content or a broken path as absent.
-- Law: `ContentRef` is the package's content identity — receipts, event facts, and settings bindings carry the guid; a slot path addresses a child without a consumer walking `FirstChild`/`NextSibling`.
+- Law: `ContentRef` is the package's content identity — facts, event facts, and settings bindings carry the guid; a slot path addresses a child without a consumer walking `FirstChild`/`NextSibling`.
 - Law: resolution reads live per call — the content graph mutates under UI edits, undo, and linked events, so no resolved handle is cached on a value; a consumer holding a `ContentRef` re-resolves at each use inside the owning operation.
 - Law: every public factory threads the caller's `Op` — a key minted inside the owner names the owner instead of the operation that asked, so the fault loses the call site it came from.
 - Boundary: `Resolve` is the only site naming `RenderContent.FromId` and `FindChild`; every sibling page addresses through this union.
@@ -244,7 +244,7 @@ public abstract partial record ContentRef {
 - Law: the snapshot carries the kernel `ModelUnit` because a content's own magnitudes — texture repeat, offset, and slot amount — are authored in that regime, and it is the only carrier publishing it; the raw `LengthUnit` lives inside the host read alone.
 - Law: `ContentSnapshot.Of` walks `FirstChild`/`NextSibling` once as one `List.unfold` over the host cursor and reads `ChildSlotOn`/`ChildSlotAmount` during that visit.
 - Law: `HashAxis` rows carry the host's ATOMIC exclusion bits; `ForSimulation` and `ExcludeDocumentEffects` are a host ALIAS and a host COMPOSITE of those bits, so both derive as sets rather than entering as peer rows a mask fold double-counts. Postures the host names no member for — local mapping beside units — compose as sets with no new vocabulary.
-- Law: the read owns its own receipt — `Read` mints the `HashWitness`, so the workflow scope recorded on the witness is the scope the read took. Storing a posture flag on the probe beside a caller-chosen overload lets the receipt disagree with the call, which is the deleted form.
+- Law: the read owns its own witness — `Read` mints the `HashWitness`, so the workflow scope recorded on the witness is the scope the read took. Storing a posture flag on the probe beside a caller-chosen overload lets the witness disagree with the call, which is the deleted form.
 - Law: a live `LinearWorkflow` never reaches a stored value — it enters `Read` as an argument the caller resolved inside its own demand window, and only the `HashScope` row it selects crosses onto the witness.
 - Growth: a content fact is one `ContentTrait` row with its predicate; an exclusion axis is one `HashAxis` row with its bit.
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderHash`, `RenderHashExclude` both arities, `Styles`, `ProxyType`, `ModelUnits`, `TopLevel`/`Hidden`/`Private`/`IsLocked`/`CanBeEdited`/`IsDefaultInstance`/`IsHiddenByAutoDelete`, `IsReference`, `UseCount`, `DocumentOwner`/`DocumentAssoc`, `FirstChild`/`NextSibling`/`ChildSlotName`/`ChildSlotDisplayName`, `ChildSlotOn`/`ChildSlotAmount`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/context` (`ModelUnit.Of(LengthUnit, Op)`), `Domain/validation` (`ICapability`, `CapabilitySet.Of`/`OfMask`/`Mask`/`Wire`); LanguageExt.Core (`List.unfold`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
@@ -454,7 +454,6 @@ public abstract partial record ContentIo {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

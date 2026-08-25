@@ -6,7 +6,7 @@
 
 - [02]-[EVIDENCE]: `PickMethod`, `PartIndex`, `PickOrigin`, `PickView`, and the detached `PickCapture`.
 - [03]-[PARTS]: `Picked` and the `PartKind` projector roster.
-- [04]-[POLICY]: `PickGesture`, `PickRender`, `PickSlot`, `PickGate`, `PickRule`, `PickPolicy`, `PickGetterFact`, and `PickReceipt`.
+- [04]-[POLICY]: `PickGesture`, `PickRender`, `PickSlot`, `PickGate`, `PickRule`, `PickPolicy`, `PickGetterFact`, and `PickOutcome`.
 - [05]-[PROJECTION]: the `Picks` capture, part, retain, execute, and measure entries.
 - [06]-[BOUNDARY]: the detachment and affinity carves.
 - [07]-[RESEARCH]: open verification rows.
@@ -238,8 +238,8 @@ public sealed partial class PartKind {
 
 - Law: the two payload-free context toggles are COMBINABLE membership, not two cases carrying a bool. `PickGate` rows own their own host write, and one `Gates` rule carries two disjoint sets — the same shape `PointGate` and `ObjectGate` already run on the acquisition page — so a reader prints what the context was told through two `Wire` reads and a third gate is one row.
 - Law: the slot identity is TYPED. `ISlotted<PickSlot>` closes the knob space this family addresses, so injectivity compares generated rows instead of boxing `GetType()` and comparing through `object.Equals`.
-- Law: a receipt names WHICH getter participated, never that one did. `PickContext.GetObjectUsed` is the host's own null sentinel and its projection into `Option<PickGetterFact>` is the last line naming it; the fact carries the terminal the participating getter reported and the option seat it ended on.
-- Law: a stale reference does not void the pick. `CaptureOwned` partitions survivors from casualties and the receipt carries both, so a forty-object pick with one dead reference answers thirty-nine captures and one named refusal. NAMED LOSS: whole-batch atomicity — a caller that needs all-or-nothing reads `Rejected.IsEmpty` at the entry, and the release of every owned reference is unchanged on both branches.
+- Law: `PickOutcome` names WHICH getter participated, never that one did. `PickContext.GetObjectUsed` is the host's own null sentinel and its projection into `Option<PickGetterFact>` is the last line naming it; the fact carries the terminal the participating getter reported and the option seat it ended on.
+- Law: a stale reference does not void the pick. `CaptureOwned` partitions survivors from casualties and `PickOutcome` carries both, so a forty-object pick with one dead reference answers thirty-nine captures and one named refusal. NAMED LOSS: whole-batch atomicity — a caller that needs all-or-nothing reads `Rejected.IsEmpty` at the entry, and the release of every owned reference is unchanged on both branches.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -360,7 +360,7 @@ public sealed record PickPolicy {
 public sealed record PickGetterFact(GetResult Terminal, Option<int> Selected);
 
 [Equatable]
-public sealed partial record PickReceipt(
+public sealed partial record PickOutcome(
     Option<PickGetterFact> Getter,
     [property: OrderedEquality] Seq<PickCapture> Captures,
     [property: OrderedEquality] Seq<Error> Rejected) : IDetachedDocumentResult;
@@ -409,21 +409,21 @@ public static class Picks {
         return Fin.Succ(value: surface is null ? Option<Point2d>.None : Some(new Point2d(x: u, y: v)));
     });
 
-    public static Fin<PickReceipt> CaptureOwned(IEnumerable<ObjRef> references, Op? key = null) {
+    public static Fin<PickOutcome> CaptureOwned(IEnumerable<ObjRef> references, Op? key = null) {
         Op op = key.OrDefault(name: nameof(CaptureOwned));
         return from source in op.Need(references)
                from owned in op.Catch(() => Fin.Succ(toSeq(source).Strict()))
                from _ in guard(
                    owned.ForAll(static reference => reference is not null),
                    op.InvalidResult(detail: nameof(references))).ToFin()
-               from receipt in owned
+               from outcome in owned
                    .Map(reference => Capture(reference: reference, key: op))
                    .PartitionFallible()
                    .As()
-                   .Map(static split => new PickReceipt(
+                   .Map(static split => new PickOutcome(
                        Getter: None, Captures: split.Succs, Rejected: split.Fails))
                    .Settled(release: () => Released(owned, op), key: op)
-               select receipt;
+               select outcome;
     }
 
     private static Fin<Unit> Released(Seq<ObjRef> owned, Op key) => Custody.Release(
@@ -455,12 +455,12 @@ public static class Picks {
             key: op);
     }
 
-    public static Fin<PickReceipt> Execute(DocumentSession session, PickPolicy policy, Op? key = null) {
+    public static Fin<PickOutcome> Execute(DocumentSession session, PickPolicy policy, Op? key = null) {
         Op op = key.OrDefault(name: nameof(Execute));
         return from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext()).ToFin()
                from target in op.Need(session)
                from active in op.Need(policy)
-               from receipt in target.Demand(
+               from outcome in target.Demand(
                    use: document =>
                        from defaultView in Optional(document.Views.ActiveView).ToFin(Fail: op.MissingContext())
                        from projected in op.Catch(() => {
@@ -473,7 +473,7 @@ public static class Picks {
                        select projected,
                    key: op,
                    needs: [SessionNeed.Read])
-               select receipt;
+               select outcome;
     }
 
     private static Option<PickGetterFact> Participant(PickContext context) =>
@@ -506,7 +506,7 @@ public static class Picks {
 
 `PickCapture` crosses into `Objects` as detached identity and selection evidence, `PartIndex` crosses as the admitted component owner both planes read, and `GeometryHandle` crosses into document geometry custody. `PickPolicy` is durable by design over detached rows alone — `PickView` serials, keyed `PickGesture`/`PickRender`, `PickGate` sets, admitted value structs — so no `ObjRef`, `RhinoView`, `PickContext`, or live geometry payload becomes durable state. `Part` scopes `Picked` into one projection and no entry returns it, which bounds the call window structurally.
 
-`Picks.Execute`, `Measured`, `Retain`, `Part`, `PickPolicy`, and the `PartKind` roster are the PUBLISHED surface — a command body in the `apps/<app>/` plugin shell composes them, so a corpus-wide caller census answers zero for them exactly as it does for `Acquisition.Get`. The page's INTERNAL reach is what `libs/dotnet` must construct, and it is fully wired: `Capture` from `Objects/authoring`'s pick and picked programs, and `CaptureOwned` from `Commands/acquisition`'s object getter and its two modal object routes, whose `Acquired.Objects` payload IS this page's `PickReceipt`.
+`Picks.Execute`, `Measured`, `Retain`, `Part`, `PickPolicy`, and the `PartKind` roster are the PUBLISHED surface — a command body in the `apps/<app>/` plugin shell composes them, so a corpus-wide caller census answers zero for them exactly as it does for `Acquisition.Get`. The page's INTERNAL reach is what `libs/dotnet` must construct, and it is fully wired: `Capture` from `Objects/authoring`'s pick and picked programs, and `CaptureOwned` from `Commands/acquisition`'s object getter and its two modal object routes, whose `Acquired.Objects` payload IS this page's `PickOutcome`.
 
 A detached capture carries NO `ModelUnit`. A regime change rescales the document's geometry with it, so a stored pick point re-read afterwards is read against geometry that moved the same way; the branch ruling binds a detached MAGNITUDE the user authored — `Acquired.Distance` is its case — and a document-space position is not one. The curve parameter and the surface `Uv` are dimensionless by construction.
 
@@ -516,7 +516,6 @@ The command-thread carve: `RhinoApp.IsOnMainThread` at each public entry is Rhin
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

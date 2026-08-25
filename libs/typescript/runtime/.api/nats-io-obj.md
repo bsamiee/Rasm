@@ -12,16 +12,16 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: store admin, the object surface, and the read/receipt shapes
+[PUBLIC_TYPE_SCOPE]: store admin, the object surface, and the read and info shapes
 - rail: boundaries
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CONSUMER]                                                                                |
 | :-----: | :-------------- | :------------- | :---------------------------------------------------------------------------------------- |
 |  [01]   | `Objm`          | store admin    | store ensure at engine Layer build over the core connection                               |
 |  [02]   | `ObjectStore`   | object surface | one surface; stream-vs-blob is a member selection on payload size                         |
-|  [03]   | `ObjectInfo`    | receipt        | the object fact — name, size, chunk, digest; `meta.options.max_chunk_size` rules chunking |
+|  [03]   | `ObjectInfo`    | object info    | the object fact — name, size, chunk, digest; `meta.options.max_chunk_size` rules chunking |
 |  [04]   | `ObjectResult`  | read result    | `data: ReadableStream<Uint8Array>`, `error: Promise<Error \| null>` — both are consumed   |
-|  [05]   | `PurgeResponse` | receipt        | from `delete`; removal evidence                                                           |
+|  [05]   | `PurgeResponse` | purge result   | from `delete`; removal evidence                                                           |
 
 - [05]-[PURGE_RESPONSE]: `@nats-io/jetstream` declares the type and this package's root never re-exports it, so a consumer imports it from that peer directly.
 

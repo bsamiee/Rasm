@@ -1,13 +1,13 @@
 # [APPUI_CHARTS_STREAMS]
 
-The stream-and-reshape plane: `ChartStream` is the typed feed roster with retention, cadence, and shape columns as row data, `TransformRow` declares every reshape between feed and series on one shape-checked chain, `ChartReducer` projects every order statistic off ONE kernel `Distribution` per group, `ChartFolds` carries retention and cadence onto the DynamicData operators plus the largest-triangle downsampler, and `PlanFeeds` folds the Bim `CostSchedule` and `ScheduleNetwork` planning receipts into chart rows — consumed as feed values, never re-solved.
+The stream-and-reshape plane: `ChartStream` is the typed feed roster with retention, cadence, and shape columns as row data, `TransformRow` declares every reshape between feed and series on one shape-checked chain, `ChartReducer` projects every order statistic off ONE kernel `Distribution` per group, `ChartFolds` carries retention and cadence onto the DynamicData operators plus the largest-triangle downsampler, and `PlanFeeds` folds the Bim `CostSchedule` and `ScheduleNetwork` planning results into chart rows — consumed as feed values, never re-solved.
 
 ## [01]-[INDEX]
 
 - [02]-[SHAPE_VOCABULARY]: Pipeline shapes; reducers over the kernel spread; bins; the civil calendar.
 - [03]-[TRANSFORM_CHAIN]: The declared reshape family, the shape check, and the one evaluator.
 - [04]-[FEED_ROSTER]: The typed feed rows and the retention and cadence folds.
-- [05]-[PLAN_FEEDS]: Cost and schedule receipts folded into chart rows.
+- [05]-[PLAN_FEEDS]: Cost and schedule results folded into chart rows.
 
 ## [02]-[SHAPE_VOCABULARY]
 
@@ -277,11 +277,11 @@ public static class TransformChain {
 ## [04]-[FEED_ROSTER]
 
 - Owner: `ChartStream` — the typed feed roster: window, bound, cadence, and shape are ROW columns and the named rows are the roster; `ChartFolds` — the retention and cadence folds and the pure downsampler.
-- Cases: `ComputeReceipts`, `Analytical`, `HostEvents`, `Scripted`, `ReceiptTimeline` — each row binds one `DataSource` case key with its retention posture.
+- Cases: `InstrumentEvents`, `Analytical`, `HostEvents`, `Scripted`, `CorrelationEvents` — each row binds one `DataSource` case key with its retention posture.
 - Entry: `ChartFolds.Shape(stream, source)` — retention onto `ExpireAfter`/`LimitSizeTo`; `ChartFolds.Snapshots(stream, shaped, layer, calendar)` — cadence over the materialized state stream, then the declared rows through the one evaluator; `ChartFolds.Lttb(points, buckets, project)` — the pure largest-triangle-three-buckets fold the downsample row composes.
 - Packages: DynamicData, NodaTime, LanguageExt.Core
 - Growth: a new feed class is one static `ChartStream` row; a new bound is one column value on its row; zero new surface.
-- Boundary: the roster is TYPED rows, so window, bound, cadence, and shape live on the row and nowhere else — the markdown mirror the fence rosters once trailed is gone. `Analytical` carries no retention because the analytical lane is a SNAPSHOT source: each refresh replaces the whole keyed set, so retention is one query answer and expiry is the next refresh — a window would truncate an answer the store already bounded and a size limit would evict rows of the answer currently displayed. Rows sharing one source case are one source read under two retention postures, never separate sources: `ReceiptTimeline` holds a longer correlation horizon than `ComputeReceipts` and declares no downsample row because `Lttb` folds an `(x, y)` point series and a SPAN track has no such point to keep. `Scripted` is the proof lane's deterministic feed — its script seeds derive at the `DataSource.FakeDeterministic` owner from the kernel `Deterministic` lanes, so a replay renders the same board twice. `ToCollection` precedes `Sample`, so cadence samples state rather than dropping deltas, and the chart lock owns the terminal series swap.
+- Boundary: the roster is TYPED rows, so window, bound, cadence, and shape live on the row and nowhere else — the markdown mirror the fence rosters once trailed is gone. `Analytical` carries no retention because the analytical lane is a SNAPSHOT source: each refresh replaces the whole keyed set, so retention is one query answer and expiry is the next refresh — a window would truncate an answer the store already bounded and a size limit would evict rows of the answer currently displayed. Instrument and correlation series are separate persisted queries under their own retention postures: `CorrelationEvents` holds a longer correlation horizon than `InstrumentEvents` and declares no downsample row because `Lttb` folds an `(x, y)` point series and a SPAN track has no such point to keep. `Scripted` is the proof lane's deterministic feed — its script seeds derive at the `DataSource.FakeDeterministic` owner from the kernel `Deterministic` lanes, so a replay renders the same board twice. `ToCollection` precedes `Sample`, so cadence samples state rather than dropping deltas, and the chart lock owns the terminal series swap.
 
 ```csharp
 // --- [TABLES] --------------------------------------------------------------------------
@@ -292,8 +292,8 @@ public sealed record ChartStream(
     Option<int> Bound,
     Option<Duration> Cadence,
     Seq<TransformRow> Shape) {
-    public static readonly ChartStream ComputeReceipts = new(
-        "compute-receipt-stream", nameof(DataSource<ChartDatum, string>.ReceiptStream),
+    public static readonly ChartStream InstrumentEvents = new(
+        "instrument-events", nameof(DataSource<ChartDatum, string>.PersistenceQuery),
         Some(Duration.FromSeconds(120)), Some(8192), Some(Duration.FromMilliseconds(250)),
         Seq<TransformRow>(new TransformRow.Downsample(512)));
     public static readonly ChartStream Analytical = new(
@@ -306,8 +306,8 @@ public sealed record ChartStream(
     public static readonly ChartStream Scripted = new(
         "fake-deterministic", nameof(DataSource<ChartDatum, string>.FakeDeterministic),
         None, None, None, Seq<TransformRow>());
-    public static readonly ChartStream ReceiptTimeline = new(
-        "receipt-timeline", nameof(DataSource<ChartDatum, string>.ReceiptStream),
+    public static readonly ChartStream CorrelationEvents = new(
+        "correlation-events", nameof(DataSource<ChartDatum, string>.PersistenceQuery),
         Some(Duration.FromSeconds(300)), Some(4096), Some(Duration.FromMilliseconds(500)), Seq<TransformRow>());
 }
 
@@ -373,12 +373,11 @@ public static class ChartFolds {
 
 ## [05]-[PLAN_FEEDS]
 
-- Owner: `PlanFeeds` — the folds projecting the Bim `CostSchedule` and `ScheduleNetwork` planning receipts into chart rows and event marks.
+- Owner: `PlanFeeds` — the folds projecting the Bim `CostSchedule` and `ScheduleNetwork` planning results into chart rows and event marks.
 - Entry: `PlanFeeds.Schedule(ScheduleNetwork network, Op key)` — composes the Bim CPM (`ScheduleCpm.Schedule`) and folds each ACTIVITY onto one span row: `X` the early-start ordinal, slot A the scheduled working days, slot B the total float in days — criticality DERIVES as `float <= 0`, so no third slot restates it; `PlanFeeds.Milestones(ScheduleNetwork network, string layer, Op key)` — milestones cross as `ChartAnnotation.Moment` event lines at their early start, because a zero-content event drawn as a zero-length bar is invisible exactly where it matters; `PlanFeeds.Cost(CostSchedule schedule, Op key, Seq<ExchangeRate> fx = default)` — composes the Bim railed `Rollup` and folds its per-category partition onto categorical rows in the schedule currency, so a stacked cost tile sums values one repricing authority already made summable.
-- Receipt: the witness board rows are the cost-and-schedule dashboards — a Gantt-class span layer over `Schedule` with `Milestones` on its mark plane, and a stacked-column cost tile over `Cost` — each an ordinary `ChartLayer` naming these folds' output as its pinned rows or its scripted feed.
 - Packages: Rasm.Bim, NodaTime, LanguageExt.Core
-- Growth: a new planning read is one fold here projecting a receipt column the Bim owner already carries; zero new surface.
-- Boundary: receipts are CONSUMED as feed values, never re-solved — the CPM walk, the calendar election (`network.CalendarFor(task)`, never a network-wide calendar parameter), the float derivation, and the currency repricing are the Bim owner's, and this fold reads `TaskGrain`, `CriticalPath`, and `CostRollup` columns whole; a `bool IsMilestone` read and a network-wide `WorkCalendar` argument are the deleted forms the Bim page's own laws name. Cost rows fold the `ByCategory` partition of the RAILED rollup, so a mixed-currency estimate reaches the chart already repriced or refuses by name — summing native amounts across currencies inside a reducer is unspellable because the fold never sees them. Instants cross to chart space as `DateTime.Ticks` exactly as every temporal coordinate on this plane does.
+- Growth: a new planning read is one fold here projecting a result column the Bim owner already carries; zero new surface.
+- Boundary: planning results are CONSUMED as feed values, never re-solved — the CPM walk, the calendar election (`network.CalendarFor(task)`, never a network-wide calendar parameter), the float derivation, and the currency repricing are the Bim owner's, and this fold reads `TaskGrain`, `CriticalPath`, and `CostRollup` columns whole; a `bool IsMilestone` read and a network-wide `WorkCalendar` argument are the deleted forms the Bim page's own laws name. Cost rows fold the `ByCategory` partition of the RAILED rollup, so a mixed-currency estimate reaches the chart already repriced or refuses by name — summing native amounts across currencies inside a reducer is unspellable because the fold never sees them. Instants cross to chart space as `DateTime.Ticks` exactly as every temporal coordinate on this plane does.
 
 ```csharp
 // --- [OPERATIONS] ----------------------------------------------------------------------

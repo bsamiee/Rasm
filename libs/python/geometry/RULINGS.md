@@ -9,18 +9,17 @@
 - `TessellateRequest` enters the daemon whole; generated coordinates own its canonical key and provider projections never become request twins.
 - STEP protocol admission belongs to the isolated `cad` provider; geometry consumes generated `SealedStep` and never reads exchange headers.
 - `Spill` and `SplatFormat` cross as corpus enums.
-- Generated `Semantic` mints from the kernel's schema/project evidence; the source index stores its protobuf bytes and the receipt carries it whole.
-- `ArtifactFrame` carries one `ArtifactRef` plus payload; Connect orders frames while runtime `transport/artifact` proves extent and identity.
+- Generated `Semantic` mints from the kernel's schema/project evidence; the source index stores its protobuf bytes whole.
+- `ArtifactFrame` carries one `ArtifactRef` with its payload; Connect orders frames while runtime `transport/artifact` proves extent and identity.
 - `ArtifactService.Fetch` and `Put` share the daemon's one repository; generated request and response shapes never double as commands.
 
 ## [02]-[SHAPE]
 
 - `charter_record` cuts on its `GeometrySubject` and the close-out on `EvidenceScope`; neither takes a `kind`, so no page invents a series string.
-- Producers mint identity through `evidence_key` off their own `spec` — `graduates()` and `frame()` fold that one key, and no caller hands one in.
-- Folds return `(value, receipt)` and publish no `receipt(...)` builder — a caller-attached fact is the `[ASSERTED_VALUE]` scar the harvest drops.
-- Receipts carry the CENSUS and frames the ROWS at the fold's grain — a receipt never grows with rows, and no extremum replaces a distribution.
-- `measured` OMITS a measure the fold never computed — `_breached` splits `unmeasured:` from `over:`, and a defaulted zero clears every ceiling.
-- `Resource.COMPUTE` charges at the graduation weave's async close — every producer crosses that weave, so a meter below it bills one burn twice.
+- Producers mint frame identity through `evidence_key` from their own `spec`; no caller hands one in.
+- Folds return their canonical domain value or `RuntimeRail` directly — caller facts ride that value; observation projects from the producing site.
+- Domain results carry their census and frames carry rows at the fold's grain; no extremum replaces a distribution.
+- Runtime `measured` owns span lifecycle and rail flattening; geometry adds no second observation weave.
 - Descriptor sun angles reach a sky UNTOUCHED — `Sunpath` is the weather file's almanac and re-solving a captured instant answers a second number.
 - `_graded` reads honeybee's own `UNITS_TOLERANCES` floor converted to metres — a pinned literal drifts and a foot floor passes a metre deflection.
 - `Model.shade_meshes` and `Model.shades` are DISJOINT populations — a census over `shades` reports zero context on a fully contextualized model.

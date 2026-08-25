@@ -20,7 +20,7 @@ core/
     │   ├── causal.ts     # Version-vector lattice, causal delivery buffer, and stability frontier
     │   ├── commit.ts     # Content-keyed commit graph, branch heads, and Merkle summaries
     │   ├── machine.ts    # Transition invocation, data-driven statechart, and host-neutral restore
-    │   ├── evidence.ts   # Decoded outcomes, receipts, progress, and Evidence.Availability verdicts
+    │   ├── evidence.ts   # Evidence.Outcome lifecycle, Progress tallies, and Evidence.Availability verdicts
     │   ├── feed.ts       # Feed.Entry union and the Feed.Document column band under one Clock.Hlc order
     │   └── presence.ts   # Actor-presence CRDT over proven merge rows
     ├── interchange/      # Contract wire plane — codecs over the generated contracts bindings and the capability dial; never serving
@@ -106,7 +106,7 @@ flowchart TB
     Fold e18@-->|"[IMPORT]: Causal.Stamped"| Causal
     Evidence e19@-->|"[IMPORT]: Fold.Cell"| Fold
     Evidence e20@-->|"[IMPORT]: Identity.Tenant"| Identity
-    Feed e21@-->|"[IMPORT]: Evidence.ReceiptEnvelope"| Evidence
+    Feed e21@-->|"[IMPORT]: Evidence.Outcome"| Evidence
     Feed e22@-->|"[IMPORT]: Quantity.Dimension"| Quantity
     Transition e23@-->|"[IMPORT]: Fault.Class"| Fault
     Reliability e24@-->|"[IMPORT]: Convention.Metric + dimensions"| Convention
@@ -164,7 +164,7 @@ flowchart LR
     AppUi e14@-->|"[WIRE]: EvidenceTimelineWire"| Wire
     AppHost e15@-->|"[WIRE]: DescriptorPinWire"| Invoke
     AppHost e17@-->|"[WIRE]: CommandAvailability"| Wire
-    AppHost e18@-->|"[WIRE]: BindingStatus + CoercedValueWire + WriteReceiptWire"| Wire
+    AppHost e18@-->|"[WIRE]: BindingStatus + CoercedValueWire + WriteOutcomeWire"| Wire
     Bim e20@-->|"[PROJECTION]: GeoWire"| Wire
 ```
 

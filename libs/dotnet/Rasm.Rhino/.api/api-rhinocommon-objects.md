@@ -210,16 +210,16 @@ This catalog owns the live document-object surface: `RhinoObject` read and stage
 - attribute edits stage on a duplicated set and persist only at `CommitChanges`; the id-addressed `ObjectTable.ModifyAttributes` in the document catalog is the alternate write path.
 - each display value resolves from layer, object, parent, material, display, or sectioner per its `*Source` enum, and the `Draw*`/`Computed*` members return the resolved effective value against a document and viewport.
 - per-viewport state is three override families — display mode, hide-in-detail, active-in-viewport — each a query/add/remove set keyed by viewport or detail id, never a scalar.
-- history is a directed object graph: `HistoryParents`/`HistoryChildren` are the edges, a `HistoryRecord` is the per-object construction receipt, and replay re-runs a command against the recorded slots.
+- history is a directed object graph: `HistoryParents`/`HistoryChildren` are the edges, a `HistoryRecord` is the per-object construction record, and replay re-runs a command against the recorded slots.
 
 [STACKING]:
 - `RhinoCommon` value substrate(`libs/dotnet/.api/api-rhinocommon.md`): the `Point3d`/`Vector3d`/`Plane`/`Transform`/`BoundingBox` carriers this boundary threads cross the wire from the substrate; it composes them and re-derives none.
 - `LanguageExt.Core`(`libs/dotnet/.api/api-languageext.md`): `bool` and out-parameter object reads fold to `Fin<A>`/`Option<A>`; roster arrays land as `Seq<A>`; a multi-object selection or attribute batch accumulates failures through `Validation<Error, A>` where a single edit short-circuits on `Fin`; the disposable `HistoryRecord` and `ReplayHistoryData` ride a leased using-scope with failure-branch release.
 - `Thinktecture.Runtime.Extensions`(`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`): the source, mode, space, decoration, and section-label vocabularies wrap as keyed `SmartEnum` policy owners; the `UpdateTo*` result kinds and the `HistoryRecord` slot kinds collapse into generated unions owning total dispatch over one geometry-plus-attributes payload.
-- `Rasm` kernel: object-frame planes, gumball frames, section and slice geometry, and mesh parameters compose the kernel numeric owners; effective colors and plot weights project into detached receipts before leaving the document grant.
+- `Rasm` kernel: object-frame planes, gumball frames, section and slice geometry, and mesh parameters compose the kernel numeric owners; effective colors and plot weights project into detached values before leaving the document grant.
 
 [LOCAL_ADMISSION]:
-- a live `RhinoObject` and its `ObjectAttributes` remain inside the document grant; downstream code receives detached geometry copies, projected attribute receipts, or explicit leases, never the live handle.
+- a live `RhinoObject` and its `ObjectAttributes` remain inside the document grant; downstream code receives detached geometry copies, detached attribute snapshots, or explicit leases, never the live handle.
 - history authoring enters through a leased `HistoryRecord` populated by slot id inside a command, threaded once into `ObjectTable.Add`/`TransformWithHistory`; replay enters through the sealed `ReplayHistoryData` callback and drives `ReplayHistoryResult.UpdateTo*` on the existing object.
 - grip editing crosses to the custom-objects catalog through `GetGrips`/`EnableCustomGrips`; visual-analysis registration crosses to the display catalog; pick projection and id-set selection cross to the commands and document catalogs.
 

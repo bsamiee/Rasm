@@ -8,8 +8,8 @@ Custody is symmetric across the seam: a slot carrying a stream, an image, or a n
 
 - [02]-[MIME]: `Mime` — the admitted format key every slot and probe reads.
 - [03]-[PAYLOAD]: `PayloadSlot`, `PayloadShape`, `PayloadPresence`, `WellKnownFormat` — the closed slot family, its read-side mirror, the presence gate, and the platform-named format vocabulary.
-- [04]-[SURFACE]: `TransferSurface`, `TransferOp`, `TransferWriteFact`, `TransferReceipt`, `Transfer` — the leased boards and the one apply entry.
-- [05]-[DRAG]: `DragPlan`, `Drop`, `DropReceipt` — the drag payload plan and the admitted drop with its effect gate.
+- [04]-[SURFACE]: `TransferSurface`, `TransferOp`, `TransferWriteFact`, `TransferOutcome`, `Transfer` — the leased boards and the one apply entry.
+- [05]-[DRAG]: `DragPlan`, `Drop`, `DropOutcome` — the drag payload plan and the admitted drop with its effect gate.
 
 ## [02]-[MIME]
 
@@ -52,7 +52,6 @@ public readonly partial struct Mime {
 - Law: the four platform-named shapes answer their `WellKnownFormat` row through a total fold and the five keyed shapes answer absence, so the write leg picks the platform's own typed setter for the first group and the keyed setter for the second without probing a case a second time. Each row's KEY is the host accessor it stands for, so the roster's stated provenance is a fact a reader can check rather than a claim beside four invented tokens.
 - Law: `PayloadShape` mirrors the readable slots arm for arm — a read asks for a SHAPE and receives a SLOT, so the request cannot carry a value and the response cannot lose one.
 - Law: `Required` refuses an absent read with `UiFault.AbsentPayload` carrying the wanted `Mime`; `Optional` lands `None`. The two are a ROW carrying its own `Settle`, not a boolean: a mirror bool restating the key leaves every read leg to re-derive the refusal, and the row that carries it makes this law executable rather than prose the fold has to honour.
-- Receipt: none on the slot itself — the slot IS the payload evidence; the write-side facts are `[04]`'s.
 - Packages: Eto.Drawing for `Image` (aliased in the prelude); LanguageExt.Core for `Lease`, `Seq`, `Arr`; `Domain/validation` for `ICapability` and `CapabilitySet`.
 - Growth: a new payload kind is one case plus one shape row, breaking every total dispatch loudly; a new platform-named format is one `WellKnownFormat` row keyed on the accessor the host publishes; a new presence posture is one row carrying its own settle.
 - Boundary: a native handle never rides `Bytes` — it rides `Resourced` with its lease, so the seam that acquired it is the seam that closes it.
@@ -142,18 +141,18 @@ public abstract partial record PayloadSlot : IDisposable {
 
 ## [04]-[SURFACE]
 
-- Owner: `TransferSurface` the leased destination — the system board or a per-drag bundle; `TransferOp` the closed verb family; `TransferWriteFact` the per-slot write outcome; `TransferReceipt` the closed response family; `Transfer` the one apply entry.
+- Owner: `TransferSurface` the leased destination — the system board or a per-drag bundle; `TransferOp` the closed verb family; `TransferWriteFact` the per-slot write outcome; `TransferOutcome` the closed response family; `Transfer` the one apply entry.
 - Cases: `TransferOp` is `Read(At, Shape, Presence)`, `Write(At, Seq<PayloadSlot>)`, `Probe(At)`, `Clear(At)`, and `Drag(Source, DragPlan)` — five verbs, one entry, one total dispatch, and a sixth verb breaks every site.
-- Entry: `Transfer.Apply(operation, key)` returns `ValueTask<Fin<TransferReceipt>>`; the receipt's case is recoverable from the verb, so no caller casts and no verb returns a different shape. An absent caller key resolves through the union's own generated `SelfOp` — the verb names itself, and the generator opt-in has its reader at `TransferOp.Key`.
+- Entry: `Transfer.Apply(operation, key)` returns `ValueTask<Fin<TransferOutcome>>`; the outcome's case is recoverable from the verb, so no caller casts and no verb returns a different shape. An absent caller key resolves through the union's own generated `SelfOp` — the verb names itself, and the generator opt-in has its reader at `TransferOp.Key`.
 - Auto: a write is ALL-OR-NOTHING at the slot grain and reports per slot — `Written` carries one `TransferWriteFact` per slot with its committed-or-rejected case, so a caller reads which format the platform refused instead of one aggregate failure. `Count` and `Failure` derive from that roster and are never stored.
 - Auto: the inventory's well-known presence is ONE `CapabilitySet<WellKnownFormat>` column read off the board's four probes. NAMED LOSS: the four independently named flags. Bought back by set algebra — a caller asking "does this board carry text or html" reads `AdmitsAll` over a set literal rather than composing two bools, and a fifth platform-named format is one vocabulary row rather than a fifth column on every reader.
 - Law: the surface is a LEASE and every case carries it, so a bundle staged for a drag that the host never starts is closed by the caller's own custody rather than surviving as a leaked data object.
 - Law: a refused write disposes every slot it staged, reverse order, every disposer running even when one throws — the total `Dispose` on the slot family is what makes that fold one expression rather than a per-case ladder.
 - Law: an inventory `Probe` reports the format roster and the well-known set as MEASURED facts off the surface, never as a cached census — a board another process just wrote is stale the instant it is remembered.
-- Receipt: `TransferReceipt` — `Read(Option<Lease<PayloadSlot>>)`, `Written(Seq<TransferWriteFact>)`, `Cleared`, `Inventory(Seq<Mime>, CapabilitySet<WellKnownFormat>)`, `Dragged(DragEffects)`.
+- Output: `TransferOutcome` — `Read(Option<Lease<PayloadSlot>>)`, `Written(Seq<TransferWriteFact>)`, `Cleared`, `Inventory(Seq<Mime>, CapabilitySet<WellKnownFormat>)`, `Dragged(DragEffects)`.
 - Packages: Eto.Forms for `Clipboard`, `DataObject`, `DragEffects` (verified in `libs/dotnet/.api/api-eto-runtime.md` and `api-eto-forms.md`); LanguageExt.Core for the rails.
-- Growth: a new verb is one case, one arm, and one `Key` row the generator already minted; a new receipt shape rides its verb's case.
-- Boundary: NAMED LOSS — both boundaries carried their own `Transfer`, `TransferQuery`, `TransferOp`, `TransferReceipt`, `TransferWriteFact`, `TransferTarget`, `PayloadSlot`, `PayloadPresence`, `DragPlan`, and `Drop`, and every one of them deletes. What is genuinely lost is each side's bespoke naming at its own call sites; what survives is stronger, because the two implementations disagreed on whether a write reported per slot and only one of them did.
+- Growth: a new verb is one case, one arm, and one `Key` row the generator already minted; a new outcome shape rides its verb's case.
+- Boundary: NAMED LOSS — both boundaries carried their own `Transfer`, `TransferQuery`, `TransferOp`, `TransferOutcome`, `TransferWriteFact`, `TransferTarget`, `PayloadSlot`, `PayloadPresence`, `DragPlan`, and `Drop`, and every one of them deletes. What is genuinely lost is each side's bespoke naming at its own call sites; what survives is stronger, because the two implementations disagreed on whether a write reported per slot and only one of them did.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -203,14 +202,14 @@ public abstract partial record TransferWriteFact : IValidityEvidence {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record TransferReceipt {
-    private TransferReceipt() { }
-    public sealed record Read(Option<Lease<PayloadSlot>> Slot) : TransferReceipt;
-    public sealed record Cleared : TransferReceipt;
-    public sealed record Inventory(Seq<Mime> Formats, CapabilitySet<WellKnownFormat> Named) : TransferReceipt;
-    public sealed record Dragged(DragEffects Resolved) : TransferReceipt;
+public abstract partial record TransferOutcome {
+    private TransferOutcome() { }
+    public sealed record Read(Option<Lease<PayloadSlot>> Slot) : TransferOutcome;
+    public sealed record Cleared : TransferOutcome;
+    public sealed record Inventory(Seq<Mime> Formats, CapabilitySet<WellKnownFormat> Named) : TransferOutcome;
+    public sealed record Dragged(DragEffects Resolved) : TransferOutcome;
 
-    public sealed record Written(Seq<TransferWriteFact> Slots) : TransferReceipt {
+    public sealed record Written(Seq<TransferWriteFact> Slots) : TransferOutcome {
         public int Count => Slots.Count(static fact => fact.IsValid);
         public Option<Error> Failure =>
             Slots.Choose(static fact => fact is TransferWriteFact.Rejected row ? Some(row.Cause) : None).HeadOrNone();
@@ -219,18 +218,18 @@ public abstract partial record TransferReceipt {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Transfer {
-    [BoundaryAdapter] public static ValueTask<Fin<TransferReceipt>> Apply(TransferOp operation, Op? key = null);
+    [BoundaryAdapter] public static ValueTask<Fin<TransferOutcome>> Apply(TransferOp operation, Op? key = null);
 }
 ```
 
 ## [05]-[DRAG]
 
-- Owner: `DragPlan` the staged drag payload with its permitted effects and optional ghost; `Drop` the admitted drop with its location, allowed effects, and payload; `DropReceipt` the settled effect.
+- Owner: `DragPlan` the staged drag payload with its permitted effects and optional ghost; `Drop` the admitted drop with its location, allowed effects, and payload; `DropOutcome` the settled effect.
 - Entry: `Drop.Of(provider, key)` admits the host event argument ONCE and publishes admitted values; `Resolve(effect, key, description)` gates the caller's chosen effect against the permitted set and settles.
 - Law: the host event argument NEVER escapes — it is read at admission and gone, so no consumer holds an argument the platform recycles after the callback returns, and no consumer reads a mutable effect field after the frame that owned it.
 - Law: the resolved effect is GATED against `Allowed` — a caller choosing an effect the source never permitted refuses typed rather than silently landing a copy where a move was offered.
 - Law: the ghost is an `Option` pair of image and offset, so a drag with no visual carries no half-specified placement; a null image beside a real offset is unrepresentable.
-- Receipt: `DropReceipt` carries the location, the allowed set, and the resolved effect together, so a consumer auditing a drop reads what was offered beside what was taken.
+- Output: `DropOutcome` carries the location, the allowed set, and the resolved effect together, so a consumer auditing a drop reads what was offered beside what was taken.
 - Growth: a new drag coordinate is one column on the plan; a new effect is the platform's own flag set, read and never mirrored.
 - Boundary: the drag SOURCE control is the host's and rides the `Drag` case; the plan carries no control, so a plan is stageable before a source exists.
 
@@ -247,7 +246,7 @@ namespace Rasm.Interaction;
 public sealed record DragPlan(Seq<PayloadSlot> Slots, DragEffects Permitted, Option<(EtoImage Image, EtoPointF Offset)> Ghost);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DropReceipt(EtoPointF Location, DragEffects Allowed, DragEffects Resolved);
+public readonly record struct DropOutcome(EtoPointF Location, DragEffects Allowed, DragEffects Resolved);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Drop {
@@ -257,7 +256,7 @@ public sealed class Drop {
     public DragEffects Allowed { get; }
     public TransferSurface Payload { get; }
 
-    public Fin<DropReceipt> Resolve(DragEffects effect, Op key, Option<(string Format, string Inner)> description = default);
+    public Fin<DropOutcome> Resolve(DragEffects effect, Op key, Option<(string Format, string Inner)> description = default);
 }
 ```
 
@@ -265,7 +264,6 @@ public sealed class Drop {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

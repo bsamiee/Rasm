@@ -58,16 +58,16 @@ public sealed partial class GrasshopperPoint : IHookRoster<GrasshopperPoint> {
 
 ## [03]-[RAIL]
 
-- Owner: `HookScope` `[ValueObject<string>]` — the per-plugin namespace and the rail's `TOwner`: the kernel signature keys every subscription and release by it, and because per-ALC isolation bounds each rail to ONE plugin, `rail.Release(scope, key)` and whole-rail teardown coincide here — the scope is the typed owner handle the kernel demands, never a multi-plugin filter, and a collectible plugin ALC drops its whole rail with the root's lease. `HookSignal` `[Union]` realizing the kernel `IHookFact<GrasshopperPoint>` floor — the roster's closed `TFact` carrying its own seating fan: `EventCase` carries a kernel-ordered `UiEvent<GhFact>` (`Shell/events.md`), `EvidenceCase` a `GhEvidence` receipt (`Shell/telemetry.md`), `IntentCase` the pre-commit `Op` beside the host-published document identity a veto point judges.
+- Owner: `HookScope` `[ValueObject<string>]` — the per-plugin namespace and the rail's `TOwner`: the kernel signature keys every subscription and release by it, and because per-ALC isolation bounds each rail to ONE plugin, `rail.Release(scope, key)` and whole-rail teardown coincide here — the scope is the typed owner handle the kernel demands, never a multi-plugin filter, and a collectible plugin ALC drops its whole rail with the root's lease. `HookSignal` `[Union]` realizing the kernel `IHookFact<GrasshopperPoint>` floor — the roster's closed `TFact` carrying its own seating fan: `EventCase` carries a kernel-ordered `UiEvent<GhFact>` (`Shell/events.md`), `IntentCase` the pre-commit `Op` beside the host-published document identity a veto point judges.
 - Entry: the rail is `HookRail<GrasshopperPoint, HookSignal, HookScope>.Of(key, gates, taps, span, cell)` — minted ONCE by `Platform/composition.md`'s mount roster with the composition's own `FaultCell`, never a page static. Raise site takes the rail as a REQUIRED parameter and calls `rail.Fire(at, fact, key)` — the kernel's guarded transforming arity has no lawful site on this roster (the refusal-only law below); replay is `rail.Replay(at, captured, key)` over a retaining point; scoped teardown is `rail.Release(scope, key)`.
 - Law: fan-out and ordering are the kernel's — `Fire` delivers to every subscriber of the point's one seat, vetoes fold in ATTACH order and the mount census is mount-ordered (kernel S1-26), so the veto left-fold is deterministic without a rank column here. NAMED LOSS: the scoped-delivery raise arm (`Raise(point, signal, Some(scope))`) — per-ALC isolation already bounded every rail to one plugin, so the arm filtered a single-scope table; a raise is now always the rail's whole seat.
 - Law: veto verdicts ride the rail — `Fire` answers `Fin<HookSignal>` and the raise site consults it before committing its host mutation; the two `CancelEventArgs` points write `args.Cancel = true` on the `Fail` leg at their `Shell/events.md` bridge, which is the one host readback the fact projection cannot carry.
-- Law: seating is the FACT's own declaration and the kernel gates on it twice, at fire entry and on the veto fold's product — `IntentCase` is what every `[02]` fire site raises, so it seats at the whole roster; `EventCase` and `EvidenceCase` enter only through `rail.Replay` and seat where the row retains, which is `history.replay` alone today. Firing a journal case at a live veto point refuses before any gate runs, and a gate rewriting an intent into a journal case refuses before the raise site reads its verdict.
+- Law: seating is the FACT's own declaration and the kernel gates on it twice, at fire entry and on the veto fold's product — `IntentCase` is what every `[02]` fire site raises, so it seats at the whole roster; `EventCase` enters only through `rail.Replay` and seats where the row retains, which is `history.replay` alone today. Firing a journal case at a live veto point refuses before any gate runs, and a gate rewriting an intent into a journal case refuses before the raise site reads its verdict.
 - Law: every veto on this roster is REFUSAL-ONLY — the host surfaces judge commit-or-cancel and carry no mutable payload for a subscriber to rewrite, so the kernel's guarded transforming `Fire<T>` arity has no lawful site here; a future transformable seam earns it as a new point row, never by widening `IntentCase`.
-- Law: fault custody is the composition's `FaultCell` — bounded ring, oldest-out, `Shed` and `Lost` counted — handed whole at the mint; the telemetry fold reads `rail.Faults.Parked` and no page-local `Atom<Seq<IsolatedFault>>`, cap const, or trim fold exists.
+- Law: fault custody is the composition's `FaultCell` — bounded ring, oldest-out, `Shed` and `Lost` counted — handed whole at the mint; the cell's tap writes each parked `IsolatedFault` through `Shell/telemetry.md`'s `GhInstruments.Hooked` and no page-local `Atom<Seq<IsolatedFault>>`, cap const, or trim fold exists.
 - Law: replay capture comes from `Shell/journal.md` `SessionJournal.Export` or the `HistoryLedger` action stream, re-fired in captured order through the kernel's `TraverseM` verdict rail, so `Ok` certifies the whole window re-fired and a late-mounted panel reads the recent path without a second recording surface.
 - Boundary: raise sites are the owning pages named in the `[02]` census — this page owns the roster and the fact union, never a raise; fire is synchronous, so an effect-rail raise site lifts at its own composition seam (`IO.lift(() => rail.Fire(...))`).
-- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Domain` (`HookRail`, `IHookFact`, `HookMounts`, `FaultCell`, `Op`), `Shell/events.md` (`GhFact`, `UiEvent<GhFact>`), `Shell/telemetry.md` (`GhEvidence`).
+- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Domain` (`HookRail`, `IHookFact`, `HookMounts`, `FaultCell`, `Op`), `Shell/events.md` (`GhFact`, `UiEvent<GhFact>`).
 - Growth: zero on the mechanism — new capability lands as `GrasshopperPoint` rows and `HookSignal` cases, a case declaring the arm of the seating fan it answers to; the kernel rail never widens per folder.
 
 ```csharp
@@ -91,13 +91,11 @@ public readonly partial struct HookScope {
 public abstract partial record HookSignal : IHookFact<GrasshopperPoint> {
     private HookSignal() { }
     public sealed record EventCase(UiEvent<GhFact> Fact) : HookSignal;
-    public sealed record EvidenceCase(GhEvidence Evidence) : HookSignal;
     public sealed record IntentCase(Op Operation, Option<Guid> DocumentId) : HookSignal;
 
     public bool Seats(GrasshopperPoint at) => Switch(
         state: at,
         eventCase: static (row, _) => Replayable(at: row),
-        evidenceCase: static (row, _) => Replayable(at: row),
         intentCase: static (_, _) => true);
 
     private static bool Replayable(GrasshopperPoint at) => at.Modalities.Held.Exists(static row => row.Retains);
@@ -109,7 +107,7 @@ public abstract partial record HookSignal : IHookFact<GrasshopperPoint> {
 | [INDEX] | [CONCERN]    | [OWNER]                                           | [RAIL]                                         | [CASES] |
 | :-----: | :----------- | :------------------------------------------------ | :--------------------------------------------- | :-----: |
 |  [01]   | point census | `GrasshopperPoint : IHookRoster`                  | keyed rows, kernel modality sets, fire sites   |    7    |
-|  [02]   | payload      | `HookSignal : IHookFact`                          | closed union + seating fan → the raise fold    |    3    |
+|  [02]   | payload      | `HookSignal : IHookFact`                          | closed union + seating fan → the raise fold    |    2    |
 |  [03]   | rail         | kernel `HookRail<GrasshopperPoint, …, HookScope>` | `Fire`/`Replay`/`Release` — zero local members |    1    |
 
 137-line `GhHooks` registry — seats, ranks, trim fold, fault cap, detacher tracking, release folds — deleted whole onto the kernel rail; a new governance capability lands as a point row or a signal case.

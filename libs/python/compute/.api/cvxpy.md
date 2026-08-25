@@ -101,12 +101,12 @@ Relational operators `==`/`<=`/`>=`/`>>`/`<<` on `Expression` build `Constraint`
 - Every modality rides `Problem` as a row, attribute, or solve flag, never a parallel type: objective sign is `Minimize`/`Maximize`; variable domain (`nonneg`/`pos`/`symmetric`/`PSD`/`NSD`/`hermitian`/`diag`/`boolean`/`integer`/`sparse`/`bounds`) is a `Variable` constructor attribute; cone membership is a relational operator or an explicit `SOC`/`PSD`/`ExpCone`/`PowCone3D`/`PowConeND`/`FiniteSet` row; `gp`/`qcp`/integer is a solve flag or leaf attribute; `solver` selects the backend.
 - Primal values read off `Constraint.args` (`.expr` exists only on relational `Inequality`); the per-cone dual layout is row `[05]`.
 - `Parameter` under DPP compiles a parametrized family once and warm-re-solves across `Parameter.value`; `enforce_dpp=True` fails fast when a model breaks DPP.
-- Each solve captures status, optimal value, primal `Variable.value`, dual `Constraint.dual_value`, solver name, and iteration/residual stats as a convex-solve receipt; the duals are the optimality certificate.
+- Each solve captures status, optimal value, primal `Variable.value`, dual `Constraint.dual_value`, solver name, and iteration/residual stats as a `ConvexOptimum`; the duals are the optimality certificate.
 
 [STACKING]:
 - `clarabel`(`.api/clarabel.md`): `cp.CLARABEL` is the default conic backend; cvxpy reduces the DCP model to the `(P, q, A, b, cones)` standard form `DefaultSolver` consumes and reads back `obj_val`/`solve_time`/`iterations` and the dual `z`. `get_problem_data(cp.CLARABEL)` yields `(data, chain, inverse_data)` so `DefaultSolver` runs directly and maps back through `inverse_data`, keeping the modeling layer out of the hot loop.
 - `scipy`(`.api/scipy.md`): `Parameter`/`Constant` values and the reduced `data` matrices are NumPy/`scipy.sparse`; large sparse constraint blocks enter as `scipy.sparse` and the reduction preserves sparsity into the Clarabel CSC form.
-- `dask`(`.api/dask.md`): a DPP-parametrized family compiles once; a `dask`-fanned sweep sets `Parameter.value` per design point and re-calls `solve`, amortizing one compile across the grid and emitting one convex-solve receipt per point.
+- `dask`(`.api/dask.md`): a DPP-parametrized family compiles once; a `dask`-fanned sweep sets `Parameter.value` per design point and re-calls `solve`, amortizing one compile across the grid and emitting one `ConvexOptimum` per point.
 - `equinox`(`.api/equinox.md`): `solve(requires_grad=True)` with `Problem.backward()` differentiates the solution map w.r.t. `Parameter`, composing a convex layer into a JAX/equinox outer loop as a differentiable optimization node.
 - within-lib: the convex owner composes `Variable`, `Problem`, the atom library, and `problem.solve` into one convex-intent entry, discriminating objective sign, cone membership, `gp`/`qcp`/integer mode, backend, and parameter sweep on request shape rather than parallel entrypoints.
 

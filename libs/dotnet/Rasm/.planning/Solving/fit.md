@@ -2,19 +2,19 @@
 
 `Fit` recovers the best-fit analytic primitive from a noisy `Point3d` cloud: one `FitOp` runs an efficient-RANSAC sampler under a truncated-cost robust consensus, then refines the winner to its orthogonal-distance minimum. Kind is DATA — `Kinds` arity alone separates a pinned single fit from a multi-kind competition under one shared cost threshold — and a cloud carrying no requested primitive routes the `GeometryFault` rail, never a fabricated best-fit.
 
-Refinement INSTANTIATES the `Solving/solver` `Lm.Minimize` functor through a `FitModel : ILmModel` supplying the analytic-`Gradient` model alone; the λ-ladder stays the functor's. Sampling composes the `Spatial/neighbors` kd-tree lane, `CloudKernel.CovarianceOf` the one cloud-PCA fold, and the `Numerics/matrix` owners every minimal solve under the caller's `Op` key; a `NeedsNormals` kind seeds off the `Rasm.Spatial` `VectorCloudMetric.OrientedNormals` field computed UPSTREAM of the boundary, and `FitReceipt`/`FitPrimitive` ARE the identities `Spatial/reconciliation` `Encode` content-addresses.
+Refinement INSTANTIATES the `Solving/solver` `Lm.Minimize` functor through a `FitModel : ILmModel` supplying the analytic-`Gradient` model alone; the λ-ladder stays the functor's. Sampling composes the `Spatial/neighbors` kd-tree lane, `CloudKernel.CovarianceOf` the one cloud-PCA fold, and the `Numerics/matrix` owners every minimal solve under the caller's `Op` key; a `NeedsNormals` kind seeds off the `Rasm.Spatial` `VectorCloudMetric.OrientedNormals` field computed UPSTREAM of the boundary, and `Fitted`/`FitPrimitive` ARE the identities `Spatial/reconciliation` `Encode` content-addresses.
 
 ## [01]-[INDEX]
 
-- [02]-[FITTING]: `Fit.Apply` folds kind vocabulary, consensus sampling, and orthogonal refine into one typed receipt.
+- [02]-[FITTING]: `Fit.Apply` folds kind vocabulary, consensus sampling, and orthogonal refine into one typed `Fitted`.
 
 ## [02]-[FITTING]
 
-- Owner: `FitKind` `[SmartEnum<string>]` binds the primitive-kind vocabulary, each row carrying its arity columns, its declared `IDrawLane` ordinal, its `Rasm.Domain` `Carrier` for typed faults, and its `Minimal`/`Unpack` behavior delegates, so kind selection is vocabulary data; `FitPrimitive` `[Union]` carries the analytic geometry behind one generated-`Switch` fold per behavior; `ConsensusScore` and `DrawOrder` `[SmartEnum<int>]` name the ORTHOGONAL cost and draw-order axes over one sampler; `FitPolicy` is the policy record whose `Of(Context, Op)` factory admits its unit-interval columns and composes the `SolvePolicy` refine ladder, `FitOp` the ONE request record, `Candidate` the consensus carrier, `FitModel` the `ILmModel` instantiation, `FitReceipt` the typed evidence, `Fit` the static surface.
-- Entry: `Fit.Apply(FitOp, Context, Op?) → Fin<FitReceipt>` is the one fitting entrypoint; its `Context.Absolute` band sets the inlier threshold through `FitPolicy.Threshold` while the refine ladder is one `SolvePolicy` minted off the same `Context`, never a domain-local epsilon; the two minimal-solver degeneracy gates read `ToleranceLane.Collinear` and `ToleranceLane.Cocircular` SQUARED, both determinants being second-order in the chart. Admission ACCUMULATES every defect through one `Validation<Error, T>` traverse exiting `.ToFin()`, each `GeometryFault.DegenerateInput` carrying its kind `Carrier` and the offending index; a consensus never reaching `FitPolicy.InlierFloor` routes `GeometryFault.FitFault` carrying the MEASURED fraction, while a kind whose every trial burned routes `DegenerateInput` instead — no candidate measured a fraction to report.
+- Owner: `FitKind` `[SmartEnum<string>]` binds the primitive-kind vocabulary, each row carrying its arity columns, its declared `IDrawLane` ordinal, its `Rasm.Domain` `Carrier` for typed faults, and its `Minimal`/`Unpack` behavior delegates, so kind selection is vocabulary data; `FitPrimitive` `[Union]` carries the analytic geometry behind one generated-`Switch` fold per behavior; `ConsensusScore` and `DrawOrder` `[SmartEnum<int>]` name the ORTHOGONAL cost and draw-order axes over one sampler; `FitPolicy` is the policy record whose `Of(Context, Op)` factory admits its unit-interval columns and composes the `SolvePolicy` refine ladder, `FitOp` the ONE request record, `Candidate` the consensus carrier, `FitModel` the `ILmModel` instantiation, `Fitted` the typed evidence, `Fit` the static surface.
+- Entry: `Fit.Apply(FitOp, Context, Op?) → Fin<Fitted>` is the one fitting entrypoint; its `Context.Absolute` band sets the inlier threshold through `FitPolicy.Threshold` while the refine ladder is one `SolvePolicy` minted off the same `Context`, never a domain-local epsilon; the two minimal-solver degeneracy gates read `ToleranceLane.Collinear` and `ToleranceLane.Cocircular` SQUARED, both determinants being second-order in the chart. Admission ACCUMULATES every defect through one `Validation<Error, T>` traverse exiting `.ToFin()`, each `GeometryFault.DegenerateInput` carrying its kind `Carrier` and the offending index; a consensus never reaching `FitPolicy.InlierFloor` routes `GeometryFault.FitFault` carrying the MEASURED fraction, while a kind whose every trial burned routes `DegenerateInput` instead — no candidate measured a fraction to report.
 - Auto: one `Apply` call internalizes the pipeline — kd-tree index built once, draw order derived, per-kind adaptive-budget draw and score, lowest cost kept across kinds, `InlierFloor` gated, winner refined — so a caller supplies data and policy alone, and the trial budget re-estimates downward as the inlier fraction rises inside one `IO.FoldWhile` whose halting predicate reads the folded budget.
-- Receipt: `FitReceipt` is typed `IValidityEvidence` over the refined primitive and its consensus evidence, never a generic ledger; `Inliers` rides the admitted INDEX roster so the receipt hashes structurally; `Rasm.Bim` reconstruction reads `Primitive`+`Inliers` to mint a `ReconstructionPrimitive`+`ElementPredicate`, and the learned-segmentation peer graduates onto this SAME shape.
-- Packages: `Rasm.Spatial` (`CloudKernel.CovarianceOf`), `Rasm.Numerics` (`SymmetricMatrix.DecomposeEigenDetailed` + `EigenSolveReceipt.PairsIn`, `Matrix.SolveDetailed`/`LeastSquaresDetailed`, `EpsilonPolicy`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Sphere`/`Cylinder`/`Circle`/`Line` carriers), `Rasm.Solving` (`Lm.Minimize`/`ILmModel`/`SolvePolicy`/`Lm.PackedIndex`), `Spatial/neighbors` (`NeighborIndex.Of`/`NeighborSource.StaticCase`/`NeighborKernel.GraphOf`), `Rasm.Domain` (`Deterministic.Draw`/`Draw.At`/`Draw.State`/`Deterministic.NextBelow` — the bound draw and its lane suffixes — `UnitInterval`/`PositiveMagnitude`, and `IDrawLane<FitKind>`, the DECLARED lane the prefix reads), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`/`ddouble.Erf`/`ddouble.Exp`/`ddouble.Log` + `DoubleDoubleEnumerableExpand.Sum`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[UseDelegateFromConstructor]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Arr`/`Option`/`IO.FoldWhile` under `Schedule.recurs`, the one trial-budget owner, accumulating `Traverse`), BCL inbox (`[InlineArray]`).
+- Law: `Fitted` is typed `IValidityEvidence` over the refined primitive and its consensus evidence; `Inliers` rides the admitted INDEX roster so the value hashes structurally; `Rasm.Bim` reconstruction reads `Primitive`+`Inliers` to mint a `ReconstructionPrimitive`+`ElementPredicate`, and the learned-segmentation peer graduates onto this SAME shape.
+- Packages: `Rasm.Spatial` (`CloudKernel.CovarianceOf`), `Rasm.Numerics` (`SymmetricMatrix.DecomposeEigenDetailed` + `EigenSolution.PairsIn`, `Matrix.SolveDetailed`/`LeastSquaresDetailed`, `EpsilonPolicy`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Sphere`/`Cylinder`/`Circle`/`Line` carriers), `Rasm.Solving` (`Lm.Minimize`/`ILmModel`/`SolvePolicy`/`Lm.PackedIndex`), `Spatial/neighbors` (`NeighborIndex.Of`/`NeighborSource.StaticCase`/`NeighborKernel.GraphOf`), `Rasm.Domain` (`Deterministic.Draw`/`Draw.At`/`Draw.State`/`Deterministic.NextBelow` — the bound draw and its lane suffixes — `UnitInterval`/`PositiveMagnitude`, and `IDrawLane<FitKind>`, the DECLARED lane the prefix reads), TYoshimura.DoubleDouble (`ddouble`/`ddouble.Sqrt`/`ddouble.Erf`/`ddouble.Exp`/`ddouble.Log` + `DoubleDoubleEnumerableExpand.Sum`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[SmartEnum<int>]`/`[UseDelegateFromConstructor]`, generated `Switch`), LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Arr`/`Option`/`IO.FoldWhile` under `Schedule.recurs`, the one trial-budget owner, accumulating `Traverse`), BCL inbox (`[InlineArray]`).
 - Growth: a new fittable primitive is ONE `FitKind` row and one `FitPrimitive` case with its fold arms — or, where its chart derivative resists hand differentiation, its `Distance` arm alone stated over the `Solving/solver` `Dual<ddouble>` scalar and admitted through an `IDualResidual` conformance beside `FitModel`, the derived Jacobian being exact on either route; a new consensus cost is ONE `ConsensusScore` row's `Cost` delegate, a new draw strategy ONE `DrawOrder` row, a new refine knob one `SolvePolicy` column on the shared ladder; multi-primitive extraction is a consumer fold over `Apply` with inlier masking, never a second sampler.
 - Boundary: one `Fit.Apply` over one `FitOp` owns fitting entirely — never a per-kind fitter family nor a `Detect` surface — and every `FitPrimitive` dispatch is the compile-exhaustive generated `Switch`, so a new case breaks every fold arm loudly. Consensus defaults to the truncated-cost M-estimator (`Msac`) with the MLESAC mixture likelihood one `ConsensusScore` row beside it, both under the two-gate law: distance band AND `Agreement ≥ NormalBand` whenever the op carries normals, so a plane cutting a cylinder's diameter collects distance-near points whose normals disagree and charges them the saturated `t²`; the score folds accumulate at 106 bits so the likelihood row's cancelling terms survive a hundred-thousand-point reduce. Bounded-support pruning is exact by saturation and gates on the cost row's own `Saturating` column — a saturating candidate exposing `Support` scores its ball and charges every outside point `t²`, while a non-saturating cost row (the mixture NLL, still rising past the band) and a kind exposing no `Support` both reduce the full cloud. Refinement minimizes true orthogonal distance with every `Gradient` arm closed-form, and every draw reads a lane SUFFIX off ONE `Deterministic.Draw` whose prefix binds `FitPolicy.Seed` to the requested kinds' DECLARED `IDrawLane` ordinals at the `Apply` entry, so a fit replays across runtimes AND across roster edits — a positional `Items.IndexOf` lane re-seeds every standing fit on a mid-roster insert, which is why the ordinal is data on the row. The candidate shuffle, each kind's competition, and each trial's minimal set are then INDEPENDENT sub-streams, decorrelated by their lane paths rather than by ordering inside one sequence, and each replays alone. `Apply` is total over `Fin`: declared refusals are `GeometryFault` cases, and a foreign raise crosses `Op.Catch` unchanged; the score reduce, the minimal-draw rejection loops, and the `Gradient` arms are the named span-kernel statement exemption.
 
@@ -87,8 +87,8 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
                 new Arr<double>([b.X - a.X, b.Y - a.Y, b.Z - a.Z, c.X - a.X, c.Y - a.Y, c.Z - a.Z, d.X - a.X, d.Y - a.Y, d.Z - a.Z]), key)
             .Bind(lhs => lhs.SolveDetailed(new Arr<double>([0.5 * (Sq(b) - Sq(a)), 0.5 * (Sq(c) - Sq(a)), 0.5 * (Sq(d) - Sq(a))]), key))
             .MapFail(cause => new GeometryFault.DegenerateInput(Kind.Sphere, draw[0], "coplanar-sample") + cause)
-            .Map(receipt => {
-                Point3d origin = new(receipt.Solution[0], receipt.Solution[1], receipt.Solution[2]);
+            .Map(solved => {
+                Point3d origin = new(solved.Solution[0], solved.Solution[1], solved.Solution[2]);
                 return (FitPrimitive)new FitPrimitive.Sphere(new Rhino.Geometry.Sphere(origin, origin.DistanceTo(a)));
             });
     }
@@ -209,7 +209,7 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
         return Matrix.Of(Dimension.Create(n), Dimension.Create(3), new Arr<double>(lhs), key)
             .Bind(design => design.LeastSquaresDetailed(new Arr<double>(rhs), key))
             .Match(
-                Succ: receipt => new Point3d(receipt.Solution[0], receipt.Solution[1], receipt.Solution[2]),
+                Succ: solved => new Point3d(solved.Solution[0], solved.Solution[1], solved.Solution[2]),
                 Fail: _ => Centroid(cloud, draw));
     }
 
@@ -640,7 +640,7 @@ public readonly record struct Candidate(FitPrimitive Primitive, Arr<int> Inliers
     public int InlierCount => Inliers.Count;
 }
 
-public sealed record FitReceipt(
+public sealed record Fitted(
     FitPrimitive Primitive,
     Arr<int> Inliers,
     double Residual,
@@ -690,7 +690,7 @@ sealed class FitModel(FitPrimitive template, Point3d[] cloud, Arr<int> inliers) 
 
 public static class Fit {
     [BoundaryAdapter]
-    public static Fin<FitReceipt> Apply(FitOp op, Context tolerance, Op? key = null) {
+    public static Fin<Fitted> Apply(FitOp op, Context tolerance, Op? key = null) {
         Op ok = key.OrDefault();
         return ok.Catch(() => {
             Deterministic.Draw draw = new(Seed: op.Policy.Seed, Prefix: [.. op.Kinds.Map(static kind => kind.Lane)]);
@@ -704,9 +704,9 @@ public static class Fit {
                             None: () => best))
                         .Match(
                             Some: best => Consensus(best, op, ok).Bind(fraction => fraction.Value < op.Policy.InlierFloor.Value
-                                ? Fin.Fail<FitReceipt>(new GeometryFault.FitFault(fraction, op.Policy.InlierFloor))
+                                ? Fin.Fail<Fitted>(new GeometryFault.FitFault(fraction, op.Policy.InlierFloor))
                                 : Refine(best, op.Cloud, op.Normals, index, whole, op.Policy, tolerance, ok)),
-                            None: () => Fin.Fail<FitReceipt>(
+                            None: () => Fin.Fail<Fitted>(
                                 new GeometryFault.DegenerateInput(Kind.PointCloud, None, "no-candidate")))));
         });
     }
@@ -824,7 +824,7 @@ public static class Fit {
         normals.Match(
             Some: field => key.AcceptValue(ModePrior(field)),
             None: () => CloudKernel.CovarianceOf(toSeq(cloud), Option<Arr<double>>.None, key)
-                .Bind(stats => stats.Cov.DecomposeEigenDetailed(key).Bind(receipt => receipt.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key)).Map(eigen => (stats.Mean, Eigen: eigen)))
+                .Bind(stats => stats.Cov.DecomposeEigenDetailed(key).Bind(solved => solved.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key)).Map(eigen => (stats.Mean, Eigen: eigen)))
                 .Bind(pca => pca.Eigen.Count >= 3
                     ? key.AcceptValue(PlanarityPrior(cloud, pca.Mean, pca.Eigen, tolerance))
                     : Fin.Fail<double[]>(key.InvalidResult())));
@@ -909,14 +909,14 @@ public static class Fit {
     }
 
     // --- [REFINE]
-    static Fin<FitReceipt> Refine(Candidate seed, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole, FitPolicy policy, Context tolerance, Op key) =>
+    static Fin<Fitted> Refine(Candidate seed, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole, FitPolicy policy, Context tolerance, Op key) =>
         Lm.Minimize(new FitModel(seed.Primitive, cloud, seed.Inliers), policy.Ladder, key).Bind(result => {
             FitPrimitive refined = seed.Primitive.Kind.Unpack(result.Parameters.AsSpan());
             double threshold = policy.Threshold(tolerance.Absolute.Value);
             (double _, Arr<int> mask) = Score(refined, cloud, normals, index, whole, policy, threshold * threshold, threshold, key);
             return from residual in Rms(refined, cloud, mask, key)
                    from consensus in key.AcceptValidated<UnitInterval>(candidate: (double)mask.Count / cloud.Length)
-                   select new FitReceipt(refined, mask, residual, consensus.Value, seed.Trials, result.Iterations);
+                   select new Fitted(refined, mask, residual, consensus.Value, seed.Trials, result.Iterations);
         });
 
     static Fin<double> Rms(FitPrimitive shape, Point3d[] cloud, Arr<int> inliers, Op key) =>
@@ -948,8 +948,8 @@ flowchart LR
     Draw -->|"lowest cost across kinds"| Best[Candidate]
     Shell --> Draw
     Best -->|"FitModel : ILmModel"| Lm["Solving/solver Lm.Minimize"]
-    Lm -->|"refined primitive + mask"| FitReceipt
-    FitReceipt -->|"Primitive + Inliers"| Bim["Rasm.Bim reconstruction"]
+    Lm -->|"refined primitive + mask"| Fitted
+    Fitted -->|"Primitive + Inliers"| Bim["Rasm.Bim reconstruction"]
     Op -.->|"low inlier / degenerate"| GeometryFault
 ```
 
@@ -959,7 +959,7 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 
 | [INDEX] | [AXIS_CONCERN]    | [OWNER]          | [RAIL]                                    |
 | :-----: | :---------------- | :--------------- | :---------------------------------------- |
-|  [01]   | Primitive fit     | `Fit` + `FitOp`  | `Fit.Apply → Fin<FitReceipt>`             |
+|  [01]   | Primitive fit     | `Fit` + `FitOp`  | `Fit.Apply → Fin<Fitted>`             |
 |  [02]   | Fit kind          | `FitKind`        | `FitKind.Minimal → Fin<FitPrimitive>`     |
 |  [03]   | Fitted geometry   | `FitPrimitive`   | `FitPrimitive.Distance`/`Gradient` (pure) |
 |  [04]   | Consensus cost    | `ConsensusScore` | `ConsensusScore.Cost` (pure)              |
@@ -979,7 +979,6 @@ Every owner is pure-managed author-kernel composing the `Spatial/neighbors`, `Nu
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -73,7 +73,6 @@
 [STACKING]:
 - `package/codec#CODEC`'s `GZIP` band binds `gzip_ng`/`gzip_ng_threaded` as one `CodecProfile.gzip` `(compresslevel, threads, block_size)` row on the `package/bundle#BUNDLE` `CompressionAlgo` union: single-thread calls `gzip_ng.compress(payload, compresslevel=k, mtime=0)`, parallel drives `gzip_ng_threaded.open(sink, 'wb', ...)` whose writer recombines the trailer via `crc32_combine`.
 - runtime seam — the codec body rides `lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), ...)` because the native core releases the GIL: a bounded worker crossing, never an event-loop call, never a folder-minted `CapacityLimiter`; a `zlib_ng.error` folds to the `expression.Result[bytes, ArtifactError]`/`RuntimeRail` fault at the boundary.
-- evidence seam — each call contributes its compression fact (container, level, thread/block params, `crc32`/`adler32` trailer, `ZLIBNG_RUNTIME_VERSION`, byte lengths) through the runtime `ReceiptContributor` port onto the one `ArtifactReceipt.Bundle` case beside the `zstandard`/`lz4`/`brotli` arms, mirrored on a `structlog`/`opentelemetry` span.
 - `package/archive`'s reproducible-ZIP member turns content-addressable under `mtime=0` framing, so a scene-file or document payload hashes identically for the runtime elision seed (`ArtifactWork.key` over input bytes).
 
 [LOCAL_ADMISSION]:
@@ -83,5 +82,3 @@
 [RAIL_LAW]:
 - Package: `zlib-ng`
 - Owns: SIMD-accelerated DEFLATE/zlib/gzip compression and decompression (one-shot, streaming, file-like, and multi-threaded block-fan), Adler-32/CRC-32 checksums with `crc32_combine` block-trailer recombination, and the stdlib-`zlib`/`gzip` drop-in surface
-- Accept: the gzip-container/DEFLATE codec service feeding the `package/codec#CODEC` `GZIP` band via a `CodecProfile.gzip` row, running on the `lane.offload(Kernel.of(..., KernelTrait.RELEASING))` thread seam, lifted onto the `expression.Result` rail with an `ArtifactReceipt.Bundle` receipt
-- Reject: a container modeled as a parallel codec owner where `wbits`/module choice suffices; a per-block whole-stream re-checksum where `crc32_combine` composes the ordered `(crc, len)` pairs; a wall-clock mtime crossing into a content-addressed bundle; a folder-minted `CapacityLimiter` where the GIL-releasing core rides `lane.offload`; a `scene/export` repro-ZIP clone where the package plane owns bundling; a parallel zlib-ng-only receipt where `ArtifactReceipt.Bundle` owns the case

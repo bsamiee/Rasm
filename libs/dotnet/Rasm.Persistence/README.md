@@ -2,7 +2,7 @@
 
 `Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`: the version-control engine over it, the consistency-split read lanes, the content-keyed artifact object plane, and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
-It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph`, the `Rasm` kernel for the content hash and the signal capsule's causal frame, instrument mechanism, and hook vocabulary, the `Rasm.AppHost` spine for the settled `RecoveryObjective` and the one `FaultWire` producer fold, and the `Rasm.Contracts` emission for generated parity, host, fault, CRDT, and event messages — each a settled contract. Its instrument roster and its lifecycle points contribute as `TelemetryContributorPort` and `HookPoint` values the app-platform root binds.
+It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph`, the `Rasm` kernel for content identity, causal framing, and instrumentation, the `Rasm.AppHost` spine for `RecoveryObjective` and `FaultWire`, and `Rasm.Contracts` for generated parity, host, fault, CRDT, and event messages. Its instrument roster contributes through `TelemetryContributorPort` at the app-platform root.
 
 ## [01]-[ROUTER]
 
@@ -31,7 +31,7 @@ It persists the graph over a Marten append substrate and depends up on the `Rasm
 - [18]-[LAKEHOUSE](.planning/Query/lakehouse.md): Co-transactional flat-table egress, Parquet generation codec, and the partitioned lake scan.
 - [19]-[RESIDENCE](.planning/Query/residence.md): Column vocabulary, the analytics residence family, seam admission, and provisioning DDL.
 - [20]-[SERVING](.planning/Query/serving.md): Residence read plan, Substrait lowering, transport reach, and the relational landing.
-- [21]-[DATASETS](.planning/Query/datasets.md): Series hypertable roster, Fleet op-log rows, and the receipt evidence plane.
+- [21]-[DATASETS](.planning/Query/datasets.md): Series hypertable roster and Fleet op-log rows.
 - [22]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
 - [23]-[CACHE](.planning/Query/cache.md): Compute-result reuse index with its benchmark gate and invalidation.
 - [24]-[FEDERATION](.planning/Query/federation.md): Substrait federation router lowering portable plans onto the standing lanes.

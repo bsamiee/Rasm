@@ -1,13 +1,13 @@
 # [RASM_RHINO_PERSISTENCE_APPSETTINGS]
 
-`AppSettingsFamily` closes each `Rhino.ApplicationSettings` static owner as one row carrying capture, default, apply, and reset delegates beside the verb set they derive from; `AppState` carries each serializable `*State` snapshot as one case naming its own payload and owning family, so a family round-trips as one detached snapshot, never as mid-flight mutable statics. `AppSettings.Commit` interprets state round-trips, theme and swatch policy, registry custody, window placement, and analysis solves into detached answers with prior/current observation receipts.
+`AppSettingsFamily` closes each `Rhino.ApplicationSettings` static owner as one row carrying capture, default, apply, and reset delegates beside the verb set they derive from; `AppState` carries each serializable `*State` snapshot as one case naming its own payload and owning family, so a family round-trips as one detached snapshot, never as mid-flight mutable statics. `AppSettings.Commit` interprets state round-trips, theme and swatch policy, registry custody, window placement, and analysis solves into detached answers carrying prior/current observations.
 
 Owner boundary against the settings tree is settled: `SettingsRoot.ApplicationCase` (settings.md) resolves the raw `PersistentSettings.RhinoAppSettings` node tree — a lazy `FromPlugInId(RhinoApp.CurrentRhinoId)` property, not a typed surface — while this page owns the distinct `Rhino.ApplicationSettings` static families whose storage merely rides that tree. A typed preference edit enters here through the owning family's state round-trip; a raw node read or write enters settings.md; neither owner reaches across.
 
 ## [01]-[INDEX]
 
 - [02]-[STATE_AND_FAMILY]: `SoftTransformState`, `PackageManagerState`, `AppState`, `FamilyVerb`, `AppSettingsFamily`, `AppTheme` — the preference payloads, the family rows, and the theme rows.
-- [03]-[REQUEST_ALGEBRA]: `AliasName`, `MacroText`, `RegistryMerge`, `AliasBinding`, `ShortcutBinding`, `AliasEdit`, `ShortcutEdit`, `RepeatEdit`, `PathEdit`, `ExtrusionDefault`, `CreasePolicy`, `GeneralConduct`, `RepeatRoster`, `SwatchSlot`, `AppOperation`, `AppObservation`, `AppMutationReceipt`, `SwatchReceipt`, `AppAnswer` — the request, edit, and answer vocabularies.
+- [03]-[REQUEST_ALGEBRA]: `AliasName`, `MacroText`, `RegistryMerge`, `AliasBinding`, `ShortcutBinding`, `AliasEdit`, `ShortcutEdit`, `RepeatEdit`, `PathEdit`, `ExtrusionDefault`, `CreasePolicy`, `GeneralConduct`, `RepeatRoster`, `SwatchSlot`, `AppOperation`, `AppObservation`, `AppMutation`, `SwatchMutation`, `AppAnswer` — the request, edit, and answer vocabularies.
 - [04]-[INTERPRETER]: `AppSettings` — the writer seat, the admission fold, and the total dispatch over the host statics.
 
 ## [02]-[STATE_AND_FAMILY]
@@ -369,7 +369,7 @@ public sealed partial class AppTheme {
 - Law: the themed preset is a PAINT capability. The host publishes `DefaultPaintColor(slot, darkMode)` but only `DefaultWidgetColor(slot)`, so a themed ask on a widget slot refuses through `Unsupported` naming the slot rather than answering a theme-blind default as though the theme had been honoured.
 - Law: `Mutates` names each case's own custody side, so a write can never enter the seat gate by omission; a swatch case with no value and a path case with no roster read the host without touching it, so both derive their side from the payload rather than the case name.
 - Law: instant is measured on the LIVE roster alone — the host default roster carries no instant flag, so the preset path answers `None` instead of publishing an unmeasured false, and the write seam lowers an absent flag to the host's own non-instant default.
-- Law: no `Changed` column on the mutation receipt — the host `*State` classes carry reference equality and every capture mints a FRESH instance, so a computed change flag publishes a constant; a consumer with family knowledge projects change from the prior/current pair itself.
+- Law: no `Changed` column on `AppMutation` — the host `*State` classes carry reference equality and every capture mints a FRESH instance, so a computed change flag publishes a constant; a consumer with family knowledge projects change from the prior/current pair itself.
 - Law: foreign `PaintColor`, `WidgetColor`, `KeyboardKey`, `ModifierKey`, `MouseSelectMode`, and `MiddleMouseMode` ordinals stop at these case payloads; `MacroText` and `AliasName` admit registry text once, and folder paths reuse the Document `DocumentPath` owner.
 - Growth: a new registry verb is one case on the owning edit union; a new general knob is one `GeneralConduct` case with its own two-row policy.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`); `Document/session` (`DocumentPath`), `Persistence/presets` (`PersistenceFault`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — `GetPaintColor`/`SetPaintColor`/`DefaultPaintColor`, `GetWidgetColor`/`SetWidgetColor`/`DefaultWidgetColor`, `GeneralSettings.UseExtrusions`/`SplitCreasedSurfaces`, `CommandAlias`, `KeyboardShortcut`), RhinoCommon UI (`api-rhino-ui.md` — `KeyboardKey`, `ModifierKey`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `Mesh`).
@@ -589,17 +589,17 @@ public abstract partial record AppObservation {
     public sealed record FaultedCase(AppSettingsFamily Family, Error Fault) : AppObservation;
 }
 
-public sealed record AppMutationReceipt(AppSettingsFamily Family, AppObservation Prior, AppObservation Current);
+public sealed record AppMutation(AppSettingsFamily Family, AppObservation Prior, AppObservation Current);
 
-public sealed record SwatchReceipt(SwatchSlot Slot, Color Prior, Color Current, Color Preset);
+public sealed record SwatchMutation(SwatchSlot Slot, Color Prior, Color Current, Color Preset);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AppAnswer {
     private AppAnswer() { }
 
     public sealed record StateCase(AppState State) : AppAnswer;
-    public sealed record MutationCase(AppMutationReceipt Receipt) : AppAnswer;
-    public sealed record SwatchCase(SwatchReceipt Receipt) : AppAnswer;
+    public sealed record MutationCase(AppMutation Mutation) : AppAnswer;
+    public sealed record SwatchCase(SwatchMutation Mutation) : AppAnswer;
     public sealed record ThemeCase(AppTheme Theme, bool Seated) : AppAnswer;
     public sealed record AliasesCase(Seq<AliasBinding> Bindings) : AppAnswer;
     public sealed record ShortcutsCase(Seq<ShortcutBinding> Bindings) : AppAnswer;
@@ -614,11 +614,11 @@ public abstract partial record AppAnswer {
 ## [04]-[INTERPRETER]
 
 - Owner: `AppSettings` — the one application-settings entry: `Mount` seats the process writer, `Commit` admits the complete nested operation and dispatches it.
-- Entry: application settings are process-global, so no `DocumentSession`, no `UndoBracket`, and no host undo record participate; every raw host enum crosses the admission fold before static access, and every mutation captures prior and current state around the host write so the receipt carries real observation.
+- Entry: application settings are process-global, so no `DocumentSession`, no `UndoBracket`, and no host undo record participate; every raw host enum crosses the admission fold before static access, and every mutation captures prior and current state around the host write so `AppMutation` carries real observation.
 - Law: mutation custody is an enforced app-root SEAT, not a convention. The host statics are last-writer-wins PROCESS state, so `Mount` seats one writer first-mount-wins on the kernel transition, every mutating operation presents it, and a second composition's write refuses typed instead of interleaving. Reads never touch the seat — capture, fallback, and every roster read answer for any composition, mounted or not.
 - Law: the seat is keyed on `PluginKey`, the branch's typed plug-in identity, so the process's single-writer fact is stated in the same vocabulary every other plug-in-scoped owner uses and a raw `Guid` never addresses it.
 - Law: a family verb the host does not publish refuses at ADMISSION off the row's `Verbs` set, before the writer seat and before any host static, so an unsupported ask never reaches a mutation path and never spends a capture.
-- Law: state mutations follow capture → write → capture, so `AppMutationReceipt` carries real prior/current evidence on every family; a refused capture lands as `FaultedCase` beside the write rather than as a structural absence.
+- Law: state mutations follow capture → write → capture, so `AppMutation` carries real prior/current evidence on every family; a refused capture lands as `FaultedCase` beside the write rather than as a structural absence.
 - Law: the admitted flag mask is a per-type CONSTANT resolved at type init, and it is folded through the enum's own underlying width — a signed row folded through `Convert.ToUInt64` throws on any negative value, which is a static-initializer fault that poisons the type for the process rather than a refusal on the rail.
 - Law: registry mutations return the landed roster in the same answer, and the repeat roster is read ONCE per answer through one local — reading the host's enabled flag and command names twice inside one expression publishes two observations of a racing process global as though they were one.
 - Law: initial window placement returns admitted bounds without exposing the host out-parameter, and the auto-range solve keeps its `ref` state a local inside the catch frame.
@@ -688,7 +688,7 @@ public static class AppSettings {
                 Color prior = swatch.Slot.Read();
                 swatch.Value.IfSome(swatch.Slot.Write);
                 return swatch.Slot.Preset(swatch.Theme, op).Map(preset => (AppAnswer)new AppAnswer.SwatchCase(
-                    Receipt: new SwatchReceipt(
+                    Mutation: new SwatchMutation(
                         Slot: swatch.Slot,
                         Prior: prior,
                         Current: swatch.Slot.Read(),
@@ -896,7 +896,7 @@ public static class AppSettings {
             Succ: state => (AppObservation)new AppObservation.ObservedCase(State: state),
             Fail: error => new AppObservation.FaultedCase(Family: family, Fault: error));
         AppObservation prior = Observe();
-        return write().Map(_ => (AppAnswer)new AppAnswer.MutationCase(Receipt: new AppMutationReceipt(
+        return write().Map(_ => (AppAnswer)new AppAnswer.MutationCase(Mutation: new AppMutation(
             Family: family,
             Prior: prior,
             Current: Observe())));
@@ -1032,7 +1032,6 @@ public static class AppSettings {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

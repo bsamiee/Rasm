@@ -138,7 +138,7 @@ Each row folds the pointer primitives into one step over a span, an array, or an
 
 [LOCAL_ADMISSION]:
 - `CompressionPolicy.Lz4Fast`/`Lz4High` pack through `LZ4Pickler.Pickle` at `LZ4Level.L00_FAST`/`L09_HC` and unpack through `Unpickle`; the frame carries its decoded size, so `SnapshotHeader` stores the row's `HeaderId` alone.
-- Level, frame shape, and both bounds project as receipt data, and the `Crc32`/`XxHash128` integrity tag folds the framed bytes independently, so a codec swap leaves the receipt intact.
+- Level, frame shape, and both bounds remain codec policy, and the `Crc32`/`XxHash128` integrity tag folds the framed bytes independently.
 
 [RAIL_LAW]:
 - Package: `K4os.Compression.LZ4`, `K4os.Compression.LZ4.Streams`

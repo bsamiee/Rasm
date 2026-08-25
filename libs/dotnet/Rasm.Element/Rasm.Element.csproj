@@ -25,6 +25,10 @@
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
+    <ItemGroup Label="Event Transport">
+        <PackageReference Include="CloudNative.CloudEvents" />
+    </ItemGroup>
+
     <ItemGroup Label="System Usings">
         <Using Include="System.Collections.Frozen" />
         <Using Include="System.Collections.Immutable" />

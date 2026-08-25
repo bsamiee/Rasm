@@ -85,14 +85,14 @@
 - `set_geom_indexes` promotes a geometry coordinate to `GeometryIndex`, from which `xarray` native `sel`/`isel`/`stack`/`concat`/`reindex_like` own spatial dispatch — never a hand-rolled loop over geometries.
 - CRS threads through the `xproj.ProjIndexMixin`, so `set_crs` declares and `to_crs` reprojects per geometry dimension while `xproj`'s CRS accessors see the coordinate's projection.
 - `query`/`mask` lower to the coordinate's cached `shapely.STRtree`, reading only the intersecting elements rather than scanning then filtering.
-- Each call emits a cube receipt — operation, geometry coordinate, CRS, predicate/aggfunc, selected and aggregated counts — on the field receipt family.
+- Each call returns the geometry-indexed cube directly; operation, geometry coordinate, CRS, predicate/aggfunc, and selected or aggregated counts remain on the result or its span when consumed.
 
 [STACKING]:
 - `xarray`(`libs/python/.api/xarray.md`): a coordinate carrying `GeometryIndex` is an ordinary `Index` backend, so `set_xindex`, `sel`/`isel`/`stack`, `flox` grouped reductions, and `zarr`/`netcdf4` persistence drive the cube unchanged.
 - `shapely`(`libs/python/data/.api/shapely.md`): geometry values are a `GeometryArray` and `query`/`mask` lower to `STRtree.query` under a GEOS binary predicate (`intersects`/`within`/`contains`/`dwithin`).
 - `pyproj`(`libs/python/data/.api/pyproj.md`): `crs` holds one `pyproj.CRS` and `to_crs` drives the `Transformer`, the `ProjIndexMixin` exposing the projection to `xproj`.
 - `geopandas`(`libs/python/data/.api/geopandas.md`): `to_geodataframe`/`to_geopandas` lower the cube to a `GeoDataFrame` at the `GeometryArray`, and a `GeoSeries` reconstructs the coordinate on return.
-- field-dataset rail: the geometry-indexed cube is a `FieldDataset`, so every field engine and receipt applies without a parallel container.
+- field-dataset rail: the geometry-indexed cube is a `FieldDataset`, so every field engine and direct content-keyed egress applies without a parallel container.
 
 [LOCAL_ADMISSION]:
 - `xvec` is admitted where a labelled field cube is queried, reprojected, or reduced by vector geometry; a `shapely`-plus-`xarray` hand-join carrying no `GeometryIndex` is the rejected form.

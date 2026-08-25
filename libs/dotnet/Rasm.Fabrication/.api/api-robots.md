@@ -19,7 +19,7 @@
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      | [CAPABILITY]                                    |
 | :-----: | :-------------------- | :----------------- | :---------------------------------------------- |
 |  [01]   | `RobotSystem`         | abstract cell root | the `FileIO`-loaded cell owning the batch solve |
-|  [02]   | `KinematicSolution`   | class receipt      | per-waypoint joints, planes, config, errors     |
+|  [02]   | `KinematicSolution`   | class solution    | per-waypoint joints, planes, config, errors     |
 |  [03]   | `RobotConfigurations` | flags enum         | OR-combinable arm-posture branch selection      |
 |  [04]   | `Manufacturers`       | enum               | cell vendor and post-processor dialect          |
 |  [05]   | `MechanicalGroup`     | class              | robot plus track/positioner as one solved chain |
@@ -136,7 +136,7 @@
 - `Program.CurrentSimulationPose`: THROWS `InvalidOperationException("This program cannot be animated.")` whenever the ctor produced no simulation, so every read gates on `Program.HasSimulation` first; the property is not `Option`-shaped and no `TryGet` sibling exists.
 - `Program.Animate`: `isNormalized: true` reads `time` over `[0,1]`, `false` over `[0, Duration]` seconds; it advances the cursor `CurrentSimulationPose` then reports, so animate-then-read is one imperative pair, never two independent calls.
 
-[PUBLIC_TYPE_SCOPE]: the planned-trajectory and simulation-cursor receipts at member depth — `SystemTarget` is the per-waypoint planner row, `SimulationPose` the between-waypoint cursor `Animate` advances.
+[PUBLIC_TYPE_SCOPE]: the planned-trajectory and simulation-cursor results at member depth — `SystemTarget` is the per-waypoint planner row, `SimulationPose` the between-waypoint cursor `Animate` advances.
 
 | [INDEX] | [SYMBOL]                           | [SHAPE]  | [CAPABILITY]                                                    |
 | :-----: | :--------------------------------- | :------- | :-------------------------------------------------------------- |

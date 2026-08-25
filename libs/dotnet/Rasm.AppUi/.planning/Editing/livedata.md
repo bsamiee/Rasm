@@ -1,12 +1,12 @@
 # [APPUI_LIVE_DATA]
 
-Rasm.AppUi live data owns every change-set pipeline between data sources and screens: the seven-case `DataSource` axis with its ingress channel, redrive policy, and pacing row; the one predicate instantiation and view-state pair every list, board, table, and search surface reads; the operator-row vocabulary; the optimistic overlay that renders a pending mutation before its echo; the one UI-thread `BindingCapsule`; the aggregation edge feeding scalar tiles and evidence; and the design-option row family whose keys join the comparison vocabularies. The engine is DynamicData over System.Reactive — every source folds into one keyed `SourceCache`, key selectors transcribe the Persistence IdentityPolicy vocabulary, the Ui scheduler arrives from the surface scheduler boundary fed by `UiSchedulerPort`, and change evidence leaves through the `ReceiptSinkPort` message envelope. The live-data spine — host fact to projection write to tag transition to delta fetch to `IChangeSet` — is the page's composite automation, and screens consume pipelines as expression folds beside their catalog rows.
+Rasm.AppUi live data owns every change-set pipeline between data sources and screens: the six-case `DataSource` axis with its ingress channel, redrive policy, and pacing row; the one predicate instantiation and view-state pair every list, board, table, and search surface reads; the operator-row vocabulary; the optimistic overlay that renders a pending mutation before its echo; the one UI-thread `BindingCapsule`; the aggregation edge feeding scalar tiles and evidence; and the design-option row family whose keys join the comparison vocabularies. The engine is DynamicData over System.Reactive — every source folds into one keyed `SourceCache`, key selectors transcribe the Persistence IdentityPolicy vocabulary, the Ui scheduler arrives from the surface scheduler boundary fed by `UiSchedulerPort`, and measured changes fire through the AppUi hook rail. The live-data spine — host fact to projection write to tag transition to delta fetch to `IChangeSet` — is the page's composite automation, and screens consume pipelines as expression folds beside their catalog rows.
 
-The predicate algebra is NOT this page's: `Rasm.Element` `Query/predicate#PREDICATE_ALGEBRA` owns the closure, the typed restriction, the verdict, and the byte projection, and this page instantiates `Predicate<FilterTerm>` over its own leaf row exactly as Bim and Persistence instantiate theirs — so a filter authored on a board, lowered to a store, and keyed into a memo is one value family across three folders instead of four parallel algebras. What survives here is what no seam owns: the per-row-model property roster and its compiler, the operand PARSE correspondence a URL fragment needs, the ordering fold a sort column needs, the sense vocabulary a picker renders, and the deep-link codec. `ViewState` holds group, order, visibility, and saved identity APART from that filter so a filter edit never dirties the view axis. `FeedFreshness` carries `FeedHealth` outward to the `Charts/tiles#WATCH_RULES` watch rows, whose severity ladder owns that posture vocabulary. `StatFold`, `StatSample`, and `DeltaPolarity` arrive settled from `Charts/tiles#SOURCE_AXIS` and `CompareOffset` from `Charts/grammar#LAYER_AND_SPEC`; `ControlIntent.Chip` with `ChipPosture` is the `Shell/controls#CONTROL_INTENT` chip materialization this page feeds and never constructs; `ScreenState.Filter` is the persisted encoded expression, so the deep link and the checkpoint are one codec. `EvidenceReceipt.LiveData` is the change-audit case, `LiveDataFault` carries failures through its direct generated union cases, and the merge authority's acknowledgment vocabulary is `Collab/presence#LIVE_WIRE` — `EventTriggerKind.Local`/`Import`/`Checkout` for echo routing and `CollabSyncReceipt` for merge outcome.
+The predicate algebra is NOT this page's: `Rasm.Element` `Query/predicate#PREDICATE_ALGEBRA` owns the closure, the typed restriction, the verdict, and the byte projection, and this page instantiates `Predicate<FilterTerm>` over its own leaf row exactly as Bim and Persistence instantiate theirs — so a filter authored on a board, lowered to a store, and keyed into a memo is one value family across three folders instead of four parallel algebras. What survives here is what no seam owns: the per-row-model property roster and its compiler, the operand PARSE correspondence a URL fragment needs, the ordering fold a sort column needs, the sense vocabulary a picker renders, and the deep-link codec. `ViewState` holds group, order, visibility, and saved identity APART from that filter so a filter edit never dirties the view axis. `FeedFreshness` carries `FeedHealth` outward to the `Charts/tiles#WATCH_RULES` watch rows, whose severity ladder owns that posture vocabulary. `StatFold`, `StatSample`, and `DeltaPolarity` arrive settled from `Charts/tiles#SOURCE_AXIS` and `CompareOffset` from `Charts/grammar#LAYER_AND_SPEC`; `ControlIntent.Chip` with `ChipPosture` is the `Shell/controls#CONTROL_INTENT` chip materialization this page feeds and never constructs; `ScreenState.Filter` is the persisted encoded expression, so the deep link and the checkpoint are one codec. `AppUiFact.LiveData` is the change-audit fact, `LiveDataFault` carries failures through its direct generated union cases, and merge outcomes stay with their owning collaboration rail.
 
 ## [01]-[INDEX]
 
-- [02]-[DATA_SOURCES]: Seven sourcing cases; the bounded ingress channel and its redrive; one cache feed dispatch; the pacing policy and the freshness ladder.
+- [02]-[DATA_SOURCES]: Six sourcing cases; the bounded ingress channel and its redrive; one cache feed dispatch; the pacing policy and the freshness ladder.
 - [03]-[FILTER_ALGEBRA]: The seam predicate instantiation, its property roster and compiler, the ordering fold, and the fingerprinted deep-link codec.
 - [04]-[VIEW_STATE]: Group, order, visibility, and saved-view identity held apart from filter state, over the one durable snapshot port.
 - [05]-[CHANGE_PIPELINES]: Operator rows; the one shaping fold over dynamic predicate and comparer streams.
@@ -17,14 +17,14 @@ The predicate algebra is NOT this page's: `Rasm.Element` `Query/predicate#PREDIC
 
 ## [02]-[DATA_SOURCES]
 
-- Owner: `HostDocumentFact`, `IngressLane`, `AdmitMode`, `FeedPace`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection, and every `SourcePolicy` axis lands on a composed operator inside `Open` — an inert policy field is the `POLICY_VALUES` rejected form. `FreshnessFacts`, `FreshnessBounds`, and `SourceFolds` own the staleness projection.
-- Cases: HostDocumentEvents, PersistenceQuery, CursorQuery, ReceiptStream, InMemorySeq, FakeDeterministic, OrderedList — `ReceiptStream.SourceKey` distinguishes compute and companion producers as seed data because both share admission, identity, timing, and consumer shape; the cursor row is the paged remote source: a large persisted set loads page-by-page through its opaque continuation cursor until `None`, so an unbounded snapshot fetch never rides the query row. `IngressLane` = Facts | Receipts. `AdmitMode` = Merge | Replace. `FeedPace` = Coalesced | Gated.
+- Owner: `HostDocumentFact`, `AdmitMode`, `FeedPace`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection, and every `SourcePolicy` axis lands on a composed operator inside `Open` — an inert policy field is the `POLICY_VALUES` rejected form. `FreshnessFacts`, `FreshnessBounds`, and `SourceFolds` own the staleness projection.
+- Cases: HostDocumentEvents, PersistenceQuery, CursorQuery, InMemorySeq, FakeDeterministic, OrderedList — the cursor row is the paged remote source: a large persisted set loads page-by-page through its opaque continuation cursor until `None`, so an unbounded snapshot fetch never rides the query row. `AdmitMode` = Merge | Replace. `FeedPace` = Coalesced | Gated.
 - Entry: `public Fin<DataSource<TRow,TKey>.Opened> Open(Func<TRow,TKey> key, SourcePolicy policy, Action<Error> fault)` — policy admission ACCUMULATES every out-of-range bound, then every optional axis declares the cases that consume it so an axis a case cannot read is inadmissible rather than silently inert; the carrier exposes the one keyed replay cache, the ordered source when order is a domain fact, the transport-health flag the redrive publishes, and the activation-scope disposable. `public IObservable<IChangeSet<TRow,TKey>> Feed()` on `Opened` — the ONE consumer connect, paced by the policy row. `public IObservable<FeedFreshness> Watch(SlotKey streamKey, FreshnessBounds bounds, IScheduler scheduler)` on `Opened` — the staleness projection over the ledger's own transport flag.
 - Auto: the live-data spine — a host watch fact drives the Persistence projection write, the tag transition fires `Invalidations`, `Delta` fetches the changed rows, and the cache emits `IChangeSet`; one named pipeline, zero bespoke glue; the emitted `IChangeSet` is the single delta spine — one `Feed` chain fans into chart `SeriesSource`, table projection, and aggregation tiles through `Transform`/`MergeMany` with zero materialized intermediate, so a new consumer subscribes to the existing delta and the source never forks into a second collection-mutation path.
 - Packages: DynamicData, System.Reactive, System.Threading.Channels, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, Rasm (kernel `RedrivePolicy`, `Custody`)
-- Growth: a new feed is one case on the closed family; a new bound is one policy value on `SourcePolicy` with its `AxisRow`; a new ingress posture is one `IngressLane` row; a new pacing posture is one `FeedPace` arm; a new health rung is one `Ladder` row; zero new surface.
+- Growth: a new feed is one case on the closed family; a new bound is one policy value on `SourcePolicy` with its `AxisRow`; a new pacing posture is one `FeedPace` arm; a new health rung is one `Ladder` row; zero new surface.
 - Boundary: `Open` and `Admit` form the Rx-to-rail boundary capsule. Hosts enter only as async-stream and message-envelope delegates, key selectors transcribe Persistence identity policy, and late subscribers replay from cache state. `SourcePolicy` consumes scheduling, ingress, expiry, size, query-refresh, page-ceiling, redrive, and pacing axes.
-- Boundary: INGRESS is a producer/consumer seam and it is the ONE place a `Channel<T>` lives on this page — a foreign producer pushes at its own rate and the drain loop is the only writer into `cache.Edit`, so `IngressLane` decides whether a fast host waits for capacity or sheds oldest-first and the shed lands on the fault rail as counted evidence. Rx is the DECLARED spine everywhere downstream of that cache: `Batch`, `Filter`, `Sort`, `MergeChangeSets`, and `Bind` are incremental change-set operators over `IObservable<IChangeSet<,>>`, and a queue between two of them would break the delta contract those operators derive from, so pacing is a change-set fold and never a channel bound. The prior shape paced only the CONSUMER connect, which left nothing at all between a fast host callback and the cache.
+- Boundary: INGRESS is a producer/consumer seam and it is the ONE place a bounded `Channel<T>` lives on this page — a foreign producer pushes at its own rate and the drain loop is the only writer into `cache.Edit`. Rx is the DECLARED spine everywhere downstream of that cache: `Batch`, `Filter`, `Sort`, `MergeChangeSets`, and `Bind` are incremental change-set operators over `IObservable<IChangeSet<,>>`, and a queue between two of them would break the delta contract those operators derive from, so pacing is a change-set fold and never a channel bound. The prior shape paced only the CONSUMER connect, which left nothing at all between a fast host callback and the cache.
 - Boundary: RETRIABILITY is produced here, never merely consumed — `SourcePolicy.Redrive` is the kernel `RedrivePolicy` over a LanguageExt `Schedule`, the drain loop re-enters its stream on that curve, and the attempt state publishes the transport flag `Watch` reads, so the retry law and the reconnection signal have one owner; the prior form took a `reconnecting` flag as a parameter no owner produced and let a refresh lane die permanently on its first `onError`.
 - Boundary: `OrderedList` keeps its `SourceList` as the authoritative ordered projection while folding each list reason incrementally into the keyed delta spine; `Opened.Ordered` exposes that same source without rebuilding order from a cache that cannot encode position. `CursorQuery` walks its continuation as an ASYNC STREAM with the visited set catching a repeating cursor and the admitted `PageCeiling` catching a fresh non-repeating one, stages each page into a temporary keyed cache, swaps the completed snapshot once, and disposes staging — the prior recursive-descent chase threaded page, cursor, and visited through a self-call with no tail-call guarantee, so a ceiling of a few thousand overflowed the stack before either bound fired.
 - Boundary: BACKPRESSURE at the CONSUMER coalesces rather than drops: `Batch` buffers the interval's change-sets and flattens them into one, so a high-rate feed costs one bind pass per window with every delta preserved, while a `Throttle` or `Sample` on a change-set stream discards the deltas it skips and leaves the bound collection describing a state no producer ever held — the named deleted form on every delta stream in this package. `Gated` is that same coalescing under an external hold, so a suspended surface accumulates and releases as one batch through `BatchIf` rather than tearing its subscription down and replaying from cache.
@@ -32,26 +32,6 @@ The predicate algebra is NOT this page's: `Rasm.Element` `Query/predicate#PREDIC
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
-
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class IngressLane {
-    public static readonly IngressLane Facts = new("facts", capacity: 1024, BoundedChannelFullMode.Wait);
-    public static readonly IngressLane Receipts = new("receipts", capacity: 256, BoundedChannelFullMode.DropOldest);
-
-    public int Capacity { get; }
-    public BoundedChannelFullMode Full { get; }
-
-    public Channel<T> Open<T>(Action<T> shed) =>
-        Channel.CreateBounded(
-            new BoundedChannelOptions(Capacity) {
-                FullMode = Full,
-                SingleWriter = true,
-                SingleReader = true,
-                AllowSynchronousContinuations = false,
-            },
-            shed);
-}
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -98,7 +78,6 @@ public readonly record struct HostDocumentFact(int PhaseKey, uint DocumentSerial
 
 public sealed record SourcePolicy(
     IScheduler Source,
-    IngressLane Lane,
     Option<Duration> Expiry = default,
     Option<int> SizeBound = default,
     Option<Duration> Refresh = default,
@@ -166,11 +145,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
     public sealed record CursorQuery(
         Func<Option<string>, Fin<(Seq<TRow> Rows, Option<string> Next)>> Fetch) : DataSource<TRow, TKey>;
 
-    public sealed record ReceiptStream(
-        SlotKey SourceKey,
-        Func<CancellationToken, IAsyncEnumerable<ReceiptEnvelope>> Frames,
-        Func<ReceiptEnvelope, Option<TRow>> Project) : DataSource<TRow, TKey>;
-
     public sealed record InMemorySeq(Seq<TRow> Rows) : DataSource<TRow, TKey>;
 
     public sealed record FakeDeterministic(Seq<(Duration At, Seq<TRow> Rows)> Script) : DataSource<TRow, TKey>;
@@ -185,7 +159,7 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         new AxisRow("cache expiry", "the live sources", static policy => policy.Expiry.IsSome, static source => source is not (InMemorySeq or FakeDeterministic)),
         new AxisRow("size bound", "the live sources", static policy => policy.SizeBound.IsSome, static source => source is not (InMemorySeq or FakeDeterministic)),
         new AxisRow("redrive policy", "the pulled and pushed rows", static policy => policy.Redrive.IsSome,
-            static source => source is HostDocumentEvents or PersistenceQuery or CursorQuery or ReceiptStream));
+            static source => source is HostDocumentEvents or PersistenceQuery or CursorQuery));
 
     public Fin<Opened> Open(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) =>
         policy.Admit().ToFin()
@@ -232,9 +206,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                     Refreshed(s.policy, "cursor-refresh", s.fault,
                         () => chase.Disposable = CursorSnapshot(s.cache, s.key, c.Fetch, s.policy, s.fault)))),
             },
-            receiptStream: static (s, c) => Pump(
-                c.Frames, s.policy, "receipts", s.fault,
-                envelope => s.cache.Edit(updater => AdmitMode.Merge.Seat(updater, c.Project(envelope).ToSeq()))),
             inMemorySeq: static (s, c) => Seed(s.cache, Fin.Succ(c.Rows), AdmitMode.Replace, s.fault) switch {
                 _ => DataFeed.Quiet(Disposable.Empty),
             },
@@ -258,8 +229,12 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         Func<CancellationToken, IAsyncEnumerable<T>> stream, SourcePolicy policy, string edge, Action<Error> fault, Action<T> admit) {
         CancellationTokenSource life = new();
         BehaviorSubject<bool> retrying = new(false);
-        Channel<T> gate = policy.Lane.Open<T>(_ =>
-            fault(new LiveDataFault.Source($"{edge}: the {policy.Lane.Key} lane shed a frame at its {policy.Lane.Capacity} bound")));
+        Channel<T> gate = Channel.CreateBounded<T>(new BoundedChannelOptions(1024) {
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleWriter = true,
+            SingleReader = true,
+            AllowSynchronousContinuations = false,
+        });
         _ = Task.Run(() => Redrive(stream, policy.Redrive, gate.Writer, retrying, edge, fault, life.Token), life.Token);
         _ = Task.Run(() => Drain(gate.Reader, admit, life.Token), life.Token);
         return new DataFeed(
@@ -410,8 +385,8 @@ config:
 flowchart LR
     accTitle: Live-data admission spine
     accDescr: Host facts and snapshots converge through a bounded ingress channel and typed admission into one source cache, paced feed, change-set pipeline, binding capsule, and collection.
-    HostFacts["host async stream"] -->|IngressLane channel| Drain
-    Invalidations -->|IngressLane channel| Drain
+    HostFacts["host async stream"] -->|bounded channel| Drain
+    Invalidations -->|bounded channel| Drain
     Drain -->|AdmitMode.Seat| SourceCache
     Snapshot -->|AdmitMode.Replace| SourceCache
     CursorPages -->|staging swap| SourceCache
@@ -891,7 +866,7 @@ public static class FilterLink {
 - Growth: a new view axis is one `ViewState` field with its admission clause; a new durable artifact is one `SnapshotPort` instantiation at its owning page; zero new surface.
 - Boundary: a saved view persists as its ENCODED filter plus its view axes, so the artifact a user shares and the checkpoint a session restores are the same bytes and the port never holds an expression tree; a store type never enters these fences — persistence crosses through the port's delegates bound at composition to the Persistence snapshot vocabulary, the `Shell/screens#SCREEN_STATE` law.
 - Boundary: TIME is a column, never an ambient read — the binding takes the `Func<Instant> Clock` its own `[09]` peer already carries, so `Save` is deterministic under a test clock and two owners on one page cannot hold two clock postures four hundred lines apart. The prior inline `SystemClock.Instance.GetCurrentInstant()` made the one durable write on the page untestable.
-- Boundary: SHARING is not a column. The prior `SavedView.Shared` bool was written once with a constant and read nowhere — a knob whose value the artifact already reconstructs — so it is gone; a sharing verb, when one exists, is a port operation with a receipt, not a flag on the row.
+- Boundary: SHARING is not a column. The prior `SavedView.Shared` bool was written once with a constant and read nowhere — a knob whose value the artifact already reconstructs — so it is gone; a sharing verb, when one exists, is a port operation, not a flag on the row.
 - Boundary: a COMPILE failure mid-stream is a fault on the rail with the last good predicate HELD, never a silent fall-back to the open filter: a view that quietly showed every row after a bad edit reports success for a question nobody asked, while a held predicate plus a raised fault leaves the surface honest and the banner accurate. Visibility is the DOMAIN axis and lives here — `Editing/tables#VIEW_STATE` keeps only the grid-mechanism cells its control owns (display index and resolved pixel width), so a column hidden on a board and hidden on a grid is one fact.
 
 ```csharp
@@ -1034,7 +1009,7 @@ The delivery table routes each change-set operator to the ONE owner that compose
 | :-----: | :-------------------- | :---------------------- | :------------------------------------------------------------------------- |
 |  [01]   | dynamic-filter        | Filter                  | `PipelineFolds.Shape`; predicate stream, pushed value, no resubscribe      |
 |  [02]   | comparative-sort      | Sort                    | `PipelineFolds.Shape`; comparer stream for mid-pipeline order              |
-|  [03]   | projection            | Transform               | consuming surface; row models projected from store and receipt shapes      |
+|  [03]   | projection            | Transform               | consuming surface; row models projected from domain sources                 |
 |  [04]   | flat-map              | TransformMany           | consuming surface; one host fact expands to N child rows                   |
 |  [05]   | live-grouping         | Group                   | `OptionSet.Readings`; per-option KPI slices off one subscription           |
 |  [06]   | stable-grouping       | GroupWithImmutableState | `Shell/virtualization#HIERARCHY_FLATTEN`; paged and windowed bands         |
@@ -1059,7 +1034,7 @@ The delivery table routes each change-set operator to the ONE owner that compose
 - Cases: `OverlayPosture` = pending | refused | settled under ascending rank; `OverlayEcho` = Acked | Converged | Refused.
 - Law: the overlay is a MERGE, not a write-back — `MergeChangeSets` with a rank comparer publishes the pending row while it exists, and its removal makes the tracker re-look-up the best remaining value across every source and republish the authoritative row, so reconciliation and rollback are the package's own fallback rather than a hand-written restore that has to remember what the value was.
 - Entry: `public OverlayTicket<TKey> Project(TRow value)` — stamps the next revision and publishes the pending row, deriving its key through the ledger's own row selector so the ticket and the cell address one key; `public Unit Reconcile(OverlayEcho<TRow,TKey> echo)` — the one acknowledgment fold; `public IObservable<IChangeSet<OverlayRow<TRow>,TKey>> Merged(IObservable<IChangeSet<TRow,TKey>> authoritative)` — the merged stream every bound view reads; `public IObservable<int> Pending` — the outstanding-mutation count the connection strip and the pending gauge read.
-- Receipt: a refused projection raises its `Error` on the capsule's one `Action<Error>` rail while the refused row renders, so the refusal is simultaneously visible on the surface and countable at the fault instrument, and no second refusal channel exists.
+- Result: a refused projection raises its `Error` on the capsule's one `Action<Error>` rail while the refused row renders, so the refusal is simultaneously visible on the surface and countable at the fault instrument, and no second refusal channel exists.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm (kernel `Custody`)
 - Growth: a new posture is one `OverlayPosture` row with its rank; a new acknowledgment shape is one `OverlayEcho` case with its ledger arm; zero new surface.
 - Boundary: SUPPRESSION of a late authoritative echo is structural rather than a filter — a pending row outranks the settled row for its key, so an echo carrying a pre-mutation value is published into the merge and immediately loses, and no ordering guarantee on the transport is required for the view to stay stable.
@@ -1284,14 +1259,14 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault, SortAndB
 ## [08]-[AGGREGATION_SPINE]
 
 - Owner: `LiveDataOps` — the four instrument rows, their three named projections, and the scalar-fold and change-audit binds attached to the capsule as one extension block.
-- Entry: `public IDisposable Scalar(IObservable<IChangeSet<StatSample, string>> pipeline, StatFold fold, Func<StatSample, double> value, Action<double> render)` — the fold ROW is the parameter, so a bound statistic is recoverable from its declaration and no aggregate lambda crosses the bind edge; `public IDisposable Audit<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, SlotKey slot, Func<EvidenceReceipt, IO<Unit>> seal)` — the change-audit fold, one sealed receipt per measured delta; `public static Fin<Unit> Faulted(InstrumentSet set, SlotKey slot, Error fault)`, `public static Fin<Unit> Aged(InstrumentSet set, FeedFreshness freshness)`, and `public static Fin<Unit> Awaiting(InstrumentSet set, SlotKey slot, int pending)` — the three composition-bound projections, each named for the fact it writes.
-- Receipt: `Audit` folds each delta's `ChangeSummary.Latest` scalars into one `EvidenceReceipt.LiveData` case (adds, updates, removes, refreshes per slot) sealed through the `ReceiptSinkPort` message envelope — process-local, HLC-correlated, one union case at the evidence owner, never a parallel evidence shape; `TelemetryRow` contributes the change-throughput, live-fault, feed-age, and pending-overlay rows inward through the AppHost `TelemetryContributorPort`.
+- Entry: `public IDisposable Scalar(IObservable<IChangeSet<StatSample, string>> pipeline, StatFold fold, Func<StatSample, double> value, Action<double> render)` — the fold ROW is the parameter, so a bound statistic is recoverable from its declaration and no aggregate lambda crosses the bind edge; `public IDisposable Audit<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> pipeline, SlotKey slot, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)` — the change-audit fold, one `AppUiFact.LiveData` per measured delta; `public static Fin<Unit> Faulted(InstrumentSet set, SlotKey slot, Error fault)`, `public static Fin<Unit> Aged(InstrumentSet set, FeedFreshness freshness)`, and `public static Fin<Unit> Awaiting(InstrumentSet set, SlotKey slot, int pending)` — the three composition-bound projections, each named for the fact it writes.
+- Result: `Audit` folds each delta's `ChangeSummary.Latest` scalars into one `AppUiFact.LiveData` fired through the canonical hook rail; `TelemetryRow` contributes the change-throughput, live-fault, feed-age, and pending-overlay rows inward through the AppHost `TelemetryContributorPort`.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core, Rasm (kernel `InstrumentSpec`, `InstrumentSet`)
 - Growth: a new statistic is one `Charts/tiles#SOURCE_AXIS` `StatFold` row; one live instrument is one `InstrumentSpec` row on `LiveDataOps` with its owning projection beside it and one `TelemetryRow` argument; a new audited change axis is one field on the evidence case its seal already fills; zero new surface.
 - Boundary: an instrument is a declared ROW and every write passes it — `InstrumentSet.Write`, `Level`, and `Enabled` take the declaration, so a write against an undeclared name has no spelling and the `Diagnostics/evidence#TELEMETRY_SPINE` fan reads `LiveDataOps.Changes` as the row this page owns. The three projections carry DISTINCT names rather than one overloaded `Observe`: three same-named entrypoints differing only in argument shape made the fact each one wrote unrecoverable from its call site, which is the entrypoint-sibling form.
-- Boundary: `Audit` is the ONE producer of the live-data evidence case and therefore of the change-throughput instrument — `CollectUpdateStats` scans the delta stream into a `ChangeSummary` whose `Latest` carries this change-set's own counts and whose `Overall` carries the cumulative run; the seal reads `Latest` because `Overall` republishes every prior delta on every emission and the fan's four-row fold would then count one change once per later change-set. The evidence case is CONSTRUCTED, not factory-minted: `EvidenceOps` carries the wire options and the decode, and the delegate-fed cases build at their composition delegate because their sources hold no receipt record to project. The sealed receipt IS the write, so a hand-synced counter beside it is the rejected form.
+- Boundary: `Audit` is the ONE producer of the live-data fact and therefore of the change-throughput instrument — `CollectUpdateStats` scans the delta stream into a `ChangeSummary` whose `Latest` carries this change-set's own counts and whose `Overall` carries the cumulative run; the projection reads `Latest` because `Overall` republishes every prior delta on every emission and the fan's four-row fold would then count one change once per later change-set.
 - Boundary: the audit sits AHEAD of the binding edge and takes no `ObserveOn`, since evidence never owes the UI thread and a second hop is the capsule's named defect; the keyed audit reads four measured axes because a keyed change-set carries no move reason, and a zero-total emission seals nothing rather than publishing a delta no producer measured; the boundary collapse at that subscription is the rail's own `Try`, so the typed failure lands on the capsule's fault rail before the void returns rather than being discarded three calls deep in a hand-nested lift.
-- Boundary: the live-fault instrument comes from `Faulted` bound at the one `Action<Error>` rail, the feed-age gauge from the `[02]` freshness projection, and the pending gauge from the `[06]` ledger count, so metrics and the `ReceiptSinkPort` evidence stream derive from the same producers; age and pending ride READING rows because both are standing facts whose last value is the answer, and a counter over either would report a rate for a state — pushed gauges rather than pulled level families, because each value arrives on an emission the projection writes at and each carries dimensions a family keyed on one tag cannot hold.
+- Boundary: the live-fault instrument comes from `Faulted` bound at the one `Action<Error>` rail, the feed-age gauge from the `[02]` freshness projection, and the pending gauge from the `[06]` ledger count; age and pending ride READING rows because both are standing facts whose last value is the answer, and a counter over either would report a rate for a state — pushed gauges rather than pulled level families, because each value arrives on an emission the projection writes at and each carries dimensions a family keyed on one tag cannot hold.
 - Boundary: suspend and resume ride the activation scope — surface visibility drives activation at the screens owner, a hidden surface holds zero live subscriptions, and cache state delivers instant replay on resume, while a surface that must keep its subscription across a hold declares `FeedPace.Gated` instead, so pausing without unsubscribing is a policy row rather than a second lifetime. Gauge and scalar tiles bind their `StatFold` row through `Scalar`, whose `StatSample` feed carries the population weight the weighted mean reduces on; the TILE naming stays at the board, which owns the tile concept. An OAPH mirror of change-set state, a stats service, and a notification-center history store are the rejected forms.
 
 ```csharp
@@ -1342,16 +1317,17 @@ public static class LiveDataOps {
         public IDisposable Audit<TRow, TKey>(
             IObservable<IChangeSet<TRow, TKey>> pipeline,
             SlotKey slot,
-            Func<EvidenceReceipt, IO<Unit>> seal)
+            HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail)
             where TRow : notnull where TKey : notnull =>
             pipeline.CollectUpdateStats()
                 .Select(static summary => summary.Latest)
                 .Where(static latest => latest.Adds + latest.Updates + latest.Removes + latest.Refreshes > 0)
-                .Select(latest => seal(new EvidenceReceipt.LiveData(
-                    slot.Value, latest.Adds, latest.Updates, latest.Removes, latest.Refreshes)))
+                .Select(latest => rail.Fire(
+                    AppUiPoint.LiveData,
+                    new AppUiFact.LiveData(slot.Value, latest.Adds, latest.Updates, latest.Removes, latest.Refreshes),
+                    Op.Of(name: AuditEdge)))
                 .Subscribe(
-                    effect => ignore(Observe.Catch(() => Fin.Succ(effect.Run()))
-                        .IfFail(error => fun(() => capsule.Fault(error))())),
+                    outcome => ignore(outcome.IfFail(error => fun(() => capsule.Fault(error))())),
                     raw => capsule.Fault(Error.New(raw.Message, raw)));
     }
 }
@@ -1496,7 +1472,3 @@ public sealed record OptionSet(
             : Fin.Fail<double>(new LiveDataFault.Options("regeneration spread must be a finite non-negative fraction"));
 }
 ```
-
-## [10]-[RESEARCH]
-
-(none)

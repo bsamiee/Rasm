@@ -22,7 +22,7 @@ Authoring law for every Python spec, kit member, and tool suite under `tests/pyt
 - [03]-`seams.py`: `Shape` call-shape union, `SeamProbe`, the loopback capsule, `VariantWriter`, `tmp_root`, `NdjsonOracle`, process doubles.
 - [04]-`env.py`: Declarative environment doubles — `SshHost`, `RemoteFS`, `ObjectStore` — under one polymorphic `provision` dispatch.
 - [05]-`bench.py`: `BenchCase` registry rows, absolute-budget gates, and sustained-regression detection.
-- [06]-`corpus.py`: Live `manifest.json` proof — `assert_corpus` composes Assay receipts with Python binding and package proofs.
+- [06]-`corpus.py`: Live `manifest.json` proof — `assert_corpus` composes Assay corpus oracles with Python binding and package proofs.
 - [07]-`laws.py`: `@spec` registration, `COVERS` consumption, `auto_exempt`, SUT registration, and the `assert_law_coverage` census gate.
 - [08]-`runtime.py`: Runs the pytest plugin — Hypothesis profiles and example database, marker auto-application, artifact routing.
 
@@ -86,7 +86,7 @@ Default runs are the unit lane: sockets disabled through pytest-socket, benchmar
 
 Inline-snapshot owns genuine wire goldens only: payloads an independent producer emits. Storage routes through `.cache/inline-snapshot`; mismatch reporting never auto-mutates snapshots. Dirty-equals carries partial-structure assertions inside larger facts. Blocked cases count without evidence and mint no bytes. Verified vectors elect `semantic-conformance`, `semantic-roundtrip`, `value-parity`, `external-digest`, or `publisher-digest`.
 
-Assay receipts own corpus oracles; generated descriptors and package resources own Python-local proof.
+Assay owns the corpus oracles; generated descriptors and package resources own Python-local proof.
 
 ## [09]-[DENSITY_AND_BANS]
 

@@ -156,21 +156,21 @@ class _Topic extends Schema.Class<_Topic>('Fanout/Topic')({
     budget: Schema.optionalWith(Schema.Literal(...Fault.Budget.kinds), { default: () => 'lease' as const }),
 }) {}
 
-const _ReceiptPosition = Schema.Union(
+const _Position = Schema.Union(
     Schema.TaggedStruct('Sequence', { seq: Schema.NonNegativeInt }),
     Schema.TaggedStruct('PartitionOffset', { partition: Schema.NonNegativeInt, offset: Schema.NonEmptyString }),
 );
 
 class _Replayed extends Schema.Class<_Replayed>('Fanout/Replayed')({
     event: _Announced,
-    coordinate: _ReceiptPosition,
+    coordinate: _Position,
 }) {}
 
-class _Receipt extends Schema.Class<_Receipt>('Fanout/Receipt')({
+class _Landing extends Schema.Class<_Landing>('Fanout/Landing')({
     topic: Schema.NonEmptyString,
     subject: Schema.NonEmptyString,
     key: Schema.NonEmptyString,
-    position: _ReceiptPosition,
+    position: _Position,
     duplicate: Schema.Boolean,
 }) {}
 
@@ -205,9 +205,9 @@ declare namespace Fanout {
         Sequence: { readonly seq: number };
         Instant: { readonly at: DateTime.Utc };
     }>;
-    type ReceiptPosition = typeof _ReceiptPosition.Type;
+    type Position = typeof _Position.Type;
     type Replayed = _Replayed;
-    type Receipt = _Receipt;
+    type Landing = _Landing;
     type Stowed = _Stowed;
     type Consumer = _Consumer;
     type LocalPolicy = _LocalPolicy;
@@ -291,7 +291,7 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 ## [03]-[PORT_SHAPE]
 
 [PORT_SHAPE]:
-- Owner: the `Fanout` Tag — ten members over the topic key. This envelope lane: `publish(topic, envelope)` yields the evidence receipt whose position is either a stream sequence or a partition-offset coordinate; `atomic(topic, consumer, envelopes)` publishes a batch and the naming consume lane's held position as one indivisible unit — the read-process-write member; `subscribe(topic)` is the live fanout stream with the topic's replay window warming a late attach; `consume(topic, consumer, anchor, handler)` is the at-least-once lane whose explicit consumer identity derives a distinct durable name, preventing independent logical subscribers from accidentally load-balancing one durable consumer; `consumers(topic, retire?)` is the durable-consumer doctor read, the optional predicate turning the census into a reap that answers the survivors; `replay(topic, anchor)` re-reads within retention as `Fanout.Replayed`, pairing each envelope with its engine-minted coordinate. This blob lane streams transient large-binary handoff through `stash` / `alias` / `haul`, never a second content-addressing vocabulary or durable store.
+- Owner: the `Fanout` Tag — ten members over the topic key. This envelope lane: `publish(topic, envelope)` answers the `Fanout.Landing` — the broker's own acknowledgement, its position either a stream sequence or a partition-offset coordinate beside the duplicate verdict; `atomic(topic, consumer, envelopes)` publishes a batch and the naming consume lane's held position as one indivisible unit — the read-process-write member; `subscribe(topic)` is the live fanout stream with the topic's replay window warming a late attach; `consume(topic, consumer, anchor, handler)` is the at-least-once lane whose explicit consumer identity derives a distinct durable name, preventing independent logical subscribers from accidentally load-balancing one durable consumer; `consumers(topic, retire?)` is the durable-consumer doctor read, the optional predicate turning the census into a reap that answers the survivors; `replay(topic, anchor)` re-reads within retention as `Fanout.Replayed`, pairing each envelope with its engine-minted coordinate. This blob lane streams transient large-binary handoff through `stash` / `alias` / `haul`, never a second content-addressing vocabulary or durable store.
 - Law: `atomic` is the one indivisible-publish spelling and it is a topic-row capability, never a call-site protocol — an engine whose `serves.atomic` cell reads false answers `horizon` through `_absent` rather than pretending the sequence held. Kafka reads the consumer argument as its OFFSET SOURCE, because there the unit a crash may neither duplicate nor drop spans the read and the write, so that engine binds the handoff off a live consume lane; the JetStream stage binds no read half and names the argument without reading it.
 - Law: `_ENGINES` is the one capability authority and `_absent` mints every refusal from it — a binding site never hand-spells a marker, and `Fanout.engine` publishes the same rows a caller reads before it calls.
 - Law: `serves` is a map over the PORT MEMBERS and never a second vocabulary beside them, and `anchors` is the admitted anchor set every positional gate reads through `_admits`, so an engine widening either edits one cell and every binding follows it.
@@ -301,7 +301,7 @@ const _named = (topics: Fanout.Topics, topic: string): Effect.Effect<Fanout.Topi
 - Law: the guarantee columns are what the engine alone decides and the recovery columns are what a re-drive stands on, so `degrade` carries only the residual none of them expresses and a coordinate an engine forfeits is stated where a selector sees it.
 - Law: an engine row is SELECTED BY the consumption profile and mints no axis vocabulary — `tenancy` states the isolation this engine realizes (a subject namespace, a topic prefix, an origin) while `proc/config#ADMISSION_ROWS` `Profile` owns the closed axis every root states, so a second roster never stands beside it.
 - Law: `present` states WHERE this engine's credential lives and what a rotation costs it, spelling the same cell name the egress lane table at `net/client#LANE_ROWS` carries, so one credential vocabulary crosses both planes. The column separates rather than repeats: the in-process rows authenticate nothing at all, JetStream authenticates at HANDSHAKE off `ConnectionOptions`, so a rotated principal reaches a live connection only by replacing it, and Kafka's SASL/OAUTHBEARER provider re-runs on the broker client's own token cadence, so a rotation lands in place and holds the connection open. A message header is never the credential on any row — headers are app metadata no server authenticates on, and a row presenting one would be authenticating the payload rather than the peer.
-- Law: `alias` is byte-free aliasing, never a re-stash — a derivative fanned to a second topic or a payload re-published after a replay answers off the target receipt's own store key, so a large binary is paid for once; a `haul`-then-`stash` round trip re-streams every chunk and re-digests an object the store already holds, and it is the named defect this member deletes.
+- Law: `alias` is byte-free aliasing, never a re-stash — a derivative fanned to a second topic or a payload re-published after a replay answers off the target `Fanout.Stowed`'s own store key, so a large binary is paid for once; a `haul`-then-`stash` round trip re-streams every chunk and re-digests an object the store already holds, and it is the named defect this member deletes.
 - Law: `consumers` closes the one substrate object a caller mints at runtime — every distinct logical identity ever passed to `consume` leaves a durable consumer holding an ack-pending window and a server cursor, so the census reads them with their pending, unacked, and redelivered depth and the retire predicate retracts a renamed service; Layer-build reconciliation converges streams and stores, and this member is its consumer half.
 - Law: the fault family is one reason-discriminated class — `dial` (the engine's transport is unreachable, class `unavailable`), `horizon` (the anchor precedes the engine's window, the topic is undeclared, or the blob is absent — class `absent`), `publish` (an unacknowledged publish or a rejected stash, class `unavailable`), `poison` (the handler proves an envelope unprocessable, class `malformed` — the consume lane's terminate signal) — so the core budget gate re-drives the transient rows and a horizon miss routes as the terminal evidence it is.
 - Law: `reason` bands the fault and `detail` proves it — every mint carries the evidence its own site holds: a caught cause stringified, or an angle-bracketed marker naming the structural refusal and the operand that decided it (the missed window bound, the shelf ceiling, the drifted contract axes, the unbound axis). Each re-minted reason therefore keeps one band while its site stays diagnosable, so a `dial` names its transport failure instead of reporting that dialing failed and nothing more.
@@ -481,12 +481,12 @@ class Fanout extends Context.Tag('runtime/Fanout')<
             topic: string,
             event: Fanout.Announced,
             post?: Fanout.Post,
-        ) => Effect.Effect<Fanout.Receipt, FanoutFault>;
+        ) => Effect.Effect<Fanout.Landing, FanoutFault>;
         readonly atomic: (
             topic: string,
             consumer: string,
             events: ReadonlyArray<Fanout.Announced>,
-        ) => Effect.Effect<ReadonlyArray<Fanout.Receipt>, FanoutFault>;
+        ) => Effect.Effect<ReadonlyArray<Fanout.Landing>, FanoutFault>;
         readonly subscribe: (topic: string) => Stream.Stream<Fanout.Announced, FanoutFault>;
         readonly consume: (
             topic: string,
@@ -509,9 +509,9 @@ class Fanout extends Context.Tag('runtime/Fanout')<
     static readonly Announced = _Announced;
     static readonly Post = _Post;
     static readonly Topic = _Topic;
-    static readonly ReceiptPosition = _ReceiptPosition;
+    static readonly Position = _Position;
     static readonly Replayed = _Replayed;
-    static readonly Receipt = _Receipt;
+    static readonly Landing = _Landing;
     static readonly Stowed = _Stowed;
     static readonly Consumer = _Consumer;
     static readonly LocalPolicy = _LocalPolicy;
@@ -580,7 +580,7 @@ const _minted = (
                                 delivered
                                     ? Effect.map(
                                           _partitionKey(topic, admitted),
-                                          (key) => new _Receipt({
+                                          (key) => new _Landing({
                                               topic,
                                               subject: topics[topic]?.subject ?? topic,
                                               key,
@@ -821,7 +821,7 @@ const _tab = (topics: Fanout.Topics, policy: Fanout.LocalPolicy): Layer.Layer<Fa
 - Law: `haul` joins deferred object-store errors into the stream failure channel.
 - Law: `atomic` is the server's own STAGE, never a republish loop — `js.startBatch` opens it, `add` stages the middle, and `commit` publishes the closing message and settles the whole run, so nothing lands until the commit and a crash mid-stage leaves the stream untouched instead of half-written. `allow_atomic` arms the stream at ensure, since the capability is stream shape rather than a publish flag, and the three server ceilings are named rows this row refuses against: a stage carries at most a thousand messages counting the opening and closing ones, at most fifty stages stay live per stream, and a stage untouched past its idle window is abandoned server-side.
 - Law: the stage states what it LOSES — `BatchMessageOptions` omits `msgID`, so the opening message alone carries a dedup key and the stage's dedup grain is the batch rather than the message. Sequential republishing bought per-message dedup by never being atomic at all, which is the trade named rather than hidden. `Batch` publishes no abort member, so an interrupted stage is reclaimed by that idle window and nothing here pretends to roll it back.
-- Law: `atomic` answers the receipts the engine's own settlement produced and never one per envelope — a stage settles ONCE, so N envelopes answer one receipt carrying the `BatchAck` sequence beside the opening address, while Kafka's transactional lane settles per record and answers N. Indexing either answer by envelope reads a correspondence neither protocol publishes, which is why `settle` states the grain per row. One envelope routes to `publish`, because a single message is already atomic and that form keeps its own `msgID`.
+- Law: `atomic` answers the landings the engine's own settlement produced and never one per envelope — a stage settles ONCE, so N envelopes answer one `Fanout.Landing` carrying the `BatchAck` sequence beside the opening address, while Kafka's transactional lane settles per record and answers N. Indexing either answer by envelope reads a correspondence neither protocol publishes, which is why `settle` states the grain per row. One envelope routes to `publish`, because a single message is already atomic and that form keeps its own `msgID`.
 - Tests: NATS structured JSON single round-trips with semantic event equality; JSON batch, Protobuf, and Avro media refuse before handler delivery.
 - Law: the durable-consumer census is the reconciliation's missing half — `jsm.consumers.list(topic)` is a `Lister`, so it lifts through the same `Stream.fromAsyncIterable` seam the message lanes ride and pages one turn at a time rather than materializing a roster, each `ConsumerInfo` projecting into the `Fanout.Consumer` fact (created instant, delivered sequence, pending, unacked, redelivered depth); the retire predicate turns the same read into a reap over `jsm.consumers.delete`, answering the survivors so a doctor verb reads the post-reap truth in one call.
 - Law: the iterator seam is the platform-forced boundary — `consume()` yields an async iterable the engine lifts through `Stream.fromAsyncIterable` under a scoped acquisition whose release closes the consumer, so teardown rides the `Scope` and a leaked pull loop is unspellable.
@@ -1299,7 +1299,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                 topic: string,
                 event: Fanout.Announced,
                 post: Fanout.Post = new _Post({}),
-            ): Effect.Effect<Fanout.Receipt, FanoutFault> =>
+            ): Effect.Effect<Fanout.Landing, FanoutFault> =>
                 Effect.flatMap(
                     Effect.all({ context: Propagation.current, lowered: _natsLower(topic, event), row: named(topic) }),
                     ({ context, lowered, row }) =>
@@ -1322,7 +1322,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                             ),
                             Effect.flatMap((ack) =>
                                 Effect.map(_partitionKey(topic, lowered.event), (key) =>
-                                    new _Receipt({
+                                    new _Landing({
                                         topic,
                                         subject: row.subject,
                                         key,
@@ -1336,7 +1336,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                 topic: string,
                 _consumer: string,
                 events: ReadonlyArray<Fanout.Announced>,
-            ): Effect.Effect<ReadonlyArray<Fanout.Receipt>, FanoutFault> =>
+            ): Effect.Effect<ReadonlyArray<Fanout.Landing>, FanoutFault> =>
                 events.length <= 1
                     ?
                       Effect.forEach(events, (event) => published(topic, event))
@@ -1367,7 +1367,7 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
                                 catch: (cause) => new FanoutFault({ case: { reason: 'publish', topic, detail: String(cause) } }),
                             });
                             return [
-                                new _Receipt({
+                                new _Landing({
                                     topic,
                                     subject: row.subject,
                                     key,
@@ -1521,8 +1521,8 @@ const _jetstream = (topics: Fanout.Topics): Layer.Layer<Fanout, FanoutFault, Set
 - Law: every admission refusal reports the axes that decided it — the roster drift names both key sets, the identity sweep folds one row per proven axis into a `<contract-drift:…>` list, and the artifact read names the unproven artifact.
 - Law: the codec family is the contract's own `schema.schemaType` read through one `as const` pair table — `AVRO`, `JSON`, `PROTOBUF` all mint on the registry's shared `(client, SerdeType, config, rules)` arity, so a family is a lookup and a new one is a table row, never an arm ladder or a second engine; `SchemaId` carries the same discriminant, and the Protobuf frame's message indexes therefore read off the existing `fromBytes` with no second framing path.
 - Law: one matched pair per topic carries exact `useSchemaId`, explicit subject selection, validation, and a local `RuleRegistry`; `validate` rides the JSON arm's own config extension and the other two families ignore the key.
-- Law: the guarantee ledger reads honestly per column — at-least-once holds on the sequential manual-commit lane (`consumer.run({ eachBatch })` with auto-resolve disabled): each record retries under the topic row's ledger budget, resolution and commit follow handler success, and exhaustion stops the run before a higher offset. Exactly-once holds on `atomic` alone, over the lane's own transactional producer. Kafka keys select partitions, never deduplicate, so every `publish` receipt answers `duplicate: false` with its exact partition-offset position; positional consume anchors, ordered replay, warm subscription, the durable-consumer census, and blob carriage answer `horizon` because `Fanout.Anchor` carries no partition coordinate, a consumer group is not a server-held consumer object, and this row carries no object store. `Window` alone selects the unpositioned consumer-group flow.
-- Law: the broker ack is the delivery report and the report fills `baseOffset` ALONE — a delivery failure rejects the awaiting record's own promise, so `send` never resolves over a refused write, but the compat metadata declares an `offset` field the wrapper never writes and folds its rows to ONE per topic-partition at the minimum offset; a receipt reading `offset` refuses every landed record and one indexed by envelope over a multi-message send asserts a position that record never held, which is why `atomic` sends one envelope per call in offer order.
+- Law: the guarantee ledger reads honestly per column — at-least-once holds on the sequential manual-commit lane (`consumer.run({ eachBatch })` with auto-resolve disabled): each record retries under the topic row's ledger budget, resolution and commit follow handler success, and exhaustion stops the run before a higher offset. Exactly-once holds on `atomic` alone, over the lane's own transactional producer. Kafka keys select partitions, never deduplicate, so every `publish` landing answers `duplicate: false` with its exact partition-offset position; positional consume anchors, ordered replay, warm subscription, the durable-consumer census, and blob carriage answer `horizon` because `Fanout.Anchor` carries no partition coordinate, a consumer group is not a server-held consumer object, and this row carries no object store. `Window` alone selects the unpositioned consumer-group flow.
+- Law: the broker ack is the delivery report and the report fills `baseOffset` ALONE — a delivery failure rejects the awaiting record's own promise, so `send` never resolves over a refused write, but the compat metadata declares an `offset` field the wrapper never writes and folds its rows to ONE per topic-partition at the minimum offset; a landing reading `offset` refuses every landed record and one indexed by envelope over a multi-message send asserts a position that record never held, which is why `atomic` sends one envelope per call in offer order.
 - Law: `pulse` is the Logger seam — the compat clients publish no emitter at all, and the wrapper binds `error` and `event.error` itself and routes both into whatever Logger its config carried, so the engine supplies one whose error level writes onto a scoped `PubSub` every minted client shares; leaving the default Logger bound sends every async transport fault to a console and nothing else.
 - Law: this is the credential-projection family's third row and the only one whose rotation costs no connection — `sasl.mechanism` is `OAUTHBEARER` and `oauthBearerProvider` is an ASYNC callback librdkafka re-runs on its own token-refresh cadence, handing the answer to `setOAuthBearerToken` on the live client, so a rotated principal lands in place while the NATS row must re-dial and the HTTP lanes re-stamp per call. Whether the mechanism is armed at all is a BOOT decision off one source read: a source holding no principal for this cluster leaves `sasl` absent and the engine dials exactly as it does unauthenticated today, because a `mechanism` set with no token to carry refuses every handshake instead of degrading.
 - Law: the three fields the provider answers are each a different projection and each has a way to be silently wrong — `value` is the BARE `MachinePrincipal.token`, because RFC 7628 frames `auth=Bearer <token>` itself and the HTTP-shaped `credential` double-prefixes; `principal` is the `clientId`, the Kafka principal name the broker authorizes against; and `lifetime` is ABSOLUTE epoch milliseconds off `expiresAt`, not a remaining span, because librdkafka documents it as when the token expires since the epoch — handing it a duration dates every token to 1970 and the broker treats each one as already dead.
@@ -1832,16 +1832,16 @@ const _kafka = (
 
             const lanes = yield* Ref.make(HashMap.empty<string, _KafkaLane>());
 
-            const receipted = (
+            const landing = (
                 topic: string,
                 subject: string,
                 key: string,
                 landed: KafkaJS.RecordMetadata | undefined,
-            ): Effect.Effect<Fanout.Receipt, FanoutFault> =>
+            ): Effect.Effect<Fanout.Landing, FanoutFault> =>
                 landed?.baseOffset === undefined
                     ? Effect.fail(new FanoutFault({ case: { reason: 'publish', topic, detail: '<no-broker-ack-metadata>' } }))
                     : Effect.succeed(
-                          new _Receipt({
+                          new _Landing({
                               topic,
                               subject,
                               key,
@@ -1999,7 +1999,7 @@ const _kafka = (
                             ).pipe(
                                 Effect.flatMap((metadata) =>
                                     Effect.flatMap(_partitionKey(topic, event), (key) =>
-                                        receipted(topic, row.subject, key, metadata[0]))),
+                                        landing(topic, row.subject, key, metadata[0]))),
                             ),
                     ),
                 atomic: (topic, consumer, events) =>
@@ -2064,7 +2064,7 @@ const _kafka = (
                                                         Effect.flatMap((landed) =>
                                                             Effect.forEach(events, (event, index) =>
                                                                 Effect.flatMap(_partitionKey(topic, event), (key) =>
-                                                                    receipted(topic, row.subject, key, landed[index])),
+                                                                    landing(topic, row.subject, key, landed[index])),
                                                             ),
                                                         ),
                                                     ),

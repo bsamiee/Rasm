@@ -64,7 +64,7 @@
 |  [07]   | `entity.EvalNumerical()` -> `Entity.Number.Complex`               | instance | force numeric evaluation                        |
 |  [08]   | `entity.EvalBoolean()` -> `Entity.Boolean`                        | instance | force boolean evaluation                        |
 |  [09]   | `entity.Compile<…>(…)` / `Compile(params Entity.Variable[])`      | instance | typed IL fast lane + variadic `FastExpression`  |
-|  [10]   | `entity.Latexise()` -> `string`                                   | instance | LaTeX rendering for the receipt projection      |
+|  [10]   | `entity.Latexise()` -> `string`                                   | instance | LaTeX rendering                                |
 |  [11]   | `entity.Evaled` -> `Entity`                                       | property | cached non-throwing reduction                   |
 |  [12]   | `entity.Expand(int)` -> `Entity`                                  | instance | expansion normalization                         |
 |  [13]   | `entity.Factorize(int)` -> `Entity`                               | instance | factorization normalization                     |

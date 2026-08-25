@@ -2,38 +2,40 @@
 
 Dual-certificate proof of global optimality the first-order design loop and the discrete math program structurally cannot furnish — the convex analogue of the certified-enclosure ladder in `numerics/interval#ENCLOSURE`. `ConvexProgram` discriminates the cone family a disciplined-convex model lands in, compiled to standard conic form and solved through the selected `Backend` row — Clarabel interior-point the default, SCS the first-order operator-splitting arm, HiGHS the LP/QP simplex arm — each returning the primal optimum and the per-constraint dual multipliers cvxpy normalizes, so backend choice never weakens the proof; the full KKT triple is the proof object, so `certified` gates the complementary-slackness gap AND both feasibility residuals within `_TOL`, never the gap alone. Like `optimization/program#PROGRAM`, the convex solve IS `cvxpy` over the conic backend, so a run without the package returns `Error(Import)` rather than an uncertified estimate.
 
-`ConvexReceipt` stays a distinct typed receipt and never folds into the `OutcomeReceipt` the `design`/`program` siblings share — the KKT certificate is the proof object the first-order convergence and feasibility verdicts carry no field for. Its coherence with `solvers/receipt#RECEIPT` is the status vocabulary alone: the cvxpy status constants fold into the one `SolveStatus` enum through the `_CONVEX_STATUS` boundary table. The receipt settles on the ONE runtime spine, its `certified` verdict riding the warning band that names WHICH bar failed rather than a bool that erases it. Certified optimum graduates on the dedicated `convex_program` `HandoffAxis` case at `graduation/handoff#GRADUATION`, a distinct admission from the `solver` axis the design/program verdicts cross on.
+`ConvexOptimum` stays a distinct typed value and never folds into the `Optimum` the `design`/`program` siblings share — the KKT certificate is the proof object the first-order convergence and feasibility verdicts carry no field for. Its coherence with `solvers/solve#SOLVE` is the status vocabulary alone: the cvxpy status constants fold into the one `SolveStatus` enum through the `_CONVEX_STATUS` boundary table. Its `attributes` land on the weave span at the mint, `certified` beside every KKT gap, so a trace names WHICH bar failed rather than a bool that erases it. Certified optimum graduates on the dedicated `convex_program` `HandoffAxis` case at `graduation/handoff#GRADUATION`, a distinct admission from the `solver` axis the design/program verdicts cross on.
 
 ## [01]-[INDEX]
 
-- [02]-[CONVEX]: six cone families and three solve backends on one `ConvexProgram` owner over the `_CONE_ROWS`/`_CONE_KKT`/`_BACKEND` tables, folding one content-keyed `ConvexReceipt` KKT certificate per `ParamBind` row.
+- [02]-[CONVEX]: six cone families and three solve backends on one `ConvexProgram` owner over the `_CONE_ROWS`/`_CONE_KKT`/`_BACKEND` tables, folding one content-keyed `ConvexOptimum` KKT certificate per `ParamBind` row.
 
 ## [02]-[CONVEX]
 
 - Owner: `ConvexProgram` — the discriminant is the cone structure, so the differentiable design loop, the discrete math program, and the certified convex program are sibling owners on one sub-domain, never a duplicated optimizer surface; every case ends with one uniform `Policy` slot bound through the `policy` total `match self` or-pattern, never a `getattr(self, self.tag)[-1]` reflection whose `object` residual escapes the exhaustive match; factories are `@classmethod`-plus-`Self`, never a `@staticmethod` over a forward-ref. Six cone families differ by two `ConeRow` closures and one `psd` flag, four `ConeKKT` closures keyed on the constraint's cone family — the residual and primal closures take the constraint beside the dual/expr because cone PARAMETERS (`PowCone3D.alpha`) live on the constraint object, never in the stacked value — and the one `Fields` typed projection every case lands in — table and closure rows, never parallel `match` bodies, so `_assemble` and the evidence fold read fixed attributes and reduce with no shape-probe `if`.
 - Cases: `Problem.is_dcp()` adjudicates curvature BEFORE the solve, and a genuinely indefinite quadratic form fails it — never a silent `cp.psd_wrap` coercion that forces a PSD lift; the semidefinite case carries PSD membership as an explicit `X >> 0` cone row because a `PSD=True` leaf attribute hides the matrix dual `Z` behind the variable domain where `Constraint.dual_value` cannot reach it; the one `cp.Parameter` leaf sits on the inequality `rhs` — the sole DPP-legal parametrizable buffer, a `Parameter` in the form matrix or constraint matrix breaks the DPP ruleset — so a sweep warm-re-solves the one compiled `Problem`, never a rebuild. `power` rows `PowCone3D(aₓ@x, a_y@x, a_z@x, α)` membership per term — its dual is the `[u, v, w]` triple mirroring `args = [x, y, z]` (`np.asarray` stacks it `(3, n)`), inner-product slackness cancels per triple, and dual-cone membership scales `u/α`, `v/(1−α)` before the same weighted-geometric-mean gap the primal reads unscaled. `_BACKEND` rows declare each backend's covered cone families beside its cvxpy selector — HiGHS covers `linear`/`quadratic` alone and cvxpy refuses its conic hand-off with a `SolverError` at selection — so an uncovered `(backend, cone)` pair folds the uncertified sweep at admission, cardinality preserved, never a raise mid-sweep. Every solve pins `canon_backend=cp.SCIPY_CANON_BACKEND`: the floor's source-built CPP canon extension trips a fatal `ProblemData.hpp` assert on every canonicalization — a process abort no rail catches — and the SciPy path canonicalizes every family clean.
-- Entry: a missing backend or a DCP-rejected model folds one uncertified receipt per `ParamBind` row, so the tuple cardinality always matches the bind table; the certificate folds exactly the catalogued cvxpy quantities — `Constraint.dual_value` and the per-cone primal read off `Constraint.args` — never a backend-internal residual the `solve` path does not surface.
-- Packages: `clarabel`, `scs`, and `highspy` are admitted only through their `solver=` selectors off the `_BACKEND` row, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides only the scalar-leaf carriers (`ConvexEvidence`, `ConvexReceipt`) while the container/closure carriers (`Policy`, `Fields`, `ConeRow`, `ConeKKT`) stay GC-tracked; problem data admits as `numerics/array#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
+- Entry: a solved model retains `Variable.value` on `ConvexOptimum` beside the objective and KKT evidence. A missing backend or DCP-rejected model folds one value-absent uncertified result per `ParamBind` row, preserving tuple cardinality.
+- Packages: `clarabel`, `scs`, and `highspy` are admitted only through their `solver=` selectors off the `_BACKEND` row, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides the scalar-only `ConvexEvidence`, while `ConvexOptimum` and the container/closure carriers stay GC-tracked; problem data admits as `numerics/array#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
 - Growth: a new cone family is one `ConvexProgram` case with one `_CONE_ROWS` row, one `_CONE_KKT` row, and one `_cone` arm; a new solve backend is one `Backend` member and one `_BACKEND` row naming its selector and covered cone families; a new solve-policy axis is one `Policy` field rather than a positional slot threaded through six factories; a new diagnostic is one `ConvexEvidence` slot reaching the facts map with no second edit; a new cvxpy status constant is one `_CONVEX_STATUS` row.
 
 ```python
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from enum import StrEnum
 from operator import attrgetter
 from typing import Final, Literal, Self, assert_never
 
 import numpy as np
-from expression import Some, case, tag, tagged_union
+from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import astuple
 
-from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
-from rasm.compute.solvers.receipt import SolveStatus
+from opentelemetry import trace
+
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
+from rasm.compute.solvers.solve import SolveStatus
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered, traversed
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import cvxpy as cp
@@ -102,8 +104,9 @@ class ConvexEvidence(Struct, frozen=True, gc=False):
         return cls(inf, inf, inf)
 
 
-class ConvexReceipt(Struct, frozen=True, gc=False):
+class ConvexOptimum(Struct, frozen=True):
     program: str
+    value: np.ndarray | None
     objective: float
     status: SolveStatus
     evidence: ConvexEvidence
@@ -113,26 +116,21 @@ class ConvexReceipt(Struct, frozen=True, gc=False):
     def certified(self) -> bool:
         return self.status is SolveStatus.SUCCESS and max(astuple(self.evidence)) <= _TOL
 
-    def contribute(self) -> Iterable[Receipt]:
-        band = Block.of_seq((
-            *((f"status:{self.status.value}",) if self.status is not SolveStatus.SUCCESS else ()),
-            *(f"kkt:{name}={value}" for name, value in self.evidence.facts().items() if isinstance(value, float) and value > _TOL),
-        ))
-        facts: dict[str, object] = {
+    @property
+    def attributes(self) -> dict[str, str | bool | int | float]:
+        scalars = {name: value for name, value in self.evidence.facts().items() if isinstance(value, str | bool | int | float)}
+        return {
             "program": self.program,
+            "key": self.content_key.hex,
             "objective": self.objective,
             "status": self.status,
-            **self.evidence.facts(),
+            "certified": self.certified,
+            **scalars,
         }
-        return (
-            Receipt.of(
-                EvidenceScope.CONVEX.value,
-                ("emitted", self.program, facts),
-                key=Some(self.content_key),
-                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
-                band=band,
-            ),
-        )
+
+    def _noted(self) -> "ConvexOptimum":
+        trace.get_current_span().set_attributes(self.attributes)
+        return self
 
 
 @tagged_union(frozen=True)
@@ -243,24 +241,24 @@ class ConvexProgram:
 _CEILING: Final[Map[str, float]] = Map.of_seq([("duality_gap", 1e-8), ("primal_infeasibility", 1e-8), ("dual_infeasibility", 1e-8)])
 
 
-async def solve(program: ConvexProgram, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
-    async def dispatch() -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
+async def solve(program: ConvexProgram, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
+    async def dispatch() -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
         return (await lane.offload(Kernel.of(_sweep, KernelTrait.RELEASING), program)).bind(lambda rail: rail)
 
     facts = {"program": program.tag, "binds": len(program.policy.binds)}
     return await evidence_run(EvidenceScope.CONVEX, f"convex.{program.tag}", dispatch, facts=facts, composition=composition)
 
 
-def graduates(receipt: ConvexReceipt, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
+def graduates(optimum: ConvexOptimum, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[Graduation]":
     ledger = {
-        "duality_gap": receipt.evidence.duality_gap,
-        "primal_infeasibility": receipt.evidence.primal_infeasibility,
-        "dual_infeasibility": receipt.evidence.dual_infeasibility,
+        "duality_gap": optimum.evidence.duality_gap,
+        "primal_infeasibility": optimum.evidence.primal_infeasibility,
+        "dual_infeasibility": optimum.evidence.dual_infeasibility,
     }
-    return GraduationReceipt.graduates(
+    return Graduation.graduates(
         EvidenceScope.CONVEX.value,
-        HandoffAxis(convex_program=receipt.program),
-        receipt.content_key,
+        HandoffAxis(convex_program=optimum.program),
+        optimum.content_key,
         ledger,
         dict(_CEILING.items()),
         composition=composition,
@@ -341,24 +339,24 @@ def _fields(program: ConvexProgram) -> Fields:
             assert_never(unreachable)
 
 
-def _sweep(program: ConvexProgram) -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
+def _sweep(program: ConvexProgram) -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
     row = _BACKEND[program.policy.backend]
     if row.solver(cp) not in cp.installed_solvers() or program.tag not in row.cones:
         return _uncertified_sweep(program, None)
-    objective, constraints, fields, parameters = _assemble(program, cp)
+    objective, constraints, fields, parameters, variable = _assemble(program, cp)
     problem = cp.Problem(_SENSE[program.policy.sense](cp)(objective), constraints)
     if not problem.is_dcp():
         return _uncertified_sweep(program, fields)
-    rails = (_solve_bind(program, problem, constraints, parameters, fields, bind, cp) for bind in program.policy.binds)
+    rails = (_solve_bind(program, problem, constraints, parameters, variable, fields, bind, cp) for bind in program.policy.binds)
     return traversed(Block.of_seq(rails)).map(lambda block: tuple(block))
 
 
-def _uncertified_sweep(program: ConvexProgram, fields: "Fields | None") -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
+def _uncertified_sweep(program: ConvexProgram, fields: "Fields | None") -> "RuntimeRail[tuple[ConvexOptimum, ...]]":
     rails = (_convex_key(program, fields, bind).map(lambda key: _uncertified(program, key)) for bind in program.policy.binds)
     return traversed(Block.of_seq(rails)).map(lambda block: tuple(block))
 
 
-def _assemble(program: ConvexProgram, cp: object) -> tuple[object, list[object], "Fields", dict[str, object]]:
+def _assemble(program: ConvexProgram, cp: object) -> tuple[object, list[object], "Fields", dict[str, object], object]:
     parameters: dict[str, object] = {}
     row, fields = _CONE_ROWS[program.tag], _fields(program)
     rhs = _leaf("rhs", fields.rhs, program.policy.binds, cp, parameters)
@@ -371,7 +369,7 @@ def _assemble(program: ConvexProgram, cp: object) -> tuple[object, list[object],
         x = cp.Variable(n)
         cone = []
         polyhedral = [fields.mat @ x <= rhs] if fields.rhs.size else []
-    return row.objective(x, fields, cp), [*polyhedral, *cone, *row.extra(x, fields, cp)], fields, parameters
+    return row.objective(x, fields, cp), [*polyhedral, *cone, *row.extra(x, fields, cp)], fields, parameters, x
 
 
 CONVEX_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
@@ -385,17 +383,22 @@ def _solve_bind(
     problem: object,
     constraints: list[object],
     parameters: dict[str, object],
+    variable: object,
     fields: "Fields",
     bind: Map[str, np.ndarray],
     cp: object,
-) -> "RuntimeRail[ConvexReceipt]":
+) -> "RuntimeRail[ConvexOptimum]":
     for name, leaf in parameters.items():
         leaf.value = np.asarray(bind.try_find(name).default_value(leaf.value), dtype=float)
     return boundary(
         CONVEX_SOLVE,
         lambda: problem.solve(solver=_BACKEND[program.policy.backend].solver(cp), warm_start=True, canon_backend=cp.SCIPY_CANON_BACKEND),
         catch=(cp.error.SolverError, cp.error.DCPError, cp.error.DPPError, cp.error.ParameterError, ValueError, TypeError),
-    ).bind(lambda _solved: _convex_key(program, fields, bind).map(lambda key: _certificate(program, problem, constraints, key, cp)))
+    ).bind(
+        lambda _solved: _convex_key(program, fields, bind).map(
+            lambda key: _certificate(program, problem, variable, constraints, key, cp)
+        )
+    )
 
 
 def _leaf(name: str, value: np.ndarray, binds: ParamBind, cp: object, parameters: dict[str, object]) -> object:
@@ -421,15 +424,17 @@ _BACKEND: Map[Backend, BackendRow] = Map.of_seq([
 ])
 
 
-def _certificate(program: ConvexProgram, problem: object, constraints: list[object], key: ContentKey, cp: object) -> ConvexReceipt:
-    if problem.value is None:
+def _certificate(
+    program: ConvexProgram, problem: object, variable: object, constraints: list[object], key: ContentKey, cp: object
+) -> ConvexOptimum:
+    if problem.value is None or variable.value is None:
         return _uncertified(program, key)
     status = _CONVEX_STATUS.try_find(str(problem.status)).default_value(SolveStatus.OTHER)
-    return ConvexReceipt(program.tag, float(problem.value), status, _evidence(constraints, cp), key)
+    return ConvexOptimum(program.tag, np.asarray(variable.value, dtype=float), float(problem.value), status, _evidence(constraints, cp), key)._noted()
 
 
-def _uncertified(program: ConvexProgram, key: ContentKey) -> ConvexReceipt:
-    return ConvexReceipt(program.tag, float("inf"), SolveStatus.OTHER, ConvexEvidence.uncertified(), key)
+def _uncertified(program: ConvexProgram, key: ContentKey) -> ConvexOptimum:
+    return ConvexOptimum(program.tag, None, float("inf"), SolveStatus.OTHER, ConvexEvidence.uncertified(), key)._noted()
 
 
 def _evidence(constraints: list[object], cp: object) -> ConvexEvidence:

@@ -150,7 +150,7 @@
 
 [LOCAL_ADMISSION]:
 - `Smino.Bcf.Toolkit` reads and writes BCF containers and the BCF-API JSON model only — the issue-board lifecycle, clash detection, IFC model graph, state machine, clash→topic fold, and `ElementQuery` join are COORDINATION concerns.
-- source `BcfVersionEnum`, topic count, and target serialization shape are the receipt facts the ISSUES/COORDINATION fold records.
+- source `BcfVersionEnum`, topic count, and target serialization shape are the facts the ISSUES/COORDINATION fold carries on its result.
 - `System.CommandLine` binder and `Serilog` sink form the package's own CLI host; the design composes `Worker`/`BcfExtensions` directly.
 
 [RAIL_LAW]:

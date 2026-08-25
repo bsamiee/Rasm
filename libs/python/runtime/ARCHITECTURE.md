@@ -6,14 +6,14 @@
 
 ```text
 runtime/
-├── observability/      # Local evidence production: receipts, signals, and the one OTLP install gate
-│   ├── receipts.py     # Six-column Receipt spine over its Payload family, DRAIN_COLUMNS, ScopeKey, Ring, and the contribute port
+├── observability/      # Local evidence production: the span weave, signals, and the one OTLP install gate
+│   ├── observe.py      # measured span weave, DRAIN_COLUMNS and Drained, ScopeKey, Ring, Cost, and the Redaction policy
 │   ├── logging.py      # LogPipeline chain and the LogShip policy; render line and wire projection split by door
 │   ├── metrics.py      # Instrument census, metric-stream view rows and tenant budget, the record mapping, and the instrumentor train
 │   ├── hooks.py        # HookPoint rows, the Modality family, the shared StageMark long-fold payload; custody keyed and released per scope
-│   ├── profiles.py     # SignalProfile selection, BenchmarkReceipt and JobRun.bounded rows over the install gate
-│   ├── telemetry.py    # One install gate over providers and detectors, plus the native conformance receipt
-│   ├── bundle.py       # BUNDLE_DESCRIPTOR/BUNDLE_WIRE shapes and the pull-only capsule; collectors run fenced
+│   ├── profiles.py     # SignalProfile selection, Benchmark and JobRun.bounded rows over the install gate
+│   ├── telemetry.py    # One install gate over providers and detectors, plus the local Conformance projection
+│   ├── bundle.py       # COLLECTORS table and the pull-only capsule; collectors run fenced
 │   └── journal.py      # Fact family with Retain classes, the JournalGate hook roster, KEK shredding, and the Ledger/Custody ports
 ├── reliability/        # One fault family and resilience policy every sibling returns through
 │   ├── faults.py       # BoundaryFault union, RuntimeRail, the folder-wide RAISES census, SCOPES, and the boundary/scoped decorators
@@ -36,7 +36,7 @@ runtime/
 └── evidence/           # Logical time, content-addressing, the seed-parity corpus, and structural-surface evidence
     ├── clock.py        # Hlc, ElementId, Tenant, and causal-frame mints on the faults root
     ├── identity.py     # Content identity and key implementing the shared digest contract
-    ├── reproduction.py # ParityReceipt fold over KEY_FMT/KeyRender views; corpus rows keyed by ContentKey
+    ├── reproduction.py # Parity fold over KEY_FMT/KeyRender views; corpus rows keyed by ContentKey
     └── evidence.py     # Scope/Disposition folds over the registered grammar; the assay code rail's one source
 ```
 
@@ -80,7 +80,7 @@ flowchart TB
         Logging[logging]
         Reproduction[reproduction]
         Evidence[evidence]
-        Receipts[receipts]
+        Observe[observe]
         Clock[clock]
         Shapes[shapes]
         Identity[identity]
@@ -124,11 +124,11 @@ flowchart TB
     Roots e31@-->|"[IMPORT]: RetryClass"| Resilience
     Resilience e32@-->|"[IMPORT]: Metrics"| Metrics
     Hooks e33@-->|"[IMPORT]: Metrics"| Metrics
-    Metrics e34@-->|"[IMPORT]: DrainReceipt"| Receipts
-    Logging e35@-->|"[IMPORT]: EventDict"| Receipts
-    Reproduction e36@-->|"[IMPORT]: Receipt"| Receipts
-    Evidence e37@-->|"[IMPORT]: Receipt"| Receipts
-    Receipts e38@-->|"[IMPORT]: ContentKey"| Identity
+    Metrics e34@-->|"[IMPORT]: Drained"| Observe
+    Logging e35@-->|"[IMPORT]: Redaction"| Observe
+    Reproduction e36@-->|"[IMPORT]: ContentIdentity"| Identity
+    Evidence e37@-->|"[IMPORT]: RuntimeRail"| Faults
+    Observe e38@-->|"[IMPORT]: ContentKey"| Identity
     Identity e39@-->|"[IMPORT]: RuntimeRail"| Faults
     Shapes e40@-->|"[IMPORT]: BoundaryFault"| Faults
     Clock e41@-->|"[IMPORT]: BoundaryFault"| Faults
@@ -143,14 +143,14 @@ flowchart TB
 - S0 `artifact` — one edge above `body`, reading `buf.validate` bounds and `artifact_pb` envelopes as VALUES; the root feeds payload alone.
 - `rasm.contracts` at `libs/contracts/gen/python` is an admitted import root, never a rank — descriptor-relative imports resolve inside it alone.
 - S1-S3 `clock`, `identity`, `shapes` sit on the floor — `shapes` reads `artifact`'s refusal carrier — so every stamp, key, and wire row loads first.
-- S1-S3 band stays module-acyclic — every member returns through `receipts` toward `identity`, and no identity member reads a fold back.
+- S1-S3 band stays module-acyclic — every observing member returns through `observe` toward `identity`, and no identity member reads a fold back.
 - S4-S6 banded rank is path-dependent — `profiles -> telemetry -> admission` and `event -> admission` order inside the band, no pair looping.
 - S4-S6 `telemetry` carries the `logging`-owned `LogShip` policy unchanged — the gate installs, the chain owns the wire projection.
 - S4-S6 `event` mints the envelope below its bindings, so a binding row grows with zero envelope edits.
 - S7-S9 `serve` alone terminates the rail — nothing imports `serve`, so the daemon root is a sink, never a dependency.
 - S7-S9 `filter -> binding` runs one way — `filter` reads `Pushdown` off the row and `binding` names no dialect, so the join adds no cycle.
 - S7-S9 `workers` boots parent-captured installs post-spawn, so a floor import never reaches back into the parent's rail.
-- S7-S9 `recipe` seats geometry's `RecipeInterface` port on the thread lane; `bundle` folds install receipts, hook rings, and admitted context.
+- S7-S9 `recipe` seats geometry's `RecipeInterface` port on the thread lane; `bundle` folds install records, hook rings, and admitted context.
 - S7-S9 `journal`'s `Ledger` binds at composition — the evidence-truth plane arrives as a port, and no runtime module implements it.
 
 ## [03]-[SEAMS]
@@ -199,7 +199,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime cross-package Python seams
-    accDescr: Runtime sub-domain owners exchanging content identity, transport, kernel and hook ports, and receipts with the Python siblings.
+    accDescr: Runtime sub-domain owners exchanging content identity, transport, kernel and hook ports, and measurements with the Python siblings.
     subgraph runtime[RUNTIME]
         Transport[Transport]
         Evidence[Evidence]
@@ -219,18 +219,17 @@ flowchart LR
     Transport e5@-->|"[TRANSPORT]: ResourceRef"| Data
     Transport e6@-->|"[TRANSPORT]: TransportResource"| Data
     Observability e7@-->|"[PORT]: Ledger"| Data
-    Data e8@-->|"[RECEIPT]: QueryReceipt"| Observability
-    Data e9@-->|"[RECEIPT]: TensorReceipt"| Observability
+    Observability e8@-->|"[PORT]: Metrics"| Data
     Execution e10@-->|"[BOUNDARY]: on_thread"| Data
     Execution e11@-->|"[BOUNDARY]: LanePolicy"| Data
     Execution e12@-->|"[SHAPE]: BackendGeneration"| Data
     Evidence e13@-->|"[CONTENT_KEY]: ContentIdentity"| Artifacts
-    Artifacts e14@-->|"[RECEIPT]: ArtifactReceipt"| Observability
+    Observability e14@-->|"[PORT]: Metrics"| Artifacts
     Execution e15@-->|"[CONTENT_KEY]: ContentKey"| Artifacts
     Execution e16@-->|"[PORT]: Kernel"| Artifacts
     Transport e17@-->|"[SHAPE]: appearance.Set"| Artifacts
     Artifacts e18@-->|"[PORT]: HookPoint"| Observability
-    Evidence e19@-->|"[CONTENT_KEY]: ParityReceipt"| Compute
+    Evidence e19@-->|"[CONTENT_KEY]: Parity"| Compute
     Transport e20@-->|"[BOUNDARY]: ResourceRef"| Compute
     Observability e21@-->|"[PORT]: measured"| Compute
     Execution e22@-->|"[PORT]: Kernel"| Compute
@@ -241,9 +240,9 @@ flowchart LR
     Data e27@-->|"[SHAPE]: Fact"| Observability
     Geometry e28@-->|"[SHAPE]: Fact"| Observability
     Observability e23@-->|"[PORT]: Hooks"| Compute
-    Compute e24@-->|"[PROJECTION]: BenchmarkReceipt"| Observability
+    Compute e24@-->|"[SHAPE]: Benchmark"| Observability
     Execution e25@-->|"[PORT]: Kernel"| Geometry
-    Geometry e26@-->|"[RECEIPT]: BenchmarkReceipt"| Observability
+    Observability e26@-->|"[PORT]: Bench"| Geometry
     Observability e27@-->|"[PORT]: measured"| Geometry
     Observability e28@-->|"[PORT]: Hooks"| Geometry
     Transport e29@-->|"[BOUNDARY]: ArtifactSink"| Geometry
@@ -253,7 +252,7 @@ flowchart LR
 
 Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the .NET peers.
 
-Frozen registry names spell from the counterpart's endpoint page, so `ServerHost`/`CommandReceipt`, the generated `rasm.contracts` classes, `FaultDetail`, generated `CrdtOpWire`, and `ContentKey` are this package's interior spellings behind their counterpart wires.
+Frozen registry names spell from the counterpart's endpoint page, so `ServerHost`, the generated `rasm.contracts` classes, `FaultDetail`, generated `CrdtOpWire`, and `ContentKey` are this package's interior spellings behind their counterpart wires.
 
 Transport↔AppHost's `[WIRE]` edge also carries the `grpc.health.v1` serving-status leg over the companion UDS, and upstream `health.proto` is the frozen publisher source both ends generate from.
 
@@ -261,7 +260,7 @@ Transport↔AppHost's `[WIRE]` edge also carries the `grpc.health.v1` serving-st
 
 ## [04]-[INTERNAL]
 
-One evidence spine runs the interior: domain code fires facts, hooks tap them onto the metrics spine, receipts fold through one attribute-keyed drain, and the profile-gated telemetry root alone installs egress. Exact refusals and their enforcing mechanisms live on the owning implementation pages.
+One evidence spine runs the interior: domain code fires facts, hooks tap them onto the metrics spine, every producing site writes its own line and instrument, and the profile-gated telemetry root alone installs egress. Exact refusals and their enforcing mechanisms live on the owning implementation pages.
 
 ```mermaid
 ---
@@ -273,10 +272,10 @@ config:
 ---
 flowchart LR
     accTitle: Runtime observability spine
-    accDescr: How fired facts, receipts, and log events converge on the profile-gated telemetry install and leave as OTLP.
+    accDescr: How fired facts, lane drains, and log events converge on the profile-gated telemetry install and leave as OTLP.
     Facts[domain code · fired facts] e1@-->|"register: HookPoint"| Hooks[hooks registry]
     Hooks e2@-->|"tap"| Metrics[metrics spine]
-    Receipts[receipts · drain] e3@-->|"fold: attribute-keyed"| Metrics
+    Drains[lanes · Drained] e3@-->|"observe: DRAIN_DISPOSITIONS"| Metrics
     Logging[logging · one chain] e4@-->|"LoggerProvider"| Telemetry[telemetry install]
     Metrics e5@-->|"series"| Telemetry
     Facts e6@-->|"record: Fact"| Journal[(journal · evidence truth)]
@@ -285,7 +284,7 @@ flowchart LR
     Telemetry f2@-.->|"install refusal before publish"| Fault
 ```
 
-- One shared OTLP exporter and one `MeterProvider` install behind the profile gate; every receipt folds through one attribute-keyed drain.
+- One shared OTLP exporter and one `MeterProvider` install behind the profile gate; every lane drain records its partition on one keyed counter.
 - Every recorded measure holds an instrument row, and every emitted scope carries the fault root's one versioned semconv coordinate.
 - Every serve-leg span rides the inbound parent context; pickled workers with no install of their own run unparented, the carrier still crossing.
 - One chain projects every event onto the log wire and renders the operator's stdout line.
@@ -294,7 +293,7 @@ flowchart LR
 - Every fact takes its ordering coordinate from the journal writer, so a producer supplies evidence and never identity.
 - Erasure destroys per-subject key material and rewrites no row, so unreadable IS erased and the append-only plane survives whole.
 - Worker floors boot the parent-captured install post-spawn and drain at exit; kernel-grain cost records where spent, under the promoted tenant.
-- Support-bundle capture is pull-driven and bounded; every archive fact passes the receipts-owned redaction before a byte lands.
+- Support-bundle capture is pull-driven and bounded; every archive fact passes the observe-owned redaction before a byte lands.
 
 ## [05]-[BOUNDARIES]
 
@@ -310,7 +309,7 @@ flowchart LR
 - `transport`'s `body` and `artifact` own Connect body admission and verified artifact custody; consumers map refusal evidence and hold no proof.
 - `execution` admits host facts caller-owned, reads secrets through the settings-admitted boundary, and mints no stamp beside the inbound frame.
 - Ingress admits event source and grade against a composition-bound trust row, taking tenancy from the authenticated principal scope alone.
-- Concurrency stays bounded under `StagePlan` and the one scheduler owner, every work lane draining to a `DrainReceipt`.
+- Concurrency stays bounded under `StagePlan` and the one scheduler owner, every work lane draining to a `Drained`.
 - Every kernel leaves the loop as one `Kernel` value on the closed worker-kind family.
 - Warm pools, restart actuation, and the serve health-flip verdict projection stay the workers owner's.
 - Work-lane capacity projects from the admitted profile row.

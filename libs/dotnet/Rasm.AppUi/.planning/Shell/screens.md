@@ -237,9 +237,9 @@ public static class ScreenRoster {
 ## [03]-[ACTIVATION_SCOPES]
 
 - Owner: `ScreenRuntime` policy record over the kernel `MonotonicTimeline`; `ProductScreen`'s activation members; `ScreenLifetimes` the per-control lifetime table the materialize context's ownership columns read.
-- Entry: `public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler)` — visibility edges and phase receipts fold into one activate/suspend rail; `public IO<Unit> Suspend(string trigger)` — the one suspension verb, its trigger naming the source on both the fault fold and the suspension count.
-- Auto: `WhenActivated` composes rehydration, the program `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining phase receipt suspends every bound screen through the same `Suspend` path.
-- Receipt: disposal evidence — row key, MEASURED active span, disposable count — through `ScreenRuntime.Disposed` into the evidence stream bound at composition; an unmeasurable span faults the runner and emits nothing, never a fabricated zero.
+- Entry: `public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler)` — visibility edges and phase transitions fold into one activate/suspend rail; `public IO<Unit> Suspend(string trigger)` — the one suspension verb, its trigger naming the source on both the fault fold and the suspension count.
+- Auto: `WhenActivated` composes rehydration, the program `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining transition suspends every bound screen through the same `Suspend` path.
+- Evidence: `ScreenRuntime.Disposed` carries the row key, measured active span, and disposable count into the composition-bound evidence stream; an unmeasurable span faults the runner and emits nothing.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime, Rasm (kernel timeline), Rasm.AppHost (project)
 - Growth: one screen instrument is one `InstrumentSpec` row on `ProductScreen.TelemetryRow`; zero new surface.
 - Boundary: `ProductScreen` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, disposal registration, and the error-info edge raise carry language-owned statement forms — and `ScreenLifetimes` is the second named capsule because a per-control lifetime table is retained mutable host state keyed weakly on the control (the pool's `Release` must drop exactly the parked control's bindings before `Rebind` re-attaches while the whole table still dies with the screen; a flat composite answers only the second half, which is what let a recycled cell carry its predecessor's value binding). `ViewModelActivator` ref-counts through `Interlocked`, so activation fires only on the zero-to-one edge; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns. The drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`. `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals. The activation count fires inside the `WhenActivated` scope body and the suspension count on the one `Suspend(trigger)` verb every driver routes through, so each instrument has exactly one producer; each write spells the slot its own `InstrumentSpec` declared, so the declared `Dimensions` and the spelled tag key are one vocabulary.
@@ -268,7 +268,7 @@ public sealed partial class ProductScreen {
         AppUiTelemetry.Contribute(version, Activated, Suspended, Disposables);
 
     public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler) {
-        IDisposable phased = scheduler.Phases(receipt => ignore(receipt.To == RuntimePhase.Draining ? Run("drain", Suspend("drain")) : unit));
+        IDisposable phased = scheduler.Phases(phase => ignore(phase.To == RuntimePhase.Draining ? Run("drain", Suspend("drain")) : unit));
         IDisposable sighted = visible.DistinctUntilChanged()
             .Subscribe(open => ignore(open ? ignore(Activator.Activate()) : Run("visibility", Suspend("visibility"))));
         return new CompositeDisposable(phased, sighted);
@@ -496,7 +496,7 @@ public static partial class ScreenOps {
 - Owner: `ScreenState` snapshot record with its `Diagnostics/evidence#DURABLE_PARCEL` seal; `ScreenStatePolicy` port delegates; `ScreenOps` state extensions.
 - Entry: `public IO<Unit> Rehydrate()` — restore-on-activate; the sealed blob opens through `ScreenState.Seal` and merges with the live snapshot through `Merge`.
 - Auto: `Checkpoint` fires on deactivation, visibility suspension, and the drain row through the same `Persist` delegate; the partition key is row key plus the minted `SurfaceKey`, so panel, window, and headless sessions never collide.
-- Receipt: the `ScreenState` row is the snapshot artifact — `Instant`-stamped, the same record the support-bundle screen-state contribution captures.
+- State: the `ScreenState` snapshot carries its `Instant` and supplies the support-bundle screen-state contribution.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `ScreenState` field row per new state axis under one `Generation` bump on the seal; zero new surface.
 - Boundary: persistence crosses only through `ScreenStatePolicy` delegates bound at composition to the Persistence snapshot vocabulary — no store type enters the fences, and both legs carry the SEALED BLOB so the port moves bytes under a partition key while the shape question stays whole at the seal. Rehydrate raises NO refusal: an oversize, unreadable, foreign-generation, or unadmitted parcel seeds the live snapshot and the screen opens on what it already is, which is the first-run answer reached without a second arm — so a screen-state refusal case has no producer and no spelling. Composition binds `Admit` as the seal's admission arrow, accumulating inside the delegate and landing as one `Error.Many` the seal reads as a refusal. Encoding is the half that answers a rail, and its refusal lands on the incident cell every other screen failure reaches. Surface identity is the `Shell/navigation` `SurfaceKey` VALUE and never text a screen composed; the restore ORDER is the navigation page's law and this carrier is third in it, after the dock graph materializes the surfaces and after float rectangles clamp; `Merge` keeps live rows authoritative for existence while persisted filter, scroll, expansion, and selection survive the `alive` prune; a second suspension driver beside the checkpoint law is the rejected form. Structural equality nothing compares is not declared: no consumer compares two snapshots, so a `[Equatable]` member algebra here would be decorative and is refused by name.
@@ -576,7 +576,7 @@ flowchart LR
 - Auto: `ProductScreen.Body` projects the screen's model onto one `ControlIntent` tree (`Shell/controls`); the intent stream re-emits on `ReactiveObject.Changed` property edges, throttled so a burst of edges collapses to one re-materialize; the materialized root mounts at the surface root where `AccessOps.Identify` applies the catalog automation identity.
 - Packages: ReactiveUI, System.Reactive, Avalonia, LanguageExt.Core
 - Growth: a screen is one `ScreenProgram` row whose `Body` names its control-intent tree; a new control on a screen is one intent in that tree, never a XAML edit; a new value channel is one slot the program writes; zero new surface.
-- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenSeams` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the remaining four itself — the value channel over its own named slots, the two ownership columns off `ScreenLifetimes`, and the interior receipt evidence sink — so a column added there lands here as one more pass-through; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on the `Fin` rail, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
+- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenSeams` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the value channel over its own named slots plus the two ownership columns off `ScreenLifetimes`; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on the `Fin` rail, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -597,8 +597,7 @@ public sealed record ScreenSeams(
     Func<string, Fin<IObservable<OverviewFrame>>> Overview,
     Func<string, Fin<Control>> Layout,
     Func<string, Fin<ICommand>> Gesture,
-    Func<ControlTrigger, Control, ICommand, Fin<IDisposable>> Activate,
-    Func<ControlReceipt, Unit> Evidence);
+    Func<ControlTrigger, Control, ICommand, Fin<IDisposable>> Activate);
 ```
 
 ```csharp
@@ -618,9 +617,7 @@ public static partial class ScreenOps {
                 Value: screen.Channel,
                 Activate: seams.Activate,
                 Own: screen.Lifetimes.Own,
-                Release: screen.Lifetimes.Release,
-                Evidence: seams.Evidence,
-                Line: screen.Runtime.Line);
+                Release: screen.Lifetimes.Release);
 
         public Fin<IDisposable> Channel(string key, Control control, AvaloniaProperty slot) =>
             screen.Values.Find(key)

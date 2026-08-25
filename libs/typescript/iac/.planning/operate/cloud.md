@@ -10,14 +10,14 @@
 ## [02]-[CONTROL_PLANE]
 
 [CONTROL_PLANE]:
-- Owner: `CloudPlane` — one tier over `@pulumi/pulumiservice`: `DeploymentSettings` binds the Git source (`sourceContext.git`), the CURRENT `vcs` trigger block (`previewPullRequests` + `pullRequestTemplate` mint per-PR review stacks; the deprecated `github` block has no spelling), and the federated `operationContext.oidc` credential posture, `DriftSchedule` runs hosted detection on the caller's cron with remediation off, `DeploymentSchedule` rows run the mutating-ledger vocabulary on cron or instant, `TtlSchedule` bounds review-stack lifetime, the `Webhook` row delivers `DriftDetected`/`UpdateFailed` evidence to the sink that runs `Drift.check` between local cycles, `Team` + `TeamStackPermission` + `TeamAccessToken` scope automation to one stack at the narrowest grant, and the `Environment` resource authors the graph-owned ESC environment (yaml as a `StringAsset`) with an `EnvironmentVersionTag` so consumer rotation is a tag move, never a consumer edit.
+- Owner: `CloudPlane` — one tier over `@pulumi/pulumiservice`: `DeploymentSettings` binds the Git source (`sourceContext.git`), the CURRENT `vcs` trigger block (`previewPullRequests` + `pullRequestTemplate` mint per-PR review stacks; the deprecated `github` block has no spelling), and the federated `operationContext.oidc` credential posture, `DriftSchedule` runs hosted detection on the caller's cron with remediation off, `DeploymentSchedule` rows run Pulumi's mutating operations on cron or instant, `TtlSchedule` bounds review-stack lifetime, the `Webhook` row delivers `DriftDetected`/`UpdateFailed` events to the caller's endpoint, `Team` + `TeamStackPermission` + `TeamAccessToken` scope automation to one stack at the narrowest grant, and the `Environment` resource authors the graph-owned ESC environment (yaml as a `StringAsset`) with an `EnvironmentVersionTag` so consumer rotation is a tag move, never a consumer edit.
 - Law: one clock per stack — a hosted `DriftSchedule` and the local `Drift.sweep` never both watch one stack; the estate picks per backend, and this tier existing at all means the hosted clock owns its stacks.
-- Law: the schedule family speaks the ledger — each `schedules` row is one `DeploymentSchedule` whose `pulumiOperation` is the hosted twin of the mutating-ledger vocabulary (`update | preview | refresh | destroy`), `cron` and `at` are the XOR recurrence pair the provider enforces, and a hosted `refresh` schedule stays the deliberate escalation the local evidence-then-`refresh` law demands — a schedule is data beside the settings row, never a second driver.
-- Law: deploy credentials are federated, never static — `operationContext.oidc` carries the cloud-side identity for arm credentials (`aws.roleARN`/`sessionName`, the `gcp`/`azure` twins), ESC dynamic-provider opens (`fn::open::aws-login` and kin) mint the short-lived material, and a static provider key living in a hosted environment definition is the second-source defect; webhook `secret` values are Doppler-generated entries the receiver verifies, and the delivery decodes through `operate/policy.md`'s `Evidence.wire` into the `Hosted` row — one sink vocabulary with the Doppler source.
+- Law: each `schedules` row is one `DeploymentSchedule` whose `pulumiOperation` selects `update | preview | refresh | destroy`; `cron` and `at` are the XOR recurrence pair the provider enforces, and a hosted `refresh` schedule stays the deliberate escalation after a local `previewRefresh` — a schedule is data beside the settings row, never a second driver.
+- Law: deploy credentials are federated — `operationContext.oidc` carries cloud-side arm identity, ESC dynamic-provider opens mint short-lived material, and each webhook binds a Doppler-generated secret the receiving endpoint verifies.
 - Law: tokens mint at the narrowest scope — a `TeamAccessToken` behind a `TeamStackPermission` over an org token wherever the consumer is one stack's automation; the `buildStackScopedPermissions`/`buildEnvironmentScopedPermissions` helpers spell finer grants when a token must carry them.
 - Entry: `new CloudPlane("cloud", { spec, organization, git, vcs, driftCron, sink, schedules, oidc, environment }, opts)` from the composing root when `spec.hosted`.
-- Growth: a new hosted automation is one resource row; a new hosted ledger cadence is one `schedules` row; a second review-stack template is one `TemplateSource` row; an agent-pool posture is one `agentPoolId` field when data must not transit shared compute.
-- Boundary: the local twins are `operate/policy.md` (`Drift`) and `program/automation.md` (`ephemeral`, `remote`); the Doppler webhook half of the evidence law is `operate/secret.md`'s; stack attachment of environments is `Automation.attach`.
+- Growth: a new hosted automation is one resource row; a new hosted cadence is one `schedules` row; a second review-stack template is one `TemplateSource` row; an agent-pool posture is one `agentPoolId` field when data must not transit shared compute.
+- Boundary: the local twins are `operate/policy.md` (`Drift`) and `program/automation.md` (`ephemeral`, `remote`); Doppler owns the webhook secret; stack attachment of environments is `Automation.attach`.
 - Packages: `@pulumi/pulumiservice` (`DeploymentSettings`, `DriftSchedule`, `TtlSchedule`, `DeploymentSchedule`, `Webhook`, `Team`, `TeamStackPermission`, `TeamAccessToken`, `Environment`, `EnvironmentVersionTag`, `types.input.OperationContextOIDCArgs`); `@pulumi/pulumi` (`asset.StringAsset`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
@@ -84,7 +84,7 @@ class CloudPlane extends Tier {
         deleteAfterDestroy: args.ttl.deleteAfterDestroy,
       }, this.child())
     }
-    new pulumiservice.Webhook(`${name}-evidence`, {
+    new pulumiservice.Webhook(`${name}-events`, {
       active: true,
       displayName: `${args.spec.name}-drift`,
       organizationName: args.organization,
@@ -193,12 +193,3 @@ const Environments = {
 
 export { CloudPlane, Environments }
 ```
-
-## [04]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

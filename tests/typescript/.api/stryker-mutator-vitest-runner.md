@@ -86,7 +86,7 @@ Runner and the whole mutation gauge are ONE declarative options object `stryker.
 |  [02]   | `testRunner: "vitest"`                          | core    | activates this plugin as the kill engine                              |
 |  [03]   | `coverageAnalysis: 'off' \| 'all' \| 'perTest'` | core    | `perTest` → `testFilter` runs only covering specs per mutant          |
 |  [04]   | `thresholds: { high; low; break }`              | core    | mutation-score policy; `break` is the CI fail floor (kill-ratio gate) |
-|  [05]   | `reporters: string[]` + `jsonReporter`          | core    | `["json","html","clear-text"]`; the JSON report is the gauge receipt  |
+|  [05]   | `reporters: string[]` + `jsonReporter`          | core    | `["json","html","clear-text"]`; the JSON report is the gauge verdict  |
 |  [06]   | `concurrency` / `maxTestRunnerReuse`            | core    | worker fan-out and reuse cap across the mutant sweep                  |
 |  [07]   | `incremental` / `ignoreStatic` / `timeoutMS`    | core    | incremental cache, static-mutant policy, runaway-mutant timeout       |
 |  [08]   | `vitest: { configFile?; dir?; related }`        | plugin  | reuse the folder vitest config; `related` narrows to changed-related  |
@@ -110,7 +110,7 @@ const strykerConfig = {
 
 [STACK: shared harness Layers as the mutant-execution environment] — because the runner reuses one vitest worker across mutants (`reloadEnvironment` reported per `TestRunnerCapabilities`), a spec's acquired Layers persist across `mutantRun` calls. A `layer(PgLiteTest)` unit Layer (`electric-sql-pglite.md` [04]) or a `layer(PgContainer)` container Layer (`testcontainers.md` [04]) is built once and re-entered per mutant — so those Layers must be idempotent and leave no cross-mutant state (a mutant must not see another mutant's rows). `hitLimit` + `Effect.timeout` guard a mutant that drives an acquired resource into an infinite loop; `disableBail` keeps a spec block running so `killedBy` names every catching test, not just the first.
 
-[STACK: assay `test --mutation` + this runner] — `uv run assay test run --mutation changed|full --typescript` loads `@stryker-mutator/core`, which drives this runner directly with no checker phase ahead of it; the JSON reporter output is the gauge receipt the assay rail scores against its kill floor; `thresholds.break` is that floor expressed as config data. `vitest.related: true` aligns with `--mutation changed` — both narrow to changed-related specs.
+[STACK: assay `test --mutation` + this runner] — `uv run assay test run --mutation changed|full --typescript` loads `@stryker-mutator/core`, which drives this runner directly with no checker phase ahead of it; the JSON reporter output is the gauge verdict the assay rail scores against its kill floor; `thresholds.break` is that floor expressed as config data. `vitest.related: true` aligns with `--mutation changed` — both narrow to changed-related specs.
 
 ## [05]-[RAIL_LAW]
 

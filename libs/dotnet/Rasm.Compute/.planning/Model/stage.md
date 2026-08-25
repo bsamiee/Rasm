@@ -9,7 +9,6 @@
 - [02]-[STAGE_WIRE]: the `StageWireMap` crossing against the corpus stage family, the lowered-primitive request and result records over a grant gate, the licence, residual, and latent mirrors, the accumulating decode admission, the executor-synthesized deterministic latent draw, the layout-memoized channel stack, and the port set the app root binds.
 - [03]-[STAGE_FOLD]: dependency-ordered execution with a per-row producer-extent gate at resolution, a single-construction tile plan, lease-side artefact and latent gates, an accumulating attempt admission, and a one-demotion band gate inside the lease that reads the card's live envelope.
 - [04]-[PARITY]: a horizon-bounded, capacity-capped, decision-keyed floor-provider residual memo over one lock-free keyed cell that survives a restart through its artifact port.
-- [05]-[RESEARCH]: open questions.
 
 ## [02]-[STAGE_WIRE]
 
@@ -428,7 +427,7 @@ public sealed record StagePorts(
 - Law: evidence publishes MEASURED or refuses. `PartitionCount` reads the per-bucket warm evidence the session capsule measured once, never a zero standing in for an unmeasured run; a request whose bucket carries no partition measurement refuses rather than minting a result whose evidence column reads as observed. Registration seats that bucket under its `WarmKey` with an ABSENT count and only the trace-reading `Model/run#RUN_MODES` `WarmPulse` fills it, so the two surfaces divide cleanly: the composition registers the shapes it will run, and the pulse measures how the graph partitioned for each.
 - Law: the residual GATES, never merely reports, and the BAND rides the lease rather than the memo. Every lease carries the card's `ResidualBand` into `StageSession`, the run's own lease grades the measured delta against the band's `Upper`, and a breach DEMOTES to the floor at full precision — one demotion, `ProviderUsed` reporting the substitution, `GoldenDelta` keeping the measured breach — so an accelerated run outside its card's band never publishes as if it were inside. Freezing the band into the verdict at measurement time is the rejected form: a card widening its band keeps demoting against the frozen one until a re-measurement of an unchanged residual clears it.
 - Auto: `Fold` threads a produced-OUTPUT map so a binding naming a producer resolves against results already held. `Execute` resolves the provider once against the frozen census, resolves and reads EVERY input row, runs the horizon-gated memoized parity measurement, then leases at that decision, proves the artefact digest, accumulates the attempt guards, builds the plan against the session's binding roster, synthesizes the draw from the request's seed, opens ONE bound flow at that plan and that draw, runs the grid once, writes every produced plane through the port, carries every grade out by value, and folds the elapsed span off the timeline. A breach answers `None` inside that lease and the run re-leases once at the floor, so the demotion costs exactly one extra lease and only on the runs that earned it.
-- Receipt: each executed stage emits one `ComputeReceipt.ModelRun` with the tiled mode key and the mosaic's tile count as `BatchSize` — one grid ran, so one receipt mints whatever the roster's width; the stage-level evidence rides `StageResult` across the wire, never a second receipt case, because the specifying end owns the admission that reads it.
+- Result: each executed stage returns one `StageResult` carrying its outputs, scores, provider, partition count, artifact digest, golden delta, tile count, and elapsed time.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Parametric.MonotonicTimeline`)
 - Growth: a further attempt invariant is one `IConstraint<StageAttempt>` conformance; a stage emitting more products is more `TileProduct` rows the lease reports, a stage PACKING two products into one tensor is one more row at that tensor's next lane, a stage GRADING its input is one `TileProduct.Measure` row landing on `StageResult.Scores`, and a stage CONSUMING more products is one more wire input row widening the channel stack — no surface move on any of them.
 - Boundary: the `GridProduct`→`StageResult` projection is NOT a Mapperly correspondence and no mapping method is owed for it: both shapes are this package's own, the crossing folds three independently measured columns (the timeline span, the graded delta, the freshness discriminant) that no generated transcription can produce, and the pure columns it does carry are one owner's carrier feeding its own result rather than an owner↔DTO rename. The `[Mapper]`-earning correspondence is `[02]-[STAGE_WIRE]` `StageWireMap`, which crosses these records against the corpus family and nothing else.
@@ -704,11 +703,3 @@ public static partial class StageRun {
     }
 }
 ```
-
-## [05]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

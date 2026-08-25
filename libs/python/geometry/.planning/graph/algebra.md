@@ -2,21 +2,21 @@
 
 AEC computational and numerical geometry — one `@tagged_union` dispatch surface over `compas`: graph/network adjacency, structural form-finding (dynamic relaxation over `compas_dr`, thrust-network analysis over `compas_tna`), datastructure algebra over the `Mesh`/`VolMesh`/`Assembly`/`NurbsSurface` family, and a parameterized `NumericalOp` table folding best-fit/bbox/hull primitives AND the rigid/affine/similarity/projective transform rows into one keyed catalogue. No separate `graph/transform` owner exists: an affine map is a numerical op on a coordinate set, not a second concern. This owner excludes non-manifold topology (the `nonmanifold` sibling over `topologicpy`) and raw mesh-file exchange, which defers to data `MeshPayload`.
 
-Each case keys its `CASE` row for the `GeometrySubject` it crosses — `NUMERICAL_PRIMITIVE` beside `NETWORK_GRAPH`/`FORM_FINDING`/`MESH_ALGEBRA` — and `graduates()` derives its own content key off the receipt's `spec` and rails the `GeometryHandoff` whose `wire()` projection is the compute crossing. `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_ALGEBRA` — span, fence, and receipt harvest in one composition, so a solve that raises is an `Error(BoundaryFault)` on the recorded rail, never a synthetic zero-handle receipt — the same wiring the `nonmanifold` sibling carries. Proxy bring-up, teardown, and every RPC wait cross as `RELEASING`-trait runtime `Kernel`s through `lane.offload`, bring-up under `RetryClass.RPC`: the runtime-owned thread band, zero geometry-minted limiters.
+Each case returns its canonical `ComputationalResult`, with solver residuals retained on its `Census`. `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_ALGEBRA` — runtime span and fault fencing in one composition, so a solve that raises is an `Error(BoundaryFault)` on the recorded rail, never a synthetic zero-handle result — the same wiring the `nonmanifold` sibling carries. Proxy bring-up, teardown, and every RPC wait cross as `RELEASING`-trait runtime `Kernel`s through `lane.offload`, bring-up under `RetryClass.RPC`: the runtime-owned thread band, zero geometry-minted limiters.
 
 ## [01]-[INDEX]
 
-- [02]-[ALGEBRA]: `ComputationalGeometry` union, its `CASE`/`NUMERICAL`/`DATASTRUCTURE`/`_FORM` tables, the census-row `graduates`/`frame` egress pair, and the sync/async `run`/`bridged` pair under one `ReceiptContributor`.
+- [02]-[ALGEBRA]: `ComputationalGeometry` union, its `CASE`/`NUMERICAL`/`DATASTRUCTURE`/`_FORM` tables, the census-row `frame` egress, and the sync/async `run`/`bridged` pair.
 
 ## [02]-[ALGEBRA]
 
-- Owner: `ComputationalGeometry` discriminates by `AlgebraKind`, and the four per-case data axes — graduation subject, residual-ledger projector, ceiling, and whether the case graduates — are ONE `CASE` table, so a new kind is one row and one union case, never a `_subject` match racing a parallel ledger fold. `AlgebraResult` is the sole `ReceiptContributor`, its phase data-driven — `emitted` for a converged/clean result, `admitted` for a form-finding pass whose residual exceeds `FormParams.tol` — so an unconverged equilibrium is flagged rather than asserted. Every parameterized case's sub-op is a closed `StrEnum`, never a raw string in the payload.
+- Owner: `ComputationalGeometry` discriminates by `AlgebraKind`, and `CASE` maps each kind to its `GeometrySubject`. `AlgebraResult` carries the provider handles, `Census`, subject, and convergence verdict directly. Every parameterized case's sub-op is a closed `StrEnum`, never a raw string in the payload.
 - Entry: `run` discriminates a single op or a batch, each returning through its own weave rail; `bridged` is the async mirror routing the SAME `_dispatch` through the `compas.rpc.Proxy`. `Proxy` reaches ONLY the scipy-backed heavy band — the `_dr`/`_tna` solvers and the `rpc`-routed `_numpy` primitives whose scipy cores must not block the companion in-process; the pure-Python transform rows carry `rpc=None`, so the proxy route is a per-row capability, never a blanket re-entry marshaling a matrix multiply across the process wall.
 - Law: `Proxy` lifecycle is in-page — `solver_proxy(lane)` is the one async-resource owner: bring-up crosses as a `RELEASING` kernel under `retry=Some(RetryClass.RPC)` (the resilience row exists for this cold-start), teardown crosses the same band inside the scope exit, and a `bridged` fan shares ONE reconnected worker through an enclosing `AsyncExitStack`. Localhost server is per-session material the first proxy spawns and the spawning proxy stops, so no `Supervisor` DAEMON charge is minted at the serve composition root; RPC waits block on the socket, exactly the `RELEASING` trait's syscall arm.
-- Receipt: network/numerical/datastructure cases key an `empty_handle_fraction` against the zero ceiling, so a vacuous result does not graduate; form-finding keys its solver residual against `_RESIDUAL_CEILING`; residual census is the evidence the fold reads, never a re-measured value. `json_dumps` is the one COMPAS serializer for every result handle, never a per-type encoder. `spec` is the handle set beside the kind and sub-op discriminants, and both egress ports fold it through the graduation spine's `evidence_key` mint, so `graduates()` and `frame()` key one evidence identically and neither takes a key from its caller; `frame` projects the census one row wide with columns DERIVED off the struct, since this owner's product is scalar census plus JSON handles rather than a reducer board. The `_result` construction site records the charter distribution once, keyed on the case's own subject — the form-finding residual reaches `rasm.geometry.form.residual` and the three uncharted subjects write nothing, the charter table answering which rather than a per-arm branch.
-- Packages: `compas`, `compas_dr`, and `compas_tna` per the fence imports, beside the runtime lane/fault/receipt rails and the graduation spine.
-- Growth: a new algebra kind is one union case, one `match` arm, and one `CASE` row, its charter distribution and frame projection following from the row with no fold edit; a new numerical primitive or transform is one `NumericalOp` row and one `NUMERICAL` entry — its RPC route a row field, never a parallel map; a new datastructure verb is one `DATASTRUCTURE` entry; a new form-finding engine is one `FormEngine` row and one `_FORM` arm; a new `Census` column reaches the receipt, the charter source, and the frame at once; a new geometric constraint is one `NodeConstraint` row — `Constraint.get_constraint_cls` dispatches on the decoded COMPAS-JSON, never a new arm; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; `compas_cem` admits as a `FormEngine.CEM` row once it ships `compas>=2.0` support.
-- Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the graduation weave's fence and harvest, never a second hand-rolled rail.
+- Output: `AlgebraResult` retains the provider handles, full scalar census, subject, and convergence verdict. `frame` projects the census one row wide with columns derived from the struct, while `_result` records the charter distribution once at the producing site.
+- Packages: `compas`, `compas_dr`, and `compas_tna` per the fence imports, beside the runtime lane/fault rails and the graduation spine.
+- Growth: a new algebra kind is one union case, one `match` arm, and one `CASE` row, its charter distribution and frame projection following from the row with no fold edit; a new numerical primitive or transform is one `NumericalOp` row and one `NUMERICAL` entry — its RPC route a row field, never a parallel map; a new datastructure verb is one `DATASTRUCTURE` entry; a new form-finding engine is one `FormEngine` row and one `_FORM` arm; a new `Census` column reaches the span, the charter source, and the frame at once; a new geometric constraint is one `NodeConstraint` row — `Constraint.get_constraint_cls` dispatches on the decoded COMPAS-JSON, never a new arm; a new composition is one `ScopeKey` threaded through the `composition` keyword both entries carry; `compas_cem` admits as a `FormEngine.CEM` row once it ships `compas>=2.0` support.
+- Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the graduation weave's fence and span, never a second hand-rolled rail.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -49,7 +49,6 @@ from msgspec import Struct, structs
 from rasm.geometry.graduation import (
     EvidenceFrame,
     EvidenceScope,
-    GeometryHandoff,
     GeometrySubject,
     charter_record,
     evidence_key,
@@ -57,7 +56,7 @@ from rasm.geometry.graduation import (
 )
 from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.resilience import RetryClass
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -94,8 +93,6 @@ class DatastructureOp(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_RESIDUAL_CEILING: Final[float] = 1e-3
-_HANDLE_CEILING: Final[float] = 0.0
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -132,8 +129,6 @@ class Census(Struct, frozen=True, gc=False):
 
 class CaseSpec(Struct, frozen=True):
     subject: GeometrySubject
-    ledger: Callable[[Census], dict[str, float]]
-    ceiling: dict[str, float]
 
 
 class NumericalSpec(Struct, frozen=True):
@@ -148,20 +143,14 @@ class AlgebraResult(Struct, frozen=True):
     graduation_subject: GeometrySubject
     converged: bool = True
 
-    def contribute(self) -> tuple[Receipt, ...]:
-        phase: Phase = "emitted" if self.converged else "admitted"
-        facts: dict[str, object] = structs.asdict(self.census)
-        return (Receipt.of("rasm.geometry.graph.algebra", (phase, self.graduation_subject, facts)),)
+    @property
+    def span_facts(self) -> Mapping[str, object]:
+        return structs.asdict(self.census) | {"subject": self.graduation_subject.value, "converged": self.converged}
+
 
     @property
     def spec(self) -> bytes:
         return b"|".join((self.kind.encode(), self.census.op.encode(), *(handle.encode() for handle in self.handles)))
-
-    def graduates(self) -> GeometryHandoff:
-        case_spec = CASE[self.kind]
-        return GeometryHandoff.of(
-            self.graduation_subject, evidence_key(self.graduation_subject, self.spec), case_spec.ledger(self.census), case_spec.ceiling
-        )
 
     def frame(self) -> "RuntimeRail[EvidenceFrame]":
         table: dict[str, list[object]] = {name: [value] for name, value in structs.asdict(self.census).items()} | {"converged": [self.converged]}
@@ -302,14 +291,10 @@ _FORM: Final[Mapping[FormEngine, Callable[[Mesh, list[int], FormParams, Proxy | 
 })
 
 CASE: Final[Mapping[AlgebraKind, CaseSpec]] = MappingProxyType({
-    "network": CaseSpec(GeometrySubject.NETWORK_GRAPH, lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}),
-    "form_finding": CaseSpec(GeometrySubject.FORM_FINDING, lambda c: {"residual": c.residual}, {"residual": _RESIDUAL_CEILING}),
-    "numerical": CaseSpec(
-        GeometrySubject.NUMERICAL_PRIMITIVE, lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}
-    ),
-    "datastructure": CaseSpec(
-        GeometrySubject.MESH_ALGEBRA, lambda c: {"empty_handle_fraction": 0.0 if c.handles else 1.0}, {"empty_handle_fraction": _HANDLE_CEILING}
-    ),
+    "network": CaseSpec(GeometrySubject.NETWORK_GRAPH),
+    "form_finding": CaseSpec(GeometrySubject.FORM_FINDING),
+    "numerical": CaseSpec(GeometrySubject.NUMERICAL_PRIMITIVE),
+    "datastructure": CaseSpec(GeometrySubject.MESH_ALGEBRA),
 })
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

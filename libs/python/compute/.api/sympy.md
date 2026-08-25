@@ -200,13 +200,13 @@
 - assumptions (`real`, `positive`, `integer`) declared on `symbols`/`sympify` are derivation inputs, not post-hoc filters, so a derivation constrains its domain at construction.
 - exact symbolic results graduate as evidence on the one rail, and this branch mutates no host document.
 - graduation emits one artifact per candidate — a numeric callable (`lambdify`/`ufuncify`) or C/C++/Fortran/Rust source (`ccode`/`codegen`) through one printer-family surface, never parallel emitters — and `cse` factors shared subexpressions before emission.
-- each derivation folds one receipt: input expression, transform route, `cse` factoring, emitted source or callable, target language, and the `mpmath`-backed precision claim.
+- each derivation returns the terminal provider value beside its content key; emitted source and compiled callables retain their native package shapes.
 
 [STACKING]:
 - `mpmath`(`.api/mpmath.md`): `evalf`/`N` evaluate through the bundled `mp` context, lifting an exact closed form to arbitrary `dps` as the precision oracle a fast-path result certifies against.
 - `numpy`(`libs/python/.api/numpy.md`) / `jax`(`.api/jax.md`): `lambdify(..., modules='numpy')` compiles a vectorized callable and `modules='jax'` a traceable/differentiable one, so a symbolic derivation feeds the numeric study rail with no hand-written kernel.
 - `python-flint`(`.api/python-flint.md`): a hot exact polynomial or number-theory step promotes off the pure-Python `Poly` onto FLINT-backed ground-domain arithmetic; sympy owns the symbolic algebra, flint the fast exact ground domain.
-- within-lib: `SymbolicDerivation` lowers a derivation to a numpy or C handoff artifact, and `HandoffAxis` graduates exact `geometry.*` relations to the C# geometry owner as the geometry-handoff case.
+- within-lib: `SymbolicDerivation` lowers a derivation to a NumPy or C handoff artifact, and the symbolic `HandoffAxis` graduates that terminal value by content key.
 
 [LOCAL_ADMISSION]:
 - `import sympy as sym` at boundary scope produces the free-variable vocabulary through `symbols`/`sympify`; `cse` precedes any codegen emission.

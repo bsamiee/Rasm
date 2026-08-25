@@ -1,10 +1,10 @@
 # [RASM_RHINO_BLOCK_LIFECYCLE]
 
-Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, document-scoped invalidation, linked-source refresh, and deterministic disposal. Host acquisition and disposal stay outside every atom transition; each transition answers a `Transition<VaultState>` verdict whose committed state carries this caller's own product, so no ticket registry, no receipt map, and no cleanup swap exist beside the cell. The vault itself is an instance the shell capsule seats once at plug-in load — `ShellMount.Vault` mints `BlockVault.Of()` and claims the one mount seat — so the process-wide cell has one declared writer and this page owns the algebra alone.
+Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, document-scoped invalidation, linked-source refresh, and deterministic disposal. Host acquisition and disposal stay outside every atom transition; each transition answers a `Transition<VaultState>` verdict whose committed state carries this caller's own product, so no ticket registry, no outcome map, and no cleanup swap exist beside the cell. The vault itself is an instance the shell capsule seats once at plug-in load — `ShellMount.Vault` mints `BlockVault.Of()` and claims the one mount seat — so the process-wide cell has one declared writer and this page owns the algebra alone.
 
 ## [01]-[INDEX]
 
-- [02]-[REFRESH_POLICY]: `RefreshAction`, `RefreshPolicy`, `UpdateStyle`, `LinkSubject`, and `LinkWatchPolicy` partitioning matching versions by grant state, with `RefreshRefusal` and `RefreshDegrade` carrying every degrade as typed evidence.
+- [02]-[REFRESH_POLICY]: `RefreshAction`, `RefreshPolicy`, `UpdateStyle`, `LinkSubject`, and `LinkWatchPolicy` partitioning matching versions by grant state.
 - [03]-[PREVIEW_CUSTODY]: `DocSeal` and `PreviewKey` structural request identity and `PreviewGrant` the only bitmap window — a claim-gated borrow, never a handed-out handle — superseded versions moving atomically to retirement and `VaultOutcome` carrying leased transition products without captured mutation.
 - [04]-[LIFECYCLE]: `BlockVault` — the seated instance owning enrolment, invalidation, and eviction through kernel `Cell` transitions — and `BlockLifecycle`, the mounted facade whose entries the folder composes; `Lease` enrols then reserves or renders outside the atom before committing with its first grant.
 - [05]-[SURFACE_LEDGER]: owner-to-ingress-to-state-to-egress roster across `BlockLifecycle`, `BlockVault`, `PreviewGrant`, and the policy owners.
@@ -16,8 +16,7 @@ Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, d
 - Law: a row's behaviour is ONE `CapabilitySet<RefreshAction>` column — `Rerender` and `Retire` are the two actions a sweep can take on a GRANTED version, the two bool columns that spelled them delete, and the one illegal corner (a sweep both regenerating and retiring the same granted version) is a `CapabilityLaw` refusal at the roster rather than a combination two independent bools silently admitted.
 - Law: grant state alone does not decide a refresh — `RefreshPolicy.Of` resolves over the PRODUCT of grant state and the link conditions a definition carries: the `SourceMode` row behind `InstanceDefinition.UpdateType` declares WHICH conditions it requires (`Requires : CapabilitySet<LinkCondition>`, model.md), and the definition's live `LinkSubject` declares which it HOLDS. Regenerating a `Never` document's LINKED definition from a changed external file is exactly the case the condition algebra forecloses — `Regenerates` is one `AdmitsAll` read, and the refusal DERIVES from the missing condition rather than a ternary re-deriving it from two bools.
 - Law: no raw host discriminant reaches a `LinkSubject` column — `UpdateStyle` re-closes the document update policy with its `Updates` column and `SourceHealth` (model.md) is the branch's one archive-status vocabulary, so `Conditions` reads row behaviour rather than re-spelling an `is-not-one-row` comparison a new host ordinal silently joins.
-- Law: source AVAILABILITY is a condition, not a failure — an eager row over a broken source degrades to the stale-keep arm with typed evidence instead of regenerating from nothing, and `SourceHealth` names no row for `NotALinkedInstanceDefinition`, so an unlinked definition carries `Option<SourceHealth>.None` — absence, not a row meaning "not applicable".
-- Law: a degrade is EVIDENCE, never a silent substitution — `RefreshPolicy.Of` answers the effective row beside an `Option<RefreshRefusal>` naming which condition refused, `Invalidate` folds every refusal into `RefreshDegrade` rows, and the receipt rows land on the folder's ONE fact stream (`BlockSlot.PreviewFreed`/`PreviewRetired`/`PreviewRerendered`/`PreviewDegraded` at operations.md) so a refresh reads exactly as every other block consequence.
+- Law: source AVAILABILITY is a condition, not a failure — an eager row over a broken source resolves to the stale-keep arm before the sweep, and `SourceHealth` names no row for `NotALinkedInstanceDefinition`, so an unlinked definition carries `Option<SourceHealth>.None` — absence, not a row meaning "not applicable".
 - Law: `SkipNestedLinkedDefinitions` is settable on the live definition, so a nested-load posture is a subject column the refresh writes once at admission, never re-derived per version sweep.
 - Packages: Thinktecture.Runtime.Extensions for the rosters and generated admission; NodaTime for the debounce carrier (`libs/dotnet/.api/api-nodatime.md`); LanguageExt.Core for the rails; `Domain/validation` for `ICapability`/`CapabilitySet`/`CapabilityLaw` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`, `api-languageext.md`).
 
@@ -51,29 +50,11 @@ public sealed partial class RefreshPolicy {
 
     public CapabilitySet<RefreshAction> Actions { get; }
 
-    public static (RefreshPolicy Effective, Option<RefreshRefusal> Cause) Of(LinkSubject subject, RefreshPolicy requested) =>
+    public static RefreshPolicy Of(LinkSubject subject, RefreshPolicy requested) =>
         !requested.Actions.Admits(capability: RefreshAction.Rerender) || subject.Mode.Regenerates(held: subject.Conditions)
-            ? (requested, Option<RefreshRefusal>.None)
-            : (Lazy, Some(RefreshRefusal.For(missing: subject.Missing)));
+            ? requested
+            : Lazy;
 }
-
-[SmartEnum<int>]
-public sealed partial class RefreshRefusal {
-    public static readonly RefreshRefusal DocumentPolicy = new(key: 0, condition: static () => LinkCondition.Styled);
-    public static readonly RefreshRefusal SourceUnreadable = new(key: 1, condition: static () => LinkCondition.Readable);
-
-    [UseDelegateFromConstructor] internal partial LinkCondition Condition();
-
-    internal static RefreshRefusal For(CapabilitySet<LinkCondition> missing) =>
-        missing.Admits(capability: LinkCondition.Styled) ? DocumentPolicy : SourceUnreadable;
-}
-
-public sealed record RefreshDegrade(
-    Guid Definition,
-    RefreshPolicy Requested,
-    RefreshPolicy Effective,
-    RefreshRefusal Cause) : IDetachedDocumentResult;
-
 
 [SmartEnum<LinkedInstanceDefinitionUpdateStyle>]
 public sealed partial class UpdateStyle {
@@ -122,28 +103,26 @@ public sealed partial class LinkSubject {
         }
     }
 
-    internal CapabilitySet<LinkCondition> Missing =>
-        Conditions.Missing(required: Mode.Requires);
 }
 
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class LinkWatchPolicy {
     public Duration Debounce { get; }
-    public ReceiptPolicy Receipts { get; }
+    public StreamPolicy Policy { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Duration debounce,
-        ref ReceiptPolicy receipts) =>
-        validationError = debounce >= Duration.Zero && receipts is not null
+        ref StreamPolicy stream) =>
+        validationError = debounce >= Duration.Zero && stream is not null
             ? validationError
-            : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkWatchPolicy), "a non-negative debounce and a receipt bound", Option<Op>.None }));
+            : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkWatchPolicy), "a non-negative debounce and a facts bound", Option<Op>.None }));
 
-    public static Fin<LinkWatchPolicy> Of(Duration debounce, ReceiptPolicy receipts, Op? key = null) =>
+    public static Fin<LinkWatchPolicy> Of(Duration debounce, StreamPolicy stream, Op? key = null) =>
         key.OrDefault().AcceptValidated<LinkWatchPolicy>(
-            fault: Validate(debounce, receipts, out LinkWatchPolicy? policy),
+            fault: Validate(debounce, stream, out LinkWatchPolicy? policy),
             admitted: policy);
 }
 ```
@@ -197,18 +176,10 @@ internal abstract partial record VaultOutcome {
 
 [SmartEnum<int>]
 internal sealed partial class SweepAction {
-    internal static readonly SweepAction Freed = new(key: 0, landing: static () => Some(BlockSlot.PreviewFreed));
-    internal static readonly SweepAction Retired = new(key: 1, landing: static () => Some(BlockSlot.PreviewRetired));
-    internal static readonly SweepAction Rerender = new(key: 2, landing: static () => Some(BlockSlot.PreviewRerendered));
-    internal static readonly SweepAction Unresolved = new(key: 3, landing: static () => Option<BlockSlot>.None);
-
-    [UseDelegateFromConstructor] internal partial Option<BlockSlot> Landing();
-}
-
-internal sealed record RefreshResolution(HashMap<Guid, RefreshPolicy> Rows, Seq<RefreshDegrade> Degraded) {
-    internal static readonly RefreshResolution Empty = new(
-        Rows: HashMap<Guid, RefreshPolicy>(),
-        Degraded: Seq<RefreshDegrade>());
+    internal static readonly SweepAction Freed = new(key: 0);
+    internal static readonly SweepAction Retired = new(key: 1);
+    internal static readonly SweepAction Rerender = new(key: 2);
+    internal static readonly SweepAction Unresolved = new(key: 3);
 }
 
 internal sealed record DocEnrolment(DocSeal Seal, Watch Observation);
@@ -216,11 +187,11 @@ internal sealed record DocEnrolment(DocSeal Seal, Watch Observation);
 internal sealed record VaultState(
     HashMap<PreviewKey, PreviewEntry> Live,
     HashMap<(PreviewKey Key, int Version), PreviewEntry> Retired,
-    VaultOutcome LastReceipt) {
+    VaultOutcome LastOutcome) {
     internal static readonly VaultState Empty = new(
         Live: HashMap<PreviewKey, PreviewEntry>(),
         Retired: HashMap<(PreviewKey, int), PreviewEntry>(),
-        LastReceipt: VaultOutcome.Clean);
+        LastOutcome: VaultOutcome.Clean);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -293,10 +264,10 @@ public sealed class PreviewGrant : IDisposable {
 `Lease` enrols first, then reserves a fresh cached version or renders outside the atom and commits the owned lease with its first grant. Eager regeneration and closing-image cleanup settle as independent applicative attempts, and every failure remains typed before the fold returns.
 
 - Law: enrolment is idempotent and every vault ingress walks it, so a document holding entries always holds the observation that evicts them — eviction is a consequence of leasing, never a second call. Enrolment is `Cell.Claim` over the keyed enrolment cell: first claim wins, and the LOSING claim's already-minted `Watch` closes on the `Ceded` arm — the mint ran once outside the CAS, so the surplus is this caller's to close and a dropped watch (a live host subscription no owner can reach) is unrepresentable.
-- Law: every vault transition is `Cell.Commit` reading its product off `Transition.Current.LastReceipt` — the committed state IS this caller's, so concurrent transitions never overwrite one another's product and the former ticket registry, receipt map, and second cleanup swap delete whole. A refused or contended commit reads its case; the one total-append cell (the grant's cleanup roster) stays a plain swap under the S9 carve-out.
+- Law: every vault transition is `Cell.Commit` reading its product off `Transition.Current.LastOutcome` — the committed state IS this caller's, so concurrent transitions never overwrite one another's product and the former ticket registry, outcome map, and second cleanup swap delete whole. A refused or contended commit reads its case; the one total-append cell (the grant's cleanup roster) stays a plain swap under the S9 carve-out.
 - Law: `WatchLinked` accepts one admitted observation policy, projects its NodaTime debounce to the host span at the ONE observation seam, and commits one typed `Refresh` transaction per settled change; the clock resolves at the entry (`TimeProvider.System` absent a caller's), never off a value-object column.
 - Law: `ReleaseAll` delegates to kernel `Custody.Release`; a page spelling its own release loop beside it is the deleted form, and `Lowered` aggregates an already-collected fault roster.
-- Packages: `Document/lifetime.md` for `LifecycleGate`, `Watch`/`SubscriptionRelease`; kernel `Domain/rails` for `Custody`; `Document/events.md` for `DocumentStream`/`Observation`/`EventFamily`/`Delivery`/`ReceiptPolicy`; `Domain/rails` for `Cell`/`Transition`/`Lease` (`libs/dotnet/.api/api-languageext.md`); NodaTime for `Duration`.
+- Packages: `Document/lifetime.md` for `LifecycleGate`, `Watch`/`SubscriptionRelease`; kernel `Domain/rails` for `Custody`; `Document/events.md` for `DocumentStream`/`Observation`/`EventFamily`/`Delivery`/`StreamPolicy`; `Domain/rails` for `Cell`/`Transition`/`Lease` (`libs/dotnet/.api/api-languageext.md`); NodaTime for `Duration`.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -326,11 +297,11 @@ public sealed class BlockVault {
                 EventFamily.WorksessionFile,
                 EventFamily.Closed),
             Delivery: new Delivery.Deferred(Sink: fact => Delivered(fact: fact, owner: owner, policy: policy)),
-            Receipts: ReceiptPolicy.Operational))
+            Policy: StreamPolicy.Operational))
         let seal = new DocSeal(Value: Cell.Commit(seals, static held => held + 1L).Current)
         from seated in Cell.Claim(enrolled, owner.Key, () => new DocEnrolment(Seal: seal, Observation: watch)).Switch(
-            state: (Watch: watch, Op: op, Cell: this),
-            committed: (held, row) => row.State.Find(held.Watch is var _ ? owner.Key : owner.Key)
+            state: (Watch: watch, Op: op),
+            committed: (held, row) => row.State.Find(owner.Key)
                 .Map(static entry => entry.Seal)
                 .ToFin(Fail: held.Op.InvalidResult()),
             ceded: (held, row) => row.State.Find(owner.Key)
@@ -356,13 +327,13 @@ public sealed class BlockVault {
 
     private Fin<Unit> Delivered(DocEvent fact, DocumentSession owner, RefreshPolicy policy) {
         Op key = Op.Of(name: nameof(Engage));
-        return (fact.Origin switch {
+        return fact.Origin switch {
             EventOrigin.Host { Family: var family } when family == EventFamily.Closed => Evict(document: owner.Key, op: key),
             EventOrigin.Host { Family: var family }
                 when family == EventFamily.InstanceDefinitionTable || family == EventFamily.WorksessionFile =>
                 Invalidate(document: owner.Key, policy: policy, session: Some(owner), op: key),
-            _ => Fin.Succ(value: BlockReceipt.Empty),
-        }).Map(static _ => unit);
+            _ => Fin.Succ(value: unit),
+        };
     }
 
     internal Fin<PreviewGrant> Lease(DocumentSession owner, ResourceRef address, BlockPreview request, Op op) =>
@@ -382,8 +353,8 @@ public sealed class BlockVault {
             None: () => Render(session: owner, target: address, key: key, op: op))
         select grant;
 
-    internal Fin<BlockReceipt> Evict(DocKey document, Op op) =>
-        from receipt in Invalidate(
+    internal Fin<Unit> Evict(DocKey document, Op op) =>
+        from _ in Invalidate(
             document: document,
             policy: RefreshPolicy.Drop,
             session: Option<DocumentSession>.None,
@@ -392,15 +363,15 @@ public sealed class BlockVault {
                 enrolled,
                 held => held.Find(document).Map(_ => held.Remove(key: document)),
                 op.InvalidResult()).Switch(
-            state: (Document: document, Op: op),
-            committed: static (held, row) => Fin.Succ(Option<DocEnrolment>.None),
-            ceded: static (_, _) => Fin.Succ(Option<DocEnrolment>.None),
+            state: (Entry: enrolled.Value.Find(document), Op: op),
+            committed: static (held, _) => Fin.Succ(value: held.Entry),
+            ceded: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: held.Op.InvalidResult()),
             refused: static (_, _) => Fin.Succ(Option<DocEnrolment>.None),
             contended: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: held.Op.InvalidResult()))
-        from _ in enrolled.Value.Find(document).Match(
+        from closed in discharged.Match(
             Some: held => Closed(watch: held.Observation, op: op),
             None: static () => Fin.Succ(value: unit))
-        select receipt;
+        select unit;
 
     internal Fin<Watch> WatchLinked(
         DocumentSession owner,
@@ -420,9 +391,9 @@ public sealed class BlockVault {
                     operations: [new BlockOp.Refresh(Target: address)])
                 from __ in Blocks.Commit(session: owner, transaction: plan)
                 select unit),
-            Receipts: active.Receipts));
+            Policy: active.Policy));
 
-    private Fin<BlockReceipt> Invalidate(
+    private Fin<Unit> Invalidate(
         DocKey document,
         RefreshPolicy policy,
         Option<DocumentSession> session,
@@ -434,7 +405,7 @@ public sealed class BlockVault {
                 .Map(static pair => (pair.Key, pair.Value))
                 .ToSeq();
             Seq<(PreviewKey Key, SweepAction Action, Option<Lease<GdiBitmap>> Closing)> rows = hit.Map(row =>
-                resolved.Rows.Find(row.Key.Definition).Match(
+                resolved.Find(row.Key.Definition).Match(
                     None: () => (row.Key, SweepAction.Unresolved, Option<Lease<GdiBitmap>>.None),
                     Some: effective => row.Entry.Grants == 0
                         ? (row.Key, SweepAction.Freed, Some(row.Entry.Image))
@@ -461,8 +432,8 @@ public sealed class BlockVault {
                             None: () => fold));
             return (next, new VaultOutcome.Swept(Rows: rows));
         }, op: op).Bind(outcome => outcome.SwitchPartially(
-            state: (Resolved: resolved, Session: session, Op: op, Cell: this),
-            @default: static (held, _) => Fin.Fail<BlockReceipt>(error: held.Op.InvalidResult()),
+            state: (Session: session, Op: op, Cell: this),
+            @default: static (held, _) => Fin.Fail<Unit>(error: held.Op.InvalidResult()),
             swept: (held, swept) => Attempted(held.Op,
                     () => Lowered(faults: ReleaseAll(
                         images: swept.Rows.Choose(static row => row.Closing),
@@ -474,19 +445,18 @@ public sealed class BlockVault {
                             .ToValidation())
                         .As()
                         .ToFin()
-                        .Map(static _ => unit))
-                .Bind(_ => BlockReceipt.Refresh(
-                    rows: swept.Rows.Map(static row => (row.Key.Definition, row.Action)),
-                    degraded: held.Resolved.Degraded,
-                    key: held.Op))));
+                        .Map(static _ => unit))));
 
-    private Fin<RefreshResolution> Resolved(
+    private Fin<HashMap<Guid, RefreshPolicy>> Resolved(
         DocKey document,
         RefreshPolicy requested,
         Option<DocumentSession> session,
         Op op) =>
         session.Match(
-            None: () => Fin.Succ(RefreshResolution.Empty),
+            None: () => Fin.Succ(vault.Value.Live.AsIterable()
+                .Filter(pair => pair.Key.Document == document)
+                .Map(pair => (pair.Key.Definition, requested))
+                .ToHashMap()),
             Some: active => active.Demand(
                 use: held => vault.Value.Live.AsIterable()
                     .Filter(pair => pair.Key.Document == document)
@@ -497,20 +467,11 @@ public sealed class BlockVault {
                         from target in ResourceRef.Of(id: definition)
                         from resolved in Definitions.Resolve(target: target, document: held, key: op)
                         from subject in LinkSubject.Of(definition: resolved, document: held, key: op)
-                        let row = RefreshPolicy.Of(subject: subject, requested: requested)
-                        select (
-                            Definition: definition,
-                            row.Effective,
-                            Degrade: row.Cause.Map(cause => new RefreshDegrade(
-                                Definition: definition,
-                                Requested: requested,
-                                Effective: row.Effective,
-                                Cause: cause)))).ToValidation())
+                        let effective = RefreshPolicy.Of(subject: subject, requested: requested)
+                        select (Definition: definition, Effective: effective)).ToValidation())
                     .As()
                     .ToFin()
-                    .Map(static rows => new RefreshResolution(
-                        Rows: rows.Map(static row => (row.Definition, row.Effective)).ToHashMap(),
-                        Degraded: rows.Choose(static row => row.Degrade))),
+                    .Map(static rows => rows.Map(static row => (row.Definition, row.Effective)).ToHashMap()),
                 key: op,
                 needs: [SessionNeed.Read]));
 
@@ -645,10 +606,10 @@ public sealed class BlockVault {
         Op op) => op.Catch(() =>
         Cell.Commit(vault, state => {
             (VaultState next, VaultOutcome outcome) = transition(arg: state);
-            return next with { LastReceipt = outcome };
+            return next with { LastOutcome = outcome };
         }).Switch(
             state: op,
-            committed: static (_, row) => Fin.Succ(value: row.State.LastReceipt),
+            committed: static (_, row) => Fin.Succ(value: row.State.LastOutcome),
             ceded: static (key, _) => Fin.Fail<VaultOutcome>(error: key.InvalidResult()),
             refused: static (_, row) => Fin.Fail<VaultOutcome>(error: row.Cause),
             contended: static (key, _) => Fin.Fail<VaultOutcome>(error: key.InvalidResult())));
@@ -685,7 +646,7 @@ public static class BlockLifecycle {
                select grant;
     }
 
-    public static Fin<BlockReceipt> Evict(DocKey document) {
+    public static Fin<Unit> Evict(DocKey document) {
         Op op = Op.Of();
         return Mounted(op: op).Bind(vault => vault.Evict(document: document, op: op));
     }
@@ -713,18 +674,16 @@ public static class BlockLifecycle {
 
 | [INDEX] | [OWNER]          | [INGRESS]                              | [STATE]                        | [EGRESS]                      |
 | :-----: | :--------------- | :------------------------------------- | :----------------------------- | :---------------------------- |
-|  [01]   | `BlockLifecycle` | `Mount` · `Engage` · `Lease` · `Evict` | `Cell.Seat` mount cell         | seal · grant · `BlockReceipt` |
+|  [01]   | `BlockLifecycle` | `Mount` · `Engage` · `Lease` · `Evict` | `Cell.Seat` mount cell         | seal · grant · `Unit`       |
 |  [02]   | `BlockVault`     | capsule mint (`ShellMount.Vault`)      | `Atom<VaultState>` + enrolment | `Transition`-carried products |
 |  [03]   | `PreviewGrant`   | `PreviewGrant.Of`                      | `LifecycleGate` claims         | claim-gated bitmap borrow     |
 |  [04]   | policy owners    | generated admission                    | invalidation decisions         | policy values                 |
-|  [05]   | `RefreshDegrade` | `RefreshPolicy.Of` refusal             | per-definition cause           | degrade evidence rows         |
-|  [06]   | `DocSeal`        | enrolment claim                        | recycled-serial guard          | `PreviewKey` identity half    |
+|  [05]   | `DocSeal`        | enrolment claim                        | recycled-serial guard          | `PreviewKey` identity half    |
 
 ## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

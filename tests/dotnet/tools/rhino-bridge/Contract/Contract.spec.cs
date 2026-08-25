@@ -16,7 +16,7 @@ internal static class WireGens {
     public static readonly EndpointRecord Endpoint = EndpointRecord.Create(pipeName: "rbx-test", rhinoPid: 4242, rhinoStartedAtUnixMs: 1_765_432_000_000, contractGeneration: 1, shellVersion: "1.0.0", rhinoVersion: "9.0.26153", fault: "");
     public static readonly Handshake Shell = new(
         ContractGeneration: 1, SenderVersion: "1.0.0",
-        Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: "2.25.25")],
+        Capabilities: [new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Detail: "2.25.25")],
         Fingerprint: Host, Endpoint: Endpoint);
     public static readonly Gen<string> PipeSuffix = Gen.Char[start: 'a', finish: 'z'].Array[0, 60].Select(selector: static chars => new string(value: chars));
     public static readonly Gen<long> ClockSkew = Gen.Long[start: -5_000L, finish: 5_000L];
@@ -30,20 +30,20 @@ internal static class WireGens {
 internal sealed class ShellStub : IBridgeShell {
     public Task<Handshake> HelloAsync(Handshake supervisor, CancellationToken ct) =>
         Task.FromResult(result: supervisor with { SenderVersion = "shell", Fingerprint = WireGens.Host, Endpoint = WireGens.Endpoint });
-    public Task<CargoReceipt> LoadCargoAsync(CargoManifest manifest, CancellationToken ct) =>
-        Task.FromResult(result: new CargoReceipt(ContentHash: manifest.ContentHash, SwapMs: 412.3, Scenarios: [], Capabilities: []));
-    public Task<ScenarioReceipt[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
-        Task.FromResult<ScenarioReceipt[]>(result: [new ScenarioReceipt(
+    public Task<LoadedCargo> LoadCargoAsync(CargoManifest manifest, CancellationToken ct) =>
+        Task.FromResult(result: new LoadedCargo(ContentHash: manifest.ContentHash, SwapMs: 412.3, Scenarios: [], Capabilities: []));
+    public Task<ScenarioOutcome[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
+        Task.FromResult<ScenarioOutcome[]>(result: [new ScenarioOutcome(
             Scenario: selection.Switch(
                 allCase: static _ => "all",
                 themesCase: static t => $"themes:{string.Join(separator: ',', value: t.Themes)}",
                 namesCase: static n => $"names:{string.Join(separator: ',', value: n.Names)}"),
             Status: PhaseStatus.Ok, DurationMs: 1.0, Fault: null)]);
-    public Task<UnloadReceipt> UnloadCargoAsync(CancellationToken ct) =>
-        Task.FromResult(result: new UnloadReceipt(Confirmed: true, DebuggerAttached: false, GcRetries: 0, ElapsedMs: 2.5));
+    public Task<UnloadOutcome> UnloadCargoAsync(CancellationToken ct) =>
+        Task.FromResult(result: new UnloadOutcome(Confirmed: true, DebuggerAttached: false, GcRetries: 0, ElapsedMs: 2.5));
     public Task<long> PingAsync(CancellationToken ct) => Task.FromResult(result: 42L);
-    public Task<QuitPrepareReceipt> PrepareQuitAsync(CancellationToken ct) =>
-        Task.FromResult(result: new QuitPrepareReceipt(Documents: 0, MarkedClean: 0, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []));
+    public Task<QuitScrub> PrepareQuitAsync(CancellationToken ct) =>
+        Task.FromResult(result: new QuitScrub(Documents: 0, MarkedClean: 0, ResidualDirty: 0, Gh2: "documents=0;unmodified=0", SavedPaths: []));
 }
 
 [JsonRpcContract]
@@ -97,14 +97,14 @@ public sealed class RpcProxyLaws {
             Assert.Equal(expected: "shell", actual: reply.SenderVersion);
             Assert.Equal(expected: WireGens.Endpoint, actual: reply.Endpoint);
             Assert.Equal(expected: WireGens.Host, actual: reply.Fingerprint);
-            CargoReceipt cargo = await proxy.LoadCargoAsync(manifest: new CargoManifest(SessionId: WireGens.Stamp.SessionId, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [Guid.Parse(input: "b45a29b1-4343-4035-989e-044e8580d9cf")], BuiltAgainst: WireGens.Host, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            LoadedCargo cargo = await proxy.LoadCargoAsync(manifest: new CargoManifest(SessionId: WireGens.Stamp.SessionId, ReportDir: "/tmp/rbx", ContentHash: "xx64:abc", StagePath: "/tmp/stage", HostPlugins: [Guid.Parse(input: "b45a29b1-4343-4035-989e-044e8580d9cf")], BuiltAgainst: WireGens.Host, ScenarioAssemblies: ["Rasm.Rhino.Tests.dll"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.Equal(expected: "xx64:abc", actual: cargo.ContentHash);
-            ScenarioReceipt[] receipts = await proxy.RunAsync(selection: new ScenarioSelection.ThemesCase(Themes: ["blocks", "vectors"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
-            Assert.Equal(expected: "themes:blocks,vectors", actual: receipts[0].Scenario);
-            UnloadReceipt unload = await proxy.UnloadCargoAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            ScenarioOutcome[] outcomes = await proxy.RunAsync(selection: new ScenarioSelection.ThemesCase(Themes: ["blocks", "vectors"]), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            Assert.Equal(expected: "themes:blocks,vectors", actual: outcomes[0].Scenario);
+            UnloadOutcome unload = await proxy.UnloadCargoAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.True(condition: unload.Confirmed);
             Assert.Equal(expected: 42L, actual: await proxy.PingAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false));
-            QuitPrepareReceipt quit = await proxy.PrepareQuitAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            QuitScrub quit = await proxy.PrepareQuitAsync(ct: ct).ConfigureAwait(continueOnCapturedContext: false);
             Assert.Equal(expected: 0, actual: quit.Documents);
             Assert.Equal(expected: 0, actual: quit.MarkedClean);
             Assert.Equal(expected: 0, actual: quit.ResidualDirty);
@@ -134,7 +134,7 @@ public sealed class UnionWireLaws {
         new BridgeFault.UiWedged(SilentForMs: 8_000.0, Scenario: "gh.canvas"),
         new BridgeFault.ExecuteDeadline(Scenario: "gh.canvas", ElapsedMs: 30_000.0),
         new BridgeFault.NugetLockDrift(Detail: "NU1004 Rasm.Bridge.Contract"),
-        new BridgeFault.CapabilityAbsent(Capability: "gh2.dataflow", ProbeReceipt: "headless solve unsupported"),
+        new BridgeFault.CapabilityAbsent(Capability: "gh2.dataflow", Detail: "headless solve unsupported"),
         new BridgeFault.RedeployIncomplete(FailingCheck: "mcp.listener"),
     ];
 
@@ -381,7 +381,7 @@ public sealed class EnvelopeWireLaws {
     public void EnvelopeFieldNamesAreFrozen() {
         SessionEnvelope envelope = new(
             RunId: "r", Verb: "verify", Status: PhaseStatus.Ok, DurationMs: 1.0, ReportDir: "d",
-            Host: WireGens.Host, Capabilities: [], Scenarios: [new ScenarioReceipt(Scenario: "s", Status: PhaseStatus.Ok, DurationMs: 1.0, Fault: null)],
+            Host: WireGens.Host, Capabilities: [], Scenarios: [new ScenarioOutcome(Scenario: "s", Status: PhaseStatus.Ok, DurationMs: 1.0, Fault: null)],
             Evidence: [], FirstFailure: "", FirstFaultPhase: null, Fault: null);
         using JsonDocument document = JsonDocument.Parse(json: JsonSerializer.Serialize(value: envelope, jsonTypeInfo: BridgeJsonContext.Default.SessionEnvelope));
         string[] fields = [.. document.RootElement.EnumerateObject().Select(selector: static property => property.Name)];
@@ -389,7 +389,7 @@ public sealed class EnvelopeWireLaws {
             collection: (string[])[
                 "runId", "verb", "status", "scenarioStatus", "sessionStatus", "durationMs", "reportDir",
                 "host", "capabilities", "scenarios", "evidence", "firstFailure", "firstScenarioFailure",
-                "firstSessionFault", "firstFaultPhase", "fault", "phaseReceipts", "certificatePath",
+                "firstSessionFault", "firstFaultPhase", "fault", "phases", "certificatePath",
                 "artifactRefs", "evidenceCounts", "scenarioCounts", "spool"],
             action: field => Assert.Contains(expected: field, collection: fields, comparer: StringComparer.Ordinal));
         string[] scenarioFields = [.. document.RootElement.GetProperty(propertyName: "scenarios")[0].EnumerateObject().Select(selector: static property => property.Name)];
@@ -436,4 +436,3 @@ public sealed class PhaseStatusAlgebraLaws {
             expected: [true, false, true, true, true, true, true],
             actual: PhaseStatus.Items.Select(selector: static status => status.IsDecisive));
 }
-

@@ -1,6 +1,5 @@
 # [PY_ARTIFACTS_API_DOCXTPL]
 
-`docxtpl` owns DOCX templating for the artifacts `document` rail: one `DocxTemplate` loads a `.docx` as a jinja2 template, renders a context dict into the body, header, and footer XML, and saves the result. Styled content enters the render context as typed carriers that own the run XML, so the owner never re-implements the Office Open XML serialization `python-docx` already carries. Its `document/emit#DOCUMENT` consumer lowers the `DocumentNode` tree into that context through the `DocumentMode.DOCX_TEMPLATE` arm and mints the `ArtifactReceipt.Office` receipt case.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -71,12 +70,10 @@ Carriers serialize to OOXML and stringify into the render context. `RichText`/`R
 - `DocxTemplate.docx` (via `get_docx`) is the underlying `python-docx` `Document`; structural work the template cannot express routes through it, never a hand-built OOXML string.
 
 [STACKING]:
-- `document/emit#DOCUMENT`(`emit.md`): `DocumentMode.DOCX_TEMPLATE` resolves to the `_docxtpl_emit` arm, which lowers the `document/model#NODE` `DocumentNode` tree into the role-keyed `render` context, calls `render` → `render_footnotes` → `save`, and mints the `core/receipt#RECEIPT` `ArtifactReceipt.Office(key, bytes)` case through the `@receipted` weave; the emit owner holds the engine.
 - `jinja2`(`.api/jinja2.md`): `render`/`render_footnotes`/`render_properties` accept a shared `jinja2.Environment` — pass the engine used for the HTML/PDF report body so filters, globals, and the autoescape/undefined policy match across branches; `get_undeclared_template_variables(jinja_env=)` gates the context before binding.
 - `python-docx`(`.api/python-docx.md`): `DocxTemplate.docx` exposes the `Document` for residual structural work, and the emit arm's `_docx_run_props` mirrors the `RichText.add` axis onto `python-docx` `Run.font` for the non-template `DOCX` mode, single-sourcing the appearance contract across both office arms.
 - `pyvips`(`.api/pyvips.md`) / `pillow`(`.api/pillow.md`): `InlineImage(width, height)` takes a `python-docx` `Length`; a pyvips/pillow-prepared raster feeds the `image_descriptor`, never a re-encoded blob.
 - `msoffcrypto-tool`(`.api/msoffcrypto-tool.md`): the saved `.docx` routes here for ECMA-376 encryption when a protected deliverable is required.
-- universal rail: the emit op threads the shared `libs/python/.api` rails on top of this package — `EmitSpec`/`EmitFact` are `msgspec.Struct` admitted through a `pydantic` `TypeAdapter`, the boundary is `@beartype`-validated, a provider raise (`jinja2.TemplateError`, `lxml.etree.XMLSyntaxError`) converts to `BoundaryFault` at the `async_boundary` capsule, and the `@receipted` weave carries the `structlog` event and `opentelemetry` span; `docxtpl` is pure-sync and contributes no rail.
 
 [LOCAL_ADMISSION]:
 - Pure-Python wheel, LGPL-2.1 weak copyleft, dynamic-link-safe for an internalized owner; admitted for the `document` rail.
@@ -86,5 +83,4 @@ Carriers serialize to OOXML and stringify into the render context. `RichText`/`R
 [RAIL_LAW]:
 - Package: `docxtpl`
 - Owns: DOCX jinja2 templating; context render into body/header/footer XML, footnote-part (`render_footnotes`), and core-property-part (`render_properties`) substitution; styled inline/paragraph/listing/image carriers; external-hyperlink registration (`build_url_id`); pre-render part swaps (`replace_*`); undeclared-variable inspection; rendered-document emit.
-- Accept: template render and save feeding the `document/emit#DOCUMENT` owner with carriers lowered from the `DocumentNode` tree; the `ArtifactReceipt.Office` case as the receipt.
 - Reject: wrapper-renames of `render`/`save`; hand-rolled `python-docx` run/paragraph stitching where a carrier owns the styling; a parallel template type per source or media class; aliasing `R`/`RP` into new types; a `Subdoc`/`docxcompose` dependency the carrier path does not need; identity minting the runtime owns.

@@ -1,24 +1,24 @@
 # [RASM_FABRICATION_ELEMENT_INGRESS]
 
-`ElementImport` admits baked geometry once, lowers fabrication evidence into one `ElementReceipt`, then projects without reopening `ElementGraph`. `ElementSource` admits one graph and an identity-distinct subject roster whose arity selects singular or batch outcome. `ElementPayload` admits distinct representation slots with at most one mesh carrier and derives one count-framed identity.
+`ElementImport` admits baked geometry once, lowers fabrication evidence into one `AdmittedElement`, then projects without reopening `ElementGraph`. `ElementSource` admits one graph and an identity-distinct subject roster whose arity selects singular or batch outcome. `ElementPayload` admits distinct representation slots with at most one mesh carrier and derives one count-framed identity.
 
-`FactColumn` is the ONE evidence row: a declared member name paired with the reader that pulls its value, so a path is composed by `FactScope` and a member name is never spelled beside its own access. Every path mints as a `PropertyName` through `PropertyCategory.Fabrication.Row`, which is exactly the key space `AdmittedComponent.Quantities`, `.Properties`, `ComponentLayer.MaterialKey`, and `ComponentConnection` already demand. The edge snapshot is canonically ORDERED before any ordinal reaches a path, so the component's content key is a function of the edge set rather than of graph traversal order. Independent duplicate-path conflicts accumulate with path-derived loci before `AdmittedComponent` mints, while tolerance-equal observations coalesce. `ElementReceipt.Topology` preserves the ordered `Relationship` rows, and each realizing `Connect` lowers into `AdmittedComponent.Connections`; `At` stays absent because the interface is a blob content key.
+`FactColumn` is the ONE evidence row: a declared member name paired with the reader that pulls its value, so a path is composed by `FactScope` and a member name is never spelled beside its own access. Every path mints as a `PropertyName` through `PropertyCategory.Fabrication.Row`, which is exactly the key space `AdmittedComponent.Quantities`, `.Properties`, `ComponentLayer.MaterialKey`, and `ComponentConnection` already demand. The edge snapshot is canonically ORDERED before any ordinal reaches a path, so the component's content key is a function of the edge set rather than of graph traversal order. Independent duplicate-path conflicts accumulate with path-derived loci before `AdmittedComponent` mints, while tolerance-equal observations coalesce. `AdmittedElement.Topology` preserves the ordered `Relationship` rows, and each realizing `Connect` lowers into `AdmittedComponent.Connections`; `At` stays absent because the interface is a blob content key.
 
 ## [01]-[INDEX]
 
-- [02]-[ELEMENT_INGRESS]: `Rasm.Element`'s composed `RepresentationSlot` roster carrying the `ElementPart.Admitted` column seated over it, the `ElementGeometry`/`ElementPayload` carrier a slot admits, `ElementSource` graph-bearing ingress, the `FactValue`/`ElementFact` evidence row, and the `ElementReceipt` sealing component, topology, canonical bytes, and fault locus.
+- [02]-[ELEMENT_INGRESS]: `Rasm.Element`'s composed `RepresentationSlot` roster carrying the `ElementPart.Admitted` column seated over it, the `ElementGeometry`/`ElementPayload` carrier a slot admits, `ElementSource` graph-bearing ingress, the `FactValue`/`ElementFact` evidence row, and the `AdmittedElement` sealing component, topology, canonical bytes, and fault locus.
 - [03]-[FACT_COLUMNS]: `FactScope`, `FactColumn`, and the declared column tables every fabrication fact folds through.
-- [04]-[LIFECYCLE]: `ElementImport.Admit` baking each distinct subject once under graph tolerance with arity-selected singular or batch admission, and `ElementImport.Project` reading the receipt alone.
+- [04]-[LIFECYCLE]: `ElementImport.Admit` baking each distinct subject once under graph tolerance with arity-selected singular or batch admission, and `ElementImport.Project` reading the result alone.
 
 ## [02]-[ELEMENT_INGRESS]
 
-- Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `ElementReceipt` owns the admitted carrier, ordered relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
+- Owner: `ElementSource` owns graph-bearing ingress; `ElementSubject` owns element identity with resolved representation; `AdmittedElement` owns the admitted carrier, ordered relationship rows, typed facts, canonical property bytes, and fault locus; `ElementImport` owns admission and egress.
 - Cases: `ElementGeometry` closes mesh, profile, and axis carriers; `FactValue` closes numeric, symbolic, and typed-property readings and preserves every `PropertyValue` case; `ElementAdmission` preserves singular and batch cardinality; `ElementEgress` selects `Component` · `Topology` · `Facts` · `CanonicalProperties`; `ElementProjection` returns the matching result or committed byte count.
 - Law: the complete identifier vocabulary is `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot`, COMPOSED here — the graph lookup is `representations.At(slot)` off that owner's own keyed map, so no arm re-spells an identifier string and a second declaration of the roster is the deleted form; Fabrication seats only the `ElementPart.Admitted` carrier column Element cannot hold, admitting its mesh, axis, box, and footprint carriers and explicitly refusing every opaque slot through the roster's generated total `Switch`, so a new Element row breaks this page rather than inheriting support.
 - Law: a fact PATH is a `PropertyName` minted under the seam's own `PropertyCategory.Fabrication` prefix — the key space `AdmittedComponent` reads — so a bare string key never reaches the component and a `PropertyName.Create` at a write site is the deleted form.
 - Auto: generated `Switch` members keep every closed family total, so equivalence and rendering dispatch through the union rather than a tuple pattern that goes silently non-total on a new case; the derived quantity and property maps are HELD, so a fold reading both pays one build.
-- Receipt: `ElementReceipt` carries `AdmittedComponent`, the ordered `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many receipts.
-- Boundary: `ElementGraph` never crosses the receipt; `Relationship`, `PropertyValue`, `MaterialComposition`, `MaterialPropertySet`, and `MaterialUsage` remain their canonical generated owners; `NodeId` and provider types lower to strings or content keys only at fact egress; no connection line is synthesized, and a `Connect` row without a realizing element stays topology-only because `ComponentConnection` demands a realizing key; faults from `Rasm.Element` pass through unchanged and local ingress or egress conflicts mint `IngressTranslation`; canonical-property ordering and caller-buffer commit are the serialization-boundary statement kernels.
+- Result: `AdmittedElement` carries `AdmittedComponent`, the ordered `Seq<Relationship>`, `ElementFactSet`, count-prefixed canonical property bytes, and the element content locus; `ElementAdmission` preserves one or many results.
+- Boundary: `ElementGraph` never crosses the result; `Relationship`, `PropertyValue`, `MaterialComposition`, `MaterialPropertySet`, and `MaterialUsage` remain their canonical generated owners; `NodeId` and provider types lower to strings or content keys only at fact egress; no connection line is synthesized, and a `Connect` row without a realizing element stays topology-only because `ComponentConnection` demands a realizing key; faults from `Rasm.Element` pass through unchanged and local ingress or egress conflicts mint `IngressTranslation`; canonical-property ordering and caller-buffer commit are the serialization-boundary statement kernels.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -187,7 +187,7 @@ public sealed partial class ElementFactSet {
 }
 
 [ComplexValueObject]
-public sealed partial class ElementReceipt {
+public sealed partial class AdmittedElement {
     public AdmittedComponent Component { get; }
     public Seq<Relationship> Topology { get; }
     public ElementFactSet Facts { get; }
@@ -203,24 +203,24 @@ public sealed partial class ElementReceipt {
         ref ReadOnlyMemory<byte> canonicalProperties,
         ref UInt128 locus) {
         if (locus == UInt128.Zero)
-            validationError = new ValidationError("element-receipt:locus");
+            validationError = new ValidationError("element-result:locus");
     }
 
-    public static Fin<ElementReceipt> Admit(
+    public static Fin<AdmittedElement> Admit(
         AdmittedComponent component,
         Seq<Relationship> topology,
         ElementFactSet facts,
         ReadOnlyMemory<byte> canonicalProperties,
         UInt128 locus) =>
-        Validate(component, topology, facts, canonicalProperties, locus, out ElementReceipt receipt).Admitted(receipt);
+        Validate(component, topology, facts, canonicalProperties, locus, out AdmittedElement result).Admitted(result);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementAdmission {
     private ElementAdmission() { }
 
-    public sealed record One(ElementReceipt Receipt) : ElementAdmission;
-    public sealed record Many(Seq<ElementReceipt> Receipts) : ElementAdmission;
+    public sealed record One(AdmittedElement Element) : ElementAdmission;
+    public sealed record Many(Seq<AdmittedElement> Elements) : ElementAdmission;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -586,11 +586,11 @@ public readonly record struct CurveSample(double Axis, double Value);
 
 ## [04]-[LIFECYCLE]
 
-- Owner: `ElementImport` owns admission, the fact lowering, and receipt-only egress.
+- Owner: `ElementImport` owns admission, the fact lowering, and result-only egress.
 - Law: the edge snapshot is ORDERED before any ordinal reaches a fact path. `EdgesAt` hands edges in graph traversal order, so an index-keyed path re-keys the whole component the day the graph re-orders its adjacency; sorting on the relation's own discriminant and endpoints makes each ordinal a function of the edge SET, and two rows tying on every ordering column are indistinguishable to every consumer.
-- Entry: `ElementImport.Admit(ElementSource)` bakes each subject once and returns `Fin<ElementAdmission>`; `ElementImport.Project(ElementReceipt, ElementEgress)` returns `Fin<ElementProjection>` without graph access.
+- Entry: `ElementImport.Admit(ElementSource)` bakes each subject once and returns `Fin<ElementAdmission>`; `ElementImport.Project(AdmittedElement, ElementEgress)` returns `Fin<ElementProjection>` without graph access.
 - Auto: arity alone selects the outcome case — the admitted source already proved the roster non-empty and identity-distinct, so a singular request can never arrive as a vacuous batch. `Validation<Error, _>` accumulates independent batch and duplicate-path faults; every generated owner crosses through the one `Admitted` bridge.
-- Receipt: one grouping serves both the conflict census and the coalesced store, and each conflict carries its own path-derived locus so an accumulated batch names every offending path instead of repeating one error.
+- Result: one grouping serves both the conflict census and the coalesced store, and each conflict carries its own path-derived locus so an accumulated batch names every offending path instead of repeating one error.
 - Exemption: `CanonicalProperties` is a statement kernel — the ordered bag walk is the serialization boundary itself, and `CanonicalWriter` is mutable-fluent, so the loop IS the byte law; it opens through the RETAINING mint and closes on the rail, because the codec publishes no public constructor and only one of its two mints holds a buffer to hand back.
 - Packages: `CommunityToolkit.HighPerformance` (`ArrayPoolBufferWriter<byte>` egress destination), `Rasm.Element` (`ElementGraph.Bake`, `CanonicalWriter.Retaining` and its `Fin`-answering `ToBytes` close, `PropertyCategory`); `Process/owner` `FabricationCanon.Ordered` for the two identity digests, LanguageExt.Core rails, `UnitsNet` at the layer-thickness projection.
 - Boundary: writer disposal stays with the caller; a buffer failure rails through the retained locus rather than escaping the `Fin` return.
@@ -605,15 +605,15 @@ public static class ElementImport {
             .Traverse(subject => AdmitOne(source.Graph, subject, source.Key).ToValidation())
             .As()
             .ToFin()
-            .Map(static receipts => receipts.Head
-                .Filter(_ => receipts.Count == 1)
+            .Map(static results => results.Head
+                .Filter(_ => results.Count == 1)
                 .Match(
-                    Some: static receipt => (ElementAdmission)new ElementAdmission.One(receipt),
-                    None: () => new ElementAdmission.Many(receipts)));
+                    Some: static result => (ElementAdmission)new ElementAdmission.One(result),
+                    None: () => new ElementAdmission.Many(results)));
 
-    public static Fin<ElementProjection> Project(ElementReceipt receipt, ElementEgress egress) =>
+    public static Fin<ElementProjection> Project(AdmittedElement result, ElementEgress egress) =>
         egress.Switch(
-            state: receipt,
+            state: result,
             component: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Component(state.Component)),
             topology: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Topology(state.Topology)),
             facts: static (state, _) => Fin.Succ<ElementProjection>(new ElementProjection.Facts(state.Facts)),
@@ -623,7 +623,7 @@ public static class ElementImport {
                 return Fin.Succ<ElementProjection>(new ElementProjection.Written(request.Destination.WrittenCount - before));
             }));
 
-    private static Fin<ElementReceipt> AdmitOne(ElementGraph graph, ElementSubject subject, Op key) =>
+    private static Fin<AdmittedElement> AdmitOne(ElementGraph graph, ElementSubject subject, Op key) =>
         from baked in graph.Bake(subject.Id, key)
         let topology = Ordered(graph.EdgesAt(baked.Id))
         let tolerance = graph.Header.Tolerance
@@ -642,8 +642,8 @@ public static class ElementImport {
             facts.Quantities,
             facts.Properties)
         from properties in CanonicalProperties(graph, baked, key)
-        from receipt in ElementReceipt.Admit(component, topology, facts, properties, locus)
-        select receipt;
+        from result in AdmittedElement.Admit(component, topology, facts, properties, locus)
+        select result;
 
     private static Fin<UInt128> Resolve(Element baked, ElementPayload payload, double tolerance, Error fault) =>
         payload.Parts
@@ -881,7 +881,6 @@ public static class ElementImport {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

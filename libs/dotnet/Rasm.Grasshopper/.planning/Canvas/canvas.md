@@ -2,29 +2,29 @@
 
 Grasshopper's canvas boundary owns one command gate and one result-typed read gate over the live GH2 `Canvas`. `CanvasOp` absorbs public mutable canvas behavior behind total generated dispatch, `CanvasQuery<TResult>` closes read demand with the result type ON the request — a query and its projection are one value, so no consumer switches a projection union to recover the case it asked for — and `GhSession.Run` bounds every host interaction. Every capability roster rides the kernel set algebra: pick admission is `CapabilitySet<PickAxis>` under a declared corner law, selection and raster layers are folder vocabularies with open laws, and the action policy is one `CapabilitySet<ActionGate>` whose duplicate-key guards are unrepresentable.
 
-Receipts are the kernel gauge composed: one `CanvasReceipt<TFacts>` over `GaugedSpan<CanvasLane>`, so entry, settlement, latency, and the budget verdict all derive from the injected session timeline and no receipt re-spells a stamp pair. Three host projections — the eighteen-column state copy, the frame pulse, and the pick receipt — generate through one `[Mapper]` seam.
+Settlement is the kernel gauge composed: `Apply` answers the `GaugedSpan<CanvasLane>` itself, so entry, settlement, latency, and the budget verdict all derive from the injected session timeline and no local carrier re-spells a stamp pair. Three host projections — the eighteen-column state copy, the frame pulse, and the settled pick — generate through one `[Mapper]` seam.
 
 ## [01]-[INDEX]
 
-- [02]-[LENS]: `PickPlane` + `PickHit` + `PickGrain` + `DragChord` + `CanvasPick` + `SelectAxis` + `RasterLayer` + `CanvasMode` + `CanvasPolicy` + `CanvasState` + `FramePulse` + `RasterPlan` + `PickReceipt` + `CanvasQuery<TResult>` + `CanvasMap` — typed pick, state, telemetry, and owned-raster reads.
-- [03]-[OPERATOR]: `CanvasLane` + `CanvasReceipt<TFacts>` + `NavTarget` + `SparkleSpec` + `ActionGate` + `InlinePrompt` + `CanvasOp` + `CanvasOperator` — the closed command family and boundary gates.
+- [02]-[LENS]: `PickPlane` + `PickHit` + `PickGrain` + `DragChord` + `CanvasPick` + `SelectAxis` + `RasterLayer` + `CanvasMode` + `CanvasPolicy` + `CanvasState` + `FramePulse` + `RasterPlan` + `Picked` + `CanvasQuery<TResult>` + `CanvasMap` — typed pick, state, telemetry, and owned-raster reads.
+- [03]-[OPERATOR]: `CanvasLane` + `NavTarget` + `SparkleSpec` + `ActionGate` + `InlinePrompt` + `CanvasOp` + `CanvasOperator` — the closed command family and boundary gates.
 - [04]-[OWNER_MAP]: each canvas owner declares its growth axis.
 
 ## [02]-[LENS]
 
 - Owner: `CanvasQuery<TResult>` — the result-typed read demand: each static factory admits its payload at the MINT and fixes the answer shape, so the six-and-six query/projection pairing the fan once kept consistent by hand is one declaration and the thirteen-line `Unexpected` ladder its consumers paid is unspellable. `CanvasMap` `[Mapper]` — the one generated projection seam for the three detached host copies.
 - Owner: pick admission is the KERNEL's — `CapabilitySet<PickAxis>` with the kernel `PickGates.Whole`/`Bodies`/`Wiring` accessors (the `with`-subtraction preset was set difference written as record mutation; the kernel spells it as set literals). `CanvasPick.Law` is the folder's declared corner table: the three preset corners are the legal rows of the thirty-two, admitted through `CapabilityLaw.Admit` at the query mint — without the law any five-bit set is constructible and the presets are documentation (E-G9). NAMED LOSS: an arbitrary ad-hoc category combination; bought back as one legal row when a real host ask lands.
-- Owner: `PickHit` `[Union]` — every admitted `SelectionResult.Kind` as a payload-valid case; the surface hit carries `PickPlane` (`Foreground`/`Background`) as a ROW, because the host publishes two distinct `Pick` kinds and a bool merged them. `PickReceipt` couples the finite origin with nonnegative selection deltas; the written-never-read resolved-grain column is DELETED — the caller that passed a chord re-derives its resolution from the value it holds.
+- Owner: `PickHit` `[Union]` — every admitted `SelectionResult.Kind` as a payload-valid case; the surface hit carries `PickPlane` (`Foreground`/`Background`) as a ROW, because the host publishes two distinct `Pick` kinds and a bool merged them. `Picked` couples the finite origin with nonnegative selection deltas; the written-never-read resolved-grain column is DELETED — the caller that passed a chord re-derives its resolution from the value it holds.
 - Owner: `PickGrain` `[SmartEnum<int>]` keyed `(int)DragPickingMode.<row>` — the drag-grain axis GH2 itself publishes. `Resolve(Keys modifiers)` carries the host's own deferral law verbatim over the HOST modifier mask — a non-`Deferred` row answers itself and `Deferred` answers `AllObjects` under shift, `OneObject` otherwise; the host body accepts and never reads control, and the bool pair that re-spelled the mask is deleted. `DragChord(PickGrain Grain, Keys Modifiers)` pairs grain with the live chord.
 - Owner: `SelectAxis`, `RasterLayer`, and `CanvasMode` — three folder `ICapability` vocabularies: window-selection admission (objects/wires/groups), raster layer inclusion (background/wires/messages), and the live navigation modes (nested navigation/viewport dragging); every corner of each is a real host state, so all three laws are `CapabilityLaw.Open` and say so.
-- Owner: `CanvasState` — the immutable eighteen-column canvas projection, generated by `CanvasMap.State` with `[MapProperty]` renames and computed columns as named source projections. Admission ACCUMULATES: `Admitted` reports every refused column through `Validation` with its label, so an off-canvas origin AND a null skin read as two faults, not the first; `IsValid` stays the cheap evidence fold.
+- Owner: `CanvasState` — the immutable eighteen-column canvas projection, generated by `CanvasMap.State` with `[MapProperty]` renames and computed columns as named source projections. `FramePulse` is the host's seven phase durations; the `Pulse()` read writes them through `GhInstruments.Pulsed` for the surface's document at the one site that reads them. Admission ACCUMULATES: `Admitted` reports every refused column through `Validation` with its label, so an off-canvas origin AND a null skin read as two faults, not the first; `IsValid` stays the cheap evidence fold.
 - Owner: `RasterPlan` `[Union]` — `FullCase`, `SizedCase(Dimension, Dimension, CapabilitySet<RasterLayer>)`, `PickMapCase`; every raster leaves as `Lease<Bitmap>.Owned`.
 - Law: grain and gates are two axes of one pick, never one roster — `DragPickingMode` decides HOW MUCH a drag carries and the five `PickAxis` rows decide WHAT CATEGORIES admit; the host publishes no correspondence between them, so a `Pick` query carries both and derives neither.
 - Law: `Canvas.ResolvePickMode(bool, bool)` is `public` on the PRIVATE nested `Canvas.ViewportMouseDragger`, so the host resolver is unreachable and `PickGrain.Resolve`'s column re-states its exact body — licensed by unreachability alone, re-proved on the `gh2` decompile rail whenever the host surface moves.
 - Law: finiteness folds are the kernel's — `ValidityClaim.Finite(point:)`/`Finite(frame:)` (`Rasm/Interaction/input.md UiClaim`); the six page-private `Finite` helpers are deleted and no local geometry claim survives.
 - Law: `Map` is the coordinate authority for host `Screen`/`Control`/`Content` frames; the two map factories admit the source value and frames at the mint and answer the mapped value directly.
 - Boundary: `RepaintRow` owns this canvas's repaint policy; canvas paint, wire routing, and responder registration remain separate canvas owners. Rasters leave as Eto `Bitmap` leases — pixel access is the kernel `PixelLease`'s.
-- Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, pick and raster surfaces, `DragPickingMode`, `CanvasActions`, snap axes, skins, cursors, ZUI state, `SelectionResult`, `Pick`, `WireEnds`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]` — per-project `PrivateAssets` admission), `Rasm.Interaction` (`PickAxis`, `PickGates`, `UiClaim`), `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `Op`, `Lease<T>`), Thinktecture, LanguageExt.Core.
+- Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, pick and raster surfaces, `DragPickingMode`, `CanvasActions`, snap axes, skins, cursors, ZUI state, `SelectionResult`, `Pick`, `WireEnds`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]` — per-project `PrivateAssets` admission), `Rasm.Interaction` (`PickAxis`, `PickGates`, `UiClaim`), `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `Op`, `Lease<T>`), `Shell/telemetry.md` (`GhInstruments`), Thinktecture, LanguageExt.Core.
 - Growth: a new read is one result-typed factory; a new pick corner is one legal row on `CanvasPick.Law`; a new host drag grain is one `PickGrain` row keyed on its ordinal; a new raster layer is one `RasterLayer` row.
 
 ```csharp
@@ -120,7 +120,7 @@ public static class CanvasPick {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct PickReceipt(
+public readonly record struct Picked(
     PointF At, PickHit Hit,
     int SelectedObjects, int SelectedWires, int DeselectedObjects, int DeselectedWires) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -210,23 +210,24 @@ public static class CanvasQuery {
     public static Fin<CanvasQuery<PointF>> MapPoint(PointF value, CoordinateSystem from, CoordinateSystem to, Op? key = null);
     public static Fin<CanvasQuery<RectangleF>> MapFrame(RectangleF value, CoordinateSystem from, CoordinateSystem to, Op? key = null);
 
-    public static Fin<CanvasQuery<PickReceipt>> Pick(
+    public static Fin<CanvasQuery<Picked>> Pick(
         PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord = default, Op? key = null) {
         Op op = key.OrDefault();
         return from origin in guard(ValidityClaim.Finite(point: at), op.InvalidInput()).ToFin()
                from admitted in CanvasPick.Law.Admit(held: gates)
-               select new CanvasQuery<PickReceipt>(read: (surface, o) => Picked(surface, at, admitted, chord, o));
+               select new CanvasQuery<Picked>(read: (surface, o) => Resolve(surface, at, admitted, chord, o));
     }
 
     public static CanvasQuery<CanvasState> State() =>
         new(read: static (surface, op) => CanvasMap.State(surface: surface).Admitted(key: op).ToFin());
 
     public static CanvasQuery<FramePulse> Pulse() =>
-        new(read: static (surface, op) => op.AcceptValue(value: CanvasMap.Pulse(surface: surface)));
+        new(read: static (surface, op) => op.AcceptValue(value: CanvasMap.Pulse(surface: surface))
+            .Bind(pulse => GhInstruments.Pulsed(document: Optional(surface.Document).Map(static graph => graph.Identity), pulse: pulse).Map(_ => pulse)));
 
     public static Fin<CanvasQuery<Lease<Bitmap>>> Raster(RasterPlan plan, Op? key = null);
 
-    private static Fin<PickReceipt> Picked(
+    private static Fin<Picked> Resolve(
         HostCanvas surface, PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord, Op key) =>
         from result in key.Catch(() => Fin.Succ(surface.ResolvePick(
                 at,
@@ -237,8 +238,8 @@ public static class CanvasQuery {
                 recursive: gates.Admits(PickAxis.Recursive))))
             .Bind(active => key.Need(value: active))
         from hit in PickHit.Of(result: result, key: key)
-        from receipt in key.AcceptValue(value: CanvasMap.Receipt(result: result, at: result.Point, hit: hit))
-        select receipt;
+        from picked in key.AcceptValue(value: CanvasMap.Picked(result: result, at: result.Point, hit: hit))
+        select picked;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -269,11 +270,11 @@ internal static partial class CanvasMap {
     [MapProperty(nameof(HostCanvas.FullFrameDuration), nameof(FramePulse.FullFrame))]
     internal static partial FramePulse Pulse(HostCanvas surface);
 
-    [MapProperty(nameof(SelectionResult.SelectedObjectCount), nameof(PickReceipt.SelectedObjects))]
-    [MapProperty(nameof(SelectionResult.SelectedWireCount), nameof(PickReceipt.SelectedWires))]
-    [MapProperty(nameof(SelectionResult.DeselectedObjectCount), nameof(PickReceipt.DeselectedObjects))]
-    [MapProperty(nameof(SelectionResult.DeselectedWireCount), nameof(PickReceipt.DeselectedWires))]
-    internal static partial PickReceipt Receipt(SelectionResult result, PointF at, PickHit hit);
+    [MapProperty(nameof(SelectionResult.SelectedObjectCount), nameof(Picked.SelectedObjects))]
+    [MapProperty(nameof(SelectionResult.SelectedWireCount), nameof(Picked.SelectedWires))]
+    [MapProperty(nameof(SelectionResult.DeselectedObjectCount), nameof(Picked.DeselectedObjects))]
+    [MapProperty(nameof(SelectionResult.DeselectedWireCount), nameof(Picked.DeselectedWires))]
+    internal static partial Picked Picked(SelectionResult result, PointF at, PickHit hit);
 
     private static CapabilitySet<SelectAxis> SelectableOf(HostCanvas surface);
     private static CanvasPolicy PolicyOf(HostCanvas surface);
@@ -285,11 +286,11 @@ internal static partial class CanvasMap {
 
 ## [03]-[OPERATOR]
 
-- Owner: `CanvasLane` `[SmartEnum<int>]` realizing `IGaugeLane<CanvasLane>` — the canvas gauge vocabulary; each row's bound DERIVES from the kernel dispatch lane it crosses on, so no millisecond literal exists here and a display migration moves the seated pace, never these rows. `CanvasReceipt<TFacts>` — the fan's ONE receipt: a `GaugedSpan<CanvasLane>` beside the settlement facts; entry, settle, latency, and the breach verdict all derive from the span, so the three stamp-pair receipts the fan carried (`CanvasReceipt`, the local paint receipt, `ArrangeReceipt`) are three `TFacts` instantiations of one carrier.
+- Owner: `CanvasLane` `[SmartEnum<int>]` realizing `IGaugeLane<CanvasLane>` — the canvas gauge vocabulary; each row's bound DERIVES from the kernel dispatch lane it crosses on, so no millisecond literal exists here and a display migration moves the seated pace, never these rows. Kernel `GaugedSpan<CanvasLane>` IS the command's settlement — entry, settle, latency, and the breach verdict all derive from the span, and the caller already holds the case it applied, so the three stamp-pair carriers the fan once kept and the wrapper that re-carried the case identity beside the span are deleted.
 - Owner: `CanvasOp` `[Union]` `[GenerateUnionOps]` — the closed command family over the host's public navigation, projection, dwell, sparkle, marquee, selection, policy, and inline-editing mutations, each case answering its generated `SelfOp` from the same total dispatch that performs the mutation.
 - Owner: `NavTarget` `[Union]` — the three `IFlexControl.Navigate` shapes; `SparkleSpec` `[Union]` — the public host sparkle constructors with `Attached` HOISTED to the union base (the four mint cases carried it identically; the bespoke case carries a live `ISparkle` whose attachment is its own and reads the base column never); `ActionGate` `[SmartEnum<int>]` realizing `ICapability<ActionGate>` — the `CanvasActions` vocabulary over paired `Write`/`Read` delegate columns; `InlinePrompt` — the content-frame editor intent whose deferred cancellation callback carries the root fault cell.
-- Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline clock, Op? key = null)` → `Fin<CanvasReceipt<Op>>`; `CanvasOperator.Read<TResult>(CanvasQuery<TResult> query, Op? key = null)` → `Fin<TResult>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null)` → `Fin<Unit>`. Clock is the session's ONE injected timeline (folder RULINGS `[02]`).
-- Law: `Apply` brackets the marshalled case in `clock.Gauged<Op, CanvasLane>(CanvasLane.Command, …)` — the span lands on a refused command too, so the pulse evidence covers every crossing; the receipt's facts column carries the case's `SelfOp` identity.
+- Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline clock, Op? key = null)` → `Fin<GaugedSpan<CanvasLane>>`; `CanvasOperator.Read<TResult>(CanvasQuery<TResult> query, Op? key = null)` → `Fin<TResult>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null)` → `Fin<Unit>`. Clock is the session's ONE injected timeline (folder RULINGS `[02]`).
+- Law: `Apply` brackets the marshalled case in `clock.Gauged<Op, CanvasLane>(CanvasLane.Command, …)` — the span lands on a refused command too, so the pulse evidence covers every crossing.
 - Law: policy mutation is set-driven — `PolicyCase` folds the TOTAL `ActionGate.Items` roster writing `set.Admits(gate)` per row, so allowance and denial are one membership read and a partial write cannot leave a gate unvisited; a `Some` filters payload writes both predicate slots, every `None` slot clears its live filter through the kernel `Op.ToHostSlot`, and an absent payload leaves both untouched. `CanvasState.Policy` reads the same set, so one projection carries the whole policy.
 - Boundary: `IFlexControl` owns navigation, projection, coordinate mapping, and redraw scheduling; canvas motion, layout, and interaction owners compose those values without adding mutation gates here.
 - Packages: Grasshopper2 (`Canvas`, `IFlexControl`, `CanvasActions`, `Projection`, `Duration`, the public sparkle family, `ISparkle`, `IResult`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`, `Op.ToHostSlot`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`, `IGaugeLane`), LanguageExt.Core, `Rasm.Domain`.
@@ -474,14 +475,6 @@ public sealed record InlinePrompt(
             .IfFail(cause => ignore(Faults.Park(point: Rail, cause: cause)))));
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasReceipt<TFacts>(GaugedSpan<CanvasLane> Span, TFacts Facts) : IValidityEvidence {
-    public Op Operation => Span.Work;
-    public TimeSpan Latency => Span.Elapsed;
-    public bool Breached => Span.Breached;
-    public bool IsValid => Span.IsValid;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class CanvasOperator {
@@ -495,7 +488,7 @@ public static class CanvasOperator {
                select output;
     }
 
-    public static Fin<CanvasReceipt<Op>> Apply(CanvasOp op, MonotonicTimeline clock, Op? key = null) {
+    public static Fin<GaugedSpan<CanvasLane>> Apply(CanvasOp op, MonotonicTimeline clock, Op? key = null) {
         Op active = key.OrDefault();
         return from valid in active.AcceptValue(value: op)
                from gauged in clock.Gauged<Op, CanvasLane>(
@@ -506,7 +499,7 @@ public static class CanvasOperator {
                            .Bind(surface => valid.Execute(surface: surface, key: active)), key: active),
                    key: active)
                from identity in gauged.Value
-               select new CanvasReceipt<Op>(Span: gauged.Span, Facts: identity);
+               select gauged.Span;
     }
 
     public static Fin<Unit> FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null) {
@@ -531,7 +524,7 @@ Canvas capability grows inside the owner that already carries its discriminant.
 
 | [INDEX] | [CONCERN]  | [OWNER]                              | [GROWTH]                                   |
 | :-----: | :--------- | :----------------------------------- | :----------------------------------------- |
-|  [01]   | commands   | `CanvasOp` + `CanvasReceipt<TFacts>` | one case with generated identity           |
+|  [01]   | commands   | `CanvasOp` + `CanvasLane`            | one case with generated identity           |
 |  [02]   | navigation | `NavTarget`                          | one host-shaped case                       |
 |  [03]   | overlays   | `SparkleSpec`                        | one public host kind or bespoke value      |
 |  [04]   | policy     | `ActionGate` + `WireFilters`         | one dual-column `ICapability` row          |

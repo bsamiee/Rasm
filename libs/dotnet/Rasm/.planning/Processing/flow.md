@@ -2,7 +2,7 @@
 
 `FlowKernel.Trace` advances any `VectorField` into a streamline under the `Numerics/integrate.md` adaptive stepper, deciding every stop through one `Termination` `[Union]` and localizing every crossing onto the high-order solution curve. `MorseAtlas.Of` folds that same tracer over a caller's cell partition into the flow's topology — recurrent sets, eigen-classified critical sites, and saddle-seeded separatrices — as one frozen-column `MorseGraph`.
 
-Every receipt validates through the `Domain/rails.md` `ValidityClaim.All` fold under page-only cross-field claims, and raw ingress gates through its acceptance bridge; `Numerics/atoms.md` `AtomProjection.Rows` resolves projection with the receipt as its implicit self row.
+Every result validates through the `Domain/rails.md` `ValidityClaim.All` fold under page-only cross-field claims, and raw ingress gates through its acceptance bridge; `Numerics/atoms.md` `AtomProjection.Rows` resolves projection with the result as its implicit self row.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ Every receipt validates through the `Domain/rails.md` `ValidityClaim.All` fold u
 
 ## [02]-[TERMINATION]
 
-- Owner: `Termination` `[Union]` mints one closed stop vocabulary the tracer evaluates at each accepted step; `TraceEventKind`, `TraceEventStatus`, and `TraceEventLocalizationKind` stay three orthogonal receipt vocabularies, never one merged flag.
+- Owner: `Termination` `[Union]` mints one closed stop vocabulary the tracer evaluates at each accepted step; `TraceEventKind`, `TraceEventStatus`, and `TraceEventLocalizationKind` stay three orthogonal event vocabularies, never one merged flag.
 - Entry: `Termination.Evaluate` folds a total generated `Switch` — scalar and loop stops decide from state alone, an event stop samples its signed value function and runs the localizer.
 - Auto: localization refines a bracketed sign change through `DenseOutputSpan.PointAt` onto the high-order curve and falls to the chord where the segment carries no dense span; an endpoint inside tolerance short-circuits to a zero-iteration touch. Every tolerance derives from `Context`, never a bare literal.
 - Law: `CriticalCaptureCase`'s nearest-site fold seeds on `Option` and refuses an empty roster typed, so no arm of this owner forges an infinite distance the localizer would bracket against.
@@ -23,7 +23,7 @@ Every receipt validates through the `Domain/rails.md` `ValidityClaim.All` fold u
 - Owner: `TracePolicy` carries the iteration ceiling and localization budget as policy rows, never compiled-in constants; `SpatialIntegration.Module` is the one `IntegrationModule<Point3d, Vector3d>` instance `integrate.md` assigns this consumer; `StreamlineState.Accept`/`Reject` are the immutable fold state's only transitions.
 - Entry: `FlowKernel.Trace<TOut>` is the one trace entrypoint, `TOut` discriminating the projection.
 - Auto: `PolylineOf` substitutes the localized event point for the final trail vertex, so emitted geometry ends exactly at the crossing.
-- Packages: `Rasm`/Numerics (`FieldIntegrator`/`IntegrationModule`/`IntegrationStep`/`DenseOutputSpan`/`DenseOutputReceipt` stepper floor; `AtomProjection`/`ProjectionRow`; `Dimension`/`PositiveMagnitude`/`EpsilonPolicy`), `Rasm`/Spatial (`SupportSpace`; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`; `Cell.Converge`/`Transition`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve`).
+- Packages: `Rasm`/Numerics (`FieldIntegrator`/`IntegrationModule`/`IntegrationStep`/`DenseOutputSpan`/`DenseConditions` stepper floor; `AtomProjection`/`ProjectionRow`; `Dimension`/`PositiveMagnitude`/`EpsilonPolicy`), `Rasm`/Spatial (`SupportSpace`; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`; `Cell.Converge`/`Transition`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve`).
 - Growth: a new stop condition is one `Termination` case and one `Evaluate` arm, the generated `Switch` breaking every dispatch site loudly; a new event source is one `TraceEventKind` row over the same localizer; a new output shape is one `ProjectionRow`; a bidirectional or multi-seed trace folds over this same entry, never a sibling tracer.
 - Law: the event localizer's bisection rides `Cell.Converge` over one `Atom<Fin<Bracket>>`, with the settled midpoint in one `Option` slot; a crossing test is exact-SIGN opposition through `Sign.Of`, never a magnitude product that can underflow to zero.
 - Law: the trace cell's total step writes one `Fin<StreamlineState>` per commit; `Cell.Converge` returns the terminal transition state, whose absent `Stop` lowers to `MaxIterationsExhausted`.
@@ -34,8 +34,8 @@ Every receipt validates through the `Domain/rails.md` `ValidityClaim.All` fold u
 - Owner: `MorseGraph` is the atlas carrier — cell-indexed `CellComponent`, component-indexed `Site`/`Kind`, arc-indexed `Arc`/`Crossing`, and the `Separatrix` rows — every column frozen at the mint; `FixedPointKind` `[SmartEnum<int>]` closes the critical-point signature vocabulary with `Transient` for the component the atlas measured no linearization at; `FlowPartition` is the caller's cell capsule (census, representative, total locate) and `TopologyPolicy` its scale and horizon record; `MorseAtlas` is the static surface.
 - Entry: `MorseAtlas.Of(VectorField, FlowPartition, PositiveMagnitude, FieldIntegrator, TopologyPolicy, Context, Op, Option<TracePolicy>)` is the one atlas entrypoint, returning the validated `MorseGraph`; a caller supplies field, partition, and scale and never sequences the transition, labelling, contraction, classification, and separatrix legs itself.
 - Auto: the cell-transition digraph materializes ONCE through `GraphExtensions.ToAdjacencyGraph`, so `StronglyConnectedComponents` and `CondensateStronglyConnected` read one container — Tarjan's labels fill the caller's dictionary and ARE the component partition — recurrent wherever a component holds two or more cells and, for a singleton, exactly where its own self-arc says the horizon trapped it — while the condensation's vertices are the component subgraphs and each condensed edge carries the merged cell transitions its `Crossing` weight counts. Classification linearizes at the component's representative through the `Numerics/calculus` `Nabla.SampleAxes` six-tap stencil and reads the GENERAL `Matrix.DecomposeEigenDetailed` spectrum: a flow Jacobian is not symmetric, so its complex pairs are what separate a centre from a node, and the signature folds spectral-radius-relative against `EpsilonPolicy.SqrtEpsilon`. Separatrices are multi-seed traces over the settled `FlowKernel.Trace<TOut>` — both senses of every real unstable eigendirection of every saddle, each seeded clear of every capture ball — so the band adds zero integration surface.
-- Receipt: `MorseGraph` is the typed evidence under one `ValidityClaim.All` fold gating column alignment, node ranges, and every `Separatrix` row; an atlas failing that fold routes `InvalidResult` rather than publishing a misaligned column, and `Project<TOut>` resolves the sites, the separatrix rows, the condensed arcs as world segments, and the graph itself off the rail's self row.
-- Packages: `Rasm`/Numerics (`Nabla.SampleAxes`; `Matrix`/`EigenSolveReceipt`/`EigenOrder`; `EpsilonPolicy`; `Dimension`/`PositiveMagnitude`), `Rasm`/Spatial (`VectorField.SampleVector`), `Rasm`/Domain (`Op`/`Context`/`ValidityClaim`), QuikGraph (`SEdge`/`AdjacencyGraph`, `GraphExtensions.ToAdjacencyGraph`, `AlgorithmExtensions.StronglyConnectedComponents`/`CondensateStronglyConnected`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`HashSet`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`), BCL inbox (`System.Numerics.Complex`).
+- Output: `MorseGraph` is the typed evidence under one `ValidityClaim.All` fold gating column alignment, node ranges, and every `Separatrix` row; an atlas failing that fold routes `InvalidResult` rather than publishing a misaligned column, and `Project<TOut>` resolves the sites, the separatrix rows, the condensed arcs as world segments, and the graph itself off the rail's self row.
+- Packages: `Rasm`/Numerics (`Nabla.SampleAxes`; `Matrix`/`EigenSolution`/`EigenOrder`; `EpsilonPolicy`; `Dimension`/`PositiveMagnitude`), `Rasm`/Spatial (`VectorField.SampleVector`), `Rasm`/Domain (`Op`/`Context`/`ValidityClaim`), QuikGraph (`SEdge`/`AdjacencyGraph`, `GraphExtensions.ToAdjacencyGraph`, `AlgorithmExtensions.StronglyConnectedComponents`/`CondensateStronglyConnected`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`HashSet`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`), BCL inbox (`System.Numerics.Complex`).
 - Growth: a new critical signature is one `FixedPointKind` row read off the same spectral fold; a new partition source is one `FlowPartition` value, never a mesh, lattice, or complex type reaching this band; a stable manifold is the unstable manifold of the sign-reversed field the `Spatial/fields` `Scaled` case already mints, so reversal is the caller's field algebra and never a second tracer.
 - Exemption: `Label`'s `Dictionary<int, int>` is the label sink `AlgorithmExtensions.StronglyConnectedComponents` fills by signature, and the census `first`/`size` arrays are span-kernel state that dies with the fold that fills it; both are transient inside one `Op.Catch` body and no consumer sees either.
 - Boundary: `TopologicalSort` and both bidirectional forms throw `NonAcyclicGraphException` and a flow digraph is cyclic by construction, so the band never composes them — the condensation IS the acyclic product; every QuikGraph value stays transient inside the fold with its throws funnelled through `Op.Catch`, and a graph-typed public member is the killed shape. The band publishes through `Processing/intent.md`'s `VectorIntent.Atlas` case exactly as the tracer publishes through `Streamline`, so `MorseAtlas` and `FlowKernel` both stay internal behind one admission-then-dispatch rail. A site is a recurrent set's representative sample, never a root-solved zero — refining one to the field's exact zero is the `Solving/solver` functor's — and a separatrix whose horizon runs out carries `None` for its terminal node rather than a fabricated one. The census and Jacobian-assembly loops are the named span-kernel statement exemption.
@@ -211,7 +211,7 @@ public abstract partial record Termination {
             ? Fin.Succ(Some(new TraceEvent(
                 Kind: kind, Status: status, Points: points, Values: values, Parameter: parameter, Tolerance: tolerance,
                 Iterations: 0,
-                LocalizationKind: TraceEventLocalizationKind.BoundedBisection, DenseOutput: Option<DenseOutputReceipt>.None)))
+                LocalizationKind: TraceEventLocalizationKind.BoundedBisection, DenseOutput: Option<DenseConditions>.None)))
             : Fin.Succ(Option<TraceEvent>.None);
     private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double previousValue, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) {
         Atom<Fin<Bracket>> cell = Atom(value: Fin.Succ(new Bracket(
@@ -233,7 +233,7 @@ public abstract partial record Termination {
                     Values: (previousValue, currentValue, settled.Value), Parameter: settled.T, Tolerance: tolerance,
                     Iterations: bracket.Iterations,
                     LocalizationKind: dense.Map(static _ => TraceEventLocalizationKind.DenseOutputRoot).IfNone(TraceEventLocalizationKind.BoundedBisection),
-                    DenseOutput: dense.Map(static span => span.Receipt)))
+                    DenseOutput: dense.Map(static span => span.Conditions)))
                 : Fin.Fail<TraceEvent>(key.InvalidResult())
             select @event);
 
@@ -288,7 +288,7 @@ public readonly record struct TraceEvent(
     TraceEventKind Kind, TraceEventStatus Status,
     (Point3d Previous, Point3d Current, Point3d Localized) Points, (double Previous, double Current, double Localized) Values,
     double Parameter, double Tolerance, int Iterations,
-    TraceEventLocalizationKind LocalizationKind, Option<DenseOutputReceipt> DenseOutput) : IValidityEvidence {
+    TraceEventLocalizationKind LocalizationKind, Option<DenseConditions> DenseOutput) : IValidityEvidence {
     public double Residual => Math.Abs(value: Values.Localized);
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Points.Previous), ValidityClaim.Finite(Points.Current), ValidityClaim.Finite(Points.Localized),
@@ -572,8 +572,8 @@ internal static class MorseAtlas {
             (samples.X1.X - samples.X0.X) * inv2eps, (samples.Y1.X - samples.Y0.X) * inv2eps, (samples.Z1.X - samples.Z0.X) * inv2eps,
             (samples.X1.Y - samples.X0.Y) * inv2eps, (samples.Y1.Y - samples.Y0.Y) * inv2eps, (samples.Z1.Y - samples.Z0.Y) * inv2eps,
             (samples.X1.Z - samples.X0.Z) * inv2eps, (samples.Y1.Z - samples.Y0.Z) * inv2eps, (samples.Z1.Z - samples.Z0.Z) * inv2eps], key: key)
-        from receipt in jacobian.DecomposeEigenDetailed(key: key)
-        from pairs in receipt.PairsIn(expected: EigenOrder.Factorization, key: key)
+        from eigen in jacobian.DecomposeEigenDetailed(key: key)
+        from pairs in eigen.PairsIn(expected: EigenOrder.Factorization, key: key)
         let tolerance = EpsilonPolicy.SqrtEpsilon * pairs.Fold(0.0, static (peak, pair) => Math.Max(val1: peak, val2: pair.Eigenvalue.Magnitude))
         select (
             Kind: Signature(spectrum: pairs.Map(static pair => pair.Eigenvalue), tolerance: tolerance),
@@ -627,7 +627,6 @@ internal static class MorseAtlas {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

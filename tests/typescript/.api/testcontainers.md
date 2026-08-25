@@ -57,7 +57,7 @@ declare class GenericContainer implements TestContainer {
 |  [01]   | `StartedTestContainer`     | interface `extends AsyncDisposable`     | `getHost`/`getMappedPort`/`exec`/`stop`/`restart`/`logs`    |
 |  [02]   | `AbstractStartedContainer` | class `implements StartedTestContainer` | subclass base for a typed lane handle                       |
 |  [03]   | `StoppedTestContainer`     | interface                               | post-stop; `copyArchiveFromContainer` for artifacts         |
-|  [04]   | `ExecResult`               | type                                    | `{ output; stdout; stderr; exitCode }` in-container receipt |
+|  [04]   | `ExecResult`               | type                                    | `{ output; stdout; stderr; exitCode }` in-container result  |
 |  [05]   | `ExecOptions`              | type                                    | `{ workingDir; user; env }` exec context (`psql`/`mc`)      |
 
 ```ts

@@ -1,6 +1,6 @@
 # [APPUI_DIAGNOSTICS_GOVERNOR]
 
-Rasm.AppUi quality governance is one stateful fold over one cell: `PerfBudget` folds each telemetry sample against the held `GovernorState` into one degrade verdict that steps render passes, the residency watermark, the motion tokens, and the XR comfort levers together under an asymmetric hysteresis band, and `GpuTimeline` correlates measured per-pass GPU nanoseconds against the encoder-projected cost so a slow pass attributes on evidence. The page owns the quality tiers, the sample, state, and verdict shapes, the governor cell, and the GPU timing/statistics projection — reading only settled message envelopes, never a second meter.
+Rasm.AppUi quality governance is one stateful fold over one cell: `PerfBudget` folds each telemetry sample against the held `GovernorState` into one degrade verdict that steps render passes, the residency watermark, the motion tokens, and the XR comfort levers together under an asymmetric hysteresis band, and `GpuTimeline` correlates measured per-pass GPU nanoseconds against the encoder-projected cost so a slow pass attributes on evidence. The page owns the quality tiers, the sample, state, and verdict shapes, the governor cell, and the GPU timing/statistics projection.
 
 ## [01]-[INDEX]
 
@@ -12,12 +12,12 @@ Rasm.AppUi quality governance is one stateful fold over one cell: `PerfBudget` f
 - Owner: `GovernorFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per governor failure; `QualityTier` `[SmartEnum<string>]` the descending quality grades; `PassCut` — the degraded pass disposition as a row a board renders; `BudgetAxis` `[SmartEnum<string>]` the observation-and-ceiling pair per gated axis with its one `Sweep` fold; `PerfSample` the folded telemetry observation; `GovernorState` the active-tier-plus-calm transition state; `QualityVerdict` the derived tier verdict naming the axis that moved it; `TierTransition` the recorded rank step; `GovernorReadout` the operator-facing projection with its chip fact keys; `PerfBudget` the pure transition policy; `Governor` the composition-scoped cell whose transitions answer through the kernel `Cell.Step` verdict.
 - Cases: `QualityTier` = ultra, high, balanced, conservative, floor — each row's `Cut` column names its `PassCut` disposition, and `RenderGraph.Frame` folds `Cut.Admits` over the pass DAG. `MotionQuality` controls animation complexity only; the user-owned `ReducedMotion` accessibility preference remains an independent hard constraint composed as the stricter downstream selector at `Theme/motion.md`.
 - Entry: `PerfBudget.Of` admits hysteresis, calm-window, history-depth, and divergence-band policy as accumulating slots, so a refusal names every offending column; `Govern` is the pure transition fold over one `BudgetAxis.Sweep`; `Governor.Observe` steps its cell through kernel `Cell.Step` — a sample at or before `GovernorState.LastAt` REFUSES as `GovernorFault.Stale` without mutating the cell, and a rank move records its `TierTransition` in the SAME committed state; `Governor.Readout` projects one cell snapshot into the `GovernorReadout` the diagnostics HUD chips bind.
-- Auto: `PerfSample` folds the viewport `FrameReceipt` frame-elapsed and GPU-elapsed, the residency-evict count, the VRAM watermark, and the layout-elapsed into one observation off the receipt stream the timeline already ingests, so the governor reads the settled evidence and mints no new instrument; every comparison rides the one `BudgetAxis` vocabulary carrying its own observation and its own ceiling — each phase gates on its own share rather than borrowing the whole-frame duration, and eviction gates on a per-frame RATE because a byte-budgeted cache evicts continuously under camera motion; ONE `Sweep` per sample answers breach, recovery, and the tightest share together, so the transition and the readout read one walk of the axis roster; the transition is asymmetric by design — a budget breach steps the tier down one grade immediately and zeroes the calm count, while recovery steps up one rung only after `CalmWindow` consecutive within-hysteresis samples; the verdict carries the breaching axis beside the tier whose columns every degrade lever reads.
-- Receipt: `QualityVerdict` seals through `Diagnostics/evidence#RECEIPT_UNION` `EvidenceReceipt.Quality` via the generated `EvidenceMap.ToEvidence(QualityVerdict)`, so a tier transition is timeline-attributable and names its cause; the evidence fan's quality arm swaps the shared quality-rank cell, so the `PerfBudget.Tier` level gauge reads the active rank with zero governor wiring.
+- Auto: `PerfSample` folds `FrameRender` elapsed time, resolved GPU time, the residency-evict count, the VRAM watermark, and layout time into one observation; every comparison rides the one `BudgetAxis` vocabulary carrying its own observation and its own ceiling — each phase gates on its own share rather than borrowing the whole-frame duration, and eviction gates on a per-frame RATE because a byte-budgeted cache evicts continuously under camera motion; ONE `Sweep` per sample answers breach, recovery, and the tightest share together, so the transition and the readout read one walk of the axis roster; the transition is asymmetric by design — a budget breach steps the tier down one grade immediately and zeroes the calm count, while recovery steps up one rung only after `CalmWindow` consecutive within-hysteresis samples; the verdict carries the breaching axis beside the tier whose columns every degrade lever reads.
+- Outcome: `Governor.Observe` returns `QualityVerdict`, writes `PerfBudget.Tier`, and fires `AppUiFact.Quality` at `AppUiPoint.Quality` after the cell transition settles.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (kernel `FaultBand`/`Fault`/`Cell`/`UnitInterval`), BCL inbox
 - Growth: a new quality grade is one `QualityTier` row at either rank extreme with its `PassCut` row; a new gated axis is one `BudgetAxis` row plus its `FrameBudget` ceiling column, read by breach, recovery, and headroom alike; a new degrade lever is one `QualityTier` column; a new readout column is one `GovernorReadout` member with its fact key beside it; a new fault case is one `[FaultCase]` leaf.
 - Law: the governor is the one adaptive-quality owner — a second meter, a per-pass ad-hoc throttle, or a caller-maintained tier state is the deleted form, and consumers read the levers off `verdict.Tier` (`Rasm.AppUi/Render/meshlets.md`, `Render/pipeline.md`, `Render/immersive.md`, `Analysis/context.md` compose `Tier.WatermarkFactor`, `Tier.Cut`, `Tier.RefreshHz`, `Tier.FoveationLevel`).
-- Law: the readout is a PROJECTION of the one cell and never a second observation — tier, breaching axis, tightest-axis headroom, and the recorded steps all answer off the snapshot the transition wrote, and a HUD chip binds a fact key this owner declares rather than sampling an instrument the fan already publishes.
+- Law: the readout is a PROJECTION of the one cell and never a second observation — tier, breaching axis, tightest-axis headroom, and the recorded steps all answer off the snapshot the transition wrote, and a HUD chip binds a fact key this owner declares rather than sampling an instrument the producer already writes.
 - Boundary: `MotionQuality` is the PERFORMANCE motion lever `Theme/motion.md`'s reduced-motion selector composes as the second constraint — the stricter of the user preference and `Tier.Motion` wins, and this page mutates neither.
 
 ```csharp
@@ -216,8 +216,13 @@ public sealed class Governor {
 
     public QualityTier Active => cell.Value.State.Active;
 
-    public Fin<QualityVerdict> Observe(PerfBudget policy, PerfSample sample) =>
-        Cell.Step(
+    public Fin<QualityVerdict> Observe(
+        PerfBudget policy,
+        PerfSample sample,
+        InstrumentSet signals,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Op key) =>
+        (Cell.Step(
             cell,
             held => held.State.LastAt.Exists(accepted => sample.At <= accepted)
                 ? Option<GovernorCell>.None
@@ -226,7 +231,18 @@ public sealed class Governor {
             Transition<GovernorCell>.Committed committed => Fin.Succ(committed.State.Verdict),
             Transition<GovernorCell> declined => Fin.Fail<QualityVerdict>(
                 declined is Transition<GovernorCell>.Refused refused ? refused.Cause : new GovernorFault.Stale(sample.At)),
-        };
+        }).Bind(verdict => signals.Write(PerfBudget.Tier, (long)verdict.Tier.Rank)
+            .Bind(_ => rail.Fire(
+                AppUiPoint.Quality,
+                new AppUiFact.Quality(
+                    verdict.Tier.Key,
+                    checked((uint)verdict.Tier.PathTraceSamples),
+                    verdict.Tier.WatermarkFactor,
+                    verdict.Tier.Motion.Key,
+                    checked((uint)verdict.Tier.FoveationLevel),
+                    verdict.Tier.RefreshHz),
+                key,
+                body: _ => Fin.Succ(verdict))));
 
     public GovernorReadout Readout(PerfBudget policy, PerfSample sample) =>
         cell.Value switch { var held => GovernorReadout.Of(policy, held.State, sample, held.Recent) };
@@ -243,8 +259,8 @@ config:
 ---
 flowchart LR
     accTitle: Frame-budget governor verdict fan
-    accDescr: Frame and HUD receipts folding into one performance sample measured against the budget, the governor state resolving one quality verdict, and that verdict driving the render pass cut, residency watermark, motion complexity, and immersive foveation.
-    FrameReceipt --> PerfSample
+    accDescr: Frame and HUD results folding into one performance sample measured against the budget, the governor state resolving one quality verdict, and that verdict driving the render pass cut, residency watermark, motion complexity, and immersive foveation.
+    FrameRender --> PerfSample
     HudSample --> PerfSample
     PerfSample --> PerfBudget
     PerfBudget --> GovernorState
@@ -260,7 +276,7 @@ flowchart LR
 - Owner: `GpuQuerySeam` the encoder-side write/resolve/retire boundary capsule; `GpuTimingPass` the per-pass timestamp-query planner owning the ONE pair-stride spelling; `PipelineStat` the pipeline-statistics row with the `Columns` roster its stride and order derive from; `PassTiming` the projected-vs-measured pair owning the ONE guarded divergence read; `GpuTimeline` the measured-vs-projected per-pass GPU projection feeding the verdict.
 - Entry: `Resolve(Seq<PassTiming> planned, ReadOnlyMemory<ulong> resolvedTicks)` and `ResolveStats(ReadOnlyMemory<ulong> resolvedCounters)` — the two pure read-back folds over one planner; `Attributed(UnitInterval fraction)` — the divergence-to-bottleneck join both folds feed; `GpuQuerySeam.Retired(seam, device, cadence)` — the scheduled non-blocking retire poll over the `nint` handle the boundary law already mandates.
 - Auto: `GpuTimingPass` writes a `Silk.NET.WebGPU` `QueryType.Timestamp` query PAIR per render-graph pass through `CommandEncoderWriteTimestamp` at the indices `Pair` mints, resolves the `QuerySet` through `CommandEncoderResolveQuerySet`, and retires the resolve through the non-blocking WGPU-extension `DevicePoll` on a declared `Schedule` cadence — never a blocking fence and never a one-shot poll nothing re-runs; pipeline statistics ride the WGPU vendor extension (core `QueryType` exposes only Timestamp and Occlusion) — one statistics query per pass whose counters `ResolveStats` folds at the stride and ORDER the `PipelineStat.Columns` roster declares, the same roster the query-set mint reads, so the transcription cannot drift from the read-back; `GpuTimeline` correlates the measured GPU seq against the projected CPU seq keyed by the frame ordinal, and a pass with no resolved pair keeps `Measured = None` so a projected estimate never masquerades as a measurement.
-- Receipt: the per-pass GPU figure REPLACES the `Render/pipeline#RENDER_GRAPH` `FrameReceipt` GPU `Duration` from the encoder-projected accumulated cost to the resolved nanoseconds only when every pass resolved, so a mixed projected/measured sum never enters the measured column; `GpuTimeline` seals through `EvidenceReceipt.GpuFrame` via `EvidenceMap.ToEvidence(GpuTimeline)`, whose measured-versus-unmeasured pass split keeps a projected estimate distinguishable from a resolved timestamp.
+- Outcome: the per-pass GPU figure replaces `FrameRender.Gpu` with resolved nanoseconds only when every pass resolved, so a mixed projected/measured sum never enters the measured column; `Deepen` writes divergence and fires `AppUiFact.GpuFrame`, whose measured-versus-unmeasured split keeps a projected estimate distinguishable from a resolved timestamp.
 - Packages: Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new profiled pass is one `GpuTimingPass` timestamp-query pair beside its one statistics query; a new pipeline statistic is one `PipelineStat` column with its `Columns` roster seat; zero new surface.
 - Law: the timing passes ride `ONE_WGPU_DEVICE` — the shared device seam declared with Compute — and never acquire a second device or queue; `GpuQuerySeam` is the named boundary capsule for the unsafe encoder statement seam, one `WebGPU` core plus one `Wgpu` extension view over the one loaded runtime.
@@ -400,10 +416,25 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
             var byPass => Divergent(fraction).Map(timing => (timing, byPass.Find(timing.Pass))),
         };
 
-    public FrameReceipt Deepen(FrameReceipt receipt) =>
-        FullyResolved
-            ? receipt with { Gpu = MeasuredGpu, Passes = Passes.Map(static pass => (pass.Pass, pass.Resolved)) }
-            : receipt;
+    public Fin<FrameRender> Deepen(
+        FrameRender frame,
+        InstrumentSet signals,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Op key) =>
+        Observe(signals).Bind(_ =>
+            (FullyResolved
+                ? frame with { Gpu = MeasuredGpu, Passes = Passes.Map(static pass => (pass.Pass, pass.Resolved)) }
+                : frame) switch {
+                    var deepened => rail.Fire(
+                        AppUiPoint.GpuFrame,
+                        new AppUiFact.GpuFrame(
+                            checked((ulong)FrameOrdinal),
+                            checked((uint)Passes.Count),
+                            checked((uint)Passes.Filter(static pass => pass.Measured.IsNone).Count),
+                            checked((ulong)MeasuredGpu.ToInt64Nanoseconds())),
+                        key,
+                        body: _ => Fin.Succ(deepened)),
+                });
 }
 ```
 

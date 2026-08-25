@@ -167,7 +167,6 @@ Archival profiles set `pdf_variant`; `pdf_tags=True` adds the structure tree PDF
 - `drawsvg`(`.api/drawsvg.md`): `svg_as_utf8_data_uri(drawing.as_svg())` yields a `data:` URI the HTML source embeds inline as an `<img>` or CSS background, threading a figure artifact into the PDF without a temp file.
 - `ziamath`(`.api/ziamath.md`): an equation SVG threads into the same HTML at a `config.svg2`-matched profile so the page and its embedded math emit one consistent SVG version.
 - `fonttools`(`.api/fonttools.md`) + `pyphen`(`.api/pyphen.md`): the render consumes `fonttools[woff]` subset/re-flavor for `@font-face` embedding and `pyphen` for CSS `hyphens: auto` soft-hyphenation — both its declared runtime substrate.
-- substrate rail: the render boundary offloads the GIL-bound `pango`/`pydyf` work through `anyio`(`.api/anyio.md`) `to_thread.run_sync`, records one kind-discriminated `ArtifactReceipt` via `msgspec`(`.api/msgspec.md`), spans through `structlog`(`.api/structlog.md`) + `opentelemetry`, and lifts a parse/layout fault onto `expression`(`.api/expression.md`) `Result`.
 - `document/emit#DOCUMENT`: composes this surface — the `DocumentNode` tree lowers to HTML+CSS, running heads/feet author as `@page` margin-box CSS, and a "see page N" reference authors as `target-counter(attr(href url), page)`.
 
 [LOCAL_ADMISSION]:

@@ -37,17 +37,17 @@ const attribute = (node, name) => {
 function copyDictionary(appPath) {
     const out = Ref('pointer');
     const status = $.OSACopyScriptingDefinitionFromURL($.NSURL.fileURLWithPath(appPath), 0, out);
-    if (status !== 0) return { ok: false, stage: 'copy', status };
+    if (status !== 0) throw new Error(`OSACopyScriptingDefinitionFromURL returned ${status}`);
     const error = $();
     const document = $.NSXMLDocument.alloc.initWithDataOptionsError(ObjC.castRefToObject(out[0]), 0, error);
-    if (document.isNil()) return { ok: false, stage: 'parse', status: error.code };
-    return { ok: true, document };
+    if (document.isNil()) throw new Error(`dictionary parse failed with ${error.code}`);
+    return document;
 }
 
 function nodes(context, expression) {
     const error = $();
     const found = context.nodesForXPathError(expression, error);
-    if (found.isNil()) return [];
+    if (found.isNil()) throw new Error(`XPath failed with ${error.code}: ${expression}`);
     return Array.from({ length: found.count }, (_, index) => found.objectAtIndex(index));
 }
 
@@ -106,16 +106,15 @@ function dispatch(appPath, verdict, operand) {
     }
     const error = $();
     const reply = event.sendEventWithOptionsTimeoutError($.NSAppleEventSendWaitForReply | $.NSAppleEventSendNeverInteract, 10, error);
-    if (reply.isNil()) return { sent: 'raw-event', status: error.code };
-    return { sent: 'raw-event', status: 0, descriptorType: reply.descriptorType };
+    if (reply.isNil()) throw new Error(`raw event failed with ${error.code}`);
+    return { sent: 'raw-event', descriptorType: reply.descriptorType };
 }
 
 function run(argv) {
     const [appPath, ...selected] = argv;
-    if (!appPath) return JSON.stringify({ ok: false, error: 'usage: <app-bundle-path> [verb[=operand] ...]' });
+    if (!appPath) throw new Error('usage: <app-bundle-path> [verb[=operand] ...]');
     const dictionary = copyDictionary(appPath);
-    if (!dictionary.ok) return JSON.stringify(dictionary);
-    const catalog = catalogOf(dictionary.document);
+    const catalog = catalogOf(dictionary);
     // A selection carries its operand inline as verb=value; a bare verb sends with no direct parameter.
     const operands = new Map(
         selected.map((entry) => {
@@ -127,5 +126,5 @@ function run(argv) {
     const sends = verdicts
         .filter((verdict) => operands.has(verdict.verb) && verdict.route !== 'refused')
         .map((verdict) => ({ verb: verdict.verb, ...dispatch(appPath, verdict, operands.get(verdict.verb)) }));
-    return JSON.stringify({ ok: true, target: appPath, commands: catalog.commands.size, verdicts, sends });
+    return JSON.stringify({ target: appPath, commands: catalog.commands.size, verdicts, sends });
 }

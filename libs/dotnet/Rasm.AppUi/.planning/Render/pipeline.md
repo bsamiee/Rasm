@@ -1,32 +1,32 @@
 # [APPUI_RENDER_PIPELINE]
 
-`RenderGraph` is the infinite viewport's GPU render pipeline: one pass-DAG drives every frame over the platform's one compositor-owned `GRContext` leased through the embed capsule. The `GpuBackend` rows carry the per-backend target-construction delegate over the composition-bound `GpuBinding` union and a `CapabilitySet<GpuTrait>` column stating what each substrate can run, so backend identity derives from the binding and a mismatched backend-factory pair is unrepresentable; each `RenderPass` case declares the products it makes and the products it must follow, so the roster's topological order is PROVED at composition rather than assumed from a caller's `Seq`; the `ResolvePass` ladder selects the antialias-and-super-resolution resolve off the governor tier's own rank; and `SimVisual` renders isosurface, volume, streamline, glyph, deformation, mesh-quality, and parallel-coordinate fields off the Compute field receipts. This page owns the render-graph pass algebra with its scheduling proof, the backend vocabulary and its capability column, the measured GPU-time evidence lane, the resolve ladder, the simulation render passes, and the browser residency wire; the view-state receipt and the named-view registry live in `Render/viewpoint`, the overlay-plane manipulators in `Render/measure`, the geometry-virtualization and residency owners in `Render/meshlets`, and the path-trace integrator in `Render/pathtrace`. Its substrate is SkiaSharp 3 GPU backends (`GRContext`, `GRMtlBackendContext`, `GRVkBackendContext`, `SKRuntimeEffect`) leased through `ISkiaSharpApiLease`, the `Silk.NET.WebGPU` wgpu/Dawn target factory, the Compute geometry and field receipts, and the AppHost frame-budget and receipt-sink ports. GPU passes share the one leased compositor context, and the `Software` 2D-Skia raster is the deterministic CPU floor.
+`RenderGraph` is the infinite viewport's GPU render pipeline: one pass-DAG drives every frame over the platform's one compositor-owned `GRContext` leased through the embed capsule. The `GpuBackend` rows carry the per-backend target-construction delegate over the composition-bound `GpuBinding` union and a `CapabilitySet<GpuTrait>` column stating what each substrate can run, so backend identity derives from the binding and a mismatched backend-factory pair is unrepresentable; each `RenderPass` case declares the products it makes and the products it must follow, so the roster's topological order is PROVED at composition rather than assumed from a caller's `Seq`; the `ResolvePass` ladder selects the antialias-and-super-resolution resolve off the governor tier's own rank; and `SimVisual` renders isosurface, volume, streamline, glyph, deformation, mesh-quality, and parallel-coordinate fields off the Compute field results. This page owns the render-graph pass algebra with its scheduling proof, the backend vocabulary and its capability column, the measured GPU-time evidence lane, the resolve ladder, the simulation render passes, and the browser residency wire; the portable view state and named-view registry live in `Render/viewpoint`, the overlay-plane manipulators in `Render/measure`, the geometry-virtualization and residency owners in `Render/meshlets`, and the path-trace integrator in `Render/pathtrace`. Its substrate is SkiaSharp 3 GPU backends (`GRContext`, `GRMtlBackendContext`, `GRVkBackendContext`, `SKRuntimeEffect`) leased through `ISkiaSharpApiLease`, the `Silk.NET.WebGPU` wgpu/Dawn target factory, the Compute geometry and field results, and the AppHost frame-budget ports. GPU passes share the one leased compositor context, and the `Software` 2D-Skia raster is the deterministic CPU floor.
 
 ## [01]-[INDEX]
 
 - [02]-[RENDER_GRAPH]: The proved pass-DAG, the `GpuBackend` capability and target-factory columns over `GpuBinding`, the resolve ladder, the frame-budget verdict, and the software fallback.
-- [03]-[SIM_VISUAL]: Traced, volumetric, mesh-quality, and parallel-coordinate field render passes off the Compute receipts.
+- [03]-[SIM_VISUAL]: Traced, volumetric, mesh-quality, and parallel-coordinate field render passes off the Compute results.
 - [04]-[TS_PROJECTION]: The content-keyed geometry-residency wire contract and its one generated projection seam.
 - [05]-[GPU_AND_WIRE_BOUNDARY]: Viewport GPU lease law, the wgpu presentation arms, and the web residency mint.
 
 ## [02]-[RENDER_GRAPH]
 
-- Owner: `ViewportFault` the direct generated `[Union]` with one `[FaultCase]` leaf per viewport failure; `GpuTrait` the substrate capability vocabulary; `GpuBackend` `[SmartEnum]` the backend rows carrying that capability set and their target-construction delegate; `GpuBinding` `[Union]` the composition-bound substrate each backend row folds; `SyncArm` `[SmartEnum]` the closed compositor synchronization vocabulary; `WgpuPresentation` `[Union]` the present dispatch; `WgpuErrorScope` the GPU validation bracket; `WgpuFrameEvidence` the timestamp-query GPU-time lane; `PassProduct` the frame-artifact vocabulary a pass makes and follows; `PassContract` the four-column declaration one `RenderPass` case answers; `RenderPass` `[Union]` the frame-pass vocabulary; `RenderTargetRequest` the resolve-row-derived allocation request; `RenderTarget` the lease-bound GPU surface; `SurfaceLease` the named platform-lease seam; `FrameView` the render-time view value; `ResolvePass` `[SmartEnum]` the resolve ladder whose `MinRank` column IS the tier binding; `ResolveState`/`ResolveStep` the temporal cell state; `BudgetVerdict` `[Union]` the frame's own budget answer; `FrameBudget` the per-axis ceilings; `ViewportClock` the timeline, clock, and correlation triple; `PassAnswer` the one shape every pass arm fills; `FrameReceipt` per-frame evidence; `RenderGraph` the admitted frame executor.
+- Owner: `ViewportFault` the direct generated `[Union]` with one `[FaultCase]` leaf per viewport failure; `GpuTrait` the substrate capability vocabulary; `GpuBackend` `[SmartEnum]` the backend rows carrying that capability set and their target-construction delegate; `GpuBinding` `[Union]` the composition-bound substrate each backend row folds; `SyncArm` `[SmartEnum]` the closed compositor synchronization vocabulary; `WgpuPresentation` `[Union]` the present dispatch; `WgpuErrorScope` the GPU validation bracket; `WgpuFrameEvidence` the timestamp-query GPU-time lane; `PassProduct` the frame-artifact vocabulary a pass makes and follows; `PassContract` the four-column declaration one `RenderPass` case answers; `RenderPass` `[Union]` the frame-pass vocabulary; `RenderTargetRequest` the resolve-row-derived allocation request; `RenderTarget` the lease-bound GPU surface; `SurfaceLease` the named platform-lease seam; `FrameView` the render-time view value; `ResolvePass` `[SmartEnum]` the resolve ladder whose `MinRank` column IS the tier binding; `ResolveState`/`ResolveStep` the temporal cell state; `BudgetVerdict` `[Union]` the frame's own budget answer; `FrameBudget` the per-axis ceilings; `ViewportClock` the timeline, clock, and correlation triple; `PassAnswer` the one shape every pass arm fills; `FrameRender` the per-frame result; `RenderGraph` the admitted frame executor.
 - Cases: `RenderPass` = Cull | Geometry | PathTrace | Composite | Sim | Overlay; `ResolvePass` = Msaa | Taa | Fsr | Smaa; `PassProduct` = cut | depth | colour | film | frame; `GpuTrait` = accelerated | skia-canvas | native-pipeline; `SyncArm` = keyed-mutex | timeline | semaphores | automatic; `BudgetVerdict` = Within | Overran; `ViewportFault` = ContextUnavailable | BackendUnsupported | BudgetExceeded | LeaseRejected | Contended.
-- Entry: `RenderGraph.Of(passes, cluster, binding, fallback, gpuTime, validation, lease, sink)` — the ONE mint, which proves the pass roster's keys distinct, every declared need produced, and the dependency graph acyclic, and stores the topological order; `RenderGraph.Draw(ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera)` — `IO` rail, one frame over that proved order under the frame camera and the ONE governor verdict, sealing one receipt; `RenderGraph.Observe(InstrumentSet set, FrameReceipt receipt, ResidencyPlan plan)` — the frame-retire projection that writes the frame instruments and retires the accepted residency plan together.
+- Entry: `RenderGraph.Of(passes, cluster, binding, fallback, gpuTime, validation, lease)` — the ONE mint, which proves the pass roster's keys distinct, every declared need produced, and the dependency graph acyclic, and stores the topological order; `RenderGraph.Draw(ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera)` — `IO` rail, one frame over that proved order under the frame camera and the ONE governor verdict, returning its `FrameRender`; `RenderGraph.Observe(InstrumentSet set, FrameRender frame, ResidencyPlan plan)` — the frame-retire projection that writes the frame instruments and retires the accepted residency plan together.
 - Auto: `Lease` opens the compositor's own GPU context through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` and folds the leased context to the `RenderTarget` through the bound `GpuBinding`'s own backend row, so a pass-emit body binds a backend-provided target rather than the single `GRContext`-plus-`SKRuntimeEffect` emit path; composition owns the DISPLAY extent alone and hands it to the request builder the graph threads in, so the render extent and the sample count derive from the resolve row the tier selected; a lease-class fault re-runs the frame through the `Fallback` raster binding, so the CPU floor is a reachable arm of the same fold; the frame-budget invariant executes inside the pass fold — a pass starting past `FrameBudget.Frame`, or whose own declared charge carries the fold past `MaxTriangles`, DEFERS to the next frame — and the sealed verdict names the axis that breached rather than collapsing three facts to one bit.
-- Law: the pass DAG is PROVED, not assumed. Each `RenderPass` case answers one `PassContract` naming the substrate traits it demands, the products it MAKES, the products it must follow (`After`), and the subset of those it cannot run without (`Needs`) — so `RenderGraph.Of` builds the edge set through one `GraphExtensions.ToAdjacencyGraph` fold, refuses a duplicate key, refuses a need no scheduled pass produces, refuses a cycle by name, and stores `AlgorithmExtensions.TopologicalSort`'s order. A caller-supplied `Seq` order is the deleted form and it is what let a geometry pass scheduled ahead of its cull read `CullResult.Empty` and silently draw nothing while every receipt reported a healthy frame. `Needs` and `After` are two columns because a composite legitimately runs with no colour producer — the raster fallback roster is exactly `Composite` and `Overlay` — while a geometry draw with no cull is the named defect.
+- Law: the pass DAG is PROVED, not assumed. Each `RenderPass` case answers one `PassContract` naming the substrate traits it demands, the products it MAKES, the products it must follow (`After`), and the subset of those it cannot run without (`Needs`) — so `RenderGraph.Of` builds the edge set through one `GraphExtensions.ToAdjacencyGraph` fold, refuses a duplicate key, refuses a need no scheduled pass produces, refuses a cycle by name, and stores `AlgorithmExtensions.TopologicalSort`'s order. A caller-supplied `Seq` order is the deleted form and it is what let a geometry pass scheduled ahead of its cull read `CullResult.Empty` and silently draw nothing while every frame result reported success. `Needs` and `After` are two columns because a composite legitimately runs with no colour producer — the raster fallback roster is exactly `Composite` and `Overlay` — while a geometry draw with no cull is the named defect.
 - Law: each `GpuBackend` row is CONSTRUCTED with its target-construction delegate and CARRIES the trait set its substrate admits, so `IsGpu` and every `Family == A || Family == B` disjunction become one `Traits.Admits` read and a pass roster narrows from `pass.Contract.Demands` against `binding.Backend.Traits`. `Metal`, `Vulkan`, and `OpenGl` fold the `GpuBinding.Ganesh` leased `GRContext` to `SKSurface.Create(GRRecordingContext, budgeted, request.Info, request.Samples, GRSurfaceOrigin)` for an offscreen target, or wrap the host framebuffer as a `GRBackendRenderTarget` and read `SampleCount` back as the granted column; `Software` folds `GpuBinding.Raster` to the CPU `SKSurface.Create(SKImageInfo)` floor, which takes no sample count and therefore grants one; `Wgpu` folds `GpuBinding.Wgpu` — whose target texture carries `TextureDescriptor.SampleCount` and whose pipeline multisample state must match it — over the `Silk.NET.WebGPU` wgpu/Dawn substrate (D3D12/Metal/Vulkan auto-negotiated through `BackendType`) whose `Adapter` matched the compositor adapter LUID/UUID at composition, its `Device`+`Queue` shared branch-wide; and `WebGpu` folds `GpuBinding.Browser`, the in-browser WebGPU surface the TS web leg consumes. `GpuBinding.Backend` DERIVES the backend row from the binding case, so `RenderGraph` holds bindings alone and a substrate swap is one backend row with its binding case.
 - Law: the compositor synchronization mode is a CLOSED ROW admitted ONCE, at `WgpuPresentation.CompositedOf`, where the interop's `GetSynchronizationCapabilities` probe is already read — so `Present` dispatches over `SyncArm` totally and the five `HasFlag` probes and the unsupported-mode `throw` beside them have no spelling. The composited arm imports the rendered texture through the compositor interop family (`ICompositionGpuInterop.ImportImage`/`ImportSemaphore` then the arm's own `UpdateWith*Async` member); a second swapchain in composited mode is the DELETED form, and `SurfaceConfigure`/`SurfaceGetCurrentTexture` survives ONLY as the exclusive-fullscreen and headless arm. The wgpu mesh-shader and compute passes record through `CommandEncoder`/`RenderPassEncoder` and submit through `QueueSubmit`, never a managed scene wrapper.
 - Law: a lost compositor import and a refused lease are TRANSIENT by the fault row's own `Retriability` column, so the re-drive is the kernel `RedrivePolicy(Schedule, Bound)` the composition elects and the graph's own fallback arm reads `error.Retriability` rather than a type-pattern disjunction over the fault union. A hand `catch`-and-rewrap, a bare `Option<Instant> Retry`, and a spelled-out `fault is LeaseRejected or ContextUnavailable` list are the three deleted forms.
 - Law: the resolve ladder is ONE authority — `ResolvePass.MinRank` — read against `QualityTier`'s own rank roster. The per-tier table proves its coverage at type initialization exactly as `QualityTier.Ranked` proves its contiguity, so `ResolvePass.For(tier)` is TOTAL by construction and the absent-key fall to `Msaa` that answered the floor tier's most-degraded frame with a four-sample resolve has no spelling; a hand `(rank, pass)` roster beside the tier roster was a second authority over one ladder. `Taa` jitters the camera sub-pixel per frame and reprojects the prior frame through the motion-vector buffer under a neighborhood clamp, `Smaa` runs morphological edge AA, `Msaa` multi-samples the raster, and `Fsr` renders sub-resolution and spatially upscales, so the governor steps the whole ladder on the same hysteresis band that degrades the render passes.
 - Law: each of the resolve row's three columns reaches the surface it governs. `RenderScale` and `Samples` mint the frame's `RenderTargetRequest`, so an `Fsr` frame allocates at `round(display * 0.6)` and an `Msaa` frame asks its backend for four samples, while `RenderTarget.Samples` publishes what the allocation GRANTED. `Jitter` becomes a CAMERA fact: `FrameView.Of` converts the signed sub-pixel offset to NDC against the target the frame allocated, and the geometry draw adds `NdcJitter` to its projection's third column. Cull and LOD read `FrameView.Camera` and `FrameView.LodScale` — the governor's own degrade lever — because a sub-pixel offset moves no cull decision; the `PathTrace` arm reads `Camera` too, and that is load-bearing: a jittered lens differs from the prior frame's every frame, so `AccumulationTarget.Reset` would fire on every frame and the film would never converge past one sample. The `Taa` motion-vector buffer is ONE `Render/meshlets` `BindlessTable` slot, never a parallel motion-vector owner.
 - Law: the triangle column is a MEASURED draw count over one contract, and the contract is the frame's CUT. `RenderPass.Geometry` carries `Phase`, the `Render/meshlets` `CutPhase` row naming which slice of the cut it draws; `Charge`, the budget projection the pre-charge gate reads against that slice; and `Draw`, which returns the triangles it recorded. The cut is minted ONCE per geometry pass and charged then drawn, so the pre-charge estimate and the actual submission read one value; every other case contributes zero triangles, while the sim arm answers its swept field points and the pathTrace arm the film's shade-fault level on their own columns — measures with their own instruments, kept out of the triangle ceiling because a marched volume and a failed scatter are not triangles. `Render/meshlets`' `ClusterCull.DrawRows` mints BOTH meshlet geometry rows off one submit arrow — `CutPhase.Prior` then `CutPhase.Retest` — and the DAG orders them by their declared depth product rather than by their arrival order in a caller's seq.
-- Receipt: `FrameReceipt` — frame ordinal, backend, per-pass durations, the folded elapsed total, GPU duration, drawn triangles, swept sim points, film shade-fault level, the typed budget verdict, the deferred-pass set, instant and correlation. The elapsed total is a STORED column folded once at seal, because the receipt and the instrument write were two folds over one seq and two authorities over one number. The GPU column is MEASURED evidence off the `WgpuFrameEvidence` timestamp lane (`QueryType.Timestamp` `DeviceCreateQuerySet`, per-pass `RenderPassTimestampWrites`/`ComputePassTimestampWrites`, `CommandEncoderResolveQuerySet` into the read buffer, `BufferMapAsync`/`BufferGetMappedRange`/`BufferUnmap` readback, `QuerySetRelease` teardown), never the CPU elapsed re-labelled — a binding without the `timestamp-query` feature binds `None` and the column carries the honest `Duration.Zero`, while a FAILED readback keeps the zero and lands its fault on the receipt fault rail so unsupported and failed never conflate; `Diagnostics/governor.md` `GpuTimeline.Deepen` deepens the same column from the lane-measured frame duration to per-pass resolved nanoseconds only when EVERY pass resolved its timestamp pair, and that timeline is what seals the `EvidenceReceipt.GpuFrame` case. The frame receipt itself rides the composition-bound `Sink` and its measured facts reach the telemetry spine through `Observe`, so it mints no evidence case of its own; `Diagnostics/governor.md` folds it into `PerfSample`, and `RenderGraph.Observe` is the sole binder of `ResidencyBudget.Observe` so the evict, prefetch, and pool gauges read the plan THIS frame drew.
+- Output: `FrameRender` carries the frame ordinal, backend, per-pass durations, folded elapsed total, GPU duration, drawn triangles, swept sim points, film shade-fault level, typed budget verdict, deferred-pass set, instant, correlation, and fault. The producer folds elapsed once into the result, `RenderGraph.Observe` projects its measured columns onto instruments beside the accepted residency plan, and `Diagnostics/governor.md` consumes it directly as `PerfSample`. `WgpuFrameEvidence` fills the GPU column from timestamp-query readback and places a failed readback on the result's fault rail; `GpuTimeline.Deepen` replaces that duration only when every pass resolved, then fires `AppUiFact.GpuFrame` through the AppUi hook rail.
 - Packages: SkiaSharp, Avalonia.Skia, Avalonia (compositor GPU interop), Silk.NET.WebGPU, Silk.NET.WebGPU.Extensions.WGPU, Silk.NET.WebGPU.Native.WGPU, QuikGraph, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project — `Deterministic.RadicalInverse` the TAA jitter sequence, `Cell.Commit` the resolve transition, `Custody.Bracket` the target lease), Rasm.AppHost (project)
 - Growth: a new frame stage is one `RenderPass` case with its `PassContract` row, which the schedule proof orders with no edit; a new resolve column is one `ResolvePass` column plus its read on `RenderTargetRequest.Of` or `FrameView.Of`; a new resolve row is one `MinRank` declaration the ladder table picks up; a new backend is one `GpuBackend` row constructed with its trait set, its target delegate, and its `GpuBinding` case — Skia Graphite re-admits as one `SkiaGraphite` row the moment SkiaSharp ships its Recorder/Context surface; a new substrate capability is one `GpuTrait` row every consumer reads by column; a new fault case is one `[FaultCase]` leaf; zero new surface.
 - Growth: a new viewport reliability indicator is one `ViewportObjectives` row on the evidence page, carried here with no edit.
-- Boundary: `RenderGraph` is the named boundary capsule and a sealed CLASS, because a `with` copy shares the resolve cell by reference while duplicating the frame ordinal, and the mint is `Fin`-admitted because the pass DAG's soundness is proved once at composition rather than re-derived per frame. The resolve transition is the FRAME's and taken exactly once through kernel `Cell.Commit`, so a lease-rejected frame re-enters the fallback with the SAME `ResolveStep` — stepping the reprojection ordinal or re-jittering on the re-entry is the deleted form that made every GPU refusal skip a TAA sample; the transition body is PURE and names the history image it superseded on the state it installs, and the one drain releases that image after the exchange, because the commit body re-runs on every contended attempt and a release inside it frees a handle the winning state still holds. The frame ordinal is a monotone `Interlocked.Increment` over the graph-local counter — a per-graph IDENTITY the correlation join and the render-hash lane key on, not a gauged span, which is why it reads no timeline; per-pass DURATION is `MonotonicTimeline.Capture`/`Elapsed`, and an `IGaugeLane` roster beside it is refused by name because a pass has exactly one ceiling, the live `FrameBudget` the governor owns, and a static lane bound would be a second budget authority. The lease brackets its target through kernel `Custody.Bracket`, so a mid-fold fault releases the native rather than leaking one target per refused frame. Frame retirement PRESENTS through the binding's own `WgpuPresentation` with the four synchronization indices derived from the receipt ordinal, so a declared-but-uninvoked presentation arm and a caller-supplied index pair are both deleted forms. The shared GPU context arrives as one `SurfaceLease` over the `Shell/hosts#EMBED_CAPSULE` platform-lease seam so no pass body names a `GRContext.CreateMetal`/`CreateVulkan` factory at a call site — a direct GPU-backend construction inside a pass arm is the rejected form. GPU validation on the `Wgpu` arm rides the error-scope rail: `DeviceSetUncapturedErrorCallback` installs once at device acquisition and `WgpuErrorScope` brackets every ACCELERATED pass encoding inside the fold, so a validation or out-of-memory error is a counted `ViewportFault` on the telemetry spine rather than a declared bracket nothing ever entered. The meshlet cluster the graph draws is the `Render/meshlets` owner and the path-trace pass the `Render/pathtrace` integrator, so the pipeline composes them and re-models neither.
+- Boundary: `RenderGraph` is the named boundary capsule and a sealed CLASS, because a `with` copy shares the resolve cell by reference while duplicating the frame ordinal, and the mint is `Fin`-admitted because the pass DAG's soundness is proved once at composition rather than re-derived per frame. The resolve transition is the FRAME's and taken exactly once through kernel `Cell.Commit`, so a lease-rejected frame re-enters the fallback with the SAME `ResolveStep` — stepping the reprojection ordinal or re-jittering on the re-entry is the deleted form that made every GPU refusal skip a TAA sample; the transition body is PURE and names the history image it superseded on the state it installs, and the one drain releases that image after the exchange, because the commit body re-runs on every contended attempt and a release inside it frees a handle the winning state still holds. The frame ordinal is a monotone `Interlocked.Increment` over the graph-local counter — a per-graph IDENTITY the correlation join and the render-hash lane key on, not a gauged span, which is why it reads no timeline; per-pass DURATION is `MonotonicTimeline.Capture`/`Elapsed`, and an `IGaugeLane` roster beside it is refused by name because a pass has exactly one ceiling, the live `FrameBudget` the governor owns, and a static lane bound would be a second budget authority. The lease brackets its target through kernel `Custody.Bracket`, so a mid-fold fault releases the native rather than leaking one target per refused frame. Frame retirement PRESENTS through the binding's own `WgpuPresentation` with the four synchronization indices derived from the frame ordinal, so a declared-but-uninvoked presentation arm and a caller-supplied index pair are both deleted forms. The shared GPU context arrives as one `SurfaceLease` over the `Shell/hosts#EMBED_CAPSULE` platform-lease seam so no pass body names a `GRContext.CreateMetal`/`CreateVulkan` factory at a call site — a direct GPU-backend construction inside a pass arm is the rejected form. GPU validation on the `Wgpu` arm rides the error-scope rail: `DeviceSetUncapturedErrorCallback` installs once at device acquisition and `WgpuErrorScope` brackets every ACCELERATED pass encoding inside the fold, so a validation or out-of-memory error is a counted `ViewportFault` on the telemetry spine rather than a declared bracket nothing ever entered. The meshlet cluster the graph draws is the `Render/meshlets` owner and the path-trace pass the `Render/pathtrace` integrator, so the pipeline composes them and re-models neither.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -245,7 +245,7 @@ public readonly record struct PassAnswer(CullResult Cut, long Triangles, long Po
     public PassAnswer Faulted(long faults) => this with { Faults = faults };
 }
 
-public sealed record FrameReceipt(
+public sealed record FrameRender(
     long Ordinal,
     GpuBackend Backend,
     Seq<(string Pass, Duration Elapsed)> Passes,
@@ -435,9 +435,9 @@ public abstract partial record RenderPass(string Key) {
 public sealed class RenderGraph {
     private RenderGraph(
         Seq<RenderPass> passes, Atom<MeshletCluster> cluster, GpuBinding binding, GpuBinding.Raster fallback,
-        Option<WgpuFrameEvidence> gpuTime, Option<WgpuErrorScope> validation, SurfaceLease lease, Func<FrameReceipt, IO<Unit>> sink) {
-        (Passes, Cluster, Binding, Fallback, GpuTime, Validation, Lease, Sink) =
-            (passes, cluster, binding, fallback, gpuTime, validation, lease, sink);
+        Option<WgpuFrameEvidence> gpuTime, Option<WgpuErrorScope> validation, SurfaceLease lease) {
+        (Passes, Cluster, Binding, Fallback, GpuTime, Validation, Lease) =
+            (passes, cluster, binding, fallback, gpuTime, validation, lease);
     }
 
     public Seq<RenderPass> Passes { get; }
@@ -447,7 +447,6 @@ public sealed class RenderGraph {
     public Option<WgpuFrameEvidence> GpuTime { get; }
     public Option<WgpuErrorScope> Validation { get; }
     public SurfaceLease Lease { get; }
-    public Func<FrameReceipt, IO<Unit>> Sink { get; }
 
     private long ordinal;
     private readonly Atom<ResolveState> resolve = Atom(new ResolveState(0L, (0d, 0d), None, 1.0, None, None, false));
@@ -457,8 +456,8 @@ public sealed class RenderGraph {
 
     public static Fin<RenderGraph> Of(
         Seq<RenderPass> passes, Atom<MeshletCluster> cluster, GpuBinding binding, GpuBinding.Raster fallback,
-        Option<WgpuFrameEvidence> gpuTime, Option<WgpuErrorScope> validation, SurfaceLease lease, Func<FrameReceipt, IO<Unit>> sink) =>
-        Scheduled(passes).Map(ordered => new RenderGraph(ordered, cluster, binding, fallback, gpuTime, validation, lease, sink));
+        Option<WgpuFrameEvidence> gpuTime, Option<WgpuErrorScope> validation, SurfaceLease lease) =>
+        Scheduled(passes).Map(ordered => new RenderGraph(ordered, cluster, binding, fallback, gpuTime, validation, lease));
 
     private static Fin<Seq<RenderPass>> Scheduled(Seq<RenderPass> roster) =>
         Made(roster) switch {
@@ -491,18 +490,17 @@ public sealed class RenderGraph {
     private static Validation<Error, Unit> Col(bool holds, string requirement) =>
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new ViewportFault.ContextUnavailable($"render-graph: {requirement}"));
 
-    public IO<FrameReceipt> Draw(ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera) =>
+    public IO<FrameRender> Draw(ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera) =>
         from next in IO.lift(() => Interlocked.Increment(ref ordinal))
-        from receipt in IO.lift(() =>
+        from frame in IO.lift(() =>
             Resolved(quality, camera)
                 .Bind(step => Render(next, clock, budget, quality, camera, Binding, step)
                     .BindFail(fault => fault is Fault { Retriability: Retriability.TransientCase }
                         ? Render(next, clock, budget, quality, camera, Fallback, step)
-                        : Fin.Fail<FrameReceipt>(fault)))
+                        : Fin.Fail<FrameRender>(fault)))
                 .IfFail(fault => Empty(next, clock, fault)))
-        from _present in Presented(receipt)
-        from _sunk in Sink(receipt)
-        select receipt;
+        from _present in Presented(frame)
+        select frame;
 
     private Fin<ResolveStep> Resolved(QualityVerdict quality, ViewCamera camera) =>
         ResolvePass.For(quality.Tier) switch {
@@ -518,11 +516,11 @@ public sealed class RenderGraph {
             _ => installed with { Retired = None },
         };
 
-    private IO<Unit> Presented(FrameReceipt receipt) =>
-        Binding is GpuBinding.Wgpu wgpu && receipt.Fault.IsNone && receipt.Backend == wgpu.Backend
+    private IO<Unit> Presented(FrameRender frame) =>
+        Binding is GpuBinding.Wgpu wgpu && frame.Fault.IsNone && frame.Backend == wgpu.Backend
             ? wgpu.Presentation.Present(
-                ((uint)receipt.Ordinal, (uint)(receipt.Ordinal + 1L)),
-                ((ulong)receipt.Ordinal, (ulong)(receipt.Ordinal + 1L)))
+                ((uint)frame.Ordinal, (uint)(frame.Ordinal + 1L)),
+                ((ulong)frame.Ordinal, (ulong)(frame.Ordinal + 1L)))
             : IO.pure(unit);
 
     private Seq<RenderPass> Schedulable(GpuBinding binding, QualityVerdict quality) =>
@@ -530,7 +528,7 @@ public sealed class RenderGraph {
             .Filter(quality.Tier.Cut.Admits)
             .Filter(pass => binding.Backend.Traits.AdmitsAll(pass.Contract.Demands));
 
-    private Fin<FrameReceipt> Render(long next, ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera, GpuBinding binding, ResolveStep step) {
+    private Fin<FrameRender> Render(long next, ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera, GpuBinding binding, ResolveStep step) {
         (ResolvePass resolvePass, ResolveState state) = step;
         Seq<RenderPass> passes = Schedulable(binding, quality);
         return Lease.Under(
@@ -541,18 +539,18 @@ public sealed class RenderGraph {
                     .Fold(
                         Fin.Succ(PassFold.Empty),
                         (rail, pass) => rail.Bind(fold => Execute(pass, target, clock.Line, budget, view, resolvePass, state, fold)))
-                    .Map(folded => Seal(next, clock, budget, binding, resolvePass, target, folded)),
+                    .Map(folded => Complete(next, clock, budget, binding, resolvePass, target, folded)),
             });
     }
 
-    private FrameReceipt Seal(long next, ViewportClock clock, FrameBudget budget, GpuBinding binding, ResolvePass resolvePass, RenderTarget target, PassFold folded) {
+    private FrameRender Complete(long next, ViewportClock clock, FrameBudget budget, GpuBinding binding, ResolvePass resolvePass, RenderTarget target, PassFold folded) {
         ignore(SnapshotHistory(resolvePass, target));
         (Duration gpu, Option<Error> gpuFault) = GpuTime.Match(
             Some: static lane => lane.Measure().Match(
                 Succ: static measured => (measured, Option<Error>.None),
                 Fail: static fault => (Duration.Zero, Some(fault))),
             None: static () => (Duration.Zero, Option<Error>.None));
-        return new FrameReceipt(
+        return new FrameRender(
             next, binding.Backend, folded.Passes, folded.Elapsed, gpu, folded.Triangles,
             BudgetVerdict.Of(budget, folded.Elapsed, gpu),
             clock.Clock.GetCurrentInstant(), clock.Correlation,
@@ -644,7 +642,7 @@ public sealed class RenderGraph {
                 Some: surface => o.Draw(surface.Canvas).Map(_ => PassAnswer.Through(ctx.Cut)),
                 None: () => Fin.Succ(PassAnswer.Through(ctx.Cut))));
 
-    private FrameReceipt Empty(long next, ViewportClock clock, Error fault) =>
+    private FrameRender Empty(long next, ViewportClock clock, Error fault) =>
         new(next, GpuBackend.Software, Seq<(string Pass, Duration Elapsed)>(), Duration.Zero, Duration.Zero, 0L,
             new BudgetVerdict.Within(), clock.Clock.GetCurrentInstant(), clock.Correlation, Some(fault));
 
@@ -674,14 +672,14 @@ public sealed class RenderGraph {
     public static TelemetryContributorPort TelemetryRow(string version, FrameBudget budget) =>
         AppUiTelemetry.Contribute(version, ViewportObjectives.Pack(budget), Frame, Gpu, Overrun, SimPoints, FilmFaults);
 
-    public static Fin<Unit> Observe(InstrumentSet set, FrameReceipt receipt, ResidencyPlan plan) =>
-        set.Write(Frame, receipt.Elapsed.TotalSeconds,
-                InstrumentSet.Tags((AppUiTelemetry.BackendSlot, receipt.Backend.Key)))
-            .Bind(_ => receipt.Budget.Breach.Match(
+    public static Fin<Unit> Observe(InstrumentSet set, FrameRender frame, ResidencyPlan plan) =>
+        set.Write(Frame, frame.Elapsed.TotalSeconds,
+                InstrumentSet.Tags((AppUiTelemetry.BackendSlot, frame.Backend.Key)))
+            .Bind(_ => frame.Budget.Breach.Match(
                 Some: axis => set.Write(Overrun, 1L, InstrumentSet.Tags((AppUiTelemetry.CauseSlot, axis.Key))),
                 None: static () => Fin.Succ(unit)))
-            .Bind(_ => set.Write(SimPoints, receipt.SimPoints))
-            .Bind(_ => set.Level(FilmFaults, receipt.FilmFaults))
+            .Bind(_ => set.Write(SimPoints, frame.SimPoints))
+            .Bind(_ => set.Level(FilmFaults, frame.FilmFaults))
             .Bind(_ => ResidencyBudget.Observe(set, plan))
             .Map(static _ => unit);
 }
@@ -697,7 +695,7 @@ config:
 ---
 flowchart LR
     accTitle: Render graph frame flow
-    accDescr: A proved pass order drives a bracketed render target through cull, geometry, path tracing, simulation, composite, and receipt sealing.
+    accDescr: A proved pass order drives a bracketed render target through cull, geometry, path tracing, simulation, composite, and frame completion.
     PassContract -->|products| Schedule["TopologicalSort"]
     Schedule --> RenderGraph
     RenderGraph -->|SurfaceLease.Under| RenderTarget
@@ -708,21 +706,21 @@ flowchart LR
     PathTrace -->|film| Composite
     Sim -->|colour| Composite
     Composite -->|frame| Overlay
-    Composite --> FrameReceipt
-    FrameReceipt -->|Observe| InstrumentSet
-    FrameReceipt -->|Sink| Governor["Diagnostics governor PerfSample"]
+    Composite --> FrameRender
+    FrameRender -->|Observe| InstrumentSet
+    FrameRender -->|project| Governor["Diagnostics governor PerfSample"]
 ```
 
 ## [03]-[SIM_VISUAL]
 
-- Owner: `SimField` the Compute field receipt projection; `FieldSites` the closed where-to-sample axis; `TransferFunction` the volume opacity-and-color map; `SimVisual` `[Union]` the simulation render-pass family.
+- Owner: `SimField` the Compute field-result projection; `FieldSites` the closed where-to-sample axis; `TransferFunction` the volume opacity-and-color map; `SimVisual` `[Union]` the simulation render-pass family.
 - Cases: `SimVisual` = Traced | Volume | MeshQuality | ParallelCoords under the locked kind literals traced, volume, mesh-quality, parallel-coords.
 - Entry: `SimVisual.Pass(SimField field)` dispatches every visualization case into an executable `RenderPass.Sim`; the transient-playback frame is a field index, never a wall-clock tick.
-- Auto: the traced case renders any path-producing field visualization — a marching-cubes level set, a Runge-Kutta streamline integration, oriented arrow or tensor glyph placement, or a displacement warp at the playback frame — each closing its own scalar over the trace delegate while DECLARING the `FieldSites` it samples at, so the site policy stays readable to the pass key, the receipt, and a viewpoint diff; the volume case ray-marches the scalar field through the `TransferFunction` opacity-color map; the mesh-quality case emits one `VisualStroke` per cell band inked from that cell's scaled-Jacobian or aspect-ratio metric and draws it through the Charts owner's own band walk; the parallel-coords case routes its multi-dimensional cells onto the `CustomVisual.ParallelCoordinates` fold so a parameter sweep reads one analytical chart; transient playback scrubs a field-index sequence so a deformation or transient field animates by frame index under the deterministic motion clock.
+- Auto: the traced case renders any path-producing field visualization — a marching-cubes level set, a Runge-Kutta streamline integration, oriented arrow or tensor glyph placement, or a displacement warp at the playback frame — each closing its own scalar over the trace delegate while DECLARING the `FieldSites` it samples at, so the site policy stays readable to the pass key, the frame result, and a viewpoint diff; the volume case ray-marches the scalar field through the `TransferFunction` opacity-color map; the mesh-quality case emits one `VisualStroke` per cell band inked from that cell's scaled-Jacobian or aspect-ratio metric and draws it through the Charts owner's own band walk; the parallel-coords case routes its multi-dimensional cells onto the `CustomVisual.ParallelCoordinates` fold so a parameter sweep reads one analytical chart; transient playback scrubs a field-index sequence so a deformation or transient field animates by frame index under the deterministic motion clock.
 - Law: four case rows collapsed to ONE. Isosurface, streamline, glyph, and deformation shared an identity regime, an admission path, a payload timing, a consumer, and a return type — each was `(Key, closed scalars, Func<…, Fin<SKPath>>)` and the dispatch already closed its scalars at the pass mint. The surviving discriminant a caller needs is WHERE the visualization samples, which is `FieldSites` and is declared on the row; the per-case scalar names (threshold, step size, glyph scale, magnify factor) are the NAMED LOSS, and they now live at the composition that closes them, where the pass key already spells which visualization the row is.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
 - Growth: a new path-producing field visualization is one composed `Traced` row, not a case; a new DRAW REGIME — a second volumetric integrator, a second chart routing — is one case; a new transfer-function ramp is one `Colormap` row consumed here; a new way of choosing WHERE to sample is one `FieldSites` row; zero new surface. A flow-topology visualization is therefore not a case at all: a Morse atlas renders as its separatrix arcs and its classified fixed points through two `Traced` rows fed `FieldSites.Declared`.
-- Boundary: field geometry projects from Compute receipts and never re-computes a simulation, and the same law governs field ANALYSIS: the kernel `Rasm/Processing/flow` atlas reached through `VectorIntent.Atlas` is projected by the caller and crosses as `FieldSites.Declared` coordinates, so this surface never mints a `FlowPartition`, a `TopologyPolicy`, or an integration step of its own. `TransferFunction` samples the Theme-owned perceptual `Colormap` rail and its admission ACCUMULATES, so a malformed ramp names every breached column at once. Deformation and transient fields advance by deterministic frame index. GPU volume and isosurface passes bind through the render-graph lease, while CPU marching cubes and ray marching provide the deterministic reference path.
+- Boundary: field geometry projects from Compute results and never re-computes a simulation, and the same law governs field ANALYSIS: the kernel `Rasm/Processing/flow` atlas reached through `VectorIntent.Atlas` is projected by the caller and crosses as `FieldSites.Declared` coordinates, so this surface never mints a `FlowPartition`, a `TopologyPolicy`, or an integration step of its own. `TransferFunction` samples the Theme-owned perceptual `Colormap` rail and its admission ACCUMULATES, so a malformed ramp names every breached column at once. Deformation and transient fields advance by deterministic frame index. GPU volume and isosurface passes bind through the render-graph lease, while CPU marching cubes and ray marching provide the deterministic reference path.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------

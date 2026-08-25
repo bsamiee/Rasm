@@ -14,12 +14,12 @@ Rasm.AppUi document export owns one paginated-output rail. MigraDoc composes flo
 
 ## [02]-[EXPORT_DESTINATIONS]
 
-- Owner: `VisualDestination` [Union] — the one delivery vocabulary every export arm and the capture vector-print/video arms deliver through; `ExportArm` [SmartEnum] — the receipt-kind roster this page's four seal sites read; `ExportFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per export failure; `ExportDelivery` — the one delivery entry and the one measure-deliver-seal fold every arm mints its receipt through; `BundleMember` — the classified, content-keyed diagnostic-artifact row; `SupportBundle` — the contribution fold onto the Bundle destination.
+- Owner: `VisualDestination` [Union] — the one delivery vocabulary every export arm and the capture vector-print/video arms deliver through; `ExportArm` [SmartEnum] — the target-family roster the export form reads; `ExportFault` — the direct generated `[Union]` with one `[FaultCase]` leaf per export failure; `ExportDelivery` — the one delivery entry and the measured delivery fold that publishes a `VisualArtifact`; `BundleMember` — the classified, content-keyed diagnostic-artifact row; `SupportBundle` — the contribution fold onto the Bundle destination.
 - Cases: `VisualDestination` = FilePath · BlobLane · Bundle; `ExportArm` = document · office · print · bundle; `[FaultCase]` = RenderFailed · SignerUnavailable · ProfileInvalid · PartGraphRejected · DeliveryFailed · ContentUnsupported · AnnotationRejected · IntentUnsupported; bundle member rows evidence-journal · hud-samples · gpu-timelines · quality-verdicts · native-assets · proof-goldens · collab-ops.
-- Entry: `public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, ReadOnlyMemory<byte> payload)` — the ONE delivery rail at the widest payload shape; `public static IO<RenderReceipt> Landed(VisualRuntime runtime, ExportArm arm, string format, string colour, Option<VisualDestination> destination, IO<ReadOnlyMemory<byte>> produce)` — the one measured deliver-and-seal fold, sinking nothing so each arm keeps its own commit discipline; `SupportBundle.Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members)` — one modality-polymorphic contribution fold.
+- Entry: `public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, ReadOnlyMemory<byte> payload)` — the ONE delivery rail at the widest payload shape; `public static IO<VisualArtifact> Landed(VisualRuntime runtime, ArtifactKind kind, string format, string colour, Option<VisualDestination> destination, IO<ReadOnlyMemory<byte>> produce)` — the one measured deliver-and-publish fold; `SupportBundle.Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members)` — one modality-polymorphic contribution fold.
 - Law: `DeliveryFailed` and `SignerUnavailable` publish `Retriability.Transient`, so a scheduled delivery re-drives on the fault's own declaration and no consumer classifies by message.
 - Law: the payload crosses as ONE `ReadOnlyMemory<byte>` from compose to write — both delegate seams on `VisualRuntime` already take memory, so the defensive `ToArray` on the blob and bundle arms copied against a signature that never demanded it.
-- Auto: the Bundle arm stages every classified artifact through the runtime `BundleWrite` delegate before any receipt enters the sink, then commits receipts only for the complete delivered roster; a delivery or sink refusal stays on the IO rail for AppHost `SupportCapture` to recover as its partial manifest row; each `BundleMember` payload arrives already serialized by its owning codec, so assembly is a fold over settled receipt streams and no member re-measures.
+- Auto: the Bundle arm stages every classified artifact through the runtime `BundleWrite` delegate and publishes each delivered `VisualArtifact` through the AppUi hook rail; a delivery or publication refusal stays on the IO rail for AppHost `SupportCapture` to recover as its partial manifest row; each `BundleMember` payload arrives already serialized by its owning codec, so assembly is a fold over settled artifact results and no member re-measures.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), Rasm (project — `Domain/rails`: `FaultBand`, `Fault`, `Custody`, `Retriability`; `Domain/identity`: `ContentHash`; `Parametric/projections`: `MonotonicTimeline`)
 - Growth: one destination case extends delivery and breaks the dispatch at compile time; one export target is one row on `[08]`'s format roster, never a second engine; one diagnostic stream is one `BundleMember` factory row; one fault case is one `[FaultCase]` leaf.
 - Boundary: this union is the ONE export-destination owner, so a per-arm destination enum is the deleted form. `FilePath` admits only fully qualified targets whose normalized path stays under `ProfileRoots.AppRoot`, `StoreRoot`, or `SupportRoot`, rejects every symlink or junction in the selected root and existing parent chain, opens the unique pending file with create-new semantics before writing, and lands the final rename fail-closed against a parent swap — source and target resolve through one parent path in one rename syscall, the GUID-named pending sibling cannot pre-exist at a redirected parent, and the link-free parent re-walk runs after the write immediately before the rename. Path admission is PURE and refuses on the `Fin` rail naming which segment refused, so the lift carries the OS write alone. Archive assembly and manifest custody are the AppHost support-capture fold's — an AppUi-local zip assembler or second manifest store is the deleted form; `BundleMember.ContentKey` mints each pre-redaction payload identity through kernel `ContentHash.Of` while AppHost `SupportManifest.Entry` carries the post-redaction key, so an inequality names redaction or a cap rather than corruption.
@@ -104,25 +104,20 @@ public static class ExportDelivery {
             blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
             bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
 
-    public static IO<(T Value, RenderReceipt Receipt)> Landed<T>(
-        VisualRuntime runtime, ExportArm arm, string format, string colour,
-        Option<VisualDestination> destination, IO<T> produce, Func<T, ReadOnlyMemory<byte>> bytes) =>
+    public static IO<VisualArtifact> Landed(
+        VisualRuntime runtime, ArtifactKind kind, string format, string colour,
+        Option<VisualDestination> destination, IO<ReadOnlyMemory<byte>> produce) =>
         from start in Marked(runtime)
-        from value in produce
-        let payload = bytes(value)
+        from payload in produce
         from landed in destination.Match(
             Some: target => Deliver(runtime, target, payload).Map(Some),
             None: static () => IO.pure(Option<string>.None))
         from end in Marked(runtime)
         from elapsed in Spanned(runtime, start, end)
-        select (value, new RenderReceipt(
-            arm.Key, format, ContentHash.Hex(ContentHash.Of(payload.Span)), None, None,
-            payload.Length, elapsed, runtime.Correlation, landed, colour));
-
-    public static IO<RenderReceipt> Landed(
-        VisualRuntime runtime, ExportArm arm, string format, string colour,
-        Option<VisualDestination> destination, IO<ReadOnlyMemory<byte>> produce) =>
-        Landed(runtime, arm, format, colour, destination, produce, static payload => payload).Map(static sealed_ => sealed_.Receipt);
+        let artifact = VisualArtifact.Of(
+            kind, format, payload.Span, None, None, elapsed, runtime.Correlation, landed, colour)
+        from published in runtime.Publish(artifact)
+        select published;
 
     static IO<MonotonicStamp> Marked(VisualRuntime runtime) => IO.lift<MonotonicStamp>(() => runtime.Line.Capture(Write));
 
@@ -202,14 +197,12 @@ public sealed record BundleMember(string ArtifactName, DataClassification Classi
 }
 
 public static class SupportBundle {
-    public static IO<Seq<RenderReceipt>> Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members) =>
-        from staged in toSeq(members.ToArray()).TraverseM(member => ExportDelivery.Landed(
-            runtime, ExportArm.Bundle, Path.GetExtension(member.ArtifactName).TrimStart('.'),
+    public static IO<Seq<VisualArtifact>> Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members) =>
+        toSeq(members.ToArray()).TraverseM(member => ExportDelivery.Landed(
+            runtime, ArtifactKind.Create(ExportArm.Bundle.Key), Path.GetExtension(member.ArtifactName).TrimStart('.'),
             VisualCodec.ColorPolicy.Display.Key,
             Some<VisualDestination>(new VisualDestination.Bundle(member.ArtifactName, member.Classification)),
-            IO.pure(member.Payload))).As()
-        from _ in staged.TraverseM(runtime.Sink).As()
-        select staged;
+            IO.pure(member.Payload))).As();
 }
 ```
 
@@ -217,12 +210,12 @@ public static class SupportBundle {
 
 - Owner: `ReportBlock` [Union] — the typed content vocabulary the branch's five report producers compose; `TableBody` — the header-and-rows table payload both `ReportBlock` and `OfficeSheet` carry; `ListStyle` — the list marker row; `BlockLine` [Union] with `LineRole` — the target-neutral line vocabulary ONE block walk produces; `LineEmitter<TNode>` — the per-target emitter row; `BlockLines` — the one polymorphic fold from a report block or an office cell onto lines; `ReportHeading` — the composed heading node the bookmark outline binds to; `ReportTrait` — the report-composition capability axis; `ReportSetup` — the kernel-issued page geometry; `ReportSpec` — the flow-report composition row; `FlowReport` — the one MigraDoc render surface.
 - Cases: `ReportBlock` = Heading · Body · List · Callout · Code · Table · PlacedVisual · Figure · Footnote · Section · Rule · PageBreak; `BlockLine` = Text · Grid · Series · Tile · Divider · Split; `LineRole` = heading · body · code · caption · footnote; `ListStyle` = ordered · bulleted; `ReportTrait` = page-numbers · bookmarks.
-- Entry: `public static IO<RenderReceipt> Render(VisualRuntime runtime, ReportSpec spec)` — IO rail; `public static Fin<ReportSetup> Issue(SheetSize size, Op? key = null)` on `ReportSetup` — the kernel-issued geometry; `public static Seq<BlockLine> Of(ReportBlock block)` and `public static Seq<BlockLine> Of(OfficeCell cell)` on `BlockLines` — one entrypoint discriminating on input shape.
+- Entry: `public static IO<VisualArtifact> Render(VisualRuntime runtime, ReportSpec spec)` — IO rail; `public static Fin<ReportSetup> Issue(SheetSize size, Op? key = null)` on `ReportSetup` — the kernel-issued geometry; `public static Seq<BlockLine> Of(ReportBlock block)` and `public static Seq<BlockLine> Of(OfficeCell cell)` on `BlockLines` — one entrypoint discriminating on input shape.
 - Law: page geometry is the kernel `Rasm/Drawing/sheet` owner's — `ReportSetup` carries one admitted `PlotPolicy` and the standard's own binding-aware `SheetMargin`, so a report page states a published size, an orientation ROW, and four published edges rather than a free centimetre scalar drawn on all four sides. An absent setup IS `Option.None`: a record whose every column was absent while still answering `IsInert` carried two absence regimes for one question.
 - Law: the block walk happens ONCE. `BlockLines.Of` is the only traversal of `ReportBlock` and `OfficeSheet`, and MigraDoc, XLSX, and DOCX are three `LineEmitter` rows over the produced lines — three full parallel walks of one twelve-case union could disagree about a case, and one of them carried a `default:` arm that turned a new case into a silent drop.
 - Law: a series is its OWN line case, so the XLSX emitter writes typed numeric cells; folding chart points into a string table would have lost the numeric cell type the workbook part graph carries.
 - Auto: the heading tree becomes the PDF bookmark outline — composition retains each heading's own layout node, the renderer's page walk answers which page that node landed on, and the level ladder nests each bookmark under its nearest shallower ancestor. Every heading-bearing block STATES its own level and an untitled group states no heading at all, so a quoted passage lowered as an untitled callout mints no blank bookmark. Pagination, widow/orphan control, running headers/footers with `PageField`/`NumPagesField`, and cross-page table breaking are the MigraDoc layout engine's; `FormattedDocument` exposes the measured layout so a page count reads from the renderer, never a local cursor fold; placed visuals encode through the capture codec axis and place as MigraDoc `Image` values.
-- Receipt: one `RenderReceipt` of kind document per report, sealed through `ExportDelivery.Landed` and committed to the runtime sink at this arm.
+- Output: one `VisualArtifact` of kind document per report, delivered and published through `ExportDelivery.Landed`.
 - Packages: PDFsharp-MigraDoc, PDFsharp, SkiaSharp, UnitsNet (`Length.Centimeters`), Rasm (project — `Drawing/sheet`: `SheetSize`, `SheetOrientation`, `SheetMargin`, `SheetFrame`, `PlotPolicy`, `IssuePosture`, `ScaleLadder`; `Domain/validation`: `CapabilitySet`), Rasm.AppHost (project), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: one `ReportBlock` case extends the content vocabulary and breaks `BlockLines.Of` at compile time; one `BlockLine` case breaks all three emitter rows at once; one report-composition posture is one `ReportTrait` row; zero new surface.
 - Boundary: the report's colour model is its `PdfExport.Color` row bound onto the renderer document before `RenderDocument`, so a press report and a screen report are one composition under one row value; the MigraDoc flow DOM is the ONE flow-pagination owner — a bespoke page-break fold, a per-format report builder, or a second cursor algebra is the deleted form; typography roles map to MigraDoc styles from the `Theme/typography.md` role rows at composition so a report style never re-mints font literals; drafting's paginated flow reports and the diagnostics report-PDF compose `FlowReport.Render` with their own block seqs, while the drafting sheet-PDF is capture's vector-print arm. The MigraDoc NATIVE chart DOM (`Shapes.Charts.Chart`) is a stated CARVE and stays unreached: a report chart enters as a `PlacedVisual` raster encoded through the capture codec axis, because the chart plane's own grammar — the layered series algebra, the paint resolver, the threshold family, the annotation plane, and the legend split — has no representation in the MigraDoc chart DOM, so routing a report chart through it would mean maintaining a second, weaker chart vocabulary whose output disagreed with the same chart on screen. The carve costs vector text inside a chart and buys one chart authority.
@@ -378,14 +371,12 @@ public static class BlockLines {
 public static class FlowReport {
     static readonly Op Compose = Op.Of(name: "appui.export.report");
 
-    public static IO<RenderReceipt> Render(VisualRuntime runtime, ReportSpec spec) =>
-        from receipt in ExportDelivery.Landed(
-            runtime, ExportArm.Document, "pdf", spec.Pdf.Color.Key, Some(spec.Destination),
+    public static IO<VisualArtifact> Render(VisualRuntime runtime, ReportSpec spec) =>
+        ExportDelivery.Landed(
+            runtime, ArtifactKind.Document, "pdf", spec.Pdf.Color.Key, Some(spec.Destination),
             from rendered in IO.lift<ReadOnlyMemory<byte>>(() => Composed(spec))
             from hardened in PdfHardening.Apply(spec.Pdf, rendered)
-            select hardened)
-        from _ in runtime.Sink(receipt)
-        select receipt;
+            select hardened);
 
     static Fin<ReadOnlyMemory<byte>> Composed(ReportSpec spec) =>
         Compose.Catch<ReadOnlyMemory<byte>>(() => {
@@ -667,11 +658,11 @@ public static class PdfHardening {
 
 - Owner: `OfficeSheet` [Union] — the content kinds an Office artifact carries; `OfficeFidelity` [SmartEnum] — the per-(format × kind) materialization vocabulary carrying its own materialization column; `OfficeCell` — the admitted sheet and its decided preface; `OfficeWrite` — the part-graph writer a format row carries; `OfficeSpec` — the emit request; `OfficeExport` — the OOXML part-graph arm and the two writer bodies the `[08]` format rows bind.
 - Cases: `OfficeSheet` = Table · Chart · Image · RichText; `OfficeFidelity` = native · declared · unsupported.
-- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail; admission runs the target's own fidelity column over every sheet FIRST, so an `Unsupported` combination folds to `ExportFault.ContentUnsupported` before any part writes and every admitted sheet hands the write its own materialization row.
+- Entry: `public static IO<VisualArtifact> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail; admission runs the target's own fidelity column over every sheet FIRST, so an `Unsupported` combination folds to `ExportFault.ContentUnsupported` before any part writes and every admitted sheet hands the write its own materialization row.
 - Law: the format vocabulary is `[08]`'s `ExportTarget` and this arm declares none of its own — the three OOXML media-type literals stood character-identical on two rosters, and the sibling roster's closed switch is recovered as the target row's own `Arm` column and its `Option<OfficeWrite>`, so a non-office target and a catalogued-but-unwritten one both refuse typed.
 - Law: PPTX refuses by ABSENCE — its row carries no writer — so the speculative presentation/master/layout/slide part graph has no arm to sit in and a promotion is one column filled rather than a switch arm rewritten.
 - Auto: XLSX writes through `SpreadsheetDocument.Create` and its workbook/worksheet part graph; DOCX writes through `WordprocessingDocument.Create` and its main-document part graph. Both consume the ONE `BlockLines` fold through their own `LineEmitter` row, so the workbook and the word document cannot disagree about what a rich-text block contains.
-- Receipt: one `RenderReceipt` of kind office per emit, sealed through `ExportDelivery.Landed` and committed at this arm.
+- Output: one document `VisualArtifact` per emit, delivered and published through `ExportDelivery.Landed`.
 - Packages: DocumentFormat.OpenXml, Rasm.AppHost (project), NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: one Office target is one `[08]` `ExportTarget` row carrying its fidelity column and its writer; one `OfficeSheet` case admits a content kind and breaks the block fold at compile time; a fidelity promotion is one matrix cell flipped as the verified part members land.
 - Boundary: the Office destination is the same `VisualDestination` union. The fidelity row CARRIES its materialization rather than naming it in prose — `Native` cells materialize their own part vocabulary, `Declared` cells preface the projection they state into the produced document, and `Unsupported` cells reject through `ExportFault.ContentUnsupported` — so the matrix cell is the dispatch and a fidelity read as a bare inequality against one row is the deleted form. The workbook part graph carries no font-embedding part, so the spreadsheet writer takes the admitted cells alone: an `EmbeddedFonts` argument threaded there would be a column the format structurally cannot honour, which `[08]`'s preflight already reports as the format's own absent capability.
@@ -725,12 +716,10 @@ public sealed record OfficeSpec(
 public static class OfficeExport {
     static readonly Op Part = Op.Of(name: "appui.export.office");
 
-    public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec) =>
-        from receipt in ExportDelivery.Landed(
-            runtime, ExportArm.Office, spec.Target.Key, VisualCodec.ColorPolicy.Display.Key, Some(spec.Destination),
-            IO.lift<ReadOnlyMemory<byte>>(() => Written(spec)))
-        from _ in runtime.Sink(receipt)
-        select receipt;
+    public static IO<VisualArtifact> Emit(VisualRuntime runtime, OfficeSpec spec) =>
+        ExportDelivery.Landed(
+            runtime, ArtifactKind.Document, spec.Target.Key, VisualCodec.ColorPolicy.Display.Key, Some(spec.Destination),
+            IO.lift<ReadOnlyMemory<byte>>(() => Written(spec)));
 
     static Fin<ReadOnlyMemory<byte>> Written(OfficeSpec spec) =>
         from cells in Admitted(spec)
@@ -837,13 +826,13 @@ public static class OfficeExport {
 
 ## [06]-[PRINT_ARM]
 
-- Owner: `PrintIntent` [SmartEnum] — the rendering-intent policy rows; `PressCeiling` [ValueObject] — the admitted total-area-coverage ceiling; `GamutAlarm` [ComplexValueObject] — the per-channel out-of-gamut marking colour; `PrintTransform` — the lcmsNET transform row; `PrintProof` — the typed proving receipt; `PrintLink` — one chain link with its own policy columns; `PrintPlate` — the converted pixels beside their proof; `PrintArm` — the device-CMYK conversion surface.
+- Owner: `PrintIntent` [SmartEnum] — the rendering-intent policy rows; `PressCeiling` [ValueObject] — the admitted total-area-coverage ceiling; `GamutAlarm` [ComplexValueObject] — the per-channel out-of-gamut marking colour; `PrintTransform` — the lcmsNET transform row; `PrintProof` — the typed measured result; `PrintLink` — one chain link with its own policy columns; `PrintPlate` — the converted pixels beside their proof; `PrintArm` — the device-CMYK conversion surface.
 - Cases: `PrintIntent` = perceptual · relative-colorimetric · saturation · absolute-colorimetric · relative-bpc · preserve-k — K preservation, black-point compensation, and adaptation state are policy columns, never flags scattered at call sites.
 - Entry: `public static IO<PrintPlate> Convert(VisualRuntime runtime, PrintTransform row, ReadOnlyMemory<byte> raster)` — IO rail; one `Context`, one accumulating proving fold, one extended `Transform.Create`, one `DoTransform` per payload.
 - Law: every native handle is acquired through ONE bracket door — the acquisition's own typed refusal, then the kernel `Custody.Bracket` release — so acquisition order IS release order, the context releases last because every profile opened on it borrows its scope, and the mutable `stage` string that named the crossing in flight and then DISPATCHED the fault off its own value has no spelling left.
 - Law: proving accumulates. Three intent roles and two alarm gates report through ONE `Validation`, so a chain refused on two counts names both instead of hiding the second behind whichever ran first.
 - Auto: `PrintArm` opens every profile on its own lcmsNET `Context` and writes the `GamutAlarm` codes to `Context.AlarmCodes` — the per-context instance property, never the `Cms.AlarmCodes` process-global twin — and the alarm width is READ back off the context vector lcms itself sizes. Proving runs BEFORE the build: each profile answers `IsIntentSupported` in the direction the chain uses it and an unsupported intent is `ExportFault.IntentUnsupported`, never a silent fallback; `Profile.TotalAreaCoverage` measures the destination's own coverage and a measurement above the admitted `PressCeiling` mints `Profile.CreateInkLimitingDeviceLink` on the arm's context as the chain's tail link; `DetectDestinationBlackPoint` decides whether the intent row's declared black-point compensation changes anything. One extended `Transform.Create(Context, Profile[], bool[], Intent[], double[], Profile, int, uint, uint, CmsFlags)` builds every case, so limited, unlimited, proofed, and plain conversions are one code path. Soft proofing is CHAIN SEATING, never a flag over a gamut operand: the press profile enters the chain TWICE — into-press under the document intent, back out under `Intent.RelativeColorimetric` — and the destination link renders that simulation under `ProofIntent`, admitted by `CmsFlags.SoftProofing`. The gamut operand is read only under `CmsFlags.GamutCheck`, where it builds a SEPARATE alarm lookup overwriting out-of-gamut pixels with the `GamutAlarm` codes. Native lcms2 ships with the app.
-- Receipt: one `RenderReceipt` of kind print per conversion whose `ColorSpace` field carries the `PrintTransform` row key — the identity naming source, destination, intent, and ceiling together — and one `PrintProof` carrying the measured coverage, the admitted ceiling, the ink-limit verdict, the detected destination black point, and the resolved flag set; an undetectable black point is `None`, never a zero.
+- Output: one `PrintPlate` carrying converted pixels and the `PrintProof` measured by the transform; the proof carries coverage, the admitted ceiling, the ink-limit verdict, the detected destination black point, and the resolved flag set, with an undetectable black point represented by `None`.
 - Packages: lcmsNET, Rasm (project — `Domain/rails`: `Custody`, `Op`), Rasm.AppHost (project), LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new intent is one `PrintIntent` row; a new device profile is one `PrintTransform` value from profile bytes; a new buffer depth is one `ColorTarget` row; a new chain stage is one `PrintLink` row the four build vectors project from.
 - Boundary: lcmsNET owns device-CMYK/ICC transforms at the print boundary ONLY — Unicolour stays the suite color-model kernel and `VisualCodec.ColorPolicy` stays the capture codec gamut family, three disjoint charters; an unparseable profile folds to `ExportFault.ProfileInvalid`, never a silent sRGB fallback; buffer formats and pixel strides are the `[04]` `ColorTarget` row's columns, so a `Cms.TYPE_*` literal at this site and a `rgba.Length / 4` pixel count are the two deleted forms the 16-bit lane made wrong; the press simulation lives in the CHAIN and the gamut operand checks alone, so handing the proofing profile to the gamut slot as the simulation is the deleted form — it drops the preview under anything but `CmsFlags.GamutCheck`; per-link BPC, intent, and adaptation are columns of the same `PrintLink` row so the four positional vectors project from one ordered set; the admitted ceiling reads through its value-object `Value`, so no raw cast leaves the typed magnitude at the native edge.
@@ -926,13 +915,8 @@ public sealed record PrintPlate(byte[] Pixels, PrintProof Proof);
 public static class PrintArm {
     static readonly Op Convert = Op.Of(name: "appui.export.print");
 
-    public static IO<PrintPlate> Convert(VisualRuntime runtime, PrintTransform row, ReadOnlyMemory<byte> raster) =>
-        from sealed_ in ExportDelivery.Landed(
-            runtime, ExportArm.Print, $"{row.Target.Key}-{row.IntentRow.Key}", row.Key, None,
-            IO.lift<PrintPlate>(() => Transformed(row, raster)),
-            static plate => plate.Pixels)
-        from _ in runtime.Sink(sealed_.Receipt)
-        select sealed_.Value;
+    public static IO<PrintPlate> Convert(PrintTransform row, ReadOnlyMemory<byte> raster) =>
+        IO.lift<PrintPlate>(() => Transformed(row, raster));
 
     static Fin<PrintPlate> Transformed(PrintTransform row, ReadOnlyMemory<byte> raster) =>
         Bracketed(
@@ -1042,11 +1026,11 @@ public static class PrintArm {
 ## [07]-[SCHEDULED_EXPORT]
 
 - Owner: `ReportSubscription` — the consumer-owned recurring-delivery row that closes a report specification over the AppHost scheduler without introducing a document-local timer.
-- Entry: `public static Validation<Error, ReportSubscription> Of(string key, string reportKey, OccurrenceSpec occurrence, Option<LeasePolicy> lease, RedrivePolicy redrive)` — the accumulating admission; `public ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime)` — contributes one `ScheduleEntry` whose work resolves the current report specification at firing time, renders through `FlowReport.Render`, and preserves the ordinary destination, receipt, deadline, lease, and failure rails.
+- Entry: `public static Validation<Error, ReportSubscription> Of(string key, string reportKey, OccurrenceSpec occurrence, Option<LeasePolicy> lease, RedrivePolicy redrive)` — the accumulating admission; `public ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime)` — contributes one `ScheduleEntry` whose work resolves the current report specification at firing time, renders through `FlowReport.Render`, and preserves the ordinary destination, artifact, deadline, lease, and failure rails.
 - Law: a scheduled delivery carries a REAL re-drive curve. `RedrivePolicy.None` on a network-or-filesystem delivery meant a transient refusal ended the occurrence, and the two fault cases that publish `Retriability.Transient` had no policy to be re-driven under; the default is the kernel exponential curve and a caller states its own.
 - Law: identity admission ACCUMULATES — the schedule key and the report key are independent columns, so a value missing both names both rather than reporting the first and hiding the second. The `[ComplexValueObject]` generator's single-slot `ValidateFactoryArguments` hook cannot express that, which is why the mint is the `Validation` fold and the record carries its own private constructor. NAMED LOSS: the generated `Create`/`TryCreate` pair — `Of` is the one mint, and record equality survives.
 - Auto: cadence is an `OccurrenceSpec` value, fleet distribution is `ScheduleEntry.Spread`, bounded missed-occurrence recovery is `SchedulePort.Missed` read at the caller; the subscription stores only the report key and the schedule policy, so a profile reload re-resolves the live report rather than retaining a stale `ReportSpec` object graph.
-- Receipt: every run returns the ordinary document `RenderReceipt` through `FlowReport.Render` and the AppHost `DeadlineReceipt` through `SchedulePort.Run`; a failed delivery remains the scheduled work failure and never advances the last-success stamp.
+- Output: every run returns the ordinary document `VisualArtifact` through `FlowReport.Render`; `SchedulePort.Run` carries the work outcome beside its `GaugedSpan<DeadlineClass>`, and a failed delivery remains the scheduled work failure.
 - Packages: Rasm.AppHost (project — `Runtime/time`: `OccurrenceSpec`, `DeadlineClass`, `LeasePolicy`, `ScheduleEntry`), Rasm (project — `Domain/rails`: `RedrivePolicy`), LanguageExt.Core, NodaTime
 - Growth: one recurring deliverable is one `ReportSubscription` value; one cadence is one existing `OccurrenceSpec` case; zero scheduler surface.
 - Boundary: `SchedulePort` is the only time owner, `FlowReport` the only pagination owner, and `VisualDestination` the only delivery owner; a timer, login hook, or document-local retry loop is rejected. The missed-occurrence window is `SchedulePort.Missed`, read by whichever surface owns the last-success stamp — the pass-through accessor that stood here named a `SchedulePort.Window` member the owner does not declare and re-published a fold with no consumer of its own.
@@ -1092,13 +1076,13 @@ public sealed record ReportSubscription {
 
 - Owner: `ExportSection` [SmartEnum] — the schema partition rows; `ExportField` [SmartEnum] — the field vocabulary, each row owning its id suffix, its label key, its section, its entry rail, and its own control mint; `ExportCapability` [SmartEnum] — the capability vocabulary carrying the field rows it renders and the readout it reports; `PreflightNote` [Union] — the per-capability readout carrying the capability ROW; `ExportNotes` — the readout bodies those rows bind; `ExportTarget` [SmartEnum] — the per-format row carrying media type, honoured capabilities, arm, Office fidelity column, and Office writer; `DestinationRow` — the recalled destination with its recency; `ExportRequest` — the admitted configuration; `ExportHandoff` with `ExportCardMap` — the run-queue card seam; `ExportPlan` — the lowering that carries an admitted request into `[03]`, `[04]`, and `[05]`; `ExportForm` — admission, preflight, recency, and completion.
 - Cases: `ExportTarget` = pdf · xlsx · docx · pptx · svg · dwg · dxf · png; `ExportCapability` = page-setup · colour · fonts · security · redaction · outline · tagged · line-weights · cad-version · layers · scale; `ExportSection` = page · colour · security · structure · format; `PreflightNote` = Honoured | Degraded | Refused — three readings of one capability, because "will this export keep my fonts" has exactly three honest answers.
-- Entry: `public Validation<Error, FormSchema> Schema()` on `ExportTarget` — the per-format option schema through the one form grammar; `public static Fin<ExportRequest> Admit(ExportTarget target, FormSchema schema, FormState state, DestinationRow destination)` — the accumulating configuration admission; `public static Seq<PreflightNote> Preflight(ExportRequest request)` — the readout read off the request's own target; `ExportPlan.Report(...)`, `ExportPlan.Office(...)` — the two lowerings into this page's arms; `ExportCardMap.ToCard(ExportHandoff handoff)` — the run-queue card; `public static Seq<OutputRow> Completed(RenderReceipt receipt)`; `public static Seq<DestinationRow> Remember(Seq<DestinationRow> held, DestinationRow used, Instant at)` and `For(Seq<DestinationRow> held, ExportTarget target)`.
+- Entry: `public Validation<Error, FormSchema> Schema()` on `ExportTarget` — the per-format option schema through the one form grammar; `public static Fin<ExportRequest> Admit(ExportTarget target, FormSchema schema, FormState state, DestinationRow destination)` — the accumulating configuration admission; `public static Seq<PreflightNote> Preflight(ExportRequest request)` — the readout read off the request's own target; `ExportPlan.Report(...)`, `ExportPlan.Office(...)` — the two lowerings into this page's arms; `ExportCardMap.ToCard(ExportHandoff handoff)` — the run-queue card; `public static Seq<OutputRow> Completed(VisualArtifact artifact)`; `public static Seq<DestinationRow> Remember(Seq<DestinationRow> held, DestinationRow used, Instant at)` and `For(Seq<DestinationRow> held, ExportTarget target)`.
 - Law: an admitted request REACHES an arm. `ExportPlan` lowers the page size, orientation, colour, security, outline, and tagged fields onto the kernel-issued `ReportSetup` and the `PdfExport` the report arm consumes, and onto the `OfficeSpec` the office arm consumes — a form whose fields no arm ever read reported over a configuration nothing consumed, which is the one defect a preflight cannot detect.
 - Law: field identity is the ROW's. `ExportField.Id(target)` is the one spelling the schema mints, the note reads, and the lowering reads, so a control the schema never rendered refuses at the read instead of resolving to a silent default, and the two spellings of one field id that stood at the mint and at the readout have one authority.
 - Law: a capability row carries EVERY reading — the field rows it renders and the verdict it reports — so a capability naming neither is a row rendering no control while reporting itself honoured, which is decorative density. `line-weights` binds the kernel `LineGroup` the issued policy already derives and `layers` binds the kernel `LayerEmission`, both read back as their own readouts rather than answering Honoured unconditionally.
 - Law: a field rule the schema evaluates is a DECLARED edge — the permission toggles are visible only under encryption through `FieldRule.WhenSet`, so the constant success validator that stood on every field is replaced by an edge the schema gate actually reads.
 - Auto: configuration is SCHEMA, never a per-format dialog: each `ExportTarget` row names the capability rows it honours, each capability names the field rows it renders, and the one `FormChrome` capsule renders the built schema — so adding a format adds a row rather than a screen. Section rows partition the fields by construction, which is exactly what the schema gate proves. The preflight is that SAME roster read a second way, each row answering itself against the admitted configuration. Progress hands to the `Shell/screens#RUN_QUEUE` surface through an ordinary `RunCard` with a `RunOrigin.Verb` correlation, and completion projects `OutputRow` rows whose adopt keys are the open and reveal command intents. Destination rows recall through the persistence snapshot vocabulary the selection sets already use.
-- Receipt: the export itself seals its own `RenderReceipt` at its arm; this cluster seals nothing, so a configured export produces exactly one artifact receipt and the queue card reads that receipt's correlation.
+- Output: the selected export arm returns its own `VisualArtifact`; this cluster produces no parallel result.
 - Packages: Avalonia, NodaTime, Thinktecture.Runtime.Extensions, Riok.Mapperly, LanguageExt.Core, DocumentFormat.OpenXml, Rasm (project — `Drawing/sheet`: `SheetSize`, `SheetSeries`, `SheetOrientation`, `PlotPolicy`, `IssuePosture`, `ScaleLadder`, `LineGroup`, `LayerEmission`, `PdfTrait`; `Interaction/control`: `FieldValue`, `FieldTag`), Rasm.AppHost (project)
 - Growth: a new export format is one `ExportTarget` row naming the capability rows it honours, its arm, and its writer; a new capability is ONE `ExportCapability` row carrying its field rows and its verdict; a new control is one `ExportField` row; a new partition is one `ExportSection` row.
 - Boundary: the form is the ONE configuration surface — a per-format options dialog, a per-format view model, and a per-format validation pass are the three deleted forms. Fields are `FormField` values over the settled `FieldEntry` rows, so dimensioned entry resolves through the measurement policy and expression entry through the symbolic owner exactly as every other form. The preflight NAMES capability rather than promising it, and a target that cannot answer a capability at all omits the note rather than reporting a false positive. Offered page sizes and CAD releases are CURATED seats of their owners' rosters — each page option is a kernel `SheetSize` whose key round-trips through the owner's own admission and each CAD option is an `ACadVersion` the writer policy admits — so a free paper token and a free version string are the two deleted forms. Progress rides the settled run queue, and the completion verbs are command intents the deck raises. Destination admission stays the `[02]` delivery gate's: a recalled row is a remembered PATH the picker produced, and this cluster never computes one.
@@ -1580,8 +1564,8 @@ public static class ExportForm {
     public static Severity Standing(ExportRequest request) =>
         Severity.Worst(Preflight(request), static note => note.Severity);
 
-    public static Seq<OutputRow> Completed(RenderReceipt receipt) =>
-        receipt.Destination.Map(static destination => Seq(
+    public static Seq<OutputRow> Completed(VisualArtifact artifact) =>
+        artifact.Destination.Map(static destination => Seq(
                 new OutputRow(destination, "export.output.open", "artifact", OutputState.Sealed(Some(OpenIntent))),
                 new OutputRow(destination, "export.output.reveal", "artifact", OutputState.Sealed(Some(RevealIntent)))))
             .IfNone(Seq<OutputRow>());

@@ -12,7 +12,7 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 
 - [02]-[QUALIFICATION_PROFILE]: the modality triple, variable generation, dimensional correspondence, WPS/PQR evidence, welder continuity, and the typed identities that carry personal classification.
 - [03]-[INSPECTION_PLAN]: `InspectionFamily`, `NdtMethod`, the sampling axis, inspection rules, hold points, and the admitted test plan.
-- [04]-[ASSESSMENT_FOLD]: accumulated pairing, total qualification evaluation, plan derivation, receipt diff, and decision projection.
+- [04]-[ASSESSMENT_FOLD]: accumulated pairing, total qualification evaluation, plan derivation, result diff, and decision projection.
 
 ## [02]-[QUALIFICATION_PROFILE]
 
@@ -23,7 +23,7 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 - Law: personal identity travels TYPED. `WelderId` is the one carrier and every property holding it declares `[PersonalData]` from `Process/telemetry#CLASSIFICATION`, so a welder identity redacts at every log and export seam while WPS/PQR artifacts keep their attested content and no untyped copy escapes the classification.
 - Law: a quantity variable carries its `QuantityInfo`, and admission proves demand, range low, and range high share it, so evaluation compares scalars that are already dimensionally paired.
 - Entry: `Procedure.Assess` accepts only `ProcedureRequest`; `Wps`, `WeldDemand`, assignments, inspection context, and assessment time enter through that generated aggregate gate, whose clauses accumulate through `AdmissionSlots` so a malformed request reports every structural defect it holds.
-- Packages: Thinktecture.Runtime.Extensions owns admitted values and closed dispatch; UnitsNet owns physical dimensions and registry identity; NodaTime owns validity; LanguageExt.Core owns accumulated assessment; Generator.Equals owns ordered receipt equality and member diffs; `Rasm.Domain` owns the `ICapability`/`CapabilitySet` floor the hold-point demand column instantiates.
+- Packages: Thinktecture.Runtime.Extensions owns admitted values and closed dispatch; UnitsNet owns physical dimensions and registry identity; NodaTime owns validity; LanguageExt.Core owns accumulated assessment; Generator.Equals owns ordered result equality and member diffs; `Rasm.Domain` owns the `ICapability`/`CapabilitySet` floor the hold-point demand column instantiates.
 - Growth: governing-code breadth is profile data, so one variable row or inspection rule extends a regime without a checker method, named field, or new public surface.
 - Boundary: every qualification verdict — expired continuity, suspended status, out-of-range value — remains a domain decision; only missing, duplicate, dimensionally incompatible, or malformed evidence fails request admission.
 
@@ -883,14 +883,14 @@ public sealed partial class InspectionPolicy {
 
 ## [04]-[ASSESSMENT_FOLD]
 
-- Owner: `WeldDemand` owns the per-joint value map a plan emits; `ProcedureRequest` owns the admitted aggregate; `ProcedureReceipt` owns the settled evidence and its diff surface; `ProcedureDecision` owns the qualified and unqualified projections; `Procedure` owns the fold.
+- Owner: `WeldDemand` owns the per-joint value map a plan emits; `ProcedureRequest` owns the admitted aggregate; `ProcedureAssessment` owns the settled evidence and its diff surface; `ProcedureDecision` owns the qualified and unqualified projections; `Procedure` owns the fold.
 - Law: admitted assignments close before assessment; independent value, rule, and applicability conflicts traverse on `Validation<Error, A>` before the result returns to `Fin`, and the aggregate gate accumulates through `AdmissionSlots` so one refusal names every structural defect rather than the first predicate that tripped.
 - Law: WPS/PQR tests, procedure ranges, welder ranges, WPS validity, continuity, and welder standing all contribute `ComplianceRow` evidence; mismatch remains in `ProcedureDecision.Unqualified` with every row preserved.
-- Output: the receipt carries the ordered comparison rows, the admitted `InspectionTestPlan` with its hold points, PQR tests, per-joint personnel records, status, continuity, and welder identity under its classification.
-- Law: `ProcedureReceipt` keeps its name and stays WHOLE rather than folding onto the `Process/owner` `Receipt<TEvidence>` spine. It carries a truthful `At` stamp but addresses no content key and produces no artifact — `Procedure.Assess` is invoked directly and mints no egress — and its whole value to a WPS revision audit is the `[Equatable]` member comparer that yields per-row `Inequalities` paths. `Receipt<TEvidence>` carries no generated comparer, so wrapping this payload erases those diff paths and buys an unaddressable key in exchange.
-- Receipt: `EqualityComparer.Default.Inequalities` supplies revision and audit diffs under declared ordered collection semantics.
-- Exemption: `Procedure.Receipt` is the measured evidence-projection fold.
-- Boundary: `Require` aggregates every mismatch for aborting consumers, while receipt-first consumers retain the domain decision and complete evidence.
+- Output: the result carries the ordered comparison rows, the admitted `InspectionTestPlan` with its hold points, PQR tests, per-joint personnel records, status, continuity, and welder identity under its classification.
+- Law: `ProcedureAssessment` stays whole. It carries a truthful `At` stamp but addresses no content key and produces no artifact — `Procedure.Assess` is invoked directly and mints no egress — and its whole value to a WPS revision audit is the `[Equatable]` member comparer that yields per-row `Inequalities` paths.
+- Result: `EqualityComparer.Default.Inequalities` supplies revision and audit diffs under declared ordered collection semantics.
+- Exemption: `Procedure.Assess` is the measured evidence fold.
+- Boundary: `Require` aggregates every mismatch for aborting consumers, while result-first consumers retain the domain decision and complete evidence.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1004,7 +1004,7 @@ public sealed partial record QualificationRecord(
     Seq<QualificationTest> Tests);
 
 [Equatable]
-public sealed partial record ProcedureReceipt(
+public sealed partial record ProcedureAssessment(
     WpsId WpsId,
     int Revision,
     PqrId PqrId,
@@ -1025,7 +1025,7 @@ public sealed partial record ProcedureReceipt(
         .Distinct()
         .ToSeq();
 
-    public Seq<Inequality> Diff(ProcedureReceipt prior) =>
+    public Seq<Inequality> Diff(ProcedureAssessment prior) =>
         toSeq(EqualityComparer.Default.Inequalities(prior, this));
 }
 
@@ -1033,14 +1033,14 @@ public sealed partial record ProcedureReceipt(
 public abstract partial record ProcedureDecision {
     private ProcedureDecision() { }
 
-    public sealed record Qualified(ProcedureReceipt Receipt) : ProcedureDecision;
-    public sealed record Unqualified(ProcedureReceipt Receipt, Seq<ComplianceRow> Failures) : ProcedureDecision;
+    public sealed record Qualified(ProcedureAssessment Assessment) : ProcedureDecision;
+    public sealed record Unqualified(ProcedureAssessment Assessment, Seq<ComplianceRow> Failures) : ProcedureDecision;
 
-    public Fin<ProcedureReceipt> Require() => Switch(
-        qualified: static decision => Fin.Succ(decision.Receipt),
+    public Fin<ProcedureAssessment> Require() => Switch(
+        qualified: static decision => Fin.Succ(decision.Assessment),
         unqualified: static decision => decision.Failures.Head
             .ToFin(new KernelFault.InvalidValue("procedure", "weld-procedure:empty-failure-set"))
-            .Bind(first => Fin.Fail<ProcedureReceipt>(decision.Failures.Tail.Fold(
+            .Bind(first => Fin.Fail<ProcedureAssessment>(decision.Failures.Tail.Fold(
                 Failure(first),
                 static (combined, row) => combined + Failure(row)))));
 
@@ -1052,13 +1052,13 @@ public abstract partial record ProcedureDecision {
 public static class Procedure {
     public static Fin<ProcedureDecision> Assess(ProcedureRequest request) => AssessAll(request).Map(Decide);
 
-    private static Fin<ProcedureReceipt> AssessAll(ProcedureRequest request) =>
+    private static Fin<ProcedureAssessment> AssessAll(ProcedureRequest request) =>
         request.Demands
             .Map(demand => AssessDemand(request, demand).ToValidation())
             .Traverse(identity)
             .As()
             .ToFin()
-            .Map(rows => Receipt(request, rows.Bind(identity)));
+            .Map(rows => Assess(request, rows.Bind(identity)));
 
     private static Fin<Seq<ComplianceRow>> AssessDemand(ProcedureRequest request, WeldDemand demand) =>
         from welderId in request.Assignments.Find(demand.Joint)
@@ -1122,7 +1122,7 @@ public static class Procedure {
             new KernelFault.InvalidValue("procedure", $"weld-procedure:modality:{variable.Key.Value}"))
         select row;
 
-    private static ProcedureReceipt Receipt(ProcedureRequest request, Seq<ComplianceRow> rows) {
+    private static ProcedureAssessment Assess(ProcedureRequest request, Seq<ComplianceRow> rows) {
         Seq<QualificationRecord> qualifications = Seq(
                 new QualificationRecord(
                     QualificationSource.Procedure,
@@ -1142,7 +1142,7 @@ public static class Procedure {
                     qualification.Continuity,
                     Some(qualification.Status),
                     qualification.Tests)));
-        return new ProcedureReceipt(
+        return new ProcedureAssessment(
             request.Wps.Id,
             request.Wps.Revision,
             request.Wps.Pqr.Id,
@@ -1154,10 +1154,10 @@ public static class Procedure {
             request.At);
     }
 
-    private static ProcedureDecision Decide(ProcedureReceipt receipt) =>
-        receipt.Rows.Filter(static row => !row.Passed) switch {
-            { IsEmpty: true } => new ProcedureDecision.Qualified(receipt),
-            { } failures => new ProcedureDecision.Unqualified(receipt, failures),
+    private static ProcedureDecision Decide(ProcedureAssessment result) =>
+        result.Rows.Filter(static row => !row.Passed) switch {
+            { IsEmpty: true } => new ProcedureDecision.Qualified(result),
+            { } failures => new ProcedureDecision.Unqualified(result, failures),
         };
 }
 ```
@@ -1172,7 +1172,7 @@ config:
 ---
 flowchart LR
     accTitle: Weld procedure assessment fold
-    accDescr: One admitted procedure request pairs each joint demand against WPS and welder rules through a single modality triple, decomposes welder standing into ordinary rows, derives the inspection test plan with its hold points, and settles one decision receipt.
+    accDescr: One admitted procedure request pairs each joint demand against WPS and welder rules through a single modality triple, decomposes welder standing into ordinary rows, derives the inspection test plan with its hold points, and settles one decision result.
     Profile["QualificationProfile — variables, code test counts"] --> Wps["Wps — rules, validity, PQR"]
     Wps --> Request["ProcedureRequest.Admit — accumulated structural slots"]
     Registry["WelderRegistry — WelderId, continuity, status"] --> Request
@@ -1183,16 +1183,15 @@ flowchart LR
     Request -->|"InspectionTestPlan.Of"| Plan["requirements + HoldPoint rows"]
     Plan -->|"Satisfies(NdtMethod)"| Report["Documentation/report reconciliation"]
     Plan -->|"Released(Seq HoldRelease)"| Traveler["Documentation/traveler step release"]
-    Rows --> Receipt["ProcedureReceipt"]
-    Plan --> Receipt
-    Receipt --> Decision["ProcedureDecision — Qualified · Unqualified"]
+    Rows --> Result["ProcedureAssessment"]
+    Plan --> Result
+    Result --> Decision["ProcedureDecision — Qualified · Unqualified"]
 ```
 
 ## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

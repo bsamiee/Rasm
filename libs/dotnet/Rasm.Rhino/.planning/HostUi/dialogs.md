@@ -22,7 +22,7 @@
 - Law: a host table ordinal is admitted against a LIVE count at the boundary and nowhere else — no value object can carry an invariant whose bound is read per call — so the roster gate is the one admission and every arm downstream reads an admitted ordinal.
 - Boundary: the kernel picker marshals itself, so the demand arity nests two crossings in a stated order — the Rhino command frame outside, the toolkit marshal inside — because the anchor and the document grant are resolved before any toolkit dialog exists.
 - Boundary: native `ref`/`out` calls stay statement-shaped inside the terminal fold, and the host verdict is read through the settle gate so the host member itself runs under the operation's catch.
-- Receipt: `InquiryAnswer` for the local family and `Option<TResult>` for a kernel demand, dismissal riding absence there and its own refusal case here — both settled values holding no live host dialog.
+- Output: `InquiryAnswer` for the local family and `Option<TResult>` for a kernel demand, dismissal riding absence there and its own refusal case here — both settled values holding no live host dialog.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Dialogs` message, list, check, property, context-menu, layer, linetype, print-width, sun, and colour members; `NamedColorList`; `RhinoEtoApp.MainWindowForDocument`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`RangeDialog`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control` as the anchor type); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Interaction` (`PickerDemand`, `UiFault`, `MenuNode`, `MenuForge`, `MenuSlot`, `IntentTable`, `IntentKey`, `AskTrait`, `AskDelivery`, `AskModality`, `AlphaMode`); `Rasm/Domain` (`Op`, `Ring<Error>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`); `Rasm.Rhino/Document` (`DocumentSession`, `SessionNeed`, `PrintPen`).
 - Growth: a new Rhino-only interrogation is one `Inquiry` case, one answer case, and one arm; a new toolkit prompt is one `PickerSpec` case at the kernel and no edit here; a message roster the toolkit gains moves OUT of `VerdictRoster` and into the kernel policy.
 
@@ -614,7 +614,7 @@ public static class Inquiries {
 - Law: text metrics are not an asset. Shaping and measurement are the kernel paint owner's `GlyphBlock`, whose `Measure` already crosses the toolkit marshal and answers a rail, so a caller measures directly and this page opens no second crossing — which is what retired the blocking wait this production once made on a marshalled task.
 - Law: the named-colour roster leaves as ADMITTED colour, never host bytes. It is a colour resource and seats with colour, so each entry carries a `PerceptualColor` and no consumer of this page holds a host colour value.
 - Law: a raster plane's rows mint through `AssetRaster.OfPixels` alone, so the buffer is proved against the extent and the coverage carriage it declares before any consumer reads past its end.
-- Receipt: `HostProduct` — a kernel raster, immutable stroke runs, or admitted palette entries; every disposable host asset rides inside the kernel raster's own `Lease`, so a bare bitmap crossing this boundary is the deleted shape.
+- Output: `HostProduct` — a kernel raster, immutable stroke runs, or admitted palette entries; every disposable host asset rides inside the kernel raster's own `Lease`, so a bare bitmap crossing this boundary is the deleted shape.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`DrawingUtilities.BitmapFromSvg`/`PixelsFromSvg`/`CreateMeshPreviewImage`/`CreateCurvePreviewGeometry`/`CreateLinetypePreviewGeometryEx`; `NamedColorList.Default`; the stroke-channel semantics); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`HostUtils.RunningInDarkMode`); `libs/dotnet/.api/api-system-drawing-common.md` (the GDI bitmap the raster carrier leases); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Arr`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`); `Rasm/Domain` (`Lease<T>`); `Rasm/Interaction` (`AssetOrigin`, `AssetExtent`, `AssetRaster`, `AlphaLayout`, `ThemeVariant`, `UiFault`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`, `PositiveMagnitude`); `Rasm.Rhino/Document` (`DocumentSession`, `SessionNeed`).
 - Growth: a new host production is one `HostAsset` case, one arm, and one `HostProduct` shape only if no existing shape carries it; a new stroke channel is one `PreviewChannel` row; a new coverage carriage is one kernel `AlphaLayout` row and no edit here.
 - Boundary: the host image cache, the `DisplayBitmap` table, and the plug-in icon registry keep their own custody — this owner mints, answers, and never retains.
@@ -807,7 +807,6 @@ public static class HostAssets {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

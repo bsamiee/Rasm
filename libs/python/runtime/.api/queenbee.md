@@ -85,10 +85,10 @@
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]        | [CAPABILITY]                                                                                 |
 | :-----: | :--------------- | :------------------- | :------------------------------------------------------------------------------------------- |
 |  [01]   | `Job`            | submission           | job submission: source + per-run argument lists                                              |
-|  [02]   | `JobStatus`      | receipt              | job-level status + per-run counts                                                            |
-|  [03]   | `RunStatus`      | receipt (BaseStatus) | `id`/`job_id`/`entrypoint`/`status: RunStatusEnum`/`steps`/timestamps                        |
-|  [04]   | `StepStatus`     | receipt (BaseStatus) | step execution status + DAG position                                                         |
-|  [05]   | `BaseStatus`     | receipt base         | `inputs`/`outputs`/`message`/`started_at`/`finished_at`/`source`                             |
+|  [02]   | `JobStatus`      | status               | job-level status + per-run counts                                                            |
+|  [03]   | `RunStatus`      | status (BaseStatus)  | `id`/`job_id`/`entrypoint`/`status: RunStatusEnum`/`steps`/timestamps                        |
+|  [04]   | `StepStatus`     | status (BaseStatus)  | step execution status + DAG position                                                         |
+|  [05]   | `BaseStatus`     | status base          | `inputs`/`outputs`/`message`/`started_at`/`finished_at`/`source`                             |
 |  [06]   | `Results`        | typed list           | `list`-subclass of run results with `from_runs(...)`                                         |
 |  [07]   | `JobStatusEnum`  | enum                 | `Created`/`Pre-Processing`/`Running`/`Failed`/`Cancelled`/`Completed`/`Unknown`              |
 |  [08]   | `RunStatusEnum`  | enum                 | `Created`/`Scheduled`/`Running`/`Post-Processing`/`Failed`/`Cancelled`/`Succeeded`/`Unknown` |
@@ -170,6 +170,6 @@
 
 [RAIL_LAW]:
 - Package: `queenbee`
-- Owns: the Pollination workflow-language schema graph — plugin/function templates, recipe/baked-recipe/DAG flow with dependency resolution, the tier×type IO algebra and `${{...}}` reference family, job submission + run/step lifecycle receipts, and the package-repository index, all as `type`-discriminated pydantic v2 models over one JSON/YAML spine
+- Owns: the Pollination workflow-language schema graph — plugin/function templates, recipe/baked-recipe/DAG flow with dependency resolution, the tier×type IO algebra and `${{...}}` reference family, job submission + run/step lifecycle statuses, and the package-repository index, all as `type`-discriminated pydantic v2 models over one JSON/YAML spine
 - Accept: `Recipe`/`BakedRecipe`/`Plugin`/`Job` construction via `from_file`/`from_folder`/`from_recipe`, `model_validate(_json)` at the boundary, `to_dict`/`to_json`/`to_yaml` projection, the tier×type IO matrix, `IOBase` polymorphic accessors, `RepositoryIndex` query methods, `BakedRecipe.from_recipe` as the sole bake path
 - Reject: the queenbee `[cli]` click extra, its urllib `make_request`/`get_uri` transfer + repository fetch, re-minting a queenbee schema as a parallel `msgspec`/protobuf struct, hand-rolled YAML/JSON walks bypassing the spine, bespoke per-recipe IO classes outside the tier×type matrix, and executing an unbaked `Recipe`

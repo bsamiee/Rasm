@@ -122,4 +122,4 @@ Explicit `Provider` carries the DSN and binds every resource in the arm to the C
 - Owns: declarative PostgreSQL logical-object provisioning — the DDL half of the `lane/capability` rail, applied against a running server
 - Accept: `pulumi.Input<T>` for every arg; an explicit `Provider` bound to the CNPG service; a secret `Output` for `password`; a `Schema`-decoded `StackOutputs` crossing to `work`
 - Reject: raw libpq or `pg`-client DDL in the deploy program; ambient package `config` where an explicit `Provider` binds the cluster; a mutable knob on a `forceNew` field
-- Faults: apply failures carry no typed `Result` here; bridged-provider `diagnostics` fold into the run receipt at the `@pulumi/pulumi` engine rail
+- Faults: apply failures carry no typed `Result` here; the Automation boundary maps the rejected Pulumi operation to `DeployFault`

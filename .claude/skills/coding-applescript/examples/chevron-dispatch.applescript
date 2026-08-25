@@ -1,6 +1,6 @@
 -- Pattern : A dispatch rail whose load-bearing verbs are chevron literals. Each row carries both a
 --           raw-code send against a runtime-chosen target and the term send the dictionary compiled,
---           a probe elects one per verb, and an osadecompile census receipts terminology drift.
+--           a probe elects one per verb, and an osadecompile census detects terminology drift.
 -- Run     : osascript chevron-dispatch.applescript [bundle-id]
 use AppleScript version "2.8"
 use scripting additions
@@ -59,30 +59,15 @@ end verbRows
 on dispatch(row)
 	try
 		return {verb:row's verb, rail:"term", value:(row's viaTerm())}
-	on error message number n
-		if absentTerminology does not contain n then ¬
-			return {verb:row's verb, rail:"term", faultNumber:n, message:message}
+	on error message number n partial result partial from source to target
+		if absentTerminology does not contain n then error message number n partial result partial from source to target
 	end try
-	try
-		return {verb:row's verb, rail:"chevron", value:(row's viaCode())}
-	on error message number n
-		return {verb:row's verb, rail:"chevron", faultNumber:n, message:message}
-	end try
+	return {verb:row's verb, rail:"chevron", value:(row's viaCode())}
 end dispatch
 
 -- A chevron the compiler resolves decompiles back to its term, so the codes surviving a compile-decompile
--- round trip are exactly the ones no installed terminology defines. That census is the version-drift
--- receipt: it rises the release a dictionary retires a term this rail sends, and the rail keeps working.
-on driftReceipt()
-	set sourcePath to POSIX path of (path to me)
-	set workDir to do shell script "/usr/bin/mktemp -d /tmp/chevron.XXXXXX"
-	set compiledPath to workDir & "/rail.scpt"
-	do shell script "/usr/bin/osacompile -o " & quoted form of compiledPath & " " & quoted form of sourcePath
-	set unresolved to (do shell script ¬
-		"/usr/bin/osadecompile " & quoted form of compiledPath & " | /usr/bin/grep -c '«' || true") as integer
-	do shell script "/bin/rm -rf " & quoted form of workDir
-	return {source:sourcePath, unresolvedCodeLines:unresolved}
-end driftReceipt
+-- round trip are exactly the ones no installed terminology defines. The count changes when a dictionary
+-- retires a term this rail sends, while the raw-code rail keeps working.
 
 on run argv
 	set bundleID to defaultBundleID
@@ -91,5 +76,17 @@ on run argv
 	repeat with row in verbRows(bundleID)
 		set end of results to dispatch(contents of row)
 	end repeat
-	return {target:bundleID, dispatched:results, drift:driftReceipt()}
+	set sourcePath to POSIX path of (path to me)
+	set workDir to do shell script "/usr/bin/mktemp -d /tmp/chevron.XXXXXX"
+	try
+		set compiledPath to workDir & "/rail.scpt"
+		do shell script "/usr/bin/osacompile -o " & quoted form of compiledPath & " " & quoted form of sourcePath
+		set unresolved to (do shell script ¬
+			"/usr/bin/osadecompile " & quoted form of compiledPath & " | /usr/bin/grep -c '«' || true") as integer
+	on error message number n partial result partial from source to target
+		do shell script "/bin/rm -rf " & quoted form of workDir
+		error message number n partial result partial from source to target
+	end try
+	do shell script "/bin/rm -rf " & quoted form of workDir
+	return {target:bundleID, dispatched:results, drift:{source:sourcePath, unresolvedCodeLines:unresolved}}
 end run

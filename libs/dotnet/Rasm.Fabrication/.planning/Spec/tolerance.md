@@ -1,10 +1,10 @@
 # [RASM_FABRICATION_TOLERANCE]
 
-`ToleranceSpec` owns every production-specification value from raw quantity admission through geometric control, ISO 286 fit, general tolerance, surface texture, method-parameterized stackup, typed derivation, and parameterized wire projection. `FeatureControl`, `FitClass`, `SurfaceTexture`, and `ToleranceChain` admit once, while `ToleranceSpec.Apply` dispatches every ingress, operation, and egress modality on payload-complete `ToleranceRequest` cases and answers each in the one receipt case its request seats.
+`ToleranceSpec` owns every production-specification value from raw quantity admission through geometric control, ISO 286 fit, general tolerance, surface texture, method-parameterized stackup, typed derivation, and parameterized wire projection. `FeatureControl`, `FitClass`, `SurfaceTexture`, and `ToleranceChain` admit once, while `ToleranceSpec.Apply` dispatches every ingress, operation, and egress modality on payload-complete `ToleranceRequest` cases and answers each in the one result case its request seats.
 
 The GD&T algebra is a DRAWING-STANDARD vocabulary, so its glyphs, datum letters, and characteristic legality compose the kernel `Drawing/sheet` owners — `GeometricCharacteristic`, `DatumDesignator`, `DatumRegime`, `ZoneModifier`, and `SymbolSet.For(standard)` — and this page declares only the specification structure those rows are read into. The bare-scalar tolerance carrier is the kernel `Domain/context` `Tolerance`, which is why the specification union is `ToleranceSpec`: two types named `Tolerance` in one compilation shadow by namespace proximity, and the closer name silently wins at every seam that meant the other.
 
-`ToleranceSpec` preserves the cross-runtime wire name consumed by the artifacts plane without exporting its C# shape, keys structural refusals through `SpecOp`, carries `ContentKey` into `ToleranceUnsatisfiable`, consumes measured cutter geometry through admitted `CutterForm`, and accepts capability evidence only as input-carried achievable width. `Rasm.Solving` owns the name `FitReceipt`, so the ISO 286 pairing result is `FitLimits`.
+`ToleranceSpec` preserves the cross-runtime wire name consumed by the artifacts plane without exporting its C# shape, keys structural refusals through `SpecOp`, carries `ContentKey` into `ToleranceUnsatisfiable`, consumes measured cutter geometry through admitted `CutterForm`, and accepts capability evidence only as input-carried achievable width. `Rasm.Solving` owns the name `Fitted`, so the ISO 286 pairing result is `FitLimits`.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ The GD&T algebra is a DRAWING-STANDARD vocabulary, so its glyphs, datum letters,
 - [03]-[FEATURE_CONTROL]: kind-parameterized `ToleranceZone`, the datum system and frame extension, `FeatureControl.Admit`, and the layout-free `FeatureFrame.Annotation` stream.
 - [04]-[FIT_ALGEBRA]: generated `ItGradeName`, closed-form `FitLetter` deviations over `DiameterBand`, the `FitException` carve, and the validated fit and general-tolerance seed laws.
 - [05]-[SURFACE_TEXTURE]: the ISO 21920 parameter roster, its measure-owned units and bands, the one-shape requirement, and the `RaTarget` scallop projection.
-- [06]-[STACK_CHAIN]: `ToleranceTerm`, the `StackMethod` analytic algebra, and the `Receipt<ChainEvidence>` every stackup consumer reads.
-- [07]-[OWNER_FOLD]: `SpecAxis` quantity admission, the request-indexed `ToleranceSpec.Apply` fold carrying each `ToleranceRequest` case onto the `ToleranceReceipt` case it seats, and the generated `FeatureControlWire` protobuf egress.
+- [06]-[STACK_CHAIN]: `ToleranceTerm`, the `StackMethod` analytic algebra, and the `ChainEvidence` every stackup consumer reads.
+- [07]-[OWNER_FOLD]: `SpecAxis` quantity admission, the request-indexed `ToleranceSpec.Apply` fold carrying each `ToleranceRequest` case onto the `ToleranceResult` case it seats, and the generated `FeatureControlWire` protobuf egress.
 
 ## [02]-[GEOMETRIC_VOCABULARY]
 
@@ -542,7 +542,7 @@ public readonly partial struct CharacteristicId {
 - Owner: `FitLetter` owns the fundamental-deviation closed form per letter, `ItGradeName` the standard tolerance grade formulas, `DiameterBand` the reference diameter every one of them evaluates at, and `FitStandard` the generative resolution both feed; `GeneralStandard` owns the ISO 2768 seed roster.
 - Law: ISO 286 is ALGEBRA here, not a transcribed grid. `ItGradeName` generates `IT01` through `IT18` over the standard tolerance unit, `DiameterBand.ReferenceMm` derives the geometric mean, and the hole derives as the shaft's mirror under the general rule with its correction — so a revision widening the band roster costs one row and a revision changing a formula costs one delegate.
 - Law: `FitException` holds ONLY what the standard publishes outside its own formulas — shaft j and hole J, the p step, k outside grades 4 through 7 — so a row duplicating what `FitLetter` derives is the deleted form, because the two would then disagree silently, and a TABULATED letter with no exception refuses rather than returning the zero its unused delegate would hand back.
-- Auto: `FitCharacter.Of` is the ONE pairing law, so the admitting fold and the receipt's own proof cannot disagree on whether a pair clears, transitions, or interferes.
+- Auto: `FitCharacter.Of` is the ONE pairing law, so the admitting fold and the result's own proof cannot disagree on whether a pair clears, transitions, or interferes.
 - Growth: a fit letter, IT grade, diameter band, or general-tolerance class is one row; a tabular standard revision is seed data under the existing admission proof.
 - Boundary: deviations are published in micrometres and sizes read in millimetres, so the conversion rides the quantity owner at the one derivation site rather than a bare divisor per call.
 
@@ -1144,13 +1144,13 @@ public sealed partial class RaTarget {
 
 ## [06]-[STACK_CHAIN]
 
-- Owner: `ToleranceChain` owns the term roster, its declared method, and its bound; `StackMethod` owns the analytic combination and the contribution ranking; `Receipt<ChainEvidence>` is the ONE stackup receipt `Spec/capability`, `Spec/manufacturability`, and `Documentation/report` all read.
+- Owner: `ToleranceChain` owns the term roster, its declared method, and its bound; `StackMethod` owns the analytic combination and the contribution ranking; `ChainEvidence` is the ONE stackup result `Spec/capability`, `Spec/manufacturability`, and `Documentation/report` all read.
 - Law: a term declares its own signed deviation bounds. The bound pair was a separately-constructible interval owner whose sole consumer and sole mint were this term, so the ordering invariant now rides the term's own admission and a bound pair cannot exist apart from the term it bounds.
 - Law: a `ProcessDistribution` weight is the standard deviation a term contributes PER UNIT half-range, so a root-sum-square combines comparable variances and the widest-spreading distribution carries the SMALLEST weight; the row's SEEDED family is what the correlated Monte-Carlo route draws from, so a statistical stack is simulated rather than approximated by an inflation factor with no distribution behind it.
-- Law: the declared method is the default reading and `Evaluate(StackMethod, Instant)` evaluates the SAME terms under any other, so a consumer wanting the arithmetic bound beside the statistical one reads two rows of one algebra and a second worst-case fold has no site. A term's share is its own combined magnitude under that same algebra, so the ranking never forks the law.
-- Receipt: a settled evaluation carries the specification's content key, its owning plane, and the moment it settled on the `Receipt<TEvidence>` spine, and `ChainEvidence` carries only what varies per evaluation — the method, the worst-case interval, the combined half-range, the ranked contributions, and the bound. The bound verdict rides the carrier's own `Verified` column, so a consumer asking whether the stack conforms reads the same slot every other settled receipt in the package answers on.
+- Law: the declared method is the default reading and `Evaluate(StackMethod)` evaluates the same terms under any other, so a consumer wanting the arithmetic bound beside the statistical one reads two rows of one algebra and a second worst-case fold has no site. A term's share is its own combined magnitude under that same algebra, so the ranking never forks the law.
+- Result: `ChainEvidence` carries the specification key, method, worst-case interval, combined half-range, ranked contributions, and bound; `Conforming` derives from those facts.
 - Growth: a stackup method is one row carrying its combination delegate; a process distribution is one row carrying its quadrature weight and its seeded family.
-- Boundary: the chain declares terms and combines them; the shared-factor loadings, systematic offsets, and measured fits a simulation needs are `Spec/capability` contributors bound to these terms by key. The stamp is the REQUEST's, because `Receipt<TEvidence>` stamps where a receipt settles and a pure combination has no clock of its own to read.
+- Boundary: the chain declares terms and combines them; the shared-factor loadings, systematic offsets, and measured fits a simulation needs are `Spec/capability` contributors bound to these terms by key. Evaluation is pure and reads no clock.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1250,29 +1250,21 @@ public sealed partial class ToleranceChain {
             && terms.Map(static row => row.Key).Distinct().Count == terms.Count
             && double.IsFinite(boundMm) && boundMm > 0.0 ? null : ToleranceSpec.Validation("tolerance-chain");
 
-    public Receipt<ChainEvidence> Evaluate(Instant stamped) => Evaluate(Method, stamped);
+    public ChainEvidence Evaluate() => Evaluate(Method);
 
-    public Receipt<ChainEvidence> Evaluate(StackMethod method, Instant stamped) =>
+    public ChainEvidence Evaluate(StackMethod method) =>
         (Rows: toSeq(Terms), Total: method.Combine(toSeq(Terms))) switch {
-            var chain => Settled(new ChainEvidence(method,
+            var chain => new ChainEvidence(Source, method,
                 chain.Rows.Fold(0.0, static (sum, term) => sum + term.LowerMm),
                 chain.Rows.Fold(0.0, static (sum, term) => sum + term.UpperMm),
                 chain.Total,
                 toSeq(chain.Rows.Map(term => (Term: term.Key, Share: method.Share(term, chain.Total)))
                     .OrderByDescending(static row => row.Share).ThenBy(static row => row.Key)).ToArr(),
-                BoundMm), stamped),
+                BoundMm),
         };
-
-    private Receipt<ChainEvidence> Settled(ChainEvidence evidence, Instant stamped) => new() {
-        Evidence = evidence,
-        Concern = FabConcern.Spec,
-        Key = Source,
-        Stamped = stamped,
-        Verified = Some(evidence.Conforming),
-    };
 }
 
-public sealed record ChainEvidence(StackMethod Method, double WorstLowerMm, double WorstUpperMm,
+public sealed record ChainEvidence(ContentKey Key, StackMethod Method, double WorstLowerMm, double WorstUpperMm,
     double HalfRangeMm, Arr<(string Term, double Share)> Contributions, double BoundMm) {
     public double CentreMm => (WorstLowerMm + WorstUpperMm) * 0.5;
     public bool Conforming => double.Max(Math.Abs(CentreMm - HalfRangeMm), Math.Abs(CentreMm + HalfRangeMm)) <= BoundMm;
@@ -1290,8 +1282,8 @@ public sealed record ChainEvidence(StackMethod Method, double WorstLowerMm, doub
 
 ## [07]-[OWNER_FOLD]
 
-- Owner: `ToleranceSpec` is the canonical `[Union]` and `ToleranceSpec.Apply` the one fold; each raw case enters through one generated invariant owner and leaves through the `ToleranceReceipt` case its request seats.
-- Law: the fold is REQUEST-INDEXED — `ISpecDemand<TReceipt>` seats one receipt case per request case, `Apply<TReceipt>` returns that case, and `Answer` binds arm to seat where the compiler checks it. A caller re-discriminating the answer it already asked for is the deleted form, and so is a caller-side locus for the mismatch: the only path to one is an arm that broke its own seat, which refuses at the owner under `tolerance:correspondence`.
+- Owner: `ToleranceSpec` is the canonical `[Union]` and `ToleranceSpec.Apply` the one fold; each raw case enters through one generated invariant owner and leaves through the `ToleranceResult` case its request seats.
+- Law: the fold is REQUEST-INDEXED — `ISpecDemand<TResult>` seats one result case per request case, `Apply<TResult>` returns that case, and `Answer` binds arm to seat where the compiler checks it. A caller re-discriminating the answer it already asked for is the deleted form, and so is a caller-side locus for the mismatch: the only path to one is an arm that broke its own seat, which refuses at the owner under `tolerance:correspondence`.
 - Cases: `ToleranceSpec` closes geometric, fit, texture, general, and chain specifications and projects `Source` and `Qif` over all five; `ToleranceRequest` adds the derivation and egress modalities — quantity, effective condition, scallop, allowance, and projection — as payload-complete cases.
 - Law: `FeatureControl.Admit` is the single ISO 1101 domain-admission authority; its ephemeral `ValidationError` crosses once through `Admission.Admitted`, while the generated protobuf descriptor owns only transport-shape validation at egress.
 - Law: the axis names a QUANTITY FAMILY and `QuantityInfo` is what UnitsNet gives that family as identity — a `Type` compares by CLR reflection while the parse, the unit roster, and the base dimensions all resolve off the info row, so two axes over one family stay distinct by axis while sharing one identity.
@@ -1519,13 +1511,13 @@ public abstract partial record ToleranceSpec {
         texture: static _ => QifKind.SurfaceTexture, general: static _ => QifKind.GeneralTolerance,
         chain: static _ => QifKind.DimensionalTolerance);
 
-    public static Fin<TReceipt> Apply<TReceipt>(ISpecDemand<TReceipt> demand) where TReceipt : ToleranceReceipt =>
+    public static Fin<TResult> Apply<TResult>(ISpecDemand<TResult> demand) where TResult : ToleranceResult =>
         from request in Optional(demand as ToleranceRequest).ToFin(Invalid("request"))
-        from receipt in Dispatch(request)
-        from answer in Optional(receipt as TReceipt).ToFin(Refusal($"correspondence:{typeof(TReceipt).Name}"))
+        from result in Dispatch(request)
+        from answer in Optional(result as TResult).ToFin(Refusal($"correspondence:{typeof(TResult).Name}"))
         select answer;
 
-    private static Fin<ToleranceReceipt> Dispatch(ToleranceRequest request) => request.Switch(
+    private static Fin<ToleranceResult> Dispatch(ToleranceRequest request) => request.Switch(
         feature: static demand => Answer(demand, Frame),
         fit: static demand => Answer(demand, Fitted),
         texture: static demand => Answer(demand, Textured),
@@ -1537,10 +1529,10 @@ public abstract partial record ToleranceSpec {
         allowance: static demand => Answer(demand, Allowance),
         project: static demand => Answer(demand, Projected));
 
-    private static Fin<ToleranceReceipt> Answer<TDemand, TReceipt>(TDemand demand, Func<TDemand, Fin<TReceipt>> arm)
-        where TDemand : ToleranceRequest, ISpecDemand<TReceipt>
-        where TReceipt : ToleranceReceipt =>
-        arm(demand).Map<ToleranceReceipt>(static row => row);
+    private static Fin<ToleranceResult> Answer<TDemand, TResult>(TDemand demand, Func<TDemand, Fin<TResult>> arm)
+        where TDemand : ToleranceRequest, ISpecDemand<TResult>
+        where TResult : ToleranceResult =>
+        arm(demand).Map<ToleranceResult>(static row => row);
 
     internal static Error Invalid(string axis, string requirement = "admitted tolerance shape") =>
         new KernelFault.InvalidValue(Label: axis, Requirement: requirement, Key: Some(SpecOp));
@@ -1550,15 +1542,15 @@ public abstract partial record ToleranceSpec {
     internal static FabricationFault Refusal(string locus) =>
         FabricationFault.Inadmissible(FabConcern.Spec, $"tolerance:{locus}");
 
-    private static Fin<ToleranceReceipt.Frame> Frame(ToleranceRequest.Feature demand) =>
+    private static Fin<ToleranceResult.Frame> Frame(ToleranceRequest.Feature demand) =>
         from control in FeatureControl.Admit(demand)
         from _ in control.AchievableMm.Filter(achievable => achievable > control.Zone.Width.ToValue()).Match(
             Some: achievable => Fin.Fail<Unit>(FabricationFault.ToleranceUnsatisfiable(
                 new FaultSubject.Specification(control.Source), achievable)),
             None: static () => Fin.Succ(unit))
-        select new ToleranceReceipt.Frame(new Geometric(control), FeatureFrame.Create(control));
+        select new ToleranceResult.Frame(new Geometric(control), FeatureFrame.Create(control));
 
-    private static Fin<ToleranceReceipt.Fitted> Fitted(ToleranceRequest.Fit demand) =>
+    private static Fin<ToleranceResult.Fitted> Fitted(ToleranceRequest.Fit demand) =>
         from _pair in guard(demand.Hole.Member == FitMember.Hole && demand.Shaft.Member == FitMember.Shaft
             && demand.Hole.Grade.Diameter == demand.Shaft.Grade.Diameter, Invalid("fit:pair")).ToFin()
         let maximum = Length.FromMicrometers(demand.Hole.Limits.UpperUm - demand.Shaft.Limits.LowerUm).Millimeters
@@ -1568,30 +1560,30 @@ public abstract partial record ToleranceSpec {
         let character = FitCharacter.Of(minimum, maximum)
         from limits in FitLimits.Validate(demand.Source, demand.NominalMm, demand.Hole, demand.Shaft,
             character, out FitLimits value).Admitted(value)
-        select new ToleranceReceipt.Fitted(new Fit(limits));
+        select new ToleranceResult.Fitted(new Fit(limits));
 
-    private static Fin<ToleranceReceipt.Textured> Textured(ToleranceRequest.Texture demand) =>
+    private static Fin<ToleranceResult.Textured> Textured(ToleranceRequest.Texture demand) =>
         from texture in SurfaceTexture.Validate(demand.Source, demand.Requirements, demand.Lay,
             demand.Mark, demand.Band, demand.MachiningAllowanceMm, demand.Treatment,
             out SurfaceTexture value).Admitted(value)
-        select new ToleranceReceipt.Textured(new Texture(texture));
+        select new ToleranceResult.Textured(new Texture(texture));
 
-    private static Fin<ToleranceReceipt.Generalized> Generalized(ToleranceRequest.General demand) =>
+    private static Fin<ToleranceResult.Generalized> Generalized(ToleranceRequest.General demand) =>
         from standard in Optional(demand.Standard).ToFin(Invalid("general-tolerance:standard"))
         from limit in standard.Resolve(demand.Class, demand.Kind, demand.NominalMm)
         from value in GeneralTolerance.Validate(demand.Source, demand.Class, demand.Kind,
             demand.NominalMm, limit, out GeneralTolerance tolerance).Admitted(tolerance)
-        select new ToleranceReceipt.Generalized(new General(value));
+        select new ToleranceResult.Generalized(new General(value));
 
-    private static Fin<ToleranceReceipt.Stacked> Stacked(ToleranceRequest.Chain demand) =>
+    private static Fin<ToleranceResult.Stacked> Stacked(ToleranceRequest.Chain demand) =>
         from chain in ToleranceChain.Validate(demand.Source, demand.Terms, demand.BoundMm,
             demand.Method, out ToleranceChain value).Admitted(value)
-        select new ToleranceReceipt.Stacked(new Chain(chain), chain.Evaluate(demand.Stamped));
+        select new ToleranceResult.Stacked(new Chain(chain), chain.Evaluate());
 
-    private static Fin<ToleranceReceipt.Quantity> Measured(ToleranceRequest.Quantity demand) =>
-        SpecQuantity.Admit(demand.Axis, demand.Text).Map(static value => new ToleranceReceipt.Quantity(value));
+    private static Fin<ToleranceResult.Quantity> Measured(ToleranceRequest.Quantity demand) =>
+        SpecQuantity.Admit(demand.Axis, demand.Text).Map(static value => new ToleranceResult.Quantity(value));
 
-    private static Fin<ToleranceReceipt.Effective> Effective(ToleranceRequest.Effective demand) =>
+    private static Fin<ToleranceResult.Effective> Effective(ToleranceRequest.Effective demand) =>
         from admitted in Optional(demand.Control).ToFin(Invalid("effective:control"))
         from _1 in guard(double.IsFinite(demand.DepartureMm) && demand.DepartureMm >= 0.0,
             Range("effective:departure", demand.DepartureMm, "finite and nonnegative")).ToFin()
@@ -1599,19 +1591,19 @@ public abstract partial record ToleranceSpec {
             Range("effective:departure", demand.DepartureMm, "zero under a regardless-of-feature-size control")).ToFin()
         let width = admitted.Zone.Width.ToValue()
         let boundaries = admitted.Size.Bind(size => admitted.Material.Boundaries(size, width))
-        select new ToleranceReceipt.Effective(admitted,
+        select new ToleranceResult.Effective(admitted,
             admitted.Material.Effective(width, demand.DepartureMm), demand.DepartureMm,
             boundaries.Map(static row => row.VirtualMm), boundaries.Map(static row => row.ResultantMm));
 
-    private static Fin<ToleranceReceipt.Allowance> Allowance(ToleranceRequest.Allowance demand) =>
+    private static Fin<ToleranceResult.Allowance> Allowance(ToleranceRequest.Allowance demand) =>
         Optional(demand.Grade).ToFin(Invalid("allowance:grade")).Map(static admitted =>
-            new ToleranceReceipt.Allowance(admitted.ToleranceMillimeters * admitted.AllowanceFactor.ToValue()));
+            new ToleranceResult.Allowance(admitted.ToleranceMillimeters * admitted.AllowanceFactor.ToValue()));
 
-    private static Fin<ToleranceReceipt.Projected> Projected(ToleranceRequest.Project demand) =>
+    private static Fin<ToleranceResult.Projected> Projected(ToleranceRequest.Project demand) =>
         from bytes in Op.Of(name: "tolerance:project:encode").Catch(() => demand.Encoder.Encode(demand.Value))
-        select new ToleranceReceipt.Projected(demand.Value, bytes);
+        select new ToleranceResult.Projected(demand.Value, bytes);
 
-    private static Fin<ToleranceReceipt.Scallop> Scallop(ToleranceRequest.Scallop demand) =>
+    private static Fin<ToleranceResult.Scallop> Scallop(ToleranceRequest.Scallop demand) =>
         from admittedTarget in Optional(demand.Target).ToFin(Invalid("scallop:target"))
         from admittedCutter in Optional(demand.Cutter).ToFin(Invalid("scallop:cutter"))
         from radius in admittedCutter.Family.Corner.Switch(
@@ -1627,10 +1619,10 @@ public abstract partial record ToleranceSpec {
             Range("scallop:radius", radius, "finite and positive")).ToFin()
         from _2 in guard(double.IsFinite(radicand) && radicand > 0.0,
             Range("scallop:radicand", radicand, "finite and positive")).ToFin()
-        select new ToleranceReceipt.Scallop(2.0 * Math.Sqrt(radicand));
+        select new ToleranceResult.Scallop(2.0 * Math.Sqrt(radicand));
 }
 
-public interface ISpecDemand<TReceipt> where TReceipt : ToleranceReceipt { }
+public interface ISpecDemand<TResult> where TResult : ToleranceResult { }
 
 [Union]
 public abstract partial record ToleranceRequest {
@@ -1638,42 +1630,42 @@ public abstract partial record ToleranceRequest {
     public sealed record Feature(CharacteristicId Id, ContentKey Source, FeatureCharacteristic Characteristic, FeatureScope Scope,
         ToleranceZone Zone, DatumSystem Datums, MaterialCondition Material, FrameExtension Extension,
         Option<FeatureSize> Size, Option<double> AchievableMm, SheetStandard Standard)
-        : ToleranceRequest, ISpecDemand<ToleranceReceipt.Frame>;
+        : ToleranceRequest, ISpecDemand<ToleranceResult.Frame>;
     public sealed record Fit(ContentKey Source, double NominalMm, FitClass Hole, FitClass Shaft)
-        : ToleranceRequest, ISpecDemand<ToleranceReceipt.Fitted>;
+        : ToleranceRequest, ISpecDemand<ToleranceResult.Fitted>;
     public sealed record Texture(ContentKey Source, Arr<SurfaceRequirement> Requirements, SurfaceLay Lay,
         ProcessMark Mark, Option<TransmissionBand> Band, Option<double> MachiningAllowanceMm,
-        Option<string> Treatment) : ToleranceRequest, ISpecDemand<ToleranceReceipt.Textured>;
+        Option<string> Treatment) : ToleranceRequest, ISpecDemand<ToleranceResult.Textured>;
     public sealed record General(ContentKey Source, GeneralToleranceClass Class, GeneralToleranceKind Kind,
-        double NominalMm, GeneralStandard Standard) : ToleranceRequest, ISpecDemand<ToleranceReceipt.Generalized>;
+        double NominalMm, GeneralStandard Standard) : ToleranceRequest, ISpecDemand<ToleranceResult.Generalized>;
     public sealed record Chain(ContentKey Source, Arr<ToleranceTerm> Terms, double BoundMm,
-        StackMethod Method, Instant Stamped) : ToleranceRequest, ISpecDemand<ToleranceReceipt.Stacked>;
+        StackMethod Method, Instant Stamped) : ToleranceRequest, ISpecDemand<ToleranceResult.Stacked>;
     public sealed record Quantity(SpecAxis Axis, string Text)
-        : ToleranceRequest, ISpecDemand<ToleranceReceipt.Quantity>;
+        : ToleranceRequest, ISpecDemand<ToleranceResult.Quantity>;
     public sealed record Effective(FeatureControl Control, double DepartureMm)
-        : ToleranceRequest, ISpecDemand<ToleranceReceipt.Effective>;
+        : ToleranceRequest, ISpecDemand<ToleranceResult.Effective>;
     public sealed record Scallop(RaTarget Target, CutterForm Cutter)
-        : ToleranceRequest, ISpecDemand<ToleranceReceipt.Scallop>;
+        : ToleranceRequest, ISpecDemand<ToleranceResult.Scallop>;
     public sealed record Allowance(ItGrade Grade)
-        : ToleranceRequest, ISpecDemand<ToleranceReceipt.Allowance>;
+        : ToleranceRequest, ISpecDemand<ToleranceResult.Allowance>;
     public sealed record Project(ToleranceSpec Value, IToleranceEncoder Encoder)
-        : ToleranceRequest, ISpecDemand<ToleranceReceipt.Projected>;
+        : ToleranceRequest, ISpecDemand<ToleranceResult.Projected>;
 }
 
 [Union]
-public abstract partial record ToleranceReceipt {
-    private ToleranceReceipt() { }
-    public sealed record Frame(ToleranceSpec.Geometric Value, FeatureFrame Frame) : ToleranceReceipt;
-    public sealed record Fitted(ToleranceSpec.Fit Value) : ToleranceReceipt;
-    public sealed record Textured(ToleranceSpec.Texture Value) : ToleranceReceipt;
-    public sealed record Generalized(ToleranceSpec.General Value) : ToleranceReceipt;
-    public sealed record Stacked(ToleranceSpec.Chain Value, Receipt<ChainEvidence> Settled) : ToleranceReceipt;
-    public sealed record Quantity(SpecQuantity Value) : ToleranceReceipt;
+public abstract partial record ToleranceResult {
+    private ToleranceResult() { }
+    public sealed record Frame(ToleranceSpec.Geometric Value, FeatureFrame Frame) : ToleranceResult;
+    public sealed record Fitted(ToleranceSpec.Fit Value) : ToleranceResult;
+    public sealed record Textured(ToleranceSpec.Texture Value) : ToleranceResult;
+    public sealed record Generalized(ToleranceSpec.General Value) : ToleranceResult;
+    public sealed record Stacked(ToleranceSpec.Chain Value, ChainEvidence Settled) : ToleranceResult;
+    public sealed record Quantity(SpecQuantity Value) : ToleranceResult;
     public sealed record Effective(FeatureControl Control, double WidthMm, double DepartureMm,
-        Option<double> VirtualConditionMm, Option<double> ResultantConditionMm) : ToleranceReceipt;
-    public sealed record Scallop(double StepMm) : ToleranceReceipt;
-    public sealed record Allowance(double Millimeters) : ToleranceReceipt;
-    public sealed record Projected(ToleranceSpec Value, ReadOnlyMemory<byte> Bytes) : ToleranceReceipt;
+        Option<double> VirtualConditionMm, Option<double> ResultantConditionMm) : ToleranceResult;
+    public sealed record Scallop(double StepMm) : ToleranceResult;
+    public sealed record Allowance(double Millimeters) : ToleranceResult;
+    public sealed record Projected(ToleranceSpec Value, ReadOnlyMemory<byte> Bytes) : ToleranceResult;
 
     public Option<ToleranceSpec> Specification() => Switch(
         frame: static row => Some<ToleranceSpec>(row.Value), fitted: static row => Some<ToleranceSpec>(row.Value),
@@ -1685,7 +1677,7 @@ public abstract partial record ToleranceReceipt {
     public Option<bool> Conforming() => Switch(
         frame: static row => row.Frame.AchievableMm.Map(achievable => achievable <= row.Frame.WidthMm),
         fitted: static _ => None, textured: static _ => None, generalized: static _ => None,
-        stacked: static row => row.Settled.Verified, quantity: static _ => None,
+        stacked: static row => Some(row.Settled.Conforming), quantity: static _ => None,
         effective: static _ => None, scallop: static _ => None, allowance: static _ => None,
         projected: static _ => None);
 }
@@ -1695,7 +1687,6 @@ public abstract partial record ToleranceReceipt {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

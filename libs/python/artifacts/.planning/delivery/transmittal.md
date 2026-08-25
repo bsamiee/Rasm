@@ -1,8 +1,6 @@
 # [PY_ARTIFACTS_TRANSMITTAL]
 
-`Transmittal` is the ISO 19650 transmittal / issue-for-construction close at the delivery boundary — the assembly orchestrator that folds an issued sheet set into a press-imposed plan-set, a content-addressed transmittal container, a legally PAdES-signed and provenance-credentialed record, and a formal transmittal-record manifest, composing sibling owners at the wire. It IS the closed `expression.tagged_union` — its `Assemble`/`Seal`/`Issue`/`Manifest` cases own the dispatch, the async entry, AND every case body directly, never a one-field wrapper over a separate op union — each discriminating by its own typed `(Deliverable, spec)` payload: `Assemble` composes `composition/imposition#IMPOSE` into a press form, `Seal` composes `package/archive#ARCHIVE` into one content-addressed transmittal container, `Issue` composes `exchange/conformance#CONFORMANCE` PAdES-LTA signing CONCURRENTLY with `exchange/credential#CREDENTIAL` C2PA sheet-lineage signing inside one `anyio` task group, and `Manifest` composes `delivery/register#REGISTER` as the issued index and builds the ISO 19650 transmittal-record XML — Schematron-validated and C14N-canonical — each case folding once into the shared `TransmittalEvidence` the public `close` returns, never a per-stage evidence bag or a per-product transmittal-builder family. Every sibling is composed through the ONE uniform producer contract every artifacts producer exposes — `emit() -> ArtifactWork` whose `work` thunk resolves `RuntimeRail[ArtifactReceipt]` with `receipt.slot == node.key` — so the orchestrator drives `sign.emit().work()` and reads the typed receipt case (`receipt.verdict`, `receipt.credential`, `receipt.slot`), never a phantom `.of()`/`.close()`/`.pack()` sibling surface and never a private-member reach. This owner authors no sheet, drawing, IFC, or QTO, and re-implements no imposition/archive/crypto engine.
 
-`close` runs one shared prologue before the total `match`: the register audit folds ONCE under the purpose-keyed `_PURPOSE_AUDIT` policy row — `Purpose.CONSTRUCTION`/`AS_BUILT` select the register owner's `CONTRACTUAL_AUDIT`, every other purpose `STANDARD_AUDIT` — and `_gated` accumulates every failed gate through `BoundaryFault.combine` before any product renders: a missing legal-header field, an empty sheet set (a zero-sheet collation is a config refusal, never an opaque MuPDF raise off the thread lane), a contractually-issued sheet the issued index never lists (`Deliverable.unregistered`, the sheet-register congruence the transmittal record attests), a severed contractual register, a contractual issue carrying no `delivery/gate#GATE` verdict at all, and a `GateVerdict` its own per-kind policy refuses to ship. `TransmittalRecord.of` admits the raw client header through the module-level `_PAYLOAD` `TypeAdapter` EXACTLY ONCE, normalizes issue and response dates, maps its revision through `RevisionCode.parse`, and carries structured `loc` paths on `RecordDefect`; `SheetRef.admitted` similarly binds raw suitability and revision through the register owners, so the interior never re-parses either vocabulary. Owned native seams (`pymupdf` collation and `lxml` record serialization) cross `deliverable.lane.offload(...)` — the instance-lane seam returning `RuntimeRail` directly, no rail-to-raise-to-rail erasure and no second boundary — while transient TSA / remote-manifest retry lives in the composed sign legs. `Transmittal` schedules into `core/plan#PLAN` as ONE aggregate `ArtifactWork` whose `parents` are the constituent sheet keys with the normalized issued-register key, keyed PRE-RUN through `ContentIdentity.key` over every output-affecting record, sheet, profile, signer-policy, gate-verdict, and parent axis. `Issue` and password-bearing `Seal` nodes admit `bare`: fresh legal or secret-dependent bytes are never cache-elided. Each op mints the `core/receipt#RECEIPT` `ArtifactReceipt.Transmittal` case, never a parallel receipt rail.
 
 ## [01]-[INDEX]
 
@@ -11,14 +9,12 @@
 ## [02]-[TRANSMITTAL]
 
 - Owner: `Transmittal` the one delivery-issue owner AND the closed `expression.tagged_union` discriminating over its own typed `(Deliverable, spec)` payload — `Assemble`, `Seal`, `Issue`, `Manifest` — matched by one total `match` in `close`, the `@classmethod` factories returning `Self` and the `_assembled`/`_sealed`/`_issued`/`_manifested` case-body methods all folded onto the union, never a one-field wrapper over a separate op union, a `stage: str` discriminant beside an optional-field bag, or a free module function reconstructing a case body outside the owner. `Deliverable` is the shared payload every case reads — `sheets` the admitted constituent sheets, `issued_register` the normalized `RegisterOp.Index` projection whose key is the aggregate parent, `record: TransmittalRecord` the ISO 19650 header, `lane: LanePolicy` the bounded instance seam the owner's native kernels offload through, `gate: Option[GateVerdict]` the `delivery/gate#GATE` quality verdict folded across every constituent artifact through `GateVerdict.combine` at the composition root — a JUDGMENT whose per-kind policy axis the key preimage cannot recover (one `KindPolicy` row edit at the gate owner re-grades identical sheets), so its canonical projection — grade, ships floor, rendered coordinates — enters `_canon` and a re-graded deliverable mints a fresh key, while `lane` alone stays outside the preimage as pure execution capacity. `SheetRef` is the one frozen constituent-sheet value carrying distinct container reference, content key, data, suitability, and revision identities; `TransmittalRecord` carries the issue header, routing, response, confidentiality, distribution, and copy-recipient fields admitted once through `_PAYLOAD`. `SealSpec.profile` is the one container policy value selecting algorithm, knobs, names, and optional secret — never parallel `algo`/`profile`/`password` knobs. `pymupdf` owns the deterministic plan-set collation, sheet-index bookmarks, and issue seal; `lxml.etree` the escaped-and-canonical transmittal-record XML and the `isoschematron.Schematron` oracle; `composition/imposition#IMPOSE` the press form, `package/archive#ARCHIVE` the container, `exchange/conformance#CONFORMANCE` the PAdES close, `exchange/credential#CREDENTIAL` the C2PA lineage.
-- Cases: `Transmittal` cases matched by one total `match`, each folding once into the shared `TransmittalEvidence` and returning `RuntimeRail[tuple[ContentKey, TransmittalEvidence]]` — never a per-product transmittal-builder sibling, never a per-stage `_emit`. `Assemble(deliverable, AssembleSpec)` collates the `SheetRef.data` through `_collated`, binds the VALIDATED `ImposeOp.Impose` ingress, then drives `Imposition(op=...).emit().work()` — the press-form key is `receipt.slot` and the press metrics ride `Imposition.planned()`. `Seal(deliverable, SealSpec)` resolves the one `CodecProfile`, rejects a non-container case on the rail, converts `Archive.of` policy refusal through `catch(exception=ValueError)`, then drives `.emit().work()` over the plan-set and its attachments. `Issue(deliverable, IssueSpec)` collates then starts `_signed_pades` CONCURRENTLY with the optional `_signed_cose` inside one `anyio.create_task_group`, each child's rail riding its `TaskHandle.return_value`; `_credential` distinguishes `unsigned`, `failed`, and credential-reported states without a `Result.to_option` erasure. `Manifest(deliverable, ManifestSpec)` drives `issued_register.emit().work()` for the normalized index receipt, then builds the transmittal-record XML with separate container reference and content-key attributes, Schematron failed-assert count, and C14N bytes.
+- Cases: `Transmittal` cases matched by one total `match`, each folding once into the shared `TransmittalEvidence` and returning `RuntimeRail[tuple[ContentKey, TransmittalEvidence]]` — never a per-product transmittal-builder sibling, never a per-stage `_emit`. `Assemble(deliverable, AssembleSpec)` collates the `SheetRef.data` through `_collated`, binds the VALIDATED `ImposeOp.Impose` ingress, then drives `Imposition(op=...).emit().work()` — the press-form key is the work key and the press metrics ride `Imposition.planned()`. `Seal(deliverable, SealSpec)` resolves the one `CodecProfile`, rejects a non-container case on the rail, converts `Archive.of` policy refusal through `catch(exception=ValueError)`, then drives `.emit().work()` over the plan-set and its attachments. `Issue(deliverable, IssueSpec)` collates then starts `_signed_pades` CONCURRENTLY with the optional `_signed_cose` inside one `anyio.create_task_group`, each child's rail riding its `TaskHandle.return_value`; `_credential` distinguishes `unsigned`, `failed`, and credential-reported states without a `Result.to_option` erasure. `Manifest(deliverable, ManifestSpec)` drives `issued_register.emit().work()` for the normalized index output, then builds the transmittal-record XML with separate container reference and content-key attributes, Schematron failed-assert count, and C14N bytes.
 - Entry: `close` is the public orchestrator terminal — the shared prologue folds the register audit once under `_PURPOSE_AUDIT[record.purpose]`, accumulates missing legal-header, empty-sheet-set, unregistered-sheet, contractual-register, ungated, and gate-refused faults through the `_gated` `BoundaryFault.combine` fold, then one total `match` dispatches to the async case bodies that thread composed rails through `bind`/`map`. `emit` returns the ONE aggregate `ArtifactWork` directly, its parents the constituent sheet keys with `issued_register.key`; `_admission` is value-keyed — `Admission(bare=None)` for `Issue` and password-bearing `Seal`, `Admission(keyed=None)` otherwise. `TransmittalRecord.of` narrows malformed payload, purpose, and revision inputs to the closed `RecordDefect` cases and accumulates concurrent purpose/revision defects; `SheetRef.admitted` accumulates the register owner's `RegisterFault` without weakening either vocabulary.
-- Law: the quality refusal seats in that SAME admission fold, never a sibling entry — an issue cannot ship an artifact whose `delivery/gate#GATE` verdict its own per-kind policy row refuses, and `_refused` renders every failing `Coordinate` onto the fault so an office reads the coordinates it repairs rather than the grade it already knows. `Grade.ADVISORY` SHIPS under every seeded `KindPolicy` row and rides out whole on `TransmittalEvidence.gate`, so a soft miss reaches the legal record instead of being smoothed away. A CONTRACTUAL purpose additionally refuses an ABSENT verdict. The gate composes DOWNWARD into this owner and never back — it fires no hook, mints no receipt, and learns of no transmittal.
+- Law: the quality refusal seats in that SAME admission fold, never a sibling entry — an issue cannot ship an artifact whose `delivery/gate#GATE` verdict its own per-kind policy row refuses, and `_refused` renders every failing `Coordinate` onto the fault so an office reads the coordinates it repairs rather than the grade it already knows. `Grade.ADVISORY` SHIPS under every seeded `KindPolicy` row and rides out whole on `TransmittalEvidence.gate`, so a soft miss reaches the legal record instead of being smoothed away. A CONTRACTUAL purpose additionally refuses an ABSENT verdict. The gate composes DOWNWARD into this owner, fires no hook, and learns of no transmittal.
 - Auto: `_assembled` binds `_collated` into the validated `ImposeOp.Impose` ingress and composed press node; `_sealed` composes the collation and profile-admission rails before `Archive`; `_issued` opens ONE `anyio.create_task_group`, carries both child rails on `TaskHandle.return_value`, aborts on a failed PAdES leg, and retains C2PA absence versus failure as distinct evidence. `_manifested` binds the normalized index node then `_record`. `_collate` is ONE imperative measured kernel threading ONE owned `pymupdf.Document` across N `insert_pdf` inserts, with every handle bracketed, then authors the TOC and fixed metadata before `tobytes(no_new_id=True)`. `_record_xml` builds dynamic values through `SubElement.text`/`set`, validates against the `@cache`-compiled `_record_schema`, counts `svrl:failed-assert` from `validation_report`, and serializes `c14n2` bytes; both kernels cross `deliverable.lane.offload(Kernel.of(..., KernelTrait.HOSTILE), ...)` onto the warm process pool — the MuPDF collate mutation and the lxml validate/serialize both hold the GIL, the same engine ruling `composition/sheet#SHEET` and `document/emit#DOCUMENT` carry — and thread the returned `RuntimeRail` unchanged.
-- Receipt: `close` returns the rich `TransmittalEvidence` as the `(ContentKey, TransmittalEvidence)` pair — the full issue picture (transmittal id / revision / issue date / party / recipient / purpose, issued-sheet and press-signature counts, imposition scheme, container key and member count, folded PAdES level / signer / signing time / validity, C2PA state and lineage depth, the record Schematron conformance evidence-only, the dominant suitability / latest revision, the `register_complete` audit verdict, the unregistered-sheet count, the folded gate grade with its failing-coordinate count, the leaf `ConformanceVerdict` forensic edge as `Option`, and the leaf `GateVerdict` beside it — a shipped ADVISORY grade is exactly the evidence a later dispute reads, so the whole verdict rides the value while `gate_grade`/`gate_failures` carry the scalar facts). `emit` projects it onto `ArtifactReceipt.Transmittal(key, transmittal_id, sheets, suitability, container-or-plan_set, validation_state)` — six settled scalars, so `receipt.py` imports no `TransmittalEvidence` and the case stays flat scalars, the delivery-issue evidence a CASE on the one `ArtifactReceipt` family, never a parallel receipt rail. `validation_state` and the native-int counts are the observable issue facts the `contribute` fold projects onto the runtime receipt stream. `_emit` is also this branch's ONE `Actor.USER` durable leg: it awaits `Journal.record` over `receipt.evidence(...)`, naming the issuing party as the actor and the receiving and copied parties as REAL subjects, so an issue for construction lands `REGULATORY` audit evidence carrying the portability index a person-scoped export or erasure keys on. That durable rail binds into the emit's verdict. `_emit` then fires `TRANSMITTAL_ISSUED` through `_announced`, the settled close projected whole onto the `core/hooks#POINTS` payload — this fold is where the evidence stands, so the fact fires here and `delivery/notice#NOTICE` subscribes to it; direction runs OUTWARD, this owner learns of no transport, and a composition binding no emitter loses no fact.
-- Packages: `expression` (the `Transmittal`/`RecordDefect` unions, the accumulating `Result`/`Option` admission rails, `.bind`/`.map` composed-rail threading, `Block` the `_gated` refusal fold, and `extra.result.catch` at archive construction); `msgspec` (the frozen value objects, `structs.replace` the profile/evidence projection, `msgpack.Encoder` the canonical key preimage); `pydantic` (`TypeAdapter` the `_PAYLOAD` admission, `ValidationError.errors()` the structured `loc` evidence); `anyio` (`create_task_group` + `TaskHandle.return_value` the concurrent-sign failure boundary and child carrier); `xxhash` (`xxh3_128_digest` the attachment, cover, and public-certificate fingerprints; private key, passphrase, and password bytes never enter a preimage); `pymupdf` (the deterministic navigable, metadata-sealed plan-set collation, `lazy import`-deferred); `lxml.etree` (the escaped C14N record XML, `isoschematron.Schematron`, and `validation_report` SVRL failed-assert count, `lazy`-deferred); `functools.cache` (the compiled-once record Schematron bytes); runtime (`identity.ContentIdentity.key`/`ContentKey`, `lanes.LanePolicy`, `faults.BoundaryFault.combine`/`RuntimeRail`); composed owners `composition/imposition#IMPOSE`, `package/archive#ARCHIVE` with the one `package/bundle#BUNDLE` `CodecProfile`, `exchange/conformance#CONFORMANCE`, `exchange/credential#CREDENTIAL`, `delivery/register#REGISTER` (`RegisterOp.Index`, `Suitability`, `RevisionCode.ordinal`, audit policies), `delivery/gate#GATE` (`Grade`/`GateVerdict` the folded quality verdict and its failing coordinates), `core/hooks#POINTS` (`ArtifactHook`/`TransmittalIssued`/`Production.fired`/`scoped` the announced fact), `core/plan#PLAN`, and `core/receipt#RECEIPT`. No new external library — every engine is composed.
+- Packages: `expression` (the `Transmittal`/`RecordDefect` unions, the accumulating `Result`/`Option` admission rails, `.bind`/`.map` composed-rail threading, `Block` the `_gated` refusal fold, and `extra.result.catch` at archive construction); `msgspec` (the frozen value objects, `structs.replace` the profile/evidence projection, `msgpack.Encoder` the canonical key preimage); `pydantic` (`TypeAdapter` the `_PAYLOAD` admission, `ValidationError.errors()` the structured `loc` evidence); `anyio` (`create_task_group` + `TaskHandle.return_value` the concurrent-sign failure boundary and child carrier); `xxhash` (`xxh3_128_digest` the attachment, cover, and public-certificate fingerprints; private key, passphrase, and password bytes never enter a preimage); `pymupdf` (the deterministic navigable, metadata-sealed plan-set collation, `lazy import`-deferred); `lxml.etree` (the escaped C14N record XML, `isoschematron.Schematron`, and `validation_report` SVRL failed-assert count, `lazy`-deferred); `functools.cache` (the compiled-once record Schematron bytes); runtime (`identity.ContentIdentity.key`/`ContentKey`, `lanes.LanePolicy`, `faults.BoundaryFault.combine`/`RuntimeRail`); composed owners `composition/imposition#IMPOSE`, `package/archive#ARCHIVE` with the one `package/bundle#BUNDLE` `CodecProfile`, `exchange/conformance#CONFORMANCE`, `exchange/credential#CREDENTIAL`, `delivery/register#REGISTER` (`RegisterOp.Index`, `Suitability`, `RevisionCode.ordinal`, audit policies), `delivery/gate#GATE` (`Grade`/`GateVerdict` the folded quality verdict and its failing coordinates), `core/hooks#POINTS` (`ArtifactHook`/`TransmittalIssued`/`Production.fired`/`scoped` the announced fact), `core/plan#PLAN`, and `core/hooks#POINTS`. No new external library — every engine is composed.
 - Growth: a new issue product is one `Transmittal` case with its payload, one `close` arm, and one case-body method; a new imposition scheme rides `Scheme`, a new container algorithm arrives as one composed `CodecProfile` case admitted by `SealSpec.resolved`, a new PAdES level or signer rides `PadesSpec`, and a new C2PA relationship or intent rides `CoseSpec`. New record-header fields land on `TransmittalPayload`, `TransmittalRecord.canonical`, `_record_xml`, and `TransmittalEvidence`; a new sealed attachment is one `(name, bytes)` row; a new purpose is one `Purpose` member whose audit policy derives in `_PURPOSE_AUDIT`; a new legal-header requirement is one `_REQUIRED_CLOSE` row value; a new issue-gate refusal is one row in the `_gated` fold; a new quality threshold, verdict family, or per-kind bar is one row at `delivery/gate#GATE` and reaches this owner untouched, because the seam reads `GateVerdict.ships` rather than any grade or coordinate this page names; a new announced scalar is one `TransmittalIssued` field the `_announced` projection fills. Zero new surface — the owner grows by case, composed-owner vocabulary, policy row, and evidence field, never by method family.
-- Boundary: no sheet authoring (`composition/sheet#SHEET` owns the title block; the transmittal admits its `SheetRef` projection), no drawing, no imposition placement, no container codec, no crypto engine, no register audit authoring, no quality threshold authoring (`delivery/gate#GATE` owns every bar, grade, and per-kind policy row; this owner reads one settled verdict), and no IFC/QTO. Raw purpose, suitability, and revision tokens cross their owner once; container reference and content key remain distinct XML attributes; `SubElement` escapes the record tree; the uniform `emit().work()` producer contract replaces phantom sibling verbs; one in-place `pymupdf` kernel replaces whole-buffer recopy; `no_new_id=True` with fixed record fields suppresses random PDF identity; PDF sheets ride as C2PA `Ingredient` values rather than unsupported per-sheet C2PA signs; `anyio` child handles replace `asyncio.gather`; optional C2PA failure remains soft but evidenced; native rails never collapse and re-raise; legal and secret-dependent output admits `bare`; receipt evidence remains one `ArtifactReceipt.Transmittal` case.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -38,9 +34,9 @@ from opentelemetry import context as otel_context
 from pydantic import TypeAdapter, ValidationError
 
 from rasm.artifacts.composition.imposition import Geometry, ImposeOp, ImposedPlan, Imposition, Marks, Scheme
+from rasm.artifacts.composition.sheet import Composed
 from rasm.artifacts.core.hooks import ArtifactHook, ArtifactsLeg, Production, TransmittalIssued, scoped
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt, ConformanceVerdict
 from rasm.artifacts.delivery.gate import GateVerdict
 from rasm.artifacts.delivery.register import (
     CONTRACTUAL_AUDIT,
@@ -55,10 +51,11 @@ from rasm.artifacts.delivery.register import (
     RevisionKind,
     Suitability,
 )
-from rasm.artifacts.exchange.conformance import Conformance, SignerSource
+from rasm.artifacts.exchange.conformance import Conformance, ConformanceVerdict, SignerSource
 from rasm.artifacts.exchange.conformance import SignSpec as PadesSpec
 from rasm.artifacts.exchange.credential import (
     ActionDefinition,
+    CredentialEvidence,
     DigitalSource,
     Ingredient,
     IngredientDefinition,
@@ -73,7 +70,6 @@ from rasm.artifacts.package.archive import Archive
 from rasm.artifacts.package.bundle import CodecProfile, ZipStreamKnobs
 from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.journal import Actor, Journal, Party
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -167,9 +163,6 @@ SEAL_PROFILE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
 SEAL_ARCHIVE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.TRANSMITTAL, point="seal.archive", arm="config", defect="archive-refused", retriability=TERMINAL, slots=("cause",)
 )
-ISSUE_VERDICT: Final[FaultRow[ArtifactsLeg]] = FaultRow(
-    leg=ArtifactsLeg.TRANSMITTAL, point="issue", arm="config", defect="expected-verdict-receipt", retriability=TERMINAL, slots=("kind",)
-)
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([
     GATE_HEADER,
     GATE_SHEETS,
@@ -180,7 +173,6 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([
     ASSEMBLE_ROUTE,
     SEAL_PROFILE,
     SEAL_ARCHIVE,
-    ISSUE_VERDICT,
 ]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -609,8 +601,11 @@ class Transmittal:
                 return err
             case Result(tag="ok", ok=op):
                 impose = Imposition(op=op, lane=deliverable.lane)
-                pressed = await impose.emit().work()
-                return pressed.map(lambda receipt: (receipt.slot, _assemble_evidence(deliverable, audit, spec, receipt, impose.planned())))
+                work = impose.emit()
+                pressed = await work.work()
+                return pressed.map(
+                    lambda composed: (work.key, _assemble_evidence(deliverable, audit, spec, work.key, composed, impose.planned()))
+                )
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -633,8 +628,9 @@ class Transmittal:
                     case Result(tag="error") as err:
                         return err
                     case Result(tag="ok", ok=container):
-                        sealed = await container.emit().work()
-                        return sealed.map(lambda receipt: (receipt.slot, _seal_evidence(deliverable, audit, receipt.slot, len(payloads))))
+                        work = container.emit()
+                        sealed = await work.work()
+                        return sealed.map(lambda _product: (work.key, _seal_evidence(deliverable, audit, work.key, len(payloads))))
                     case _ as unreachable:
                         assert_never(unreachable)
             case _ as unreachable:
@@ -649,9 +645,11 @@ class Transmittal:
                 return err
             case Result(tag="ok", ok=plan_set):
                 async with create_task_group() as signs:
-                    pades: TaskHandle[RuntimeRail[ArtifactReceipt]] = signs.start_soon(_signed_pades, plan_set, spec.pades)
-                    cose: Option[TaskHandle[RuntimeRail[ArtifactReceipt]]] = spec.credential.map(
-                        lambda cover: signs.start_soon(_signed_cose, cover, deliverable.sheets)
+                    pades: TaskHandle[RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]] = signs.start_soon(
+                        _signed_pades, plan_set, spec.pades, deliverable.lane
+                    )
+                    cose: Option[TaskHandle[RuntimeRail[tuple[ContentKey, bytes, CredentialEvidence]]]] = spec.credential.map(
+                        lambda cover: signs.start_soon(_signed_cose, cover, deliverable.sheets, deliverable.lane)
                     )
                 return _folded_signs(deliverable, audit, pades.return_value, cose.map(lambda handle: handle.return_value))
             case _ as unreachable:
@@ -660,12 +658,13 @@ class Transmittal:
     async def _manifested(
         self, deliverable: Deliverable, spec: ManifestSpec, audit: RegisterEvidence, /
     ) -> RuntimeRail[tuple[ContentKey, TransmittalEvidence]]:
-        indexed = await deliverable.issued_register.emit().work()
+        work = deliverable.issued_register.emit()
+        indexed = await work.work()
         match indexed:
             case Result(tag="error") as err:
                 return err
-            case Result(tag="ok", ok=receipt):
-                register_key = receipt.slot
+            case Result(tag="ok"):
+                register_key = work.key
                 record = await _record(deliverable, audit, register_key.hex, spec.container.map(lambda key: key.hex).default_value(""))
                 return record.map(
                     lambda rec: (
@@ -676,7 +675,7 @@ class Transmittal:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[tuple[ContentKey, TransmittalEvidence]]:
         return ArtifactWork(
             key=self._key, work=self._emit, parents=self._parents, admission=self._admission, cost=float(len(self._deliverable.sheets) or 1)
         )
@@ -718,28 +717,15 @@ class Transmittal:
     def _parents(self) -> tuple[ContentKey, ...]:
         return self._deliverable.member_keys
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        record = self._deliverable.record
-        settled = (await self.close()).map(
-            lambda pair: (
-                pair[1],
-                ArtifactReceipt.Transmittal(
-                    self._key,
-                    pair[1].transmittal_id,
-                    pair[1].sheets,
-                    pair[1].dominant_suitability,
-                    pair[1].container or pair[1].plan_set,
-                    pair[1].validation_state,
-                ),
-            )
-        )
+    async def _emit(self) -> RuntimeRail[tuple[ContentKey, TransmittalEvidence]]:
+        settled = await self.close()
         match settled:
-            case Result(tag="ok", ok=(evidence, receipt)):
-                landed = await Journal.record(
-                    receipt.evidence(actor=Party(kind=Actor.USER, key=record.issuing_party), subjects=(record.recipient, *record.copy_recipients))
+            case Result(tag="ok", ok=(key, evidence)):
+                Production.fired(
+                    ArtifactHook.TRANSMITTAL_ISSUED,
+                    _announced(self._deliverable.record, evidence, key, self._deliverable.issued_register),
                 )
-                Production.fired(ArtifactHook.TRANSMITTAL_ISSUED, _announced(record, evidence, receipt, self._deliverable.issued_register))
-                return landed.map(lambda _landed: receipt)
+                return Ok((key, evidence))
             case refused:
                 return Error(refused.error)
 
@@ -748,10 +734,10 @@ class Transmittal:
 
 
 def _announced(
-    record: TransmittalRecord, evidence: TransmittalEvidence, receipt: ArtifactReceipt, register: Register, /
+    record: TransmittalRecord, evidence: TransmittalEvidence, key: ContentKey, register: Register, /
 ) -> TransmittalIssued:
     return TransmittalIssued(
-        key=receipt.slot.hex,
+        key=key.hex,
         register=register.key.hex,
         container=evidence.container or evidence.plan_set,
         transmittal_id=evidence.transmittal_id,
@@ -927,50 +913,62 @@ def _lineage(cover: CoverCredential, sheets: tuple[SheetRef, ...], /) -> Manifes
     )
 
 
-async def _signed_pades(plan_set: bytes, pades: PadesSpec, /) -> RuntimeRail[ArtifactReceipt]:
-    return await Conformance.Sign(plan_set, pades).emit().work()
+async def _signed_pades(
+    plan_set: bytes, pades: PadesSpec, lane: LanePolicy, /
+) -> RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]:
+    return await Conformance.Sign(plan_set, pades).emit(lane).work()
 
 
-async def _signed_cose(cover: CoverCredential, sheets: tuple[SheetRef, ...], /) -> RuntimeRail[ArtifactReceipt]:
-    return await Provenance.Sign(cover.asset, CoseSpec(manifest=_lineage(cover, sheets), fmt=cover.fmt, signer=cover.signer)).emit().work()
+async def _signed_cose(
+    cover: CoverCredential, sheets: tuple[SheetRef, ...], lane: LanePolicy, /
+) -> RuntimeRail[tuple[ContentKey, bytes, CredentialEvidence]]:
+    return await Provenance.Sign(
+        cover.asset, CoseSpec(manifest=_lineage(cover, sheets), fmt=cover.fmt, signer=cover.signer)
+    ).emit(lane).work()
 
 
 def _folded_signs(
-    deliverable: Deliverable, audit: RegisterEvidence, pades: RuntimeRail[ArtifactReceipt], cose: Option[RuntimeRail[ArtifactReceipt]], /
+    deliverable: Deliverable,
+    audit: RegisterEvidence,
+    pades: RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]],
+    cose: Option[RuntimeRail[tuple[ContentKey, bytes, CredentialEvidence]]],
+    /,
 ) -> RuntimeRail[tuple[ContentKey, TransmittalEvidence]]:
     match pades:
         case Result(tag="error") as err:
             return err
-        case Result(tag="ok", ok=ArtifactReceipt(tag="verdict", verdict=(key, verdict))):
+        case Result(tag="ok", ok=(key, _payload, verdict)):
             credential_state, credential_present = _credential(cose)
             return Ok((key, _issue_evidence(deliverable, audit, key, verdict, credential_state, credential_present)))
-        case Result(tag="ok", ok=receipt):
-            return Error(ISSUE_VERDICT.raised(receipt.tag))
         case _ as unreachable:
             assert_never(unreachable)
 
 
-def _credential(cose: Option[RuntimeRail[ArtifactReceipt]], /) -> tuple[str, bool]:
+def _credential(cose: Option[RuntimeRail[tuple[ContentKey, bytes, CredentialEvidence]]], /) -> tuple[str, bool]:
     match cose:
         case Option(tag="none"):
             return "unsigned", False
         case Option(tag="some", some=Result(tag="error")):
             return "failed", False
-        case Option(tag="some", some=Result(tag="ok", ok=ArtifactReceipt(tag="credential", credential=(_, _, _, _, state)))):
-            return state, True
-        case Option(tag="some", some=Result(tag="ok")):
-            return "failed", False
+        case Option(tag="some", some=Result(tag="ok", ok=(_key, _payload, evidence))):
+            return evidence.validation_state, True
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def _assemble_evidence(
-    deliverable: Deliverable, audit: RegisterEvidence, spec: AssembleSpec, receipt: ArtifactReceipt, plan: Option[ImposedPlan], /
+    deliverable: Deliverable,
+    audit: RegisterEvidence,
+    spec: AssembleSpec,
+    key: ContentKey,
+    composed: Composed,
+    plan: Option[ImposedPlan],
+    /,
 ) -> TransmittalEvidence:
-    measured = receipt.egress[2] if receipt.tag == "egress" else receipt.pdf[2]
+    measured = composed.pages
     return structs.replace(
         _base_evidence(deliverable, audit, "assemble"),
-        plan_set=receipt.slot.hex,
+        plan_set=key.hex,
         scheme=spec.scheme.value,
         press_sheets=plan.map(lambda p: p.sheets if p.sheets is not None else measured).default_value(measured),
         signatures=plan.map(lambda p: p.signatures if p.signatures is not None else measured).default_value(measured),

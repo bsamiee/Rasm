@@ -65,7 +65,7 @@ Every policy adder carries `schedule_interval`, `initial_start`, and `timezone`;
 
 ## [05]-[JOBS_AND_STATS]
 
-[JOBS_AND_STATS_ENTRY_SCOPE]: policy-job registry, its run-history receipts, and the in-place job controls
+[JOBS_AND_STATS_ENTRY_SCOPE]: policy-job registry, its run history, and the in-place job controls
 
 | [INDEX] | [SURFACE]                                                             | [SHAPE]   | [CAPABILITY]                         |
 | :-----: | :-------------------------------------------------------------------- | :-------- | :----------------------------------- |
@@ -82,7 +82,7 @@ Every policy adder carries `schedule_interval`, `initial_start`, and `timezone`;
 |  [11]   | `add_job(proc, schedule_interval, config)`                            | function  | register a user-defined-action job   |
 
 - `jobs` keys every control by `job_id`, the value each policy adder returns.
-- `job_stats` carries `last_successful_finish` and `last_run_status` as the receipt's refresh-lag and failure evidence, and `run_job` re-fires a stalled policy.
+- `job_stats` carries `last_successful_finish` and `last_run_status`, and `run_job` re-fires a stalled policy.
 
 ## [06]-[IMPLEMENTATION_LAW]
 
@@ -105,5 +105,5 @@ Every policy adder carries `schedule_interval`, `initial_start`, and `timezone`;
 [RAIL_LAW]:
 - Package: `timescaledb`
 - Owns: chunked time partitioning, continuous-aggregate materialisation, retention, and columnstore conversion over the `SeriesKind` series tables, each policy on its own bgworker
-- Accept: derived `MigrationBuilder.Sql` rows carrying the shape-correct verb, named idempotent arguments, and `job_stats`-backed provisioning receipts
+- Accept: derived `MigrationBuilder.Sql` rows carrying the shape-correct verb, named idempotent arguments, and `job_stats`-backed provisioning state
 - Reject: a managed EF translator over these functions, a hand-spelled per-environment policy script, an AppHost-scheduled database-internal job, a positional-argument emission

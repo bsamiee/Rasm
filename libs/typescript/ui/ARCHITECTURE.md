@@ -34,7 +34,7 @@ ui/
         ├── geo.ts        # Camera authority and the Clock seat; layer values stay pure per backend adapter
         ├── mark.ts       # Selection atom seat — BCF pin and board projections, one bounded echo channel
         ├── panel.ts      # Livewire fold and AppUiSurfaceProgram admission, projection, and layout solve
-        ├── probe.ts      # Render evidence: benchmarks paired with wire-decoded receipts, never gating
+        ├── probe.ts      # Render evidence: benchmarks and wire-decoded timelines compared, never gating
         └── review.ts     # Join fold over the decoded diff and issue wires; board-row and echo projections
 ```
 
@@ -95,7 +95,7 @@ flowchart TB
 - S1 `content` hosts the editor behind one scoped acquisition; `canvas` mirrors its engine through the edge adapter on the one store.
 - S2 `viewer` — the spatial Nx project atop both strata; `scene` rides `Machine` on the atom bridge.
 - S2 `mark` and `scene` compose `geo`'s `Camera` inside the stratum — one camera vocabulary, per-backend adapters.
-- S2 `panel` folds receipts on the store; `probe`'s evidence stays render-side and gates nothing.
+- S2 `panel` folds livewire outcomes on the store; `probe`'s evidence stays render-side and gates nothing.
 - S2→S0 evidence crossings are publish-only — viewer taps and long-frame rows land at the floor owners, and no floor owner reads a viewer symbol.
 
 ## [03]-[SEAMS]
@@ -110,7 +110,7 @@ config:
 ---
 flowchart LR
     accTitle: UI package seam registry
-    accDescr: Which value, wire, port, and receipt contracts cross between the ui owners and their core, runtime, and C# counterparts.
+    accDescr: Which value, wire, port, and boundary contracts cross between the ui owners and their core, runtime, and C# counterparts.
     subgraph ui[UI]
         System[System floor]
         View[View plane]

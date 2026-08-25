@@ -2,7 +2,7 @@
 
 `Production.Plan` owns additive build admission, orientation search, plate placement, layer-program compilation, and `3MF` publication. One `BuildJob` carries every model and its genealogy, one `OrientedPart` fixes model and slices in the same frame, and one `BuildOutcome` retains machine, packing, orientation, audit, resource, warning, and read-back evidence.
 
-Wire posture: HOST-LOCAL. `BuildJob` and `AdditiveBuild` enter once; `Receipt<PlateLayoutEvidence>` and `RobotEvidence` arrive across the two declared peer ports; `ThreeMfArtifact` leaves through `ContentKey.Of(EgressKind.ThreeMf)`. `Additive/support` publishes the ONE `SupportTopology` this page reads for beam lattices, `Additive/scanpath` publishes `ScanPlan`, `Verify/audit` gates growth through `Audit.Preflight`, and the kernel owns slicing (`Slicing.Apply`), bounds (`Analyze.Run`), and every reproducible draw (`Deterministic`). Native `Lib3MF` handles live and die inside `ThreeMf.Write`; every published shape carries content keys, counts, and typed evidence alone.
+Wire posture: HOST-LOCAL. `BuildJob` and `AdditiveBuild` enter once; `PlateLayout` and `RobotEvidence` arrive across the two declared peer ports; `ThreeMfArtifact` leaves through `ContentKey.Of(EgressKind.ThreeMf)`. `Additive/support` publishes the ONE `SupportTopology` this page reads for beam lattices, `Additive/scanpath` publishes `ScanPlan`, `Verify/audit` gates growth through `Audit.Preflight`, and the kernel owns slicing (`Slicing.Apply`), bounds (`Analyze.Run`), and every reproducible draw (`Deterministic`). Native `Lib3MF` handles live and die inside `ThreeMf.Write`; every published shape carries content keys, counts, and typed evidence alone.
 
 ## [01]-[INDEX]
 
@@ -180,7 +180,7 @@ public sealed partial class AdditiveProcess {
 ## [03]-[MACHINE_ENVELOPE]
 
 - Owner: `MachineProfile` carries the operating envelope, layer range, thermal chamber, atmosphere, carriage, recoater, source fields, calibration, material, chamber pressure, and throughput facts.
-- Owner: `FeedstockBlend` carries lot genealogy, certificates, sieve history, exposure count, reuse count, and refresh composition into every part and receipt.
+- Owner: `FeedstockBlend` carries lot genealogy, certificates, sieve history, exposure count, reuse count, and refresh composition into every part and result.
 - Law: a machine states its chamber pressure as a target and a BAND, because a chamber holds a setpoint within a regulator tolerance and never reproduces a float exactly; an equality test against the setpoint refuses every real machine.
 - Auto: `Physical.Finite` is the ONE finiteness fold on this page; a second copy beside a validator is the deleted duplicate.
 - Packages: `UnitsNet` seats every operating-envelope dimension; `NodaTime` seats calibration age; Thinktecture closes construction.
@@ -458,9 +458,8 @@ public sealed record PlatePolicy(
 
 public sealed record PlateDemand(Seq<(string Identity, Loop Footprint)> Parts, PlatePolicy Policy);
 
-public sealed record PlateLayoutEvidence(
-    Seq<PartTransform> Placements, string Algorithm, string Heuristic,
-    Ratio Utilization, Seq<string> Unplaced);
+public sealed record PlateLayout(
+    Seq<PartTransform> Placements, Ratio Utilization, Seq<string> Unplaced);
 
 public sealed record RobotBuildDemand(string Part, MeshSpace Model, SliceStack Stack, AdditiveProcess Process);
 
@@ -470,7 +469,7 @@ public sealed record RobotEvidence(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record BuildPorts(
-    Func<PlateDemand, Fin<Receipt<PlateLayoutEvidence>>> Pack,
+    Func<PlateDemand, Fin<PlateLayout>> Pack,
     Func<RobotBuildDemand, Fin<RobotEvidence>> Robot);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -547,7 +546,7 @@ public sealed record AdditiveBuild(
 - Law: measurement, normalization, and weighting are three stages with three owners. `Score` measures each axis in the unit the axis declares and shares nothing; `OrientationEvidence.Spans`/`.Normalized` normalize PER AXIS against the widest magnitude any candidate of the part reached, because a span folded across axes ranks a cubic-millimetre volume against a millimetre height and crushes the small-unit axes out of the weight table, and a span taken inside one candidate gives every candidate its own basis; `Cost` folds `OrientationAxis.Items` against `OrientationWeights`, so the objective algebra is recoverable from the vocabulary alone and a new axis is one row that every weight table must then cover.
 - Law: `Orient` runs before slice, footprint, audit, scoring, and compilation; `OrientedPart` is the only compiler input, and every consumer reads its `Measured` columns in ONE hop — a forwarding accessor per column is a second name for the measurement's own surface and strands the next column it forgets.
 - Auto: `OrientationEvidence` carries ONE row per axis rather than fifteen named unit-typed members beside a parallel normalized map — a measure and its normalization are one fact, and the axis row already declares the unit. Admission folds the rows; no per-member clause exists.
-- Receipt: rejected candidates remain `OrientationVerdict.Rejected` rows with typed errors; selection fails only when no admitted row survives, and the refusal appends every rejection error monoidally.
+- Result: rejected candidates remain `OrientationVerdict.Rejected` rows with typed errors; selection fails only when no admitted row survives, and the refusal appends every rejection error monoidally.
 - Packages: `Rasm.Domain` (`Deterministic.OrderKey` — the stateless coordinate key deduping candidate directions), `Rasm.Meshing` (`Slicing.Apply`, `MeshEdit`, `Kernels.Apply`), `Rasm.Analysis` (`Analyze.Run`, `AnalysisQuery.Bounds`).
 - Boundary: support generation belongs to `Additive/support`, scan planning to `Additive/scanpath`, and layer-stack pre-flight to `Verify/audit`; this cluster composes all three and regenerates none.
 
@@ -603,7 +602,7 @@ public sealed record OrientationMeasurement(
     BuildOrientation Orientation,
     MeshSpace Model,
     SliceStack Stack,
-    Receipt<AuditEvidence> Audit,
+    AuditEvidence Audit,
     Option<SupportPlan> Support,
     Option<ScanPlan> Scan,
     Loop Footprint,
@@ -686,16 +685,16 @@ public abstract partial record OrientationVerdict {
 public static class Score {
     public static OrientationEvidence Of(OrientationMeasurement measured, MachineProfile machine) {
         Seq<(OrientationAxis Axis, Option<double> Physical)> physical = Seq(
-            (OrientationAxis.Support, measured.Support.Map(static plan => plan.Receipt.Evidence.Material.CubicMillimeters)),
+            (OrientationAxis.Support, measured.Support.Map(static plan => plan.Evidence.Material.CubicMillimeters)),
             (OrientationAxis.Height, Some(measured.Bounds.Diagonal.Z)),
             (OrientationAxis.Footprint, Some(Math.Abs(measured.Footprint.Area()))),
             (OrientationAxis.Anisotropy, Aspect(measured.Bounds)),
-            (OrientationAxis.Thermal, measured.Scan.Map(static plan => plan.Receipt.Evidence.Energy.Joules)),
-            (OrientationAxis.Stress, measured.Scan.Bind(static plan => plan.Receipt.Evidence.Thermal.StandardDeviation)),
+            (OrientationAxis.Thermal, measured.Scan.Map(static plan => plan.Evidence.Energy.Joules)),
+            (OrientationAxis.Stress, measured.Scan.Bind(static plan => plan.Evidence.Thermal.StandardDeviation)),
             (OrientationAxis.Recoater, machine.Recoater.Map(static envelope => envelope.Clearance.Millimeters)),
-            (OrientationAxis.Trap, measured.Support.Map(static plan => plan.Receipt.Evidence.TrappedArea.SquareMillimeters)),
-            (OrientationAxis.Escape, measured.Support.Map(static plan => plan.Receipt.Evidence.Removability.DecimalFractions)),
-            (OrientationAxis.Time, measured.Scan.Map(static plan => plan.Receipt.Evidence.Path.Millimeters)));
+            (OrientationAxis.Trap, measured.Support.Map(static plan => plan.Evidence.TrappedArea.SquareMillimeters)),
+            (OrientationAxis.Escape, measured.Support.Map(static plan => plan.Evidence.Removability.DecimalFractions)),
+            (OrientationAxis.Time, measured.Scan.Map(static plan => plan.Evidence.Path.Millimeters)));
         return new OrientationEvidence(
             physical.Map(static row => new AxisMeasure(row.Axis, row.Physical, Option<Ratio>.None)),
             new EnvelopeDemand(
@@ -795,7 +794,7 @@ public static class LayerProgram {
             .Bind(tracks => CanonicalWriter.Retaining(AdditivePolicyRows.CanonicalGridMm)
                 .Discriminant(kind)
                 .Ordinal(part.Measured.Stack.LayerCount)
-                .Maybe(part.Measured.Scan, static (row, plan) => plan.Receipt.Key.CanonicalBytes(row))
+                .Maybe(part.Measured.Scan, static (row, plan) => plan.Key.CanonicalBytes(row))
                 .Rows(tracks, static (row, track) => track.CanonicalBytes(row))
                 .ToBytes(Op.Of(name: nameof(Planar)))
                 .Map(bytes => (BuildArtifact)new BuildArtifact.LayerProgram(
@@ -863,7 +862,7 @@ public static class LayerProgram {
 ## [07]-[RESOURCE_GRAPH]
 
 - Owner: `ThreeMfDocument` is the semantic resource graph; material, multi-property, component, beam-lattice, slice-reference, level-set, volume-data, and attachment families are cases of `ThreeMfResource`.
-- Law: NO resource carries a native handle or a model callback. An implicit field crosses as a SAMPLED image stack — the format's own field carrier — so the whole resource replays from the document, the read-back census counts what the document declared, and `BuildOutcome` publishes evidence with no `CModel` closure reaching a caller. A resource whose construction was a caller-supplied `Func<CModel, …>` put a native handle on a published receipt and made the census unable to prove what it had written.
+- Law: NO resource carries a native handle or a model callback. An implicit field crosses as a SAMPLED image stack — the format's own field carrier — so the whole resource replays from the document, the read-back census counts what the document declared, and `BuildOutcome` publishes evidence with no `CModel` closure reaching a caller. A resource whose construction was a caller-supplied `Func<CModel, …>` put a native handle on a published result and made the census unable to prove what it had written.
 - Law: `AttachmentFamily` is the ONE package-path owner. Each row carries its directory, its extension, and the `RelationSlot` it seats under, so no operation body interpolates a URI and a new attachment family is one row. The slot names a KEY alone: `ThreeMfPolicy` admits one total map from slot to relation URI, so a new relation is one vocabulary row rather than a row, a policy column, and a projection delegate over three sibling strings.
 - Law: object and triangle property attribution originates from one material table; component transforms and build transforms share the selected oriented frame.
 - Law: a slice reference carries its layer program as data — bottom plane, resolution discriminant, and one contour set per top plane — so the writer builds it over one per-slice vertex table.
@@ -1345,13 +1344,13 @@ public static class ThreeMf {
 
 ## [09]-[DELIVERY]
 
-- Owner: `Production.Plan` is the one entry; `BuildOutcome` pairs the `AdditiveResult` process projection, the `ThreeMfArtifact` package, and the `Receipt<BuildEvidence>` the plan settled on, and nothing leaves the plan through a second shape.
+- Owner: `Production.Plan` is the one entry; `BuildOutcome` pairs the `AdditiveResult` process projection, the `ThreeMfArtifact` package, and the measured `BuildEvidence`, and nothing leaves the plan through a second shape.
 - Owner: `Canonical` composes `FabricationCanon` over the Element codec; the writer is mutable-fluent, so a call site chains or discards the return interchangeably and no fold copies a writer.
 - Law: `BuildEvidence.Orientations` retains every `OrientationVerdict` — rejected rows with their typed errors included — so a build that admitted one candidate still reports why the others failed.
-- Law: the build's identity IS the package's. The 3MF artifact is the only thing this plan publishes, so its key addresses the receipt and no second mint exists; the preflight, support, and scan keys every selected part consumed ride `Consumed`, so a build states its whole ancestry rather than nesting it inside its evidence.
+- Law: the build's identity is the package's. The 3MF artifact is the only thing this plan publishes, so its key addresses the result and no second mint exists.
 - Law: the support beam set reads the ONE published `SupportTopology`. An endpoint the published index does not carry means the topology is internally inconsistent, so it refuses on the rail rather than throwing out of an indexer or silently dropping a beam.
-- Law: feedstock rows pair required against available mass per part identity, and the plate receipt stays `Option`-carried because a single job has no layout to report.
-- Receipt: `Receipt<BuildEvidence>` carries plane, package key, consumed ancestry, and the preflight instant; `BuildEvidence` carries the station, process, orientation verdicts, per-part preflight receipts, feedstock demand, the plate layout, the compiled programs, and the 3MF write evidence. `ThreeMfEvidence` separates native read-back counts from declared resource-family counts and retains warnings, extension support, material genealogy, and canonical bytes.
+- Law: feedstock rows pair required against available mass per part identity, and the plate result stays `Option`-carried because a single job has no layout to report.
+- Result: `BuildOutcome` carries the process projection, published package, station, orientation verdicts, per-part preflight results, feedstock demand, plate layout, compiled programs, and 3MF write evidence. `ThreeMfEvidence` separates native read-back counts from declared resource-family counts and retains warnings, extension support, material genealogy, and canonical bytes.
 - Packages: `QuikGraph` (`SEquatableEdge` endpoints off the published topology), `Rasm.Element` `CanonicalWriter` through `FabricationCanon`, `NodaTime` (`Instant` off the preflight policy).
 - Boundary: rectangular placement and articulated deposition remain the two peer ports; every other step is a member of this page.
 
@@ -1361,14 +1360,14 @@ public sealed record BuildEvidence(
     MachineInstanceKey Machine,
     AdditiveProcess Process,
     Seq<OrientationVerdict> Orientations,
-    Seq<Receipt<AuditEvidence>> Audits,
+    Seq<AuditEvidence> Audits,
     Seq<(Guid Part, Mass Required, Mass Available)> Feedstock,
-    Option<Receipt<PlateLayoutEvidence>> Plate,
+    Option<PlateLayout> Plate,
     Seq<BuildArtifact> Programs,
     ThreeMfEvidence ThreeMf);
 
 public sealed record BuildOutcome(
-    AdditiveResult Process, ThreeMfArtifact Package, Receipt<BuildEvidence> Receipt);
+    AdditiveResult Process, ThreeMfArtifact Package, BuildEvidence Evidence);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Canonical {
@@ -1443,7 +1442,7 @@ public static class Feedstock {
     public static Mass Required(OrientationMeasurement measured, FeedstockBlend blend) {
         double part = toSeq(Enumerable.Range(0, measured.Stack.LayerCount))
             .Fold(0.0, (total, layer) => total + (measured.Stack.AreaAt(layer) * Height(measured.Stack, layer)));
-        double support = measured.Support.Map(static plan => plan.Receipt.Evidence.Material.CubicMillimeters).IfNone(0.0);
+        double support = measured.Support.Map(static plan => plan.Evidence.Material.CubicMillimeters).IfNone(0.0);
         double density = blend.Constituents
             .Map(static row => row.Lot.Material.DensityKgM3 * row.Fraction.DecimalFractions)
             .Sum();
@@ -1471,31 +1470,16 @@ public static class Production {
             new AdditiveResult(
                 Seq<Move>(), selected.Max(static part => part.Measured.Stack.LayerCount), Seq(package.Key)),
             package,
-            new Receipt<BuildEvidence> {
-                Evidence = new BuildEvidence(
-                    station,
-                    policy.Machine.Process,
-                    candidates.Bind(static rows => rows),
-                    selected.Map(static part => part.Measured.Audit),
-                    selected.Map(static part => (
-                        part.Measured.Part.Identity, part.RequiredFeedstock, part.Measured.Part.Feedstock.Available)),
-                    plate,
-                    programs,
-                    package.Evidence),
-                Concern = FabConcern.Additive,
-                Key = package.Key,
-                Consumed = Consumed(selected, plate, programs),
-                Produced = Seq(package.Key),
-                Stamped = policy.Audit.EvaluatedAt,
-            });
-
-    private static Seq<ContentKey> Consumed(
-        Seq<OrientedPart> selected, Option<Receipt<PlateLayoutEvidence>> plate, Seq<BuildArtifact> programs) =>
-        selected.Bind(static part => Seq(part.Measured.Audit.Key)
-            + part.Measured.Support.Map(static plan => plan.Receipt.Key).ToSeq()
-            + part.Measured.Scan.Map(static plan => plan.Receipt.Key).ToSeq())
-        + plate.ToSeq().Bind(static layout => layout.Produced)
-        + programs.Map(static program => program.Key);
+            new BuildEvidence(
+                station,
+                policy.Machine.Process,
+                candidates.Bind(static rows => rows),
+                selected.Map(static part => part.Measured.Audit),
+                selected.Map(static part => (
+                    part.Measured.Part.Identity, part.RequiredFeedstock, part.Measured.Part.Feedstock.Available)),
+                plate,
+                programs,
+                package.Evidence));
 
     private static Fin<Unit> Admitted(AdditiveBuild policy, BuildJob job) =>
         (AdmissionSlots.Gate(!job.Parts.IsEmpty
@@ -1556,14 +1540,14 @@ public static class Production {
         from _layers in AdmissionSlots.Gate(Layered(stack, policy.Machine.Layer),
             FabConcern.Additive, "production:layer-envelope", FabricationFault.Inadmissible).As().ToFin()
         from audit in Audit.Preflight(stack, policy.Audit)
-        from _clean in AdmissionSlots.Gate(audit.Evidence.Clean, FabConcern.Additive, "production:audit", FabricationFault.Inadmissible).As().ToFin()
+        from _clean in AdmissionSlots.Gate(audit.Clean, FabConcern.Additive, "production:audit", FabricationFault.Inadmissible).As().ToFin()
         from support in policy.Machine.Process.Supported
             ? Support.Grow(stack, policy.Supports).Map(Some)
             : Fin.Succ(Option<SupportPlan>.None)
         from scan in policy.Machine.Process.Program.Vectors
             ? Scan.Plan(stack, policy.Scanning, policy.Budget, support).Map(Some)
             : Fin.Succ(Option<ScanPlan>.None)
-        from _sources in AdmissionSlots.Gate(scan.ForAll(plan => plan.Receipt.Evidence.Sources.ForAll(load =>
+        from _sources in AdmissionSlots.Gate(scan.ForAll(plan => plan.Evidence.Sources.ForAll(load =>
             policy.Machine.Sources.Exists(source => source.Id == load.Source))),
                 FabConcern.Additive, "production:source-envelope", FabricationFault.Inadmissible).As().ToFin()
         from footprint in Outline.Of(stack, policy.Tolerance)
@@ -1601,10 +1585,10 @@ public static class Production {
             verdicts.Count,
             verdicts.Count(static verdict => verdict is OrientationVerdict.Rejected));
 
-    private static Fin<Option<Receipt<PlateLayoutEvidence>>> Packed(BuildJob job, Seq<OrientedPart> parts, BuildPorts ports) =>
+    private static Fin<Option<PlateLayout>> Packed(BuildJob job, Seq<OrientedPart> parts, BuildPorts ports) =>
         job.Switch(
             state: (Parts: parts, Ports: ports),
-            single: static _ => Fin.Succ(Option<Receipt<PlateLayoutEvidence>>.None),
+            single: static _ => Fin.Succ(Option<PlateLayout>.None),
             plate: static (state, plate) =>
                 from _policy in AdmissionSlots.Gate(Physical.Finite(plate.Policy.Clearance.Millimeters,
                         plate.Policy.MinimumUtilization.DecimalFractions)
@@ -1614,19 +1598,19 @@ public static class Production {
                     && plate.Policy.StockIndex >= 0, FabConcern.Additive, "production:plate-policy", FabricationFault.Inadmissible).As().ToFin()
                 from layout in state.Ports.Pack(new PlateDemand(
                     state.Parts.Map(static part => (part.Measured.Part.IdentityText, part.Measured.Footprint)), plate.Policy))
-                from _complete in AdmissionSlots.Gate(layout.Evidence.Unplaced.IsEmpty
-                    && layout.Evidence.Utilization >= plate.Policy.MinimumUtilization
-                    && layout.Evidence.Placements.Count == state.Parts.Count
-                    && layout.Evidence.Placements.Map(static placement => placement.PartId).Distinct().Count
+                from _complete in AdmissionSlots.Gate(layout.Unplaced.IsEmpty
+                    && layout.Utilization >= plate.Policy.MinimumUtilization
+                    && layout.Placements.Count == state.Parts.Count
+                    && layout.Placements.Map(static placement => placement.PartId).Distinct().Count
                         == state.Parts.Count
-                    && layout.Evidence.Placements.ForAll(placement =>
+                    && layout.Placements.ForAll(placement =>
                         placement.PartId >= 0 && placement.PartId < state.Parts.Count && !placement.Mirrored
                         && plate.Policy.Rotations.Admits(Angle.FromRadians(placement.RotationRadians))),
                             FabConcern.Additive, "production:plate-placement", FabricationFault.Inadmissible).As().ToFin()
                 select Some(layout));
 
     private static Fin<ThreeMfDocument> Document(
-        Seq<OrientedPart> parts, Seq<BuildArtifact> programs, Option<Receipt<PlateLayoutEvidence>> plate, AdditiveBuild policy) =>
+        Seq<OrientedPart> parts, Seq<BuildArtifact> programs, Option<PlateLayout> plate, AdditiveBuild policy) =>
         from lattices in parts
             .Map((part, index) => part.Measured.Support.Map(support => Lattice(index, support)).Sequence())
             .Sequence()
@@ -1641,7 +1625,7 @@ public static class Production {
                 + parts.Bind((part, index) => part.Measured.Part.Resources.Map(resource => Seated(resource, index)))
                 + lattices.Somes().Map(static lattice => (ThreeMfResource)lattice)
                 + plate.ToSeq().Map(static layout => (ThreeMfResource)new ThreeMfResource.Components(
-                    layout.Evidence.Placements.Map(static placement =>
+                    layout.Placements.Map(static placement =>
                         new ThreeMfComponent(placement.PartId, Placed(placement)))))
                 + attachments);
 
@@ -1747,7 +1731,7 @@ flowchart LR
     Pack --> Doc
     Doc --> Write["ThreeMf.Write — bounded Lib3MF lease"]
     Write --> Key["ContentKey.Of ThreeMf"]
-    Key --> Outcome["BuildOutcome + Receipt<BuildEvidence>"]
+    Key --> Outcome["BuildOutcome"]
 ```
 
 ## [10]-[RESEARCH]

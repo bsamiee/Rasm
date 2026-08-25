@@ -131,7 +131,7 @@ internal static class Program {
                 runId: Guid.NewGuid().ToString(format: "n"), verb: verb,
                 final: new SessionState.Faulted(
                     Fault: new BridgeFault.LaunchFailed(Detail: $"{failure.GetType().Name}: {failure.Message}"),
-                    At: verb.EntryPhase, Done: Seq<ScenarioReceipt>()),
+                    At: verb.EntryPhase, Done: Seq<ScenarioOutcome>()),
                 stream: Seq<BridgeEvent>(), spoolTail: (0L, 0L), reportDir: runtime.ArtifactRoot);
         }
         AppDomain.CurrentDomain.ProcessExit -= onExit;

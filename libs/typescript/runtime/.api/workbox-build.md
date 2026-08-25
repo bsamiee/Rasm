@@ -14,7 +14,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the cache-route vocabulary the runtime shares type-only, the precache-entry shapes, and the per-emit option algebras with their receipts
+[PUBLIC_TYPE_SCOPE]: the cache-route vocabulary the runtime shares type-only, the precache-entry shapes, and the per-emit option algebras with their results
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                             |
 | :-----: | :------------------------ | :------------ | :------------------------------------------------------- |
@@ -27,7 +27,7 @@
 |  [07]   | `InjectManifestOptions`   | intersection  | inject-into-authored-SW option algebra                   |
 |  [08]   | `GetManifestOptions`      | intersection  | manifest-only option algebra                             |
 |  [09]   | `GetManifestResult`       | interface     | manifest census — count, manifestEntries, size, warnings |
-|  [10]   | `BuildResult`             | intersection  | emit receipt — count, size, warnings, filePaths          |
+|  [10]   | `BuildResult`             | intersection  | emit result — count, size, warnings, filePaths           |
 |  [11]   | `BuildType`               | union         | `'dev'\|'prod'` module-URL build selector                |
 
 - `StrategyName`: `"CacheFirst"\|"CacheOnly"\|"NetworkFirst"\|"NetworkOnly"\|"StaleWhileRevalidate"`; `networkTimeoutSeconds` binds only `NetworkFirst`/`NetworkOnly`.

@@ -6,7 +6,6 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 
 ## [01]-[INDEX]
 
-- [02]-[TIMELINE]: the `Timeline` owner over the closed `TimelineOp` family — structural edits plus one generated `Effect` case over ordered `FilterNode` values, all content-keyed DAG nodes projecting over the container capsule and the filtergraph `wired` entrypoint and folding into the shared `ArtifactReceipt.Media` case.
 
 ## [02]-[TIMELINE]
 
@@ -14,9 +13,8 @@ Two ops derive a lossless-versus-re-encode strategy from the clip streams, never
 - Cases: `Trim` re-encodes zero-based or packet-copies when the in-point seats tick-exact on a keyframe packet and the out-point on a packet boundary; an audio-only clip qualifies only on real packet boundaries, so a boundary-seated lossless audio trim or a param-equal audio concat packet-copies while the re-encode fallback stays video-bound and rails `MediaFault.invalid` on an audio-only source. `Segment` composes the spine's segmented encode. `Xfade` blends video through the filtergraph `wired` dissolve arm and audio through frame-aligned overlap-add. `Speed` retimes by index-pick and rate-resamples audio, while `Reverse` flips frame order and audio-frame order — both picking on the `_lanes` plane, so no channel lane rotates against its siblings. `Effect` delegates the ordered `FilterNode` program to `_transcode`, so capability grows at the filtergraph vocabulary rather than through timeline case proliferation.
 - Entry: `Timeline.parents` is the pure projection of the op's clip `ContentKey`s and `emit()` passes it as `ArtifactWork.parents`, so the planner wires upstream producers without inspecting `TimelineOp` internals. `_canon` frames the pre-run preimage: each clip lowers to its raw bytes plus its key's published `hex` projection, and `_tail` carries the op's non-clip payload through the deterministic encoder — a `Clip` never encodes whole, because `ContentKey.value` is a u128 and the msgpack integer ceiling is u64. `_crossed` dispatches each worker through `self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE, idempotent=...))` — idempotency derived structurally from the crossing's segmented-profile argument, never a per-arm convention — maps the outer `BoundaryFault` through `_lapsed`, and flattens the worker's `Result` without an exception bridge.
 - Auto: `_packet_concat` clones every source stream from the head clip's template and advances one offset per stream by its last `pts + duration` in that stream's own `time_base`, so the joined timeline stays monotonic across video and audio. `_sealed` is the one re-encode close every structural arm shares: `_mux_av` for `Some(Voice)` through the container-keyed `_VOICE_CODEC` policy and `_encode_video` for `Nothing`, with `_voice` preserving malformed-audio faults on `Result` rather than masking them as absence. Packet evidence composes `_probe`, so duration, frame count, and bit rate describe the delivered bytes rather than clip count or requested profile values.
-- Receipt: `_keyed` threads the PRE-RUN node key as the receipt slot — the `core/receipt#RECEIPT` elision law — and demotes the assembled-bytes content address to the `address` band fact; each op adds its timeline facts to the shared `Media` band — `Trim` `{clips, trimmed_seconds, strategy}`, `Concat` `{clips, strategy}`, `Segment` `{clips, segments}`, `Xfade` `{clips, dissolve_frames, transition}`, `Speed` `{clips, factor}`, `Reverse` `{clips}`, and `Effect` `{filter_nodes}` — one `ArtifactReceipt.Media` case across the whole plane.
 - Packages: `av` supplies the demux/seek/re-stamp/mux capsule; the timeline's own workers open read/write containers only for the packet-copy arms, and every decode/encode rides the `media/container#CONTAINER` primitives. Members settled against the folder `.api`.
-- Growth: a structural NLE operation is one `TimelineOp` case plus one total `_mux` arm and one worker composing the spine; a single-input visual operation is one `FilterNode` member consumed unchanged by `Effect`; a concat strategy is one stream-identity axis; a transition is one `media/filtergraph#FILTER` `Transition` member plus one `_WEIGHT` row, this page untouched; a nested timeline is one `Clip` whose `key` is the nested product; an evidence fact is one band key with no receipt edit.
+- Growth: a structural NLE operation is one `TimelineOp` case plus one total `_mux` arm and one worker composing the spine; a single-input visual operation is one `FilterNode` member consumed unchanged by `Effect`; a concat strategy is one stream-identity axis; a transition is one `media/filtergraph#FILTER` `Transition` member plus one `_WEIGHT` row, this page untouched; a nested timeline is one `Clip` whose `key` is the nested product; an evidence fact is one band key on the existing product.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -30,11 +28,11 @@ from msgspec import Struct
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import ArtifactsLeg, BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.media.container import MEDIA_RESIDUE, HwAccel, MediaEvidence, MediaFault, MediaProfile, Produced, _lapsed
 from rasm.artifacts.media.filtergraph import FilterNode, Transition
 
@@ -125,35 +123,25 @@ class Timeline(Struct, frozen=True):
     def parents(self) -> tuple[ContentKey, ...]:
         return tuple(clip.key for clip in self.op.clips)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[Produced]:
         return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"media.timeline-{self.op.tag}", _canon(self.op, self.profile))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[Produced]:
         railed = await async_boundary(TIMELINE_FOLD, self._folded, catch=MEDIA_RESIDUE)
-        return railed.bind(
+        settled = railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(TIMELINE_FOLD.subject, fault)))
         )
+        match settled:
+            case Result(tag="ok", ok=product):
+                Metrics.record({BYTE_VOLUME: float(len(product[0]))}, domain=DOMAIN, kind="media", scope=self.lane.scope)
+        return settled
 
-    async def _folded(self) -> Result[ArtifactReceipt, MediaFault]:
-        return (await self._mux()).map(self._keyed)
-
-    def _keyed(self, produced: Produced, /) -> ArtifactReceipt:
-        blob, evidence = produced
-        address = ContentIdentity.key(evidence.container.value, blob)
-        return ArtifactReceipt.Media(
-            self._key,
-            evidence.container.value,
-            evidence.codec,
-            evidence.duration,
-            evidence.byte_count,
-            evidence.frame_count,
-            evidence.bit_rate,
-            evidence.facts | {"address": address.hex},
-        )
+    async def _folded(self) -> Result[Produced, MediaFault]:
+        return await self._mux()
 
     async def _crossed(self, worker: "Callable[..., Result[Produced, MediaFault]]", /, *args: object) -> Result[Produced, MediaFault]:
         replayable = not any(isinstance(a, MediaProfile) and a.container.segmented and a.segment is not None for a in args)

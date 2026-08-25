@@ -2,19 +2,19 @@
 
 Color-managed raster egress and the OCIO config plane — the downstream half of the color sub-domain, where `graphic/color/derive#DERIVE` is the upstream colorimetric source. `ColorManaged` is one behavior-dense frozen owner over the closed `ManageOp` family, and three transform engines answer three different questions on it: `PyOpenColorIO` resolves what a project's colorspaces MEAN and moves a scene-referred field between them, `pyvips` runs the device-to-device ICC egress at 8 and 16 bits under one `IccTransform` policy bundle, and `imagecodecs`'s lcms2 arms carry the float ICC edge pyvips's integer pipeline cannot reach. `ConfigSource` is the closed four-case config vocabulary every OCIO leg threads and the behavior-dense owner of the config graph — one memoized `Config` per source per worker, the processor acquired off it, the file-rules classification read from it — so no leg reads `GetCurrentConfig` and nothing below the composition root writes `SetCurrentConfig`. Spaces name `OcioRole` members wherever a role exists, so a config swap moves the meaning and no page re-spells a colorspace string.
 
-Every produced blob, field, plate, and lattice lands at an `OutPath` and the receipt measures what landed. `Managed` writes the ICC-converted container through the `graphic/raster/io#IO` `CODEC` row's own libvips writer column, so one codec table serves the raster funnel and this egress and neither restates a suffix or an option builder; `Plane` closes the float ICC hole through `imagecodecs.cms_transform` with `cms_profile_validate` gating an untrusted blob before it reaches liblcms2; `Space` and `View` are the config-resolved colorspace and display-referred moves; `Export` folds the colour-science grade chain and writes at a `BitDepth`; `Plate`, `Lut`, `Swatch`, and `Separate` author separations, bake LUTs through OCIO's `Baker` or colour-science's `LUTSequence`, graduate CxF3 device declarations, and measure a finished PDF's per-ink coverage. Every arm crosses `self.lane.offload` as one runtime `Kernel` whose trait alone derives isolation and worker-death retry — a path-writing arm declares `idempotent=False`, so no retry replays an externally visible write — and every worker returns `Result[T, ManageFault]` the arm flattens once onto `RuntimeRail[ArtifactReceipt]`; the pre-run key mints synchronously through the bare `ContentIdentity.key` over `_canon`'s length-framed per-arm preimage, and every receipt threads that one key.
+Every produced blob, field, plate, and lattice lands at an `OutPath`. `Managed` writes the ICC-converted container through the `graphic/raster/io#IO` `CODEC` row's own libvips writer column, so one codec table serves the raster funnel and this egress and neither restates a suffix or an option builder; `Plane` closes the float ICC hole through `imagecodecs.cms_transform` with `cms_profile_validate` gating an untrusted blob before it reaches liblcms2; `Space` and `View` are the config-resolved colorspace and display-referred moves; `Export` folds the colour-science grade chain and writes at a `BitDepth`; `Plate`, `Lut`, `Swatch`, and `Separate` author separations, bake LUTs through OCIO's `Baker` or colour-science's `LUTSequence`, graduate CxF3 device declarations, and measure a finished PDF's per-ink coverage. Every arm crosses `self.lane.offload` as one runtime `Kernel` whose trait alone derives isolation and worker-death retry — a path-writing arm declares `idempotent=False`, so no retry replays an externally visible write — and every worker returns its native value on `RuntimeRail`; the pre-run key mints synchronously through the bare `ContentIdentity.key` over `_canon`'s length-framed per-arm preimage.
 
 ## [01]-[INDEX]
 
-- [02]-[MANAGED]: `ColorManaged` owns color-managed egress and the OCIO config plane over the closed `ManageOp` family — `Managed`/`Plane` the two ICC legs split by depth engine, `Space`/`View` the config-resolved colorspace and display-view moves, `Export` the graded write, and the `Plate`/`Lut`/`Swatch`/`Separate` terminals minting `ArtifactReceipt.Color` into the settled `core/receipt#RECEIPT` cases under the closed `ManagedFact` vocabulary; `ConfigSource` carrying the memoized config graph, its processor acquisition, and the file-rules classification, every arm crossing `self.lane.offload` and threading one `RuntimeRail`.
+- [02]-[MANAGED]: `ColorManaged` owns color-managed egress and the OCIO config plane over the closed `ManageOp` family; `ConfigSource` carries the memoized config graph, processor acquisition, and file-rules classification, and every arm crosses `self.lane.offload` onto one `RuntimeRail`.
 
 ## [02]-[MANAGED]
 
 - Cases: `ManageOp` cases — `Managed(raster, path, src, dst, transform, codec, grade)` the `uint8`/`uint16` raster and its `GradeStep` chain crossing the `HOSTILE` process seam where the worker normalizes by dtype maximum, folds the chain, applies pyvips `icc_transform` under the `IccTransform` bundle, and writes the destination-profile-embedded container through the `raster/io#IO` `CODEC` libvips writer column — the one native-`libvips` process leg, its bare raster riding `Wire.SHARED_MEMORY`; `Plane(field, path, src, dst, transform, alpha)` the float ICC leg over `imagecodecs.cms_transform(outdtype=np.float32)` on a `RELEASING` thread, the depth pyvips refuses, its `AlphaBand` declaring which trailing band carries THROUGH the three-component transform instead of across it; `Space(field, path, config, src, dst, look)` and `View(field, path, config, src, display, view)` the two config-resolved moves — scene-referred colorspace-to-colorspace with an optional look, and display-referred through `DisplayViewTransform` — both `RELEASING`; `Export(field, path, depth, grade)` the grade fold and the bit-depth-correct `colour.write_image`; `Plate(document, path, channels, transform)` authoring one `/Separation` colorspace per spot and the joint `/DeviceN` over the pikepdf raw object model; `Lut(bake, path, size, shaper, intent)` baking the closed `LutBake` axis — a `GradeStep` chain through `colour.LUTSequence`, or a config-resolved space or display-view chain through `ocio.Baker`, which writes the CLF and CTF containers `colour.write_LUT` carries no method for; `Swatch(document)` graduating the CxF3 device half; `Separate(document, page, dpi, plates)` rendering the finished PDF's per-ink coverage plates through `pdf_oxide`, minting the MEASURED peak TAC and per-ink coverages and landing each plate as a 16-bit image when the egress is declared — matched by one total `match`. `_grade` folds the ordered chain (`cctf`/`broadcast`/`colourspace`/`correction`/`lut`/`managed`) — the shared module-level core every field arm reaches inside its offload worker, never duplicated per arm nor run on the loop.
 - Auto: `ConfigSource` owns the config graph whole. `_config` memoizes one `Config` per source per worker process under `functools.cache`, so OCIO's own per-`Config` processor cache makes every later acquisition a hash lookup and the catalog's acquire-outside-the-fold law holds without a hand-rolled table; `identity` reads `Processor.getCacheID()` and `hasChannelCrosstalk()` before any pixel moves, `applied` compiles `getOptimizedCPUProcessor(ingress_depth, F32, OPTIMIZATION_DEFAULT)` so an 8- or 16-bit ingress normalizes INSIDE the compiled chain rather than through a caller-side divide, skips an `isNoOp()` chain whole, and applies through one `PackedImageDesc` pair over the flattened `(texels, channels)` view — a sub-RGB field crosses as a broadcast triple with its trailing channels carried through, legal exactly because a crosstalk chain over it already refused; `classified` answers `getColorSpaceFromFilepath` with `getCanonicalName`, so an ingest reads the config's declared file rules instead of forking a stem convention, and its caller consumes the VALUE. `Managed` and `Plane` fold `_grade` inside their worker via `Block.of_seq(grade).fold`, so decode-linearize, transfer, primary-convert, device-correct, LUT-grade, config-move, and re-encode interleave in one chain; the `managed` `GradeStep` seats the config graph beside the colour-science steps and the `lut` step reads every container `ocio.FileTransform` carries — CLF, CTF, CDL, ICC, and the cube family — where `colour.read_LUT` reaches six formats. `_icc_apply` resolves each `ProfileRef` through `named` (a `BuiltinProfile` passing its own engine column, raw `bytes` gated by `imagecodecs.cms_profile_validate` before the temp-file write on one `ExitStack`), runs `icc_transform`, reads back the embedded profile and the egress `interpretation`, runs the optional Pillow `_softproof` when a `proof` profile is set (the plain-vs-`GAMUTCHECK` diff counting out-of-press-gamut pixels — the lcms2 signal pyvips lacks), reads the peak Total Area Coverage off a CMYK egress, and returns eight scalars rather than the encoded buffer, so the process seam carries evidence and never the megabyte product it already wrote. Every worker returns `Result[T, ManageFault]`: one boundary arm per worker maps its provider family — `ocio.Exception`/`ocio.ExceptionMissingFile` onto `<ocio-space>`/`<ocio-config>`, `imagecodecs.CmsError` onto `<icc-profile>` — and `_lifted` folds the typed fault onto the `MANAGED_REFUSED` row exactly once where the arm flattens the nested rail, so no OCIO or lcms2 raise reaches the interior and no arm reconstructs an exception.
-- Growth: a new managed operation is one `ManageOp` case, one total dispatch arm on `_produced`, one `_canon` preimage arm, and one receipt projection — the durable seat is SHARED, `_emit` awaiting `Journal.record` over `receipt.evidence()` once above the whole fan, so a new arm inherits the `OPERATIONAL` fact and its `STORAGE` charge rather than minting a second seat; a new grade step is one `GradeStep` case folded by `_grade` and one `_step` preimage arm; a new LUT bake modality is one `LutBake` case and one `_lut_author` arm; a new config resolution is one `ConfigSource` case and one `_config` arm; a new output container is one `ConvertFormat` member on its owning `raster/io#IO` row, with zero rows here; a new broadcast curve is one `BroadcastCurve` member and its `_BROADCAST_ROSTER` memberships, admission proving the kind-curve pairing the colour registries admit; a new role, LUT format, interpolation, OCIO depth, built-in profile, curve, intent, PCS, depth, alpha posture, or black-point posture is one member in its closed vocabulary, a profile member filling the engine columns its rosters carry and earning no seat where a name builds a profile yet no transform; a new evidence scalar is one `ManagedFact` row; a new refusal is one `ManageFault` member breaking every capture at type-check. New boundary invariants refine on the existing `ManagedRaster`, `ColorField`, `ColorOperand`, `CorrectionMatrix`, `ProfileBytes`, `PdfBytes`, `CxfBytes`, `OutPath`, `PageIndex`, `Dpi`, `LutSize`, `ShaperSize`, or `Coverage` admission axis.
+- Growth: a new managed operation is one `ManageOp` case, one total dispatch arm on `_produced`, and one `_canon` preimage arm; a new grade step is one `GradeStep` case folded by `_grade` and one `_step` preimage arm; a new LUT bake modality is one `LutBake` case and one `_lut_author` arm; a new config resolution is one `ConfigSource` case and one `_config` arm; a new output container is one `ConvertFormat` member on its owning `raster/io#IO` row, with zero rows here; a new broadcast curve is one `BroadcastCurve` member and its `_BROADCAST_ROSTER` memberships, admission proving the kind-curve pairing the colour registries admit; a new role, LUT format, interpolation, OCIO depth, built-in profile, curve, intent, PCS, depth, alpha posture, or black-point posture is one member in its closed vocabulary, a profile member filling the engine columns its rosters carry and earning no seat where a name builds a profile yet no transform; a new refusal is one `ManageFault` member breaking every capture at type-check. New boundary invariants refine on the existing `ManagedRaster`, `ColorField`, `ColorOperand`, `CorrectionMatrix`, `ProfileBytes`, `PdfBytes`, `CxfBytes`, `OutPath`, `PageIndex`, `Dpi`, `LutSize`, `ShaperSize`, or `Coverage` admission axis.
 - Boundary: colorimetry, appearance models, spectral computation, gamut mapping, palettes, and the CxF color half are `graphic/color/derive#DERIVE`'s, and `ColorModel` is that page's vocabulary composed here — this page mints no colour-model enum of its own. Display-container codec facts are `graphic/raster/io#IO`'s `CODEC` rows, composed by import rather than restated. Deep-pixel plane storage, mip ladders, and KTX2 containers are `graphic/texture`'s; a plane converts through `ConfigSource.applied` at its caller BEFORE it enters that estate, and no texture page imports this owner. Process-wide OCIO state — `SetCurrentConfig`, `SetLoggingLevel`, `SetEnvVariable`, `ClearAllCaches` — is the composition root's, so `GetCurrentConfig` gets no reader here and `GetVersion()` rides the startup census, never a per-call fact.
-- Packages: `opencolorio` (the config-driven transform graph — `Config.CreateFromBuiltinConfig`/`CreateFromEnv`/`CreateFromFile`/`CreateRaw`, `getProcessor` over a name pair, a `LookTransform`, a `DisplayViewTransform`, or a `GroupTransform` of `FileTransform`s, `getOptimizedCPUProcessor`, `PackedImageDesc`, `isNoOp`/`hasChannelCrosstalk`/`getCacheID`, `getColorSpaceFromFilepath`/`getCanonicalName`, and `Baker`), `pyvips` (`icc_transform` device egress and `write_to_buffer` under `ForeignKeep.ICC`), `imagecodecs` (the lcms2 `cms_profile`/`cms_profile_validate`/`cms_transform` float ICC edge), `colour-science` (the CCTF, broadcast-transfer, RGB-colourspace, matrix-correction, image-write, and `LUT1D`/`LUT3D`/`LUTSequence` surfaces), `pillow` (`ImageCms.buildProofTransform` soft proofing alone), `pikepdf` (the `/Separation` and `/DeviceN` raw object model), `pdf_oxide` (`render_separations`), `colour-cxf` (`read_cxf` device half), with `expression`/`numpy`/`beartype` and the runtime `Journal`/`LanePolicy`/`Kernel`/`KernelTrait`/`Wire`; the full member surface lives in the package `.api` catalogs.
+- Packages: `opencolorio` (the config-driven transform graph — `Config.CreateFromBuiltinConfig`/`CreateFromEnv`/`CreateFromFile`/`CreateRaw`, `getProcessor` over a name pair, a `LookTransform`, a `DisplayViewTransform`, or a `GroupTransform` of `FileTransform`s, `getOptimizedCPUProcessor`, `PackedImageDesc`, `isNoOp`/`hasChannelCrosstalk`/`getCacheID`, `getColorSpaceFromFilepath`/`getCanonicalName`, and `Baker`), `pyvips` (`icc_transform` device egress and `write_to_buffer` under `ForeignKeep.ICC`), `imagecodecs` (the lcms2 `cms_profile`/`cms_profile_validate`/`cms_transform` float ICC edge), `colour-science` (the CCTF, broadcast-transfer, RGB-colourspace, matrix-correction, image-write, and `LUT1D`/`LUT3D`/`LUTSequence` surfaces), `pillow` (`ImageCms.buildProofTransform` soft proofing alone), `pikepdf` (the `/Separation` and `/DeviceN` raw object model), `pdf_oxide` (`render_separations`), `colour-cxf` (`read_cxf` device half), with `expression`/`numpy`/`beartype` and the runtime `Metrics`/`LanePolicy`/`Kernel`/`KernelTrait`/`Wire`; the full member surface lives in the package `.api` catalogs.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -38,16 +38,15 @@ from expression import Error, Nothing, Ok, Option, Result, case, tag, tagged_uni
 from expression.collections import Block
 from numpy.typing import NDArray
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.color.derive import AdaptMethod, ColorModel
 from rasm.artifacts.graphic.raster.io import CODEC, CodecEmit, CodecPolicy, RasterEngine, writer
 from rasm.artifacts.graphic.raster.process import ConvertFormat
 from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait, Wire
 
 lazy import imagecodecs
@@ -202,41 +201,6 @@ class LutFormat(StrEnum):
     SPI1D = "spi1d"
     SPI3D = "spi3d"
     TRUELIGHT = "truelight"
-
-
-class ManagedFact(StrEnum):
-    INTENT = "intent"
-    BLACK_POINT = "black_point"
-    PCS = "pcs"
-    DEPTH = "depth"
-    CODEC = "codec"
-    BANDS = "bands"
-    CHANNELS = "channels"
-    ALPHA = "alpha"
-    TEXELS = "texels"
-    EMBEDDED = "embedded"
-    BUFFER_BYTES = "buffer_bytes"
-    GRADE = "grade"
-    SPACE = "space"
-    GAMUT = "gamut"
-    SPOTS = "spots"
-    INK = "ink"
-    PAGES = "pages"
-    SIZE = "size"
-    SHAPER = "shaper"
-    FORMAT = "format"
-    ENTRIES = "entries"
-    INKS = "inks"
-    PLATES = "plates"
-    DPI = "dpi"
-    CONFIG = "config"
-    CACHE_ID = "cache_id"
-    SRC_SPACE = "src_space"
-    DST_SPACE = "dst_space"
-    DISPLAY = "display"
-    VIEW = "view"
-    LOOK = "look"
-    CROSSTALK = "crosstalk"
 
 
 class AlphaBand(StrEnum):
@@ -569,14 +533,26 @@ class ColorManaged:
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"color-managed-{self.op.tag}", _canon(self.op))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[object]:
         match await self._produced():
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=product):
+                match self.op, product:
+                    case ManageOp(tag="managed" | "plane" | "space" | "view" | "plate"), (int(size), *_):
+                        pass
+                    case ManageOp(tag="export"), (_, int(size)):
+                        pass
+                    case ManageOp(tag="lut"), (_, int(size), _, _):
+                        pass
+                    case ManageOp(tag="separate", separate=(document, *_)) | ManageOp(tag="swatch", swatch=document), _:
+                        size = len(document)
+                    case _ as unreachable:
+                        assert_never(unreachable)
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind="color", scope=self.lane.scope)
+                return Ok(product)
             case refused:
                 return Error(refused.error)
 
-    async def _produced(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _produced(self) -> RuntimeRail[object]:
         match self.op:
             case ManageOp(tag="managed", managed=(raster, path, src_profile, dst_profile, transform, codec, grade)):
                 crossed = await self.lane.offload(
@@ -594,7 +570,7 @@ class ColorManaged:
                     grade,
                     transform.proof.to_optional(),
                 )
-                return self._railed(crossed, lambda produced: self._previewed(produced, transform, codec, grade))
+                return self._railed(crossed)
             case ManageOp(tag="plane", plane=(field, path, src_profile, dst_profile, transform, alpha)):
                 crossed = await self.lane.offload(
                     Kernel.of(_cms_apply, KernelTrait.RELEASING, idempotent=False),
@@ -606,154 +582,37 @@ class ColorManaged:
                     transform.black_point.enabled,
                     alpha,
                 )
-                return self._railed(crossed, lambda produced: self._profiled(produced, transform, alpha))
+                return self._railed(crossed)
             case ManageOp(tag="space", space=(field, path, config, src, dst, look)):
                 crossed = await self.lane.offload(Kernel.of(_ocio_apply, KernelTrait.RELEASING, idempotent=False), field, path, config, src, dst, look)
-                return self._railed(crossed, lambda produced: self._spaced(produced, config, src, dst, look))
+                return self._railed(crossed)
             case ManageOp(tag="view", view=(field, path, config, src, display, view)):
                 crossed = await self.lane.offload(
                     Kernel.of(_ocio_apply, KernelTrait.RELEASING, idempotent=False), field, path, config, src, (display, view), ""
                 )
-                return self._railed(crossed, lambda produced: self._spaced(produced, config, src, (display, view), ""))
+                return self._railed(crossed)
             case ManageOp(tag="export", export=(field, path, depth, grade)):
                 crossed = await self.lane.offload(Kernel.of(_export_image, KernelTrait.RELEASING, idempotent=False), field, path, depth.value, grade)
-                return self._railed(crossed, lambda produced: self._exported(produced, depth, grade))
+                return self._railed(crossed)
             case ManageOp(tag="plate", plate=(document, path, channels, transform)):
                 crossed = await self.lane.offload(Kernel.of(_plate_author, KernelTrait.RELEASING, idempotent=False), document, path, channels)
-                return crossed.map(lambda plated: self._plated(plated, channels, transform))
+                return crossed
             case ManageOp(tag="lut", lut=(bake, path, size, shaper, intent)):
                 crossed = await self.lane.offload(Kernel.of(_lut_author, KernelTrait.RELEASING, idempotent=False), bake, path, size, shaper)
-                return self._railed(crossed, lambda produced: self._lutted(bake, intent, size, shaper, produced))
+                return self._railed(crossed)
             case ManageOp(tag="separate", separate=(document, page, dpi, plates)):
                 crossed = await self.lane.offload(
                     Kernel.of(_separate, KernelTrait.RELEASING, idempotent=plates.is_none()), document, page, dpi, plates
                 )
-                return crossed.map(lambda measured: self._separated(measured, dpi, len(document)))
+                return crossed
             case ManageOp(tag="swatch", swatch=document):
                 crossed = await self.lane.offload(Kernel.of(separations, KernelTrait.RELEASING), document)
-                return crossed.map(lambda channels: self._swatched(channels, len(document)))
+                return crossed
             case _:
                 assert_never(self.op)
 
-    # --- [PROJECTIONS] ------------------------------------------------------------------
-    def _railed[T](self, crossed: RuntimeRail[Result[T, ManageFault]], project: Callable[[T], ArtifactReceipt], /) -> RuntimeRail[ArtifactReceipt]:
-        return crossed.bind(lambda produced: produced.map_error(_lifted).map(project))
-
-    def _previewed(
-        self, produced: tuple[int, int, int, int, bool, str, int, float], transform: IccTransform, codec: ConvertFormat, grade: tuple[GradeStep, ...]
-    ) -> ArtifactReceipt:
-        bytes_, width, height, bands, embedded, space, gamut, ink = produced
-        scores: frozendict[str, float | str] = frozendict({
-            ManagedFact.INTENT.value: transform.intent.value,
-            ManagedFact.BLACK_POINT.value: float(transform.black_point.enabled),
-            ManagedFact.PCS.value: transform.pcs.value,
-            ManagedFact.DEPTH.value: transform.depth.value,
-            ManagedFact.CODEC.value: codec.value,
-            ManagedFact.BANDS.value: float(bands),
-            ManagedFact.EMBEDDED.value: float(embedded),
-            ManagedFact.GRADE.value: float(len(grade)),
-            ManagedFact.SPACE.value: space,
-            ManagedFact.GAMUT.value: float(gamut),
-            ManagedFact.SPOTS.value: float(len(transform.separations)),
-            ManagedFact.INK.value: ink,
-        })
-        return ArtifactReceipt.Preview(self._key, width, height, bytes_, scores)
-
-    def _profiled(self, produced: tuple[int, int, int, int], transform: IccTransform, alpha: AlphaBand) -> ArtifactReceipt:
-        bytes_, width, height, channels = produced
-        scores: frozendict[str, float | str] = frozendict({
-            ManagedFact.INTENT.value: transform.intent.value,
-            ManagedFact.BLACK_POINT.value: float(transform.black_point.enabled),
-            ManagedFact.DEPTH.value: BitDepth.FLOAT32.value,
-            ManagedFact.CHANNELS.value: float(channels),
-            ManagedFact.ALPHA.value: alpha.value,
-            ManagedFact.TEXELS.value: float(width * height),
-        })
-        return ArtifactReceipt.Preview(self._key, width, height, bytes_, scores)
-
-    def _spaced(
-        self, produced: tuple[int, int, int, int, str, bool], config: ConfigSource, src: SpaceRef, target: ChainTarget, look: str
-    ) -> ArtifactReceipt:
-        bytes_, width, height, channels, cache_id, crosstalk = produced
-        display, view = target if isinstance(target, tuple) else ("", "")
-        scores: frozendict[str, float | str] = frozendict({
-            ManagedFact.CONFIG.value: config.label,
-            ManagedFact.CACHE_ID.value: cache_id,
-            ManagedFact.SRC_SPACE.value: str(src),
-            ManagedFact.DST_SPACE.value: "" if isinstance(target, tuple) else str(target),
-            ManagedFact.DISPLAY.value: display,
-            ManagedFact.VIEW.value: view,
-            ManagedFact.LOOK.value: look,
-            ManagedFact.CROSSTALK.value: float(crosstalk),
-            ManagedFact.CHANNELS.value: float(channels),
-            ManagedFact.TEXELS.value: float(width * height),
-        })
-        return ArtifactReceipt.Preview(self._key, width, height, bytes_, scores)
-
-    def _exported(self, produced: tuple[ColorField, int], depth: BitDepth, grade: tuple[GradeStep, ...]) -> ArtifactReceipt:
-        toned, bytes_ = produced
-        height, width = toned.shape[0], toned.shape[1]
-        scores: frozendict[str, float | str] = frozendict({
-            ManagedFact.DEPTH.value: depth.value,
-            ManagedFact.BUFFER_BYTES.value: float(toned.nbytes),
-            ManagedFact.GRADE.value: float(len(grade)),
-        })
-        return ArtifactReceipt.Preview(self._key, width, height, bytes_, scores)
-
-    def _plated(self, plated: tuple[int, int], channels: tuple[SpotChannel, ...], transform: IccTransform) -> ArtifactReceipt:
-        bytes_, pages = plated
-        facts: frozendict[str, float | str] = frozendict({
-            ManagedFact.PAGES.value: float(pages),
-            **{f"spot:{channel.name}": channel.coverage for channel in channels},
-        })
-        return ArtifactReceipt.Color(
-            self._key,
-            "device_n" if len(channels) > 1 else "separation",
-            transform.intent.value,
-            sum(channel.coverage for channel in channels),
-            len(channels),
-            bytes_,
-            facts,
-        )
-
-    def _lutted(self, bake: LutBake, intent: RenderingIntent, size: int, shaper: int, produced: tuple[int, int, str, str]) -> ArtifactReceipt:
-        entries, bytes_, space, fmt = produced
-        return ArtifactReceipt.Color(
-            self._key,
-            space,
-            intent.value,
-            0.0,
-            0,
-            bytes_,
-            frozendict({
-                ManagedFact.GRADE.value: float(len(bake.graded[1]) if bake.tag == "graded" else 0),
-                ManagedFact.SIZE.value: float(size),
-                ManagedFact.SHAPER.value: float(shaper),
-                ManagedFact.FORMAT.value: fmt,
-                ManagedFact.ENTRIES.value: float(entries),
-            }),
-        )
-
-    def _separated(self, measured: tuple[float, tuple[tuple[str, float], ...], Option[int]], dpi: int, bytes_: int) -> ArtifactReceipt:
-        tac_peak, coverages, plates = measured
-        facts: frozendict[str, float | str] = frozendict({
-            ManagedFact.INKS.value: float(len(coverages)),
-            ManagedFact.DPI.value: float(dpi),
-            **plates.map(lambda written: {ManagedFact.PLATES.value: float(written)}).default_value({}),
-            **{f"spot:{name}": coverage for name, coverage in coverages},
-        })
-        return ArtifactReceipt.Color(self._key, "separations", RenderingIntent.ABSOLUTE.value, tac_peak, len(coverages), bytes_, facts)
-
-    def _swatched(self, channels: tuple[SpotChannel, ...], bytes_: int, /) -> ArtifactReceipt:
-        return ArtifactReceipt.Color(
-            self._key,
-            "cmyk_plus_n",
-            RenderingIntent.ABSOLUTE.value,
-            sum(channel.coverage for channel in channels),
-            len(channels),
-            bytes_,
-            frozendict({f"spot:{channel.name}": channel.coverage for channel in channels}),
-        )
+    def _railed[T](self, crossed: RuntimeRail[Result[T, ManageFault]], /) -> RuntimeRail[T]:
+        return crossed.bind(lambda produced: produced.map_error(_lifted))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -1246,7 +1105,6 @@ __all__ = [
     "LutSize",
     "ManageFault",
     "ManageOp",
-    "ManagedFact",
     "ManagedRaster",
     "OcioDepth",
     "OcioRole",
@@ -1271,7 +1129,6 @@ __all__ = [
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

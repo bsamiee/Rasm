@@ -9,7 +9,7 @@ Rasm.AppUi materials are the effects plane's surface-treatment owner: one layer 
 - [02]-[LAYER_ALGEBRA]: The fault floor, the ground-and-coverage election, and the per-tier composite role this page contributes to the one paint catalog.
 - [03]-[SAMPLE_CONTRACT]: The bounds-local-or-driven invalidation law and the in-tree host that discharges it.
 - [04]-[FILTER_ROWS]: Lighting, refraction, tint, crossfade, luma, curve, and contrast rows as per-draw natives.
-- [05]-[MATERIAL_EXECUTION]: Tier execution, the opaque floor, the module wash, grain, and the treatment receipt.
+- [05]-[MATERIAL_EXECUTION]: Tier execution, the opaque floor, the module wash, and grain.
 
 ## [02]-[LAYER_ALGEBRA]
 
@@ -74,12 +74,11 @@ public static class TreatmentSurfaces {
 
 ## [03]-[SAMPLE_CONTRACT]
 
-- Owner: `SampleScope` `[Union]` the two-case admission axis, the driven case carrying the change source it owes; `TreatmentHost` the in-tree control discharging it; `TreatmentOperation` the custom draw operation; `TreatmentEvidence` the host-edge seal seat.
+- Owner: `SampleScope` `[Union]` the two-case admission axis, the driven case carrying the change source it owes; `TreatmentHost` the in-tree control discharging it; `TreatmentOperation` the custom draw operation.
 - Cases: `SampleScope` = BoundsLocal | Driven.
 - Law: a backdrop-sampling operation re-samples ONLY when the invalidated region intersects its own visual's bounds. The compositor never widens a dirty region to cover a visual that merely SAMPLES it, so a material whose sample region exceeds its own bounds — blur bleed past the edge, a whole-surface wash, a global tint — holds a stale sample across every change outside those bounds. The two admitted resolutions are total: hold the sample region inside the owner's own bounds, or CARRY the change source the region covers and issue `InvalidateVisual()` per change. There is no third resolution, and an over-reaching undriven material is `LayerFault.SampleUnbounded` at admission rather than a stale panel at run time.
 - Entry: `public Fin<SKRect> Admit(SKRect own, LayerGround ground)` — the admission every material extent passes, folding the ground's own bleed in before it tests; `public static SKRect Inflate(SKRect bounds, LayerGround ground)` — the same bleed the render-bound projection at `compose#CUSTOM_VISUAL_TICK` reads.
 - Auto: the driven case's subscription RE-SEATS at control attach and releases at detach through one `SerialDisposable`, so a detached-and-reattached host resumes rather than living on permanently dead; a bounds-local material seats nothing at all, because its own dirty rect already covers everything it reads.
-- Receipt: `TreatmentReceipt.Scope` carries the case, so the proof lane reads which resolution each mounted material took rather than inferring it from geometry.
 - Packages: Avalonia, Avalonia.Skia, System.Reactive, Generator.Equals, Rasm (kernel `FaultCell` through `Diagnostics/devloop` `HostSink`), LanguageExt.Core
 - Growth: a new material surface picks one `SampleScope` case and the driven case demands its change source at construction; zero new surface.
 - Boundary: the change source is the stream of the region the material SAMPLES, never the material's own property stream — an own-property change already dirties own bounds and re-runs the operation, which is exactly the case the contract does not cover. The carrier is `IObservable` because `InvalidateVisual` is a UI-thread push the Avalonia host already publishes that way and a channel here would need a pump nothing drains. `InvalidateVisual` is issued per change and never per frame: a per-frame invalidation defeats the compositor's dirty-rect economy for every surface in the tree, which is the cost this contract exists to bound. A blur ground bleeds by its own sigma, so a `Filtered` material's requested region is its bounds inflated by that sigma and the clamp is what forces the inflation onto the driven case rather than letting it silently sample stale ground. Both vehicles' host signatures return `void`, so each collapses its typed refusal through the ONE `Diagnostics/devloop#HOST_COLLAPSE` `HostSink` and parks it on the composition-minted kernel `FaultCell`; the prior `ignore(...)` meant a backend with no Skia lease rendered nothing and reported nothing.
@@ -110,20 +109,21 @@ public abstract partial record SampleScope {
 ```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public sealed record TreatmentEvidence(
-    ReceiptSinkPort Sink,
-    CorrelationId Correlation,
-    TenantContext Tenant,
-    HostSink Faults);
-
 public sealed class TreatmentHost : Control {
     readonly SerialDisposable seat = new();
     readonly SurfaceTreatment treatment;
     readonly PaintCatalog paints;
-    readonly TreatmentEvidence evidence;
+    readonly HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail;
+    readonly HostSink faults;
+    readonly Op key;
 
-    public TreatmentHost(SurfaceTreatment treatment, PaintCatalog paints, TreatmentEvidence evidence) =>
-        (this.treatment, this.paints, this.evidence) = (treatment, paints, evidence);
+    public TreatmentHost(
+        SurfaceTreatment treatment,
+        PaintCatalog paints,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        HostSink faults,
+        Op key) =>
+        (this.treatment, this.paints, this.rail, this.faults, this.key) = (treatment, paints, rail, faults, key);
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
         base.OnAttachedToVisualTree(e);
@@ -140,7 +140,7 @@ public sealed class TreatmentHost : Control {
 
     public override void Render(DrawingContext context) =>
         context.Custom(new TreatmentOperation(
-            treatment, paints, new Rect(Bounds.Size), SurfaceTreatment.Settled, evidence));
+            treatment, paints, new Rect(Bounds.Size), SurfaceTreatment.Settled, rail, faults, key));
 }
 
 [Equatable(Explicit = true)]
@@ -149,26 +149,36 @@ public sealed partial record TreatmentOperation(
     PaintCatalog Paints,
     [property: DefaultEquality] Rect Bounds,
     [property: DefaultEquality] UnitInterval Phase,
-    TreatmentEvidence Evidence) : ICustomDrawOperation {
+    HookRail<AppUiPoint, AppUiFact, TelemetrySource> Rail,
+    HostSink Faults,
+    Op Key) : ICustomDrawOperation {
 
     public bool Equals(ICustomDrawOperation? other) => Equals(other as TreatmentOperation);
 
     public bool HitTest(Point point) => Bounds.Contains(point);
 
     public void Render(ImmediateDrawingContext context) =>
-        ignore(Evidence.Faults.Collapse(
+        ignore(Faults.Collapse(
             IO.lift(() => context.TryGetFeature<ISkiaSharpApiLeaseFeature>() is { } feature
                     ? Draw(feature)
-                    : Fin.Fail<TreatmentReceipt>(new LayerFault.LeaseUnavailable(Treatment.Tier)))
-                .Bind(drawn => drawn.Match(
-                    Succ: receipt => EvidenceMap.ToEvidence(receipt)
-                        .Seal(Evidence.Sink, Evidence.Correlation, Evidence.Tenant)
-                        .Map(static _ => unit),
-                    Fail: IO.fail<Unit>))));
+                    : Fin.Fail<Unit>(new LayerFault.LeaseUnavailable(Treatment.Tier)))));
 
-    Fin<TreatmentReceipt> Draw(ISkiaSharpApiLeaseFeature feature) {
+    Fin<Unit> Draw(ISkiaSharpApiLeaseFeature feature) {
         using ISkiaSharpApiLease lease = feature.Lease();
-        return Treatment.Draw(new DrawSource.Borrowed(lease), Paints, Bounds.ToSKRect(), Phase);
+        return Treatment.Draw(new DrawSource.Borrowed(lease), Paints, Bounds.ToSKRect(), Phase)
+            .Bind(_ => Rail.Fire(
+                at: AppUiPoint.Effect,
+                fact: new AppUiFact.Effect(
+                    Plane: "material",
+                    Key: Treatment.Tier.Key,
+                    Outcome: Treatment.Glaze.Key,
+                    Flag: Treatment.Glaze == Glazing.Translucent,
+                    Count: (uint)Treatment.Stack.Count,
+                    Measure: new EffectMeasure.Coordinate(Treatment.Scope.Switch(
+                        boundsLocal: static _ => "bounds_local",
+                        driven: static _ => "driven"))),
+                key: Key)
+            .Map(static _ => unit));
     }
 
     public void Dispose() { }
@@ -363,13 +373,12 @@ public abstract partial record FilterRow {
 
 ## [05]-[MATERIAL_EXECUTION]
 
-- Owner: `SurfaceTreatment` the executable material; `GrainLay` `[Union]` the resolved grain posture; `WashPlane` the module ambient-wash executor; `TreatmentReceipt` the evidence row.
+- Owner: `SurfaceTreatment` the executable material; `GrainLay` `[Union]` the resolved grain posture; `WashPlane` the module ambient-wash executor.
 - Cases: `GrainLay` = Bare | Weighted.
 - Law: `Theme/tokens` decides and this plane executes — a `MaterialTier` resolves to a `MaterialValue` at theme resolve and reaches here as a value, and a `WashRow` reaches here as a value; an opacity, a grain weight, a hue, or a coverage authored on this page would be a second token source the swap capsule never re-seeds.
-- Law: the translucency verdict is derived ONCE, at admission, as the `Glazing` row the token generation already speaks, and every consumer reads that column — the ground arm, the coverage narrowing, and the receipt's own outcome. Three separate `MaterialOpacity >= 1` comparisons scattered across the admission, the ground rule, and the fill could disagree with each other and with the generation.
-- Entry: `public static Fin<SurfaceTreatment> Of(MaterialTier tier, ResolvedTheme theme, LayerGround ground, GlyphCoverage coverage, SampleScope scope, Seq<FilterRow> stack, Option<WashPlane> wash, EffectCatalog effects)` — the admission; `public Fin<TreatmentReceipt> Draw(DrawSource source, PaintCatalog paints, SKRect extent, UnitInterval phase)` — the capsule: plan the layer, lay the wash, fill the tint, lay the grain, release every per-draw native, and let the one layer site restore; `public static Validation<Error, WashPlane> Of(WorkspaceRow from, WorkspaceRow to, UnitInterval aim)` — the wash admission.
+- Law: the translucency verdict is derived ONCE, at admission, as the `Glazing` row the token generation already speaks, and every consumer reads that column — the ground arm, the coverage narrowing, and the published effect outcome. Three separate `MaterialOpacity >= 1` comparisons scattered across the admission, the ground rule, and the fill could disagree with each other and with the generation.
+- Entry: `public static Fin<SurfaceTreatment> Of(MaterialTier tier, ResolvedTheme theme, LayerGround ground, GlyphCoverage coverage, SampleScope scope, Seq<FilterRow> stack, Option<WashPlane> wash, EffectCatalog effects)` — the admission; `public Fin<Unit> Draw(DrawSource source, PaintCatalog paints, SKRect extent, UnitInterval phase)` — the capsule: plan the layer, lay the wash, fill the tint, lay the grain, release every per-draw native, and let the one layer site restore; `public static Validation<Error, WashPlane> Of(WorkspaceRow from, WorkspaceRow to, UnitInterval aim)` — the wash admission.
 - Auto: the opaque floor arrives already resolved — `MaterialTier.Resolve` collapses tint opacity, material opacity, and grain to their opaque values when the `Glazing` election refuses translucency — so this plane reads `MaterialValue` and never re-derives the preference; the high-contrast projection appends its `FilterRow.Contrast` row through the same admission with its amount DERIVED from the lifted floor's own ratio, so a variant flip re-stacks every mounted material without a second code path and without a literal that can disagree with the floor; the grain resolves to a case at admission, so the draw body tests no float and rounds no byte.
-- Receipt: `TreatmentReceipt` — tier, glazing verdict, ground arm, sample case, filter count — projected through the `Diagnostics/evidence#RECEIPT_UNION` `EvidenceMap` seam onto the `Effect` case under plane `material` and sealed by whichever vehicle drew it, so the proof lane reads which materials actually rendered translucent on each host rather than which ones asked to.
 - Packages: SkiaSharp, Avalonia.Skia, Rasm (project — `UnitInterval`, `SignedUnit`, `Custody`), Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new material surface is one `SurfaceTreatment` value over an existing tier; a new TIER costs this plane one derived composite role and one derived paint row, because the ground a material composites on is the mount's own declaration rather than a per-tier arm; a new module wash is one `WashRow` at its token owner; zero new surface.
 - Boundary: which translucent ground a surface asks for is the MOUNT's fact and never the tier's (`RULINGS.md:127`) — a sheet over a live viewport and a sheet on an embedded host beneath which no pixels exist take different arms under one tier, and the opaque floor is the single ground rule this plane owns because an opaque material overpaints every pixel a filtered ground would read. Every native this capsule mints lives for ONE draw: a filter row rebuilds its filter per frame, the grain source is a fresh `SKShader` off the retained builder, and `SKPaint.Dispose` releases none of them (`RULINGS.md:125`), so the capsule releases what it built on the drawn and the refused path alike — through one body, because `FxEffect.Release` is the union's own ordered teardown rather than an `IDisposable` a `Custody.Bracket` span could carry. Every paint is minted, configured, used, and dropped inside one bracket, so no fill retains a paint the next frame reads differently. The grain is a DRAW, not a token knob — `MaterialValue.Grain` is a declared weight and the noise it weights is the compiled `grain` program at `shader#EFFECT_PROGRAM`, because the shipped acrylic material composes a fixed noise bitmap under a fixed alpha and neither is addressable, so a material that wanted its grain to follow density or variant had no seam at all. The module wash crossfades two `EffectRow.Wash` sources through ONE arithmetic blender rather than drawing both and hoping alpha compounds: two alpha-over draws at coverage `c` composite to `1-(1-c)²` and brighten the mid-transition frame, which is precisely the luminance the `WashRow.LuminanceCeiling` gate exists to hold. The wash resolves its rows from `WorkspaceRow` values and never from caller text (`RULINGS.md:115`), and the join between the wash roster's module column and the workspace roster's key lives at ONE site — `present` is the workspace that declares no wash today, so the refusal is live rather than defensive. `TreatmentOperation` is the only in-tree vehicle, so a control that wants a material mounts one rather than overriding its own render, and the capsule brackets the treatment alone: an earlier content fold no consumer ever supplied is gone, so a host's own content composites over the treatment through the scene graph rather than inside its layer.
@@ -426,13 +435,13 @@ public sealed partial record SurfaceTreatment(
             Wash: wash,
             Effects: effects);
 
-    public Fin<TreatmentReceipt> Draw(DrawSource source, PaintCatalog paints, SKRect extent, UnitInterval phase) =>
+    public Fin<Unit> Draw(DrawSource source, PaintCatalog paints, SKRect extent, UnitInterval phase) =>
         from bounds in Scope.Admit(extent, Ground)
         from plan in LayerSpec.Of(bounds, Ground, Some(TreatmentSurfaces.Roles[Tier]), Coverage)
         from natives in Built(Stack, paints.Tokens, Effects, phase)
         from drawn in Released(natives,
             source.Layered(paints, plan, canvas => Compose(canvas, paints, extent, natives, phase)))
-        select new TreatmentReceipt(Tier, Glaze, Ground, Scope, Stack.Count);
+        select unit;
 
     Fin<Unit> Compose(SKCanvas canvas, PaintCatalog paints, SKRect extent, Seq<FxEffect> natives, UnitInterval phase) =>
         from washed in Wash.Match(
@@ -532,9 +541,6 @@ public sealed record WashPlane(WashRow From, WashRow To, UnitInterval Aim) {
         return SurfaceTreatment.Filled(canvas, extent, paint => paint.Shader = blend);
     }
 }
-
-public readonly record struct TreatmentReceipt(
-    MaterialTier Tier, Glazing Glaze, LayerGround Ground, SampleScope Scope, int Filters);
 ```
 
 ## [06]-[RESEARCH]

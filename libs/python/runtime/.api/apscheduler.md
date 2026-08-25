@@ -163,12 +163,12 @@
 
 [STACKING]:
 - `stamina`(`.api/stamina.md`): a coroutine job body opens `stamina.retry_context` for its own transient retries while the scheduler's `misfire_grace_time`/`coalesce` own missed-fire policy — orthogonal rails.
-- `AsyncIOScheduler` + `AsyncIOExecutor` run coroutine jobs on the anyio loop; the single `add_listener(..., EVENT_JOB_EXECUTED|EVENT_JOB_ERROR|EVENT_JOB_MISSED)` seam emits the run's OTel span and receipt fact from `JobExecutionEvent` fields, never a wrapper around the job function.
+- `AsyncIOScheduler` + `AsyncIOExecutor` run coroutine jobs on the anyio loop; the single `add_listener(..., EVENT_JOB_EXECUTED|EVENT_JOB_ERROR|EVENT_JOB_MISSED)` seam feeds the run's OTel span and structlog line from `JobExecutionEvent` fields, never a wrapper around the job function.
 
 [LOCAL_ADMISSION]:
 - One scheduler constructs once, registers infrastructure, then `start()`s inside the host lifecycle, and `shutdown(wait=True)` joins the host drain.
 - `export_jobs`/`import_jobs` is the store-to-store migration seam; a populated persistent store is never re-seeded by re-running registration.
-- A job body returns a `Result`; the listener maps `EVENT_JOB_ERROR` to a receipt fault, capturing the executor's exception.
+- A job body returns a `Result`; the listener maps `EVENT_JOB_ERROR` to a `BoundaryFault`, capturing the executor's exception.
 
 [RAIL_LAW]:
 - Package: `APScheduler`

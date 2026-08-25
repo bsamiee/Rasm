@@ -41,10 +41,10 @@
 `BevelPass` is inverse-sufficient: every `BevelBlock` carries its PROGRAM ordinal, source span, bulge, station, path distance, preparation offset, tool axis, pivot, angle, angle rate, feed, and compensation; its own `ThcSpan` rows cover the same block range, and `BevelEvidence.Passes` remains the single pass owner for every projection.
 
 - Law: the block ordinal is the program-wide index into the emitted move stream, the same convention `MoveTrail` fixes for turning — a pass-local ordinal beside a program-wide `AfterMove` on the directive meant two bases for one question, and a consumer joining them read the wrong block.
-- Law: a `SpecializedToolpathEnvelope` carries ONE toolpath kind, proved once at receipt construction through the S0 factory. Blocks ride the `Bevel`-kind carrier and conformance rows the `Inspection`-kind one at zero cut duration, so no consumer re-walks either payload and `ToolpathRowMap` owns both transcriptions.
-- Law: posting and simulation retain axis, pivot, inspection, process, and duration evidence, and estimation consumes that simulation receipt.
+- Law: a `SpecializedToolpathEnvelope` carries ONE toolpath kind, proved once at envelope construction through the S0 factory. Blocks ride the `Bevel`-kind carrier and conformance rows the `Inspection`-kind one at zero cut duration, so no consumer re-walks either payload and `ToolpathRowMap` owns both transcriptions.
+- Law: posting and simulation retain axis, pivot, inspection, process, and duration evidence, and estimation consumes that simulation ledger.
 - Output: `Beveled.Moves` and `Beveled.Directives` are the program egress `Toolpath/motion`'s edge-preparation lane folds into one cut element, and `Beveled.PostingSource` carries the typed envelope into canonical posting; the caller arrow retains other result projections.
-- Receipt: `BevelEvidence` preserves standard/custom law, extrema, conditioned length, catalogued head dimensions, pass evidence, and guard count. It is evidence and not a receipt: `Process/owner#RECEIPT` `Receipt<TEvidence>` demands a content key, a plane, and a settling stamp, and conditioning mints no artifact and reads no clock.
+- Output: `BevelEvidence` preserves standard/custom law, extrema, conditioned length, catalogued head dimensions, pass evidence, and guard count; conditioning mints no key and reads no clock.
 - Growth: a standard groove is one `PrepStandard` seed value; a novel section is one `PrepSection.Custom` payload; a new machine posture is one `HeadKinematics` case answering its own orientation solve; a new sensor is one `HeightSource` case, and `ThcDirective.Regulating` carries it without a mirrored directive arm.
 - Boundary: `ThcSpan` rows neither overlap nor gap, and every non-`Off` terminal closes inside the admitted schedule.
 
@@ -785,22 +785,22 @@ public static class Bevel {
             (Seq<BevelPass>(), 0),
             (state, pass) => Pass(job, edge, pass, state.Ordinal)
                 .Map(walked => (state.Rows.Add(walked), state.Ordinal + walked.Blocks.Count))).As()
-        let receipts = passes.Rows
-        from extrema in Extrema(receipts.Bind(static pass => pass.Blocks.Map(static block => block.PreparationOffsetMm)))
-        from inspection in Inspect(receipts, job.Observations)
+        let rows = passes.Rows
+        from extrema in Extrema(rows.Bind(static pass => pass.Blocks.Map(static block => block.PreparationOffsetMm)))
+        from inspection in Inspect(rows, job.Observations)
         let evidence = new BevelEvidence(
-            receipts,
+            rows,
             job.Policy.Preparation,
             extrema.Min,
             extrema.Max,
             job.Policy.Head.CornerRadius,
             job.Policy.Head.ChamferWidth,
             inspection,
-            receipts.Sum(static pass => pass.Blocks.Count))
+            rows.Sum(static pass => pass.Blocks.Count))
         from envelope in SpecializedToolpathEnvelope.Admit(
             SpecializedToolpathKind.Bevel,
-            receipts.Bind(static pass => pass.Blocks.Map(static block => (SpecializedToolpathRow)ToolpathRowMap.ToRow(block))),
-            receipts.Sum(static pass => pass.Blocks.Zip(pass.Blocks.Skip(1)).Sum(static pair =>
+            rows.Bind(static pass => pass.Blocks.Map(static block => (SpecializedToolpathRow)ToolpathRowMap.ToRow(block))),
+            rows.Sum(static pass => pass.Blocks.Zip(pass.Blocks.Skip(1)).Sum(static pair =>
                 (pair.Second.PathDistanceMm - pair.First.PathDistanceMm) / pair.Second.FeedMmPerMin * 60.0)
                 + pass.PierceDelaySeconds))
         from inspected in inspection.IsEmpty
@@ -1022,7 +1022,6 @@ public static class Bevel {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

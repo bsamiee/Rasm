@@ -8,7 +8,7 @@
 
 - [02]-[ELEMENTS]: `WorkholdingKind` and its column families, `Actuation`, `ContactLaw`, `ContactPatch`, `FixtureElement`, and the clamp-template synthesis vocabulary.
 - [03]-[FIXTURE]: aggregate admission, the stage lifecycle graph, keep-out zones, datum evidence, and constraint closure.
-- [04]-[EVALUATION]: conditioning, corridor clearance, the capacity-normalized restraint solve, synthesis ranking, projection, and receipt folds.
+- [04]-[EVALUATION]: conditioning, corridor clearance, the capacity-normalized restraint solve, synthesis ranking, projection, and result folds.
 
 ## [02]-[ELEMENTS]
 
@@ -581,13 +581,13 @@ public sealed record FixtureCandidate(
 
 ## [03]-[FIXTURE]
 
-- Owner: `FixtureSpec` is raw aggregate ingress; `Fixture` is the admitted owner carrying datum lineage, element identity, the stage lifecycle receipt, exact keep-outs, motion partition, and stock witness; `ExclusionZone` carries lower and upper height, active states, exact loops, source element, role, and mechanism.
-- Law: the stage sequence is a `BidirectionalGraph<FixtureStage, SEdge<FixtureStage>>` gated `IsDirectedAcyclicGraph` before `SourceFirstBidirectionalTopologicalSort` orders it, and `TreeBreadthFirstSearch` from the opening stage proves custody coverage — a stage no earlier stage reaches is a dead step the index arithmetic it replaces admitted silently. `StageLifecycle` publishes the order and the reachable census as receipt COLUMNS, so `Transition` answers reachability off the built graph rather than re-scanning the sequence twice per query.
+- Owner: `FixtureSpec` is raw aggregate ingress; `Fixture` is the admitted owner carrying datum lineage, element identity, the stage lifecycle result, exact keep-outs, motion partition, and stock witness; `ExclusionZone` carries lower and upper height, active states, exact loops, source element, role, and mechanism.
+- Law: the stage sequence is a `BidirectionalGraph<FixtureStage, SEdge<FixtureStage>>` gated `IsDirectedAcyclicGraph` before `SourceFirstBidirectionalTopologicalSort` orders it, and `TreeBreadthFirstSearch` from the opening stage proves custody coverage — a stage no earlier stage reaches is a dead step the index arithmetic it replaces admitted silently. `StageLifecycle` publishes the order and the reachable census as result COLUMNS, so `Transition` answers reachability off the built graph rather than re-scanning the sequence twice per query.
 - Law: each `FixtureStep` activates and releases elements against one `FixtureState`; cutting states require settled location, support, and clamp custody, and a clamp whose actuator releases on loss of energy fails that custody.
 - Law: `ConstraintCensus` preserves both closure ranks and redundancy — `Rank` over the friction-cone wrench set, `Frictionless` over normals alone — so underconstraint, overconstraint, and the form-versus-force closure distinction stay separable from holding-force sufficiency.
 - Exemption: `ConstraintRank` is the bounded six-column contact-wrench kernel; its Gram-Schmidt span loop is the measured numeric exemption.
 - Entry: `Fixture.Admit` is the sole construction; element, topology, lifecycle, datum, geometry, contact, and six-degree constraint failures accumulate before the `Fin<Fixture>` rail resumes.
-- Receipt: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget; `DatumTransfer` folds the `Joining/sequence` `DistortionField` into a per-setup datum budget, so a distortion the weld plane measured narrows the repeatability a later setup may claim instead of being re-estimated here.
+- Result: `DatumFrame` records primary, secondary, and tertiary contact evidence with the work coordinate system transform and repeatability budget; `DatumTransfer` folds the `Joining/sequence` `DistortionField` into a per-setup datum budget, so a distortion the weld plane measured narrows the repeatability a later setup may claim instead of being re-estimated here.
 - Boundary: `FixturingWitness` closes the admission rejection reasons and lowers through the `Process/faults` offset-54 `FabricationFault.FixtureInadmissible` case; degenerate geometry stays on `GeometryFault.DegenerateInput`.
 
 ```csharp
@@ -862,7 +862,7 @@ public sealed partial class FixtureSet {
 - Entry: `Workholding.Apply` is the sole public operation surface; each case carries every discriminant and parameter its arm consumes.
 - Output: `FixtureProjection` selects machine, setup-sheet, inspection, and evidence payloads; `Keyed` dispatches on that family and frames through `FabricationCanon` over the one `CanonicalWriter`, closing on the retaining mint's own rail so a projection never addresses under bytes no writer held.
 - Law: keep-out admission ACCUMULATES across elements — `Zones` traverses into `Validation`, so a spec with three degenerate offsets reports three, not the first. Inside one zone the band ordering needs no gate because `FixtureMetric.Height` carries `MetricBound.Positive` and the band reads a min and a max of the same vertex set, and activation coverage needs none because `GateLifecycle` already proves every element is activated by some step; a guard restating either is the vacuous form.
-- Packages: `Rasm.Numerics` (`SparseMatrix.FromTriplets`, `SolveLeastSquaresDetailed`, `SolveReceipt`, `Dimension`, `EpsilonPolicy`), `Geometry2D/algebra` (`PolygonOp.ClipOpen`, `.Boolean`, `PolygonTrace.Regioned`/`.Runs`, `RegionTopology`), `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`), `UnitsNet`, LanguageExt.Core.
+- Packages: `Rasm.Numerics` (`SparseMatrix.FromTriplets`, `SolveLeastSquaresDetailed`, `LinearSolution`, `Dimension`, `EpsilonPolicy`), `Geometry2D/algebra` (`PolygonOp.ClipOpen`, `.Boolean`, `PolygonTrace.Regioned`/`.Runs`, `RegionTopology`), `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `TreeBreadthFirstSearch`), `UnitsNet`, LanguageExt.Core.
 - Boundary: geometry, aggregate, and stability failures remain typed; no failure becomes an empty fixture, a clear path, or a passing margin.
 
 ```csharp
@@ -984,7 +984,7 @@ public readonly record struct LoadMargin(
 }
 
 public sealed record RestraintProof(Seq<LoadMargin> Loads, Seq<ContactPatch> Contacts) {
-    public double MinimumMargin => Loads.Min(static receipt => receipt.Minimum);
+    public double MinimumMargin => Loads.Min(static result => result.Minimum);
     public bool Holds => MinimumMargin >= 1.0;
 }
 
@@ -1022,7 +1022,7 @@ public abstract partial record WorkholdingResult {
         public bool Clear => Blocked.IsNone;
     }
     public sealed record MachinedHit(Option<Point3d> Point) : WorkholdingResult;
-    public sealed record Restrained(RestraintProof Receipt) : WorkholdingResult;
+    public sealed record Restrained(RestraintProof Result) : WorkholdingResult;
     public sealed record Transitioned(FixtureState State, Arr<int> Active) : WorkholdingResult;
     public sealed record Synthesized(Seq<FixtureCandidate> Candidates) : WorkholdingResult;
     public sealed record Projected(FixtureArtifact Artifact) : WorkholdingResult;
@@ -1042,9 +1042,9 @@ public static class Workholding {
                 machined: static row => Fixtures.Machined(row.Fixture, row.Stock)
                     .Map<WorkholdingResult>(static point => new WorkholdingResult.MachinedHit(point)),
                 restrain: static row => Fixtures.Restrain(row.Fixture, row.Loads, row.SafetyFactor.As(RatioUnit.DecimalFraction))
-                    .Map<WorkholdingResult>(static receipt => new WorkholdingResult.Restrained(receipt)),
+                    .Map<WorkholdingResult>(static result => new WorkholdingResult.Restrained(result)),
                 transition: static row => Fixtures.Transition(row.Fixture, row.From, row.To)
-                    .Map<WorkholdingResult>(static receipt => new WorkholdingResult.Transitioned(receipt.State, receipt.Active)),
+                    .Map<WorkholdingResult>(static result => new WorkholdingResult.Transitioned(result.State, result.Active)),
                 synthesize: static row => Fixtures.Synthesize(row.Seed)
                     .Map<WorkholdingResult>(static candidates => new WorkholdingResult.Synthesized(candidates)),
                 project: static row => Fixtures.Project(row.Fixture, row.Projection)
@@ -1217,7 +1217,7 @@ internal static class Fixtures {
         !loads.IsEmpty && loads.ForAll(load => ValidLoad(fixture, load)) && double.IsFinite(safety) && safety >= 1.0
             ? Support(fixture.Contacts).Bind(support => loads
                 .Traverse(load => Evaluate(fixture.Contacts, support, load, safety).ToValidation())
-                .As().ToFin().Map(receipts => new RestraintProof(receipts, fixture.Contacts)))
+                .As().ToFin().Map(results => new RestraintProof(results, fixture.Contacts)))
             : Fin.Fail<RestraintProof>(FabricationFault.Fixture(new FixturingWitness.Restraint(
                 loads.Count, loads.Count(load => !ValidLoad(fixture, load)), safety)));
 
@@ -1274,7 +1274,7 @@ internal static class Fixtures {
     private static RestraintSolution Read(
         Seq<ContactReaction> reactions,
         Seq<(Vector3d Direction, double Capacity, int Axis)> columns,
-        SolveReceipt solved) {
+        LinearSolution solved) {
         Seq<double> coefficients = toSeq(solved.Solution);
         Seq<Vector3d> forces = reactions.Map((_, index) => columns
             .Map((column, slot) => (column, slot))
@@ -1385,7 +1385,7 @@ internal static class Fixtures {
                 .Traverse(program => Candidate(seed, basis, program, first, safety).ToValidation())
                 .As().ToFin()
                 .Map(static candidates => toSeq(candidates
-                    .Filter(static candidate => candidate.Holding.Holds && candidate.Clearance.ForAll(static receipt => receipt.Clear))
+                    .Filter(static candidate => candidate.Holding.Holds && candidate.Clearance.ForAll(static result => result.Clear))
                     .OrderByDescending(static candidate => candidate.Score.Total)));
         });
     }
@@ -1447,7 +1447,7 @@ internal static class Fixtures {
         Seq<WorkholdingResult.Clearance> clearance,
         Seq<SoftJawInsert> inserts) {
         double hold = holding.MinimumMargin / (1.0 + holding.MinimumMargin);
-        double access = clearance.IsEmpty ? 1.0 : (double)clearance.Count(static receipt => receipt.Clear) / clearance.Count;
+        double access = clearance.IsEmpty ? 1.0 : (double)clearance.Count(static result => result.Clear) / clearance.Count;
         double simplicity = 1.0 / (1.0 + fixture.Spec.Elements.Count + inserts.Count);
         return new FixtureCandidate(fixture, holding, clearance, inserts, new FixtureScore(hold, access, simplicity,
             ((hold * objective.Holding) + (access * objective.Access) + (simplicity * objective.Simplicity)) / objective.Total));
@@ -1641,7 +1641,6 @@ internal static class Fixtures {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

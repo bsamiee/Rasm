@@ -24,21 +24,19 @@ Challengers displace an admitted package only by owning the full concern under t
 - Projections carry the issued sheet whole as one `PlotPolicy` column — a free `Ratio` scale or a local projection-angle table is the deleted form.
 - Drawing tag reconciliation reads an `AttributeTag` COLUMN — a const row name beside a hand pair list at the fold puts one vocabulary at two sites.
 - `HoldKind` demands one `CapabilitySet<ComplianceTrait>` — parallel bools grow satisfaction clauses and a refusal without `Missing` names no repair.
-- `ProcedureReceipt` stays whole — `Receipt<TEvidence>` carries no generated member comparer, so a wrap erases the revision paths a WPS audit reads.
+- `ProcedureAssessment` stays whole so a WPS audit reads its generated revision paths directly.
 - `ArcFitPolicy` is ADMITTED or ABSENT — `Option` presence routes the gate, and a disabled row publishes three zero columns no reader may trust.
 - `Joining/deposition` owns weld physics and `WeldPolicy`, `Joining/weld` joint, pass, and plan — the seam runs both ways and names at both ends.
 - Distortion fields carry every load family MOVING the part — one solve spans shrinkage, preload, and release, or spring-back names an unfreed part.
 - Dominance compares the LOAD each row placed in the OPERATOR's own units — a per-case magnitude ranks newtons against millimetres.
 - Cut lanes ride `EngagementPolicy` as one `Option<TPolicy>` whose PRESENCE routes — a per-run demand flag makes two facts answer one question.
-- `Toolpath/surface` holds NO layout algorithm — the generator is injected, so a `SurfacePathReceipt` topology column fits one layout alone.
+- `Toolpath/surface` holds NO layout algorithm — the generator is injected, so a `SurfacePath` topology column fits one layout alone.
 - Generated `FeatureControl` publishes frame-box facts ALONE — datum targets and basic dimensions need a view transform the tolerance seam lacks.
 - `IToleranceEncoder` stays OPEN with one landed implementation per egress — a five-arm closed union crosses four arms no drawing consumer decodes.
 - Datum labels admit the ISO 5459 class alone — `I`, `O`, and `Q` read as digits, and a producer-widened class crosses as a consumer refusal.
 - Serial inverse runs TWO LM funnels — `Lm.Minimize` carries no bound column for a HARD joint-travel box, so MathNet iterates the `Dual<T>` chain.
-- `Receipt<TEvidence>` is the ONE settled-receipt carrier — an output carrying no content key, evidence, band, or stamp takes no `*Receipt` name.
-- `*Receipt` survives on a closed EVIDENCE CASE FAMILY — the union IS the `TEvidence` a carrier seats; a lone measurement record takes its own noun.
 - Closed families answer their own TOTAL projection at the OWNER — an `is <Case>` test at a caller reads a widened family as a legitimate refusal.
-- Request-indexed folds answer the case their demand seats — `ISpecDemand<TReceipt>` binds the correspondence at compile time.
+- Request-indexed folds answer the case their demand seats — `ISpecDemand<TResult>` binds the correspondence at compile time.
 - Payload-free closed vocabularies are `[SmartEnum]` row families — `[Union]` mints two record types and a conversion plane to say what a row says.
 - `bool` parameters are lawful only at the LAST hop into a kernel or provider arity that takes one — every other one is a declared policy row.
 - Finiteness, range, and count gates read the kernel `ValidityClaim` — a hand `double.IsFinite` ladder forks what `Op.Demand` already answers.
@@ -49,15 +47,14 @@ Challengers displace an admitted package only by owning the full concern under t
 - `FabricationPolicy.Egress` answers per CASE, never per PLANE — two cases split one plane, and a case closing a family reads its payload.
 - `FormSource` is the ONE forming modality family, each arm carrying its own envelope — a shared envelope column routes a tube through a press brake.
 - `FabricationInput` carries only geometry EVERY arm admits — a centerline, wall, or forming budget one arm reads rides that arm's own case.
-- `RegionTopology` names the Fabrication planar-region receipt — kernel `TopologyReceipt` answers mesh manifoldness, so no page binds one for it.
+- `RegionTopology` names the Fabrication planar-region result — kernel `Topology` answers mesh manifoldness, so no page binds one for it.
 - Pass selection IS its policy roster — a `Set` beside per-pass columns can disagree, and only one of its pairings was ever guarded.
 - `CutContext` is the machine envelope, never a pass column — a stability power ceiling read off the feed pass coupled two passes through one policy.
 - `PostFit` names the posting biarc gate — the kernel `Rasm.Solving.FitPolicy` fits geometry to samples, so one name admits either into the other.
 - `Policy` names an admitted law: `Admit` gates callers, absence routes — a roster or scoring row in the suffix promises an `Admit` nothing calls.
-- Carrier seating needs an `EgressKind` row and a settle instant — lacking both, `GuardReceipt` stays off and `SurfaceSample` drops the suffix.
-- `FabricationHookFact` and `FabricationFact` stay TWO unions — one seats whole aggregates in process, the other flattens to primitives on the wire.
+- Carrier seating needs an `EgressKind` row and a settle instant — lacking both, `GuardVerdict` stays off and `SurfaceSample` drops the suffix.
 - `FabricationPoint.EgressMint` is refusal-only — `ContentKey` addresses its own bytes, so rewriting an admitted key forges an unproduced identity.
-- `FabricationRuntime` enters a plane WHOLE — tap, memo, token, and clock are columns of one value a split signature lets a caller mismatch.
+- `FabricationRuntime` enters a plane WHOLE — hooks, instruments, spans, memo, token, and clock are one value's columns a split signature mismatches.
 - Nesting admission is GRADED — a rectangular refusal names material, extent, or grain onto `UnplacedReason`, so `Capacity` means only the residual.
 - Nesting moves derive from stock `MaterialSymmetry`; the fold owns grain, mirror, and pairing legality, so callers supply no parallel move policy.
 - Cut ordering is PRECEDENCE-owned, so no tour search seats here — containment forbids the reordering a travel optimizer needs left free.
@@ -68,7 +65,7 @@ Challengers displace an admitted package only by owning the full concern under t
 
 ## [03]-[COLLAPSE]
 
-- Stackup is ONE algebra over ONE term roster — `StackContributor` is bijective onto `ToleranceChain` terms; a re-declared spread forks the receipts.
+- Stackup is ONE algebra over ONE term roster — `StackContributor` is bijective onto `ToleranceChain` terms; a re-declared spread forks the results.
 - `CostKind` and `CarbonKind` stay TWO rosters — a resource meters differently per ledger, so one merged row leaves an absent cell on most of them.
 - Fixturing `PartInstance` absorbs nothing from `Nesting/nfp` — that pair counts COPIES in a nest, so a shared name is not a shared concept.
 - `SetupDraft` is the setup search's partial state and `SetupSchedule` the proof-bearing result `Finalize` mints — one name cannot carry both.
@@ -89,10 +86,10 @@ Challengers displace an admitted package only by owning the full concern under t
 - `UnitsNet` quantities seat on every policy head no preimage digests — a unit-suffixed identifier states an axis no compiler reads.
 - Each quantity dimension carries its own `QuantityArrow` — an arrowless dimension leaves its columns no text lane.
 - Cross-section algebra composes the `Rasm.Element` `SectionProperties` seam — a folder-local section record forks the columns a design check reads.
-- `DfmReport` is evidence on the `Receipt<TEvidence>` spine — the carrier owns key, plane, and stamp, so a report stamping its own instant forks it.
+- `DfmReport` owns its request key, evaluation instant, and decision basis.
 - Content-addressed values ADMIT their key as a column — a property re-folding the preimage per read pays that fold at every identity comparison.
 - `LayerMetric`, `LayerMeasure`, and `RecoaterLikelihood` seat at `Additive/slicing` — the measuring plane owns slice facts; `Verify/audit` composes.
-- `AuditPolicy.EvaluatedAt` is the one evaluation instant an additive build carries — support, scan, and production stamp from it.
+- `AuditPolicy.EvaluatedAt` is the one evaluation instant an additive build uses to admit time-bounded evidence.
 - Quality-record producers address their request, never findings — the key folds into ancestry, so two runs over one request read as one check.
 - Additive build policy is `AdditiveBuild` — kernel `Rasm.Spatial.BuildPolicy` keeps the bare name; no page qualifies a kernel type to dodge a twin.
 - Open-contour law rides `ShellPolicy` as a column — rejecting the stack and tracing a single wall are both wall behaviour.

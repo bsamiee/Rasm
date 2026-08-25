@@ -192,7 +192,6 @@ const _runner = (
 - Law: one Automation stack owns the pointer; its serialized update and one ConfigMap write close the publication edge.
 - Law: a retained predecessor re-enters the same proof fold before pointer selection; no bypassing rollback verb exists.
 - Law: contract and evidence ConfigMaps use `retainOnDelete`; policy-driven collection owns expiry outside this tier.
-- Receipt: one immutable retained ConfigMap records generation, contract ConfigMap name, proof Job UID, and deployment fence; its generation annotation and terminal dependency reach `RunReceipt` and the `operate/policy#EVIDENCE_SPINE` rows through the existing receipt stream with no publication-local form.
 - Boundary: this tier ends at the retained pointer. Workload mounting is deploy-owned; local decode, generation comparison, and readiness admission belong to the application runtime and are not claimed by this page.
 
 ```typescript
@@ -273,7 +272,3 @@ class Converge extends Tier {
 
 export { Converge, ConvergeRefused }
 ```
-
-## [05]-[RESEARCH]
-
-(none)

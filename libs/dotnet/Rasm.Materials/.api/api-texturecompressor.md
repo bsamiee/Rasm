@@ -102,7 +102,7 @@
 | :-----: | :--------------------------------------------------------------- | :------------ | :------------------------------------------------- |
 |  [01]   | `TextureConverter`                                               | sealed class  | path, stream, and in-memory conversion facade      |
 |  [02]   | `TextureConversionOptions`                                       | sealed class  | conversion policy row                              |
-|  [03]   | `TextureConversionResult`                                        | sealed record | conversion receipt                                 |
+|  [03]   | `TextureConversionResult`                                        | sealed record | conversion result                                  |
 |  [04]   | `TextureConversionFileKind`                                      | enum          | image versus texture container classification      |
 |  [05]   | `TextureConversionMipmaps`                                       | enum          | `None` `Generate`                                  |
 |  [06]   | `TextureAssembler` / `TextureExtractor`                          | class         | subresource assembly and extraction                |

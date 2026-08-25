@@ -2,7 +2,7 @@
 
 `StyleField` is the drafting-schema authority: each row admits one exact payload family, reads and writes one catalogued `DimensionStyle.Field` pairing, and feeds the same patch fold into table styles and per-annotation overrides. `TableGrip`, `TableOp`, `ListEdit`, and `TagEdit` are the namespace's shared component-table machinery — every Annotation table joins by declaring one grip and embedding one case.
 
-Document spine component address `ResourceRef` resolves every Annotation table through its per-table `ResourceLens<T>` row, while `DraftPlan`, `DraftSpine`, and `DraftReceipt` carry every drafting mutation through the Document grant, the shared `DocumentCommit.Sealed`, and the detached fact rail.
+Document spine component address `ResourceRef` resolves every Annotation table through its per-table `ResourceLens<T>` row, while `DraftPlan` and `DraftSpine` carry every drafting mutation through the Document grant and the shared `DocumentCommit.Sealed`.
 
 ## [01]-[INDEX]
 
@@ -10,7 +10,7 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 - [03]-[FIELD_SCHEMA]: `StyleAxis`, `EnumFamily`, `StyleValue`, the `FieldTable<TOwner, THostEnum>` row mechanism, exact-family `StyleField` rows, the `StylePatch` fold that re-derives an override child from its construction parent, and the `DraftStandard` projection of the kernel drawing ladders onto those rows.
 - [04]-[STYLE_RAIL]: `StyleDef`, `StyleOp`, `DraftPlan<StyleOp>`, and the `Styles.Commit` entry over the shared spine.
 - [05]-[ASK_FAMILY]: `StyleAsk`/`StyleAnswer` — snapshot, built-in census, swatch lease, and name minting.
-- [06]-[SPINE_AND_RECEIPTS]: `DraftSpine`, `DraftSlot`, `DraftBody`, and the `DraftReceipt` monoid shared by every Annotation rail.
+- [06]-[SPINE]: `DraftSpine` provides the shared command entry.
 - [07]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[ADDRESS_AND_VOCAB]
@@ -144,7 +144,6 @@ public abstract partial record ListEdit<TRow> where TRow : class {
 
 public sealed record TableGrip<TComponent, TDef>(
     ResourceLens<TComponent> Lens,
-    DraftComponentKind Kind,
     Func<TDef, ResourceName> Named,
     Func<TComponent, Op, Fin<ResourceName>> Title,
     Func<TComponent, int> Index,
@@ -160,8 +159,8 @@ public sealed record TableGrip<TComponent, TDef>(
     Option<Func<TComponent, Op, Fin<Func<Op, Fin<Unit>>>>> Scoped = default,
     Option<Func<DraftPath, HostInteraction, Op, Fin<Seq<TComponent>>>> Ingest = default,
     Option<Func<DraftPath, Seq<TComponent>, Op, Fin<Unit>>> Emit = default) where TComponent : class, IDisposable {
-    internal Fin<DraftReceipt> Revised(
-        ResourceRef target, RhinoDoc document, DraftSlot slot, HostInteraction interaction, Op op,
+    internal Fin<Unit> Revised(
+        ResourceRef target, RhinoDoc document, HostInteraction interaction, Op op,
         Func<TComponent, Op, Fin<Unit>> revise) =>
         from live in target.Resolve(document: document, lens: Lens, key: op)
         let index = Index(live)
@@ -173,9 +172,7 @@ public sealed record TableGrip<TComponent, TDef>(
             .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
                 release: () => Custody.Dispose(held: Seq(copy), key: op), key: op))
         from ___ in Custody.Dispose(held: Seq(copy), key: op)
-        from receipt in DraftReceipt.Component(
-            slot: slot, componentKind: Kind, index: ResourceIndex.Create(index), key: op)
-        select receipt;
+        select unit;
 
     internal bool Occupied(RhinoDoc document, ResourceName name) => Lens.ByName(document, name.Value) is not null;
 
@@ -203,26 +200,23 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
     public sealed record Import(DraftPath Path, HostInteraction Interaction) : TableOp<TComponent, TDef>;
     public sealed record Export(DraftPath Path, Seq<ResourceRef> Targets) : TableOp<TComponent, TDef>;
 
-    internal Fin<DraftReceipt> Apply(TableGrip<TComponent, TDef> grip, RhinoDoc document, Op op) => Switch(
+    internal Fin<Unit> Apply(TableGrip<TComponent, TDef> grip, RhinoDoc document, Op op) => Switch(
         (Grip: grip, Document: document, Op: op),
         author: static (context, edit) =>
             from _ in guard(!context.Grip.Occupied(context.Document, context.Grip.Named(edit.Def)),
                 context.Op.InvalidInput()).ToFin()
             from minted in context.Grip.Mint(context.Document, edit.Def, context.Op)
-            from receipt in new Lease<TComponent>.Owned(Value: minted).Use(owned =>
-                from index in context.Grip.Seat(context.Document, owned, context.Op)
-                from authored in DraftReceipt.Component(
-                    slot: DraftSlot.Authored, componentKind: context.Grip.Kind, index: index, key: context.Op)
-                select authored)
-            select receipt,
+            from __ in new Lease<TComponent>.Owned(Value: minted).Use(owned =>
+                context.Grip.Seat(context.Document, owned, context.Op).Map(static _ => unit))
+            select unit,
         amend: static (context, edit) => context.Grip.Revised(
-            target: edit.Target, document: context.Document, slot: DraftSlot.Amended, interaction: edit.Interaction,
+            target: edit.Target, document: context.Document, interaction: edit.Interaction,
             op: context.Op, revise: (copy, key) => context.Grip.Revise(context.Document, copy, edit.Def, key)),
         rename: static (context, edit) => context.Grip.Revised(
-            target: edit.Target, document: context.Document, slot: DraftSlot.Renamed, interaction: edit.Interaction,
+            target: edit.Target, document: context.Document, interaction: edit.Interaction,
             op: context.Op, revise: (copy, key) => context.Grip.Retitle(copy, edit.Name, key)),
         retag: static (context, edit) => context.Grip.Revised(
-            target: edit.Target, document: context.Document, slot: DraftSlot.Amended, interaction: edit.Interaction,
+            target: edit.Target, document: context.Document, interaction: edit.Interaction,
             op: context.Op, revise: (copy, key) => edit.Edit.Apply(owner: context.Grip.Tags(copy), op: key)),
         delete: static (context, edit) =>
             from _ in guard(!edit.Targets.IsEmpty, context.Op.InvalidInput()).ToFin()
@@ -231,18 +225,12 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
             let indices = rows.Map(row => context.Grip.Index(row))
             from __ in guard(indices.Distinct().Count == indices.Count, context.Op.InvalidInput()).ToFin()
             from ___ in context.Grip.Retire(context.Document, indices, edit.Interaction, context.Op)
-            from receipts in indices.TraverseM(index => DraftReceipt.Component(
-                slot: DraftSlot.Deleted, componentKind: context.Grip.Kind,
-                index: ResourceIndex.Create(index), key: context.Op)).As()
-            select receipts.Fold(DraftReceipt.Empty, static (state, next) => state + next),
+            select unit,
         setCurrent: static (context, edit) =>
             from row in edit.Target.Resolve(document: context.Document, lens: context.Grip.Lens, key: context.Op)
             let index = context.Grip.Index(row)
             from _ in context.Grip.Elect(context.Document, index, edit.Interaction, context.Op)
-            from receipt in DraftReceipt.Component(
-                slot: DraftSlot.Current, componentKind: context.Grip.Kind,
-                index: ResourceIndex.Create(index), key: context.Op)
-            select receipt,
+            select unit,
         import: static (context, edit) =>
             from ingest in context.Grip.Ingest.ToFin(context.Op.Unsupported(
                 valueType: typeof(DraftPath), outputType: typeof(Seq<TComponent>)))
@@ -257,16 +245,13 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
                 context.Op.InvalidInput()).ToFin()
                 .BindFail(primary => Fin.Fail<Unit>(error: primary).Rollback(
                     release: () => Custody.Dispose(held: read, key: context.Op), key: context.Op))
-            from indices in DocumentCommit.Compensated(
+            from __ in DocumentCommit.Compensated(
                 source: read,
                 land: native => context.Grip.Seat(context.Document, native, context.Op),
                 rollback: landed => context.Grip.Retire(
                     context.Document, landed.Map(static index => index.Value), HostInteraction.Silent, context.Op),
                 release: sources => Custody.Dispose(held: sources, key: context.Op))
-            from path in DraftReceipt.Path(slot: DraftSlot.Imported, path: edit.Path, key: context.Op)
-            from components in indices.TraverseM(index => DraftReceipt.Component(
-                slot: DraftSlot.Imported, componentKind: context.Grip.Kind, index: index, key: context.Op)).As()
-            select components.Fold(path, static (state, next) => state + next),
+            select unit,
         export: static (context, edit) =>
             from emit in context.Grip.Emit.ToFin(context.Op.Unsupported(
                 valueType: typeof(Seq<TComponent>), outputType: typeof(DraftPath)))
@@ -274,8 +259,7 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
                 document: context.Document, lens: context.Grip.Lens, key: context.Op)).As()
             from _ in guard(!rows.IsEmpty, context.Op.InvalidInput()).ToFin()
             from __ in emit(edit.Path, rows, context.Op)
-            from receipt in DraftReceipt.Path(slot: DraftSlot.Exported, path: edit.Path, key: context.Op)
-            select receipt);
+            select unit);
 }
 
 public static class TargetResolution {
@@ -760,13 +744,13 @@ public static class DraftStandard {
 - Law: `Author` refuses an occupied name, shapes the detached style through the grip's mint row, and performs one terminal `Add`; a parent payload makes the authored style a child whose patch-marked fields alone override the parent through `ParentId`.
 - Law: `DraftPlan<TOp>.Of` admits its mode and every operation before the shared commit spine can enter a document grant; `DraftMode` carries the redraw posture and the undo CUSTODY row the session's need table reads, so a commit never states its undo axis as a loose bool beside a policy.
 - Law: every plural ADMISSION fold in the namespace accumulates — `Traverse` onto `Validation`, then back to `Fin` — so a rejected batch reports its whole refusal set; the fail-fast `TraverseM` shape is reserved for plural HOST WRITES, where a later write must never run after an earlier one refused.
-- Law: `Absorb` is the one reverse projection — `DimStyleTable.Modify(style, annotation)` folds a live annotation's per-instance overrides back onto the style, its `ModifyType` outcome inspected before the write counts: `Modify` and `Override` land as receipt facts, `NotSaved` is a typed refusal.
+- Law: `Absorb` is the one reverse projection — `DimStyleTable.Modify(style, annotation)` folds a live annotation's per-instance overrides back onto the style, accepting `Modify` and `Override` while `NotSaved` is a typed refusal.
 - Law: `Copy` projects every source setting through `DimensionStyle.CopyFrom` while preserving the target name, id, and index; `ClearOverrides` names its scope as the field run itself, and `StyleField.On(axis)` is how a caller spells a whole axis without a second request shape.
 - Law: reclamation is not a case — unused-style reclaim is the document rail's `TableOp.Reclaim(TableKind.DimStyles)` row, and re-spelling it here splits one host member across two owners.
 - Law: the write posture is the spine's `HostInteraction`, carried by every drafting op case in the namespace — style, linetype, hatch, and section alike. The axis is exactly quiet-versus-interactive-versus-designed-silence and the spine already owns it, so a folder-local vocabulary over the same host `quiet` boolean held one concept under two names that drift apart.
 - Law: every scale a case carries is a `DraftScale`, admitted at its own gate — a positivity guard inside an arm re-decides at the write what the owner already decided at admission.
-- Packages: `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DocumentSession.Demand`), `Document/facts.md` (`FactStream`); RhinoCommon `DimStyleTable` per `.api/api-rhinocommon-annotation.md`.
-- Growth: a style-only verb is one case with its arm; a verb every component table shares is one `TableOp` case; the spine, the receipt, and every consumer read both with zero new surface.
+- Packages: `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DocumentSession.Demand`); RhinoCommon `DimStyleTable` per `.api/api-rhinocommon-annotation.md`.
+- Growth: a style-only verb is one case with its arm; a verb every component table shares is one `TableOp` case; the spine and consumers stay unchanged.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -802,7 +786,7 @@ public abstract partial record StyleOp {
         ByIndex: static (document, index) => document.DimStyles.FindIndex(index: index));
 
     internal static readonly TableGrip<DimensionStyle, StyleDef> Grip = new(
-        Lens, DraftComponentKind.Style,
+        Lens,
         Named: static def => def.Name,
         Title: static (style, key) => key.AcceptValidated<ResourceName>(candidate: style.Name),
         Index: static style => style.Index,
@@ -827,18 +811,18 @@ public abstract partial record StyleOp {
         Elect: static (document, index, interaction, key) => key.Confirm(success: document.DimStyles.SetCurrent(
             index: index, quiet: interaction.IsQuiet)));
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) =>
         Switch(
             (Document: document, Op: op),
             table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
             copy: static (context, edit) =>
                 from source in edit.Source.Resolve(document: context.Document, lens: Lens, key: context.Op)
-                from receipt in Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Amended,
+                from _ in Grip.Revised(target: edit.Target, document: context.Document,
                     interaction: edit.Interaction, op: context.Op,
                     revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => style.CopyFrom(source)))))
-                select receipt,
+                select unit,
             clearOverrides: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Amended,
+                Grip.Revised(target: edit.Target, document: context.Document,
                     interaction: edit.Interaction, op: context.Op,
                     revise: (style, key) => edit.Fields.IsEmpty
                         ? key.Catch(() => Fin.Succ(value: Op.Side(style.ClearAllFieldOverrides)))
@@ -848,26 +832,23 @@ public abstract partial record StyleOp {
                 from style in edit.Target.Resolve(document: context.Document, lens: Lens, key: context.Op)
                 from row in edit.Annotation.Only<AnnotationObjectBase>(document: context.Document, key: context.Op)
                 from annotation in context.Op.Need(row.Native.AnnotationGeometry)
-                from outcome in context.Op.Catch(() => context.Document.DimStyles.Modify(dimstyle: style, annotation: annotation) switch {
-                    ModifyType.Modify or ModifyType.Override => Fin.Succ(value: style.Index),
-                    var refused => Fin.Fail<int>(error: context.Op.InvalidResult(detail: refused.ToString())),
+                from _ in context.Op.Catch(() => context.Document.DimStyles.Modify(dimstyle: style, annotation: annotation) switch {
+                    ModifyType.Modify or ModifyType.Override => Fin.Succ(value: unit),
+                    var refused => Fin.Fail<Unit>(error: context.Op.InvalidResult(detail: refused.ToString())),
                 })
-                from receipt in DraftReceipt.Component(
-                    slot: DraftSlot.Absorbed, componentKind: DraftComponentKind.Style,
-                    index: ResourceIndex.Create(outcome), key: context.Op)
-                select receipt,
+                select unit,
             reparent: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Reparented,
+                Grip.Revised(target: edit.Target, document: context.Document,
                     interaction: edit.Interaction, op: context.Op,
                     revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(() =>
                         style.ParentId = edit.Parent.Map(static parent => parent.Value).IfNone(noneValue: Guid.Empty))))),
             scaleLengths: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Scaled,
+                Grip.Revised(target: edit.Target, document: context.Document,
                     interaction: edit.Interaction, op: context.Op,
                     revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(
                         () => style.ScaleLengthValues(scale: edit.Factor.Value))))),
             pageScale: static (context, edit) =>
-                Grip.Revised(target: edit.Target, document: context.Document, slot: DraftSlot.Scaled,
+                Grip.Revised(target: edit.Target, document: context.Document,
                     interaction: edit.Interaction, op: context.Op,
                     revise: (style, key) => key.Catch(() => Fin.Succ(value: Op.Side(() => {
                         style.ScaleLeftLengthMillimeters = edit.Left.Value;
@@ -918,7 +899,7 @@ public sealed record DraftPlan<TOp> where TOp : class {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Styles {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<StyleOp> plan) =>
+    public static Fin<Unit> Commit(DocumentSession session, DraftPlan<StyleOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, key) => operation.Apply(document: document, op: key),
             op: Op.Of(name: nameof(Styles)));
@@ -1084,93 +1065,14 @@ public sealed record StyleSnapshot(
 }
 ```
 
-## [06]-[SPINE_AND_RECEIPTS]
+## [06]-[SPINE]
 
-- Owner: `DraftSpine` — the one Annotation commit entry: it derives its needs through `SessionNeed.Mutation(custody:, redraw:)`, demands once, and commits through the Document spine's `DocumentCommit.Sealed` with the `DraftReceipt` fold and undo-serial stamp as its carrier; `DraftBodyKind` — the five-row body-kind vocabulary; `DraftBody` `[Union]` — the typed fact payloads answering their kind through one total fold; `DraftSlot` `[SmartEnum<int>]` — the consequence vocabulary conforming to `Document/facts.md`'s KINDED slot contract with one declared `Bodies` set per row; `DraftFacts` — the folder's mint surface as an extension block. `DraftFact` and `DraftReceipt` are ALIASES of the Document spine's `Fact<TSlot, TBody>`/`FactStream<TSlot, TBody>` closed over this folder's two vocabularies.
+- Owner: `DraftSpine` is the one Annotation commit entry: it derives its needs through `SessionNeed.Mutation(custody:, redraw:)`, demands once, and commits the command-only program through `DocumentCommit.Sealed`.
 - Law: the spine is the one commit entry for the namespace — style, text, dimension, hatch, linetype, and section commits share it verbatim, so undo, redraw, and grant semantics cannot drift between drafting rails; a rail re-spelling the demand-and-seal sequence, or opening `UndoBracket.Begin` beside `Sealed`, is the deleted form.
 - Law: `DocumentCommit.Compensated` is the one compensating-transaction fold — land each element, roll back every landed key on the first refusal, settle source custody through its release policy on every outcome, preserve the initiating fault, and append rollback and release faults in order; a rail re-typing this fold or spelling a caller-local release cascade beside it is the deleted form.
-- Law: the stream MACHINERY is not this folder's — accumulation, the cross-product gate, the undo-stamp projection, and `Project<T>` live once on `Document/facts.md`'s `FactStream<TSlot, TBody>`, and this folder contributes exactly its slot vocabulary and its body union; a folder-local receipt, fact, gate, or projection beside the owner is the deleted form, and the same two declarations are all a third mutation folder needs to join.
-- Law: admission is READABLE — each `DraftSlot` row DECLARES the body kinds it emits as one `CapabilitySet<DraftBodyKind>` whose `Wire` a receipt printer renders and whose rows a census greps, and `DraftBody` answers its own kind through one total generated fold. The seven opaque type-test predicates this vocabulary carried held an admission no reader enumerates and a second authority over the union's own case list.
-- Law: `Project<T>(slot, select)` is the receipt's one reader — a caller selects the demanded body case instead of growing a typed accessor per body.
-- Law: every receipt mint takes the operating key, so a fact carries the provenance of the arm that produced it rather than an anonymous root minted at the factory.
-- Law: the undo scalar is the spine's `UndoSerial` — `DocumentCommit.Sealed` mints it, every folder receipt carries it, and `Maybe` is the one zero projector, so an unrecorded program contributes no undo fact instead of one asserting record zero. A folder-local twin over the same `uint` is the forked form: two owners of one invariant drift the moment either changes.
-- Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`), `Domain/validation` (`CapabilitySet<T>`, `ICapability<T>`).
-- Growth: a new consequence class is one slot row with its body set or one body case with its kind row; every rail and every projection gains it for free.
+- Packages: `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`).
 
 ```csharp
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class DraftComponentKind {
-    public static readonly DraftComponentKind Style = new();
-    public static readonly DraftComponentKind Section = new();
-    public static readonly DraftComponentKind Hatch = new();
-    public static readonly DraftComponentKind Linetype = new();
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class DraftBodyKind : ICapability<DraftBodyKind> {
-    public static readonly DraftBodyKind Component = new(key: "component");
-    public static readonly DraftBodyKind Object = new(key: "object");
-    public static readonly DraftBodyKind Tally = new(key: "tally");
-    public static readonly DraftBodyKind Path = new(key: "path");
-    public static readonly DraftBodyKind Record = new(key: "record");
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record DraftBody : IFactBody<DraftBodyKind> {
-    private DraftBody() { }
-    public sealed record Component(DraftComponentKind ComponentKind, ResourceIndex Index) : DraftBody;
-    public sealed record Object(ResourceId Id) : DraftBody;
-    public sealed record Tally(DraftCount Count) : DraftBody;
-    public sealed record Path(DraftPath Value) : DraftBody;
-    public sealed record Record(UndoSerial Serial) : DraftBody;
-
-    DraftBodyKind IFactBody<DraftBodyKind>.Kind => Switch(
-        component: static _ => DraftBodyKind.Component,
-        @object: static _ => DraftBodyKind.Object,
-        tally: static _ => DraftBodyKind.Tally,
-        path: static _ => DraftBodyKind.Path,
-        record: static _ => DraftBodyKind.Record);
-}
-
-[SmartEnum<int>]
-public sealed partial class DraftSlot : IFactSlot<DraftBody, DraftBodyKind> {
-    public static readonly DraftSlot Authored = new(key: 0, bodies: Rowed);
-    public static readonly DraftSlot Amended = new(key: 1, bodies: Touched);
-    public static readonly DraftSlot Absorbed = new(key: 2, bodies: Rowed);
-    public static readonly DraftSlot Reparented = new(key: 3, bodies: Rowed);
-    public static readonly DraftSlot Current = new(key: 4, bodies: Rowed);
-    public static readonly DraftSlot Deleted = new(key: 5, bodies: Touched);
-    public static readonly DraftSlot Revived = new(key: 6, bodies: Touched);
-    public static readonly DraftSlot Scaled = new(key: 7, bodies: Touched);
-    public static readonly DraftSlot Renamed = new(key: 8, bodies: Rowed);
-    public static readonly DraftSlot Imported = new(key: 9, bodies: Filed);
-    public static readonly DraftSlot Exported = new(key: 10, bodies: Shipped);
-    public static readonly DraftSlot Loaded = new(key: 11, bodies: Stocked);
-    public static readonly DraftSlot Placed = new(key: 12, bodies: Instanced);
-    public static readonly DraftSlot Adjusted = new(key: 13, bodies: Instanced);
-    public static readonly DraftSlot Restyled = new(key: 14, bodies: Instanced);
-    public static readonly DraftSlot Reflowed = new(key: 15, bodies: Instanced);
-    public static readonly DraftSlot Reformulated = new(key: 16, bodies: Instanced);
-    public static readonly DraftSlot Bound = new(key: 17, bodies: Touched);
-    public static readonly DraftSlot Undo = new(key: 18, bodies: Stamped);
-
-    public CapabilitySet<DraftBodyKind> Bodies { get; }
-
-    private static CapabilitySet<DraftBodyKind> Rowed => CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Component);
-    private static CapabilitySet<DraftBodyKind> Instanced => CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Object);
-    private static CapabilitySet<DraftBodyKind> Touched =>
-        CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Component, DraftBodyKind.Object);
-    private static CapabilitySet<DraftBodyKind> Filed =>
-        CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Component, DraftBodyKind.Tally, DraftBodyKind.Path);
-    private static CapabilitySet<DraftBodyKind> Shipped =>
-        CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Tally, DraftBodyKind.Path);
-    private static CapabilitySet<DraftBodyKind> Stocked =>
-        CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Component, DraftBodyKind.Tally);
-    private static CapabilitySet<DraftBodyKind> Stamped => CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Record);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
@@ -1192,34 +1094,11 @@ public sealed partial class DraftPath {
     }
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------
-global using DraftFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody>;
-global using DraftReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody>;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class DraftFacts {
-    extension(DraftReceipt) {
-        public static Fin<DraftReceipt> Component(DraftSlot slot, DraftComponentKind componentKind, ResourceIndex index, Op key) =>
-            DraftReceipt.Of(slot: slot, body: new DraftBody.Component(ComponentKind: componentKind, Index: index), key: key);
-
-        public static Fin<DraftReceipt> Objects(DraftSlot slot, Seq<ResourceId> ids, Op key) =>
-            DraftReceipt.All(
-                slot: slot,
-                bodies: ids.Distinct().Map(static id => (DraftBody)new DraftBody.Object(Id: id)),
-                key: key);
-
-        public static Fin<DraftReceipt> Tally(DraftSlot slot, DraftCount count, Op key) =>
-            DraftReceipt.Of(slot: slot, body: new DraftBody.Tally(Count: count), key: key);
-
-        public static Fin<DraftReceipt> Path(DraftSlot slot, DraftPath path, Op key) =>
-            DraftReceipt.Of(slot: slot, body: new DraftBody.Path(Value: path), key: key);
-    }
-}
-
 internal static class DraftSpine {
-    internal static Fin<DraftReceipt> Commit<TOp>(
+    internal static Fin<Unit> Commit<TOp>(
         DocumentSession session, DraftPlan<TOp> plan,
-        Func<RhinoDoc, TOp, Op, Fin<DraftReceipt>> apply, Op op) where TOp : class =>
+        Func<RhinoDoc, TOp, Op, Fin<Unit>> apply, Op op) where TOp : class =>
         session.Demand(
             use: document => DocumentCommit.Sealed(
                 document: document,
@@ -1227,11 +1106,7 @@ internal static class DraftSpine {
                 recordsUndo: plan.Mode.Custody.Records,
                 redraw: plan.Mode.Redraw,
                 run: () => plan.Operations.TraverseM(operation => apply(document, operation, op)).As()
-                    .Map(static receipts => receipts.Fold(DraftReceipt.Empty, static (state, next) => state + next)),
-                stamp: static (receipt, serial) => receipt.Stamped(
-                    slot: DraftSlot.Undo,
-                    record: static stamped => new DraftBody.Record(Serial: stamped),
-                    serial: serial),
+                    .Map(static _ => unit),
                 project: Fin.Succ,
                 op: op),
             key: op,
@@ -1260,14 +1135,12 @@ internal static class DraftSpine {
 |  [15]   | annotation style | `AnnotationStyleOp`             | overlay / clear a per-annotation override     | `Apply(annotation, op)`     |
 |  [16]   | style mutations  | `StyleOp`                       | shared verbs plus six style-only cases        | `Styles.Commit`             |
 |  [17]   | style reads      | `StyleAsk`                      | closed request/answer family, axis-scoped     | `Styles.Ask`                |
-|  [18]   | commit entry     | `DraftSpine`                    | `Sealed` over the `DraftReceipt` fold         | `Commit`                    |
-|  [19]   | receipts         | `DraftSlot`/`DraftBody`         | spine `FactStream` closed on two vocabularies | `DraftFacts` / `Project<T>` |
+|  [18]   | commit entry     | `DraftSpine`                    | sealed command fold                           | `Commit`                    |
 
 ## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

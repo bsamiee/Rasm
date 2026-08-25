@@ -152,7 +152,7 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)`; `
 - `segno` (`.api/segno.md`), `great-tables` (`.api/great-tables.md`), and `vl-convert-python` (`.api/vl-convert-python.md`) emit SVG that `SVG.parse` ingests into one typed tree; `Matrix.scale(...) * shape` + `bbox()` then composes each into an n-up sheet, so one figure rail consumes every admitted SVG producer.
 - `resvg-py` (`.api/resvg-py.md`) `svg_to_bytes` or `vl-convert-python` rasterizes the composed SVG to PNG/PDF, and that PNG feeds `pillow` (`.api/pillow.md`) or `pyvips` (`.api/pyvips.md`); `svgelements` is the geometry/layout owner upstream of every raster owner.
 - `Length.value(ppi=, viewbox=)` resolves CSS units against the same viewport the document target declares — a `weasyprint`/`pymupdf` page box — so scale-to-fit is spec-correct rather than a 96-dpi assumption.
-- `Path.bbox()` and `SVG.elements(conditional=)` produce typed geometry a `msgspec`/`pydantic` figure receipt records — element count, bbox tuple, `Matrix` components — so the figure op's evidence is structured.
+- `Path.bbox()` and `SVG.elements(conditional=)` feed the typed `PathResult` geometry cases directly.
 - `graphic/vector` folds `Path` as its metric substrate (point-at-distance, decimation) and `Matrix` as its transform, materializing one `Shape` per op before the `Rasterize` hand-off.
 
 [LOCAL_ADMISSION]:
@@ -162,4 +162,4 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)`; `
 - Package: `svgelements`
 - Owns: SVG document parse, the full `PathSegment` algebra, spec-faithful affine transform with pre/post compose and inverse, the `Length`/`Color`/`Angle`/`Point` value objects, the document-tree node vocabulary, bounding-box query, and viewport/viewBox resolution
 - Accept: SVG figure ingestion, transform, scale-to-fit, n-up composition, crop, and bounds query feeding the document and figure owners over the SVG that `segno`/`great-tables`/`vl-convert-python` emit
-- Reject: a hand-rolled SVG path parser or affine helper where `Path`/`Matrix` exist; a raster operation `resvg-py`/`pyvips`/`pillow` owns; a second SVG renderer where `vl-convert-python` rasterizes; a `find`/`select`/`filter` node-query family where `elements(conditional=)` discriminates; identity or receipt minting the runtime owner holds
+- Reject: a hand-rolled SVG path parser or affine helper where `Path`/`Matrix` exist; a raster operation `resvg-py`/`pyvips`/`pillow` owns; a second SVG renderer where `vl-convert-python` rasterizes; a `find`/`select`/`filter` node-query family where `elements(conditional=)` discriminates; identity minting the runtime owner holds

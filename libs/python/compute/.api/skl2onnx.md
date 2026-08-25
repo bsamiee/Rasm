@@ -73,13 +73,13 @@
 - `scikit-learn`(`.api/scikit-learn.md`): the export source is a fitted `Pipeline`/`ColumnTransformer`; `to_onnx(fitted, X, target_opset=...)` consumes its trained schema and `get_feature_names_out()`.
 - `onnx`(`.api/onnx.md`): the emitted `onnx.ModelProto` graduates through `checker.check_model(full_check=True)` and `shape_inference.infer_shapes` — the structural gate ahead of the runtime.
 - `onnxruntime`(`.api/onnxruntime.md`): the gated `ModelProto` loads into `InferenceSession(...).run(...)`, whose outputs compare against the scikit-learn `predict`/`predict_proba` on the same `X` for parity.
-- within-lib: the model-asset receipt captures the target opset, the emitted operator list, and the `onnxruntime`-session parity check; `target_opset` stays at or below `get_latest_tested_opset_version()` unless explicit validation justifies a higher opset.
+- within-lib: the `ModelAssetManifest` captures the target opset, the emitted operator list, and the `onnxruntime`-session parity check; `target_opset` stays at or below `get_latest_tested_opset_version()` unless explicit validation justifies a higher opset.
 
 [LOCAL_ADMISSION]:
-- A fitted `Pipeline`/estimator exports via `to_onnx(model, X, target_opset=<int>)` with `initial_types` from `common.data_types`, validated through an `onnxruntime` session; the receipt records target opset, operator list, and the inference-parity check.
+- A fitted `Pipeline`/estimator exports via `to_onnx(model, X, target_opset=<int>)` with `initial_types` from `common.data_types`, validated through an `onnxruntime` session; the manifest records target opset, operator list, and the inference-parity check.
 
 [RAIL_LAW]:
 - Package: `skl2onnx`
 - Owns: scikit-learn-to-ONNX conversion — fitted estimator/pipeline export to `onnx.ModelProto`, typed `initial_types`/`final_types`, operator gating, custom converter/parser/shape-calculator registration, and the `OnnxOperator`/`OnnxSubEstimator` algebra for novel operators
-- Accept: a fitted `sklearn` estimator exported via `to_onnx` with `initial_types` from `common.data_types`, validated through an `onnxruntime` session with a captured opset/operator/parity receipt
+- Accept: a fitted `sklearn` estimator exported via `to_onnx` with `initial_types` from `common.data_types`, validated through an `onnxruntime` session against its opset, operator set, and inference parity
 - Reject: hand-rolled ONNX graph construction for supported estimators; unfitted models passed to `to_onnx`; opsets above `get_latest_tested_opset_version()` without validation; untyped `initial_types` dropping the dynamic batch axis

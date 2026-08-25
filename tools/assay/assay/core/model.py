@@ -79,16 +79,7 @@ class Input(StrEnum):
         return m
 
 
-DOTNET_CONFIG_ANCHORS: frozenset[str] = frozenset((
-    ".config/dotnet-tools.json",
-    ".editorconfig",
-    "Directory.Build.props",
-    "Directory.Build.targets",
-    "Directory.Packages.props",
-    "NuGet.config",
-    "Workspace.slnx",
-    "global.json",
-))
+DOTNET_CONFIG_ANCHORS: frozenset[str] = frozenset((".config/dotnet-tools.json", ".editorconfig", "Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props", "NuGet.config", "Workspace.slnx", "global.json"))
 
 
 class Language(StrEnum):
@@ -97,30 +88,9 @@ class Language(StrEnum):
     strategy: Literal["closure", "glob"]
     suffixes: frozenset[str]
     governors: frozenset[str]
-    DOTNET = (
-        "dotnet",
-        "closure",
-        frozenset((".cs", ".csproj", ".props", ".targets", ".slnx")),
-        frozenset((*DOTNET_CONFIG_ANCHORS, "stryker-config.json")),
-    )
+    DOTNET = ("dotnet", "closure", frozenset((".cs", ".csproj", ".props", ".targets", ".slnx")), frozenset((*DOTNET_CONFIG_ANCHORS, "stryker-config.json")))
     PYTHON = "python", "glob", frozenset((".py", ".pyi")), frozenset(("pyproject.toml", "uv.lock"))
-    TYPESCRIPT = (
-        "typescript",
-        "glob",
-        frozenset((".ts", ".tsx", ".cts", ".mts")),
-        frozenset((
-            "tsconfig.json",
-            "tsconfig.base.json",
-            "tsconfig.node.json",
-            "tsconfig.tools.json",
-            "biome.json",
-            "pnpm-workspace.yaml",
-            "pnpm-lock.yaml",
-            "package.json",
-            "vitest.config.ts",
-            "stryker.config.json",
-        )),
-    )
+    TYPESCRIPT = ("typescript", "glob", frozenset((".ts", ".tsx", ".cts", ".mts")), frozenset(("tsconfig.json", "tsconfig.base.json", "tsconfig.node.json", "tsconfig.tools.json", "biome.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "package.json", "vitest.config.ts", "stryker.config.json")))
     BASH = "bash", "glob", frozenset((".sh", ".bash")), frozenset[str]()
     SQL = "sql", "glob", frozenset((".sql",)), frozenset(("pyproject.toml",))
     DOCS = "docs", "glob", frozenset((".md", ".mmd")), frozenset[str]()
@@ -500,12 +470,12 @@ class Artifact(Base, frozen=True):
     lines: Annotated[int, msgspec.Meta(ge=0)] = 0
 
 
-class ExecReceipt(Base, frozen=True):
+class RemoteExecution(Base, frozen=True):
     """Remote-execution facts for an offloaded check.
 
     A dedicated carrier field on Completed/Report/Envelope, paralleling Envelope.error_context: it never
     rides the Report.detail slot, so the rail's domain detail and the remote evidence stay disjoint. Local
-    execution leaves the carrier ``None``; only the Ssh case projects a receipt.
+    execution leaves the carrier ``None``; only the Ssh case projects these facts.
     """
 
     target: str = ""
@@ -517,34 +487,35 @@ class ExecReceipt(Base, frozen=True):
     notes: tuple[str, ...] = ()
 
     @classmethod
-    def merge(cls, receipts: tuple[ExecReceipt, ...]) -> ExecReceipt | None:
-        """Fold the per-outcome remote receipts of a multi-check fold into one host receipt.
+    def merge(cls, executions: tuple[RemoteExecution, ...]) -> RemoteExecution | None:
+        """Fold per-outcome remote execution facts into one host execution.
 
-        A fan-out over one ``exec_target`` yields one receipt per check, all to the same host; the merge sums the
+        A fan-out over one ``exec_target`` yields one value per check, all for the same host; the merge sums the
         push/pull counts, concatenates notes, and keeps the host identity, so a multi-outcome remote fold surfaces
         every leg's transfer evidence instead of only the first outcome's.
 
         Returns:
-            The folded receipt, or ``None`` when no outcome carried one (a local run).
+            The folded remote execution, or ``None`` for a local run.
         """
-        if not receipts:
+        if not executions:
             return None
-        if len(receipts) == 1:
-            return receipts[0]
-        head, last_status = receipts[0], next((r.exit_status for r in reversed(receipts) if r.exit_status is not None), None)
+        if len(executions) == 1:
+            return executions[0]
+        head = executions[0]
+        last_status = next((execution.exit_status for execution in reversed(executions) if execution.exit_status is not None), None)
         return cls(
             target=head.target,
             host=head.host,
             exit_status=last_status,
-            signal=next((r.signal for r in receipts if r.signal), ""),
-            pushed=sum(r.pushed for r in receipts),
-            pulled=sum(r.pulled for r in receipts),
-            notes=tuple(n for r in receipts for n in r.notes),
+            signal=next((execution.signal for execution in executions if execution.signal), ""),
+            pushed=sum(execution.pushed for execution in executions),
+            pulled=sum(execution.pulled for execution in executions),
+            notes=tuple(note for execution in executions for note in execution.notes),
         )
 
 
 class Completed(Base, frozen=True):
-    """Receipt for a process or in-process tool that ran."""
+    """Result of a process or in-process tool that ran."""
 
     argv: tuple[str, ...]
     returncode: int
@@ -555,7 +526,7 @@ class Completed(Base, frozen=True):
     notes: tuple[str, ...] = ()
     artifacts: tuple[Artifact, ...] = ()
     resources: tuple[tuple[str, float], ...] = ()
-    exec: ExecReceipt | None = None
+    remote: RemoteExecution | None = None
     parser: Parser = Parser.NONE
     sarif_dir: str = ""
 
@@ -858,20 +829,7 @@ class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
     first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
 
 
-type AnyDetail = (
-    ApiSource
-    | ApiSurface
-    | VerifySummary
-    | BridgeLifecycle
-    | TestRun
-    | StaticRun
-    | PackageRun
-    | ProvisionRun
-    | ContractsRun
-    | ApiResolution
-    | Diagnostic
-    | RunDelta
-)
+type AnyDetail = ApiSource | ApiSurface | VerifySummary | BridgeLifecycle | TestRun | StaticRun | PackageRun | ProvisionRun | ContractsRun | ApiResolution | Diagnostic | RunDelta
 
 
 class Report(Base, frozen=True):
@@ -885,7 +843,7 @@ class Report(Base, frozen=True):
     results: tuple[Match, ...] = ()
     notes: tuple[str, ...] = ()
     detail: AnyDetail | None = None
-    exec: ExecReceipt | None = None
+    remote: RemoteExecution | None = None
 
 
 class Envelope(Base, frozen=True, kw_only=True):
@@ -900,7 +858,7 @@ class Envelope(Base, frozen=True, kw_only=True):
     report: Report | None = None
     error: Fault | None = None
     error_context: Diagnostic | None = None
-    exec: ExecReceipt | None = None
+    remote: RemoteExecution | None = None
     truncated: bool = False
     notes: tuple[str, ...] = ()
 
@@ -926,14 +884,7 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
     """Return the msgspec `max_length` for a string field, or `default` when absent."""
     match msgspec.inspect.type_info(struct):
         case msgspec.inspect.StructType(fields=fields):
-            return next(
-                (
-                    f.type.max_length
-                    for f in fields
-                    if f.name == field and isinstance(f.type, msgspec.inspect.StrType) and f.type.max_length is not None
-                ),
-                default,
-            )
+            return next((f.type.max_length for f in fields if f.name == field and isinstance(f.type, msgspec.inspect.StrType) and f.type.max_length is not None), default)
         case _:
             return default
 
@@ -953,10 +904,7 @@ class BaseParams:
 
     SLOTS: ClassVar[dict[str, str]] = {"": "[PATHS]..."}
 
-    paths: Annotated[
-        tuple[str, ...],
-        Parameter(name="paths", help="Positional tokens: paths plus the verb's leading slots (pattern, symbol, key, token); surplus tokens fault."),
-    ] = ()
+    paths: Annotated[tuple[str, ...], Parameter(name="paths", help="Positional tokens: paths plus the verb's leading slots (pattern, symbol, key, token); surplus tokens fault.")] = ()
 
     def _arity(self, verb: str) -> int | None:  # ruff:ignore[no-self-use]
         _ = verb
@@ -995,9 +943,7 @@ def language_choice(verb: str, *, dotnet: bool = False, python: bool = False, ty
     Returns:
         Selected language, ``None`` when unrestricted, or a parse fault when flags conflict.
     """
-    selected = tuple(
-        language for language, active in ((Language.DOTNET, dotnet), (Language.PYTHON, python), (Language.TYPESCRIPT, typescript)) if active
-    )
+    selected = tuple(language for language, active in ((Language.DOTNET, dotnet), (Language.PYTHON, python), (Language.TYPESCRIPT, typescript)) if active)
     match selected:
         case ():
             return None
@@ -1006,30 +952,6 @@ def language_choice(verb: str, *, dotnet: bool = False, python: bool = False, ty
         case _:
             flags = ", ".join(f"--{language.value}" for language in selected)
             return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: choose one language flag, got {flags}")
-
-
-def receipt(
-    argv: tuple[str, ...],
-    rc: int,
-    *,
-    stdout: bytes = b"",
-    stderr: bytes = b"",
-    duration_ms: float = 0.0,
-    status: RailStatus | None = None,
-    notes: tuple[str, ...] = (),
-    artifacts: tuple[Artifact, ...] = (),
-) -> Completed:
-    """Return a Completed receipt; derives status from `rc` when not supplied explicitly."""
-    return Completed(
-        argv=argv,
-        returncode=rc,
-        stdout=stdout,
-        stderr=stderr,
-        duration_ms=duration_ms,
-        status=status or RailStatus.from_returncode(rc),
-        notes=notes,
-        artifacts=artifacts,
-    )
 
 
 def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
@@ -1048,9 +970,7 @@ def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = 
         case Report() as r:
             return Envelope(claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, run_id=run_id, report=r)
         case Fault() as f:
-            return Envelope(
-                claim=claim, verb=verb, status=f.status, exit_code=f.status.exit_code, run_id=run_id, error=f, error_context=error_context
-            )
+            return Envelope(claim=claim, verb=verb, status=f.status, exit_code=f.status.exit_code, run_id=run_id, error=f, error_context=error_context)
 
 
 def wire_encode(value: object) -> bytes:
@@ -1093,7 +1013,6 @@ __all__ = [
     "Detail",
     "Diagnostic",
     "Envelope",
-    "ExecReceipt",
     "Fault",
     "InprocThunk",
     "Input",
@@ -1105,6 +1024,7 @@ __all__ = [
     "Parser",
     "ProvisionRun",
     "RailStatus",
+    "RemoteExecution",
     "Report",
     "RunDelta",
     "RunSnapshot",
@@ -1126,7 +1046,6 @@ __all__ = [
     "envelope",
     "field_cap",
     "language_choice",
-    "receipt",
     "validate_detail",
     "wire_encode",
     "wire_safe",

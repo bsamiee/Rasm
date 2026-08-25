@@ -2,7 +2,7 @@
 
 `FaceDecoration` and `FaceTrait` are the namespace's typeface capability rosters, `FaceQuery` the one face admission, and `FaceInfo` the detached descriptor every census and document bind compares.
 
-`SectionField` instantiates the drafting-schema mechanism over `SectionStyle`, so every section write rides one railed row fold; `TypefaceOp` and `SectionOp` share `DraftPlan<T>`, `DraftSpine`, the `TableGrip` revision law, and the typed receipt algebra.
+`SectionField` instantiates the drafting-schema mechanism over `SectionStyle`, so every section write rides one railed row fold; `TypefaceOp` and `SectionOp` share `DraftPlan<T>`, `DraftSpine`, and the `TableGrip` revision law.
 
 ## [01]-[INDEX]
 
@@ -271,7 +271,7 @@ public abstract partial record TypefaceOp {
     private TypefaceOp() { }
     public sealed record Bind(FaceQuery Query, Option<ResourceRef> Template) : TypefaceOp;
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) =>
         Switch(
             (Document: document, Op: op),
             bind: static (context, edit) =>
@@ -280,23 +280,19 @@ public abstract partial record TypefaceOp {
                 from template in edit.Template.Traverse(address => address.Resolve(
                     document: context.Document, lens: StyleOp.Lens, key: context.Op)).As()
                 from seated in Seated(document: context.Document, face: face, op: context.Op)
-                from index in seated.Match(
-                    Some: Fin.Succ,
-                    None: () => Fresh(document: context.Document, template: template, font: font, op: context.Op))
-                from receipt in DraftReceipt.Component(
-                    slot: DraftSlot.Bound, componentKind: DraftComponentKind.Style, index: index, key: context.Op)
-                select receipt);
+                from _ in seated
+                    ? Fin.Succ(value: unit)
+                    : Fresh(document: context.Document, template: template, font: font, op: context.Op)
+                select unit);
 
-    private static Fin<Option<ResourceIndex>> Seated(RhinoDoc document, FaceInfo face, Op op) =>
+    private static Fin<bool> Seated(RhinoDoc document, FaceInfo face, Op op) =>
         toSeq(document.DimStyles).Filter(static style => !style.IsDeleted).Fold(
-            Fin.Succ(Option<ResourceIndex>.None),
-            (state, style) => state.Bind(held => held.IsSome
-                ? Fin.Succ(value: held)
-                : FaceInfo.Of(font: style.Font, key: op).Map(resolved => resolved == face
-                    ? Some(ResourceIndex.Create(style.Index))
-                    : Option<ResourceIndex>.None)));
+            Fin.Succ(value: false),
+            (state, style) => state.Bind(found => found
+                ? Fin.Succ(value: true)
+                : FaceInfo.Of(font: style.Font, key: op).Map(resolved => resolved == face)));
 
-    private static Fin<ResourceIndex> Fresh(
+    private static Fin<Unit> Fresh(
         RhinoDoc document, Option<DimensionStyle> template, Font font, Op op) =>
         Lease<DimensionStyle>.Acquire(
                 mint: () => template.IfNone(() => document.DimStyles.Current).Duplicate(
@@ -305,9 +301,9 @@ public abstract partial record TypefaceOp {
             .Bind(lease => lease.Use(
                 body: owned =>
                     from _ in op.Catch(() => Fin.Succ(value: Op.Side(() => owned.Font = font)))
-                    from index in op.Catch(() => ResourceIndex.Admit(
+                    from __ in op.Catch(() => ResourceIndex.Admit(
                         document.DimStyles.Add(dimstyle: owned, reference: false), op))
-                    select index,
+                    select unit,
                 key: op));
 }
 
@@ -346,7 +342,7 @@ public static class Typefaces {
                 select (FaceCensusAnswer)new FaceCensusAnswer.Names(Items: items)));
     }
 
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<TypefaceOp> plan, Op? key = null) =>
+    public static Fin<Unit> Commit(DocumentSession session, DraftPlan<TypefaceOp> plan, Op? key = null) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, op) => operation.Apply(document: document, op: op),
             op: key.OrDefault());
@@ -647,14 +643,14 @@ public sealed partial class SectionSpec {
 - Law: `Author` stays a page-local case because `SectionSource` is an axis no `TDef` carries — `SectionStyleTable` publishes TWO seats, `Add` and `AddReferenceSectionStyle`, while the grip's one `Seat` column reaches the first alone; the def still mints and drains through `Grip.Mint`, so the source column decides the seat and nothing else.
 - Law: the section table publishes neither a user-string bag nor a current row, so `Tags` answers a surface whose read is empty and whose writes refuse, and `Elect` refuses typed — a `TableOp.Retag` carrying pairs and every `TableOp.SetCurrent` answer an unsupported fault rather than a silent success, while clearing an absent bag stays honestly vacuous.
 - Law: delete usage-gates every resolved target inside the grip's `Retire` row before one `SectionStyleTable.Delete(IEnumerable<int>, bool)` call; any retained row makes the whole request fail before mutation, and the in-use-warning verdict stays the host's own `quiet`-derived value — the three-argument overload exists to OVERRIDE that derivation, so re-deriving it here forks one rule across two owners.
-- Law: import stays a page-local case because the grip's `Ingest` column reads a file into detached natives with no document in hand while section import LANDS a second table's rows: it canonicalizes hatch references through `PatternDef`, preflights names, compensates added patterns and added or replaced styles in reverse landing order, and records every outcome in the shared receipt algebra.
+- Law: import stays a page-local case because the grip's `Ingest` column reads a file into detached natives with no document in hand while section import LANDS a second table's rows: it canonicalizes hatch references through `PatternDef`, preflights names, and compensates added patterns and added or replaced styles in reverse landing order.
 - Law: every landed row carries its OWN reversal, so rollback is one fold over any landing run and a reused pattern states a vacuous undo instead of an `Added` flag every rollback re-tests.
 - Law: preflight ACCUMULATES — both admission runs traverse onto `Validation` — and each uniqueness question is a KEYED carrier the later lookup reads, so the duplicate guard and the hatch re-key share one authority instead of a scan beside a count test. Name keys are `ResourceName` values, which carry the host tables' ordinal-ignore-case comparer.
 - Law: every rollback and drain leg spells `HostInteraction.Silent`; the host `quiet` boolean has ONE owner on this spine and a literal beside it forks the interaction axis.
 - Law: import owns every native it reads or retains — both `ReadFromFile` out-arrays and each copy-retained pre-existing style — and drains all three sets through kernel `Custody` on success and on every refusal leg.
 - Law: `SectionUsage` is the ONE usage authority — the snapshot carries it rather than a second host `InUse` read whose verdict can disagree with the census beside it.
 - Boundary: the projection reads host properties directly instead of routing through the schema's `Read` column, because it must reshape into the closed fill, boundary, and hatch cases and every row unwraps twice on that route; the schema's read column serves the defaults snapshot, which needs no reshaping.
-- Packages: `Annotation/style.md` (`TableGrip<T, TDef>`, `TableOp<T, TDef>`, `TagSurface`, `DraftScale`, `DraftAngle`); `Annotation/hatch.md` (`PatternDef`); `Annotation/linetype.md` (`StrokeDef`); `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`); `Document/facts.md` (`FactStream`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`); RhinoCommon `SectionStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_TABLE]`.
+- Packages: `Annotation/style.md` (`TableGrip<T, TDef>`, `TableOp<T, TDef>`, `TagSurface`, `DraftScale`, `DraftAngle`); `Annotation/hatch.md` (`PatternDef`); `Annotation/linetype.md` (`StrokeDef`); `Document/commit.md` (`DocumentCommit.Compensated`, `HostInteraction`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `DraftFault`); `Domain/rails` (`Custody`); RhinoCommon `SectionStyleTable` per `.api/api-rhinocommon-drafting-resources.md` `[SECTION_TABLE]`.
 - Growth: a section-only verb is one `SectionOp` case with its arm; a verb every component table shares is one `TableOp` case; a new landing kind is one `ImportLanding` mint carrying its reversal.
 
 ```csharp
@@ -685,7 +681,7 @@ public abstract partial record SectionOp {
         ByIndex: static (document, index) => document.SectionStyles.FindIndex(index: index));
 
     internal static readonly TableGrip<SectionStyle, SectionSpec> Grip = new(
-        Lens, DraftComponentKind.Section,
+        Lens,
         Named: static def => def.Name,
         Title: static (style, key) => key.AcceptValidated<ResourceName>(candidate: style.Name),
         Index: static style => style.Index,
@@ -736,29 +732,27 @@ public abstract partial record SectionOp {
     private sealed record ImportSeat(ResourceIndex Index, SectionStyle Original);
     private sealed record SectionIntent(SectionStyle Style, ResourceName Name, Option<ImportSeat> Seat);
 
-    private sealed record ImportLanding(DraftSlot Slot, ResourceIndex Index, Func<Op, Fin<Unit>> Undo);
+    private sealed record ImportLanding(ResourceIndex Index, Func<Op, Fin<Unit>> Undo);
 
     private readonly record struct ImportSpoil(Seq<SectionStyle> Styles, Seq<HatchPattern> Patterns);
 
-    internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
         table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
         author: static (context, edit) =>
             from _ in guard(!Grip.Occupied(context.Document, edit.Spec.Name), context.Op.InvalidInput()).ToFin()
             from minted in Grip.Mint(context.Document, edit.Spec, context.Op)
-            from receipt in new Lease<SectionStyle>.Owned(Value: minted).Use(
+            from __ in new Lease<SectionStyle>.Owned(Value: minted).Use(
                 body: owned =>
-                    from index in context.Op.Catch(() => ResourceIndex.Admit(
+                    from ___ in context.Op.Catch(() => ResourceIndex.Admit(
                         edit.Source.Add(document: context.Document, style: owned), context.Op))
-                    from authored in DraftReceipt.Component(
-                        slot: DraftSlot.Authored, componentKind: DraftComponentKind.Section, index: index, key: context.Op)
-                    select authored,
+                    select unit,
                 key: context.Op)
-            select receipt,
+            select unit,
         import: static (context, edit) => ImportFile(
             document: context.Document, path: edit.Path, interaction: edit.Interaction, op: context.Op));
 
-    private static Fin<DraftReceipt> ImportFile(RhinoDoc document, DraftPath path, HostInteraction interaction, Op op) =>
+    private static Fin<Unit> ImportFile(RhinoDoc document, DraftPath path, HostInteraction interaction, Op op) =>
         from read in op.Catch(() => SectionStyle.ReadFromFile(
                 filename: path.Value, sectionStyles: out SectionStyle[] styles, hatchPatterns: out HatchPattern[] patterns)
             ? Fin.Succ(value: new ImportSpoil(Styles: toSeq(styles ?? []), Patterns: toSeq(patterns ?? [])))
@@ -774,13 +768,13 @@ public abstract partial record SectionOp {
             .BindFail(primary => Drained<Seq<ImportLanding>>(primary: primary, spoil: owned, op: op))
         let targets = toHashMap(plan.Patterns.Zip(
             patterns, static (intent, landing) => (intent.Source, landing.Index)))
-        from receipt in ImportSections(
-                document: document, path: path, interaction: interaction,
+        from _ in ImportSections(
+                document: document, interaction: interaction,
                 plan: plan.Styles, patterns: patterns, targets: targets, op: op)
-            .BindFail(primary => Drained<DraftReceipt>(primary: primary, spoil: owned, op: op))
-        from _ in Custody.Dispose(held: owned.Styles, key: op)
-        from __ in Custody.Dispose(held: owned.Patterns, key: op)
-        select receipt;
+            .BindFail(primary => Drained<Unit>(primary: primary, spoil: owned, op: op))
+        from __ in Custody.Dispose(held: owned.Styles, key: op)
+        from ___ in Custody.Dispose(held: owned.Patterns, key: op)
+        select unit;
 
     private static Seq<SectionStyle> Retained(Seq<SectionIntent> plan) =>
         plan.Choose(static intent => intent.Seat.Map(static seat => seat.Original));
@@ -822,34 +816,23 @@ public abstract partial record SectionOp {
     private static Fin<ImportLanding> LandPattern(RhinoDoc document, PatternIntent intent, Op op) =>
         intent.Existing.Match(
             Some: target => Fin.Succ(value: new ImportLanding(
-                Slot: DraftSlot.Bound, Index: target, Undo: static _ => Fin.Succ(unit))),
+                Index: target, Undo: static _ => Fin.Succ(unit))),
             None: () => op.Catch(() => ResourceIndex.Admit(document.HatchPatterns.Add(pattern: intent.Pattern), op)
                 .Map(target => new ImportLanding(
-                    Slot: DraftSlot.Imported, Index: target,
+                    Index: target,
                     Undo: key => key.Confirm(success: document.HatchPatterns.Delete(
                         hatchPatternIndex: target.Value, quiet: HostInteraction.Silent.IsQuiet))))));
 
-    private static Fin<DraftReceipt> ImportSections(
-        RhinoDoc document, DraftPath path, HostInteraction interaction,
+    private static Fin<Unit> ImportSections(
+        RhinoDoc document, HostInteraction interaction,
         Seq<SectionIntent> plan, Seq<ImportLanding> patterns, HashMap<int, ResourceIndex> targets, Op op) =>
         DocumentCommit.Compensated(
                 source: plan,
                 land: intent => LandSection(
                     document: document, intent: intent, targets: targets, interaction: interaction, op: op),
                 rollback: landed => Rollback(landed: landed, op: op))
-            .Bind(sections => Finished(path: path, sections: sections, patterns: patterns, op: op)
-                .BindFail(primary => Reverted(
-                    primary: primary, runs: Seq(sections, patterns), op: op)))
+            .Map(static _ => unit)
             .BindFail(primary => Reverted(primary: primary, runs: Seq(patterns), op: op));
-
-    private static Fin<DraftReceipt> Finished(
-        DraftPath path, Seq<ImportLanding> sections, Seq<ImportLanding> patterns, Op op) =>
-        from components in sections.TraverseM(change => DraftReceipt.Component(
-            slot: change.Slot, componentKind: DraftComponentKind.Section, index: change.Index, key: op)).As()
-        from count in op.AcceptValidated<DraftCount>(candidate: patterns.Count)
-        from tally in DraftReceipt.Tally(slot: DraftSlot.Imported, count: count, key: op)
-        from filed in DraftReceipt.Path(slot: DraftSlot.Imported, path: path, key: op)
-        select components.Fold(filed + tally, static (state, next) => state + next);
 
     private static Fin<ImportLanding> LandSection(
         RhinoDoc document, SectionIntent intent, HashMap<int, ResourceIndex> targets,
@@ -864,14 +847,14 @@ public abstract partial record SectionOp {
                 from __ in op.Confirm(success: document.SectionStyles.Modify(
                     sectionstyle: intent.Style, index: seat.Index.Value, quiet: interaction.IsQuiet))
                 select new ImportLanding(
-                    Slot: DraftSlot.Amended, Index: seat.Index,
+                    Index: seat.Index,
                     Undo: key => key.Confirm(success: document.SectionStyles.Modify(
                         sectionstyle: seat.Original, index: seat.Index.Value,
                         quiet: HostInteraction.Silent.IsQuiet))),
             None: () => op.Catch(() => ResourceIndex.Admit(
                     document.SectionStyles.Add(sectionstyle: intent.Style), op)
                 .Map(index => new ImportLanding(
-                    Slot: DraftSlot.Authored, Index: index,
+                    Index: index,
                     Undo: key => key.Confirm(success: document.SectionStyles.Delete(
                         index: index.Value, quiet: HostInteraction.Silent.IsQuiet))))))
         select landed;
@@ -1005,7 +988,7 @@ public abstract partial record SectionAnswer : IDetachedDocumentResult {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Sections {
-    public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<SectionOp> plan, Op? key = null) =>
+    public static Fin<Unit> Commit(DocumentSession session, DraftPlan<SectionOp> plan, Op? key = null) =>
         DraftSpine.Commit(session: session, plan: plan,
             apply: static (document, operation, op) => operation.Apply(document: document, op: op),
             op: key.OrDefault());
@@ -1043,7 +1026,6 @@ public static class Sections {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

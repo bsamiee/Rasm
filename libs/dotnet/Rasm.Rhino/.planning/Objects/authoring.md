@@ -1,10 +1,10 @@
 # [RASM_RHINO_OBJECTS_AUTHORING]
 
-Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassing stays inside the custom geometry and grip adapters, every verified virtual forwards to an immutable program, and live grip editing resolves value facts inside a document grant. This page also holds the folder's one structured-log egress: `ObjectsTelemetry` publishes every host-callback fault and the process-wide host exception and cloud-log taps through plugin-keyed sinks behind one guarded fan, and `RhinoInstrumentPartition` declares the boundary's instrument projection as data the app root executes. `Display/interaction.md` exclusively owns in-viewport widgets, registration, hit testing, and widget event streams.
+Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassing stays inside the custom geometry and grip adapters, every verified virtual forwards to an immutable program, and live grip editing resolves value facts inside a document grant. This page also holds the folder's one structured-log egress: `ObjectsTelemetry` publishes every host-callback fault and the process-wide host exception and cloud-log taps through plugin-keyed sinks behind one guarded fan; the boundary's instrument rows declare once at `Document/events#TELEMETRY_TAP`, and the app root's observe taps write them off these hook facts. `Display/interaction.md` exclusively owns in-viewport widgets, registration, hit testing, and widget event streams.
 
 ## [01]-[INDEX]
 
-- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, the `ObjectsTelemetry` keyed-sink egress with its `HostTap` seat, the four classification attach attributes over the kernel `Sensitivity` taxonomy, the `RhinoInstrumentPartition` rows, the `ObjectsHooks` registry mounts, and the forwarding kernel every adapter shares.
+- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, the `ObjectsTelemetry` keyed-sink egress with its `HostTap` seat, the four classification attach attributes over the kernel `Sensitivity` taxonomy, the `ObjectsHooks` registry mounts, and the forwarding kernel every adapter shares.
 - [03]-[ADAPTERS]: the `ClassId`-ready host derivations.
 - [04]-[GRIP_PROGRAM]: `GripSeed`, `GripProgram`, `RasmGrip`, `RasmGrips`, and the enabler rig.
 - [05]-[GRIP_EDIT]: `GripMove`, `GripEdit`, `GripFacts`, and the `Grips` entry pair.
@@ -12,7 +12,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [02]-[OBJECT_PROGRAM]
 
-- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the keyed-sink fan, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` seats the host's process-wide exception and cloud-log streams onto that same egress; the four `[UserContent]`/`[HostPath]`/`[MachineIdentity]`/`[AccountIdentity]` attach attributes are this boundary's one classification declaration over the kernel `Sensitivity` taxonomy, whose `Values` roster the contributor port carries upward; `RhinoInstrumentPartition` declares the receipt-to-instrument projection as kind-keyed data; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
+- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the keyed-sink fan, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` seats the host's process-wide exception and cloud-log streams onto that same egress; the four `[UserContent]`/`[HostPath]`/`[MachineIdentity]`/`[AccountIdentity]` attach attributes are this boundary's one classification declaration over the kernel `Sensitivity` taxonomy, whose `Values` roster the contributor port carries upward; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
 - Law: `ObjectProgram` exposes only callbacks backed by a `RhinoObject` virtual, and each adapter forwards the same algebra; unsupported geometry kinds cannot mint phantom hooks.
 - Law: cloud-log severity is data and the host roster is CLOSED at five values — `Streamed` takes `LogLevel` as a parameter projected once from `HostUtils.LogMessageType` at the tap seam, the four carrying a severity map, and `unknown` (with any out-of-roster wire value) REFUSES through `Unsupported` onto `FaultSite.HostLog` rather than publishing a fabricated level under a real event; the host exception rides `Reported`'s typed `Exception` channel, never a stringified hole.
 - Law: sinks key on plugin identity — `ObjectsTelemetry.Configure` admits one `(PluginKey, ILogger)` row per plugin, `Publish` fans every event over the live rows with a per-sink guard so one faulted sink never starves siblings, an empty roster is the `NullLogger` no-op composition, and teardown removes only the caller's row; a later plugin can never shadow an earlier plugin's sink, and the `rasm.rhino.objects.fault`, `rasm.rhino.host.exception`, and `rasm.rhino.host.log` hook points bind onto this fan as telemetry-as-tap.
@@ -20,8 +20,8 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 - Law: the classification sweep is total over the egress — `Error` and host log messages classify `UserContent` (they embed document names and user text), file and directory payloads classify `HostPath`, process, machine, and version evidence classifies `MachineIdentity`, license and lease facts classify `AccountIdentity`; `FaultSite` keys, host source tokens, and event codes stay unclassified public evidence; exception message and stack admission ride the app-root `LoggerEnrichmentOptions` knobs, never a boundary re-scrub.
 - Law: enrichment splits by cost class — `HostStaticEnricher` captures process constants once and `ObjectsTelemetry` composes that classified fact into every generated event; no publish rereads host statics, and each `MachineIdentity` row reaches the app-root redactor through `LogProperties` before egress.
 - Law: `HostTap.Mount` is seat arbitration — the first plugin attaches both host delegates and holds the seat, later plugins ride the seat as keyed rows, a rider's disposal removes only its row, and the owner's disposal hands the seat to the senior rider with the delegates still attached or detaches both and returns the seat vacant; delegate identity stays exact, disposal is idempotent, and every plugin mounts beside its own `ObjectsTelemetry.Configure`.
-- Law: instrument projection is declared, never executed, in-boundary — `RhinoInstrumentPartition.Rows` maps each receipt kind to `rasm.rhino.<domain>.<measure>` instruments with UCUM units, the source receipt field, and attribution tags, the app root transcribes the kinds into its contributed arm table and merges them into the branch instrument fan, and a row names only a field its receipt already carries — the partition is projection truth, never a second measurement. One row projects one field: a tag naming a dimension its source does not carry is a second row over the field that does, and both egress fault streams carry rows, so a reported host exception reaches an instrument rather than dying annotated.
-- Law: a source spells itself through `nameof` exactly when its type is composable from this stratum — local egress events, the Document spine, Render, and Modeling — so a rename breaks the build instead of stranding a row; the three rows over Display and the same-stratum HostUi peer carry TEXT, because a `nameof` reaching them is the forbidden upward edge wearing a safety measure, and the app root proves those against its own contributed arm table. Local event names live as one const feeding both the generated `EventName` and the row. tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`, whose `DurationInstrument` constant mirrors the `rasm.rhino.hostui.marshal.duration` label this partition projects.
+- Law: instruments are declared, never executed, in-boundary — `RhinoInstruments.Rows` (`Document/events#TELEMETRY_TAP`) is the ONE `rasm.rhino.<domain>.<measure>` roster with UCUM units and closed dimensions, the app root mounts it through `InstrumentSet.Of` and writes each row from an observe tap over the producing owner's hook fact or pulled level, and a row names only a dimension its source fact already carries. Both egress fault streams carry rows, so a reported host exception reaches an instrument rather than dying annotated, and a second kind-keyed projection table beside the roster forks instrument identity.
+- Law: a source spells itself through `nameof` exactly when its type is composable from this stratum — local egress events, the Document spine, Render, and Modeling — so a rename breaks the build instead of stranding a row. Local event names live as one const feeding the generated `EventName`. Tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`, which the `rasm.rhino.hostui.marshal.duration` row reads.
 - Law: `ObjectsHooks.Mount` registers this page's six registry points through `MountRegistry.MountAll` — the three veto points admit only a program already carrying the veto hook (`ObjectProgram.Viewable`, `ObjectProgram.Pick`, `GripProgram` regrow) and grant that program back for adapter composition, the fault point binds a caller `ILogger` onto `ObjectsTelemetry.Configure`, and both host-tap points bind the caller's `PluginKey` onto the one `HostTap.Mount` seat — so every point resolves through `MountRegistry.Bind`, and a later refusal releases every earlier seat.
 - Law: the render-mesh surface is the five-virtual cache family — `IsMeshable`, `MeshCount`, `CreateMeshes`, `GetMeshes`, and `DestroyMeshes` refine base-first through one `RenderMeshProgram`; no `OnGetRenderMeshes` virtual exists to forward, the non-virtual RDK accessor trio (`HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, the `RenderMeshes` delegator) stays the Display and Render owners' viewport-and-pipeline context, and the `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registration adapter belongs to that seam, never an object hook.
 - Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes `HostMeshes.Build` over the `MeshOp` and `MeshEditIntent` algebra, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `RenderMeshPolicy`, never as the native carrier.
@@ -237,98 +237,6 @@ public readonly record struct TelemetryFan(int Sinks, Seq<Error> Faults) {
     internal TelemetryFan Delivered() => this with { Sinks = Sinks + 1 };
 
     internal TelemetryFan Refused(Error fault) => this with { Faults = Faults.Add(value: fault) };
-}
-
-public sealed record InstrumentSlice(string Instrument, string Unit, string Source, Seq<string> Tags);
-
-public static class RhinoInstrumentPartition {
-    public const string FaultKind = "rhino.fault";
-    public const string HostLogKind = "rhino.host-log";
-    public const string StreamLossKind = "rhino.stream-loss";
-    public const string PointerKind = "rhino.pointer";
-    public const string PanelKind = "rhino.panel";
-    public const string ContentKind = "rhino.content";
-    public const string MarshalKind = "rhino.marshal";
-    public const string CensusKind = "rhino.census";
-    public const string BenchKind = "rhino.bench";
-
-    public static readonly FrozenDictionary<string, Seq<InstrumentSlice>> Rows = new Dictionary<string, Seq<InstrumentSlice>> {
-        [FaultKind] = Seq(
-            new InstrumentSlice(
-                "rasm.rhino.objects.callback.faults",
-                "{fault}",
-                ObjectsTelemetry.CallbackFaultedEvent,
-                Seq("site", "code")),
-            new InstrumentSlice(
-                "rasm.rhino.host.exceptions",
-                "{fault}",
-                ObjectsTelemetry.HostExceptionEvent,
-                Seq("site", "source")),
-            new InstrumentSlice(
-                "rasm.rhino.objects.egress.faults",
-                "{fault}",
-                nameof(ObjectsTelemetry.Drain),
-                Seq("code"))),
-        [HostLogKind] = Seq(
-            new InstrumentSlice(
-                "rasm.rhino.host.cloud.logs",
-                "{record}",
-                ObjectsTelemetry.HostCloudLogEvent,
-                Seq("level", "class"))),
-        [StreamLossKind] = Seq(
-            new InstrumentSlice(
-                "rasm.rhino.document.stream.loss",
-                "{fact}",
-                nameof(StreamReceipt.PacedLoss),
-                Seq("watch", "lane", "loss"))),
-        [PointerKind] = Seq(
-            new InstrumentSlice("rasm.rhino.display.pointer.submitted", "{fact}", "PointerReceipt.Retired.Submitted", Seq<string>()),
-            new InstrumentSlice("rasm.rhino.display.pointer.rejected", "{fact}", "PointerReceipt.Retired.Rejected", Seq<string>())),
-        [PanelKind] = Seq(
-            new InstrumentSlice("rasm.rhino.hostui.panel.facts", "{fact}", "PanelFact.Ordinal", Seq("plugin", "panel", "change", "document"))),
-        [ContentKind] = Seq(
-            new InstrumentSlice("rasm.rhino.render.content.facts", "{fact}", nameof(ContentFact), Seq("pulse", "document")),
-            new InstrumentSlice("rasm.rhino.render.content.failures", "{fault}", nameof(ContentStreamFailure), Seq("pulse"))),
-        [MarshalKind] = Seq(
-            new InstrumentSlice("rasm.rhino.hostui.marshal.duration", "s", "MarshalLatency", Seq("work", "lane", "outcome"))),
-        [CensusKind] = Seq(
-            new InstrumentSlice(
-                "rasm.rhino.document.census.objects",
-                "{object}",
-                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.Kinds)}",
-                Seq("kind", "document")),
-            new InstrumentSlice(
-                "rasm.rhino.document.census.spaces",
-                "{object}",
-                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.Spaces)}",
-                Seq("space", "document")),
-            new InstrumentSlice(
-                "rasm.rhino.document.census.layers",
-                "{layer}",
-                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.LayerCount)}",
-                Seq("document")),
-            new InstrumentSlice(
-                "rasm.rhino.document.census.placements",
-                "{placement}",
-                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.BlockPlacements)}",
-                Seq("document")),
-            new InstrumentSlice(
-                "rasm.rhino.document.census.archive.size",
-                "By",
-                $"{nameof(DocumentCensus)}.{nameof(DocumentCensus.Archive)}",
-                Seq("document"))),
-        [BenchKind] = Seq(
-            new InstrumentSlice(
-                "rasm.rhino.bench.duration",
-                "s",
-                $"{nameof(BenchEvidence)}.{nameof(BenchEvidence.Duration)}",
-                Seq("operation", "scale")),
-            new InstrumentSlice(
-                "rasm.rhino.bench.allocated",
-                "By",
-                $"{nameof(BenchEvidence)}.{nameof(BenchEvidence.AllocatedBytes)}",
-                Seq("operation", "scale"))),
-    }.ToFrozenDictionary(StringComparer.Ordinal);
 }
 
 public static class HostStaticEnricher {
@@ -939,7 +847,7 @@ public static class GripRig {
 
 ## [05]-[GRIP_EDIT]
 
-- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripEdit` `[Union]` — the two grip mutations: `Rig` toggles `GripsOn`, `Move` relocates one indexed grip or every grip through a `GripMove` verb; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `GripCensus` — the detached read; `Grips` — the two entries: `Census` the read, `Touch` the immediate mutation answering the touched owner ids bare, because an unbracketed touch carries no undo column to receipt.
+- Owner: `GripMove` `[Union]` — the relocation verbs: absolute point, delta vector, transform, and single-step undo; `GripEdit` `[Union]` — the two grip mutations: `Rig` toggles `GripsOn`, `Move` relocates one indexed grip or every grip through a `GripMove` verb; `GripFacts` — the whole grip read in one pass: identity, positions, movement state, weight, local frame, and the surface, curve, and cage parameter coordinates with their control-vertex indices, each projected as absence where the grip kind carries none; `GripCensus` — the detached read; `Grips` — the two entries: `Census` the read, `Touch` the immediate mutation answering the touched owner ids bare, because an unbracketed touch carries no undo column to stamp.
 - Law: grips resolve from their owner — `GripEdit.Rig` toggles `GripsOn`, `Census` and `GripEdit.Move` read `GetGrips` inside the grant, and a grip index addresses into that roster; no `GripObject` leases outward, because grip lifetime ends when the owner's grips turn off.
 - Law: parameter reads are capability probes — `GetSurfaceParameters`, `GetCurveParameters`, `GetCageParameters`, and the CV-index members answer `false` or empty on grips of another kind, and the facts project absence rather than faulting, so one census serves every grip kind.
 - Law: movement is immediate visual state under the host's drag machinery — `Move` and `UndoMove` mutate the grip, `Touch` opens no undo record, and the geometry consequence lands when the host drives the owner's grip pipeline; a program wanting transactional geometry replacement routes the regrown value through `TableOp.Replace`.
@@ -1087,13 +995,12 @@ public static class Grips {
 |  [02]   | host derivations  | `Rasm*Object`              | sealed forwarding over one shared kernel, base-first    | `[ClassId]` subclasses     |
 |  [03]   | grip authoring    | `GripProgram`              | required seed/regrow core plus optional hook slots      | `RasmGrips` overrides      |
 |  [04]   | grip shims        | `RasmGrip`/`RasmGrips`     | sentinel-weight repair and roster forwarding            | `GripRig.Register<TGrips>` |
-|  [05]   | grip value edits  | `GripEdit`                 | rig and move over `GripMove` verbs, detached receipts   | `Grips.Touch` / `Census`   |
+|  [05]   | grip value edits  | `GripEdit`                 | rig and move over `GripMove` verbs, detached results    | `Grips.Touch` / `Census`   |
 |  [06]   | render-mesh cache | `RenderMeshProgram`        | base-first refinement over the five cache virtuals      | adapter mesh overrides     |
 |  [07]   | telemetry egress  | `ObjectsTelemetry`         | generated fault and host-stream events over keyed sinks | `Publish` / `Configure`    |
 |  [08]   | host taps         | `HostTap`                  | seat arbitration with rider handoff over both host taps | `HostTap.Mount`            |
 |  [09]   | classification    | kernel `Sensitivity`       | four attach attributes over the kernel taxonomy rows    | payload attributes         |
-|  [10]   | instrument rows   | `RhinoInstrumentPartition` | kind-keyed projection data the app root executes        | `Rows`                     |
-|  [11]   | hook mounts       | `ObjectsHooks`             | six registry points over veto programs and tap seats    | `ObjectsHooks.Mount`       |
+|  [10]   | hook mounts       | `ObjectsHooks`             | six registry points over veto programs and tap seats    | `ObjectsHooks.Mount`       |
 
 - Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-custom-objects.md` — `Rhino.DocObjects.Custom` subclass surface; `api-rhinocommon-objects.md` — attribute custody); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`, `Atom` boundary cells, Prelude); `Microsoft.Extensions.Logging` (`libs/dotnet/.api/api-logging-abstractions.md` — `[LoggerMessage]` on the `HostObjectsLog 6410` band); `Microsoft.Extensions.Compliance.Abstractions` (`libs/dotnet/.api/api-redaction.md` — the `DataClassification(string, string)` ctor and the `DataClassificationAttribute` base the four attach classes derive, the redactor resolving at the app root); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[Union]` hook vocabulary); kernel `Domain/rails` (`HookBinding`, `Cell`) and kernel `Domain/telemetry` (`Sensitivity` taxonomy rows, `ClassifiedValue`).
 
@@ -1101,7 +1008,6 @@ public static class Grips {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

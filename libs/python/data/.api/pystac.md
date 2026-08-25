@@ -138,7 +138,7 @@
 - extension: `obj.ext.<short>` is the single apply-and-access surface; `obj.ext.add`/`has`/`remove` manage the `stac_extensions` URI list, and the object type scopes which extensions are reachable.
 - io: `StacIO.set_default` or a `stac_io=` argument swaps the read/write strategy — cloud, VSI, signed-URL — under every read/write/save; a `StacIO` bound on a catalog persists onto the child and item objects read through it, so a strategy set once threads the whole traversal.
 - validation: `validate`/`validate_all` run JSON-Schema validation and raise `STACValidationError` as a typed gate.
-- evidence: each catalog operation captures object type, id, self-href, link/asset counts, applied extension schema URIs, and validation outcome as a STAC receipt.
+- evidence: the returned STAC object carries object type, id, self-href, links, assets, applied extension schema URIs, and validation outcome directly.
 
 [STACKING]:
 - data owner: composes the `STACObject` hierarchy and the module read/write functions into one STAC in-memory owner, injecting a single `StacIO` for cloud/VSI/signed-URL access.

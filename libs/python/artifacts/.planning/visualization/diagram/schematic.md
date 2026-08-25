@@ -6,21 +6,20 @@ Authoring is DATA over the closed grammar: a `SchematicSpec` carries `SymbolRow`
 
 ## [01]-[INDEX]
 
-- [02]-[SCHEMATIC]: the schemdraw catalog owner — `SchematicSpec` the closed authoring union (circuit/flow/dsp symbol rows, a logic boolean expression, kmap/timing/bitfield/truth-table data payloads), `SymbolRow`/`PinRow` the relative-placement grammar as data, `Schematic` the producer minting `ArtifactReceipt.Diagram`, and the fully-constructed `SchematicFault` rail; consumed through `core/issue#ISSUE`'s `works` arm as one `emit()` node.
+- [02]-[SCHEMATIC]: the schemdraw catalog owner — `SchematicSpec` the closed authoring union (circuit/flow/dsp symbol rows, a logic boolean expression, kmap/timing/bitfield/truth-table data payloads), `SymbolRow`/`PinRow` the relative-placement grammar as data, `Schematic` the bytes producer, and the fully-constructed `SchematicFault` rail; consumed through `core/issue#ISSUE`'s `works` arm as one `emit()` node.
 
 ## [02]-[SCHEMATIC]
 
-- Owner: `Schematic` the one producer `(spec, theme, mode, lane)` — it resolves the spec case onto the schemdraw canvas in a single authoring fold, renders once through the standalone SVG backend, and mints one receipt; the element vocabulary is the provider's closed catalog addressed by NAME (`elements.Resistor`, `flow.Decision`, `dsp.Adc`, `logic.Nand` resolve by row string), so a new symbol is a data row, never a method.
+- Owner: `Schematic` the one producer `(spec, theme, mode, lane)` — it resolves the spec case onto the schemdraw canvas in a single authoring fold and renders once through the standalone SVG backend; the element vocabulary is the provider's closed catalog addressed by NAME (`elements.Resistor`, `flow.Decision`, `dsp.Adc`, `logic.Nand` resolve by row string), so a new symbol is a data row, never a method.
 - Cases: `SchematicSpec` closes the domain union — `circuit`/`flow`/`dsp` each a `SymbolRow` tuple authored by relative anchor chains, `logic` a boolean expression `parsing.logicparse` lays out via its Buchheim tree (never the corpus routing engine), `kmap`/`truth_table`/`timing`/`bitfield` the data-driven owners from dict payloads — one total `match` closed by `assert_never`. `SymbolRow` is the whole placement grammar as data: `at` names a prior row's anchor (`"U1.out"`), `anchor` seats one of the row's own anchors, `tox`/`toy` stretch a two-terminal element coordinate-free to another anchor's axis, `theta` overrides the cardinal `direction`, `flip`/`reverse`/`scale` mirror and size, `dot`/`idot` add connection dots, `pins` builds an `Ic`/`Multiplexer` from `PinRow`s, and `style` is the closed `DiagramStyle` member `Theme.diagram_ink(mode, style)` resolves.
-- Entry: `emit()` returns ONE `ArtifactWork` keyed PRE-RUN through `ContentIdentity.key` over the canonical field set the runtime `IdentitySource.parts` fold frames at its one owner (each field length-prefixed under a framed count, so no re-partition of the same bytes collides) — spec⊕theme⊕mode, so `receipt.slot == node.key` and keyed elision holds; `_emit` authors, renders, and mints `ArtifactReceipt.Diagram(key, kind, nodes, edges, "schemdraw", bytes)` — `nodes` the placed-element tally, `edges` the anchored-connection tally (default chains, `at=` anchors, and `tox`/`toy` stretches; provider-authored logic networks count their materialized wire elements), `bytes` the emitted SVG length.
+- Entry: `emit()` returns ONE `ArtifactWork` keyed PRE-RUN through `ContentIdentity.key` over the canonical field set the runtime `IdentitySource.parts` fold frames at its one owner (each field length-prefixed under a framed count, so no re-partition of the same bytes collides) — spec⊕theme⊕mode — and `_emit` returns the emitted SVG bytes.
 - Auto: the authoring+render fold offloads through `self.lane.offload(Kernel.of(..., KernelTrait.RELEASING))` because the subinterpreter cannot load schemdraw's `ziafont`/`ziamath` render path; `use('svg')` + `svgconfig.text = 'path'` set ONCE at the rail boundary through the cached `_svg_backend` gate, never re-assigned per render. Admission errors land together in `SchematicFault.admission`; a pin-mismatched constructor or unsupported verb lands `element`; an unresolved provider anchor lands `anchor`; `logicparse` or a malformed structured payload lands `parse`; a backend refusal lands `render`; any remaining provider construction refusal lands `provider`. The whole `SchematicFault` crosses the runtime seam on `BoundaryFault.domain` under the `SCHEMATIC_RENDER` coordinate, so the accumulated admission set and every other case survive as matchable evidence rather than as their tag spelling.
 - Growth: a new symbol is one row (the registry resolves the provider catalog by name); a new domain one `SchematicSpec` case plus one authoring arm; a new placement verb one `SymbolRow` field mapped to one fluent call; a new aesthetic axis one theme diagram row; zero new surface for a new consumer.
-- Boundary: no generic graph layout or routing (`visualization/diagram/layout#LAYOUT`'s engines), no seven-mark rendering (`visualization/diagram/draw#DRAW`'s), no custom `Segment*`/`ElementCompound` geometry (`drawing/symbol#SYMBOL`'s), no rasterization or matplotlib backend (the standalone SVG backend is the egress), no receipt or identity beyond the runtime mint; hand-emitted SVG, imperative consumer canvas code, a parallel symbol vocabulary, an unconstructed fault case, and a subinterpreter offload of the ziafont-bound kernel are the rejected forms.
+- Boundary: no generic graph layout or routing (`visualization/diagram/layout#LAYOUT`'s engines), no seven-mark rendering (`visualization/diagram/draw#DRAW`'s), no custom `Segment*`/`ElementCompound` geometry (`drawing/symbol#SYMBOL`'s), and no rasterization or matplotlib backend (the standalone SVG backend is the egress); hand-emitted SVG, imperative consumer canvas code, a parallel symbol vocabulary, an unconstructed fault case, and a subinterpreter offload of the ziafont-bound kernel are the rejected forms.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Mapping
-from enum import StrEnum
 from functools import cache, partial
 from math import isfinite
 from typing import Final, Literal, assert_never
@@ -29,14 +28,14 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block
 from msgspec import Struct, json
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.graphic.layer import EDITORIAL, LayerContent, LayerIntent, LayerMeta, LayerNode, LayerPlan
 from rasm.artifacts.graphic.style import DiagramStyle, Theme, ThemeMode
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import schemdraw
@@ -49,17 +48,6 @@ lazy from schemdraw.parsing import logicparse
 # --- [TYPES] ----------------------------------------------------------------------------
 type Direction = Literal["right", "left", "up", "down"]
 type PinSide = Literal["L", "R", "T", "B"]
-
-
-class SchematicKind(StrEnum):
-    CIRCUIT = "circuit"
-    FLOW = "flow"
-    DSP = "dsp"
-    LOGIC = "logic"
-    KMAP = "kmap"
-    TRUTH_TABLE = "truth_table"
-    TIMING = "timing"
-    BITFIELD = "bitfield"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -134,7 +122,7 @@ class Schematic(Struct, frozen=True):
     lane: LanePolicy
     mode: ThemeMode = ThemeMode.LIGHT
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[bytes]:
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
@@ -164,21 +152,23 @@ class Schematic(Struct, frozen=True):
     def _key(self) -> ContentKey:
         return ContentIdentity.key("schematic", IdentitySource(parts=self._seed))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[bytes]:
         drawn = await self.lane.offload(Kernel.of(self._render, KernelTrait.RELEASING))
-        return drawn.bind(
-            lambda inner: inner.map(lambda r: ArtifactReceipt.Diagram(key, r[1].value, r[2], r[3], "schemdraw", len(r[0]))).map_error(
-                lambda fault: BoundaryFault(domain=(SCHEMATIC_RENDER.subject, fault))
-            )
-        )
+        settled = drawn.bind(lambda inner: inner.map_error(lambda fault: BoundaryFault(domain=(SCHEMATIC_RENDER.subject, fault))))
+        match settled:
+            case Result(tag="ok", ok=data):
+                Metrics.record({BYTE_VOLUME: float(len(data))}, domain=DOMAIN, kind="diagram", scope=self.lane.scope)
+                return Ok(data)
+            case refused:
+                return Error(refused.error)
 
-    def _render(self) -> Result[tuple[bytes, SchematicKind, int, int], SchematicFault]:
+    def _render(self) -> Result[bytes, SchematicFault]:
         try:
             return self._resolved()
         except (AttributeError, KeyError, OSError, TypeError, ValueError) as bad:
             return Error(SchematicFault(provider=str(bad)))
 
-    def _resolved(self) -> Result[tuple[bytes, SchematicKind, int, int], SchematicFault]:
+    def _resolved(self) -> Result[bytes, SchematicFault]:
         _svg_backend()
         match self.spec:
             case SchematicSpec(tag="logic", logic=expr):
@@ -186,31 +176,26 @@ class Schematic(Struct, frozen=True):
                     drawing = logicparse(expr)
                 except ValueError as bad:
                     return Error(SchematicFault(parse=str(bad)))
-                wires = sum(1 for element in drawing.elements if isinstance(element, (_elm.Wire, _elm.Line, _elm.Arrow)))
-                return _captured(drawing).map(lambda data: (data, SchematicKind.LOGIC, len(drawing.elements) - wires, wires))
+                return _captured(drawing)
             case (
                 SchematicSpec(tag="circuit", circuit=rows)
                 | SchematicSpec(tag="flow", flow=rows)
                 | SchematicSpec(tag="dsp", dsp=rows)
             ):
-                kind = SchematicKind(self.spec.tag)
-                return self._authored(rows).bind(
-                    lambda drawing: _captured(drawing).map(lambda data: (data, kind, len(rows), _connections(rows)))
-                )
+                return self._authored(rows).bind(_captured)
             case (
                 SchematicSpec(tag="kmap", kmap=data)
                 | SchematicSpec(tag="truth_table", truth_table=data)
                 | SchematicSpec(tag="timing", timing=data)
                 | SchematicSpec(tag="bitfield", bitfield=data)
             ):
-                kind = SchematicKind(self.spec.tag)
                 owner = {"kmap": _logic.Kmap, "truth_table": _logic.Table, "timing": _logic.TimingDiagram, "bitfield": _logic.BitField}[self.spec.tag]
                 required = {"kmap": ("names",), "truth_table": ("table",), "timing": ("waved",), "bitfield": ("reg",)}[self.spec.tag]
                 missing = tuple(f"{self.spec.tag}:missing:{field}" for field in required if field not in data)
                 return (
                     Error(SchematicFault(admission=missing))
                     if missing
-                    else _lone(owner, dict(data)).map(lambda drawn: (drawn[0], kind, drawn[1], 0))
+                    else _lone(owner, dict(data))
                 )
             case _ as unreachable:
                 assert_never(unreachable)
@@ -310,11 +295,6 @@ def _symbol(
         return Error(SchematicFault(element=f"{row.ref}:{row.element}:{refused}"))
 
 
-def _connections(rows: tuple["SymbolRow", ...], /) -> int:
-    chained = sum(1 for index, row in enumerate(rows) if row.at or index > 0)
-    return chained + sum(int(bool(row.tox)) + int(bool(row.toy)) for row in rows)
-
-
 @cache
 def _svg_backend() -> None:
     schemdraw.use("svg")
@@ -328,13 +308,13 @@ def _captured(drawing: object, /) -> Result[bytes, SchematicFault]:
         return Error(SchematicFault(render=str(bad)))
 
 
-def _lone(owner: type, data: dict[str, object], /) -> Result[tuple[bytes, int], SchematicFault]:
+def _lone(owner: type, data: dict[str, object], /) -> Result[bytes, SchematicFault]:
     try:
         with schemdraw.Drawing(show=False) as drawing:
             drawing += owner(**data)
     except (TypeError, ValueError) as bad:
         return Error(SchematicFault(parse=str(bad)))
-    return _captured(drawing).map(lambda payload: (payload, len(drawing.elements)))
+    return _captured(drawing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -342,7 +322,6 @@ __all__ = [
     "PinRow",
     "Schematic",
     "SchematicFault",
-    "SchematicKind",
     "SchematicSpec",
     "SymbolRow",
 ]
@@ -352,7 +331,6 @@ __all__ = [
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -2,7 +2,7 @@
 
 PDF/UA (ISO 14289) structure, ISO 15930 PDF/X print production, and ISO 19005 archival conversion close over one document rail: `Access` authors the marked-content structure tree into an emitted PDF, audits its conformance, upgrades to the archival profile, and preflights the PDF/X claim through one closed `AccessOp` over `_ARM`. Validation combines explainable owner-local clauses with the independent MIT/Apache `pdf_oxide` oracle; archival conversion keeps the converter `success` verdict and the post-convert validation verdict as distinct `ArchiveCheck` clauses, so an empty error list never substitutes for either boolean.
 
-Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the role family, and the `role_of`/`role_category`/`alt_of`/`children`/`standard_for` projections derive the `/S` algebra once from `StructEltKind`. A born-tagged emitter (`document/emit#DOCUMENT` UA arms) arrives with page-local MCIDs already marked in document order; an unmarked source gains them through `_stamped`'s explicit-proplist `BDC`/`EMC` pass per text block, and `_tag` then rejects any page whose marked MCID set differs from the structure leaves before binding `/StructParents` into `/ParentTree`. `StructureAudit.conformant` threads into the `exchange/conformance#CONFORMANCE` `SourceConformance.structural` half of `AuditSpec.source`; the receipt cases reuse `core/receipt#RECEIPT` `Egress`/`Pdf` under `@receipted(OPEN)` and the owner's `lane: LanePolicy`.
+Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the role family, and the `role_of`/`role_category`/`alt_of`/`children`/`standard_for` projections derive the `/S` algebra once from `StructEltKind`. A born-tagged emitter (`document/emit#DOCUMENT` UA arms) arrives with page-local MCIDs already marked in document order; an unmarked source gains them through `_stamped`'s explicit-proplist `BDC`/`EMC` pass per text block, and `_tag` then rejects any page whose marked MCID set differs from the structure leaves before binding `/StructParents` into `/ParentTree`. `StructureAudit.conformant` threads into the `exchange/conformance#CONFORMANCE` `SourceConformance.structural` half of `AuditSpec.source`.
 
 ## [01]-[INDEX]
 
@@ -13,13 +13,13 @@ Structure vocabulary is consumed from `document/model#NODE`: `DocumentNode`, the
 - Owner: `Access` — `_ARM` maps each op to its single `AccessFact`-returning arm with zero `match` sprawl, the closed `StrEnum` membership total over the table by construction; each close's audit value carries every clause input and its `failures` derive through one clause table under the shared `_failed` fold, so a decoded content-addressed audit re-derives its own verdict; `pikepdf` owns the qpdf object model and the XMP context, `pdf_oxide` the independent oracle under its deterministic-close capsule, and the model owns the tree algebra this page only reads.
 - Cases: TAG writes the catalog requirements ISO 14289 mandates beyond the tree (`/Lang`, `/DisplayDocTitle`, XMP `pdfuaid:part` + `dc:title`) and re-emits under `Pdf.save(deterministic_id=True)` while a scoped lock pins and restores `settings.set_decimal_precision`; AUDIT includes per-page `has_text_layer`, `has_xfa`, exact MCID-to-`/ParentTree` binding, and per-owner table/list regularity, so one valid structure never masks a malformed sibling; `ua_part=2` adds `UA2_VERSION` and `UA2_NAMESPACES`; the WTPDF declaration pair closes the well-tagged interchange claim — a declared accessibility conformance holds only under a part-2 audit whose UA oracle, PDF 2.0 version, and structure namespaces all pass (`validate_pdf_ua` carries no part argument, so part-2 specificity stays local evidence), a declared reuse conformance under local structure plus PDF 2.0 evidence because no reuse oracle exists, and each `pdfd:conformsTo` level admits its erratum-canonical and as-published URI spellings; ARCHIVE folds converter self-report and `validate_pdf_a` into `ArchiveAudit`; PREFLIGHT turns the declared claim, `/OutputIntents`, and per-page `TrimBox`/`ArtBox` geometry into a clause verdict.
 - Auto: `_audit` walks the UNTRUSTED `/StructTreeRoot` `/K` spine through the depth-safe `Block` frontier — never native recursion an adversarial nesting depth overflows — and TAG authors through the same discipline, a pre-order frontier whose per-parent child lists assemble the `/K` arrays after the sweep, because a lens-recovered source tree carries the same adversarial depth; every `pikepdf`-touching clause predicate resolves to a plain value BEFORE the handle frees, and metadata reads through the read-only `open_metadata(set_pikepdf_as_editor=False, update_docinfo=False)` form that never mutates the bytes it audits; the `pdfd:declarations` bag defeats the pikepdf mapping view, so the WTPDF `conformsTo` URIs read off the raw `/Metadata` stream's element tree in all three RDF spellings — element text, shorthand attribute, `rdf:resource` reference; the `/ParentTree` IS a PDF number-tree, owned by the modeled `pikepdf.NumberTree.new(pdf)` mapping-view, never a hand-assembled flat `Nums` array; `pikepdf` exposes no high-level `StructTreeRoot` helper, so the raw `Object`-model spike is the real surface and a phantom `pdf.add_structure_tree()` convenience is the rejected form.
-- Receipt: the two producing ops share `ArtifactReceipt.Egress` (structure-element count riding `outline_depth`, figure count riding `overlays` — the finishing-facts convention `document/egress#FINISH` fixes) and the two validating ops share `ArtifactReceipt.Pdf`, never a new receipt case; the `StructureAudit`/`PreflightAudit`/`ArchiveAudit` values are content-addressed by their op keys, and the composition root decodes them to thread each `conformant` verdict onward. `_emit` also awaits `Journal.record` over `receipt.evidence(*done._verdict)` — the ONE awaitable seat for both minted kinds, since recording suspends and `contribute` is a synchronous projection — and the refuted clause names ride positionally because the shared cases carry counts alone.
+- Output: `_emit` returns the settled `AccessFact`; `StructureAudit`, `PreflightAudit`, and `ArchiveAudit` remain the content-addressed verdict carriers, while `Metrics.record` records byte volume and `Journal.record` persists the regulatory clause changes.
 - Growth: a new access op is one `AccessRequest` case, one `AccessOp` row, and one `_ARM` entry; a new conformance clause is one `UaCheck`/`PreflightCheck`/`ArchiveCheck` member plus one predicate row in its `_UA_CLAUSES`/`_PREFLIGHT_CLAUSES`/`_ARCHIVE_CLAUSES` table (a clause needing fresh evidence also lands its audit field); a new standard PDF/UA role is one model `StructEltKind` member; a new nesting rule is one `_NESTING` row; a new archival or print level is one `Literal` member.
 - Boundary: born-PDF/A authoring stays at `document/emit#DOCUMENT` — ARCHIVE upgrades an ALREADY-emitted PDF in place; `pdf_oxide.DocumentBuilder.tagged_pdf_ua1()` is the from-scratch born-tagged author reserved for emit, never a second structure author over an existing PDF here; signing stays at `exchange/conformance#CONFORMANCE`, security finishing at `document/egress#FINISH`, OCG authoring at `export/layered#LAYERED`.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field as dc_field
 from enum import StrEnum
 from functools import partial
@@ -33,9 +33,8 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactKind, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import (
     DocumentNode,
     FigureNode,
@@ -58,10 +57,10 @@ from rasm.artifacts.document.model import (
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TRANSIENT, Catch, FaultRow, RuntimeRail, async_boundary, rostered
-from rasm.runtime.journal import Assigned, Change, Journal
+from rasm.runtime.journal import Actor, Assigned, AuditFact, Change, Journal, Party, Retain
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
-from rasm.runtime.receipts import OPEN, Receipt, receipted
 
 lazy import pikepdf
 lazy import pdf_oxide
@@ -331,21 +330,39 @@ class Access(Struct, frozen=True):
     def _stepped(self) -> Self:
         return structs.replace(self, fact=_ARM[self.op](self))
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[AccessFact]:
         return ArtifactWork(key=self.key, work=partial(self._emit, self.key), parents=(), admission=Admission(keyed=None), cost=float(len(self.pdf)))
 
-    @receipted(
-        OPEN
-    )
     async def _authored(self) -> Self:
         crossed = await self.lane.offload(Kernel.of(self._stepped, KernelTrait.RELEASING))
         return crossed.default_with(lapsed)
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        settled = (await async_boundary(ACCESS_AUTHOR, self._authored, catch=_AUTHOR_RAISES)).map(lambda done: (done, done._receipt(key)))
-        match settled:
-            case Result(tag="ok", ok=(done, receipt)):
-                return (await Journal.record(receipt.evidence(*done._verdict))).map(lambda _landed: receipt)
+    async def _emit(self, key: ContentKey, /) -> RuntimeRail[AccessFact]:
+        match await async_boundary(ACCESS_AUTHOR, self._authored, catch=_AUTHOR_RAISES):
+            case Result(tag="ok", ok=done):
+                assert done.fact is not None
+                fact = done.fact
+                match fact:
+                    case AccessFact(tag="produced", produced=(data, _pages, _elements, _figures)) | AccessFact(
+                        tag="archive", archive=(data, _pages, _applied, _residual, _audit)
+                    ):
+                        kind: ArtifactKind = "egress"
+                    case AccessFact(tag="audit", audit=(data, _pages, _audit)) | AccessFact(
+                        tag="preflight", preflight=(data, _pages, _audit)
+                    ):
+                        kind = "pdf"
+                    case _ as unreachable:
+                        assert_never(unreachable)
+                audited = AuditFact(
+                    action=f"artifacts.document.{self.op.value}",
+                    actor=Party(kind=Actor.SERVICE, key="artifacts"),
+                    target=Party(kind=kind, key=key.hex),
+                    retention=Retain.REGULATORY,
+                    change=done._verdict,
+                )
+                Metrics.record({BYTE_VOLUME: float(len(data))}, domain=DOMAIN, kind=kind, scope=self.lane.scope)
+                await Journal.record((audited,), scope=self.lane.scope)
+                return Ok(fact)
             case refused:
                 return Error(refused.error)
 
@@ -361,27 +378,6 @@ class Access(Struct, frozen=True):
             case _:
                 failures = ()
         return (Assigned(path="/op", next=self.op.value), *(Assigned(path=f"/failed/{check.value}", next="true") for check in failures))
-
-    def _receipt(self, key: ContentKey, /) -> ArtifactReceipt:
-        assert self.fact is not None
-        match self.fact:
-            case AccessFact(tag="produced", produced=(data, pages, elements, figures)):
-                emitted = ArtifactReceipt.Egress(key, len(data), pages, 0, elements, figures)
-            case AccessFact(tag="archive", archive=(data, pages, applied, residual, _audit)):
-                emitted = ArtifactReceipt.Egress(key, len(data), pages, 0, applied, residual)
-            case AccessFact(tag="audit", audit=(data, pages, _audit)) | AccessFact(
-                tag="preflight", preflight=(data, pages, _audit)
-            ):
-                emitted = ArtifactReceipt.Pdf(key, len(data), pages)
-            case _ as unreachable:
-                assert_never(unreachable)
-        return emitted
-
-    def contribute(self) -> Iterable[Receipt]:
-        if self.fact is None:
-            return
-        yield from self._receipt(self.key).contribute()
-
 
 def _minted(request: AccessRequest, pdf: bytes, /) -> ContentKey:
     op = AccessOp.TAG if request.tag == "tagged" else AccessOp(request.tag)

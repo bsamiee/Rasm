@@ -26,7 +26,6 @@ The one config owner of the process plane: an ordered provider chain answers eve
 - Law: construction failure splits by stage nature, and only proven absence skips — the `DotEnv` stage reads its file eagerly, so it folds exactly the `SystemError` whose `reason` is `"NotFound"` to a skipped stage through `Effect.catchIf` (a dev-only file legitimately does not exist in prod) while an unreadable or permission-denied file stays a `PlatformError` on the channel; the `Tree` stage is construction-total — the file-tree provider reads per key, so an absent mount answers missing data at read time and `orElse` falls through to the next stage; the `Remote` stage was declared to be answered, so its fetch or decode failure rides the layer's error channel and fails the boot at the root proof; `Env` and `Table` are total; a chain whose every skippable stage skipped folds to the surviving stages — and an all-skipped chain folds to the empty provider, every read failing as missing data at the boot proof, never a forged fallback the chain never declared.
 - Law: one install site — the returned `Layer<never>` merges once beneath the root; a second `setConfigProvider` at a deeper altitude shadows the root's chain and is the named defect; requirements (`FileSystem`, `Path` for file stages; `HttpClient` for the remote dial) are satisfied by the runtime row's context and the shared client, so the chain layer composes after the platform layer and before every config-reading service.
 - Entry: `Provider.chain(stages)` at the app root; nothing else in the branch touches `ConfigProvider`.
-- Receipt: the layer's stated annotation is the chain's contract — fault union and requirement set readable at the root without opening the fold.
 - Packages: `effect` (`Array`, `Effect`, `Layer`, `Option`, `Schema`).
 
 ```typescript
@@ -339,7 +338,6 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 - Law: this branch answers `in-proc` on the Effect fiber runtime, `thread` through `proc/worker`'s pool, `process` through `proc/exec`'s subprocess spec behind a bound `local-spawn` provider, and `remote` through `net/client` behind a bound `remote-compute` provider; `wasm` refuses outright because the axis names where THIS branch's own work runs and no packaging compiles it into a guest — an embedded wasm-built engine is a dependency's own implementation, selected by `topology` and realizing no isolation value — and the worker pool nearest it gives thread isolation alone.
 - Law: `Profile`, its descriptor schemas, and `_profile` seat above the `Setting` region of `runtime/src/proc/config.ts` — the fences split by cluster, never by file order, so `Setting` composes them as one module's earlier declarations.
 - Entry: `Profile.admit(row)` at `Setting` construction; `yield* Setting` then reads `profile.row` everywhere else.
-- Receipt: the admitted `Profile` value itself is the local deployment receipt.
 - Packages: `effect` (`Array`, `Config`, `Duration`, `Effect`, `Option`, `Record`, `Schema`); `@rasm/core` (`Fault.Class`, `Identity`).
 
 ```typescript
@@ -497,7 +495,6 @@ export { type Consumption, Profile, ProfileRefused, Provider, Setting };
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -155,7 +155,7 @@
 - `AnimationProperties.DaysBetweenFrames` / `MinutesBetweenFrames -> int` — seasonal versus one-day frame spacing
 - `AnimationProperties.FolderName` / `FileExtension` / `AnimationName` / `HtmlFileName -> string`; `HtmlFullPath -> string` — derived output path
 - `AnimationProperties.CaptureMethod -> string` — `"preview"` or `"full"`; `RenderFull` / `RenderPreview -> bool` — render-engine engagement per frame
-- `AnimationProperties.Images` / `Dates -> string[]` — host-written frame receipts; `LightIndex -> int` is host preview state
+- `AnimationProperties.Images` / `Dates -> string[]` — host-written frame paths; `LightIndex -> int` is host preview state
 
 [ENTRYPOINT_SCOPE]: undo records
 - `RhinoDoc.BeginUndoRecord(string description) -> uint` / `EndUndoRecord(uint undoRecordSerialNumber) -> bool` — bracket a mutation into one record

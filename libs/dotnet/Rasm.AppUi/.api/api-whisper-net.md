@@ -125,7 +125,7 @@
 
 [VAD_KNOBS]: `WithThreshold` `WithMinSpeechDuration` `WithMinSilenceDuration` `WithMaxSpeechDuration` `WithSpeechPadding` `WithSamplesOverlap` `WithThreads` `WithUseGpu` `WithGpuDevice` `Build()`
 
-[CAPTION_RECEIPT]: the read surface a caption consumer projects off each emitted row.
+[CAPTION_RESULT]: the read surface a caption consumer projects off each emitted row.
 - SegmentData: `Text` `Language` `Tokens : WhisperToken[]`; `Start`/`End : TimeSpan`; `Probability` `MinProbability` `MaxProbability` `NoSpeechProbability : float`
 - WhisperToken: `Id` `TimestampId : int`; `Text : string?`; `Start`/`End`/`DtwTimestamp : long`; `VoiceLen` `Probability` `ProbabilityLog` `TimestampProbability` `TimestampProbabilitySum : float`
 - VadSegmentData: `Start`/`End : TimeSpan`
@@ -138,7 +138,7 @@
 [STACKING]:
 - `api-messageformat`(`.api/api-messageformat.md`): `WithTranslate` emits English caption text while `MessageFormat` owns the CLDR plural/select formatting of the surrounding UI chrome — recognition and translation versus message formatting is the seam.
 - `api-libmpv`(`.api/api-libmpv.md`), `api-ffmpeg-autogen`(`.api/api-ffmpeg-autogen.md`): `libmpv` decodes the media audio track, `Whisper.net` transcribes it, `FFmpeg.AutoGen` encodes the deliverable — decode, transcribe, and encode are three owners over the media spine.
-- `WaveParser` converts a 16 kHz PCM `Stream` to the `float[]` samples `ProcessAsync` and `DetectSpeech` consume, and each `SegmentData` is a receipt row on the AppUi telemetry spine where a low-confidence segment (`NoSpeechProbability` and `Probability` gates) is a counted caption-quality fact.
+- `WaveParser` converts a 16 kHz PCM `Stream` to the `float[]` samples `ProcessAsync` and `DetectSpeech` consume, and each `SegmentData` projects a counted caption-quality fact when `NoSpeechProbability` and `Probability` identify low confidence.
 
 [LOCAL_ADMISSION]:
 - Offline speech-to-text intent loads one `WhisperFactory` per session and streams through `ProcessAsync`; the native `whisper.cpp` runtime rides a separate `Whisper.net.Runtime*` package selected by `RuntimeOptions.RuntimeLibraryOrder` (`CoreML` on Apple silicon), and the ggml weights and the Silero-VAD model download once through `WhisperGgmlDownloader.Default` and cache on disk. A missing runtime or model surfaces through `WhisperModelLoadException` and the `LogProvider` rail.

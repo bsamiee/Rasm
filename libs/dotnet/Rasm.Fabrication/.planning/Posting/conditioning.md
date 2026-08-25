@@ -392,7 +392,7 @@ public static partial class Post {
                     from trace in ArcAlgebra.Apply(new ArcOp.Kerf(forest, cut.Kerf.Millimeters,
                         profile.Winding() == Sign.Negative ? MaterialSide.Inside : MaterialSide.Outside))
                     from loop in trace is ArcTrace.Forest result
-                        ? result.Result.Loops.Head.ToFin(FabricationFault.Kerf(new KerfWitness.Vanished(0), cut.Kerf.Millimeters))
+                        ? result.Geometry.Loops.Head.ToFin(FabricationFault.Kerf(new KerfWitness.Vanished(0), cut.Kerf.Millimeters))
                         : Fin.Fail<Loop>(FabricationFault.Inadmissible(FabConcern.Posting, "post:kerf-trace"))
                     from compensated in Compensate(loop, policy)
                     select compensated,
@@ -411,7 +411,7 @@ public static partial class Post {
                 : ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Path(loop),
                         loop.Winding() == Sign.Negative ? -delta.Millimeters : delta.Millimeters))
                     .Bind(trace => trace is ArcTrace.Paths paths
-                        ? paths.Result.Head.ToFin(FabricationFault.Inadmissible(FabConcern.Posting, "post:compensation-empty"))
+                        ? paths.Geometry.Head.ToFin(FabricationFault.Inadmissible(FabConcern.Posting, "post:compensation-empty"))
                         : Fin.Fail<Loop>(FabricationFault.Inadmissible(FabConcern.Posting, "post:compensation-trace")))
             select offset,
         None: () => Fin.Succ(loop));
@@ -447,7 +447,7 @@ public static partial class Post {
                     loop.Winding() == Sign.Negative ? MaterialSide.Inside : MaterialSide.Outside,
                     LeadRole.Entry))
                 .Bind(trace => trace is ArcTrace.Motion motion
-                    ? Fin.Succ(motion.Receipt.Moves)
+                    ? Fin.Succ(motion.Evidence.Moves)
                     : Fin.Fail<Seq<Move>>(FabricationFault.Inadmissible(FabConcern.Posting, "post:lead-trace"))),
             None: () => Fin.Succ(Seq<Move>())),
         None: () => Fin.Succ(Seq<Move>()));
@@ -784,7 +784,6 @@ public static partial class Post {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

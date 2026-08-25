@@ -20,7 +20,7 @@
 - Law: `AxisPeriodicity` owns the turn. Its rows carry the PERIOD and cyclicity is that period's presence, so the winding unwrap, the per-axis candidate width, and the budget proof read one number and a consumer never pairs a Boolean with a hand-spelled `2π`. Widths reach the budget from those same rows rather than from a uniform one assumed of every axis, so a chain mixing bounded and continuous axes is bounded by what it generates.
 - Entry: `MachineTool.Solve(MachineKinematics, Seq<Move>)` is the only non-robot motion entrypoint. It accumulates move admission, folds stations in order, chooses feasible branches by continuity and axis margin, applies TCP/RTCP, and returns `MachineSolution` with its `FabricationResult.Motion` projection.
 - Auto: `Machine.Axes`, `Machine.Topology.OrientationDof`, and `MachineKinematics.Chain.Limits` agree before inverse work. Cartesian rows prove a perpendicular basis against the `Orientation` lane and reject targets outside their translational subspace. Serial rows fit the six-component task residual under `LevenbergMarquardtMinimizer` with per-joint travel bounds and scales, its Jacobian supplied EXACT from one forward-mode dual walk per column rather than differenced; MathNet's SVD gates rank and condition on that same matrix, and each nonsingular fit proves its residual against the `Joint` lane. Each station derives candidates from `MachineChain`, unwraps continuous axes through `AxisPeriodicity.Windings`, rejects travel and workspace violations, minimizes weighted joint delta and margin cost, then breaks ties through the shipped `OrdArr<double>` total order over the joint vector. Backlash enters axis timing only on reversal, so `MachineState.PreviousSense` carries each axis's last resolution-exceeding motion.
-- Receipt: `MachineSolution.Motion` preserves the frozen `Moves`, `Joints`, `Duration`, and `CellCode` wire. `MachineSolution.Stations` retains TCP pose, tool axis, axis margin, linear/rotary distance, entry/exit feed, and duration for fleet ranking and simulation without widening the frozen projection.
+- Result: `MachineSolution.Motion` preserves the frozen `Moves`, `Joints`, `Duration`, and `CellCode` wire. `MachineSolution.Stations` retains TCP pose, tool axis, axis margin, linear/rotary distance, entry/exit feed, and duration for fleet ranking and simulation without widening the frozen projection.
 - Packages: `MathNet.Numerics` owns `LevenbergMarquardtMinimizer.FindMinimum`, the analytic-derivative `ObjectiveFunction.NonlinearModel` overload, `Svd.Rank`/`ConditionNumber`, `CreateVector`, `CreateMatrix`, `Brent.TryFindRoot`, and `Distance.Manhattan`; `UnitsNet` owns angular-rate boundary conversion; `Thinktecture.Runtime.Extensions` owns closed cases and generated admission; `LanguageExt.Core` owns `Fin`, `Validation`, immutable collections, traversal, the `OrdArr<double>` joint-vector order, and the trajectory fold; RhinoCommon owns frames and transforms; `Rasm.Domain` owns `Context`, `ToleranceLane`, `IValidityEvidence`, and `ValidityClaim`; `Rasm` owns `VectorIntent`, `VectorCone`, and the `Dual<T>` forward-mode scalar the chain differentiates through.
 - Growth: a machine configuration is one `MachineChain` case payload or one additional joint row; a physical axis extends process-family `AxisLimit` through one `AxisMotion`; a new orientation modality is one `ToolAxisDemand` case carrying its `AxisAt` arm; a search budget or ranking weight is one `InversePolicy` column, and a new gate is one `ToleranceLane` read. Machine products never become solver branches.
 - Boundary: `MachineTool` rejects `KinematicClass.ArticulatedArm`, which remains `RobotProgram` property. `Toolpath/guard.md` owns swept collision, `Posting/program.md` owns controller AST lowering, and `Process/faults.md` owns fault payloads. `AxisSchedule.At` and every statement body beneath `MachineTool` are measured numeric or RhinoCommon mutation kernels; statements do not escape those seams. Provider exceptions terminate at the MathNet seam as typed `Fin` failures, and a non-converged fit fails on its own residual rather than returning the minimizer's last point. Serial fits keep the MathNet functor because joint travel is a HARD constraint on them — the kernel `Lm.Minimize` ladder carries no bound, scale, or fixed-parameter column, so re-seating the residual on `DualModel` trades the bounded solve for one free to leave the mechanism's own limits and degrades a reachable station to `machine-tool:unreachable`; the kernel contribution taken here is the `Dual<T>` scalar, and one forward chain in that scalar is the page's only forward kinematics, the differenced Jacobian and a second double-only chain both being the deleted forms.
@@ -630,7 +630,7 @@ public static class MachineTool {
         from pathDuration in Duration(kinematics, move, linearDistance, rotaryDistance, entry, exit)
         from axisDuration in AxisDuration(kinematics, state.PreviousJoints, selected.Joints, state.PreviousSense)
         let duration = Math.Max(pathDuration, axisDuration)
-        let receipt = new MachineStation(
+        let result = new MachineStation(
             move,
             selected.Joints,
             selected.Pose.Tcp,
@@ -645,7 +645,7 @@ public static class MachineTool {
             pose.Tcp,
             selected.Joints,
             Sense(kinematics.Chain.Limits, state.PreviousJoints, selected.Joints, state.PreviousSense),
-            state.Stations.Add(receipt));
+            state.Stations.Add(result));
 
     private static Fin<MachinePose> PoseAt(MachineKinematics kinematics, Move move, int index) =>
         kinematics.Orientation.AxisAt(index, kinematics.ToolFrame, kinematics.Inverse.ConeSamples)
@@ -1088,7 +1088,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

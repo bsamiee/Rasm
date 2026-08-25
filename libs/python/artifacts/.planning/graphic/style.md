@@ -16,7 +16,7 @@ Every visual plane composes a typed per-plane binding: `composition/sheet#SHEET`
 - Law: `StrokeHierarchy` maps the closed `Emphasis` axis onto regime `LineWeight` keys — the drafting two-width group law stays regime's, the theme picks which rows express emphasis; `GroundRow` makes blended transparency theme data over `graphic/layer#LAYER`'s `LayerIntent` and derive's `BlendMode`; `Entourage` silhouettes are real-world-height-normalized paths placed at drawing scale by the consuming plane.
 - Law: `PageMaster` is the one page-grid row `document/emit#DOCUMENT`'s `@page` lowering and `composition/sheet#SHEET`'s zones read; `SheetFamily` names the office title-block variant per size class — the ISO 7200 cell grid is sheet's, the theme selects the variant.
 - Growth: a new type role is one `ThemeRole` member plus one `TypeRow`; a new emphasis level one `Emphasis` member plus one hierarchy row; a new color token one `ColorRole` member plus one scheme seed; a new rendering posture one `ThemeMode` member plus one `ColorScheme`; a new per-plane axis one field on the owning `ChartBinding`/`DiagramBinding`/`TableBinding`; a new entourage asset one row; a new office style one `Theme` value — zero new surface anywhere else.
-- Boundary: no color math, compositing vocabulary, pen truth, shaping, layout, font transformation, chart/table/diagram rendering, or sheet geometry. Theme rows carry canonical substrate values and typed per-plane bindings; no `Map[str, str]`, nullable feature preset, receipt, identity, or rail survives inward.
+- Boundary: no color math, compositing vocabulary, pen truth, shaping, layout, font transformation, chart/table/diagram rendering, or sheet geometry. Theme rows carry canonical substrate values and typed per-plane bindings; no `Map[str, str]`, nullable feature preset, identity, or rail survives inward.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -524,7 +524,6 @@ __all__ = [
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

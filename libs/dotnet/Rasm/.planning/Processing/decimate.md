@@ -18,7 +18,7 @@ Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Nu
 - Law: the directed Hausdorff bound is MEASURED or absent — a run that sampled nothing lowers typed instead of publishing 0.0, and a nearest-query miss writes no distance and names its sample ordinals, so `TensorPrimitives.Max` folds only values the index answered.
 - Law: `SimplifyKind` carries ONE `CapabilitySet<SimplifyTrait>` column because the three guarantees have a corner law — a resampling kind rebuilds the surface from a level set, so `Resample` and `Topology` never co-occur on a row, and three independent bool columns spell that corner as representable.
 - Exemption: `QuadricStore.Pq` is a BCL `PriorityQueue` (K3): the collapse queue is a cost-keyed EVENT stream with lazy staleness rejection, not a graph walk, and QuikGraph carries no event queue. One-ring/incidence `HashSet[]` columns and the boundary-fan `Dictionary` stay mutable inside the single-writer span kernel — each is seeded once at `Seed` and mutated only by `ApplyCollapse` under the arena's own writer.
-- Receipt: `DecimationResult` carries the directed `Hausdorff` bound a LOD consumer thresholds, the `MidpointFallbacks` census counting every degenerate quadric that took the midpoint arm, the `SimplifyTrait` set the run carried, and its `VertexSplit` stream gated on the `Reversible` trait at the projection row.
+- Output: `DecimationResult` carries the directed `Hausdorff` bound a LOD consumer thresholds, the `MidpointFallbacks` census counting every degenerate quadric that took the midpoint arm, the `SimplifyTrait` set the run carried, and its `VertexSplit` stream gated on the `Reversible` trait at the projection row.
 - Growth: a new decimation modality is one `SimplifyKind` row with its `Weigh` delegate, trait set, and one `SimplifyOp` case over the same collapse loop; a new quadric weight is one `Weigh` row reading one `SimplifyPolicy` column with its default on `Canonical` and its optional at `Of`; a new error bound is one `DecimationResult` column over the same sampler and reduction plane; a new draw is one `DecimateLane` row.
 - Boundary: the `HausdorffClaim` `BenchClaim` registers the vectorized reduction's speed against its scalar reference lane, so the corpus gate proves it while correctness rides the exact predicates alone. Point-triangle closest refinement is `Rasm.Spatial`'s `SpatialIndex.ClosestOnTriangle` beside the BVH candidate prune — this page composes the broad phase and the exact foot from one owner, never a page-local Ericson body.
 
@@ -518,7 +518,7 @@ public static class Simplify {
                 key: key)
             .Bind(spd => spd.DecomposeCholesky(key: key))
             .Bind(chol => chol.SolveDetailed(new Arr<double>([(double)(-q.A03), (double)(-q.A13), (double)(-q.A23)]), key))
-            .Map(static receipt => receipt.Solution);
+            .Map(static solve => solve.Solution);
         return solve.Match(
             Succ: x => { Point3d p = new(x[0], x[1], x[2]); return (p, q.Evaluate(p), PositionRoute.Optimal); },
             Fail: _ => { Point3d p = new(0.5 * (u.X + v.X), 0.5 * (u.Y + v.Y), 0.5 * (u.Z + v.Z)); return (p, q.Evaluate(p), PositionRoute.Midpoint); });
@@ -547,10 +547,10 @@ public static class Simplify {
         Uniform(plane).Bind(_ =>
             MeshFeaturePolicy.Of(dihedralRadians: op.Policy.CreaseDihedral.Value, space: op.Mesh, faceRegions: Option<Arr<int>>.None, key: key)
                 .Bind(features => VectorIntent.Features(op.Mesh, features, key))
-                .Bind(intent => intent.Project<FeatureReceipt>(context, key))
-                .Map(receipt => {
+                .Bind(intent => intent.Project<FeatureEdges>(context, key))
+                .Map(features => {
                     Span<double> w = plane.Span;
-                    foreach (FeatureEdge edge in receipt.Edges) {
+                    foreach (FeatureEdge edge in features.Edges) {
                         if (!edge.Kind.Equals(MeshFeatureKind.Crease) && !edge.Kind.Equals(MeshFeatureKind.Boundary)) continue;
                         if (edge.A < w.Length) w[edge.A] = op.Policy.FeaturePinWeight.Value;
                         if (edge.B < w.Length) w[edge.B] = op.Policy.FeaturePinWeight.Value;
@@ -655,8 +655,8 @@ public static class Simplify {
         op is SimplifyOp.FeaturePreserve
             ? MeshFeaturePolicy.Of(dihedralRadians: op.Policy.CreaseDihedral.Value, space: op.Mesh, faceRegions: Option<Arr<int>>.None, key: key)
                 .Bind(features => VectorIntent.Features(op.Mesh, features, key))
-                .Bind(intent => intent.Project<FeatureReceipt>(context, key))
-                .Map(static receipt => receipt.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary)))
+                .Bind(intent => intent.Project<FeatureEdges>(context, key))
+                .Map(static features => features.Edges.Filter(static e => e.Kind.Equals(MeshFeatureKind.Crease) || e.Kind.Equals(MeshFeatureKind.Boundary)))
             : Fin.Succ(Seq<FeatureEdge>());
 }
 ```
@@ -671,7 +671,7 @@ config:
 ---
 flowchart LR
     accTitle: Quadric mesh decimation spine
-    accDescr: A simplify operation entering the mesh-edit arena, per-face planes and curvature weights folding into per-vertex quadrics, the optimal position keying a priority queue whose pops validate through exact orientation predicates before collapse, and the frozen result carrying vertex splits and spatial-index residuals into the decimation receipt.
+    accDescr: A simplify operation entering the mesh-edit arena, per-face planes and curvature weights folding into per-vertex quadrics, the optimal position keying a priority queue whose pops validate through exact orientation predicates before collapse, and the frozen result carrying vertex splits and spatial-index residuals into the decimation result.
     SimplifyOp -->|MeshEdit.Of arena| MeshEdit
     SimplifyOp -.->|Resample trait only| Resample["SignedDistanceFromMeshCase + IsoSurface.Detailed"]
     Resample -->|clean level set| MeshEdit
@@ -698,7 +698,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

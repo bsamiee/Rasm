@@ -6,7 +6,7 @@ from enum import StrEnum
 from hashlib import sha256
 from pathlib import PurePosixPath
 from shutil import rmtree
-from typing import Annotated, ClassVar, Self, TYPE_CHECKING
+from typing import Annotated, ClassVar, Self
 
 from cyclopts import Parameter
 from expression import Error, Ok, Result
@@ -20,40 +20,9 @@ from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope, DOTNET_BUILD_CLOSURE
 from assay.core.exec import argv_for, Executor
 from assay.core.govern import leased, resource_projection
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    Check,
-    Claim,
-    Fault,
-    Input,
-    Language,
-    Match,
-    Mode,
-    RailStatus,
-    receipt,
-    Report,
-    Runner,
-    StaticRun,
-    Step,
-    Tool,
-    ToolArgs,
-)
-from assay.core.routing import (
-    expand,
-    infer_languages,
-    place,
-    route,
-    Routed,
-    Scope,
-    target_files,
-    TargetFiles,
-)
+from assay.core.model import Artifact, ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Match, Mode, RailStatus, Report, Runner, StaticRun, Step, Tool, ToolArgs
+from assay.core.routing import expand, infer_languages, place, route, Routed, Scope, target_files, TargetFiles
 from assay.diagnostics import fold, sarif_status
-
-if TYPE_CHECKING:
-    from assay.core.model import Completed
-
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -94,37 +63,11 @@ class StaticParams:
 
     SLOTS: ClassVar[dict[str, str]] = {"": "[--fix] [--all | --project PROJECT | --folder F... --file F...]"}
 
-    all: Annotated[
-        bool,
-        Parameter(name="--all", negative="", show_default=False, help="Fan every detected language at full scope, including the C# solution build."),
-    ] = False
+    all: Annotated[bool, Parameter(name="--all", negative="", show_default=False, help="Fan every detected language at full scope, including the C# solution build.")] = False
     project: Annotated[str, Parameter(name="--project", show_default=False, help="Single .NET project target.")] = ""
-    folders: Annotated[
-        tuple[str, ...],
-        Parameter(
-            name="--folder",
-            consume_multiple=True,
-            allow_repeating=True,
-            negative_iterable=(),
-            show_default=False,
-            help="Folder target(s); consumes values until the next option.",
-        ),
-    ] = ()
-    files: Annotated[
-        tuple[str, ...],
-        Parameter(
-            name="--file",
-            consume_multiple=True,
-            allow_repeating=True,
-            negative_iterable=(),
-            show_default=False,
-            help="File target(s); consumes values until the next option.",
-        ),
-    ] = ()
-    fix: Annotated[
-        bool,
-        Parameter(name="--fix", negative="", show_default=False, help="Run every write-mode fixer row before diagnostics; default mutates nothing."),
-    ] = False
+    folders: Annotated[tuple[str, ...], Parameter(name="--folder", consume_multiple=True, allow_repeating=True, negative_iterable=(), show_default=False, help="Folder target(s); consumes values until the next option.")] = ()
+    files: Annotated[tuple[str, ...], Parameter(name="--file", consume_multiple=True, allow_repeating=True, negative_iterable=(), show_default=False, help="File target(s); consumes values until the next option.")] = ()
+    fix: Annotated[bool, Parameter(name="--fix", negative="", show_default=False, help="Run every write-mode fixer row before diagnostics; default mutates nothing.")] = False
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -188,18 +131,10 @@ def _tool_skip(tool: Tool, routed: Routed) -> str:
 
 
 def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope, modes: tuple[Mode, ...]) -> tuple[PhaseChecks, SkipRows]:
-    rows = tuple(
-        (_phase(active), projected, _tool_skip(projected, routed))
-        for active in modes
-        for tool in select(Claim.STATIC, routed.language)
-        if tool.mode is active
-        for projected in (_routed_tool(tool, routed),)
-    )
+    rows = tuple((_phase(active), projected, _tool_skip(projected, routed)) for active in modes for tool in select(Claim.STATIC, routed.language) if tool.mode is active for projected in (_routed_tool(tool, routed),))
     selected = tuple((phase, Check(tool=tool, paths=routed.files)) for phase, tool, reason in rows if not reason)
     skipped = tuple((phase, tool.name, reason) for phase, tool, reason in rows if reason)
-    expanded = tuple(
-        (phase, _build_args(clone, routed, settings, scope)) for phase, check in selected for clone in expand((check,), routed, settings=settings)
-    )
+    expanded = tuple((phase, _build_args(clone, routed, settings, scope)) for phase, check in selected for clone in expand((check,), routed, settings=settings))
     phases = tuple(dict.fromkeys(_phase(mode) for mode in modes))
     return tuple((phase, tuple(check for row_phase, check in expanded if row_phase is phase)) for phase in phases), skipped
 
@@ -228,17 +163,7 @@ def _artifacts(settings: AssaySettings, routed: tuple[Routed, ...]) -> tuple[Art
 
 
 def _route_rows(routed: tuple[Routed, ...]) -> tuple[tuple[str, ...], ...]:
-    return tuple(
-        (
-            route_row.language.value,
-            route_row.scope.value,
-            str(len(route_row.files)),
-            str(len(route_row.projects)),
-            str(len(route_row.full_triggers)),
-            str(len(route_row.groups)),
-        )
-        for route_row in routed
-    )
+    return tuple((route_row.language.value, route_row.scope.value, str(len(route_row.files)), str(len(route_row.projects)), str(len(route_row.full_triggers)), str(len(route_row.groups))) for route_row in routed)
 
 
 def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows) -> tuple[Match, ...]:
@@ -246,11 +171,7 @@ def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows
         Match(
             id=route_row.language.value,
             kind=ArtifactKind.SCOPE,
-            text=(
-                f"scope={'project' if route_row.scope is Scope.CHANGED and route_row.projects else route_row.scope.value} "
-                f"files={len(route_row.files)} projects={len(route_row.projects)} "
-                f"triggers={len(route_row.full_triggers)} groups={len(route_row.groups)}"
-            ),
+            text=(f"scope={'project' if route_row.scope is Scope.CHANGED and route_row.projects else route_row.scope.value} files={len(route_row.files)} projects={len(route_row.projects)} triggers={len(route_row.full_triggers)} groups={len(route_row.groups)}"),
         )
         for route_row in routed
     )
@@ -260,16 +181,7 @@ def _matches(targets: TargetFiles, routed: tuple[Routed, ...], skipped: SkipRows
 
 
 def _detail(  # ruff:ignore[too-many-arguments]
-    targets: TargetFiles,
-    routed: tuple[Routed, ...],
-    planned: tuple[tuple[str, str, str], ...],
-    skipped: SkipRows,
-    artifacts: tuple[Artifact, ...],
-    settings: AssaySettings,
-    checks: tuple[Check, ...],
-    *,
-    sarif_status: tuple[tuple[str, str], ...],
-    done: tuple[Completed, ...] = (),
+    targets: TargetFiles, routed: tuple[Routed, ...], planned: tuple[tuple[str, str, str], ...], skipped: SkipRows, artifacts: tuple[Artifact, ...], settings: AssaySettings, checks: tuple[Check, ...], *, sarif_status: tuple[tuple[str, str], ...], done: tuple[Completed, ...] = ()
 ) -> StaticRun:
     notes = tuple(note for item in done for note in item.notes)
     return StaticRun(
@@ -278,21 +190,14 @@ def _detail(  # ruff:ignore[too-many-arguments]
         planned=planned,
         skipped=(*targets.rejected, *skipped),
         phases=tuple(dict.fromkeys(row[0] for row in planned)),
-        resources=resource_projection(settings, checks, notes=notes, receipts=done),
+        resources=resource_projection(settings, checks, notes=notes, completed=done),
         artifacts=tuple(artifact.path for artifact in artifacts),
         sarif_status=sarif_status,
     )
 
 
 def _params_argv(params: StaticParams) -> tuple[str, ...]:
-    return (
-        "static",
-        *(("--all",) if params.all else ()),
-        *(("--project", params.project) if params.project else ()),
-        *(("--folder", *params.folders) if params.folders else ()),
-        *(("--file", *params.files) if params.files else ()),
-        *(("--fix",) if params.fix else ()),
-    )
+    return ("static", *(("--all",) if params.all else ()), *(("--project", params.project) if params.project else ()), *(("--folder", *params.folders) if params.folders else ()), *(("--file", *params.files) if params.files else ()), *(("--fix",) if params.fix else ()))
 
 
 def _target_result(settings: AssaySettings, params: StaticParams) -> Result[TargetFiles, Fault]:
@@ -325,14 +230,9 @@ def _routed(targets: TargetFiles, settings: AssaySettings) -> Result[tuple[Route
     match targets.targets:
         case (("all", _),):
             languages = tuple(dict.fromkeys(tool.language for tool in select(Claim.STATIC)))
-            return sequence(
-                block.of_seq(
-                    Ok(Routed(Language.DOTNET, Scope.FULL, full_triggers=(str(settings.solution),)))
-                    if language is Language.DOTNET
-                    else route(language, (".",), settings=settings).map(lambda row: msgspec.structs.replace(row, scope=Scope.FULL))
-                    for language in languages
-                )
-            ).map(tuple)
+            return sequence(block.of_seq(Ok(Routed(Language.DOTNET, Scope.FULL, full_triggers=(str(settings.solution),))) if language is Language.DOTNET else route(language, (".",), settings=settings).map(lambda row: msgspec.structs.replace(row, scope=Scope.FULL)) for language in languages)).map(
+                tuple
+            )
         case (("project", project),):
             return Ok((Routed(Language.DOTNET, Scope.CHANGED, projects=(project,)),))
         case _:
@@ -342,48 +242,29 @@ def _routed(targets: TargetFiles, settings: AssaySettings) -> Result[tuple[Route
             return Ok(())
         case files:
             scoped = _scoped_settings(settings)
-            return sequence(
-                block.of_seq(route(language, files, settings=scoped).map(_static_route) for language in infer_languages(files, tuple(Language)))
-            ).map(tuple)
+            return sequence(block.of_seq(route(language, files, settings=scoped).map(_static_route) for language in infer_languages(files, tuple(Language)))).map(tuple)
 
 
 def _static_route(routed: Routed) -> Routed:
     match (routed.language, routed.groups):
         case (Language.DOTNET, (first, *rest)):
-            groups = tuple(
-                (project, csharp_files)
-                for project, files in (first, *rest)
-                for csharp_files in (tuple(f for f in files if PurePosixPath(f).suffix == ".cs"),)
-                if csharp_files
-            )
+            groups = tuple((project, csharp_files) for project, files in (first, *rest) for csharp_files in (tuple(f for f in files if PurePosixPath(f).suffix == ".cs"),) if csharp_files)
             direct = tuple(project for project, _ in groups)
             files = tuple(sorted({file for _, group_files in groups for file in group_files}))
-            return msgspec.structs.replace(
-                routed, files=files, projects=direct, groups=groups, host_bound=tuple(p for p in routed.host_bound if p in direct)
-            )
+            return msgspec.structs.replace(routed, files=files, projects=direct, groups=groups, host_bound=tuple(p for p in routed.host_bound if p in direct))
         case _:
             return routed
 
 
 def _build_route(routed: Routed) -> Routed:
-    return (
-        msgspec.structs.replace(routed, scope=Scope.FULL)
-        if routed.scope is Scope.CHANGED
-        and routed.language.strategy == "glob"
-        and any(tool.mode is Mode.BUILD and tool.input is Input.OWNED for tool in select(Claim.STATIC, routed.language))
-        else routed
-    )
+    return msgspec.structs.replace(routed, scope=Scope.FULL) if routed.scope is Scope.CHANGED and routed.language.strategy == "glob" and any(tool.mode is Mode.BUILD and tool.input is Input.OWNED for tool in select(Claim.STATIC, routed.language)) else routed
 
 
 def _empty_route(routed: Routed) -> bool:
-    return (routed.language.strategy == "glob" and not routed.files and not routed.full_triggers) or (
-        routed.language.strategy == "closure" and not routed.files and not routed.projects and not _workspace_route(routed)
-    )
+    return (routed.language.strategy == "glob" and not routed.files and not routed.full_triggers) or (routed.language.strategy == "closure" and not routed.files and not routed.projects and not _workspace_route(routed))
 
 
-def _leased_run(
-    resource: str, project: str, run: Callable[[], tuple[Result[Completed, Fault], ...]], settings: AssaySettings
-) -> tuple[Result[Completed, Fault], ...]:
+def _leased_run(resource: str, project: str, run: Callable[[], tuple[Result[Completed, Fault], ...]], settings: AssaySettings) -> tuple[Result[Completed, Fault], ...]:
     outcome = leased(resource, lambda _held: Ok(run()), settings=settings, run_id=settings.run_id, project=project, mode="exclusive")
     match outcome:
         case Result(tag="ok", ok=rows):
@@ -404,17 +285,8 @@ def _phase_failed(rows: tuple[Result[Completed, Fault], ...]) -> bool:
     return False
 
 
-def _skipped(
-    checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope, *, note: str = "restore failed; build skipped"
-) -> tuple[Result[Completed, Fault], ...]:
-    return tuple(
-        Ok(
-            receipt(
-                argv_for(check, routed, settings=settings, scope=scope).default_value((check.tool.name,)), 0, status=RailStatus.SKIP, notes=(note,)
-            )
-        )
-        for check in checks
-    )
+def _skipped(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope, *, note: str = "restore failed; build skipped") -> tuple[Result[Completed, Fault], ...]:
+    return tuple(Ok(Completed(argv_for(check, routed, settings=settings, scope=scope).default_value((check.tool.name,)), 0, status=RailStatus.SKIP, notes=(note,))) for check in checks)
 
 
 def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings, executor: Executor) -> tuple[Result[Completed, Fault], ...]:
@@ -427,11 +299,7 @@ def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings, exe
         blocked = False
         for phase, checks in phases:
             _LOG.info("phase.start", phase=phase, checks=len(checks), run_id=settings.run_id, route=routed.language.value)
-            phase_rows = (
-                _skipped(checks, routed, settings, active_scope)
-                if phase is Phase.BUILD and blocked
-                else executor.fan(checks, settings=settings, scope=active_scope, routed=routed)
-            )
+            phase_rows = _skipped(checks, routed, settings, active_scope) if phase is Phase.BUILD and blocked else executor.fan(checks, settings=settings, scope=active_scope, routed=routed)
             rows = (*rows, *phase_rows)
             failed = _phase_failed(phase_rows)
             _LOG.info("phase.end", phase=phase, checks=len(checks), failed=failed, run_id=settings.run_id, route=routed.language.value)
@@ -441,9 +309,7 @@ def _build_fan(phases: PhaseChecks, routed: Routed, settings: AssaySettings, exe
     return _leased_run(resource, project, run, settings)
 
 
-def _write_fan(
-    checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope, executor: Executor
-) -> tuple[Result[Completed, Fault], ...]:
+def _write_fan(checks: tuple[Check, ...], routed: Routed, settings: AssaySettings, scope: ArtifactScope, executor: Executor) -> tuple[Result[Completed, Fault], ...]:
     resource = f"write-{routed.language.value}-{_route_sha(routed)}"
     project = ",".join((*routed.projects, *routed.files))
 
@@ -481,9 +347,7 @@ def _format_gated(checks: tuple[Check, ...], phases: PhaseChecks) -> tuple[tuple
     return tuple(check for check in checks if check.tool.name not in writable), tuple(check for check in checks if check.tool.name in writable)
 
 
-def _dispatch(
-    routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope, executor: Executor
-) -> tuple[Result[Completed, Fault], ...]:
+def _dispatch(routed: Routed, *, phases: PhaseChecks, settings: AssaySettings, scope: ArtifactScope, executor: Executor) -> tuple[Result[Completed, Fault], ...]:
     if _empty_route(routed):
         return ()
     write = tuple(check for phase, checks in phases if phase is Phase.FIX for check in checks)
@@ -491,12 +355,7 @@ def _dispatch(
     uses_closure = _uses_build_scope(routed, closure_phases)
     compiles = not (uses_closure and write) or _probe_compiles(closure_phases, routed, settings, executor)
     active_write, gated_write = (write, ()) if compiles else _format_gated(write, phases)
-    plain_rows = tuple(
-        check
-        for phase, checks in phases
-        if phase is not Phase.FIX and not (uses_closure and phase in {Phase.RESTORE, Phase.BUILD})
-        for check in checks
-    )
+    plain_rows = tuple(check for phase, checks in phases if phase is not Phase.FIX and not (uses_closure and phase in {Phase.RESTORE, Phase.BUILD}) for check in checks)
     plain, gated_plain = (plain_rows, ()) if compiles else _format_gated(plain_rows, phases)
     return (
         *(_write_fan(active_write, routed, settings, scope, executor) if active_write else ()),
@@ -511,10 +370,7 @@ def _backpressure_note(resources: tuple[tuple[str, float], ...]) -> tuple[str, .
     original, reduced = int(row.get("concurrency.original", 0.0)), int(row.get("concurrency.reduced", 0.0))
     foreign, mem = int(row.get("dotnet.foreign", 0.0)), row.get("memory.percent", 0.0)
     slot_wait_max = row.get("dotnet.slot_wait_ms.max", 0.0)
-    note = (
-        f"concurrency.backpressure: reduced {original}->{reduced} (mem={mem:.0f}% foreign_dotnet={foreign}); "
-        f"dotnet.slot max_wait={slot_wait_max:.0f}ms"
-    )
+    note = f"concurrency.backpressure: reduced {original}->{reduced} (mem={mem:.0f}% foreign_dotnet={foreign}); dotnet.slot max_wait={slot_wait_max:.0f}ms"
     return (note,) if reduced < original or slot_wait_max > 0.0 else ()
 
 
@@ -523,9 +379,7 @@ def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
     return msgspec.structs.replace(report, notes=(*report.notes, *notes)) if notes else report
 
 
-def _fold(
-    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], executor: Executor, *, modes: tuple[Mode, ...]
-) -> Result[Report, Fault]:
+def _fold(settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], executor: Executor, *, modes: tuple[Mode, ...]) -> Result[Report, Fault]:
     routed = tuple(_build_route(route_row) for route_row in routed)
     phase_sets = tuple((route_row, *_phase_checks(route_row, settings, scope, modes)) for route_row in routed)
     planned = tuple(row for route_row, phases, _ in phase_sets for row in _planned(route_row, phases, settings, scope))
@@ -537,19 +391,9 @@ def _fold(
     def executed(done: tuple[Completed, ...]) -> Report:
         detail = _detail(targets, routed, planned, skipped, artifacts, settings, checks, sarif_status=sarif_status(done, scope.sarif_dir), done=done)
         report = fold(Claim.STATIC, "static", done, detail=detail, sarif_dir=scope.sarif_dir, promote_empty=True)
-        return _closure_notes(
-            msgspec.structs.replace(
-                report,
-                results=(*report.results, *matches),
-                artifacts=(*artifacts, *report.artifacts),
-                notes=(*report.notes, f"planned={len(planned)} skipped={len((*targets.rejected, *skipped))}", *_backpressure_note(detail.resources)),
-            ),
-            routed,
-        )
+        return _closure_notes(msgspec.structs.replace(report, results=(*report.results, *matches), artifacts=(*artifacts, *report.artifacts), notes=(*report.notes, f"planned={len(planned)} skipped={len((*targets.rejected, *skipped))}", *_backpressure_note(detail.resources))), routed)
 
-    rows = (
-        row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope, executor=executor)
-    )
+    rows = (row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope, executor=executor))
     return sequence(block.of_seq(rows)).map(lambda done: executed(tuple(done)))
 
 
@@ -567,9 +411,7 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, exe
         Folded static report, or a routing/restore/strict-promotion fault.
     """
     modes = _MODES if params.fix else tuple(mode for mode in _MODES if not mode.writes)
-    return _target_result(settings, params).bind(
-        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, executor, modes=modes))
-    )
+    return _target_result(settings, params).bind(lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, executor, modes=modes)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

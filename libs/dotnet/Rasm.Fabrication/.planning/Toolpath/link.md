@@ -44,12 +44,11 @@
 
 `Linked` is inverse-sufficient: `LinkSegment.Cutting` and `Transiting` keep cut and travel moves distinct, `Linked.Moves` projects guarded motion without erasing that split, and `LinkTour` preserves order, solver evidence, component evidence, guarded-move count, and full-route metrics.
 
-- Law: neither `LinkTour` nor `LinkLeg` carries a content key, an evidence band, or a stamp, so neither takes a `*Receipt` name — the folder ruling reserves that name for the `Process/owner#RECEIPT` `Receipt<TEvidence>` carrier, and a lane output wearing it while holding none of its three required columns is the deleted form.
 - Law: `LinkLeg` holds the transition WHOLE — its endpoints, posture, corridor, emitted moves, metric, and score in one row — so the routing fold, the beam state, and the transiting segment stop each carrying a moves-and-evidence pair that never travels apart, keeping one correspondence in three places that each drift from the others.
 - Law: the `SpecializedToolpathEnvelope` is admitted ONCE at tour construction through the S0 factory, so `Linked` holds a proven payload and no consumer re-walks its rows; `ToolpathRowMap` owns the leg-to-row transcription, so the twelve columns generate from the leg's own members and the station keys lower to their wire spelling through the mapper's one key projection.
 - Law: motion supplies transition lowering; its commit fold conditions and guards the linked program once. Posting and simulation retain typed transition metrics, and estimation consumes the realized motion clock without double-counting tour duration.
 - Output: `Linked.PostingSource` carries transition evidence into canonical posting; the caller arrow retains other result projections.
-- Receipt: `LinkLeg` records transition endpoints as typed station keys, posture, its S0 `LinkTransition` classification, the corridor it rode, the moves it emitted, and distance, time, lift, retract, tool-change, and setup-change terms beside its objective score; `LinkSolver` records the declared beam width, refused variants, pruned states, accepted exchanges, the improvement they bought, and the runner-up tour's score — the margin the winner actually beat, which is measured evidence where an estimated bound would not be; `LinkTour.Total` adds cutting distance, time, thermal exposure, rotation, and pierces exactly once.
+- Output: `LinkLeg` records transition endpoints as typed station keys, posture, its S0 `LinkTransition` classification, the corridor it rode, the moves it emitted, and distance, time, lift, retract, tool-change, and setup-change terms beside its objective score; `LinkSolver` records the declared beam width, refused variants, pruned states, accepted exchanges, the improvement they bought, and the runner-up tour's score — the margin the winner actually beat, which is measured evidence where an estimated bound would not be; `LinkTour.Total` adds cutting distance, time, thermal exposure, rotation, and pierces exactly once.
 - Growth: a new machine posture is one `RetractKind` policy value carrying its S0 classification; a new cost regime is one admitted `LinkObjective`; a new obstacle occurrence is one `Keepout` admission; a new move classification is one `LinkSegment` case.
 - Boundary: no route publishes `double.PositiveInfinity`, a disconnected partial tour, an open tour that never returns home, or unguarded moves.
 
@@ -1209,7 +1208,6 @@ public static class Link {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

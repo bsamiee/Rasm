@@ -37,7 +37,7 @@ Each index doc opens on its own charter law, and every line it carries is load-b
 - Codemaps name the complete eventual source structure under the real domain concept each node owns; a planned-but-empty sub-domain stays visible.
 - Branch architecture owns dependency direction and the folder roster with one-line charters; folder architecture composes that direction.
 - Every seam appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
-- `[<KIND>]: <shape>`; `KIND: WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|RECEIPT|CONTENT_KEY|EVENT|TRANSPORT|TESSELLATION|GRADUATION|LEDGER|FAULT`.
+- `[<KIND>]: <shape>`; `KIND: WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|CONTENT_KEY|EVENT|TRANSPORT|TESSELLATION|GRADUATION|LEDGER|FAULT`.
 - Codemap edges carry `IMPORT` — a sub-domain composing a sibling owner — and `COUNTER` — the strata counter-edge — under the same label grammar.
 - Page filenames are their codemap node name language appropriate cased, so page and node resolve as one name and a rename moves consistently.
 
@@ -52,13 +52,13 @@ Design pages live at `<pkg>/.planning/<sub-domain>/<page>.md`, one sub-domain fo
 - H1 `# [<PKG>_<PAGE>]`; sections `## [k]-[TOKEN]` numbered from 1, section [1] the index of the page's clusters.
 - Leads run two paragraphs: the charter paragraph carries the capability the owner owns, its piece in the folder's system, and the boundary it holds.
 - Its composition paragraph carries the settled facts a rebuild composes without re-derivation, present only when the page carries them.
-- Composition facts: reused axes with their owning pages, seam obligations and frozen wire names, admission and receipt rails, policy rows.
+- Composition facts: reused axes with their owning pages, seam obligations and frozen wire names, admission rails, policy rows.
 - `[RESEARCH]` is the terminal section: each row is `- [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>`.
 - Research rows record epistemic debt in place of a guessed spelling; `(none)` marks the empty section, and a resolved row is deleted whole.
 - Settled facts never ride a research section — each folds into its owning line at write, and a bullet restating settled law is removed on sight.
 - SPIKE markers name a design element whose convergence only live-host evidence finalizes; the page ships its deterministic floor beside it.
 - Each cluster carries a card, then transcription-complete signature fences, then at most one Mermaid diagram.
-- Card fields are a closed ordered vocabulary: `Owner` `Cases` `Law` `Exemption` `Entry` `Auto` `Output` `Receipt` `Packages` `Growth` `Boundary`.
+- Card fields are a closed ordered vocabulary: `Owner` `Cases` `Law` `Exemption` `Entry` `Auto` `Output` `Packages` `Growth` `Boundary`.
 - Each card field is earned: a field that decides nothing for the cluster is omitted.
 - Card bullets carry only what the fence cannot show — the decision, invariant, boundary, ownership ruling, trap, or rejection-with-reason.
 - `[01]-[INDEX]` indexes the page's clusters in section order, one entry per cluster and never an owner roster or a card restatement.

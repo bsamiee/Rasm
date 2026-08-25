@@ -12,10 +12,10 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 
 - Owner: `JitBackend` — each case carries its route's option payload, and the `_capture_*` function beside its narrowed `catch` set IS the `_JIT_ROUTES` row, so `compile` indexes one row rather than fanning the shared decorate/warm-probe/read-IR pattern across match arms; the gated `numba`/`jax` names bind once as module-scope `lazy` imports whose proxies reify in the capture body that fires, so the table stays an eager import-free module constant and `_capture_jax` — the one jax door — owns this page's x64 config seam.
 - Cases: `Specimen` is the one typed warm-probe carrier every route consumes — numba forces one dispatcher specialization against it, jax traces one `make_jaxpr` over it, and the empty `Specimen()` is the unarmed probe a route ignores — so no route reads a positional `probe[0]` off an erased varargs tuple.
-- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-neutral compile-extent band BOTH compiled cases carry, `JitEvidence.profile` the one outward read every mount takes rather than destructuring a case payload by offset, and `solvers/receipt#RECEIPT` mounts it as the optional `profile` slot the `solvers/quadrature#QUADRATURE` lowering bridge fills — specialization count beside the engine-IR, target-code, typed-source, and diagnostics extents, each column answered from what the engine already measured, so a slow compile or solve explains itself from the receipt with no profiler attach. `llvm` fills it off the held dispatcher's `inspect_llvm`/`inspect_asm`/`inspect_types`/`parallel_diagnostics` reports, `xla` fills the identical columns off the staging ladder — `Lowered.as_text` StableHLO, `Compiled.as_text` optimized HLO, the captured jaxpr, and the `cost_analysis` entry tally — so one profile shape spans both engines and a comparison reads one receipt. `TraceEvidence` rides the `xla` case alone as its caller-armed device-timeline band.
-- Receipt: `compile` runs under the hub weave as `evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=...)` — LLVM/XLA lowering is the canonical measured surface, the span carries the backend, kernel, and armed discriminants, and the weave harvest emits the `Jitted` receipts on the clean exit, so `contribute()` needs no page-local emit call.
+- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and `Jitted.attributes` spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-neutral compile-extent band BOTH compiled cases carry, `JitEvidence.profile` the one outward read every mount takes rather than destructuring a case payload by offset, and `solvers/solve#SOLVE` mounts it as the optional `profile` slot the `solvers/quadrature#QUADRATURE` lowering bridge fills — specialization count beside the engine-IR, target-code, typed-source, and diagnostics extents, each column answered from what the engine already measured, so a slow compile or solve explains itself from the `Jitted` value with no profiler attach. `llvm` fills it off the held dispatcher's `inspect_llvm`/`inspect_asm`/`inspect_types`/`parallel_diagnostics` reports, `xla` fills the identical columns off the staging ladder — `Lowered.as_text` StableHLO, `Compiled.as_text` optimized HLO, the captured jaxpr, and the `cost_analysis` entry tally — so one profile shape spans both engines and a comparison reads one profile. `TraceEvidence` rides the `xla` case alone as its caller-armed device-timeline band.
+- Output: `compile` runs under the hub weave as `evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=...)` — LLVM/XLA lowering is the canonical measured surface, the span carries the backend, kernel, and armed discriminants at open, and the `Jitted` mint stamps its `attributes` on that same span, so no page-local emit call exists.
 - Packages: the numba dispatcher, the jax trace handle, the `Wrapped`/`Lowered`/`Compiled` staging rungs, and the four-tier profile reader are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves like the two profile bands.
-- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row carrying its capture and its own raise set, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new compile statistic is one `EngineProfile` column every compiled route answers from its own engine, reaching the solve receipt's mount with zero receipt edits, while a statistic only one engine can measure lands on that case's own band — `TraceEvidence` being that path realized, since a host-compiled kernel has no device timeline to answer a device column with anything but a zero.
+- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row carrying its capture and its own raise set, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new compile statistic is one `EngineProfile` column every compiled route answers from its own engine, reaching the `Solve` mount with zero edits there, while a statistic only one engine can measure lands on that case's own band — `TraceEvidence` being that path realized, since a host-compiled kernel has no device timeline to answer a device column with anything but a zero.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -26,15 +26,17 @@ from threading import Lock
 from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
 
 from beartype.door import is_bearable
-from expression import Error, Some, case, tag, tagged_union
+from expression import Error, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 from upath import UPath
 
+from opentelemetry import trace
+
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.faults import TERMINAL, TRANSIENT, Catch, FaultRow, RuntimeRail, boundary, rostered
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 lazy import jax
 lazy import numba
@@ -195,13 +197,14 @@ class Jitted(Struct, frozen=True):
     content_key: ContentKey
     evidence: JitEvidence
 
-    def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of(
-            EvidenceScope.JIT.value,
-            ("emitted", self.backend.tag, {"backend": self.backend.tag, **self.evidence.facts()}),
-            key=Some(self.content_key),
-            provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
-        )
+    @property
+    def attributes(self) -> dict[str, str | bool | int | float]:
+        scalars = {name: value for name, value in self.evidence.facts().items() if isinstance(value, str | bool | int | float)}
+        return {"backend": self.backend.tag, "key": self.content_key.hex, **scalars}
+
+    def _noted(self) -> "Jitted":
+        trace.get_current_span().set_attributes(self.attributes)
+        return self
 
 
 @tagged_union(frozen=True)
@@ -272,7 +275,7 @@ class JitBackend:
 
     def _compiled(self, kernel: Kernel, specimen: "Specimen", key: ContentKey) -> "Jitted":
         fn, evidence = _JIT_ROUTES[self.tag](kernel, specimen, self)
-        return Jitted(fn, self, key, evidence)
+        return Jitted(fn, self, key, evidence)._noted()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

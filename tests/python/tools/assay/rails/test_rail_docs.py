@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from expression import Error, Ok, Result
 import pytest
 
-from assay.core.model import Claim, Completed, Fault, RailStatus, receipt, Runner
+from assay.core.model import Claim, Completed, Fault, RailStatus, Runner
 from assay.rails.docs import check, DocsParams, FaultedPromotion
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
@@ -38,10 +38,8 @@ _NDJSON = (
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _check(
-    assay_root: AssayHarness, receipts: tuple[Result[Completed, Fault], ...], *, strict: bool = False, paths: tuple[str, ...] = ("README.md",)
-) -> Result[Report, Fault]:
-    executor = SeamExecutor(fan_fn=lambda *_a, **_k: receipts)
+def _check(assay_root: AssayHarness, outcomes: tuple[Result[Completed, Fault], ...], *, strict: bool = False, paths: tuple[str, ...] = ("README.md",)) -> Result[Report, Fault]:
+    executor = SeamExecutor(fan_fn=lambda *_a, **_k: outcomes)
     return check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=paths, strict=strict), executor)
 
 
@@ -49,36 +47,28 @@ def _check(
 
 
 @pytest.mark.parametrize(
-    "receipts, strict, expect",
-    [
-        ((_OK,), True, RailStatus.OK),
-        ((_FAILED,), True, RailStatus.FAILED),
-        ((), False, RailStatus.EMPTY),
-        ((), True, "raises"),
-        ((_SKIP,), True, RailStatus.OK),
-        ((Error(_FAULT_B),), False, "fault"),
-        ((Error(_FAULT_A), Error(_FAULT_B)), False, "first-fault"),
-    ],
+    "outcomes, strict, expect",
+    [((_OK,), True, RailStatus.OK), ((_FAILED,), True, RailStatus.FAILED), ((), False, RailStatus.EMPTY), ((), True, "raises"), ((_SKIP,), True, RailStatus.OK), ((Error(_FAULT_B),), False, "fault"), ((Error(_FAULT_A), Error(_FAULT_B)), False, "first-fault")],
     ids=["ok", "failed-strict-preserved", "empty-not-strict", "empty-strict-raises", "skip-promotes-ok", "fan-fault", "first-fault-wins"],
 )
 def test_check_promotion_and_fault_matrix(
     assay_root: AssayHarness,
-    receipts: tuple[Result[Completed, Fault], ...],
+    outcomes: tuple[Result[Completed, Fault], ...],
     strict: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
     expect: RailStatus | str,
 ) -> None:
-    """Check folds receipts onto one rail: strict promotes only a checkless EMPTY, faults short-circuit first-wins."""
+    """Check folds outcomes onto one rail: strict promotes only a checkless EMPTY, faults short-circuit first-wins."""
     match expect:
         case "raises":
             assert issubclass(FaultedPromotion, Exception)
             with pytest.raises(FaultedPromotion, match="no docs changed"):
-                _check(assay_root, receipts, strict=strict)
+                _check(assay_root, outcomes, strict=strict)
         case "fault":
-            assert assert_error(_check(assay_root, receipts, strict=strict)) is _FAULT_B
+            assert assert_error(_check(assay_root, outcomes, strict=strict)) is _FAULT_B
         case "first-fault":
-            assert assert_error(_check(assay_root, receipts, strict=strict)) is _FAULT_A
+            assert assert_error(_check(assay_root, outcomes, strict=strict)) is _FAULT_A
         case RailStatus() as status:
-            report = assert_ok(_check(assay_root, receipts, strict=strict))
+            report = assert_ok(_check(assay_root, outcomes, strict=strict))
             assert report.status is status
             assert report.claim is Claim.DOCS
             assert report.verb == "check"
@@ -125,17 +115,13 @@ def test_check_builds_one_check_per_engine_per_file_and_threads_dependencies(ass
 def test_check_parses_ndjson_findings_and_keeps_crash_tails(assay_root: AssayHarness) -> None:
     """Engine NDJSON fail/warn rows fold into typed finding rows; ok rows and banners vanish; an unparsable crash keeps fold's raw tail."""
     assay_root.write("docs/diagram.md", "# d")
-    parsed = assert_ok(_check(assay_root, (Ok(receipt(("engine",), 0, stdout=_NDJSON)),), paths=("docs/diagram.md",)))
-    assert [(m.id, m.severity, m.line, m.path, m.message) for m in parsed.results] == [
-        ("docs:graph-logic", "error", 7, "docs/diagram.md", "broken edge"),
-        ("docs:engine", "warning", 2, "docs/diagram.md", "weak label"),
-        ("docs:hedge", "error", 4, "docs/diagram.md", "probably"),
-    ], f"NDJSON rows misfolded: {parsed.results}"
+    parsed = assert_ok(_check(assay_root, (Ok(Completed(("engine",), 0, stdout=_NDJSON, status=RailStatus.OK)),), paths=("docs/diagram.md",)))
+    assert [(m.id, m.severity, m.line, m.path, m.message) for m in parsed.results] == [("docs:graph-logic", "error", 7, "docs/diagram.md", "broken edge"), ("docs:engine", "warning", 2, "docs/diagram.md", "weak label"), ("docs:hedge", "error", 4, "docs/diagram.md", "probably")], (
+        f"NDJSON rows misfolded: {parsed.results}"
+    )
     assert parsed.status is RailStatus.OK, "finding rows ride the report; status follows the process fold"
 
-    crashed = assert_ok(
-        _check(assay_root, (Ok(receipt(("engine",), 1, stdout=b"Traceback (most recent call last): boom")),), paths=("docs/diagram.md",))
-    )
-    assert crashed.status is RailStatus.FAILED, "a FAILED receipt is never promoted away"
+    crashed = assert_ok(_check(assay_root, (Ok(Completed(("engine",), 1, stdout=b"Traceback (most recent call last): boom", status=RailStatus.FAILED)),), paths=("docs/diagram.md",)))
+    assert crashed.status is RailStatus.FAILED, "a FAILED outcome is never promoted away"
     assert len(crashed.results) == 1 and "Traceback" in crashed.results[0].text, "an unparsable crash surfaces fold's raw defect tail"
-    assert crashed.results[0].severity == "failed", "the crash row carries the receipt severity"
+    assert crashed.results[0].severity == "failed", "the crash row carries the outcome severity"

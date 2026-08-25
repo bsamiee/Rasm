@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_PLATFORM_COMPOSITION]
 
-`PlatformRoot` is the folder's ONE in-package composition seam: plugin identity through the kernel `PackageIdentity` resolve, the session's one `MonotonicTimeline`, one bounded `FaultCell`, the process-wide conversion-broker registry, and the mount roster that reaches every owner family the plugin wires at load. the `apps/<app>/` plugin shell composes this page and nothing deeper — every AppHost, DI, and cache lacing stays root material described here as boundary obligations, never package code.
+`PlatformRoot` is the folder's ONE in-package composition seam: plugin identity through the kernel `PackageIdentity` resolve, the session's one `MonotonicTimeline`, one bounded `FaultCell`, the process-wide conversion-broker registry, and the mount roster that reaches every owner family the plugin wires at load. `apps/<app>/` plugin shells compose this page and nothing deeper — every AppHost, DI, and cache lacing stays root material described here as boundary obligations, never package code.
 
 Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than prose: each Canvas, Shell, and Components owner family that no interior page composes names its entry HERE, and an owner reachable from no roster row is deleted, never advertised.
 
@@ -23,10 +23,10 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 
 - Owner: `PlatformRoot` — the load-time capsule the shell opens once per plugin: the resolved identity, the session's ONE `MonotonicTimeline`, its ONE bounded `FaultCell`, the conversion-broker registry cell `Components/data.md`'s `Coerce` reads, and one release roster. Every process-wide registry the folder holds seats here, so no library page carries a composition-root static (folder RULINGS `[02]`).
 - Entry: `PlatformRoot.Open(pluginRoot, plugin, faultCapacity, time, key)` → `Fin<Lease<PlatformRoot>>` resolves the identity, mints the timeline and fault cell from one supplied time provider, and seats the empty broker cell; `Hold(Lease<T>, key)` transfers each mounted lease into root custody; disposal releases the mounted estate in reverse mount order through the lease.
-- Law: `MonotonicTimeline.Of(time, key)` is callable HERE and nowhere else in the folder (folder RULINGS `[02]`) — one injected timeline per session is what makes two receipts from one gesture orderable, and every gate below takes `Clock` as a REQUIRED parameter. The production shell supplies `TimeProvider.System`; a test host supplies its fake through the same slot.
+- Law: `MonotonicTimeline.Of(time, key)` is callable HERE and nowhere else in the folder (folder RULINGS `[02]`) — one injected timeline per session makes gauged spans from one gesture orderable, and each gauged owner takes `Clock` as a REQUIRED parameter. Production shells supply `TimeProvider.System`; test hosts supply fakes through the same slot.
 - Law: `Faults` is the whole callback-custody cell handed to every mount row that parks evidence and to `HookRail.Of(cell:)`; the root never accepts the kernel's default cell and no owner mints another ring, so `Parked`/`Shed`/`Lost` describe the complete plugin boundary.
 - Law: the broker registry is the root's INSTANCE, never a library static — the root constructs `Components/data.md`'s one `BrokerLedger`, scope-ranked conversion rows enroll against it at plugin load, and `Coerce` reads the ledger it was handed, so a collectible plugin ALC drops exactly its own rows with the root's lease.
-- Law: `PlatformRoot.Evidence` is the folder's ONE `GhEvidence` egress — every receipt-producing mount routes its evidence through the fan, so the instruments fold and the journal's `EvidenceCase` partition never disagree on what the boundary witnessed; `PaintProof.Judge` output enters here as `GhEvidence.CaptureCase`, which is what makes a visual regression a counted stream AND a correlatable journal row.
+- Law: measurements write at their producing site through `Shell/telemetry.md`'s `GhInstruments` members and the journal keeps the event stream alone — the root tees nothing; the one write the root itself owns is `PaintProof.Judge`'s breach, which it hands to `GhInstruments.Proofed` because the judging site is this roster row.
 - Law: the mount roster is the S2 producer. At load, the shell walks the rows below in order; teardown is the exact reverse. Owner family no row reaches has no consumer and DELETES with its prose — the roster is the census the fake-density gate reads.
 - Law: every lease minted while walking the roster enters `Hold` before the next row starts; a contended custody write refuses as `GhFault.Registration`, and teardown runs every inverse through kernel `Custody.Release`; retained mounts park their own release refusals on the shared `Faults`, while the root parks the fold's thrown-disposal aggregate because `IDisposable` has no outward rail.
 
@@ -40,8 +40,8 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 |  [06]   | paint plan + snap field | `PaintAnchor.Mount` planner (`Traced`→`WirePass.Plan`) + `SnapField` | `Canvas/paint`/`layout`             |
 |  [07]   | pacer + display link    | `CanvasPacer.Mount` + `MotionAttachment.Attach`                      | `Canvas/motion` + `Platform/layers` |
 |  [08]   | hook rail + journal     | `HookRail.Of` + `SessionJournal.Mount` over the evidence drain       | `Shell/hooks`/`journal`             |
-|  [09]   | capture proof           | `SessionCapture.Open` + `PaintProof.Judge` output into the fan       | `Platform/capture`                  |
-|  [10]   | evidence fan            | `PlatformRoot.Evidence` — instruments fold + journal evidence tee    | `Shell/telemetry`                   |
+|  [09]   | capture proof           | `SessionCapture.Open` + `PaintProof.Judge` → `GhInstruments.Proofed` | `Platform/capture`                  |
+|  [10]   | telemetry capsule       | `GhTelemetry.Of` seating the meter and logger on the per-ALC cell    | `Shell/telemetry`                   |
 
 - Boundary: cache substrate — the folder currently CACHES NOTHING (`Shell/session.md`'s cache estate deleted with zero consumers), so no `HybridCache` registers and the package reference is retired. Future cached carrier re-mints at the shell under these standing obligations: the codec for any non-inbuilt carrier registers BEFORE `AddHybridCache` (the substrate's try-add seeding makes the earlier registration the binding one); `MaximumPayloadBytes` sizes against the largest admitted payload because an over-quota payload logs and returns uncached silently; `ReportTagMetrics` arms the per-document hit/miss dimension and no folder instrument doubles it; no L2 registers unless the shell binds a real `IDistributedCache` — the block is pure L1 by construction.
 - Packages: `Rasm.Domain` (`Op`, `Lease<T>`, `PackageIdentity`, `FaultCell`, `Custody`), `Rasm.Numerics` (`Dimension`), `Rasm.Parametric` (`MonotonicTimeline`), `Components/data.md` (`BrokerLedger`), LanguageExt.Core.
@@ -111,11 +111,6 @@ public sealed class PlatformRoot : IDisposable {
                    faults: new FaultCell(cap: capacity, clock: provider)));
     }
 
-    public static Fin<Unit> Evidence(GhInstruments instruments, SessionJournal journal, GhEvidence fact, Op? key = null) =>
-        instruments.Project(fact: fact)
-            .Bind(_ => journal.Append(fact: new JournalFact.EvidenceCase(Evidence: fact), document: fact.Document, key: key)
-                .Map(static _ => unit));
-
     public void Dispose() {
         Seq<Func<Fin<Unit>>> releases = Cell.Take(mounts).Current.Rev().Strict();
         Fin<Unit> settled = Custody.Release(releases, ReleaseOp);
@@ -129,7 +124,7 @@ public sealed class PlatformRoot : IDisposable {
 | [INDEX] | [CONCERN]       | [OWNER]                  | [RAIL]                               | [CASES] |
 | :-----: | :-------------- | :----------------------- | :----------------------------------- | :-----: |
 |  [01]   | plugin identity | kernel `PackageIdentity` | one `Resolve`, typed `HookScope` key |    1    |
-|  [02]   | session clock   | `PlatformRoot.Clock`     | one mint, injected everywhere below  |    1    |
+|  [02]   | session clock   | `PlatformRoot.Clock`     | one mint, injected into gauged owners |    1    |
 |  [03]   | fault custody   | `PlatformRoot.Faults`    | one bounded cell across every mount  |    1    |
 |  [04]   | mount roster    | `[03]` table             | one ordered walk, reverse teardown   |    8    |
 

@@ -175,7 +175,7 @@
 [TOPOLOGY]:
 - Every SQLite store op folds through one `UseSqlite` binding: the provider, its relational knobs, the SQLite model annotations, and the LINQ→SQL translation all attach to the single `SqliteDbContextOptionsBuilder` the callback receives, so a second provider entry point is unrepresentable.
 - `SqliteDbContextOptionsBuilder` declares no member of its own; every knob is inherited `RelationalDbContextOptionsBuilder` state, so a SQLite-only option is a model annotation or a `StoreProfile` row value, never a builder call.
-- SQLite refuses most `ALTER TABLE` forms, so `SqliteMigrationsSqlGenerator` defers add, alter, drop, and rename column operations into one table rebuild and raises `SqliteEventId.TableRebuildPendingWarning`; migration exclusion reads from receipts rather than from `Internal`-namespace types.
+- SQLite refuses most `ALTER TABLE` forms, so `SqliteMigrationsSqlGenerator` defers add, alter, drop, and rename column operations into one table rebuild and raises `SqliteEventId.TableRebuildPendingWarning`; migration exclusion reads from diagnostics rather than from `Internal`-namespace types.
 
 [STACKING]:
 - `api-sqlite`(`libs/dotnet/.api/api-sqlite.md`): `UseSqlite(DbConnection, contextOwnsConnection: false)` mounts the already-dialed `SqliteConnection`, so the ADO open ritual's pragma rows, registered UDFs and collations, and `sqlite3_db_config` hardening carry into every `DbContext` lease instead of a second connection posture.

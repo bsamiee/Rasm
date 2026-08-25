@@ -2,7 +2,7 @@
 
 AEC detail management binds the callout, content-keyed `ezdxf` detail library, and cross-reference DAG between sheets. `Detail` owns the closed `Callout`/`CalloutBoundary`/`DetailSource` families and discriminates egress with `SymbolTarget`. Each boundary and leader lowers to a `drawsvg` named-layer group or equivalent `ezdxf` entities beside the reusable block store, preserving circle, rectangle, polygon, and section-line geometry on both targets. `drawing/symbol#SYMBOL` supplies bubble vocabulary, `drawing/regime#REGIME` supplies layer and scale codes, and `graphic/color/derive#DERIVE` supplies palette projection. Drawing-plane documentation remains separate from the `dotnet:Rasm.Bim` semantic model.
 
-Block authoring and placement recover one identity from one registry. `DetailSource.embedded` owns captured standalone-DXF bytes, `DetailSource.referenced` owns an external path plus its captured `ContentKey`, and `DetailEntry.of` derives and verifies the entry key from that mode payload. `DetailLibrary.claims` is the primary citation fact; `entries` derives the deduplicated key-to-source block registry, and `by_ref` derives the citation-to-entry placement registry without discarding per-citation metadata. DXF block names derive from the entry key, while each placement retains its own `DETAIL_NO`/`SHEET`/`TITLE`/`SCALE` attributes. Cross-reference edges join the `(host, ordinal)` placement discriminant to the target citation. `rustworkx.PyDAG(check_cycle=True)` builds once per `resolved()` call; `DAGWouldCycle` preserves the rejected edge as evidence, `transitive_reduction` yields the minimal graph, `topological_generations` yields depth layers, and `node_link_json` produces the persisted audit wire. `ReferenceReport.severed` carries `cyclic`/`collided`/`dangling` coverage evidence without blocking render, while provider failures cross the runtime rail through `async_boundary`. `LanePolicy` offloads rendering, `ArtifactReceipt.Drawing` records the result, and `ArtifactWork` schedules it.
+Block authoring and placement recover one identity from one registry. `DetailSource.embedded` owns captured standalone-DXF bytes, `DetailSource.referenced` owns an external path plus its captured `ContentKey`, and `DetailEntry.of` derives and verifies the entry key from that mode payload. `DetailLibrary.claims` is the primary citation fact; `entries` derives the deduplicated key-to-source block registry, and `by_ref` derives the citation-to-entry placement registry without discarding per-citation metadata. DXF block names derive from the entry key, while each placement retains its own `DETAIL_NO`/`SHEET`/`TITLE`/`SCALE` attributes. Cross-reference edges join the `(host, ordinal)` placement discriminant to the target citation. `rustworkx.PyDAG(check_cycle=True)` builds once per `resolved()` call; `DAGWouldCycle` preserves the rejected edge as evidence, `transitive_reduction` yields the minimal graph, `topological_generations` yields depth layers, and `node_link_json` produces the persisted audit wire. `ReferenceReport.severed` carries `cyclic`/`collided`/`dangling` coverage evidence without blocking render, while provider failures cross the runtime rail through `async_boundary`. `LanePolicy` offloads rendering, and `ArtifactWork` schedules the named layers.
 
 ## [01]-[INDEX]
 
@@ -12,9 +12,8 @@ Block authoring and placement recover one identity from one registry. `DetailSou
 
 - Owner: `Detail` holds `callouts`, the `DetailLibrary` store, the `Palette`, the runtime `lane: LanePolicy`, and the `SymbolTarget` value, discriminating on the `_ENGINES` dual-lowering table — never a per-target subtype. `Callout` is the one reference-bearing value; its `(host, ordinal)` is the structural discriminant keeping two identical-`target` callouts from distinct sheets DISTINCT edges. `DetailRef.cite()` is the printed `"3/A-501"` citation the DAG nodes and the library index both key on; `SymbolStyle` is the shared drawing-plane mark-style, never a parallel `DetailStyle`.
 - Cases: `CalloutBoundary` admits nondegenerate `circle`/`rectangle`/`polygon`/`section_line` payloads, projects `anchor()` and `bounds()` through total matches, and lowers each case through paired `_boundary_svg`/`_dxf_boundary` arms. `CalloutKind` keys `_BUBBLE` to the `SymbolKind` projection. `DetailSource.embedded` owns captured bytes, while `DetailSource.referenced` owns the external path and captured fingerprint. `DetailFault` carries `dangling`/`cyclic`/`collided` coverage evidence through `ReferenceReport.severed` and the `malformed` persisted-wire case through `Detail.audit`; provider failures inside the render path remain runtime `BoundaryFault` values.
-- Entry: `Detail.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `Callout | Iterable[Callout]` by a structural `match` at the head — never a `batch` knob, and never a raise outside the `_FAULTS` class the boundary admits. `emit()` is the schedulable `ArtifactWork`; `_emit` maps the receipt half and `layered()` the `LayerPlan` projection off the same `_crossed` hop, `async_boundary` narrowed to the `_FAULTS` engine-raise tuple. `resolved()` is the one audit-and-query entry: it builds the graph ONCE and returns the `Resolved` value carrying the `ReferenceReport`, the citation index, and the live DAG whose `impact`/`depends`/`depth_layers` methods answer the `ancestors`/`descendants`/`bfs_layers` revision-impact and dependency queries without a rebuild apiece. `bubbles()` is the callout→`SymbolKind` projection; `Detail.audit` re-checks a persisted `node_link_json` wire through `parse_node_link_json` + `digraph_find_cycle`.
+- Entry: `Detail.over` admits through the folder's one `@beartype(conf=INGRESS)` ingress and normalizes `Callout | Iterable[Callout]` by a structural `match` at the head — never a `batch` knob, and never a raise outside the `_FAULTS` class the boundary admits. `emit()` returns the schedulable named layers, while `layered()` projects the same `_crossed` hop into `LayerPlan`; `async_boundary` narrows the `_FAULTS` engine-raise tuple. `resolved()` is the one audit-and-query entry: it builds the graph ONCE and returns the `Resolved` value carrying the `ReferenceReport`, the citation index, and the live DAG whose `impact`/`depends`/`depth_layers` methods answer the `ancestors`/`descendants`/`bfs_layers` revision-impact and dependency queries without a rebuild apiece. `bubbles()` is the callout→`SymbolKind` projection; `Detail.audit` re-checks a persisted `node_link_json` wire through `parse_node_link_json` + `digraph_find_cycle`.
 - Auto: `DetailEntry.of` derives and `__post_init__` verifies the single content identity from the source payload. `DetailLibrary.claims` retains every placement claim; `entries` and `by_ref` derive the content and citation indexes — `by_ref` resolving repeated citations to the first claim deterministically — while `_collision` surfaces designators whose claims diverge in key, title, or scale. `_graph` mutates only the native `PyDAG`; `_resolve` derives stable order, generation widths, longest path, reduced edge count, and persisted wire from that graph. `_block_name` derives from the same key used by authoring and placement. `_bbox` unions true boundary, leader, and marker extents, so SVG geometry remains inside its canvas and stands as the DXF arm's fallback span under `drawing/standard#STANDARD` `extent`. Each SVG layer row carries its `LayerName` through `LayerNode.Annotation`'s `aec` for `LayerSchema.ISO13567` composition.
-- Receipt: `_emit` mints `core/receipt#RECEIPT` `ArtifactReceipt.Drawing` off the pre-run key and awaits `Journal.record` over `receipt.evidence()` at that fold — the reference apparatus is production trail, so the fact is `OPERATIONAL` and its byte volume charges `STORAGE`. Recording suspends, so the seat is the awaitable `_emit`; `resolved()` and `audit` are pure queries over the cross-reference graph and record nothing.
 - Growth: a new boundary adds one `CalloutBoundary` case and corresponding `anchor()`/`bounds()`/SVG/DXF arms; a new callout kind adds one `CalloutKind` value and `_BUBBLE` row; a new source mode adds one `DetailSource` case and `_author_detail` arm; a new egress adds one `_ENGINES` row; a new graph query adds one `Resolved` operation; a new coverage cause adds one `DetailFault` case, report field, and `severed` arm.
 - Boundary: no dimension, annotation, or sheet-placement logic — `drawing/dimension#DIMENSION`, `drawing/annotate#ANNOTATE`, `composition/sheet#SHEET`. `ezdxf` owns the detail-library block store, `rustworkx` the cross-reference DAG, `drawsvg` the named-layer boundary/leader container, `drawing/symbol#SYMBOL` the bubble geometry, `drawing/regime#REGIME` the ISO layer/scale codes and `drawing/standard#STANDARD` the discipline-pen DXF lowering, `graphic/color/derive#DERIVE` the palette, `specification/classify#CODE` the classification tables, and `dotnet:Rasm.Bim` the IFC; identity minting is the runtime's.
 - Packages: `ezdxf` owns reusable blocks, `Importer.import_modelspace(target_layout=)`, `xref.attach`, and `recover.read` (the binary-stream loader salvaging non-conforming captures), its measured layout span arriving through `drawing/standard#STANDARD` `extent`; `rustworkx` owns `PyDAG`, cycle admission, traversal, stable ordering, reduction, and node-link wires; `drawsvg` owns structured SVG geometry; `expression` owns `Option`, `Block`, and `Map`; drawing owners supply layer, standard, symbol, scale, and palette vocabularies.
@@ -29,21 +28,20 @@ from enum import StrEnum
 from typing import Final, Literal, Self, assert_never
 
 from beartype import beartype
-from expression import Error, Nothing, Option, Result, Some, case, tag, tagged_union
+from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, msgpack
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import INGRESS, Discipline, LayerName, LayerSchema, ScaleRatio
-from rasm.artifacts.drawing.standard import Standard, extent
+from rasm.artifacts.drawing.standard import Standard
 from rasm.artifacts.drawing.symbol import SymbolKind, SymbolStyle, SymbolTarget
 from rasm.artifacts.graphic.layer import LayerNode, LayerPlan
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
@@ -62,7 +60,7 @@ lazy from rustworkx import topological_generations, transitive_reduction
 type Point = tuple[float, float]
 type Box = tuple[float, float, float, float]
 type Ramp = tuple[str, ...]
-type Engine = Callable[["Detail"], tuple[tuple[LayerNode, ...], ArtifactReceipt]]
+type Engine = Callable[["Detail"], tuple[LayerNode, ...]]
 
 _RADIUS: float = 6.0
 _FAULTS: tuple[type[Exception], ...] = (ValueError, OSError)
@@ -372,7 +370,7 @@ class Detail(Struct, frozen=True):
             Nothing if is_directed_acyclic_graph(graph) else Some(DetailFault(cyclic=tuple((graph[a], graph[b]) for a, b in digraph_find_cycle(graph))))
         )
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[tuple[LayerNode, ...]]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=float(len(self.callouts)))
 
     @property
@@ -381,25 +379,27 @@ class Detail(Struct, frozen=True):
         spec = ContentIdentity.key(f"drawing-detail-{self.target}", _CANON.encode((self.callouts, self.palette, self.target, claims)))
         return ContentIdentity.key(f"drawing-detail-{self.target}", (spec, *(entry.key for entry in self.library.claims)))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        settled = (await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
+    async def _emit(self) -> RuntimeRail[tuple[LayerNode, ...]]:
+        settled = await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)
         match settled:
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=layers):
+                size = sum(len(node.leaf[1].fragment) for node in layers if node.tag == "leaf" and node.leaf[1].tag == "fragment")
+                Metrics.record({BYTE_VOLUME: float(size)}, domain=DOMAIN, kind="drawing", scope=self.lane.scope)
+                return Ok(layers)
             case refused:
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
         return (await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)).map(
-            lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
+            lambda layers: LayerPlan(schema=LayerSchema.ISO13567, roots=layers)
         )
 
-    async def _crossed(self) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+    async def _crossed(self) -> tuple[LayerNode, ...]:
         crossed = await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)
         return crossed.default_with(self._raise)
 
     @staticmethod
-    def _raise(fault: object) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+    def _raise(fault: object) -> tuple[LayerNode, ...]:
         raise ValueError(str(fault))
 
 
@@ -567,7 +567,7 @@ def _author_detail(doc: object, key: ContentKey, source: DetailSource) -> None:
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-def _svg_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+def _svg_engine(detail: Detail) -> tuple[LayerNode, ...]:
     ramp, box = hex_ramp(detail.palette), _bbox(detail)
 
     def bucket(acc: Map[str, tuple[LayerName, tuple["drawsvg.Group", ...]]], callout: Callout, /) -> Map[str, tuple[LayerName, tuple["drawsvg.Group", ...]]]:
@@ -579,18 +579,10 @@ def _svg_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
     grouped = Block.of_seq(detail.callouts).fold(bucket, Map.empty())
     composed = tuple((layer, _layer_svg(name, items, box)) for name, (layer, items) in grouped.items())
     layers = tuple(LayerNode.Annotation(layer.compose(), source, aec=Some(layer)) for layer, source in composed)
-    return layers, ArtifactReceipt.Drawing(
-        detail._key,
-        "detail",
-        len(detail.callouts),
-        "drawsvg",
-        int(box[2] - box[0]),
-        int(box[3] - box[1]),
-        sum(len(source) for _, source in composed),
-    )
+    return layers
 
 
-def _dxf_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
+def _dxf_engine(detail: Detail) -> tuple[LayerNode, ...]:
     doc, std = ezdxf.new("R2018", setup=True), Standard.of()
     std.seed(doc, layers=tuple(sorted({callout.style.layer for callout in detail.callouts}, key=LayerName.compose)))
     msp = doc.modelspace()
@@ -618,11 +610,8 @@ def _dxf_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
         _dxf_boundary(msp, callout, attribs)
     stream = io.StringIO()
     doc.write(stream)
-    box, data = _bbox(detail), stream.getvalue().encode()
-    width, height = extent(msp, Some(box))
-    return (LayerNode.Annotation("dxf", data),), ArtifactReceipt.Drawing(
-        detail._key, "detail", len(detail.callouts), "ezdxf", round(width), round(height), len(data)
-    )
+    data = stream.getvalue().encode()
+    return (LayerNode.Annotation("dxf", data),)
 
 
 _BUBBLE: frozendict[CalloutKind, Callable[[Callout], SymbolKind]] = frozendict({
@@ -657,7 +646,6 @@ __all__ = [
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

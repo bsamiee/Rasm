@@ -241,7 +241,7 @@
 
 [LOCAL_ADMISSION]:
 - Import the generated `GenMessage` schema and call the schema-first codec (`fromBinary`/`toBinary`/`create`); cross a decoded proto into `kernel` vocabulary through `Schema.decode` at the page boundary, never hand-authoring a shape or reusing a decoded proto as a domain model.
-- Reflection has no consumer: the generated schema rules everywhere, and a page reaching for `reflect` names the would-be consumer in its receipt first.
+- Every branch decode imports its generated schema directly; `reflect` has no branch consumer.
 - 64-bit fields are `bigint` on the decode path and need no `protoInt64` read; `Timestamp`/`Duration` cross through `timestampMs`/`durationMs` typed against `TimestampSchema`/`DurationSchema`; `Any` unpacks only against `interchange/format`'s one registry; `_READ` and `_JSON_READ` are passed at EVERY read because the JSON default refuses unknown fields.
 
 [RAIL_LAW]:

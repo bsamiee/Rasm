@@ -7,7 +7,7 @@ Exact tessellation is the kernel's. `Rasm/Meshing/delaunay#TESSELLATION` owns ex
 ## [01]-[INDEX]
 
 - [02]-[MESH_GENERATION]: boundary shell, inclusion index, strategy vocabulary, the four generation cores, mesh policy admission, and the build carrier.
-- [03]-[ADAPTIVE_REFINEMENT]: Dörfler marking, red subdivision with its edge-conforming closure, order elevation, and the mesh receipt.
+- [03]-[ADAPTIVE_REFINEMENT]: Dörfler marking, red subdivision with its edge-conforming closure, order elevation, and the mesh result.
 
 ## [02]-[MESH_GENERATION]
 
@@ -15,7 +15,7 @@ Exact tessellation is the kernel's. `Rasm/Meshing/delaunay#TESSELLATION` owns ex
 - Cases: `MeshAlgorithm` rows delaunay · frontal-delaunay · advancing-front · octree · sweep · boundary-layer over four `MeshStrategy` cores (Delaunay/Octree/Sweep/Inflation), each row carrying its own base element; `PointSource` seeds uniform · frontal · front.
 - Entry: `public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock)` — the shell and the policy arrive ADMITTED (both mint through `Of` on a private constructor, so an invalid one is unrepresentable and no fold re-validates), `ShellIndex.Of` builds the one inclusion index every core probes, and `Fin<T>` aborts on a refused tessellation, on a measured hanging-node set no mortar policy carries, or on an element failing the quality threshold through `CellQuality.Admits`.
 - Auto: `Discretize` routes the `MeshStrategy` core by the algorithm row — a closed manifold solid routes the kernel `Tessellation` tetrahedralization over the boundary surface nodes with the `PointSource` interior seeds, a feature-graded fill routes the `Octree` hex recursion under origin-relative double-precision welding, a sweepable prism routes `Sweep` extrusion of the kernel-triangulated footprint section into one prism per section triangle per layer, and a floor-walled domain routes `Inflation` prism layers offset along PER-NODE averaged wall normals; every core filters cells by the indexed `Encloses` parity ray and packs the mesh whose conformity the build MEASURED.
-- Receipt: the `Discretization` `ComputeReceipt` case carries the algorithm key, element-class key, node and element counts, the boundary-layer count, the worst-element quality scalar, the chosen metric key, and elapsed.
+- Result: `DiscreteMesh` carries the algorithm, element class, node and element counts, boundary-layer count, worst-element quality, chosen metric, and timestamp.
 - Packages: Rasm (project — `Tessellation`/`TessellationOp`/`TessellationKind`/`TessellationPolicy`, `Implicit`, `Axis`, `EpsilonPolicy`, `Op`), QuikGraph (`AdjacencyGraph`/`BreadthFirstSearchAlgorithm`/`VertexPredecessorRecorderObserver` — the edge-conforming closure walk), CommunityToolkit.HighPerformance (`MemoryOwner<T>`/`SpanOwner<T>` the pooled scratch planes), System.Numerics.Tensors, System.Numerics (`Vector2`/`Vector3`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new generation strategy is one `MeshAlgorithm` row carrying its `MeshStrategy`/`PointSource`/base-element columns and its core; a new seeding density is one `PointSource` row; zero new surface.
 - Boundary: the mesher is the volumetric discretization owner the FEA/CFD solve consumes — the boundary triangulation enters as the `BoundaryShell` triangle soup the host tessellation produces, wrapped through the `Rasm.Meshing` `MeshSpace.Of` owner and flattened to the vertex/triangle soup at the boundary, so this lane never re-derives a surface mesher and never leaks a host geometry type into a solve signature.
@@ -383,11 +383,6 @@ public static partial class MeshLane {
         return metric.Worst(perElement.Span);
     }
 
-    public static ComputeReceipt.Discretization Receipt(DiscreteMesh mesh, CorrelationId correlation, Duration elapsed) =>
-        new(mesh.Algorithm.Key, mesh.Element.Key, mesh.NodeCount, mesh.ElementCount, mesh.BoundaryLayers, mesh.RefineLevel, mesh.WorstQuality, mesh.Metric.Key) {
-            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
-        };
-
     internal static DiscreteMesh Pack(MeshBuild built, MeshPolicy policy, int refineLevel, Option<double> error, Instant at) =>
         new(built.Element, policy.Algorithm, policy.Rule, built.Nodes.AsMemory(),
             CollectionsMarshal.AsSpan(built.Cells).ToArray().AsMemory(),
@@ -626,7 +621,7 @@ public static class InflationCore {
 - Cases: `RefineKind` rows h · p · hp — the hp routing rule (elevate where the marked set exceeds a quarter of the mesh, subdivide otherwise) is the ROW's own delegate, so the entry carries no per-axis branch; `RefineTemplate` rows tet4 · hex8 · tri3 · quad4, the four element rows a red template exists for.
 - Entry: `public static Fin<DiscreteMesh> Refine(DiscreteMesh mesh, MeshPolicy policy, ReadOnlySpan<double> cellError, IClock clock)` — re-meshes the Dörfler-marked cell set by the policy's `RefineKind` and returns the adapted mesh carrying the marking threshold as its error estimate.
 - Auto: `Refine` reads the per-cell error estimator and marks the cells whose estimator exceeds the policy fraction by the Dörfler bulk criterion, then either red-subdivides the marked set expanded to its edge-conforming closure — any cell sharing a split edge joins the set to a fixpoint unless a mortar policy carries the hanging node — or order-elevates through the target row's own node budget so the interior stays conforming. Both legs mint through ONE `Refinement` accumulator, so an edge midpoint minted by subdivision and one minted by elevation are the same node.
-- Receipt: `Refine` stamps the refinement level, the marked-cell count, the marking fraction, and the post-refine error estimator on the same `Discretization` case, so an adaptive sweep is one receipt chain by correlation.
+- Result: `Refine` stamps the refinement level, the marked-cell count, the marking fraction, and the post-refine error estimator on the returned `DiscreteMesh`, so an adaptive sweep is one result chain by correlation.
 - Growth: a new refinement axis is one `RefineKind` row carrying its route; a new red template is one `RefineTemplate` row keyed on its element; zero new surface.
 - Boundary: the Dörfler cut is EXACT and stays a sort. A streaming P² quantile sketch answers the same shape in one pass, but its estimate moves the marked set at the margin — the cells whose estimator sits closest to the threshold are exactly the ones an adaptive campaign is deciding about — so the exact cut is the refusal this fold makes deliberately rather than a rung it failed to reach.
 - Boundary: the edge-conforming closure is a graph walk over the edge→cell incidence, so each cell enters once. The rescan form re-walked every cell in the mesh per fixpoint round, costing rounds × cells edge tests on a mesh where the marked set is a fraction of a percent; a hand `Queue` plus a visited set beside it is the same walk spelled without its owner.
@@ -873,7 +868,3 @@ flowchart LR
     Refinement --> MeshBuild
     MeshLane -.->|Fin fail| ComputeFault
 ```
-
-## [04]-[RESEARCH]
-
-(none)

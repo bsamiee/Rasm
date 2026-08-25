@@ -26,7 +26,7 @@
 - `InHost` capsules open no keyed `HybridCache`, framing entries `CacheLane.Capsuled` — an L2 row outlives the serializer its own unload disposed.
 - Dispatch seats name a `WorkLane` and take the class `LaneClass` derives from its `Rank` — a supplied `DeadlineClass` contradicts its work lane.
 - `SupportManifest.Entry` keys the FINAL written bytes and clears to absent on an empty arm — an earlier key names bytes no reader can extract.
-- Support evidence is process-local — its native receipt owns archive residence; no support-evidence protobuf or peer locator exists.
+- Support evidence is process-local — `SupportManifest` owns archive residence; no support-evidence protobuf or peer locator exists.
 - Every external edge is one `TransportRow` over `ExternalTransport` — a per-protocol adapter forks read shape, hop, and echo class into rosters.
 - Closed consumption axes seat once and pages compose them — `DeploymentTopology` and `Isolation` are those seats, and re-spelling either forks it.
 - Open-axis rows answer `Fits`/`Tenancy`/`Lifetime` with `admit` on the family lead — a row answering elsewhere forks the cross-family coordinate.
@@ -36,27 +36,27 @@
 - `ResilienceSeries` is the ONE seat for the Polly meter's tag keys — `ResilienceTelemetryTags` is internal, so a second spelling partitions nothing.
 - Served gRPC planes arrive as `ServedPlane` rows the root binds — naming a store type here is the S1-to-S2 edge the strata forbid.
 - In-process transport evidence is one native family riding `SuiteContracts.Host` — no protobuf or peer claim mirrors a same-process fact.
-- Delivery loss accounts by CONSERVATION — `DropReceipt` mints at a subscription gap and at the drain residual, never by interception.
-- Fan legs running no hop carry NO verdict — `DeliveryReceipt.Outcome` is `Option<HopVerdict>`, `None` on suppression and `Some(Refused)` on unbound.
+- Delivery loss accounts by CONSERVATION — the topic gap and drain residual update the producer's loss tally, never an interceptor.
+- Fan legs running no hop carry NO verdict — `DeliverySettled.Outcome` is `Option<HopVerdict>`, `None` on suppression and `Some(Refused)` on unbound.
 - Delivery dedupe seats ABOVE the fan and admits once per message — a per-channel seat re-admits one message on every leg it fans to.
 - Scope ceilings GRANT an opening balance at `GrantBroker.Open` and cross no debit — a unit the ceiling omits holds zero and refuses its first draw.
-- Spend derives `Ceiling - Remaining` and stores nowhere — `grant.spend` projects off `CommandReceipt.Charged`, and a second stored vector drifts.
+- Spend derives `Ceiling - Remaining` and stores nowhere — `grant.spend` projects off `CommandResult.Charged`, and a second stored vector drifts.
 - Inherited allotments fold their `min` at `ControlInbound` alone — the root spends the budget as given, a second fold invisible at both seats.
 - Unreachable policy cells read the value their reachable overrides select — a third answer no path can pick reads as live policy to every operator.
 - Foreign-measurement quality rides the kernel `Quality` union at every decode — a `bool Good` beside a `0d` fill forges the not-good reading.
 - Peer modality rides `CapabilitySet<ModalityCapability>` under its declared legal corners — adjacent bools spell peers nothing can serve.
 - Keyed registries mint through a `[ValueObject<string>]` owning its head — bare-string keys lose the namespace proof and collide registries.
-- Receipt pairs measuring one dial ride ONE `Option` — a zero attempt count beside a zero elapsed span forges a measurement no attempt produced.
-- Eviction takes ONE seat at `QuotaControl.Evict` with `EvictionCause` naming the trigger — a second kill path disposes handles no receipt explains.
+- Paired fields measuring one dial ride ONE `Option` — a zero attempt count beside a zero elapsed span forges a measurement no attempt produced.
+- Eviction takes ONE seat at `QuotaControl.Evict` with `EvictionCause` naming the trigger — a second kill path duplicates the producer's result.
 - Keyed limiter sets ride `PartitionedRateLimiter.Create`, not a dictionary — one heartbeat evicts idle partitions, and Polly disposes none.
 - Conditional capability corners refuse at the owner's `Fin` mint AFTER the discriminant is set — `CapabilityLaw` states unconditional corners.
 - Bim design-regime election seats ONCE at `Runtime/modules#MODULE_LEDGER` — a second election beside `SafEmit.Export` forks the national annex.
 - Schedule-port registration is ONE composition-owned keyed arrow at `Runtime/modules` — idempotent by key, first writer arming, a later replacing.
 - Consumer runtimes carry the `Func<ScheduleEntry, IO<Unit>>` column — a constructed-but-unregistered entry never escapes its acquiring fold.
-- `FaultWire.Observe` is the sole AppHost fault projection — one projection keeps every receipt on the kernel-derived bounded observation.
+- `FaultWire.Observe` is the sole AppHost fault projection — one projection keeps every boundary value on the kernel-derived bounded observation.
 - `WireAdmission` owns one warmed contract validator over its descriptor roots; binary and ProtoJSON codecs compose it after parsing.
 - Per-validation evidence is a CLOSED two-case family — refusal carries elapsed, correlation, and fault codes alone; sentinel principal slots delete.
-- Sink tenancy is never a validation-receipt column — tenancy resolves at the sink, so a mirrored column states a second answer to one question.
+- Sink tenancy is never a validation-result column — tenancy resolves at the sink, so a mirrored column states a second answer to one question.
 - Capability discovery is generated `capability` from C# to Python and bound to the SDK pin — hand DTOs and TS generation are refused.
 - Webhook delivery consumes `PolicyDescriptor.WebhookDelivery` — an endpoint-local scope check forks the identity policy vocabulary.
 - Authorization policies consume canonical claims rebuilt from `Principal.Scopes` — provider scope names and shapes terminate at issuer projection.
@@ -64,7 +64,7 @@
 - Absence encodes ONCE at the `SuiteContracts` merge — every optional slot omits, so a `| null` peer face binds a token no producer emits.
 - Wire value projections carry the identity they measured — an envelope routing coordinate keys no board fold and strands the decoded value.
 - Capability argument schema rides its descriptor; native rows resolve generated metadata and federated tools retain the SDK document verbatim.
-- Redaction covers the log and receipt path alone — a wire identifier a peer SELECTS on crosses intact, since a redacted key matches nothing there.
+- Redaction covers the log and support-export path alone — a wire identifier a peer SELECTS on crosses intact; a redacted key matches nothing.
 
 ## [03]-[COLLAPSE]
 
@@ -75,11 +75,11 @@
 - Ambient scope is the kernel `AmbientSlot` alone — a page-local `AsyncLocal` beside a hand restore scope forks the bound, restore, and refusal.
 - One policy cut serving a count, a content key, and a payload is ONE projection — three `Min` spellings describe three slices, each reading right.
 - Chaos arms through ONE `ChaosArming` gate as a runtime value — a build-time fork makes pipelines no operator can arm and seats the ambient draw.
-- Acquire, renew, guard, and release are ONE algebra on a namespaced key — per-consumer runtime, holding, and receipt are three copies of one lease.
+- Acquire, renew, guard, and release are ONE algebra on a namespaced key — per-consumer runtime, holding, and status are three copies of one lease.
 - Dependency capsules carry a `Func<>` column only where the provider is a PER-CALL effect — a pure projection is a member, a handle a typed port.
 - Two capsules sharing over half their columns COLLAPSE, the survivor naming its discriminant — composition-time weave against per-call drive is one.
 - Solver contracts ride `SolverKind` row columns, `Progress` and `Rank` included — a parallel contract record re-splits one roster's join.
-- Receipt and point read one fact, so both fan through `FactSink<TSignal>`; a transition reaching `ReceiptSinkPort` alone drops the rail point.
+- Hook points consume the producer's typed fact directly; a parallel generic result stream duplicates the rail.
 - `AppHostPoint` is the folder's ONE hook roster, `AppHostFact` its closed fact union — a page folds its family onto one point via its signal union.
 
 ## [04]-[STRUCTURE]

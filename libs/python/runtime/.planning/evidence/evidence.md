@@ -2,15 +2,15 @@
 
 External-API and structural-parsing evidence ride one tagged-union fact stream the `assay code` rail consumes: `member` a `MemberFact` row of a distribution's official surface, `span` a `SpanFact` tree-sitter capture, `drift` a `DriftFact` cross-language re-mint of a canonical wire-projection name the topology law forbids. This surface produces evidence the rail reads — never a competing search owner, a guessed environment status, or an exception into domain flow.
 
-`GrammarRegistry` holds the reused-`Parser`/compile-once topology the `runtime/.api/tree-sitter.md` parsing law fixes, and `scan` is the one polymorphic extraction entry — probe, multi-language `Corpus`, `Disposition` output shape, `Into[R]` projector — the disposition-keyed mirror of the `reliability/faults#FAULT` `traversed`. `ApiCatalogue.reflect` rides the canonical `@trapped(EVIDENCE_REFLECT, catch=ImportError)` faults aspect, so a missing distribution or failing root import lands as the one `import_` row. `EvidenceScan` streams each scan onto the `observability/receipts#RECEIPT` rail; the page tracer mints from the `SCOPES[Scope.EVIDENCE]` row; the `canonical` name registry arrives from the topology law and is never re-minted here.
+`GrammarRegistry` holds the reused-`Parser`/compile-once topology the `runtime/.api/tree-sitter.md` parsing law fixes, and `scan` is the one polymorphic extraction entry — probe, multi-language `Corpus`, `Disposition` output shape, `Into[R]` projector — the disposition-keyed mirror of the `reliability/faults#FAULT` `traversed`. `ApiCatalogue.reflect` rides the canonical `@trapped(EVIDENCE_REFLECT, catch=ImportError)` faults aspect, so a missing distribution or failing root import lands as the one `import_` row. Each scan records its census on its own `code.scan` span; the page tracer mints from the `SCOPES[Scope.EVIDENCE]` row; the `canonical` name registry arrives from the topology law and is never re-minted here.
 
 ## [01]-[INDEX]
 
-- [02]-[EVIDENCE]: the value-object evidence union, the compile-once grammar registry with its one polymorphic `scan`, the member-level API catalogue, the drift fold, and the `EvidenceScan` receipt seam.
+- [02]-[EVIDENCE]: the value-object evidence union, the compile-once grammar registry with its one polymorphic `scan`, the member-level API catalogue, and the drift fold.
 
 ## [02]-[EVIDENCE]
 
-- Owner: `Evidence` — the one slot/kind union whose cases carry frozen value objects, never positional tuples read by index; `Locus` the one extent value object both span-shaped facts share, so no `(lang, point, start_byte)` triple re-declares per fact and the extent rides the package-owned `tree_sitter.Point`, never a re-minted pair alias. `MemberFact` carries the distribution `version` and its REAL group — `ep.group`, `_GROUP_MEMBER`, `_GROUP_NESTED`, `_GROUP_IMPORT` — never a caller-supplied family constant, the inventory backing the boundary claim that a source cannot name a member absent from the catalogue; a `_GROUP_NESTED` row's symbol IS the dotted spelling a citation writes, so a membership question answers by equality rather than by reassembling a module and a leaf. Correlation flows through the `EvidenceScan` receipt and the rail's own `assay code` receipt, never a per-case id field.
+- Owner: `Evidence` — the one slot/kind union whose cases carry frozen value objects, never positional tuples read by index; `Locus` the one extent value object both span-shaped facts share, so no `(lang, point, start_byte)` triple re-declares per fact and the extent rides the package-owned `tree_sitter.Point`, never a re-minted pair alias. `MemberFact` carries the distribution `version` and its REAL group — `ep.group`, `_GROUP_MEMBER`, `_GROUP_NESTED`, `_GROUP_IMPORT` — never a caller-supplied family constant, the inventory backing the boundary claim that a source cannot name a member absent from the catalogue; a `_GROUP_NESTED` row's symbol IS the dotted spelling a citation writes, so a membership question answers by equality rather than by reassembling a module and a leaf. Correlation rides the `code.scan` span and the rail's own `assay code` verdict, never a per-case id field.
 - Entry: coverage is registry data on both entries — `scan` pre-filters the corpus to the probe's covered columns, so a `locals` scan over a Python row yields no evidence and no fault, while a direct `run` on an uncovered grammar returns the typed `config` `uncovered-grammar` fault; every bundled source is a first-class producer, `locals` the live partial-coverage column. `drift` flags a canonical name only where it binds in more than one grammar namespace, so a legitimately distinct same-named concept in one namespace never yields a defect. `reflect` mines the surface to a stated TWO-LEVEL reach — entry points, each mapped root's own members, and every submodule's exported members under the dotted spelling a citation writes — because an entry-points-only or root-only reflect cannot back the member-absence boundary claim against any nested member, which is the only kind a source actually names. The bound is what keeps that claim honest in the other direction: a distribution re-exports its dependencies' surfaces, so a deeper descent would report another project's members as this one's.
 - Auto: the registry build pays everything once per grammar at import — compile, `PROBE_KEEP` prune, capture-name-to-id resolution — and each probe compiles its OWN-language source per grammar, because a cross-grammar alternation mixing Python and TypeScript node kinds in one pattern is a `QueryError` at compile for every grammar. `progress_callback` is the hang-guard cancel hook.
 - Packages: `msgspec` — `gc=False` only on the container-free `MemberFact`; `Point`, the nested `Locus`, and `frozenset[Lang]` keep the span-shaped records GC-tracked. `tree-sitter-python`/`tree-sitter-typescript` ship the bundled `tags`/`highlights`/`locals` sources, and those sources carry only the internally-evaluated `#match?` predicate, so no `QueryPredicate` handler threads through the build.
@@ -19,7 +19,7 @@ External-API and structural-parsing evidence ride one tagged-union fact stream t
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from importlib import import_module, metadata
 from itertools import count
 from pkgutil import walk_packages
@@ -49,7 +49,6 @@ from rasm.runtime.faults import (
     trapped,
     traversed,
 )
-from rasm.runtime.receipts import Receipt
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -339,21 +338,6 @@ class ApiCatalogue:
             lambda symbol: Evidence(member=MemberFact(distribution, version, module, _GROUP_NESTED, f"{module}.{symbol}"))
         ).cons(Evidence(member=MemberFact(distribution, version, module, _GROUP_IMPORT, module)))
 
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-class EvidenceScan(Struct, frozen=True):
-    owner: str
-    evidence: Block[Evidence]
-
-    def contribute(self) -> Iterable[Receipt]:
-        counts = self.evidence.fold(lambda acc, ev: acc.change(f"count.{ev.tag}", lambda n: Some(n.default_value(0) + 1)), Map.empty())
-        drifts = self.evidence.choose(
-            lambda ev: Some((f"drift.{ev.drift.name}", ",".join(sorted(ev.drift.bindings)))) if ev.tag == "drift" else Nothing
-        )
-        facts: dict[str, object] = dict(counts.items()) | dict(drifts)
-        return (Receipt.of(self.owner, ("emitted", _SPAN_SCAN, facts)),)
 ```
 
 ## [03]-[RESEARCH]

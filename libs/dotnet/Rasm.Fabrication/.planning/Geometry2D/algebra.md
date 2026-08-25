@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [02]-[OPERATION_ALGEBRA]: `PolygonOp`, its policy families, one `Apply` dispatch, the `PolygonScan` reusable-subject handle, the `FillProbe` classification probe, `EdgeSeparation`, and the typed `PolygonTrace` egress with its total projection family.
-- [03]-[FIELD_PLANE]: `FieldMetric` and `FieldPlane` project occupancy, signed clearance, cutter engagement, cutter reachability, and local inscribed diameter over the kernel `CellLattice` into one finite-gated plane receipt.
+- [03]-[FIELD_PLANE]: `FieldMetric` and `FieldPlane` project occupancy, signed clearance, cutter engagement, cutter reachability, and local inscribed diameter over the kernel `CellLattice` into one finite-gated plane result.
 
 ## [02]-[OPERATION_ALGEBRA]
 
@@ -18,10 +18,10 @@
 - Exemption: `Hull`, `Envelope`, `Advance`, and `FillProbe.Relation` are named statement kernels — a monotone hull chain, an advancing-pointer caliper sweep, and an allocation-free per-point fill classification are measured byte-and-branch bodies whose expression forms allocate per candidate.
 - Entry: `OffsetField` survives on scalar-versus-matrix arity and `HygieneRule` on algorithm payload timing; each case carries only the evidence its arm consumes. `PolygonScan.Scan` is the bracketed entry that owns the handle's whole lifetime; `PolygonScan.Of` hands the raw handle only to a caller whose subject outlives one fold, and that caller owns the bracket.
 - Auto: offset, boolean, morphology, and cells lower onto the kernel owners — `Offsetting.Apply` wavefront offsets (per-vertex distances riding `OffsetPolicy.EdgeSpeed` through the `Weighted` case), `Arrangement.Apply` `PlanarOverlay` exact ring booleans, `OffsetOp.Minkowski` morphology with `MorphologyKind.ReflectPattern` as the lowering law, and `Tessellation.Build` + `VoronoiDual(boundary)` bounded point-site cells beside the unbounded `VoronoiDual(op)` the adjacency read folds; `ClipperD` owns the two shapes no owner below publishes — the region-nesting forest and the open-run partition — while area, extent, and orientation read the `Loop` atom's own polyline and the collinear and duplicate hygiene rules read that same built view through `RemoveRedundant`/`RemoveRepeatPos`; only error-bounded decimation and the three-valued point classification still cross to the `Clipper` statics, each carrying its own measured KERNEL-EXEMPTION, all behind the one `FillOf` seam; a placement scan hoists its recurring subject set into one `ReuseableDataContainer64` and folds it per position through `AddReuseableData`, `Rect64.Intersects` rejecting a disjoint candidate before the overlay runs; one `Try` boundary lowers package exceptions onto `Fin<T>`.
-- Receipt: `PolygonTrace` distinguishes flat paths, region forests, split runs, measures, point relations, cell fields, sampled planes, and minimum-area oriented rectangles by evidence timing; `RegionNode.Parent` carries the pre-order ordinal the tree walk assigns, never a re-scanned reference match. `CellDiagram.Seeds` is the emitted diagram's own nearest-seed index and the owner of `Locate`, so a scan field pays one build rather than one ring walk per probe, and `CellDiagram.Adjacency` is what a merge rule reads to find a cell's true neighbours.
+- Result: `PolygonTrace` distinguishes flat paths, region forests, split runs, measures, point relations, cell fields, sampled planes, and minimum-area oriented rectangles by evidence timing; `RegionNode.Parent` carries the pre-order ordinal the tree walk assigns, never a re-scanned reference match. `CellDiagram.Seeds` is the emitted diagram's own nearest-seed index and the owner of `Locate`, so a scan field pays one build rather than one ring walk per probe, and `CellDiagram.Adjacency` is what a merge rule reads to find a cell's true neighbours.
 - Packages: `Rasm` (project) supplies the boolean/fill/join/end vocabularies, the `Offsetting`/`Arrangement`/`Tessellation` owners, and the `CellLattice` plane; `Clipper2` supplies the region-nesting forest, the open-run partition, error-bounded decimation, the point classification, and the reusable scan container; `CavalierContours` supplies collinear and duplicate reduction through the polyline every `Loop` already holds; `Thinktecture` supplies generated owners and exhaustive dispatch; `LanguageExt` supplies admission, traversal, immutable carriers, and the exception rail; `Rasm.Domain` supplies the `Op` key rail and the `Kind` fault taxonomy.
 - Growth: a new operation is one `PolygonOp` case, one `PolygonTrace` case when its evidence differs, and one generated dispatch arm naming its own `Op`.
-- Boundary: `ClipperD` and the point relation are the statement-bearing native kernels, and region MEASUREMENT is not among them — area, length, extent, and orientation are the `Loop` atom's own reads, so a second engine can never disagree with the loops the receipt publishes; kernel-lowered arms terminate their `Chain` results back into `Loop` at the admitted context and elevation. Cells are Voronoi by definition, so a foreign bounded Fortune tessellator — with the third forked draw stream it carried — is the deleted form; relaxation and merge are folds over the kernel dual, never provider modes. Inputs share one `Context` and elevation before XY projection; bulges, mixed contexts, mixed elevations, invalid open edges, and closure-policy conflicts fail before execution, each naming the index of the first offending path.
+- Boundary: `ClipperD` and the point relation are the statement-bearing native kernels, and region MEASUREMENT is not among them — area, length, extent, and orientation are the `Loop` atom's own reads, so a second engine can never disagree with the loops the result publishes; kernel-lowered arms terminate their `Chain` results back into `Loop` at the admitted context and elevation. Cells are Voronoi by definition, so a foreign bounded Fortune tessellator — with the third forked draw stream it carried — is the deleted form; relaxation and merge are folds over the kernel dual, never provider modes. Inputs share one `Context` and elevation before XY projection; bulges, mixed contexts, mixed elevations, invalid open edges, and closure-policy conflicts fail before execution, each naming the index of the first offending path.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -644,8 +644,8 @@ public static class PolygonAlgebra {
         from fill in op.Need(request.Fill)
         from grid in op.Need(request.Grid)
         from metric in op.Need(request.Metric)
-        from receipt in FieldPlane.Project(paths, fill, grid, metric, op)
-        select (PolygonTrace)new PolygonTrace.Field(receipt);
+        from result in FieldPlane.Project(paths, fill, grid, metric, op)
+        select (PolygonTrace)new PolygonTrace.Field(result);
 
     // --- [BOUNDARIES] ------------------------------------------------------------------
     internal static K<Validation<Error>, Unit> Check(bool condition, Kind kind, Option<int> index, string witness) =>
@@ -942,16 +942,16 @@ public static class PolygonAlgebra {
 
 ## [03]-[FIELD_PLANE]
 
-- Owner: `FieldMetric` owns each cell's scalar interpretation and its own admission; `FieldPlane` owns the projection — the clearance sweep, the fill signing, the parallel partition, and the receipt statistics; the kernel `CellLattice` carries the sampled window whole, so extent, census, cell-center addressing, and the budget ceiling are `CellLattice.Of`'s, each caller passing its own ceiling value.
+- Owner: `FieldMetric` owns each cell's scalar interpretation and its own admission; `FieldPlane` owns the projection — the clearance sweep, the fill signing, the parallel partition, and the result statistics; the kernel `CellLattice` carries the sampled window whole, so extent, census, cell-center addressing, and the budget ceiling are `CellLattice.Of`'s, each caller passing its own ceiling value.
 - Cases: occupancy derives fill membership; signed clearance derives boundary distance and sign; engagement derives cutter-radius overlap; reachability derives cutter-center admissibility at a tool radius; inscribed diameter doubles the nearest-boundary radius at interior cells — every row a projection of the one signed plane.
 - Law: distance is the kernel's and the interior is this owner's — `ScalarField.DistanceCase` over `SupportSpace` measures each admitted ring and the union of those planes IS their POINTWISE MINIMUM, so the fold is one vectorized pass per ring rather than an N-deep CSG walk re-entered at every cell; the request's `PolygonFill` classification at the same cell centre supplies the sign a ring set cannot carry alone.
 - Exemption: `RasterKernel.Invoke` is a named statement kernel — the package-required `IAction2D` shape is a per-cell body, and every structure it reads is hoisted to construction so the body allocates nothing.
 - Entry: `PolygonOp.Raster` consumes one admitted region set, fill rule, grid, and metric through `PolygonAlgebra.Apply`, which composes `FieldPlane.Project` and owns no field logic of its own.
-- Auto: `ScalarField.SampleLattice` sweeps each ring's unsigned clearance plane in one kernel pass and `TensorPrimitives.Min` folds them to the exact minimum; `ParallelHelper.For2D` partitions the signing and metric projection over the `IAction2D` kernel; `Memory2D<double>` materializes the plane, `ReadOnlyMemory2D<double>` publishes it, and `TensorPrimitives.IsFiniteAll`, `Min`, `Max`, `Average`, `StdDev`, `IndexOfMin`, and `IndexOfMax` derive the receipt statistics.
-- Receipt: `SampledField` keeps the plane, grid, metric, finite extrema, dispersion, and the model-space cells holding those extrema together, so engagement, additive masks, and layer audits consume one substrate value; `MinimumAt` over a signed-clearance plane is the deepest interior cell, the largest inscribed disc a cutter can occupy.
-- Packages: `Rasm` (project) supplies `CellLattice`, `ScalarField`/`SupportSpace`/`CsgKind`/`BlendKind`, and `BoundarySense`; `Clipper2` supplies the fill classification through `FillProbe`; `CommunityToolkit.HighPerformance` supplies the cell partition and the 2D memory carrier; `System.Numerics.Tensors` supplies the plane fold and the receipt statistics; `LanguageExt` and `Thinktecture` supply the rail and the generated metric family.
+- Auto: `ScalarField.SampleLattice` sweeps each ring's unsigned clearance plane in one kernel pass and `TensorPrimitives.Min` folds them to the exact minimum; `ParallelHelper.For2D` partitions the signing and metric projection over the `IAction2D` kernel; `Memory2D<double>` materializes the plane, `ReadOnlyMemory2D<double>` publishes it, and `TensorPrimitives.IsFiniteAll`, `Min`, `Max`, `Average`, `StdDev`, `IndexOfMin`, and `IndexOfMax` derive the result statistics.
+- Result: `SampledField` keeps the plane, grid, metric, finite extrema, dispersion, and the model-space cells holding those extrema together, so engagement, additive masks, and layer audits consume one substrate value; `MinimumAt` over a signed-clearance plane is the deepest interior cell, the largest inscribed disc a cutter can occupy.
+- Packages: `Rasm` (project) supplies `CellLattice`, `ScalarField`/`SupportSpace`/`CsgKind`/`BlendKind`, and `BoundarySense`; `Clipper2` supplies the fill classification through `FillProbe`; `CommunityToolkit.HighPerformance` supplies the cell partition and the 2D memory carrier; `System.Numerics.Tensors` supplies the plane fold and the result statistics; `LanguageExt` and `Thinktecture` supply the rail and the generated metric family.
 - Growth: a new field interpretation is one `FieldMetric` case over the same signed plane with its admission row; a row needing a second sampling strategy belongs to the kernel field algebra, not here.
-- Boundary: field storage remains owned by the receipt, provider paths remain private, and a non-finite cell fails the whole projection. Page-local distance loops are the deleted form; the clearance plane is the kernel's by law.
+- Boundary: field storage remains owned by the result, provider paths remain private, and a non-finite cell fails the whole projection. Page-local distance loops are the deleted form; the clearance plane is the kernel's by law.
 
 ```csharp
 // --- [FIELD_PLANE]
@@ -1013,8 +1013,8 @@ public static class FieldPlane {
         let values = new double[grid.Rows.Value, grid.Columns.Value]
         let kernel = new RasterKernel(
             values, clearance, new FillProbe(paths, fill, PolygonAlgebra.Precision(paths[0].Tolerance)), grid, metric)
-        from receipt in Sampled(kernel, values, grid, metric, paths[0].Tolerance, paths[0].Plane)
-        select receipt;
+        from result in Sampled(kernel, values, grid, metric, paths[0].Tolerance, paths[0].Plane)
+        select result;
 
     private static Fin<double[]> Clearance(Seq<Loop> paths, CellLattice grid, Op op) =>
         from planes in paths.TraverseM(path => SupportSpace.Of(PolygonAlgebra.ToPolyline(path).ToPolylineCurve(), op)
@@ -1077,7 +1077,6 @@ public static class FieldPlane {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -1,12 +1,12 @@
 # [RASM_RHINO_OBJECTS_LIGHTS]
 
-Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light family — point, spot, directional, linear, rectangular — as capability rows; `LightSeed` is the one polymorphic construction union, `LightEdit` the one property-edit union whose modalities gate on one capability read, and `LightSelect` the table address vocabulary. `Lights.Ask` reads detached `LightStamp` rows and `Lights.Commit` mints, amends, purges, and revives through `LightTable` on the shared `ObjectSpine`, returning `LightReceipt`. Spot cones compose kernel `VectorCone`, colours compose `PerceptualColor`, and photometric power is one `Radiance` value. `Lights.Capture` is the `rasm.contracts.scene` descriptor emitter: it stacks the Render sun band beside its own photometric rows and lowers both through the exhaustive `SceneMap` boundary.
+Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light family — point, spot, directional, linear, rectangular — as capability rows; `LightSeed` is the one polymorphic construction union, `LightEdit` the one property-edit union whose modalities gate on one capability read, and `LightSelect` the table address vocabulary. `Lights.Ask` reads detached `LightStamp` rows and `Lights.Commit` mints, amends, purges, and revives through `LightTable` on the shared `ObjectSpine`. Spot cones compose kernel `VectorCone`, colours compose `PerceptualColor`, and photometric power is one `Radiance` value. `Lights.Capture` is the `rasm.contracts.scene` descriptor emitter: it stacks the Render sun band beside its own photometric rows and lowers both through the exhaustive `SceneMap` boundary.
 
 ## [01]-[INDEX]
 
 - [02]-[KIND_AND_STAMP]: `LightModality`, `LightKind`, `SpotShape`, `ConeEvidence`, `AreaShape`, `LightFrame`, `LightFalloff`, `LightAttenuation`, `LightStamp` — the capability rows and the detached read.
 - [03]-[SEED_AND_EDIT]: `LightSeed`, `RadianceUnit`, `Radiance`, `LightShade`, `LightEdit` — construction and the gated property edits.
-- [04]-[ASK_AND_COMMIT]: `LightSelect`, `LightOp`, the `LightSlot`/`LightBody` stream vocabularies, the `Lights` entries, and the `rasm.contracts.scene` descriptor band with its exhaustive `SceneMap` emitter.
+- [04]-[ASK_AND_COMMIT]: `LightSelect`, `LightOp`, the `Lights` entries, and the `rasm.contracts.scene` descriptor band with its exhaustive `SceneMap` emitter.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[KIND_AND_STAMP]
@@ -24,7 +24,6 @@ Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using System.Linq;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -456,11 +455,11 @@ public sealed record LightShade(
 
 ## [04]-[ASK_AND_COMMIT]
 
-- Owner: `LightSelect` `[Union]` closes the table address — every row, an index, an object id, a name; `LightOp` `[Union]` closes the commit verbs — mint, amend, purge, revive; `LightBodyKind`/`LightSlot`/`LightBody` are this rail's contribution to the shared fact stream and `LightReceipt` its closed instantiation; `Lights.Ask`, `Lights.Commit`, and `Lights.Capture` are the three entries; `SceneMap` is the ONE mapper lowering a capture onto `rasm.contracts.scene` bytes.
-- Law: resolution is index-paired but id-addressed — the complete roster enumerates the table's own `IEnumerable<LightObject>` and resolves each live row's slot from its id, while `Find`, `FindName`, and the revival probe address a single row. Every host index crosses `ResourceIndex.Maybe`, whose `-1` refusal IS the host's miss answer, so no arm re-spells a bounds comparison and no fact ever publishes a negative slot. Slot addressing survives only because `Modify`, `Delete`, and `Undelete` take one, and a deleted row has no live id, so the index address stays the revival ingress alone.
+- Owner: `LightSelect` `[Union]` closes the table address — every row, an index, an object id, a name; `LightOp` `[Union]` closes the commit verbs — mint, amend, purge, revive; `Lights.Ask`, `Lights.Commit`, and `Lights.Capture` are the three entries; `SceneMap` is the ONE mapper lowering a capture onto `rasm.contracts.scene` bytes.
+- Law: resolution is index-paired but id-addressed — the complete roster enumerates the table's own `IEnumerable<LightObject>` and resolves each live row's slot from its id, while `Find`, `FindName`, and the revival probe address a single row. Every host index crosses `ResourceIndex.Maybe`, whose `-1` refusal IS the host's miss answer, so the rail admits no negative slot. Slot addressing survives only because `Modify`, `Delete`, and `Undelete` take one, and a deleted row has no live id, so the index address stays the revival ingress alone.
 - Law: the working copy is the mutation site — an amend duplicates through `DuplicateLightGeometry`, applies its admitted edits to the duplicate, and lands once through `Modify(index, working)`, so the live table never observes a half-applied edit and the duplicate disposes on every path.
 - Law: the purge's host-dialogue column is the spine's `HostInteraction`, not `ObjectSignal`. `ObjectSignal` names ENABLED and DISABLED, and the host argument it fed is `quiet` — so `ObjectSignal.Enabled` on a column named `Quiet` read as "enabled" at every call site and meant "suppress the warning", an inversion that is invisible at the call and wrong in exactly the direction that silences a dialogue a caller asked for. `HostInteraction.Quiet`/`Interactive` name the posture directly and `IsQuiet` is the only read.
-- Law: the commit rides `ObjectSpine.Commit` and the receipt is the Document spine's `FactStream` — admission precedes the grant, the spine derives mutate-plus-undo needs with redraw joining by policy, and this page supplies only its slot vocabulary, its body family, and the per-verb fold; every light verb records undo and the serial lands as a `LightBody.Record` fact through the stream's own stamp projection.
+- Law: the commit rides `ObjectSpine.Commit` — admission precedes the grant, every light verb records undo, and the command returns `Unit` after the complete operation roster settles.
 - Law: placement stays the object rail — whole-object transform, delete-by-id, and selection of `LightObject`s ride `TableOp` through `TableTarget.Query` with `IncludeLights`; this rail owns what the object rail cannot spell — light-specific properties, index-addressed table verbs, and kind-gated modality.
 - Owner: `SceneSpectrum`, `PhotometricPower`, `PhotometricWebRef`, `ScenePhotometry`, `SceneShading`, and `SceneCapture` are the `rasm.contracts.scene` descriptor's host-free rows; generated `spatial.Point3`, `Displacement3`, and `UnitDirection3` carry coordinates without a local vector twin, and `SceneMap` lowers them.
 - Law: this page is the WHOLE-DESCRIPTOR emitter and the strata edge is downward — Objects (S2) composes the Render (S1) `SceneSun` band as an admitted VALUE beside its own photometric rows, so the sun's astronomy stays its owner's and no second solar derivation exists here. Shading rides as call data: the GLB body is the manifest's `keyed-artifact`/`glb` product — `Rasm.Bim`'s `Exchange/export#EXPORT_RAIL` emits it under `Rasm.Compute`'s content keys — so this emitter carries its artifact coordinate, counts, and declared fidelity and never tessellates.
@@ -475,8 +474,8 @@ public sealed record LightShade(
 - Boundary: the photometric-web payload is the render kinds page's `PhotometricFile` — dialect-admitted by `PhotometricDialect`, minted through `PhotometricPress`, and landed on the light's attached render material child slot; this rail's photometric reach ends at `Radiance`, `IPhotometricRegistry` is the ONE address it holds into that stratum, the descriptor carries one `ArtifactRef` plus a generated dialect, and `LightEdit` never grows an IES case.
 - Law: an unread column is a defect, not thrift — the web column has a producer, so `Lights.Capture` demands the registry rather than defaulting it, and the consuming census that counts web-bearing rows counts documents rather than an absence this emitter manufactured.
 - Boundary: `LightTable.Sun` and `Skylight` stay the render settings page's — `SunState`, `SkylightState`, and `SunEvidence` own that projection; `EventFamily.LightTable` already observes this table onto `EventPayload.Component(TableKind.Lights, …)`, and `SnapshotCategory.Lights` carries snapshot participation.
-- Growth: a new light verb is one `LightOp` case, one `LightSlot` row naming its body kinds, and one `LightBody` case; a new property axis is one `LightEdit` case with its `Requires` column; a new descriptor column is one appended proto field beside one mapper column.
-- Packages: Google.Protobuf (`libs/dotnet/.api/api-protobuf.md` — `ByteString.CopyFrom(ReadOnlySpan<byte>)`, `RepeatedField<T>`, `MessageExtensions.ToByteArray`, `WellKnownTypes.Timestamp`); Rasm.Contracts (`libs/contracts/.api/dotnet.md` — generated scene, artifact, geometry, and spatial messages); NodaTime.Serialization.Protobuf (`libs/dotnet/.api/api-nodatime-protobuf.md` — `Instant.ToTimestamp`); NodaTime (`Instant`); kernel `Domain/identity` (`ArtifactContent`, `ContentHash.Of`, `ContentHash.Wire`); kernel `Domain/context` (`Context.Unit`, `ModelUnit.MetersPerUnit`); kernel `Numerics/atoms` (`PerceptualColor.ToRgb(RgbProfile, GamutPolicy, RgbTransfer)`, `RgbProfile.Srgb`, `RgbTransfer.Linear`, `UnitInterval`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`, `ResourceIndex`); `Render/settings.md` (`SceneSun`, `SunDerivation`, `SolarFrame`).
+- Growth: a new light verb is one `LightOp` case; a new property axis is one `LightEdit` case with its `Requires` column; a new descriptor column is one appended proto field beside one mapper column.
+- Packages: Google.Protobuf (`libs/dotnet/.api/api-protobuf.md` — `ByteString.CopyFrom(ReadOnlySpan<byte>)`, `RepeatedField<T>`, `MessageExtensions.ToByteArray`, `WellKnownTypes.Timestamp`); Rasm.Contracts (`libs/contracts/.api/dotnet.md` — generated scene, artifact, geometry, and spatial messages); NodaTime.Serialization.Protobuf (`libs/dotnet/.api/api-nodatime-protobuf.md` — `Instant.ToTimestamp`); NodaTime (`Instant`); kernel `Domain/identity` (`ArtifactContent`, `ContentHash.Of`, `ContentHash.Wire`); kernel `Domain/context` (`Context.Unit`, `ModelUnit.MetersPerUnit`); kernel `Numerics/atoms` (`PerceptualColor.ToRgb(RgbProfile, GamutPolicy, RgbTransfer)`, `RgbProfile.Srgb`, `RgbTransfer.Linear`, `UnitInterval`); `Document/tables.md` (`ResourceIndex`); `Render/settings.md` (`SceneSun`, `SunDerivation`, `SolarFrame`).
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -569,53 +568,36 @@ public abstract partial record LightOp {
                 select (LightOp)work,
             revive: static (key, work) => ResourceIndex.Admit(value: work.Index, key: key).Map(_ => (LightOp)work));
 
-    internal Fin<LightReceipt> Apply(RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) =>
         Switch(
             context: (Document: document, Op: op),
             mint: static (context, work) => work.Seed.Mint(op: context.Op).Bind(lease => lease.Use(
                 fresh => context.Op.Catch(() => {
                     _ = work.Name.Iter(name => fresh.Name = name);
-                    return from index in ResourceIndex.Admit(value: context.Document.Lights.Add(fresh), key: context.Op)
-                           from native in Optional(context.Document.Lights.FindIndex(index.Value))
-                               .ToFin(Fail: context.Op.InvalidResult())
-                           from identity in ResourceId.Admit(value: native.Id, key: context.Op)
-                           from receipt in LightReceipt.Of(
-                               slot: LightSlot.Minted,
-                               body: new LightBody.Seated(Id: identity, Index: index),
-                               key: context.Op)
-                           select receipt;
+                    return ResourceIndex.Admit(value: context.Document.Lights.Add(fresh), key: context.Op)
+                        .Map(static _ => unit);
                 }),
                 context.Op)),
             amend: static (context, work) =>
                 from rows in work.Select.Resolve(document: context.Document, key: context.Op)
-                from facts in rows.TraverseM(row => context.Op.Catch(() =>
+                from _ in rows.TraverseM(row => context.Op.Catch(() =>
                     from working in Optional(row.Native.DuplicateLightGeometry()).ToFin(Fail: context.Op.InvalidResult())
-                    from fact in context.Op.Catch(() => {
+                    from applied in context.Op.Catch(() => {
                         using Light live = working;
                         return from kind in LightKind.Of(style: live.LightStyle, key: context.Op)
-                               from _ in work.Edits.TraverseM(edit => edit.Apply(
+                               from __ in work.Edits.TraverseM(edit => edit.Apply(
                                    working: live, kind: kind, op: context.Op)).As()
-                               from __ in context.Op.Confirm(
+                               from ___ in context.Op.Confirm(
                                    success: context.Document.Lights.Modify(row.Index.Value, live))
-                               from identity in ResourceId.Admit(value: row.Native.Id, key: context.Op)
-                               from receipt in LightReceipt.Of(
-                                   slot: LightSlot.Amended,
-                                   body: new LightBody.Touched(Id: identity, Edits: work.Edits.Count),
-                                   key: context.Op)
-                               select receipt;
+                               select unit;
                     })
-                    select fact)).As()
-                select Folded(facts),
+                    select applied)).As()
+                select unit,
             purge: static (context, work) =>
                 from rows in work.Select.Resolve(document: context.Document, key: context.Op)
-                from facts in rows.TraverseM(row =>
-                    from _ in context.Op.Confirm(
-                        success: context.Document.Lights.Delete(row.Index.Value, work.Interaction.IsQuiet))
-                    from identity in ResourceId.Admit(value: row.Native.Id, key: context.Op)
-                    from receipt in LightReceipt.Of(
-                        slot: LightSlot.Purged, body: new LightBody.Named(Id: identity), key: context.Op)
-                    select receipt).As()
-                select Folded(facts),
+                from _ in rows.TraverseM(row => context.Op.Confirm(
+                    success: context.Document.Lights.Delete(row.Index.Value, work.Interaction.IsQuiet))).As()
+                select unit,
             revive: static (context, work) =>
                 from row in LightSelect.Indexed(
                     document: context.Document,
@@ -623,58 +605,10 @@ public abstract partial record LightOp {
                     state: static native => native.IsDeleted,
                     failure: context.Op.InvalidInput())
                 from _ in context.Op.Confirm(success: context.Document.Lights.Undelete(row.Index.Value))
-                from identity in ResourceId.Admit(value: row.Native.Id, key: context.Op)
-                from receipt in LightReceipt.Of(
-                    slot: LightSlot.Revived,
-                    body: new LightBody.Seated(Id: identity, Index: row.Index),
-                    key: context.Op)
-                select receipt);
-
-    private static LightReceipt Folded(Seq<LightReceipt> rows) =>
-        rows.Fold(LightReceipt.Empty, static (state, next) => state + next);
+                select unit);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LightBodyKind : ICapability<LightBodyKind> {
-    public static readonly LightBodyKind Seated = new(key: "seated");
-    public static readonly LightBodyKind Named = new(key: "named");
-    public static readonly LightBodyKind Touched = new(key: "touched");
-    public static readonly LightBodyKind Record = new(key: "record");
-}
-
-[SmartEnum<int>]
-public sealed partial class LightSlot : IFactSlot<LightBody, LightBodyKind> {
-    private static readonly CapabilitySet<LightBodyKind> Placed = CapabilitySet<LightBodyKind>.Of(LightBodyKind.Seated);
-    private static readonly CapabilitySet<LightBodyKind> Changed = CapabilitySet<LightBodyKind>.Of(LightBodyKind.Touched);
-    private static readonly CapabilitySet<LightBodyKind> Addressed = CapabilitySet<LightBodyKind>.Of(LightBodyKind.Named);
-    private static readonly CapabilitySet<LightBodyKind> Stamped = CapabilitySet<LightBodyKind>.Of(LightBodyKind.Record);
-
-    public static readonly LightSlot Minted = new(key: 0, bodies: Placed);
-    public static readonly LightSlot Amended = new(key: 1, bodies: Changed);
-    public static readonly LightSlot Purged = new(key: 2, bodies: Addressed);
-    public static readonly LightSlot Revived = new(key: 3, bodies: Placed);
-    public static readonly LightSlot Undo = new(key: 4, bodies: Stamped);
-
-    public CapabilitySet<LightBodyKind> Bodies { get; }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LightBody : IFactBody<LightBodyKind> {
-    private LightBody() { }
-    public sealed record Seated(ResourceId Id, ResourceIndex Index) : LightBody;
-    public sealed record Named(ResourceId Id) : LightBody;
-    public sealed record Touched(ResourceId Id, int Edits) : LightBody;
-    public sealed record Record(UndoSerial Serial) : LightBody;
-
-    public LightBodyKind Kind => Map(
-        seated: LightBodyKind.Seated,
-        named: LightBodyKind.Named,
-        touched: LightBodyKind.Touched,
-        record: LightBodyKind.Record);
-}
-
 public sealed record LightRoster(Seq<LightStamp> Rows) : IDetachedDocumentResult;
 
 public readonly record struct SceneSpectrum(double R, double G, double B) {
@@ -820,7 +754,7 @@ public static class Lights {
                select roster;
     }
 
-    public static Fin<LightReceipt> Commit(
+    public static Fin<Unit> Commit(
         DocumentSession session, RedrawPolicy redraw, params ReadOnlySpan<LightOp> operations) {
         Op op = Op.Of();
         return from policy in op.Need(redraw)
@@ -828,18 +762,15 @@ public static class Lights {
                    .TraverseM(work => op.Need(work)).As()
                from _ in guard(!requested.IsEmpty, op.InvalidInput()).ToFin()
                from plan in requested.TraverseM(work => work.Admit(op: op)).As()
-               from receipt in ObjectSpine.Commit(
+               from _ in ObjectSpine.Commit(
                    session: session,
                    name: nameof(Lights),
                    redraw: policy,
-                   fold: (document, key) => plan
+                   run: (document, key) => plan
                        .TraverseM(work => work.Apply(document: document, op: key)).As()
-                       .Map(static rows => rows.Fold(
-                           LightReceipt.Empty, static (state, next) => state + next)),
-                   undo: LightSlot.Undo,
-                   record: static serial => new LightBody.Record(Serial: serial),
+                       .Map(static _ => unit),
                    op: op)
-               select receipt;
+               select unit;
     }
 
     public static Fin<(SceneCapture Capture, ReadOnlyMemory<byte> Bytes)> Capture(
@@ -1050,9 +981,6 @@ public static class SceneMap {
     private const int KeyWidth = 16;
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------
-global using LightFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody>;
-global using LightReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody>;
 ```
 
 ## [05]-[SURFACE_LEDGER]
@@ -1067,19 +995,13 @@ global using LightReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.Li
 |  [06]   | photometric power   | `RadianceUnit`         | delegate rows over one admitted magnitude                   | `LightEdit.Power`       |
 |  [07]   | property edits      | `LightEdit`            | required-capability gate over one working duplicate         | `LightOp.Amend`         |
 |  [08]   | table address       | `LightSelect`          | every, index, id, and name onto `ResourceIndex`-paired rows | `Lights.Ask` / `Commit` |
-|  [09]   | commit consequence  | `LightSlot`            | slot roster over the Document spine's fact stream           | `Lights.Commit`         |
-|  [10]   | host dialogue       | spine owner            | `HostInteraction` composed, never a signal re-spelling      | `LightOp.Purge`         |
-|  [11]   | photometric rank    | `PhotometricPower`     | four host readings under one declared authority             | `PhotometricPower.Of`   |
-|  [12]   | descriptor light    | `ScenePhotometry`      | metres-scaled wire row with unit-free cone                  | `ScenePhotometry.Of`    |
-|  [13]   | descriptor capture  | `SceneCapture`         | sun, photometry, and shading under one content key          | `Lights.Capture`        |
-|  [14]   | web address         | `IPhotometricRegistry` | the one port into the render content stratum                | `WebOf`                 |
-|  [15]   | wire transcription  | `SceneMap`             | one mapper with byte-order and vocabulary columns           | `SceneMap.Encode`       |
+|  [09]   | host dialogue       | spine owner            | `HostInteraction` composed, never a signal re-spelling      | `LightOp.Purge`         |
+|  [10]   | photometric rank    | `PhotometricPower`     | four host readings under one declared authority             | `PhotometricPower.Of`   |
+|  [11]   | descriptor light    | `ScenePhotometry`      | metres-scaled wire row with unit-free cone                  | `ScenePhotometry.Of`    |
+|  [12]   | descriptor capture  | `SceneCapture`         | sun, photometry, and shading under one content key          | `Lights.Capture`        |
+|  [13]   | web address         | `IPhotometricRegistry` | the one port into the render content stratum                | `WebOf`                 |
+|  [14]   | wire transcription  | `SceneMap`             | one mapper with byte-order and vocabulary columns           | `SceneMap.Encode`       |
 
 ## [06]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
 
 (none)

@@ -15,10 +15,10 @@
 - [06]-[EVALUATION](.planning/Domain/evaluation.md): Closest-point evaluation lattice — one request union over frames, sampling, and signed distance.
 - [07]-[STATS](.planning/Domain/stats.md): Statistics substrate — carrier-generic moments, tolerance-banded extrema, and exact order statistics.
 - [08]-[HOOKS](.planning/Domain/hooks.md): Extension mechanism — hook seats, the per-composition rail, and the mount roster frozen at composition.
-- [09]-[FRAME](.planning/Domain/frame.md): Causal frame — package roster, trace planes, tenancy pair, receipt port, plugin identity.
+- [09]-[FRAME](.planning/Domain/frame.md): Causal frame — package roster, trace planes, tenancy pair, stamp cell, plugin identity.
 - [10]-[INSTRUMENT](.planning/Domain/instrument.md): Measurement plane — instrument specs, mounts, the write entry, and the tally read.
 - [11]-[OBJECTIVE](.planning/Domain/objective.md): Reliability policy — indicator family, burn table, board pack, and the bench claim ledger.
-- [12]-[TELEMETRY](.planning/Domain/telemetry.md): Signal capsule — bounded fault observation, fact union, span band, cost tap, contributor port.
+- [12]-[TELEMETRY](.planning/Domain/telemetry.md): Signal capsule — bounded fault observation, fault and cost facts, span band, contributor port.
 - [13]-[EVENT](.planning/Domain/event.md): CloudEvents grammar, source-scoped operation identity, mint/admission, fields, and formats.
 
 [NUMERICS]:
@@ -54,7 +54,7 @@
 
 [MESHING]:
 - [39]-[DELAUNAY](.planning/Meshing/delaunay.md): Constrained Delaunay owner — predicate-guarded insertion with conforming recovery.
-- [40]-[ARRANGEMENT](.planning/Meshing/arrangement.md): Exact-arithmetic mesh and polygon arrangement — boolean cell welds and the typed receipt.
+- [40]-[ARRANGEMENT](.planning/Meshing/arrangement.md): Exact-arithmetic mesh and polygon arrangement — boolean cell welds and the `BooleanCensus`.
 - [41]-[INTERSECT](.planning/Meshing/intersect.md): Predicate-exact intersection lattice — one `IntersectOp` over an exact-sign crossing carrier.
 - [42]-[SLICE](.planning/Meshing/slice.md): Slice-stack owner — the section fold over a generated plane family into the `SliceStack` SoA wire.
 - [43]-[OFFSET](.planning/Meshing/offset.md): Predicate-exact offsetting — `OffsetOp` over the wavefront with loop assembly via arrangement.
@@ -65,8 +65,8 @@
 - [48]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): Implicit-reconstruction owner — `Reconstruct` over signed-heat, mesh-SDF, and iso rails.
 
 [PROCESSING]:
-- [49]-[REPAIR](.planning/Processing/repair.md): Repair rail — closed `HealOp` algebra over the mesh arena with the typed rebuild-receipt chain.
-- [50]-[RECEIPTS](.planning/Processing/receipts.md): Typed `RebuildReceipt` family and the heal-session fold feeding the naming re-anchor.
+- [49]-[REPAIR](.planning/Processing/repair.md): Repair rail — closed `HealOp` algebra over the mesh arena with the typed `HealStep` chain.
+- [50]-[SESSION](.planning/Processing/session.md): Typed `HealStep` family and the heal-session fold feeding the naming re-anchor.
 - [51]-[DECIMATE](.planning/Processing/decimate.md): Predicate-gated decimation and display LOD — one `SimplifyOp` over the quadric collapse queue.
 - [52]-[REMESH](.planning/Processing/remesh.md): Remesh substrate — isotropic and cross-field rewriting minting quad provenance panelize consumes.
 - [53]-[FLATTEN](.planning/Processing/flatten.md): Robust UV-flattening — one `ParamOp` over the DEC substrate returning the typed chart atlas.
@@ -80,13 +80,13 @@
 
 [SOLVING]:
 - [61]-[SOLVER](.planning/Solving/solver.md): Nonlinear least-squares owner — `Lm.Minimize`, `Dual<T>` auto-Jacobians, island-decomposed constraints.
-- [62]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — the MLESAC sampler and orthogonal-distance refine returning the typed `FitReceipt`.
+- [62]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — the MLESAC sampler and orthogonal-distance refine returning the typed `Fitted`.
 
 [DRAWING]:
 - [63]-[VIEW](.planning/Drawing/view.md): Exact hidden-line and silhouette projection — invisibility kernel returning `DrawingProjection` carrier.
 - [64]-[PACK](.planning/Drawing/pack.md): Canonical encoding owner — `PackOp` into the dtype-strided byte arena with a lossless round-trip witness.
 - [65]-[SHEET](.planning/Drawing/sheet.md): Drawing-standards owner — derived sheet series, frames, scale ladders, naming grammars, and plot policy.
-- [66]-[HATCH](.planning/Drawing/hatch.md): Pattern-fill synthesis — course and dash band rows, per-region policy, and the census receipt.
+- [66]-[HATCH](.planning/Drawing/hatch.md): Pattern-fill synthesis — course and dash band rows, per-region policy, and the slot census.
 
 [ANALYSIS]:
 - [67]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one request algebra and its verb roster.
@@ -100,7 +100,7 @@
 - [73]-[CLOCK](.planning/Interaction/clock.md): Leased repeating UI beat over the kernel timeline, with its drift, miss count, and failure posture.
 - [74]-[TRANSFER](.planning/Interaction/transfer.md): Clipboard, drag, and drop payload algebra with symmetric custody across the seam.
 - [75]-[BINDING](.planning/Interaction/binding.md): Control-to-model fusion — flow, cadence, source union, gate, and the legality table.
-- [76]-[CONTROL](.planning/Interaction/control.md): Recursive control-construction union realized into an owned receipt tree with typed capture.
+- [76]-[CONTROL](.planning/Interaction/control.md): Recursive control-construction union realized into an owned mount tree with typed capture.
 - [77]-[CHROME](.planning/Interaction/chrome.md): Verb table projected into commands, menus, bars, windows, prompts, and the print family.
 - [78]-[PAINT](.planning/Interaction/paint.md): Immediate-mode mark vocabulary, resource stock, surface lease, and the host-colour correspondence.
 - [79]-[PLATFORM](.planning/Interaction/platform.md): Backend seam — handler resolution with custody, the native mount, and the theme grid.
@@ -137,7 +137,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Generator.Equals` — Generated structural equality for carriers whose collection or memory members void synthesized record equality.
 - `JetBrains.Annotations`
 - `LanguageExt.Core`
-- `NodaTime` — Semantic instants and spans on the causal frame, receipt message envelope, and objective windows.
+- `NodaTime` — Semantic instants and spans on the stamp cell, message envelope, and objective windows.
 - `NodaTime.Serialization.SystemTextJson` — Instant and span converters on the one event-format serializer identity.
 - `QuikGraph` — Bounded graph-algorithm lane; every graph result leaves as a kernel-owned SoA wire.
 - `System.IO.Hashing` — Reached only through the seed-zero content-hash mint.
@@ -159,7 +159,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Google.Protobuf` — Generated event messages, descriptor reflection, and strict protobuf encode/decode substrate.
 
 [RUNTIME_INBOX]:
-- `System.Text.Json` — `[JsonDerivedType]` receipt-union roster and the frozen evidence-wire options identity.
+- `System.Text.Json` — One event-format serializer-options identity behind `EventJson`.
 
 [DEPENDENCY_FLOORS]:
 - `System.Drawing.Common` — Host colour seam `PerceptualColor` crosses at egress, arriving with the same classification.

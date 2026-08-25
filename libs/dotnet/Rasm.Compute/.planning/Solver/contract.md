@@ -8,7 +8,7 @@ Rasm.Compute solve contract: one `PhysicsKind`×`BoundaryCondition`×`ElementCla
 
 The mesh producer is `Solver/discretization#MESH_GENERATION` `MeshLane.Discretize`: the Discretize-solve-optimize-sweep spine runs generation, admission, assembly, and route in that order, so a caller hands a boundary shell and a mesh policy and never hand-builds a mesh past the quality gate. `ElementClass.Sample`/`DiscreteMesh`/`FieldSpace` and the frame member rows arrive settled from `Solver/element#ELEMENT_TOPOLOGY` and `Solver/field#DISCRETE_FIELD`, whose admitted mesh carries the PROVEN `QuadratureRule` its policy elected; the per-Gauss-point constitutive axis (`ConstitutiveModel`/`StressUpdate`/`ConstitutiveState`) comes from `Solver/constitutive#CONSTITUTIVE`; dense and sparse factorization ride `Tensor/blas#DENSE_ALGEBRA` and `Tensor/factor#SPARSE_SOLVE`; a distributed solve dials the `Runtime/wire#PROTO_VOCABULARY` `Solve` rpc.
 
-`SolveProblem.ContentKey` composes the kernel `ContentHash.Of<TState>` seed-zero rail through `CanonicalWriter`, never a hand-framed byte walk over a formatted string. Every solver receipt is typed, and the page carries no TS_PROJECTION because solve interiors stay host-local behind the `Solve` rpc.
+`SolveProblem.ContentKey` composes the kernel `ContentHash.Of<TState>` seed-zero rail through `CanonicalWriter`, never a hand-framed byte walk over a formatted string. Every solver result is typed, and the page carries no TS_PROJECTION because solve interiors stay host-local behind the `Solve` rpc.
 
 ## [01]-[INDEX]
 
@@ -16,11 +16,11 @@ The mesh producer is `Solver/discretization#MESH_GENERATION` `MeshLane.Discretiz
 
 ## [02]-[SOLVE_REQUEST]
 
-- Owner: `PhysicsKind` `[SmartEnum<string>]` carries its regime, its operator symmetry, its `MaterialForm`, and its `OperatorForm`; `PhysicsRegime` `[SmartEnum<string>]` closes the static/modal/transient/buckling/nonlinear axis the four adjacent bools once spelled as sixteen corners; `OperatorSymmetry` `[SmartEnum<string>]` closes which factorizations an operator admits; `OperatorForm` `[SmartEnum<string>]` owns the payload admission and the constitutive coefficient BOTH, so a payload the row does not admit is unrepresentable past `SolveProblem.Of` and no assembly body re-tests a pairing; `PhysicsPayload` `[Union]` carries continuum, mixed-flow, radiosity, energy-network, Helmholtz, and eddy-current data; `SolveMethod` `[SmartEnum<string>]` carries the numeric lowering; `Preconditioner` and `TimeIntegrator` own their rows; `SolveRoute` `[Union]` is the ONE route discriminant and carries each route's own payload; `Convergence` `[Union]` is the ONE bounded-budget verdict; `RayleighPair` `[ComplexValueObject]` is the damping pair; `MaterialField` `[Union]` carries uniform or per-cell elastic coefficients including density, or a scalar coefficient beside its volumetric heat capacity; `LanePolicy` binds the route-free lane budgets; `SolveSession` is the lane-owned standing factorization; `SolveProblem`/`SolveResult`/`ModalParticipation`/`CondensationEvidence` are the carriers; `SolveLane` owns admission, dispatch, and the receipt.
+- Owner: `PhysicsKind` `[SmartEnum<string>]` carries its regime, its operator symmetry, its `MaterialForm`, and its `OperatorForm`; `PhysicsRegime` `[SmartEnum<string>]` closes the static/modal/transient/buckling/nonlinear axis the four adjacent bools once spelled as sixteen corners; `OperatorSymmetry` `[SmartEnum<string>]` closes which factorizations an operator admits; `OperatorForm` `[SmartEnum<string>]` owns the payload admission and the constitutive coefficient BOTH, so a payload the row does not admit is unrepresentable past `SolveProblem.Of` and no assembly body re-tests a pairing; `PhysicsPayload` `[Union]` carries continuum, mixed-flow, radiosity, energy-network, Helmholtz, and eddy-current data; `SolveMethod` `[SmartEnum<string>]` carries the numeric lowering; `Preconditioner` and `TimeIntegrator` own their rows; `SolveRoute` `[Union]` is the ONE route discriminant and carries each route's own payload; `Convergence` `[Union]` is the ONE bounded-budget verdict; `RayleighPair` `[ComplexValueObject]` is the damping pair; `MaterialField` `[Union]` carries uniform or per-cell elastic coefficients including density, or a scalar coefficient beside its volumetric heat capacity; `LanePolicy` binds the route-free lane budgets; `SolveSession` is the lane-owned standing factorization; `SolveProblem`/`SolveResult`/`ModalParticipation`/`CondensationEvidence` are the carriers; `SolveLane` owns admission, dispatch, and the result.
 - Cases: `PhysicsKind` fea-static · fea-modal · fea-transient · fea-buckling · cfd-incompressible · thermal-steady · thermal-transient · daylight-radiosity · energy-balance · acoustic-helmholtz · electromagnetic-eddy; `PhysicsRegime` static · modal · transient · buckling · nonlinear; `SolveRoute` `Direct` · `Iterative` · `Transient` · `Traced` · `Nonlinear` · `Continuation` · `Vibration` · `Condensed` · `Buckling`; `Convergence` `Converged` · `Exhausted` · `Stalled`; `ConstraintMethod` elimination · penalty · lagrange; `SolveMethod` direct-lu · direct-cholesky · bicgstab · gpbicg · tfqmr · mlk-bicgstab · dense-evd; `TimeIntegrator` backward-euler · newmark-beta · generalized-alpha · central-difference. `Traced` carries a `FieldIntegrator` instead of a `TimeIntegrator` row, because an error-controlled march elects its step rather than reading one off a policy grid.
 - Entry: `public static Fin<SolveResult> Solve(SolveProblem problem, DiscreteMesh mesh, LanePolicy policy, SolveRoute route, IClock clock, Option<SolveArchive> archive = default, Option<SolveSession> session = default)` — the policy and the problem arrive ADMITTED, the route is the caller's declared discriminant, and `Fin<T>` aborts on an ill-posed BC set or a route body's own refusal. `SolveLane.Discretized(BoundaryShell, MeshPolicy, …)` is the spine entry that generates the mesh through `MeshLane.Discretize` and folds straight into `Solve`, so the generation half has one consumer and no caller assembles over a mesh that skipped the quality gate.
 - Auto: `Solve` validates the policy against the route and the problem on ONE accumulating pass, assembles through `Solver/assembly`, applies the boundary conditions, and dispatches the route through the generated total `Switch` — every arm a body on `Solver/route`, none reached by a nested ternary. A supplied `SolveSession` carries a standing factorization whose PATTERN the assembly reproduces, so a sweep over material combinations pays the symbolic phase once.
-- Receipt: the `Solve` `ComputeReceipt` case carries the physics/method/constraint keys, DOF count, iteration count, final residual, converged flag, and elapsed; the modal rows alone fill its `ParticipationX`/`ParticipationY`/`ParticipationZ` columns, projected at the mint site as the per-axis effective-mass fraction of `SolveResult.Participation` against `SolveResult.TotalMass`; the condensed modal row adds its measured `CondensationEvidence`.
+- Result: `SolveResult` carries the problem, method, route, field, measured residual, DOF count, iteration and Newton-step counts, convergence verdict, modal values and participation, total mass, and optional condensation and quadrature evidence. Its converged flag derives from the convergence verdict.
 - Packages: MathNet.Numerics, CSparse, Rasm (project — kernel `ContentHash.Of<TState>`/`CanonicalWriter`, `Dimension`/`PositiveMagnitude`/`Band`, `Op`), Rasm.Element (project — the seam `MaterialPropertySet.Mechanical` elasticity and density reads beside the `Thermal` `SpecificHeat` read the volumetric capacity composes), System.Numerics (`Vector3` — the contact normal), System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new physics domain is one `PhysicsKind` row with one `PhysicsPayload` case and one `OperatorForm` row only when its operator data differs; a new route is one `SolveRoute` case carrying its own payload plus one arm on the dispatch `Switch`; a new numeric method is one `SolveMethod` row; a new material assignment is one `MaterialField` case; a new time scheme is one `TimeIntegrator` row carrying its own march delegate; a new lane budget is one `LanePolicy` column the criterion stack reads through `IterationPolicy.Of`. `CfdSolver`/`ThermalSolver`/`FeaSolver`, `NewmarkSolver`/`GeneralizedAlphaSolver`, and `ArcLengthSolver` siblings collapse onto `SolveLane` and the route union.
 - Boundary: the route is a UNION with payload, never a keyless tag beside a policy bag of `Option`s. The two cross-checks the old validator ran — that an arc-length method carries a continuation policy and a condensed-evd method carries a reduction policy — tested a discriminant against a payload that a union case pairs by construction, so both refusals delete with the shape that made them possible.
@@ -29,7 +29,7 @@ The mesh producer is `Solver/discretization#MESH_GENERATION` `MeshLane.Discretiz
 - Boundary: `SolveProblem.ContentKey` frames through the kernel `CanonicalWriter`: tolerance is PART OF THE KEY, `-0.0` canonicalizes, and every variable-width run carries its own count, none of which a hand `ArrayBufferWriter<byte>` walk with eight bespoke framing helpers provided. Capacity is in the canonical bytes, so two runs differing only in heat capacity key apart.
 - Boundary: a factorization is a LIVE resource, so it rides `SolveSession` and never a policy column — the same law that keeps `SolveArchive` off the policy. The session holds the standing factor for a pattern-stable family and every re-solve re-values it through the `Tensor/factor#SPARSE_SOLVE` owner's own `Edit.Revalue`, which reuses the cached permutation and yields an INDEPENDENT factor; the in-place CSparse `Refactorize` is refused at that owner because it mutates the shared instance the pre-edit value still aliases, and composing it here would reach past a ruling this lane does not own.
 - Boundary: one `Solve` owns every physics, boundary-condition, element, payload, and time-scheme combination. `ConstraintMethod` mutates both operator and right-hand side. Dense/sparse factorization and iterative solve ride the `Tensor` funnels; generalized eigenanalysis reuses the verified dense `Evd` terminal after mass, static-condensation, or geometric-stiffness reduction, because reducing a generalized pencil to standard form demands a positive-definite inertia factor a lumped-mass frame lacks on its inertia-free rows.
-- Boundary: wall budget and cancellation are `LanePolicy` columns the lane composes onto a canonical row and reach the criterion stack through `IterationPolicy.Of` beside the `Solve` argument clock, so every iterative leg bounds wall time off the one clock the receipt durations read; a canonical row binding a clock static, a deadline parameter grown onto the entry signature, or a per-leg literal cap is the rejected form.
+- Boundary: wall budget and cancellation are `LanePolicy` columns the lane composes onto a canonical row and reach the criterion stack through `IterationPolicy.Of` beside the `Solve` argument clock, so every iterative leg bounds wall time off the one clock the result durations read; a canonical row binding a clock static, a deadline parameter grown onto the entry signature, or a per-leg literal cap is the rejected form.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -517,16 +517,13 @@ public sealed record SolveResult(
     long Dofs,
     int Iterations,
     int NewtonSteps,
+    double Residual,
     Convergence Verdict,
     Instant At) {
     public Option<CondensationEvidence> Condensation { get; init; }
 
     public Option<QuadratureEvidence> Evidence { get; init; }
 
-    public double Residual => Verdict switch {
-        Convergence.Converged converged => converged.Residual,
-        _ => double.PositiveInfinity,
-    };
     public bool Converged => Verdict is Convergence.Converged;
 }
 
@@ -602,35 +599,5 @@ public static partial class SolveLane {
             buckling: static (request, row) => SolveRoutes.Buckle(request, row))
         select result;
 
-    public static ComputeReceipt.Solve Receipt(SolveResult result, CorrelationId correlation, Duration elapsed) =>
-        EffectiveMassShare(result).Match(
-            Some: share => Stamp(result, correlation, elapsed) with { ParticipationX = share.X, ParticipationY = share.Y, ParticipationZ = share.Z },
-            None: () => Stamp(result, correlation, elapsed));
-
-    static ComputeReceipt.Solve Stamp(SolveResult result, CorrelationId correlation, Duration elapsed) =>
-        new(result.Problem.Physics.Key, result.Route.Key, result.Dofs, result.Iterations, result.Residual, result.Converged) {
-            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
-        };
-
-    static Option<ModalParticipation> EffectiveMassShare(SolveResult result) =>
-        from factors in result.Participation
-        from excitable in result.TotalMass
-        select Fraction(factors.Span, excitable);
-
-    static ModalParticipation Fraction(ReadOnlySpan<ModalParticipation> factors, ModalParticipation excitable) {
-        double x = 0.0, y = 0.0, z = 0.0;
-        foreach (ModalParticipation factor in factors) { x += factor.X * factor.X; y += factor.Y * factor.Y; z += factor.Z * factor.Z; }
-        return new ModalParticipation(Share(x, excitable.X), Share(y, excitable.Y), Share(z, excitable.Z));
-    }
-
-    static double Share(double effective, double excitable) => excitable > 0.0 ? effective / excitable : 0.0;
 }
 ```
-
-## [03]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

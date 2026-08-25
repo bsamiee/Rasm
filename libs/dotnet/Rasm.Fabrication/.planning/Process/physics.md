@@ -29,7 +29,7 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 - Law: this page declares NO tool instance. A shop's assemblies live at `Tooling/magazine`, which admits every candidate through `Tool.Admit` before it reaches a request; a compiled tool roster here is a fiction the shop never mounted and is the deleted form.
 - Cases: `Tool` distinguishes rotary, wheel, saw blade, turning insert, and process head. `Surface`, `SpindleCeiling`, and `DepthCeiling` are BASE positional columns each case supplies from its own geometry, so a form declares no override body and a new form is one case with its three arguments.
 - Auto: `Tool.Admits(Operation)` pairs a tool FORM against an `OperationFamily` and its feed law, so the subtractive fold dispatches on form alone and the process-versus-tool ladder it replaced cannot drift from the feed vocabulary.
-- Receipt: `RangeEvidence` carries the admitted range, the derived value, the resolved value, and every clamp witness, so a budget states which bound overrode the material's own answer.
+- Output: `RangeEvidence` carries the admitted range, the derived value, the resolved value, and every clamp witness, so a budget states which bound overrode the material's own answer.
 - Boundary: a ceiling the equipment never published is `None` on both tool axes, never a sentinel maximum a clamp reads as a measurement; `ProcessRange` bounds resolve through one `Bound` fold and every ceiling through the one `Capped` cap inside it.
 
 ```csharp
@@ -243,7 +243,7 @@ public sealed record EquipmentEnvelope(
 - Cases: `ModalityPhysics` distinguishes subtractive, thermal, abrasive, fused-filament, deposition, joining, erosion, resin, powder, and forming physics. `Kind` is a BASE positional column, so no case declares an override body.
 - Law: `ResponseAxis` is the STATE VOCABULARY a preset curve keys on, not a roster of populated tables — a mounted preset decides which axes carry curves, and an axis with no curve in a given registry is simply unused by that shop, never a claim this page failed to keep.
 - Auto: a curve builds its `IInterpolation` once and HOLDS it, so evaluating a law across a pass costs one build rather than one per sample; the held interpolant is derived from the admitted knots, so it stays out of equality and every codec.
-- Receipt: `At` clamps a state onto the knot span and `Saturated` reports which axes clamped, so a budget publishes the axes it EXTRAPOLATED past instead of silently reading an edge factor as a measured one.
+- Output: `At` clamps a state onto the knot span and `Saturated` reports which axes clamped, so a budget publishes the axes it EXTRAPOLATED past instead of silently reading an edge factor as a measured one.
 - Packages: `MathNet.Numerics` `Interpolate.Linear`, `.CubicSplineMonotone`, `.CubicSplineRobust`.
 
 ```csharp
@@ -435,7 +435,7 @@ public abstract partial record ModalityPhysics(PhysicsKind Kind) {
 - Law: a GRADE is admitted registry DATA, never a compiled instance. A shop mounts its own baselines and grades once at composition, so the physics floor carries the shapes and the overlay rule and no constant catalog that drifts from the mill certificate it claims to describe.
 - Auto: `MaterialSpec.Admit` proves every grade-override key equals its law's own kind and that the baseline already answers that kind before overlaying, and a traceable `CertificateClass` forces heat identity and certificate key present.
 - Cases: `MaterialClass` names the physics families the class can carry, so `Material.Admits(ProcessKind)` answers the process-material correspondence `RelationFault.ProcessMaterial` refuses on.
-- Receipt: `MechanicalDatum` and `ThermalDatum` reach the budget: the machinability index scales surface speed, the Hollomon pair drives forming flow stress, the plastic strain ratio and elongation bound limit strain, thermal diffusivity closes the cutting-zone temperature margin, and every remaining datum column rides `BudgetEvidence.Material` as the grade evidence a receipt attests.
+- Output: `MechanicalDatum` and `ThermalDatum` reach the budget: the machinability index scales surface speed, the Hollomon pair drives forming flow stress, the plastic strain ratio and elongation bound limit strain, thermal diffusivity closes the cutting-zone temperature margin, and every remaining datum column rides `BudgetEvidence.Material` as the grade evidence the budget attests.
 - Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes.
 
 ```csharp
@@ -713,11 +713,11 @@ public sealed class MaterialRegistry {
 
 ## [05]-[BUDGET_SHAPE]
 
-- Owner: `PhysicsRequest` owns exact runtime evidence; `BudgetEnergy` owns clock closure; `CutterMechanics` owns the rotary-only mechanics terms; `BudgetEvidence` owns the receipt; `ProcessBudget` owns derived limits.
+- Owner: `PhysicsRequest` owns exact runtime evidence; `BudgetEnergy` owns clock closure; `CutterMechanics` owns the rotary-only mechanics terms; `BudgetEvidence` owns the settled evidence; `ProcessBudget` owns derived limits.
 - Cases: `ProcessBudget.Turning` remains distinct because constant-surface-speed RPM resolves against workpiece radius at motion time, and `BudgetEnergy.RadiusDependent` carries that unclosed clock as a typed case rather than an absent value.
 - Law: a form with no mechanics answer publishes NONE, never a zero. A grinding wheel has no helix, so it has no axial force; a saw has no shank cantilever, so it has no deflection — a zero in those slots is forged evidence a downstream gate reads as a measured safe value.
 - Auto: `Kind`, `Extents`, and `Equipment` are base positional columns, so a request case is one declaration and its own payload supplies all three.
-- Receipt: `BudgetEvidence` records evaluated material state, power, energy closure, admitted grade, tool identity, every `RangeEvidence`, and the response axes that SATURATED at their preset edge.
+- Output: `BudgetEvidence` records evaluated material state, power, energy closure, admitted grade, tool identity, every `RangeEvidence`, and the response axes that SATURATED at their preset edge.
 
 ```csharp
 // --- [BUDGET_SHAPE] --------------------------------------------------------------------
@@ -995,7 +995,7 @@ public abstract partial record PhysicsAdmission {
 - Law: one traversal clock closes every extent-over-rate budget. Thermal, abrasive, erosion, and deposition legs compose `Traversal`; an inline `extent / rate * 60.0` beside it is the deleted form.
 - Auto: the request case dispatches OUTER and binds its own law case, so no tuple pattern goes non-total and no hard cast reaches a runtime type check. A request whose law family disagrees answers `RelationFault.ProcessMaterial` on the gated mint.
 - Auto: budget derivation evaluates constitutive response once per state, resolves current before nominal before derived equipment settings, bounds each selection against the equipment range and tool ceiling, rejects a floor above the ceiling, records each applied clamp, admits every mounted head through `Tool.Admit`, rejects spent equipment, and derives radial chip thinning, deflection, chatter-free depth, cutting-zone temperature margin, Taylor tool life, heat input, and volumetric energy density from the admitted columns.
-- Receipt: Taylor tool life reads the family's own exponent law scaled by the coating's wear factor and the coolant's life factor, so all three columns reach one published number instead of sitting unread.
+- Law: Taylor tool life reads the family's own exponent law scaled by the coating's wear factor and the coolant's life factor, so all three columns reach one published number instead of sitting unread.
 - Boundary: `GeometryFault` covers degenerate geometry alone; equipment, quantity, and grade rejections mint through `FabricationFault.Equipment`, so the witness clears its own kind predicate before the fault exists.
 
 ```csharp
@@ -1379,20 +1379,19 @@ flowchart LR
     Request --> Admit["PhysicsRequest.Admit — process family, extents, mounted head"]
     Admit --> Budget["ProcessPhysics.Budget — request case binds its own law"]
     Budget --> Bound["Bound — machine range against tool ceiling"]
-    Bound --> Receipt["ProcessBudget + BudgetEvidence"]
+    Bound --> Budget["ProcessBudget + BudgetEvidence"]
     Bound -->|floor or ceiling overrode the material| Clamped["EquipmentWitness.Range"]
-    Clamped --> Receipt
+    Clamped --> Budget
     Budget --> Energy["BudgetEnergy — Resolved · RadiusDependent · PerStroke"]
-    Energy --> Receipt
+    Energy --> Budget
     Budget --> Saturated["ResponseAxis rows read at a preset edge"]
-    Saturated --> Receipt
+    Saturated --> Budget
 ```
 
 ## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

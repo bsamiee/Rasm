@@ -55,7 +55,7 @@
 |  [05]   | `ItemSearch.pages() -> Iterator[ItemCollection]`         | iterate whole result pages                 |
 |  [06]   | `ItemSearch.pages_as_dicts() -> Iterator[dict]`          | iterate raw page dicts                     |
 |  [07]   | `ItemSearch.matched() -> int \| None`                    | total matching item count (if reported)    |
-|  [08]   | `ItemSearch.url_with_parameters() -> str`                | the resolved GET request URL (receipt)     |
+|  [08]   | `ItemSearch.url_with_parameters() -> str`                | the resolved GET request URL               |
 |  [09]   | `CollectionSearch.collection_list() -> list[Collection]` | materialize all matching collections       |
 |  [10]   | `CollectionSearch.collections() -> Iterator[Collection]` | lazily stream matching collections         |
 
@@ -68,7 +68,7 @@
 - `Client.conforms_to(ConformanceClasses.<X>)` gates capability; `search`/`collection_search`/`filter`/`sortby`/`fields` raise or warn (`DoesNotConformTo`/`FallbackToPystac`) when the API under-declares, and `get_queryables`/`get_merged_queryables` enumerate the CQL2-filterable property set before a `filter` is built.
 - `get_collections`/`get_collection` discover collections — `get_collection` returns a live `CollectionClient` when the API advertises it, else a static `pystac.Collection` — and `CollectionClient.get_items`/`get_item`/`get_queryables` is the per-collection live access.
 - `modifier: Callable[[Modifiable], None]` mutates hydrated objects for asset-href signing and `request_modifier` mutates the outbound `requests.Request` for auth headers; both are boundary rows on `open`, never a forked signed-vs-unsigned client.
-- each search captures the negotiated conformance classes, the `matched()` count, page count, and resolved `url_with_parameters()` as a discovery receipt.
+- each search exposes negotiated conformance classes, the `matched()` count, page count, and resolved `url_with_parameters()` on the native search object and results.
 
 [STACKING]:
 - `pystac`(`.api/pystac.md`): `Client.search(...).items()` yields live `pystac.Item` objects in that model; the data owner consumes them through the same `Item`/`Asset` surface, never a second item type.

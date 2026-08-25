@@ -111,7 +111,7 @@ Each backing collection holds the member→AABB mapping under stable integer han
 [LOCAL_ADMISSION]:
 - `SwiftCollections.Query` and the handle-stable registry collections are admitted for broad-phase indexing only; the general-purpose `Pool`/`Dimensions`/`Diagnostics` surfaces are not this folder's owners.
 - The handle a `SwiftBucket.Add` returns is the index's whole key space: a second registry keyed on a domain id beside it desynchronizes on the first partial refit, so a co-indexed structure pair takes the bucket handle and gates every refit on `IsAllocated`/`TryGetValue`.
-- Narrow-phase exact intersection, clash policy, and `BcfTopic` authoring stay COORDINATION concerns; structure kind, entry count, and candidate-pair count are the receipt facts the INTERFERENCE/COORDINATION fold records.
+- Narrow-phase exact intersection, clash policy, and `BcfTopic` authoring stay COORDINATION concerns; structure kind, entry count, and candidate-pair count are the facts the INTERFERENCE/COORDINATION fold carries on its result.
 
 [RAIL_LAW]:
 - Package: `SwiftCollections.Lean`

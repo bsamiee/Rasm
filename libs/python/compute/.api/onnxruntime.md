@@ -82,13 +82,13 @@
 [STACKING]:
 - `onnx`(`.api/onnx.md`) / `skl2onnx`(`.api/skl2onnx.md`) → onnxruntime: the runtime half consumes the exact `ModelProto` the structural half validated — `model.SerializeToString()` or the same path into `InferenceSession(...)`. A model passing `checker.check_model(full_check=True)` yet failing `InferenceSession` construction is a runtime-only fault (unsupported op/opset for the build) the structural check cannot catch.
 - onnxruntime → `numpy`(`libs/python/.api/numpy.md`): `run(output_names, {name: np.ndarray})` is the canonical feed, input dtypes matching the `NodeArg.type` strings (`tensor(float)`, `tensor(int64)`) the session reports; `OrtValue.ortvalue_from_numpy(arr, 'cuda', 0)` is the zero-copy device path bypassing the host feed.
-- within-lib: `providers=[('CUDAExecutionProvider', {'device_id': 0}), 'CPUExecutionProvider']` orders preference with per-EP option dicts, and the receipt records the assigned-not-requested list `get_providers()` returns.
+- within-lib: `providers=[('CUDAExecutionProvider', {'device_id': 0}), 'CPUExecutionProvider']` orders preference with per-EP option dicts, and the manifest records the assigned-not-requested list `get_providers()` returns.
 
 [LOCAL_ADMISSION]:
-- Model-asset receipt captures `get_available_providers()`, the `get_providers()` assignment, the input/output signatures, and the sample-run result — the offline runtime-check half beside the `onnx` structural half and the `skl2onnx` producer.
+- `ModelAssetManifest` captures `get_available_providers()`, the `get_providers()` assignment, the input/output signatures, and the sample-run result — the offline runtime-check half beside the `onnx` structural half and the `skl2onnx` producer.
 
 [RAIL_LAW]:
 - Package: `onnxruntime`
 - Owns: offline ONNX inference-session runtime checking for the model-asset rail — session load, provider selection with per-EP option dicts, IO binding, and the sample run
-- Accept: the `onnx`-validated / `skl2onnx`-produced `ModelProto` loaded into an `InferenceSession`, producing well-shaped output from a sample `run`, with the `get_providers()` assignment and input/output signatures captured as the receipt
+- Accept: the `onnx`-validated / `skl2onnx`-produced `ModelProto` loaded into an `InferenceSession`, producing well-shaped output from a sample `run`, with the `get_providers()` assignment and input/output signatures captured on the manifest
 - Reject: production inference claims; provider selection hidden inside helpers; a requested EP assumed assigned without reading `get_providers()`; wrapper-renames of the session API

@@ -17,7 +17,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file rasm/contracts/ui/commands.proto.
  */
 export const file_rasm_contracts_ui_commands: GenFile = /*@__PURE__*/
-  fileDesc("CiByYXNtL2NvbnRyYWN0cy91aS9jb21tYW5kcy5wcm90bxIRcmFzbS5jb250cmFjdHMudWkifwoPQ29tbWFuZEdhdGVXaXJlEhQKA2tleRgBIAEoCUIHukgEcgIQARIRCglhdmFpbGFibGUYAiABKAgSQwoFbGV2ZWwYAyABKA4yKC5yYXNtLmNvbnRyYWN0cy5jb21wdXRlLkRlZ3JhZGF0aW9uTGV2ZWxCCrpIB4IBBBABIAAihwIKEkNvbW1hbmRQYXlsb2FkV2lyZRImCgRub25lGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5SAASGQoGc2luZ2xlGAIgASgJQge6SARyAhABSAASOgoEbWFueRgDIAEoCzIqLnJhc20uY29udHJhY3RzLnVpLkNvbW1hbmRQYXlsb2FkV2lyZS5NYW55SAASDgoEdGV4dBgEIAEoCUgAEikKBmZpZWxkcxgFIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RIABooCgRNYW55EiAKA2lkcxgBIAMoCUITukgQkgENCAEQgCAYASIEcgIQAUINCgRraW5kEgW6SAIIASJpChFDb21tYW5kSW52b2NhdGlvbhIUCgNrZXkYASABKAlCB7pIBHICEAESPgoHcGF5bG9hZBgCIAEoCzIlLnJhc20uY29udHJhY3RzLnVpLkNvbW1hbmRQYXlsb2FkV2lyZUIGukgDyAEBIvkBChJDb21tYW5kT3V0Y29tZVdpcmUSKwoJY29tcGxldGVkGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5SAASKwoJY2FuY2VsbGVkGAIgASgLMhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5SAASOgoIcmVqZWN0ZWQYAyABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uSAASHgoLcm9sbGVkX2JhY2sYBCABKAlCB7pIBHICEAFIABIeCgtjb21wZW5zYXRlZBgFIAEoCUIHukgEcgIQAUgAQg0KBGtpbmQSBbpIAggBIvkBCg9EZWNrUmVjZWlwdFdpcmUSFAoDa2V5GAEgASgJQge6SARyAhABEhgKB3N1cmZhY2UYAiABKAlCB7pIBHICEAESNwoHZWxhcHNlZBgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkILukgIyAEBqgECMgASPgoHb3V0Y29tZRgEIAEoCzIlLnJhc20uY29udHJhY3RzLnVpLkNvbW1hbmRPdXRjb21lV2lyZUIGukgDyAEBEh8KDnBheWxvYWRfZGlnZXN0GAUgASgMQge6SAR6AmgQEhwKC2NvcnJlbGF0aW9uGAYgASgMQge6SAR6AmgQQhSqAhFSYXNtLkNvbnRyYWN0cy5VaWIGcHJvdG8z", [file_buf_validate_validate, file_google_protobuf_duration, file_google_protobuf_empty, file_google_protobuf_struct, file_rasm_contracts_compute_control, file_rasm_contracts_fault_fault]);
+  fileDesc("CiByYXNtL2NvbnRyYWN0cy91aS9jb21tYW5kcy5wcm90bxIRcmFzbS5jb250cmFjdHMudWkifwoPQ29tbWFuZEdhdGVXaXJlEhQKA2tleRgBIAEoCUIHukgEcgIQARIRCglhdmFpbGFibGUYAiABKAgSQwoFbGV2ZWwYAyABKA4yKC5yYXNtLmNvbnRyYWN0cy5jb21wdXRlLkRlZ3JhZGF0aW9uTGV2ZWxCCrpIB4IBBBABIAAihwIKEkNvbW1hbmRQYXlsb2FkV2lyZRImCgRub25lGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5SAASGQoGc2luZ2xlGAIgASgJQge6SARyAhABSAASOgoEbWFueRgDIAEoCzIqLnJhc20uY29udHJhY3RzLnVpLkNvbW1hbmRQYXlsb2FkV2lyZS5NYW55SAASDgoEdGV4dBgEIAEoCUgAEikKBmZpZWxkcxgFIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RIABooCgRNYW55EiAKA2lkcxgBIAMoCUITukgQkgENCAEQgCAYASIEcgIQAUINCgRraW5kEgW6SAIIASJpChFDb21tYW5kSW52b2NhdGlvbhIUCgNrZXkYASABKAlCB7pIBHICEAESPgoHcGF5bG9hZBgCIAEoCzIlLnJhc20uY29udHJhY3RzLnVpLkNvbW1hbmRQYXlsb2FkV2lyZUIGukgDyAEBIvkBChJDb21tYW5kT3V0Y29tZVdpcmUSKwoJY29tcGxldGVkGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5SAASKwoJY2FuY2VsbGVkGAIgASgLMhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5SAASOgoIcmVqZWN0ZWQYAyABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uSAASHgoLcm9sbGVkX2JhY2sYBCABKAlCB7pIBHICEAFIABIeCgtjb21wZW5zYXRlZBgFIAEoCUIHukgEcgIQAUgAQg0KBGtpbmQSBbpIAggBItsBCg9EZWNrT3V0Y29tZVdpcmUSFAoDa2V5GAEgASgJQge6SARyAhABEhgKB3N1cmZhY2UYAiABKAlCB7pIBHICEAESNwoHZWxhcHNlZBgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkILukgIyAEBqgECMgASPgoHb3V0Y29tZRgEIAEoCzIlLnJhc20uY29udHJhY3RzLnVpLkNvbW1hbmRPdXRjb21lV2lyZUIGukgDyAEBEh8KDnBheWxvYWRfZGlnZXN0GAUgASgMQge6SAR6AmgQQhSqAhFSYXNtLkNvbnRyYWN0cy5VaWIGcHJvdG8z", [file_buf_validate_validate, file_google_protobuf_duration, file_google_protobuf_empty, file_google_protobuf_struct, file_rasm_contracts_compute_control, file_rasm_contracts_fault_fault]);
 
 /**
  * @generated from message rasm.contracts.ui.CommandGateWire
@@ -244,9 +244,9 @@ export const CommandOutcomeWireSchema: GenMessage<CommandOutcomeWire, {validType
   messageDesc(file_rasm_contracts_ui_commands, 3);
 
 /**
- * @generated from message rasm.contracts.ui.DeckReceiptWire
+ * @generated from message rasm.contracts.ui.DeckOutcomeWire
  */
-export type DeckReceiptWire = Message<"rasm.contracts.ui.DeckReceiptWire"> & {
+export type DeckOutcomeWire = Message<"rasm.contracts.ui.DeckOutcomeWire"> & {
   /**
    * @generated from field: string key = 1;
    */
@@ -271,17 +271,12 @@ export type DeckReceiptWire = Message<"rasm.contracts.ui.DeckReceiptWire"> & {
    * @generated from field: bytes payload_digest = 5;
    */
   payloadDigest: Uint8Array;
-
-  /**
-   * @generated from field: bytes correlation = 6;
-   */
-  correlation: Uint8Array;
 };
 
 /**
- * @generated from message rasm.contracts.ui.DeckReceiptWire
+ * @generated from message rasm.contracts.ui.DeckOutcomeWire
  */
-export type DeckReceiptWireValid = Message<"rasm.contracts.ui.DeckReceiptWire"> & {
+export type DeckOutcomeWireValid = Message<"rasm.contracts.ui.DeckOutcomeWire"> & {
   /**
    * @generated from field: string key = 1;
    */
@@ -306,17 +301,12 @@ export type DeckReceiptWireValid = Message<"rasm.contracts.ui.DeckReceiptWire"> 
    * @generated from field: bytes payload_digest = 5;
    */
   payloadDigest: Uint8Array;
-
-  /**
-   * @generated from field: bytes correlation = 6;
-   */
-  correlation: Uint8Array;
 };
 
 /**
- * Describes the message rasm.contracts.ui.DeckReceiptWire.
- * Use `create(DeckReceiptWireSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.DeckOutcomeWire.
+ * Use `create(DeckOutcomeWireSchema)` to create a new message.
  */
-export const DeckReceiptWireSchema: GenMessage<DeckReceiptWire, {validType: DeckReceiptWireValid}> = /*@__PURE__*/
+export const DeckOutcomeWireSchema: GenMessage<DeckOutcomeWire, {validType: DeckOutcomeWireValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_commands, 4);
 

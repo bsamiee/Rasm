@@ -86,7 +86,7 @@ internal static class NodeWalk {
 ## [03]-[SPATIAL_INDEX]
 
 - Owner: `SpatialKind` rows own kernel selection, each row carrying its own builder over the shared `NodeStore` and each built case carrying the row that built it, so a refit rebuilds through its own kernel; `SpatialIndex.ClosestOnTriangle` is the one point-triangle refinement every consumer of this page's candidate prune reads, foot and distance leaving together.
-- Receipt: `QueryResult` carries every query verdict, and the index itself is the registered validity evidence, so this owner mints no receipt type.
+- Output: `QueryResult` carries every query verdict, and the index itself is the registered validity evidence.
 - Law: `BuildPolicy.Of` is the ONE admission — every scalar enters through a `Numerics/atoms` owner, so `Band.Count`'s closed floor of one is the authority that makes a zero leaf size, depth, bucket count, or parallel floor unrepresentable and the `IsAdmitted` bool it replaced carried nothing the band does not. `Canonical`'s figures each carry their provenance on site, because a band authorizes a RANGE and never a value. The packed-field ceiling DERIVES from `ChildShift`, both seated on `BuildPolicy` so the wire layout has ONE authority the projection reads, and `RefitGrowth` carries the degradation limit as a positive FRACTION above unity so a limit at or below one is unrepresentable rather than guarded. Far-field cut and every degeneracy floor on this page read `EpsilonPolicy.ZeroTolerance`, the branch's one degeneracy anchor — the ray slab included, its probe unitized at admission so the comparison shares that anchor's scale — so no page literal states either.
 - Output: `RangeHits` and `SlabHits` publish LEVEL order — the monotone walk's own discovery order, the owner's published order for a hit set (`DIGEST_OVER_UNORDERED_CONTAINER`); `Nearest` publishes ascending distance, `Pairs` the dual descent's own order, and `Field` the query-point order the caller supplied.
 - Exemption: the build kernels keep mutable accumulators for exactly one build — the octree's `List<(int Lo, int Hi)> runs` per cell, the agglomerative round's `nearest` and survivor arrays, the pooled `Arena`, bucket, bin, and partition spans, and the `Compact` visit/map arrays — and every one dies at `Freeze`; k-nearest selection composes the `Rasm.Domain` `Ranked` cell under `ExtremumDirection.Minimum`, whose `Bound` is the walk's pruning threshold, so the page holds no `PriorityQueue` of its own.
@@ -882,7 +882,6 @@ public static class Spatial {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

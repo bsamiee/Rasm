@@ -2001,7 +2001,7 @@ const _SUITE: { readonly [K in _DashboardModel.Pack]: (board: _DashboardModel.Bo
 - Law: `wire` stays a pattern-refined string here and `iac`'s `_PACKS` tuple owns the closed admitted set, so this decode originates no provenance key and an unadmitted one refuses at the typed boundary that earns it rather than at a second roster forked into this branch.
 - Packages: `@rasm\/contracts` (`rasm/contracts/board/board_pb`); `@bufbuild/protobuf` (`MessageShape`), `@bufbuild/protobuf/wkt` (`durationMs`); `effect` (`Array`, `Either`, `Option`, `ParseResult`, `Schema`); `../interchange/format.ts` (`Format.proto`); `./slo.ts` (`Reliability`).
 - Growth: a ninth panel widget is one `_WIDGETS` arm; a sixth indicator is one `_SLIS` arm; a fifth burn row or third severity is a `./slo.ts` table edit both ends re-derive with no arm here.
-- Boundary: this owner decodes and folds; realizing a board or a rule group is `typescript:iac/operate/observe#BOARD_APPLY`'s, and the producing projection is `dotnet:Rasm.Compute/Runtime/board#TS_PROJECTION`.
+- Boundary: this owner decodes and folds; realizing a board or a rule group is `typescript:iac/operate/observe#BOARD_APPLY`'s.
 
 ```typescript
 const _PACK_SPAN = { h: 8, w: 12 } as const
@@ -2317,7 +2317,6 @@ export { Board }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

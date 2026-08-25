@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_SOLID_IMPORT]
 
-`SolidImport` admits one detached input `SolidMesh`, one canonical `MeshSpace`, and one evidence-bearing receipt. `SolidFormat` binds each admitted extension to its provider read, `SolidPolicy` ADMITS tessellation through reader posture as one gated value, `SolidWeld` and `SolidFacePolicy` condition triangle soup ahead of measurement, `SolidTopology` proves input structure before kernel admission, and provider handles terminate at ingress. `SolidProjection` carries its own view delegate over the settled receipt.
+`SolidImport` admits one detached input `SolidMesh`, one canonical `MeshSpace`, and one evidence-bearing result. `SolidFormat` binds each admitted extension to its provider read, `SolidPolicy` ADMITS tessellation through reader posture as one gated value, `SolidWeld` and `SolidFacePolicy` condition triangle soup ahead of measurement, `SolidTopology` proves input structure before kernel admission, and provider handles terminate at ingress. `SolidProjection` carries its own view delegate over the settled result.
 
 `MeshSpace`, `HealPlan`, `Heal`, `HealSession`, `Context`, and `Op` arrive settled from the kernel meshing and processing owners; `SourceSnapshot` arrives settled from `Ingress/profile#RAW_ADMISSION` as the sub-domain's ONE byte-to-path materialization. `ContentHash.Of` is the one kernel digest mint every fabrication egress key seeds from. `Process/faults` allocates this lane `IngressProviderUnavailable` over provider-neutral `SourceLocus.SolidSource`, `SourceLocus.MeshFace` for triangle evidence, `IngressGeometryUnfit` for a structurally inadmissible mesh, and `PolicyInadmissible` on `FabConcern.Ingress` for every declared-value refusal. Public entries defer boundary work on `Eff`, and each closes its `Fin` back onto that rail through `ToEff` rather than publishing a nested carrier.
 
@@ -12,13 +12,13 @@
 
 ## [02]-[RAW_ADMISSION]
 
-- Owner: `SolidSource` is the one raw solid gate over a `SolidPath` and a `SolidPolicy`; `SolidFormat` binds each admitted extension to its provider read as a constructor delegate; `SolidTolerance`, `SolidUnitPolicy`, `SolidWeld`, `SolidFacePolicy`, `SolidClosure`, `RepairLaw`, and `ThreeMfReadMode` carry tessellation, unit, conditioning, closure, repair, and reader posture as ADMITTED values; `SolidUnits` owns the two provider-unit correspondences and the millimetres-per-unit factor the seam receipt records; `SolidDetached` is the internal carrier every provider read lands on and `SolidProviderEvidence` retains what that provider published.
+- Owner: `SolidSource` is the one raw solid gate over a `SolidPath` and a `SolidPolicy`; `SolidFormat` binds each admitted extension to its provider read as a constructor delegate; `SolidTolerance`, `SolidUnitPolicy`, `SolidWeld`, `SolidFacePolicy`, `SolidClosure`, `RepairLaw`, and `ThreeMfReadMode` carry tessellation, unit, conditioning, closure, repair, and reader posture as ADMITTED values; `SolidUnits` owns the two provider-unit correspondences and the millimetres-per-unit factor the seam result records; `SolidDetached` is the internal carrier every provider read lands on and `SolidProviderEvidence` retains what that provider published.
 - Cases: `SolidFormat` closes step · iges · stl · 3dm · 3mf; `SolidUnitPolicy` closes declared · assume · override; `SolidWeld` closes none · quantized; `SolidFacePolicy` closes reject · drop; `SolidClosure` closes surface · manifold · watertight; `RepairLaw` closes never · dirty · always over its `Applies` predicate column; `ThreeMfReadMode` closes strict · recovery; `ThreeMfExtension` closes the production, beam-lattice, slice, and volumetric namespaces the vendored native carries; `SolidDiagnostic` closes reader · skipped · unsupported · part · native · degenerate.
 - Law: `SolidWeld` names what it does. `Quantized` SNAPS vertices onto a declared grid and coalesces the collisions — that is a quantization, not a proximity weld, and two vertices a hair apart across a grid line stay distinct under it; `None` coalesces NOTHING, so an unwelded triangle soup reports every edge as boundary exactly as the source carries it. The prior `Within(tolerance)` spelling promised a within-tolerance fusion the grid never performed and still coalesced under its own `None` case.
 - Law: BOTH provider unit correspondences answer on `Option`. A 3MF model unit the binding adds and a 3DM unit the alias adds are the same absence, so neither throws and neither defaults — `SolidUnits` is one table family with one shape. Mapperly is REFUSED here and the refusal is structural: its emission is `global::`-qualified exclusively with no extern-alias machinery, so it cannot address the `R3` unit at all, and splitting one correspondence across two mechanisms is the worse fork.
 - Entry: `SolidFormat.Admit(SolidPath)` resolves an extension to its row, and `format.Read(SolidSource, byte[])` is the one provider leg returning `Fin<SolidDetached>` — every provider handle opens and closes inside it.
-- Auto: a native declaration is evidence, never implicit scale — `CModel.GetUnit` and `File3dm.Settings.ModelUnitSystem` publish a declared unit while the OCCT formats publish none, so `SolidUnitPolicy.Declared` refuses an absent declaration and `Assume` or `Override` is how an OCCT source admits at all, and the policy row that resolved the unit lowers onto the seam `UnitResolution` the receipt records: `Declared` and an `Assume` the provider's own declaration satisfied both read `Declared`, an `Assume` falling back to its policy default reads `Assumed`, and `Override` reads `Overridden` — the one distinction that tells a millimetre a STEP file never claimed from a millimetre it did; the 3MF read censuses its component EDGES first and rails `IsDirectedAcyclicGraph` before any traversal runs, so a cyclic component graph refuses typed rather than being caught by an ancestor set threaded down a recursion; a 3DM BRep admits its stored face meshes because the read-side binding exposes no tessellator, and an unmeshed face fails typed rather than silently dropping a solid; `CReader.ReadFromBuffer` parses the same byte snapshot `SourceDigest` identifies, so the digest names exactly what was read.
-- Output: one `SolidDetached` — the merged provider-unit `SolidMesh`, the declared `LengthUnit` where the provider published one, and `SolidProviderEvidence` carrying native version, source part count, the exact provider bounds, build identity, and the diagnostic stream. Provider reads publish that declaration and NOTHING about the scale: `[03]`'s `Units` owns both the policy that resolves it and the factor it applies, so the seam `MeasureEvidence` mints THERE — a receipt minted here names a conversion no arm has run.
+- Auto: a native declaration is evidence, never implicit scale — `CModel.GetUnit` and `File3dm.Settings.ModelUnitSystem` publish a declared unit while the OCCT formats publish none, so `SolidUnitPolicy.Declared` refuses an absent declaration and `Assume` or `Override` is how an OCCT source admits at all, and the policy row that resolved the unit lowers onto the seam `UnitResolution` the result records: `Declared` and an `Assume` the provider's own declaration satisfied both read `Declared`, an `Assume` falling back to its policy default reads `Assumed`, and `Override` reads `Overridden` — the one distinction that tells a millimetre a STEP file never claimed from a millimetre it did; the 3MF read censuses its component EDGES first and rails `IsDirectedAcyclicGraph` before any traversal runs, so a cyclic component graph refuses typed rather than being caught by an ancestor set threaded down a recursion; a 3DM BRep admits its stored face meshes because the read-side binding exposes no tessellator, and an unmeshed face fails typed rather than silently dropping a solid; `CReader.ReadFromBuffer` parses the same byte snapshot `SourceDigest` identifies, so the digest names exactly what was read.
+- Output: one `SolidDetached` — the merged provider-unit `SolidMesh`, the declared `LengthUnit` where the provider published one, and `SolidProviderEvidence` carrying native version, source part count, the exact provider bounds, build identity, and the diagnostic stream. Provider reads publish that declaration and NOTHING about the scale: `[03]`'s `Units` owns both the policy that resolves it and the factor it applies, so the seam `MeasureEvidence` mints THERE — a result minted here names a conversion no arm has run.
 - Packages: `OcctNet.Wrapper` owns STEP/IGES/STL B-rep read and tessellation; `lib3mf` owns 3MF model, reader, build-item, and component traversal; `Rhino3dm` under `extern alias R3` owns 3DM document and stored face-mesh read; `QuikGraph` rails the component-graph acyclicity; `Thinktecture.Runtime.Extensions` owns the closed policy families and their admission; `UnitsNet` owns every declared length, angle, and area; `LanguageExt.Core` owns the rails and immutable carriers.
 - Growth: a new file family is one `SolidFormat` row carrying its extensions and its read delegate; a new provider observation is one `SolidDiagnostic` case; a new 3MF extension probe is one `ThreeMfExtension` row; a new reader posture is one `ThreeMfReadMode` row; a new provider unit is one `SolidUnits` row.
 - Exemption: the `using` acquisition of every `OcctShape`, `CModel`, `CReader`, iterator, build item, and `File3dm` is the provider statement kernel — a resource boundary is the law it expresses, not an accumulation.
@@ -516,12 +516,12 @@ public static partial class SolidImport {
 
 ## [03]-[CANONICAL_OWNER]
 
-- Owner: `SolidMesh` is the sole detached millimeter carrier; `SolidTopology` owns incidence, shell, orientation, genus, and bounds measurement; `SolidWeldEvidence` retains the conditioning fold; `SolidRepairEvidence` retains the heal session; `Units` resolves the source unit and mints the seam `MeasureEvidence` for it, never a lane-local twin of that receipt's columns; `SolidImportReceipt` is the settled evidence carrier every projection reads.
+- Owner: `SolidMesh` is the sole detached millimeter carrier; `SolidTopology` owns incidence, shell, orientation, genus, and bounds measurement; `SolidWeldEvidence` retains the conditioning fold; `SolidRepairEvidence` retains the heal session; `Units` resolves the source unit and mints the seam `MeasureEvidence` for it, never a lane-local twin of that result's columns; `ImportedSolid` is the settled evidence carrier every projection reads.
 - Law: the per-shell census is ONE pass over the triangles and ONE over the edge map, both after the sweep has settled every union. Reading the shell of each edge once per shell made a mesh of `s` shells and `e` edges pay `s * e` comparisons for a partition each edge already names.
-- Entry: `SolidImport.Read(SolidSource)` returns one deferred `Eff<SolidImportReceipt>` folding byte read, format admission, provider read, unit resolution, conditioning, measurement, kernel admission, repair, and closure on one rail — the `Fin` closes back onto `Eff` through `ToEff`, so the entry publishes its declared carrier rather than a nested one.
+- Entry: `SolidImport.Read(SolidSource)` returns one deferred `Eff<ImportedSolid>` folding byte read, format admission, provider read, unit resolution, conditioning, measurement, kernel admission, repair, and closure on one rail — the `Fin` closes back onto `Eff` through `ToEff`, so the entry publishes its declared carrier rather than a nested one.
 - Auto: measurement runs edge census and the `ForestDisjointSet<int>` triangle-shell merge in one sweep, then derives boundary, non-manifold, and unused counts, per-shell signed volume against a tolerance-cubed floor, Euler characteristic per shell, and genus only where the conditioned mesh is watertight AND oriented, so an open shell reports no genus rather than a fabricated one; `SolidFacePolicy` treats a collapsed, duplicate, or sliver face as data under `Drop` and names it through `SourceLocus.MeshFace` under `Reject`; `InputMesh` and `InputTopology` bind the conditioned snapshot while `Space` and `Repair.Session.FinalStatus` bind the possibly repaired one, so a repair never overwrites the input evidence a rejection cites; `SolidClosure` reads input topology or final heal status, so a healed source satisfies a watertight demand its unhealed input fails.
-- Receipt: `SolidImportReceipt` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, the seam `Rasm.Element/Properties/quantity#UNIT_SCHEME` `MeasureEvidence` for the applied unit scale — `QuantityType.Length` over `1` of the resolved source unit against its millimetre canonical, the `UnitResolution` naming whether that unit was declared by the provider, assumed by policy, or caller-overridden — the conditioned input mesh with its weld evidence, input topology, the kernel `MeshSpace`, optional repair evidence, and the provider evidence with its exact bounds rescaled to millimeters.
-- Packages: `MeshSpace` owns kernel admission, `HealPlan` and `Heal` own repair and its session; `QuikGraph.Collections.ForestDisjointSet<int>` owns the triangle-to-shell partition and publishes its live `SetCount`; `UnitsNet` carries volume, length, and area evidence; `Rasm.Element` (project) owns `MeasureEvidence` the ONE conversion receipt, `UnitResolution` its posture vocabulary, and `QuantityType` the family identity; `LanguageExt.Core` owns the rails and immutable carriers.
+- Result: `ImportedSolid` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, the seam `Rasm.Element/Properties/quantity#UNIT_SCHEME` `MeasureEvidence` for the applied unit scale — `QuantityType.Length` over `1` of the resolved source unit against its millimetre canonical, the `UnitResolution` naming whether that unit was declared by the provider, assumed by policy, or caller-overridden — the conditioned input mesh with its weld evidence, input topology, the kernel `MeshSpace`, optional repair evidence, and the provider evidence with its exact bounds rescaled to millimeters.
+- Packages: `MeshSpace` owns kernel admission, `HealPlan` and `Heal` own repair and its session; `QuikGraph.Collections.ForestDisjointSet<int>` owns the triangle-to-shell partition and publishes its live `SetCount`; `UnitsNet` carries volume, length, and area evidence; `Rasm.Element` (project) owns `MeasureEvidence` the ONE conversion result, `UnitResolution` its posture vocabulary, and `QuantityType` the family identity; `LanguageExt.Core` owns the rails and immutable carriers.
 - Growth: a new measured property is one `SolidTopology` field derived inside the one sweep; a new conditioning rule is one reason arm in the weld fold beside its `SolidDiagnostic.Degenerate` row; a new closure demand is one `SolidClosure` case with one predicate arm.
 - Exemption: vertex coalescing, face admission, and the edge-census shell-partition sweep are the bounded statement kernels — each is a single traversal whose incremental index IS the algorithm, and every fold around them is expression-shaped.
 - Boundary: `SolidTopology.Measure` refuses typed on a non-finite vertex, a non-triple index count, or an out-of-range index rather than throwing an admission gate; `Native` is the one place a kernel `Mesh` is constructed and no kernel handle travels back out.
@@ -571,7 +571,7 @@ public sealed partial record SolidTopology(
 
 public sealed record SolidRepairEvidence(RepairLaw Policy, HealSession Session);
 
-public sealed record SolidImportReceipt(
+public sealed record ImportedSolid(
     UInt128 SourceDigest,
     SolidFormat Format,
     MeasureEvidence Units,
@@ -583,7 +583,7 @@ public sealed record SolidImportReceipt(
     SolidProviderEvidence Provider);
 
 public static partial class SolidImport {
-    public static Eff<SolidImportReceipt> Read(SolidSource source) => Eff.lift(() =>
+    public static Eff<ImportedSolid> Read(SolidSource source) => Eff.lift(() =>
         from raw in source.Policy.Key.Catch(() => Fin.Succ(File.ReadAllBytes(source.Path.Value)))
             .MapFail(error => Classify(source.Path, error))
         from format in SolidFormat.Admit(source.Path)
@@ -599,7 +599,7 @@ public static partial class SolidImport {
             Exact = detached.Evidence.Exact.Map(bounds => bounds.Scale(scale)),
             Diagnostics = detached.Evidence.Diagnostics.Concat(welded.Diagnostics),
         }
-        select new SolidImportReceipt(
+        select new ImportedSolid(
             ContentHash.Of(raw), format, units,
             welded.Mesh, welded.Evidence, topology,
             admitted.Space, admitted.Repair,
@@ -848,11 +848,12 @@ public sealed partial record SolidTopology {
 ## [04]-[PROJECTION_EGRESS]
 
 - Owner: `SolidProjection` is the closed egress row carrying its own view delegate, and `SolidView` carries each row's result shape.
-- Cases: space · input-mesh · input-topology · bounds · units · diagnostics · repair · receipt.
-- Entry: `SolidProjection.<row>.Project(SolidImportReceipt)` — the row IS the dispatch, so the eight payload-free request cases and the eight-arm `Switch` that read them both die.
+- Cases: space · input-mesh · input-topology · bounds · units · diagnostics · repair.
+- Entry: `SolidProjection.<row>.Project(ImportedSolid)` — the row is the dispatch.
 - Auto: the bounds view reads the provider's exact rescaled bounding envelope where one exists and the measured input bounds otherwise, so stock sized from a tessellation-derived bounding envelope never reads tighter than the solid it was sampled from.
 - Growth: a new egress is one `SolidProjection` row carrying its delegate and one `SolidView` case.
-- Boundary: `SolidRepairEvidence.Session.FinalStatus` carries repaired topology status beside the explicit input snapshot, so both states read off one receipt; exact CAD and 3MF round-trip belongs to a representation-preserving owner, never this triangulating ingress.
+- Boundary: callers already holding `ImportedSolid` consume it directly; projections expose only derived views.
+- Boundary: `SolidRepairEvidence.Session.FinalStatus` carries repaired topology status beside the explicit input snapshot, so both states read off one result; exact CAD and 3MF round-trip belongs to a representation-preserving owner, never this triangulating ingress.
 
 ```csharp
 // --- [PROJECTION_EGRESS] ---------------------------------------------------------------
@@ -866,30 +867,26 @@ public abstract partial record SolidView {
     public sealed record Units(MeasureEvidence Value) : SolidView;
     public sealed record Diagnostics(Seq<SolidDiagnostic> Value) : SolidView;
     public sealed record Repair(Option<SolidRepairEvidence> Value) : SolidView;
-    public sealed record Receipt(SolidImportReceipt Value) : SolidView;
 }
 
 [SmartEnum<string>]
 public sealed partial class SolidProjection {
     public static readonly SolidProjection Space = new("space",
-        static receipt => new SolidView.Space(receipt.Space));
+        static result => new SolidView.Space(result.Space));
     public static readonly SolidProjection InputMesh = new("input-mesh",
-        static receipt => new SolidView.InputMesh(receipt.InputMesh));
+        static result => new SolidView.InputMesh(result.InputMesh));
     public static readonly SolidProjection InputTopology = new("input-topology",
-        static receipt => new SolidView.InputTopology(receipt.InputTopology));
+        static result => new SolidView.InputTopology(result.InputTopology));
     public static readonly SolidProjection Bounds = new("bounds",
-        static receipt => new SolidView.Bounds(receipt.Provider.Exact.IfNone(receipt.InputTopology.Bounds)));
+        static result => new SolidView.Bounds(result.Provider.Exact.IfNone(result.InputTopology.Bounds)));
     public static readonly SolidProjection Units = new("units",
-        static receipt => new SolidView.Units(receipt.Units));
+        static result => new SolidView.Units(result.Units));
     public static readonly SolidProjection Diagnostics = new("diagnostics",
-        static receipt => new SolidView.Diagnostics(receipt.Provider.Diagnostics));
+        static result => new SolidView.Diagnostics(result.Provider.Diagnostics));
     public static readonly SolidProjection Repair = new("repair",
-        static receipt => new SolidView.Repair(receipt.Repair));
-    public static readonly SolidProjection Receipt = new("receipt",
-        static receipt => new SolidView.Receipt(receipt));
-
+        static result => new SolidView.Repair(result.Repair));
     [UseDelegateFromConstructor]
-    public partial SolidView Project(SolidImportReceipt receipt);
+    public partial SolidView Project(ImportedSolid result);
 }
 ```
 
@@ -897,7 +894,6 @@ public sealed partial class SolidProjection {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

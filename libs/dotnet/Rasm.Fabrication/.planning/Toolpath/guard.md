@@ -1,28 +1,28 @@
 # [RASM_FABRICATION_GUARD]
 
-`Guard` owns fail-closed motion admission from one aggregate request through arc-true planar sweep, protected-surface gouge, fixture and stock collision, medial-clearance, voxel-field, and robot-cell probes. `GuardReceipt` retains every hazard, its overlap severity, the probe scope it executed, and every provider warning, while provider errors terminate on the typed failure rail; no probe hides a prior contact or degrades a geometric failure into an empty result.
+`Guard` owns fail-closed motion admission from one aggregate request through arc-true planar sweep, protected-surface gouge, fixture and stock collision, medial-clearance, voxel-field, and robot-cell probes. `GuardVerdict` retains every hazard, its overlap severity, the probe scope it executed, and every provider warning, while provider errors terminate on the typed failure rail; no probe hides a prior contact or degrades a geometric failure into an empty result.
 
-`Guard.Check` consumes one admitted `GuardRequest`. `GuardScope` separates a probed verdict from one elided by the clearance plane, so `GuardReceipt.Proven` distinguishes tested-and-clear from untested where `Clear` alone cannot. `HolderState` makes mounted and certified holder evidence mutually exclusive, `HolderCertificate.Admit` binds omission evidence to the exact `ToolAssembly.Identity`, cutter, operation, scope, and `ConservativeEnvelope` holder footprint, and native `Voxels` custody terminates inside the probe capsule.
+`Guard.Check` consumes one admitted `GuardRequest`. `GuardScope` separates a probed verdict from one elided by the clearance plane, so `GuardVerdict.Proven` distinguishes tested-and-clear from untested where `Clear` alone cannot. `HolderState` makes mounted and certified holder evidence mutually exclusive, `HolderCertificate.Admit` binds omission evidence to the exact `ToolAssembly.Identity`, cutter, operation, scope, and `ConservativeEnvelope` holder footprint, and native `Voxels` custody terminates inside the probe capsule.
 
 ## [01]-[INDEX]
 
-- [02]-[GUARD]: `GuardRequest` closes aggregate admission, `HolderState` closes holder posture, `GuardScope` closes probe disposition, `GuardProbe` adds sidecar voxel and robot-cell evidence, and `Guard.Check` returns one accumulated `GuardReceipt`.
+- [02]-[GUARD]: `GuardRequest` closes aggregate admission, `HolderState` closes holder posture, `GuardScope` closes probe disposition, `GuardProbe` adds sidecar voxel and robot-cell evidence, and `Guard.Check` returns one accumulated `GuardVerdict`.
 
 ## [02]-[GUARD]
 
-- Owner: `GuardRequest` is the admitted move, part, stock, fixture, fixture-state, policy, and probe aggregate; `GuardReceipt` is its evidence-complete result. `Fixture.Zones` is the sole exclusion-zone owner and the spatial-index ordinal domain; stock carries blank, forbidden, and snapshot geometry only.
-- Cases: `HolderState` admits a mounted `ToolAssembly` or an identity-bound `HolderCertificate`; `ProbeRoute` admits the scalar reference or receipt-backed measured path; `GuardScope` admits a probed or plane-elided disposition; `GuardProbe` admits voxel-field and robot-cell providers; `RobotCollisionAdmission` closes accepted and refused provider evidence; `Hazard` closes gouge, fixed-zone, static-keepout, stock, channel, voxel, and robot contact.
+- Owner: `GuardRequest` is the admitted move, part, stock, fixture, fixture-state, policy, and probe aggregate; `GuardVerdict` is its evidence-complete result. `Fixture.Zones` is the sole exclusion-zone owner and the spatial-index ordinal domain; stock carries blank, forbidden, and snapshot geometry only.
+- Cases: `HolderState` admits a mounted `ToolAssembly` or an identity-bound `HolderCertificate`; `ProbeRoute` admits the scalar reference or claim-backed measured path; `GuardScope` admits a probed or plane-elided disposition; `GuardProbe` admits voxel-field and robot-cell providers; `RobotCollisionAdmission` closes accepted and refused provider evidence; `Hazard` closes gouge, fixed-zone, static-keepout, stock, channel, voxel, and robot contact.
 - Law: every owner on this plane accumulates its INDEPENDENT axes through the `AdmissionSlots.Gate` deferred-mint arity and refuses on `<owner>:<axis>`, so a caller learns each bad column and a refusal token names the one that failed; the gate threads `FabConcern.Toolpath` and the locus into `FabricationFault.Inadmissible` on the failing arm alone, so a passing gate allocates nothing and a plane-local `Of(admitted, locus)` wrapper closing over the one concern has no job left. Dimensioned columns ride the kernel lane that names their gate — `ToleranceLane.Gouge` for the swept-face allowance, `ToleranceLane.Chord` for arc densification — so `Band` owns each range and no validator re-tests finiteness. The gouge allowance is `Option` because zero shrink is a real posture that `Band.Length` opens above; the clearance plane, the channel margin, and the probe pitch stay bare measures, being a work-coordinate ordinate, an additive standoff, and a sampling pitch respectively, none of which any lane derives.
 - Cases: `FabricationBenchClaims` rosters the five kernel `BenchClaim` rows — NFP placement, ICP probe fit, skeleton offset, bend search, parallel clearance. `AcceptedBenchmarkClaim` binds one accepted result to the host digest its pass was stamped over, and `ProbeRoute.Measured` admits only the `ClearanceParallel` case, so unrelated solver evidence cannot authorize parallel clearance.
-- Law: every roster row pairs with the measuring case beside its lane owner — `NestBench` at `Nesting/nfp`, `ProbeBench` at `Verify/probing`, `SkeletonBench` at `Toolpath/skeleton`, `BrakeBench` at `Forming/brake`, `ClearanceBench` here — each a workload admission plus the measured fold in folder types; measurement columns and the receipt projection stay the bench edge's under the `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` Fabrication row, and `ClearanceBench.Reference` is the same-run cost the field map's reference-evidence law carries for the one lane-pair claim.
-- Law: `AcceptedBenchmarkClaim.Admit` takes judgment as a `Func<string, UInt128, bool>` seam over the claim key and the `BenchmarkReceipt.ClaimKey` digest, the exact pair `BenchmarkGate.Judge` at `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` resolves when it stamps `BenchmarkVerdict.Pass` — the Fabrication row keys `{Suite}/{Case}` under that page's own field map. This package supplies the bench roster and the host digest, never a verdict, and never persists one.
+- Law: every roster row pairs with the measuring case beside its lane owner — `NestBench` at `Nesting/nfp`, `ProbeBench` at `Verify/probing`, `SkeletonBench` at `Toolpath/skeleton`, `BrakeBench` at `Forming/brake`, `ClearanceBench` here — each a workload admission plus the measured fold in folder types; measurement columns and the benchmark projection stay the bench edge's under the `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` Fabrication row, and `ClearanceBench.Reference` is the same-run cost the field map's reference-evidence law carries for the one lane-pair claim.
+- Law: `AcceptedBenchmarkClaim.Admit` takes judgment as a `Func<string, UInt128, bool>` seam over the claim key and the `Benchmark.ClaimKey` digest, the exact pair `BenchmarkGate.Judge` at `Rasm.AppHost/Observability/benchmarks#CLAIM_FIELD_MAP` resolves when it stamps `BenchmarkVerdict.Pass` — the Fabrication row keys `{Suite}/{Case}` under that page's own field map. This package supplies the bench roster and the host digest, never a verdict, and never persists one.
 - Entry: `Guard.Check(GuardRequest)` preserves the frozen `Check` operation name and accumulates independent contacts through `Traverse`, `As`, and `Bind`.
 - Auto: planar straight and circular moves lower once to an arc-true trajectory, round-ended offset sweeps retain cutter and holder separation, one `Surfaces` row set traverses every planar obstacle class against the shared cutter-and-holder `Faces` table, feed moves drop the cutter face against stock while the holder face always tests, and channel pinch uses the larger swept radius with the admitted margin.
-- Receipt: `HolderEvidence` carries mounted or certified payload without a boolean cross-product; `ContactWitness` carries the contact point and its overlap area so `Hazard.Severity` ranks contacts rather than leaving them unordered; `ClearanceEvidence` retains minimum medial clearance, the optional skeleton witness, the requested route, and whether the parallel substrate executed; `VoxelContact` retains obstacle, membership, overlap volume, ray witness, and native memory; `RobotContact` retains provider target, meshes, duration, target census, and warnings, and PRESENCE of one is the collision — `RobotCollisionEvidence.Hit` and `RobotCollisionAdmission.Accepted.Contact` are both `Option`, so no reader pairs a flag with columns meaningful only under it.
-- Receipt: `GuardReceipt` keeps its name on evidence and band it genuinely carries — `Hazards` with `Severity` ordering, `Scope`, and `Holder` — and does NOT seat on `Receipt<TEvidence>`: that carrier requires a `ContentKey` and an `Instant`, and `Guard.Check` runs once per `Move` inside the commit walk. `EgressKind` names machine artifacts, so no row keys a motion-admission verdict, and a stamp on a pure per-move fold buys a clock read per move for a fact nothing settles. `Clear` and `Proven` stay a PAIR because `GuardScope` makes them different questions — no hazards found, versus no hazards found by a lane that ran.
+- Output: `HolderEvidence` carries mounted or certified payload without a boolean cross-product; `ContactWitness` carries the contact point and its overlap area so `Hazard.Severity` ranks contacts rather than leaving them unordered; `ClearanceEvidence` retains minimum medial clearance, the optional skeleton witness, the requested route, and whether the parallel substrate executed; `VoxelContact` retains obstacle, membership, overlap volume, ray witness, and native memory; `RobotContact` retains provider target, meshes, duration, target census, and warnings, and PRESENCE of one is the collision — `RobotCollisionEvidence.Hit` and `RobotCollisionAdmission.Accepted.Contact` are both `Option`, so no reader pairs a flag with columns meaningful only under it.
+- Law: `GuardVerdict` has no key or stamp — `Guard.Check` runs once per `Move` inside the commit walk, and a clock read per move would capture no settled fact. `Clear` and `Proven` stay a pair because `GuardScope` makes them different questions — no hazards found, versus no hazards found by a lane that ran.
 - Packages: `ToolMagazine.HolderEnvelope` derives mounted and certified holder footprints; `ArcAlgebra.Densify` preserves circular motion; `PolygonAlgebra.Apply` owns offset and intersection and receives the calling `Op` key so a trace refusal names its operation; `RegionNode.SignedArea` supplies contact severity without a second measure pass; `Spatial.Apply` owns indexed pruning; `CurveSkeleton.Clearance` owns arbitrary-probe clearance; `MemoryOwner<T>`, `ParallelHelper.For2D` with the admitted partition floor, and `TensorPrimitives` own pooled measured clearance reduction; PicoGK owns copied SDF intersection, membership, and ray witnesses; `MotionEvidence` supplies the admitted joint-and-duration trajectory the cell probe tests; `IRobotCollisionProvider` owns the executable robot-cell collision boundary and every provider handle behind it; kernel `Rasm.Domain` supplies `Tolerance` and `ToleranceLane` for the gate columns and `Rasm.Element` `AdmissionSlots` the one slot primitive, while `UnitsNet` `Length` carries the policy head's dimensioned magnitudes.
 - Growth: a new obstacle is one `Hazard` case and one `Surfaces` row, a new swept face is one `Faces` row every obstacle class inherits, a new provider is one `GuardProbe` case, and a new execution substrate is one evidence-carrying `ProbeRoute` case.
-- Boundary: `Clearance` and `ArcSpan` are the named statement kernels — pooled measured reduction and arc-frame numerics respectively; Rhino-native planar geometry stays inside the package wire, the cell probe names NO provider type — `CellCollisionRequest` carries the frozen `MotionEvidence` trajectory and a kernel `MeshSpace` environment, so the `Robots` and Rhino3dm alias crossing stays solely at `Kinematics/cell` — and PicoGK resources remain bracketed inside `ProbeVoxel`; no provider geometry escapes `GuardReceipt`.
+- Boundary: `Clearance` and `ArcSpan` are the named statement kernels — pooled measured reduction and arc-frame numerics respectively; Rhino-native planar geometry stays inside the package wire, the cell probe names NO provider type — `CellCollisionRequest` carries the frozen `MotionEvidence` trajectory and a kernel `MeshSpace` environment, so the `Robots` and Rhino3dm alias crossing stays solely at `Kinematics/cell` — and PicoGK resources remain bracketed inside `ProbeVoxel`; no provider geometry escapes `GuardVerdict`.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -598,7 +598,7 @@ public abstract partial record Hazard {
         robot: static _ => double.PositiveInfinity);
 }
 
-public sealed record GuardReceipt(
+public sealed record GuardVerdict(
     Move Move,
     GuardScope Scope,
     Seq<Hazard> Hazards,
@@ -627,7 +627,7 @@ file readonly record struct ClearanceAction(Arr<Point3d> Points, CurveSkeleton C
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Guard {
-    public static Fin<GuardReceipt> Check(GuardRequest request) =>
+    public static Fin<GuardVerdict> Check(GuardRequest request) =>
         from trajectory in Trajectory(request.Move, request.Part.Cursor, request.Policy)
         from swept in Sweep(trajectory, request.Stock, request.Policy)
         let scope = PlanarScope(request)
@@ -645,7 +645,7 @@ public static class Guard {
         let channelHazards = clearance.Filter(evidence => evidence.MinimumMm < swept.RequiredClearanceMm)
             .Map(evidence => Seq<Hazard>(new Hazard.Channel(evidence, swept.RequiredClearanceMm)))
             .IfNone(Seq<Hazard>())
-        select new GuardReceipt(
+        select new GuardVerdict(
             request.Move,
             scope,
             planar.Concat(channelHazards).Concat(probeRows.Bind(static row => row.Hazards)),
@@ -784,7 +784,7 @@ public static class Guard {
         ArcAlgebra.Densify(new ArcProjection.Lower(exact, error))
             .Bind(static trace => trace
                 .Lowering(FabricationFault.Inadmissible(FabConcern.Toolpath, "guard:arc-projection-shape"))
-                .Map(static evidence => evidence.Result));
+                .Map(static evidence => evidence.Output));
 
     private static Fin<Seq<ExclusionZone>> StaticCandidates(SweptEnvelope swept, GuardRequest request) =>
         swept.Combined.IsEmpty
@@ -953,7 +953,6 @@ public static class ClearanceBench {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

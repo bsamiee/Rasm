@@ -75,7 +75,7 @@ Browser-mode suites are never mutated: the mutation runner does not support them
 - Screenshot goldens commit through `snapshotPathTemplate` keyed per project and platform, so a new CI platform mints a golden, never breaking one.
 - One target-agnostic fixture tower resolves every origin at one arming seam, so a spec speaks `target.open`/`target.origin`, blind to its world.
 - Every platform capability lands with the falsification twin proving it can fail; a blocked scenario class is a named skip carrying its activation.
-- k6's load lane is a subprocess boundary: the kit decodes the summary receipt, the exit code decides, and the lane self-activates on a k6 binary.
+- k6's load lane is a subprocess boundary: the kit decodes the summary JSON, the exit code decides, and the lane self-activates on a k6 binary.
 
 ## [08]-[GATES]
 

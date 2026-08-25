@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [02]-[RAW_ADMISSION]: `ProfileSource` the one raw gate, unit/read/lane/entity/closure policy admitted as declared values, `ProfileFormat` encoding discrimination and provider read, `SourceSnapshot` the sub-domain's byte materialization, and the `ProfileCensus` survey leg.
-- [03]-[CANONICAL_OWNER]: provenance-preserving lowering through owning frames, the `MarkingContent` annotation family with its host-ordinal admission and sampler evidence, the order-independent entity dispatch table, `ProfileTopology` stitching over one union-find pass, and the `ProfileImportReceipt` digest, census, repair, and extent evidence.
+- [03]-[CANONICAL_OWNER]: provenance-preserving lowering through owning frames, the `MarkingContent` annotation family with its host-ordinal admission and sampler evidence, the order-independent entity dispatch table, `ProfileTopology` stitching over one union-find pass, and the `ImportedProfile` digest, census, repair, and extent evidence.
 - [04]-[PROJECTION_EGRESS]: `ProfileProjection` the closed egress row carrying its own view delegate, `ProfileView` carrying each row's result shape.
 - [05]-[INGRESS_FOLD]: `IngressSource`, `AdmittedGeometry`, and the total `Ingress.Admit` dispatch every sibling ingress page terminates in.
 
@@ -36,7 +36,6 @@ using ACadSharp.Types.Units;
 using CSMath;
 using LanguageExt;
 using LanguageExt.Common;
-using NodaTime;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Collections;
@@ -445,17 +444,17 @@ public static partial class ProfileImport {
 
 ## [03]-[CANONICAL_OWNER]
 
-- Owner: `ProfileContour` carries one provider-lowered `Loop` with its `ProfileProvenance`; `ProfileMarking` carries a located, rotated annotation over the closed `MarkingContent` family and admits no loop; `MarkingType` carries the line sequence, height, style, and `MarkingAnchor` every text-bearing case shares; `ProfileEntity` owns the order-independent lowering dispatch; `ProfileTopology` owns stitching, closure sealing, cleanup, densification, and region derivation; `ProfileImportReceipt` is the settled evidence carrier every projection reads.
+- Owner: `ProfileContour` carries one provider-lowered `Loop` with its `ProfileProvenance`; `ProfileMarking` carries a located, rotated annotation over the closed `MarkingContent` family and admits no loop; `MarkingType` carries the line sequence, height, style, and `MarkingAnchor` every text-bearing case shares; `ProfileEntity` owns the order-independent lowering dispatch; `ProfileTopology` owns stitching, closure sealing, cleanup, densification, and region derivation; `ImportedProfile` is the settled evidence carrier every projection reads.
 - Cases: `ProfileRepair` closes joined · closed · cleaned · densified · sampled · topology, each carrying the provenance it repaired beside its measured delta; `MarkingContent` closes glyph · text · paragraph · tag; `MarkingSide`, `MarkingRung`, `MarkingFit`, and `MarkingFlag` re-close the provider justification, stretch, and attribute-flag vocabularies by carrying the host ordinals as columns; `SplineSampler` closes parametric · tessellated · refit.
 - Law: entity lowering resolves by walking the provider type's OWN base chain from most-derived upward, so a table row for a base can never shadow the row for a type that derives from it. The prior `switch` ladder made three arms order-critical — placed attribute before single-line text, exploded unit ellipse before the general conic — and carried three comment warnings saying so; the walk makes declaration order decide nothing.
 - Law: DXF codes 11/21/31 govern placement exactly where code 72 or 73 is nonzero, so `MarkingContent.Text.Align` places every `MarkingAnchor` outside `Left`/`Baseline` and `ProfileMarking.At` places the rest; both points survive lowering because `TextEntity.ApplyTransform` and `GetBoundingBox` read `InsertPoint` alone, leaving a transformed provider entity's alignment point stale.
 - Law: stitching is ONE pairwise endpoint census, ONE union pass, and ONE ordered walk per component. Re-scoring every candidate pair after each merge paid cubic distance tests for a relation the endpoints already fix; the fork guard runs FIRST, so each surviving component is a simple chain whose order is the walk from either free end.
-- Entry: `ProfileImport.Read(ProfileSource)` returns one deferred `Eff<ProfileImportReceipt>` folding ONE byte read, ONE document open, notice rejection, unit resolution, entity lowering, census derivation, and topology repair on one rail over one entity snapshot.
+- Entry: `ProfileImport.Read(ProfileSource)` returns one deferred `Eff<ImportedProfile>` folding ONE byte read, ONE document open, notice rejection, unit resolution, entity lowering, census derivation, and topology repair on one rail over one entity snapshot.
 - Auto: entity coordinates lower through their owning frame, so a mirrored normal inverts bulge sense wherever the frame maps; one hatch emits one contour per `Paths` row, its line, circular-arc, and polyline leaves preserving exact endpoints and bulges while its ellipse and spline leaves compose the provider's own samplers; the spline arm walks the owner's parametric evaluator first and falls back to its bulk tessellator then its fit-point rebuild in order, the surviving sampler landing as `ProfileRepair.Sampled` evidence; an insertion lowers the placed attribute collection beside its exploded children, because the provider's explode leg enumerates the block record alone; `ProfileProvenance` preserves the entity handle and ordinal set, so each fault names its entity and `Validation` accumulates every rejection in one pass; `ProfileBlock` preserves nested insert identity and replica indices through arbitrary depth, and the block-reference graph rails `IsDirectedAcyclicGraph` over bare edges read off the block TABLE before any lowering runs, so a cyclic block refuses typed rather than being caught by an ancestor set threaded down a walk that has already lowered half the drawing.
-- Receipt: `ProfileImportReceipt` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, the census, `ProfileUnitEvidence`, contours, markings, regions, extents, and the typed repair sequence; `Loops` projects the boundary set without re-walking provenance, and `ProfileMarking.Tag` names the one key a traveler or posted program looks a marking up by.
+- Result: `ImportedProfile` carries the source digest minted from the file bytes through `ContentHash.Of`, the admitted format, the census, `ProfileUnitEvidence`, contours, markings, regions, extents, and the typed repair sequence; `Loops` projects the boundary set without re-walking provenance, and `ProfileMarking.Tag` names the one key a traveler or posted program looks a marking up by.
 - Packages: `ArcAlgebra` composes `CavalierContours` for arc-native cleanup and densification; `PolygonAlgebra` composes `Clipper2` for fill-rule region topology; `QuikGraph` `ForestDisjointSet<int>` partitions the stitch candidates and `IsDirectedAcyclicGraph` rails the block-reference census; `Loop` owns bulge-bearing admission; `UnitsNet` carries every join distance, closure gap, glyph height, and area delta; `LanguageExt.Core` owns the rails and immutable carriers.
 - Growth: a new provider entity is one dispatch ROW beside its loop factory; a new annotation modality is one `MarkingContent` case beside its lowering arm; a new sampler is one `SplineSampler` row; a new repair species is one `ProfileRepair` case carrying its measured evidence; a new grouping axis is one field on the provenance key the stitch and normalize folds already read.
-- Boundary: closure is demanded only from lanes `ProfileLane.Closes` marks, so an open bend run reaches the receipt unhealed; provider justification, attachment, stretch, and attribute-flag rosters resolve through owned rows carrying those ordinals, so no provider enum reaches the receipt and no arm restates a roster; `ProfileTopology` reopens no source file and holds no provider handle, because admission already terminated every provider type.
+- Boundary: closure is demanded only from lanes `ProfileLane.Closes` marks, so an open bend run reaches the result unhealed; provider justification, attachment, stretch, and attribute-flag rosters resolve through owned rows carrying those ordinals, so no provider enum reaches the result and no arm restates a roster; `ProfileTopology` reopens no source file and holds no provider handle, because admission already terminated every provider type.
 
 ```csharp
 // --- [CANONICAL_OWNER] -----------------------------------------------------------------
@@ -657,7 +656,7 @@ public sealed record ProfileUnitEvidence(
     LengthUnit Canonical,
     double MillimeterScale);
 
-public sealed record ProfileImportReceipt(
+public sealed record ImportedProfile(
     UInt128 SourceDigest,
     ProfileFormat Format,
     ProfileCensus Census,
@@ -735,7 +734,7 @@ public static partial class ProfileImport {
         .ToDictionary(static row => row.Subject, static row => row.Lower)
         .ToFrozenDictionary();
 
-    public static Eff<ProfileImportReceipt> Read(ProfileSource source) => Eff.lift(() =>
+    public static Eff<ImportedProfile> Read(ProfileSource source) => Eff.lift(() =>
         from raw in ReadOp.Catch(() => Fin.Succ(File.ReadAllBytes(source.Path.Value)))
             .MapFail(error => Classify(source.Path, error))
         from format in ProfileFormat.Admit(source.Path)
@@ -749,7 +748,7 @@ public static partial class ProfileImport {
             from repaired in ProfileTopology.Repair(lowered.Contours, source.Policy)
             let census = Census(
                 format, source, document.Header.InsUnits, LayerNames(document), entities, notices.Value)
-            select new ProfileImportReceipt(
+            select new ImportedProfile(
                 ContentHash.Of(raw), format, census,
                 new ProfileUnitEvidence(scale.Evidence, source.Policy.Units, LengthUnit.Millimeter, scale.Scale),
                 repaired.Contours, lowered.Markings.ToArr(), repaired.Regions,
@@ -992,7 +991,10 @@ public static partial class ProfileImport {
 }
 
 public static class ProfileTopology {
-    public sealed record Receipt(Arr<ProfileContour> Contours, Arr<ProfileRegion> Regions, Seq<ProfileRepair> Repairs);
+    public sealed record RepairedProfile(
+        Arr<ProfileContour> Contours,
+        Arr<ProfileRegion> Regions,
+        Seq<ProfileRepair> Repairs);
 
     private readonly record struct Stitched(Seq<ProfileContour> Contours, Seq<ProfileRepair> Repairs);
 
@@ -1001,17 +1003,17 @@ public static class ProfileTopology {
 
     private readonly record struct Link(int Left, int Right, double Distance);
 
-    public static Fin<Receipt> Repair(Seq<ProfileContour> contours, ProfilePolicy policy) => policy.Closure.Switch(
+    public static Fin<RepairedProfile> Repair(Seq<ProfileContour> contours, ProfilePolicy policy) => policy.Closure.Switch(
         state: (Contours: contours, Policy: policy),
         open: static (state, _) => Normalize(state.Contours, state.Policy, demandClosed: false, gap: 0d),
         exact: static (state, _) => state.Contours.IsEmpty
-            ? Fin.Fail<Receipt>(Degenerate("profile-topology:empty"))
+            ? Fin.Fail<RepairedProfile>(Degenerate("profile-topology:empty"))
             : Normalize(state.Contours, state.Policy, demandClosed: true, gap: 0d),
         healed: static (state, closure) => state.Contours.IsEmpty
-            ? Fin.Fail<Receipt>(Degenerate("profile-topology:empty"))
+            ? Fin.Fail<RepairedProfile>(Degenerate("profile-topology:empty"))
             : Normalize(state.Contours, state.Policy, demandClosed: true, closure.MaxGap.Value.Millimeters));
 
-    private static Fin<Receipt> Normalize(
+    private static Fin<RepairedProfile> Normalize(
         Seq<ProfileContour> contours, ProfilePolicy policy, bool demandClosed, double gap) =>
         from stitched in Stitch(contours, policy.Tolerance, gap)
         from closed in stitched.Contours.Find(row => demandClosed && row.Provenance.Lane.Closes && !row.Loop.Closed)
@@ -1021,7 +1023,7 @@ public static class ProfileTopology {
                 None: () => Fin.Succ(stitched.Contours))
         from groups in toSeq(closed.GroupBy(Key))
             .Traverse(group => NormalizeGroup(toSeq(group), policy).ToValidation()).As().ToFin()
-        select new Receipt(
+        select new RepairedProfile(
             groups.Bind(static group => group.Contours).ToArr(),
             groups.Map(static group => group.Region).Somes().ToArr(),
             stitched.Repairs.Concat(groups.Bind(static group => group.Repairs)));
@@ -1039,21 +1041,21 @@ public static class ProfileTopology {
               ArcTrace.Forest arm => Fin.Succ(arm),
               _ => Fin.Fail<ArcTrace.Forest>(Degenerate("profile-topology:clean")),
           }
-          from lowered in evidence.Result.Loops
+          from lowered in evidence.Geometry.Loops
               .Traverse(loop => ArcAlgebra
                   .Densify(new ArcProjection.Lower(loop, policy.Tolerance.Absolute.Value))
                   .Bind(static trace => trace.Lowering(Inadmissible("profile-topology:densify")))
                   .ToValidation()).As().ToFin()
           from trace in PolygonAlgebra.Apply(
-              new PolygonOp.Topology(lowered.Map(static evidence => evidence.Result), policy.Fill))
+              new PolygonOp.Topology(lowered.Map(static evidence => evidence.Output), policy.Fill))
           from topology in trace.Regioned(Inadmissible("profile-topology:projection"))
           let provenance = head.Provenance
-          let admitted = evidence.Result.Loops
+          let admitted = evidence.Geometry.Loops
           select new Normalized(
               admitted.Map(loop => new ProfileContour(loop, provenance)),
               Some(new ProfileRegion(provenance, topology)),
-              Cleanup(provenance, rows, evidence.Receipt)
-                  .Concat(lowered.Map(receipt => Densification(provenance, receipt)).Somes())
+              Cleanup(provenance, rows, evidence.Evidence)
+                  .Concat(lowered.Map(result => Densification(provenance, result)).Somes())
                   .Concat(Areas(provenance, rows, admitted))),
         None: () => Fin.Succ(new Normalized(rows, Option<ProfileRegion>.None, Seq<ProfileRepair>())));
 
@@ -1196,8 +1198,8 @@ public static class ProfileTopology {
     }
 
     private static Seq<ProfileRepair> Cleanup(
-        ProfileProvenance provenance, Seq<ProfileContour> before, ArcReceipt receipt) => receipt switch {
-        ArcReceipt.Clean arm when arm.Loops.Count != before.Count
+        ProfileProvenance provenance, Seq<ProfileContour> before, ArcEvidence result) => result switch {
+        ArcEvidence.Clean arm when arm.Loops.Count != before.Count
             || arm.Loops.Fold(0, static (sum, evidence) => sum + evidence.OutputSegments)
                 != before.Fold(0, static (sum, row) => sum + row.Loop.Spans) =>
             Seq<ProfileRepair>(new ProfileRepair.Cleaned(
@@ -1206,11 +1208,11 @@ public static class ProfileTopology {
         _ => Seq<ProfileRepair>(),
     };
 
-    private static Option<ProfileRepair> Densification(ProfileProvenance provenance, DensifyEvidence receipt) =>
-        receipt.SourceSpans == receipt.OutputSpans
+    private static Option<ProfileRepair> Densification(ProfileProvenance provenance, DensifyEvidence result) =>
+        result.SourceSpans == result.OutputSpans
             ? None
             : Some<ProfileRepair>(new ProfileRepair.Densified(
-                provenance, receipt.ErrorBound, receipt.SourceSpans, receipt.OutputSpans));
+                provenance, result.ErrorBound, result.SourceSpans, result.OutputSpans));
 
     private static Seq<ProfileRepair> Areas(
         ProfileProvenance provenance, Seq<ProfileContour> before, Seq<Loop> after) =>
@@ -1232,11 +1234,11 @@ public static class ProfileTopology {
 ## [04]-[PROJECTION_EGRESS]
 
 - Owner: `ProfileProjection` is the closed egress row carrying its own view delegate, and `ProfileView` carries each row's result shape.
-- Cases: loops · lanes · layers · regions · markings · tags · bounds · repairs · census · receipt.
-- Entry: `ProfileProjection.<row>.Project(ProfileImportReceipt)` — the row IS the dispatch, so the ten payload-free request cases and the ten-arm `Switch` that read them both die.
+- Cases: loops · lanes · layers · regions · markings · tags · bounds · repairs · census.
+- Entry: `ProfileProjection.<row>.Project(ImportedProfile)` — the row is the dispatch.
 - Auto: the lane and layer views group the admitted contours through one provenance-keyed fold, so a grouping axis is a key selector rather than a second projection body; the tag view keys placed attributes by their own name through `ProfileMarking.Tag`, so a traveler or posted program resolves a part mark or heat number by name rather than casting through the content family.
 - Growth: a new egress is one `ProfileProjection` row carrying its delegate and one `ProfileView` case.
-- Boundary: projection returns settled evidence alone — a consumer needing geometry the receipt does not carry re-reads the source through `Read`, never through this fold.
+- Boundary: callers already holding `ImportedProfile` consume it directly; projections expose only derived views.
 
 ```csharp
 // --- [PROJECTION_EGRESS] ---------------------------------------------------------------
@@ -1252,36 +1254,32 @@ public abstract partial record ProfileView {
     public sealed record Bounds(BoundingBox Value) : ProfileView;
     public sealed record Repairs(Seq<ProfileRepair> Value) : ProfileView;
     public sealed record Census(ProfileCensus Value) : ProfileView;
-    public sealed record Receipt(ProfileImportReceipt Value) : ProfileView;
 }
 
 [SmartEnum<string>]
 public sealed partial class ProfileProjection {
     public static readonly ProfileProjection Loops = new("loops",
-        static receipt => new ProfileView.Loops(receipt.Loops));
+        static result => new ProfileView.Loops(result.Loops));
     public static readonly ProfileProjection Lanes = new("lanes",
-        static receipt => new ProfileView.Lanes(toSeq(receipt.Contours.GroupBy(static row => row.Provenance.Lane))
+        static result => new ProfileView.Lanes(toSeq(result.Contours.GroupBy(static row => row.Provenance.Lane))
             .Map(static group => (group.Key, toSeq(group).ToArr())).ToMap()));
     public static readonly ProfileProjection Layers = new("layers",
-        static receipt => new ProfileView.Layers(toSeq(receipt.Contours.GroupBy(static row => row.Provenance.Layer))
+        static result => new ProfileView.Layers(toSeq(result.Contours.GroupBy(static row => row.Provenance.Layer))
             .Map(static group => (group.Key, toSeq(group).ToArr())).ToMap()));
     public static readonly ProfileProjection Regions = new("regions",
-        static receipt => new ProfileView.Regions(receipt.Regions));
+        static result => new ProfileView.Regions(result.Regions));
     public static readonly ProfileProjection Markings = new("markings",
-        static receipt => new ProfileView.Markings(receipt.Markings));
+        static result => new ProfileView.Markings(result.Markings));
     public static readonly ProfileProjection Tags = new("tags",
-        static receipt => new ProfileView.Tags(ProfileImport.TagsOf(receipt.Markings)));
+        static result => new ProfileView.Tags(ProfileImport.TagsOf(result.Markings)));
     public static readonly ProfileProjection Bounds = new("bounds",
-        static receipt => new ProfileView.Bounds(receipt.Extents));
+        static result => new ProfileView.Bounds(result.Extents));
     public static readonly ProfileProjection Repairs = new("repairs",
-        static receipt => new ProfileView.Repairs(receipt.Repairs));
+        static result => new ProfileView.Repairs(result.Repairs));
     public static readonly ProfileProjection Census = new("census",
-        static receipt => new ProfileView.Census(receipt.Census));
-    public static readonly ProfileProjection Receipt = new("receipt",
-        static receipt => new ProfileView.Receipt(receipt));
-
+        static result => new ProfileView.Census(result.Census));
     [UseDelegateFromConstructor]
-    public partial ProfileView Project(ProfileImportReceipt receipt);
+    public partial ProfileView Project(ImportedProfile result);
 }
 
 public static partial class ProfileImport {
@@ -1296,8 +1294,8 @@ public static partial class ProfileImport {
 ## [05]-[INGRESS_FOLD]
 
 - Owner: `Ingress` is the sub-domain's one source-to-admitted-geometry dispatch; `IngressSource` closes every admitted raw source and `AdmittedGeometry` closes every admitted result.
-- Cases: profile · solid · steel · element on both families, each arm binding its own page's reader and receipt.
-- Entry: `Ingress.Admit(IngressSource, IClock)` returns one deferred `Eff<AdmittedGeometry>` — the `S1 Ingress` entry the folder `ARCHITECTURE.md` `[02]-[STRATA]` names. Clock enters here rather than at each lane because a settled receipt stamps where it settles, and this fold is the one place every lane shares.
+- Cases: profile · solid · steel · element on both families, each arm binding its own page's reader and result.
+- Entry: `Ingress.Admit(IngressSource)` returns one deferred `Eff<AdmittedGeometry>` — the `S1 Ingress` entry the folder `ARCHITECTURE.md` `[02]-[STRATA]` names.
 - Growth: a new admitted source is one `IngressSource` case, one `AdmittedGeometry` case, and one total `Switch` arm bound to that page's reader.
 - Boundary: the fold seats beside the profile owner because the sub-domain publishes one entry and earns no page of its own; every arm reaches a sibling page's public reader and none reaches a sibling's interior; `SteelImport.Read` takes its contour policy as a second argument the `IngressSource.Steel` case carries, so the fold never re-decides a page's own policy shape; `ElementImport.Admit` is synchronous and lifts here rather than widening its own signature for one consumer.
 
@@ -1315,22 +1313,21 @@ public abstract partial record IngressSource {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AdmittedGeometry {
     private AdmittedGeometry() { }
-    public sealed record Profiles(ProfileImportReceipt Receipt) : AdmittedGeometry;
-    public sealed record Mesh(SolidImportReceipt Receipt) : AdmittedGeometry;
-    public sealed record Steel(Receipt<SteelImportEvidence> Receipt) : AdmittedGeometry;
+    public sealed record Profiles(ImportedProfile Profile) : AdmittedGeometry;
+    public sealed record Mesh(ImportedSolid Solid) : AdmittedGeometry;
+    public sealed record Steel(ImportedSteel Import) : AdmittedGeometry;
     public sealed record Elements(ElementAdmission Admission) : AdmittedGeometry;
 }
 
 public static class Ingress {
-    public static Eff<AdmittedGeometry> Admit(IngressSource source, IClock clock) => source.Switch(
-        state: clock,
-        profile: static (_, arm) => ProfileImport.Read(arm.Source)
-            .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Profiles(receipt)),
-        solid: static (_, arm) => SolidImport.Read(arm.Source)
-            .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Mesh(receipt)),
-        steel: static (settling, arm) => SteelImport.Read(arm.Source, arm.Policy, settling)
-            .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Steel(receipt)),
-        element: static (_, arm) => Eff.lift(() => ElementImport.Admit(arm.Source))
+    public static Eff<AdmittedGeometry> Admit(IngressSource source) => source.Switch(
+        profile: static arm => ProfileImport.Read(arm.Source)
+            .Map(result => (AdmittedGeometry)new AdmittedGeometry.Profiles(result)),
+        solid: static arm => SolidImport.Read(arm.Source)
+            .Map(result => (AdmittedGeometry)new AdmittedGeometry.Mesh(result)),
+        steel: static arm => SteelImport.Read(arm.Source, arm.Policy)
+            .Map(result => (AdmittedGeometry)new AdmittedGeometry.Steel(result)),
+        element: static arm => Eff.lift(() => ElementImport.Admit(arm.Source))
             .Map(admission => (AdmittedGeometry)new AdmittedGeometry.Elements(admission)));
 }
 ```
@@ -1339,7 +1336,6 @@ public static class Ingress {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

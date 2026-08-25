@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CLICKHOUSE]
 
-`ClickHouse.Driver` owns the distributed columnar OLAP backend over the ClickHouse HTTP interface: the thread-safe connection-pooled `ClickHouseClient`, the full ADO.NET provider mirror, the parallel RowBinary bulk-ingest rail, the `QueryStats` throughput receipt, and an `ActivitySource` diagnostics surface emitting `db.*`/`db.clickhouse.*` OpenTelemetry tags. It is the billion-row scale-out backend class beyond the in-PG TimescaleDB hypertable tier and the embedded DuckDB analytical floor, admitted through the `Store/provisioning` store-profile algebra as a non-transactional append sink.
+`ClickHouse.Driver` owns the distributed columnar OLAP backend over the ClickHouse HTTP interface: the thread-safe connection-pooled `ClickHouseClient`, the full ADO.NET provider mirror, the parallel RowBinary bulk-ingest rail, the `QueryStats` throughput summary, and an `ActivitySource` diagnostics surface emitting `db.*`/`db.clickhouse.*` OpenTelemetry tags. It is the billion-row scale-out backend class beyond the in-PG TimescaleDB hypertable tier and the embedded DuckDB analytical floor, admitted through the `Store/provisioning` store-profile algebra as a non-transactional append sink.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -40,11 +40,11 @@
 |  [08]   | `ClickHouseParameterCollection`     | parameter set    | named `{name:Type}` placeholder substitution                    |
 |  [09]   | `ClickHouseDataAdapter`             | data adapter     | `DbDataAdapter` fill surface                                    |
 
-[PUBLIC_TYPE_SCOPE]: ingest format, receipt, POCO/JSON mapping, and diagnostics; the `ClickHouse.Driver.Types` column type-system is internal engine machinery, and `ClickHouseDecimal` (`readonly struct`, `IConvertible`, `IComparable<decimal>`) reads `Decimal128`/`Decimal256` past `System.Decimal` range under `ClickHouseClientSettings.UseCustomDecimals`
+[PUBLIC_TYPE_SCOPE]: ingest format, query summary, POCO/JSON mapping, and diagnostics; the `ClickHouse.Driver.Types` column type-system is internal engine machinery, and `ClickHouseDecimal` (`readonly struct`, `IConvertible`, `IComparable<decimal>`) reads `Decimal128`/`Decimal256` past `System.Decimal` range under `ClickHouseClientSettings.UseCustomDecimals`
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]      | [CAPABILITY]                                                                |
 | :-----: | :------------------------------- | :----------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `QueryStats`                     | ingest receipt     | `record` of `ReadRows`/`WrittenRows`/`ResultRows`/`ElapsedNs` + byte counts |
+|  [01]   | `QueryStats`                     | query summary      | `record` of `ReadRows`/`WrittenRows`/`ResultRows`/`ElapsedNs` + byte counts |
 |  [02]   | `RowBinaryFormat`                | codec enum         | `RowBinary` / `RowBinaryWithDefaults`                                       |
 |  [03]   | `JsonReadMode` / `JsonWriteMode` | JSON codec enum    | `Binary` / `String` / `None` ClickHouse JSON column policy                  |
 |  [04]   | `ClickHouseColumnAttribute`      | POCO mapping       | `[ClickHouseColumn(Name, Type)]` on a property                              |
@@ -115,7 +115,7 @@
 - `UseCompression` (default) sets gzip request/response encoding; the reader requires the `HttpClient` `AutomaticDecompression` it does not itself decode.
 - `RowBinaryFormat.RowBinary` is the dense insert format; `RowBinaryWithDefaults` lets the server fill omitted column defaults.
 - `BearerToken` sets `Authorization: Bearer`, else HTTP Basic from `Username`/`Password`; `Roles` projects ClickHouse RBAC role names per query.
-- `QueryStats` is the columnar-throughput receipt parsed from the `X-ClickHouse-Summary` response header; after any command it lands on `Command.QueryStats` with `QueryId` and `ServerTimezone`, and the client query path threads it through the diagnostics span as the `Store/provisioning` profile throughput receipt feeding a gauge.
+- `QueryStats` is the columnar-throughput summary parsed from the `X-ClickHouse-Summary` response header; after any command it lands on `Command.QueryStats` with `QueryId` and `ServerTimezone`, and the client query path threads it through the diagnostics span to feed a gauge.
 
 [STACKING]:
 - snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner crosses into a column through its generated conversion metadata (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`) — `IConvertible<TKey>.ToValue()` projects the owner to its key, an attributed POCO field (`[ClickHouseColumn]`) carries the key into `InsertBinaryAsync<T>`, and the inverse decodes the `ClickHouseDataReader` column back through the same factory.
@@ -135,6 +135,6 @@
 
 [RAIL_LAW]:
 - Package: `ClickHouse.Driver`
-- Owns: HTTP-interface columnar OLAP query, parallel RowBinary bulk ingest, the ADO.NET provider mirror, the `QueryStats` throughput receipt, and `ActivitySource` diagnostics
-- Accept: thread-safe `ClickHouseClient` reuse, `InsertBinaryAsync` with profile-declared batch and parallelism, `QueryStats`-driven throughput receipts, `ActivitySource` telemetry through the AppHost tracer, `ClickHouseServerException` fault discrimination on `ErrorCode`
+- Owns: HTTP-interface columnar OLAP query, parallel RowBinary bulk ingest, the ADO.NET provider mirror, the `QueryStats` throughput summary, and `ActivitySource` diagnostics
+- Accept: thread-safe `ClickHouseClient` reuse, `InsertBinaryAsync` with profile-declared batch and parallelism, `QueryStats`-driven throughput telemetry, `ActivitySource` telemetry through the AppHost tracer, `ClickHouseServerException` fault discrimination on `ErrorCode`
 - Reject: per-call `HttpClient` construction, parallel bulk insert under an enabled session, transaction-scoped writes, surfacing the internal `ClickHouse.Driver.Types` type-system as a consumer API, reading `ClickHouseConnection.State` or `DbConnection.StateChange` as a health signal, and the retired `ClickHouseBulkCopy` ingest path whose `BatchSent` reports a cumulative row total the admitted `InsertBinaryAsync` rail publishes no callback for

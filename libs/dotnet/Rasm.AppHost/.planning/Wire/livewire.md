@@ -2,9 +2,9 @@
 
 Rasm.AppHost owns one reactive bidirectional binding studio: industrial transport rows carry OPC-UA, OPC-UA PubSub, Modbus, MQTT, serial, BACnet, MTConnect, REST, GraphQL, spreadsheet, and ERP/PLM through one read/write contract. Binding specs pair external sources with directed internal targets, inbound values coerce through the Compute unit algebra, write-back commits or rolls back with evidence, and binding health tracks connection state.
 
-Settled composition: `Quality`, `Symbol`, `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `CapabilityLaw<TCapability>` arrive from `Rasm/Domain/validation`; `Transition<TState>` and `Cell.Seat`/`Step`/`Take` from `Rasm/Domain/rails#TRANSITION`; `Retriability`, `RedrivePolicy`, and `Verdict` from `Rasm/Domain/rails#REDRIVE`; `FaultBand.LiveWire` from `Rasm/Domain/rails#FAULT_BAND`; `CanonicalWriter`/`ContentHash` from `Rasm/Domain/identity#CONTENT_KEY`; `ReceiptSinkPort` and `TenantContext` from `Rasm/Domain/frame`.
+Settled composition: `Quality`, `Symbol`, `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `CapabilityLaw<TCapability>` arrive from `Rasm/Domain/validation`; `Transition<TState>` and `Cell.Seat`/`Step`/`Take` from `Rasm/Domain/rails#TRANSITION`; `Retriability`, `RedrivePolicy`, and `Verdict` from `Rasm/Domain/rails#REDRIVE`; `FaultBand.LiveWire` from `Rasm/Domain/rails#FAULT_BAND`; `CanonicalWriter`/`ContentHash` from `Rasm/Domain/identity#CONTENT_KEY`; `TenantContext` from `Rasm/Domain/frame`.
 
-In-folder: `ClockPolicy`, `DeadlineClass`, `ScheduleEntry`, and `OccurrenceSpec` from Runtime/time; `ReceiptKind` from Observability/instruments#RECEIPT_PROJECTION; `OutboundHop`, `HopOutcome`, and `OutboundSurface.Carry` from Wire/outbound; `DrainSpec`/`DrainQueue` from Runtime/resources#DRAIN_QUEUES; `TraceContext`/`TenantAdoption` and `Correlation` from Observability/telemetry.
+In-folder: `ClockPolicy`, `DeadlineClass`, `ScheduleEntry`, and `OccurrenceSpec` from Runtime/time; `AppHostMeasure` and `InstrumentSet` from Observability/instruments; `AppHostPoint`, `AppHostFact`, and `HookRail` from Observability/hooks; `OutboundHop`, `HopOutcome`, and `OutboundSurface.Carry` from Wire/outbound; `DrainSpec`/`DrainQueue` from Runtime/resources#DRAIN_QUEUES; `TraceContext`/`TenantAdoption` and `Correlation` from Observability/telemetry.
 
 This page owns the transport axis, binding direction, edge coercion, write transaction, and health lifecycle, and it mints no eighth port. Every live-wire schedule entry and every un-hopped foreign await takes `DeadlineClass.HopAttempt`, so no transport row carries a deadline column of its own.
 
@@ -14,11 +14,10 @@ This page owns the transport axis, binding direction, edge coercion, write trans
 - [03]-[LANE_SUBSTRATE]: Protocol-agnostic lane — held-client family, bounded queue, seat-and-take client cell.
 - [04]-[STREAMING_CLIENTS]: OPC-UA, PubSub, MQTT, serial, and BACnet openers with their held seats.
 - [05]-[REQUEST_CLIENTS]: HTTP, Modbus, and MTConnect request bodies with the Modbus address-space algebra.
-- [06]-[MACHINE_LANE]: Machine-observation decode and receipt fan the Fabrication consumers read.
-- [07]-[BINDING_SPEC]: Source-target binding, protocol admission, direction, edge unit coercion, and poll/subscribe cadence.
-- [08]-[WRITE_BACK]: Outbound write-back transaction, acknowledgement, refusal, and rollback.
-- [09]-[BINDING_HEALTH]: Per-binding connect/subscribe/stale/fault lifecycle and health contribution.
-- [10]-[TS_PROJECTION]: Generated binding-status, coercion, and write-receipt producers plus host-local observation projection.
+- [06]-[BINDING_SPEC]: Source-target binding, protocol admission, direction, edge unit coercion, and poll/subscribe cadence.
+- [07]-[WRITE_BACK]: Outbound write-back transaction, acknowledgement, refusal, and rollback.
+- [08]-[BINDING_HEALTH]: Per-binding connect/subscribe/stale/fault lifecycle and health contribution.
+- [09]-[TS_PROJECTION]: Generated binding-status, coercion, and write-outcome producers.
 
 ## [02]-[TRANSPORT_AXIS]
 
@@ -26,11 +25,11 @@ This page owns the transport axis, binding direction, edge coercion, write trans
 - Cases: opc-ua, opc-ua-pubsub, modbus, mqtt, serial, bacnet, mtconnect, rest, graphql, spreadsheet, erp-plm — each carrying its read body, its write body or the absent arm that IS its refusal, its opener or none, its transport-owned schedule entries, the hop class its bytes ride, the protocol mappings it ADMITS, the echo class its protocol publishes, and the surface its out-of-band faults reach; opc-ua-pubsub is the broadcast edge dialing a broker or a UDP multicast group rather than the server's `opc.tcp` endpoint, bacnet the building-management edge (COV-subscribed metered points, confirmed-request write) and mtconnect the machine-tool observation edge (the `-Common` model slice over the row's HTTP hop, read-only); `WireProtocol` = None | MqttJson | MqttUadp | UdpUadp, the ten point-to-point rows admitting `{None}` alone and opc-ua-pubsub admitting the three real mappings; `EchoClass` = absent | stamped | tokened | slotted and `EchoDiscriminator` = Absent | Stamped | Tokened | Slotted its measured counterpart; `FaultSurface` = keep-alive | connection | disconnect | confirmed, absence being the row's `None`; `WireFault` = ConnectRejected | ReadFailed | WriteRejected | WriteFailed | ProtocolRefused | UnitRejected | StaleSource | TransportFaulted | TransportRefused; `Quality` = Good | Uncertain(Symbol) | Bad(Symbol), the kernel verdict every protocol boundary mints from the status it holds.
 - Entry: `row.Read(runtime, spec, token)` returns `IO<ExternalValue>`, `row.Write(runtime, spec, value)` returns `IO<EchoDiscriminator>`, `row.Entries(runtime, handle)` returns `Seq<ScheduleEntry>`, `row.Open` answers the opener the activation fold runs, and `row.Watch(runtime, spec)` returns `Option<WireFault>` — five columns on ONE roster, so the axis owns both the row shape and its dispatch and no adapter table stands beside it.
 - Auto: a row seating an opener is subscribe-shaped and one answering `None` is poll-shaped, so `ReadShape` DERIVES off the opener column and the two can never disagree; the transport bytes ride the existing `OutboundHop` cases — REST, GraphQL, spreadsheet, ERP/PLM, and MTConnect on `HttpApi`, MQTT, OPC-UA, and OPC-UA PubSub on a keyed `ServerStream` pipeline, serial and Modbus on the `CompanionSpawn` process-spawn adapter where the FluentModbus/`SerialPort` client owns the line inside the companion — so the resilience, retry, and breaker semantics are the existing hop policy, never a per-transport retry loop; the `Write` column's absent arm gates the write-back so a read-only source (a spreadsheet view, a PubSub subscriber) rejects at the row and admission reads the same column, never at the transaction; the `Protocols` column gates admission so a binding selecting a mapping its edge cannot carry refuses at `Bind` with the axis named; every `WireFault` case answers kernel `Retriability` so the four protocol legs classify a code and decide nothing.
-- Receipt: `ExternalValue` carries the reading where one exists, its declared unit, the kernel `Quality` its source stated, the source timestamp, the echo payload the protocol published, and the binding's admitted tenancy; a write answers the payload it minted, so both ends of a suppression comparison exist as evidence.
+- Result: `ExternalValue` carries the reading where one exists, its declared unit, the kernel `Quality` its source stated, the source timestamp, the echo payload the protocol published, and the binding's admitted tenancy; a write answers the payload it minted, so both ends of a suppression comparison are measured.
 - Packages: OPCFoundation.NetStandard.Opc.Ua, OPCFoundation.NetStandard.Opc.Ua.PubSub, MQTTnet, FluentModbus, System.IO.Ports, BACnet, MTConnect.NET-Common, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one transport row absorbs a new industrial edge — a new fieldbus or ERP connector is one `ExternalTransport` row carrying its five behaviour columns and its policy, never a parallel adapter; a new echo proof is one `EchoClass` row and its `EchoDiscriminator` arm implementing `IEchoProof<TSelf>`, breaking the class projection and the arm's own static column until the pair lands; a new PubSub mapping is one `WireProtocol` row carrying its profile URI; a new fault is one `WireFault` case with the `Retriability` it overrides; zero new surface.
 - Boundary: no transport-neutral echo token exists — three writable protocols publish a proof and each publishes a DIFFERENT one, so the axis splits the DECLARATION from the MEASUREMENT: the row's `EchoClass` column is valueless because a frozen row is written before any write runs, so a payload seated there is invented, and an epoch instant, a zero slot, or an empty key seated there reads identical to a measured proof at the comparison; the two ends join through `IEchoProof<TSelf>`, so a fifth proof breaks the arm that omits its class and the class projection that omits its arm; `Absent` is a real row and the suppression fold reads it FIRST, so a modbus, serial, or HTTP binding never reaches a payload comparison and reads its own write-back like any other value rather than under a heuristic time window; `MqttLane.Subscribe`'s `noLocal: true` filter is protocol-level echo suppression already enforced at the broker for a same-connection publish, and `Tokened` covers the cross-client case that flag cannot reach.
-- Boundary: quality is a three-state MEASUREMENT and never a bit — OPC-UA hands a `StatusCode` with its own good/uncertain/bad partition, PubSub a decode reason beside a field status, BACnet a status-flag word carrying fault and overridden, MTConnect an availability flag beside its own `Quality` enum, and a parse hands absence — so each boundary mints the kernel arm it holds and the reading rides `Option<double>` where `Bad` carries none; the mint is the only constructor so no consumer can build a good value carrying no reading or a bad one carrying a number the source disowned; `Uncertain` COERCES because a source flagging its own reading doubtful still measured it, and its symbol rides the receipt — refusing it drops every BACnet point reporting through a fault and every MTConnect observation the agent left unverified.
+- Boundary: quality is a three-state MEASUREMENT and never a bit — OPC-UA hands a `StatusCode` with its own good/uncertain/bad partition, PubSub a decode reason beside a field status, BACnet a status-flag word carrying fault and overridden, MTConnect an availability flag beside its own `Quality` enum, and a parse hands absence — so each boundary mints the kernel arm it holds and the reading rides `Option<double>` where `Bad` carries none; the mint is the only constructor so no consumer can build a good value carrying no reading or a bad one carrying a number the source disowned; `Uncertain` COERCES because a source flagging its own reading doubtful still measured it, and its symbol rides the value — refusing it drops every BACnet point reporting through a fault and every MTConnect observation the agent left unverified.
 - Boundary: protocol selection splits the same way — the row ADMITS a set and the binding SELECTS one member, because the edge's capability is frozen at the row while one PubSub deployment picks its mapping per connection, so a single-valued column pinned on every row decides nothing and a selection seated on the row cannot express two connections against one edge; refusal at admission carries the axis name under `libs/.planning/ARCHITECTURE.md` `[10]-[CONSUMPTION_MODEL]`, so an unserved mapping never degrades to a neighbouring one; each `WireProtocol` row reads its profile URI off `Opc.Ua.Profiles` rather than spelling the string, and `WireProtocol.None` carries no URI at all because a point-to-point edge has no PubSub transport facet.
 - Boundary: a frozen row carries no endpoint — `Hop` is a `Func<LiveWireRuntime, BindingSpec, OutboundHop>` reading the binding's own external address and the composition's own companion spec, so the eleven `localhost` URI literals and the two `ProcessStartInfo` mints that sat inside `static readonly` rows leave the axis entirely and `ARCHITECTURE.md` `[05]-[BOUNDARIES]`'s composition-root-pin clause holds at every row; the transport axis is the only external-binding owner — a per-protocol client, a protocol-specific binding service, and a parallel poller are the deleted forms, so all eleven transports ride one adapter contract; the OPC-UA legs compose the OPC-Foundation-certified session/subscription/monitored-item surface and the `.PubSub` application, the MQTT leg composes `MQTTnet`, and the REST/GraphQL legs compose the existing `OutboundHop.HttpApi` — a hand-rolled OPC-UA or MQTT client is the deleted form; the transport never owns its own resilience — it composes the `OutboundHop` row its bytes ride, so a flapping Modbus source breaks on the same circuit breaker an HTTP API breaks on; the at-edge value carries its declared unit so the coercion at `BINDING_SPEC` reads a known unit, never a guessed one; spreadsheet and ERP/PLM transports that have no native streaming poll on the schedule cadence, so the cadence is the row's read mechanism, not a transport quirk.
 
@@ -292,13 +291,13 @@ public sealed partial class ExternalTransport {
 
 - Owner: `SubscriptionLane` the ONE lane record — the `Runtime/resources#DRAIN_QUEUES` `DrainQueue<ExternalValue>.Pipe` the foreign callback writes and the reactive read drains, the writer proved off its `Pipe` arm exactly once at `Open`, its detach rail, and the client it opened — with `Open`/`Drain`/`Submit` its own statics; `LiveClient` `[Union]` the held-connection family, one arm per subscribe row; `TransportSeat` `[Union]` the composition-supplied per-protocol configuration, factory, and seat state the runtime holds in ONE keyed column.
 - Cases: `LiveClient` = Opc | Mqtt | Serial | PubSub | Bacnet — `Opc` carries the session/subscription/item triple, `PubSub` the process-held application beside this binding's reader id, and a poll transport holds no arm because its client carries no per-binding state between frames; `TransportSeat` = Opc | Mqtt | Modbus | Serial | PubSub | Bacnet | Mtconnect, one arm per protocol whose composition seats a held handle or a factory.
-- Entry: `SubscriptionLane.Open(runtime, spec, detach, client)` returns `IO<SubscriptionLane>` — the drain-owned queue with its mandatory drop receipt; `SubscriptionLane.Drain(lane, token)` returns `IO<ExternalValue>` — the one reactive read; `SubscriptionLane.Submit(sink, value)` is the ONE submission point every foreign callback on the page reaches; `runtime.Seat<TSeat>(transport)` returns `Fin<TSeat>` — the one narrowing every lane runs at its entry; `runtime.Client(bindingId)` returns `Fin<LiveClient>` — the seated client every write and every teardown resolves through.
-- Auto: the client cell lives on the BINDING HANDLE rather than on a lane instance, so `Cell.Seat` answers `Committed` to the opener that landed the client and `Ceded` to a second opener racing a reconnect — the verdict a three-arm gate union declared and never constructed — and `Cell.Take` drains that cell at teardown so the closure disposing what it drained holds it and a second teardown drains `None` and disposes nothing; the drop receipt fans under `ReceiptKind.WireRejection` carrying the binding's own admitted tenancy and structured fault observation, so a lane's loss is counted against the tenant that owns it.
-- Receipt: every dropped value fans one wire receipt naming the binding and the dropped value's own source instant, so the drain owner's `DropOldest` policy is accounted rather than silent.
+- Entry: `SubscriptionLane.Open(runtime, spec, detach, client)` returns `IO<SubscriptionLane>` — the drain-owned queue with its drop counter; `SubscriptionLane.Drain(lane, token)` returns `IO<ExternalValue>` — the one reactive read; `SubscriptionLane.Submit(sink, value)` is the ONE submission point every foreign callback on the page reaches; `runtime.Seat<TSeat>(transport)` returns `Fin<TSeat>` — the one narrowing every lane runs at its entry; `runtime.Client(bindingId)` returns `Fin<LiveClient>` — the seated client every write and every teardown resolves through.
+- Auto: the client cell lives on the BINDING HANDLE rather than on a lane instance, so `Cell.Seat` answers `Committed` to the opener that landed the client and `Ceded` to a second opener racing a reconnect — the verdict a three-arm gate union declared and never constructed — and `Cell.Take` drains that cell at teardown so the closure disposing what it drained holds it and a second teardown drains `None` and disposes nothing; the queue's drop callback writes `AppHostMeasure.WireRejections` directly.
+- Result: every dropped value increments the mounted rejection counter, so the drain owner's `DropOldest` policy is observable without another payload family.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL `System.Threading.Channels`
 - Growth: a new subscribe transport is one `LiveClient` arm, one `TransportSeat` arm, and one opener on its `ExternalTransport` row; the lane shape absorbs it with no branch.
-- Boundary: the foreign OPC-UA monitored-item thread, the MQTT message-pump thread, the serial `DataReceived` `ThreadPool` thread, the BACnet transport thread, and the PubSub interval-runner thread never run the interior — each callback projects its raw value into `ExternalValue` and `Submit`s into the ONE `DrainSpec.WireInbound` lane opened through `DrainSurface.Open`, so the lane's `DropOldest` back-pressure, its `DrainBand` completion, and its mandatory `onDrop` receipt delegate are the drain owner's declared policy — a bespoke `Channel.CreateBounded` beside that owner is the deleted form and an unreceipted-loss row refuses at `Open` on the `Fin` rail (`docs/stacks/csharp/boundaries#SUBSCRIPTION_VALUE`/`#HANDOFF_DRAIN`), and a callback writing its channel writer directly rather than through `Submit` is the second deleted form because the lane's single submission point is what makes that policy total.
-- Boundary: tenancy is ADMITTED at the binding and RIDES the value — no industrial protocol carries this estate's tenancy, so `TenantAdoption.Refused` is the standing trust class for every row and the binding's own declared tenant is the authority; the deleted form is an ambient `TenantContext.Current` read on the drain fork, which resolves to root for a value the MQTT receive pump already refused a tenant for, so every receipt and every RLS predicate downstream disagreed with the callback that admitted it.
+- Boundary: the foreign OPC-UA monitored-item thread, the MQTT message-pump thread, the serial `DataReceived` `ThreadPool` thread, the BACnet transport thread, and the PubSub interval-runner thread never run the interior — each callback projects its raw value into `ExternalValue` and `Submit`s into the ONE `DrainSpec.WireInbound` lane opened through `DrainSurface.Open`, so the lane's `DropOldest` back-pressure, its `DrainBand` completion, and its mandatory `onDrop` observation are the drain owner's declared policy — a bespoke `Channel.CreateBounded` beside that owner is the deleted form and an unobserved-loss row refuses at `Open` on the `Fin` rail (`docs/stacks/csharp/boundaries#SUBSCRIPTION_VALUE`/`#HANDOFF_DRAIN`), and a callback writing its channel writer directly rather than through `Submit` is the second deleted form because the lane's single submission point is what makes that policy total.
+- Boundary: tenancy is ADMITTED at the binding and RIDES the value — no industrial protocol carries this estate's tenancy, so `TenantAdoption.Refused` is the standing trust class for every row and the binding's own declared tenant is the authority; the deleted form is an ambient `TenantContext.Current` read on the drain fork, which resolves to root for a value the MQTT receive pump already refused a tenant for, so the pushed value and every RLS predicate downstream disagree with the callback that admitted it.
 - Boundary: one seat column keyed by transport replaces seven positional runtime columns, so a runtime record does not grow a column per protocol and a lane narrows at its own entry through `Seat<TSeat>` — NAMED LOSS: the per-protocol seat type is no longer statically reachable off the runtime, and the union arm buys it back — each seat stays a distinct closed shape — with one narrowing whose failure is a real composition fault the `Fin` rail names, the shape every lane already runs against `LiveClient`.
 - Boundary: the held session triple, MQTT client, serial port, BACnet client, and PubSub reader id live in the handle's own client cell (`docs/stacks/csharp/boundaries#TOKEN_LIFECYCLE`), so every lane member resolves its client through `runtime.Client` and a write against a torn-down binding refuses on the cell rather than dialling a disposed handle — a parallel per-protocol accessor beside that cell is the deleted form, and the take-and-clear teardown retires the incarnation-token compare a reconnect raced against.
 
@@ -389,9 +388,8 @@ public sealed record SubscriptionLane(
     Func<IO<Unit>> Detach,
     LiveClient Client) {
     public static IO<SubscriptionLane> Open(LiveWireRuntime runtime, BindingSpec spec, Func<IO<Unit>> detach, LiveClient client) =>
-        IO.lift(() => DrainSpec.WireInbound.Open<ExternalValue>(Some<Action<ExternalValue>>(dropped =>
-                ignore(WireEvidence.Rejected(runtime, spec, Correlation.Mint(), "lane-drop",
-                    new WireFault.StaleSource($"{dropped.SourceAt}")).Run())))
+        IO.lift(() => DrainSpec.WireInbound.Open<ExternalValue>(Some<Action<ExternalValue>>(_ =>
+                ignore(runtime.Instruments.Write(AppHostMeasure.WireRejections.Row, 1L))))
             .Bind(queue => queue.Switch(
                 pipe: q => Fin.Succ(new SubscriptionLane(queue, q.Channel.Writer, detach, client)),
                 network: static n => Fin.Fail<SubscriptionLane>(new DrainFault.TopologyMismatch(n.Spec.Name, DrainKind.Pipe.Key)))))
@@ -413,15 +411,15 @@ public sealed record SubscriptionLane(
 - Cases: five openers seat a `LiveClient` and attach one foreign callback; three of the five carry a write — OPC-UA one `WriteValue` reading its per-node `StatusCode`, MQTT one `MqttApplicationMessage` reading its PUBACK reason code, BACnet one confirmed `WritePropertyAsync` at the point's priority-array slot reading the typed verdict off the client's own service events — serial writes one `WriteLine`, and PubSub declares none; `CovService` = confirmed | unconfirmed selects the notification service the subscribe arms.
 - Entry: `Subscribe`/`Attach` return `IO<SubscriptionLane>` and are the `Open` column the activation fold runs; `Write` returns `IO<EchoDiscriminator>` and is the `Writer` column; `BacnetLane.Entries` is the `Entries` column answering the renewal and the stale sweep; `BacnetLane.Recover` is the sweep's own backfill body.
 - Auto: the OPC-UA leg composes the high-level managed `Opc.Ua.Client` API — `Session.CreateAsync(configuration, reverseConnectManager, endpoint, updateBeforeConnect, checkDomain, sessionName, sessionTimeout, userIdentity, preferredLocales, ct)` mints the session over the configuration-loaded endpoint, a `Subscription(telemetry)` carries `PublishingInterval`, `KeepAliveCount`, and `LifetimeCount` as policy ints read off the seat, `subscription.AddItem(new MonitoredItem(telemetry){ StartNodeId, AttributeId, MonitoringMode, SamplingInterval, QueueSize, DiscardOldest, Filter })` and `subscription.CreateAsync(ct)` arm the monitored node under the seat's whole `SamplePolicy` — `CreateAsync` runs `CreateItemsAsync`, which lands each per-item refusal on `MonitoredItem.Status.Error` and raises nothing, so the opener proves the item armed before handing a lane back — and the `monitoredItem.Notification` event hands each `MonitoredItemNotificationEventArgs.NotificationValue` cast to `MonitoredItemNotification` whose `Value` is one `DataValue` — the callback projects `DataValue.Value`/`StatusCode`/`SourceTimestamp` into `ExternalValue`, `Submit`s it into the bounded lane, and fans the `StatusCode.Overflow` InfoBit as the server's own discard evidence; the OPC-UA write rides `Session.WriteAsync(requestHeader, nodesToWrite, ct)` inherited from `SessionClient`, refusing client-side through `WriteValue.Validate(WriteValue)` before a round trip; the MQTT leg composes `MqttClientFactory.CreateMqttClient()` returning `IMqttClient`, `ConnectAsync(options, ct)` over an options builder carrying connection uri, client id, keep-alive, clean-start, session-expiry, and `RequestProblemInformation` as seat data, `SubscribeAsync(options, ct)` over one `WithTopicFilter(topic, qos, noLocal, retainAsPublished, retainHandling)`, and the received-message handler decodes the `ReadOnlySequence<byte>` payload at the boundary, with the inbound write-back as one `PublishAsync` carrying topic, payload, qos, and retain; the serial leg composes `System.IO.Ports.SerialPort` — `SerialFraming` carried as `PollPolicy.Line` binding-spec policy, `ReadTimeout`/`WriteTimeout` bounding a wait that otherwise defaults to `InfiniteTimeout` and the `Rts` capability driving the RS-485 half-duplex transceiver line under every Modbus-RTU and BACnet MS/TP bus, `SerialLane.Attach` seating the one port through the serial seat — whose `Open` applies the framing's own capability set to `RtsEnable` and `DtrEnable` before the port opens, so the two line rows are the composition's read and no lane touches a pin — and wiring `DataReceived` (firing on a `ThreadPool` thread) to `Submit` one parsed `ExternalValue`; the PubSub leg composes ONE process-held `UaPubSubApplication` whose `DataReceived` `EventHandler<SubscribedDataEventArgs>` hands `args.NetworkMessage.DataSetMessages`, each `UaDataSetMessage` carrying its `DataSet` whose `Field[] Fields` project one `ExternalValue` per field into the SAME bounded lane, the per-binding connection and reader landing through `UaPubSubConfigurator` mutators that answer `StatusCode` and throw nothing; the BACnet leg composes `BacnetClient` over the seat's own transport chain — `RegisterAsForeignDevice(bbmdIp, ttl, port)` registers with the BBMD BEFORE `Start()` since `WhoIs` reaches the local broadcast domain alone, and the TTL renewal is one `OccurrenceSpec.Every` `ScheduleEntry` on the page's own schedule arrow; `SubscribeCOVAsync(adr, objectId, subscribeId, cancel, issueConfirmedNotifications, lifetime)` arms the metered points under the point's own `CovService` row and `OnCOVNotification` (the `COVNotificationHandler` firing on a transport thread with the `ICollection<BacnetPropertyValue>` triple set) projects each `BacnetValue` into one `ExternalValue`, the detach rail awaiting that same member with `cancel: true` before disposal; the scheduled stale sweep reads the point's `TrendLog` column — `ReadRangeAsync(adr, trendLog, readFrom, quantity)` awaits a `BacnetReadRangeResult` whose `Range` bytes and `ItemCount` drain the device's own history from the lane watermark, `ReadPropertyAsync(adr, objectId, propertyId)` awaits the one current `IList<BacnetValue>` when the point names no history object — and `WritePropertyAsync(adr, objectId, propertyId, valueList, invokeId, priority)` writes at the point's priority-array slot (1-16, the assembly's own admitted range) with a `None` value the RELEASE at that same slot.
-- Receipt: the OPC-UA `DataValue`, the MQTT decoded payload, the serial line frame, and the PubSub dataset field each mint one `ExternalValue` carrying reading, declared unit, kernel `Quality`, source timestamp, echo, and the binding's tenancy; MQTT CONNACK and every SUBACK item admit before the live client publishes, with a refused reason code projected onto `WireFault`; every configurator mutator's `StatusCode` folds onto the `Fin` rail before the reader arms.
+- Result: the OPC-UA `DataValue`, the MQTT decoded payload, the serial line frame, and the PubSub dataset field each mint one `ExternalValue` carrying reading, declared unit, kernel `Quality`, source timestamp, echo, and the binding's tenancy; MQTT CONNACK and every SUBACK item admit before the live client publishes, with a refused reason code projected onto `WireFault`; every configurator mutator's `StatusCode` folds onto the `Fin` rail before the reader arms.
 - Packages: OPCFoundation.NetStandard.Opc.Ua, OPCFoundation.NetStandard.Opc.Ua.PubSub, MQTTnet, System.IO.Ports, BACnet, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions
 - Growth: a new subscribe transport is one opener feeding the one lane shape; a new MQTT legal corner is one row on the seat's corner roster; a new monitored-item negotiation knob is one `SamplePolicy` column the create request already carries; a new serial line-discipline knob is one `LineCapability` row; a new BACnet request knob is one `BacnetPoint` column; a new MQTT v5 option is one `MqttOption` row and its legal corner on the seat's mint.
-- Boundary: SETTLEMENT AND THE LANE BOUND ARE ONE BARGAIN — MQTTnet acks a QoS 1/2 delivery on admission under `AutoAcknowledge`, so the broker releases its copy before the bounded lane decides, and a discarded value receipts locally and never redelivers; a live-wire binding wants the newest reading and takes that trade, so the trade is DECLARED at the callback and the one quality of service it breaks — `ExactlyOnce`, which promises the application a single delivery this lane cannot guarantee — refuses at the seat's own mint beside the clean-start corner rather than shipping a binding whose advertised contract no path keeps.
+- Boundary: SETTLEMENT AND THE LANE BOUND ARE ONE BARGAIN — MQTTnet acks a QoS 1/2 delivery on admission under `AutoAcknowledge`, so the broker releases its copy before the bounded lane decides, and a discarded value increments the local rejection counter and never redelivers; a live-wire binding wants the newest reading and takes that trade, so the trade is DECLARED at the callback and the one quality of service it breaks — `ExactlyOnce`, which promises the application a single delivery this lane cannot guarantee — refuses at the seat's own mint beside the clean-start corner rather than shipping a binding whose advertised contract no path keeps.
 - Boundary: the per-row retry is the channel's own auto-reconnect (MQTT) XOR the seam's `OutboundHop` redial — never both — so a subscribe transport's reconnect rides the protocol client and the one-retry-owner law the transport axis declares holds; a refusal the wire STATES rather than throws is read at every arm — the MQTT PUBACK reason code, the OPC-UA per-node `StatusCode`, and the BACnet service-event verdict each cross as a `HopOutcome` the body states, so a returned refusal nothing inspects is the named defect this cluster refuses to carry; every one of those legs maps a protocol code to a `WireFault` CASE and stops there, because the case's own `Retriability` is what decides whether the frame is re-offered — a per-leg retriable/terminal decision is the deleted form and it existed four times.
-- Boundary: LOSS OUTSIDE THE LANE IS STILL LOSS — an OPC-UA server holds the monitored item's own queue, so depth and discard policy are DECLARED at the seat rather than inherited from `MonitoredItemOptions`, whose uninitialized `QueueSize` crosses verbatim and reads at the server as a one-deep queue keeping the newest sample and dropping every change behind it; that discard happens one hop outside this process, so the drain owner's `onDrop` delegate can never observe it and the specification's own `StatusCode.Overflow` InfoBit — set on the first value after a discard — is the only evidence there is, fanned through the same `WireEvidence.Rejected` rail the lane drop takes so both halves of one binding's loss reach one board; a deadband reads the same axis the other way, the server suppressing an uninteresting change rather than discarding an interesting one, so trigger and deadband ride the `SamplePolicy` the queue rides and `DataChangeFilter.Validate()` refuses a negative band or a percent past 100 before the subscription arms rather than after the server declines the item; an item the server declines is refused at the opener, because `CreateItemsAsync` states that refusal on `Status.Error` and raises nothing, and a lane opened over a dead item reads healthy forever while nothing will ever arrive on it.
+- Boundary: LOSS OUTSIDE THE LANE IS STILL LOSS — an OPC-UA server holds the monitored item's own queue, so depth and discard policy are DECLARED at the seat rather than inherited from `MonitoredItemOptions`, whose uninitialized `QueueSize` crosses verbatim and reads at the server as a one-deep queue keeping the newest sample and dropping every change behind it; that discard happens one hop outside this process, so the drain owner's `onDrop` delegate can never observe it and the specification's own `StatusCode.Overflow` InfoBit — set on the first value after a discard — is the only fact available, written directly to the same rejection counter as a local lane drop; a deadband reads the same axis the other way, the server suppressing an uninteresting change rather than discarding an interesting one, so trigger and deadband ride the `SamplePolicy` the queue rides and `DataChangeFilter.Validate()` refuses a negative band or a percent past 100 before the subscription arms rather than after the server declines the item; an item the server declines is refused at the opener, because `CreateItemsAsync` states that refusal on `Status.Error` and raises nothing, and a lane opened over a dead item reads healthy forever while nothing will ever arrive on it.
 - Boundary: a multi-homed host pins `localEndpointIp` on `BacnetIpUdpProtocolTransport` because `Start()` otherwise throws `InvalidOperationException` listing the candidate interfaces rather than guessing one, and `RegisterAsForeignDevice` answers `void` and LOGS a transport mismatch, so a BBMD registration against a non-IP transport silently no-ops and an MS/TP seat carries none; a BACnet write carries the point's priority-array slot and its `None` release, so a host override is revocable, and a device-default write no later write can distinguish is the deleted form; a stale COV lane recovers through the point's declared history object on its own `ScheduleEntry`, and the backfill is a BOUNDED PAGE that re-drives while the device's answer fills it and states a typed unconverged fault when the bound spends — a silent truncation certifying an incomplete history as a caught-up one is the deleted form; a BBMD-routed binding renews on one `ScheduleEntry` under the binding's own scope, so a background re-registration timer beside the scheduler and an entry outliving the binding it serves are the deleted forms.
 - Boundary: every foreign callback parses TOTALLY and mints through `ExternalValue.Parsed` or `.Graded`, so a malformed frame neither throws out of a foreign callback nor mints a `NaN` the coercion admits as a real measurement — absence becomes a `Bad` arm carrying the parse's own reason and no reading at all; the OPC-UA `Subscription.CurrentPublishingInterval` is a `double`, never a `TimeSpan`, so the seat carries the publishing interval as the int the subscription sets and reads the negotiated `double` back without a unit cast; the at-edge `DataValue.SourceTimestamp`, the MQTT receive instant, the serial read instant, and the PubSub `Field.Value.SourceTimestamp` cross as the value's `SourceAt` so the staleness check at `BINDING_HEALTH` reads a real source clock, never the host clock; the MQTT legs are the trace-carrier mount — `TraceContext.Inject` threads the context over the message builder before `Build()` and the receive pump continues the propagated context through the seam owner's own `MqttApplicationMessage` overload under `TenantAdoption.Refused`, a broker topic being a field-device carrier this process never authorized; the PubSub application is process-scoped and one binding's teardown removes its own data-set reader through the configurator rather than calling `Stop`, because `Stop` darkens every other binding riding the same application; an MS/TP line is single-custody — the serial seat opens ONE port per binding and the client cell's take-and-clear teardown disposes client, transport, and port as ONE chain.
-- Boundary: the MQTT correlation token is DERIVED, not drawn — `ContentHash.Of` over the framed `(binding, source instant, reading)` preimage renders through its one text correspondence into the bytes the broker echoes back, so a replayed write mints the byte-identical token its recorded receipt retained and the suppression comparison holds across a replay; the ambient `Guid.CreateVersion7()` that stood here was the page's one unseeded draw and `Runtime/determinism.md` names ambient entropy the deleted form for this folder.
+- Boundary: the MQTT correlation token is DERIVED, not drawn — `ContentHash.Of` over the framed `(binding, source instant, reading)` preimage renders through its one text correspondence into the bytes the broker echoes back, so a replayed write mints the byte-identical token retained by its write result and the suppression comparison holds across a replay; the ambient `Guid.CreateVersion7()` that stood here was the page's one unseeded draw and `Runtime/determinism.md` names ambient entropy the deleted form for this folder.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -519,18 +517,6 @@ public static class WireRecovery {
         @catch<IO, WriteAttempt>(static error => error is WireFault,
             static error => IO.pure(WriteAttempt.Refused((WireFault)error)));
 
-    public static CatchM<Error, IO, Unit> Diagnostic(LiveWireRuntime runtime, BindingSpec spec, string at) =>
-        @catch<IO, Unit>(static error => error is Fault,
-            error => WireEvidence.Rejected(runtime, spec, Correlation.Mint(), at, error));
-}
-
-public static class WireEvidence {
-    public static IO<Unit> Rejected(
-        LiveWireRuntime runtime, BindingSpec spec, CorrelationId correlation, string at, Error error) =>
-        runtime.Sink.Send(correlation, spec.Tenant, TelemetrySource.AppHost, ReceiptKind.WireRejection.Key,
-            JsonSerializer.SerializeToElement(new WireRejectionWire(
-                spec.BindingId, at, WireJson.Element(FaultWire.Observe(error))), runtime.Wire))
-            .Map(static _ => unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -609,10 +595,8 @@ public static class OpcUaLane {
                     Convert.ToDouble(data.Value, CultureInfo.InvariantCulture), Graded(data.StatusCode), spec, at,
                     new EchoDiscriminator.Stamped(at, notification.ClientHandle),
                     unit: Optional(sender.DisplayName))));
-                if (data.StatusCode.Overflow) {
-                    ignore(WireEvidence.Rejected(runtime, spec, Correlation.Mint(), "server-queue-overflow",
-                        new WireFault.StaleSource($"{spec.ExternalAddress}@{at}")).Run());
-                }
+                if (data.StatusCode.Overflow)
+                    ignore(runtime.Instruments.Write(AppHostMeasure.WireRejections.Row, 1L));
             }
         };
         subscription.AddItem(item);
@@ -809,8 +793,7 @@ public static class BacnetLane {
               from lane in SubscriptionLane.Open(runtime, spec,
                   () => IO.lift(() => new CancellationTokenSource(DeadlineClass.HopAttempt.Bound)).Bracket(
                       Use: attempt => IO.liftAsync(() => seat.Unsubscribe(client, address, point, attempt.Token)).Map(static _ => unit),
-                      Catch: error => WireEvidence.Rejected(
-                          runtime, spec, Correlation.Mint(), "bacnet-detach", error),
+                      Catch: IO.fail<Unit>,
                       Fin: attempt => IO.lift(() => { attempt.Dispose(); client.Dispose(); return unit; })),
                   new LiveClient.Bacnet(client))
               from _ in IO.lift(() => seat.Bbmd.Match(
@@ -962,10 +945,10 @@ flowchart LR
 - Cases: `ModbusSpace` = holding | input | coil | discrete, the two read-only rows binding `RefuseWrite` as their write body so the refusal is protocol truth at the row rather than a caller-side guard; `ModbusElement` = word | unsigned | long | single | double, one row per admitted `T : unmanaged, INumber<T>` the package reinterprets.
 - Entry: `Read` returns `IO<ExternalValue>` and `Write` returns `IO<EchoDiscriminator>` — the row columns the axis dispatches; `ModbusSpace.Read`/`.Write` and `ModbusElement.Holding`/`.Input` are the `[UseDelegateFromConstructor]` bodies the lane invokes without a single space branch.
 - Auto: the Modbus leg composes the `ModbusClient` base surface through the window's own `ModbusSpace` row — the register spaces reinterpret their window through the package's own generic read, `ReadHoldingRegistersAsync<T>`/`ReadInputRegistersAsync<T>(unitId, startAddress, count, ct)` returning `Task<Memory<T>>` over the window's declared element, so an IEEE-754 analog point reads as a `float` and the byte order is the `ModbusEndianness` the `Connect` call fixed for the whole connection; the bit spaces read `Task<Memory<byte>>` through `ReadCoilsAsync`/`ReadDiscreteInputsAsync(unitId, startAddress, quantity, ct)` one bit per point low-bit-first and cross as 0/1 against a dimensionless family; `WriteSingleRegisterAsync` writes the one-register window and `WriteMultipleRegistersAsync` the block, `WriteSingleCoilAsync` the coil; the HTTP legs compose the held `HttpClient` over the row's hop — a `PollPolicy.Http` carries the resource path and the optional GraphQL query, REST a `GetAsync`, GraphQL a `PostAsync` of the query body, spreadsheet a read-only range fetch; the MTConnect leg composes the `-Common` MODEL slice ONLY — no bundled HTTP or MQTT client, transport firewalled to the row's hop — parsing the `/sample` body through `ResponseDocumentFormatter.CreateStreamsResponseDocument(documentFormatterId, content)` into a `FormatReadResult<IStreamsResponseDocument>` whose `GetObservations()` flattens the device streams, each observation crossing as TEXT parsed invariant-culture, `DataItem?.Units` the declared unit with the binding family the fallback, `IsUnavailable` and its own `Quality` grading the kernel arm, and `MTConnectClientInformation` the durable poll cursor whose `InstanceId` change forces a re-`current`.
-- Receipt: the Modbus register window, the HTTP response body, and the MTConnect observation each mint one `ExternalValue`; the body the read REPORTS is carried out of the SAME hop that timed it through `OutboundSurface.Carry`, so the value and the receipt describe one frame.
+- Result: the Modbus register window, the HTTP response body, and the MTConnect observation each mint one `ExternalValue`; the body the read REPORTS is carried out of the SAME hop that timed it through `OutboundSurface.Carry`, so the value and hop measurement describe one frame.
 - Packages: FluentModbus, MTConnect.NET-Common, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL `System.Net.Http`/`System.Text.Json`
 - Growth: a new poll transport is one read body and one write body on its `ExternalTransport` row; a new Modbus address space is one `ModbusSpace` row carrying its two bodies and the lane gains no branch; a new register element is one `ModbusElement` row.
-- Boundary: a transport call whose VALUE the read reports runs INSIDE the hop through `OutboundSurface.Carry`, so the reported value and the receipt describe one frame and the second raw untimed call is the deleted form; a hop-carried body takes no caller token at all, because the hop's own environment supplies the cancellation its deadline class bounds — a token threaded into that signature and never read declares a cancellation owner the frame does not have; the register-window decode reinterprets the window as the point's declared element under the endianness `Connect` fixed for the connection — never a per-read byte-order branch, which reaches no float32 register at all — and the address space is the closed `ModbusSpace` row carrying its own bodies, so a `bool Holding` two-valued switch reaching half a closed protocol, a lane-side space branch beside it, and a `bool Writable` column standing beside `RefuseWrite` are all deleted forms; a value the parse cannot read is a `Bad` arm carrying its reason, never the `?? "0"` sentinel the coercion admits as a real measurement.
+- Boundary: a transport call whose VALUE the read reports runs INSIDE the hop through `OutboundSurface.Carry`, so the reported value and hop measurement describe one frame and the second raw untimed call is the deleted form; a hop-carried body takes no caller token at all, because the hop's own environment supplies the cancellation its deadline class bounds — a token threaded into that signature and never read declares a cancellation owner the frame does not have; the register-window decode reinterprets the window as the point's declared element under the endianness `Connect` fixed for the connection — never a per-read byte-order branch, which reaches no float32 register at all — and the address space is the closed `ModbusSpace` row carrying its own bodies, so a `bool Holding` two-valued switch reaching half a closed protocol, a lane-side space branch beside it, and a `bool Writable` column standing beside `RefuseWrite` are all deleted forms; a value the parse cannot read is a `Bad` arm carrying its reason, never the `?? "0"` sentinel the coercion admits as a real measurement.
 - Boundary: the MTConnect cursor and the observation do NOT share a numeric type — `MTConnectClientInformation.LastSequence`/`InstanceId` are `long` while `IObservation.Sequence`/`InstanceId` are `ulong` — so every cursor advance and every re-`current` comparison spells its narrowing at the crossing rather than inferring one; `IStreamsResponseDocument.GetObservations()` returns NULL on a device-stream-free document, which is the ordinary steady-state `/sample` response when nothing crossed since the cursor, so the decode folds the null through an empty-sequence arm and an unguarded traversal is the deleted form; the cursor is durable poll state committing the sequence the drain consumed, the outbox watermark discipline at the machine edge.
 
 ```csharp
@@ -1162,50 +1145,19 @@ public static class MtconnectLane {
 }
 ```
 
-## [06]-[MACHINE_LANE]
-
-- Owner: `MachineLane` the machine-observation decode lane and `MachineObservationWire` its one typed record — a `BindingSpec.Machine`-sliced inbound value projects once into value, unit, quality, machine identity, and freshness instant, fanned under `ReceiptKind.Observation`.
-- Entry: `MachineLane.Fan(runtime, spec, value, correlation)` returns `IO<Unit>` — the best-effort fan the inbound fold runs AFTER the control push.
-- Auto: the decode is the single truth Fabrication's wear, fleet-performance, and engagement consumers read off the receipt stream and re-admit into their own `MachineObservation` vocabulary, so a per-consumer transport decoder is the deleted form and a transport swap never touches a consumer; `Observability/instruments#RECEIPT_PROJECTION`'s `ReceiptKind.Observation` is the in-process arm that counts them per machine.
-- Receipt: one `MachineObservationWire` per machine-sliced inbound value, carrying the binding's own tenancy through the envelope.
-- Packages: LanguageExt.Core, NodaTime, BCL `System.Text.Json`
-- Growth: a new observation column is one record member every consumer answers; a new consumer reads the same receipt kind and mints no decoder.
-- Boundary: this family is an IN-PROCESS receipt payload, not a cross-language wire face — its producer is here, its decoder is `ReceiptKind.Observation`, and its consumers are the C# Fabrication readers, so it carries no `libs/contracts/manifest.json` family row and no peer census row; a registration asserting a peer decoder that no branch declares is the STRANDED state, and the honest close is the withdrawal rather than a TypeScript decoder no surface reads; the fan is best-effort and its refusal is RECEIPTED under `ReceiptKind.WireRejection` rather than discarded, so an undeliverable observation is counted and the control path it merely describes is never blocked by it.
-
-```csharp
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record MachineObservationWire(
-    string Machine,
-    string Item,
-    Option<double> Value,
-    string Unit,
-    QualityWire Quality,
-    Instant SourceAt,
-    ExternalTransport Transport);
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class MachineLane {
-    public static IO<Unit> Fan(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value, CorrelationId correlation) =>
-        spec.Machine.Match(
-            Some: machine => runtime.Sink.Send(correlation, spec.Tenant, TelemetrySource.AppHost, ReceiptKind.Observation.Key,
-                JsonSerializer.SerializeToElement(LiveWireMap.Observed(value, spec, machine), runtime.Wire)).Map(static _ => unit),
-            None: static () => IO.pure(unit));
-}
-```
-
-## [07]-[BINDING_SPEC]
+## [06]-[BINDING_SPEC]
 
 - Owner: `BindingDirection` `[SmartEnum<Host.BindingDirection>]` the three legal legs of the read/write product, each row carrying the two it admits; `BindingSpec` the source-target binding record; `PollPolicy` `[Union]` the per-shape request policy; `Coercion` the unit-coerced inbound value; `BindingHandle` the per-binding scope, state cell, last-good cell, client cell, and poll entry; `LiveWireRuntime` the composed accessor record; `LiveWire` the static reactive binding-engine surface.
 - Cases: direction rows inbound | outbound | bidirectional; `PollPolicy` = None | Register | Line | Http | Point, `None` the honest arm for a subscribe edge whose lane carries no request policy; the binding pairs one external address with one internal `CapabilityDescriptor` through the transport row, and selects one `WireProtocol` mapping the row must admit.
 - Entry: `Bind(runtime, spec)` returns `IO<BindingHandle>` — the admission seat accumulating every independent refusal, deriving the binding scope, and minting the poll schedule descriptor when the row is poll-shaped; `Activate(runtime, handle)` returns `IO<BindingHandle>` — the ONE fold that runs the row's opener, SEATS the opened client on the handle's cell, publishes the lane, forks the drain, and registers the entries the transport owns; `Release(runtime, handle)` returns `IO<Unit>` — the take-and-clear teardown; `Coerce(spec, value, policy, correlation)` returns `Fin<Coercion>` — the at-edge unit coercion.
 - Auto: admission is APPLICATIVE — the protocol selection, the direction against the row's write column, and the poll policy against the row's read shape are independent facts, so a spec wrong on all three reports all three rather than the first; every inbound value coerces through `QuantityFamily.Admit` so an external sensor reporting in millimetres lands as canonical metres before it enters the suite; a poll-shaped binding yields one `ScheduleEntry` at its cadence and a subscribe row yields one drain-owned lane, and `Activate` is the single caller of both legs; a bidirectional binding suppresses exactly the echo its transport PROVES, on the row's declared class first and the measured pair second; every admitted value stamps the handle's last-good cell, so staleness grading and the write-back's prior value read ONE producer.
-- Receipt: `Coercion` carries the canonical value, the canonical unit, the SOURCE unit the coercion crossed from, the seam `MeasureEvidence` conversion receipt, and the source timestamp, crossing as generated `Host.CoercedValueWire`; each inbound rejection fans one structured receipt under `ReceiptKind.WireRejection`.
-- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm.Compute (project — `QuantityFamily`, `QuantityInput`, `UnitPolicy`), Rasm.Element (project — `MeasureEvidence` the seam conversion receipt the coercion carries), BCL inbox
+- Result: `Coercion` carries the canonical value, the canonical unit, the SOURCE unit the coercion crossed from, the seam `MeasureEvidence`, and the source timestamp, crossing as generated `Host.CoercedValueWire`; each inbound rejection writes `AppHostMeasure.WireRejections` directly.
+- Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm.Compute (project — `QuantityFamily`, `QuantityInput`, `UnitPolicy`), Rasm.Element (project — `MeasureEvidence` carried by the coercion), BCL inbox
 - Growth: one binding is one `BindingSpec` row; a new direction is one `BindingDirection` row carrying its two legs; a new request policy is one `PollPolicy` case; a new coercion rule rides the Compute unit algebra, never a binding-page coercion; zero new surface.
-- Boundary: the binding engine is the only reactive-binding owner — a per-binding background loop, a protocol-specific subscription handler, and a hand-rolled poll timer are deleted forms; a binding whose selected `WireProtocol` falls outside its row's admitted set refuses with typed evidence rather than degrading to a neighbouring mapping (`libs/.planning/ARCHITECTURE.md` `[10]-[CONSUMPTION_MODEL]`); unit coercion at the edge is mandatory — an inbound value that fails coercion is rejected with `WireFault.UnitRejected` and never enters the suite; the binding admits through Compute `QuantityFamily.Admit(QuantityInput, UnitPolicy, CorrelationId)` with `QuantityInput.Abbreviated`, resolves a declared source unit through `QuantityFamily.Resolve` returning `Option<Enum>`, converts through `UnitAlgebra.Numeric(double, Enum, Enum)` returning `Fin<double>`, and renders the receipt's display text through `QuantityFamily.Render`, so the binding never re-implements unit math and never round-trips a number through formatted text.
+- Boundary: the binding engine is the only reactive-binding owner — a per-binding background loop, a protocol-specific subscription handler, and a hand-rolled poll timer are deleted forms; a binding whose selected `WireProtocol` falls outside its row's admitted set refuses with typed evidence rather than degrading to a neighbouring mapping (`libs/.planning/ARCHITECTURE.md` `[10]-[CONSUMPTION_MODEL]`); unit coercion at the edge is mandatory — an inbound value that fails coercion is rejected with `WireFault.UnitRejected` and never enters the suite; the binding admits through Compute `QuantityFamily.Admit(QuantityInput, UnitPolicy, CorrelationId)` with `QuantityInput.Abbreviated`, resolves a declared source unit through `QuantityFamily.Resolve` returning `Option<Enum>`, converts through `UnitAlgebra.Numeric(double, Enum, Enum)` returning `Fin<double>`, and renders canonical display text through `QuantityFamily.Render`, so the binding never re-implements unit math and never round-trips a number through formatted text.
 - Boundary: schedule registration is the composition-supplied arrow on the runtime record, the one spelling every scheduled concern in the spine takes — `SchedulePort` publishes no `Register` member and a page reaching for one is the deleted form; a transport-owned entry registers through the row's own `Entries` column under the handle's scope, so a BACnet renewal never arms against an MQTT binding id and a scheduled entry never outlives the binding it serves; the internal target is a `CapabilityDescriptor` the push reads by name, so inbound push is brokered, metered, and audited like any command.
 - Boundary: the drain's fault arm sits OUTSIDE its repeat — a subscribe read faulting is a broken lane, not a frame to re-read, so the fold grades the binding faulted and STOPS, and the breaker-gated reconnect the lifecycle declares is what re-activates it; a catch inside the repeat re-enters a permanently faulted channel read forever and reports a live binding while doing it.
-- Boundary: tenancy is the BINDING's own declared context — no industrial protocol carries this estate's tenancy, so `TenantAdoption.Refused` is the standing trust class and the value carries `spec.Tenant` from its callback to its receipt; the deleted form is an ambient read on the drain fork, which answered root for a value the MQTT receive pump had already refused a tenant for, so the push, the receipt, and every RLS predicate below disagreed with the admission above them.
+- Boundary: tenancy is the BINDING's own declared context — no industrial protocol carries this estate's tenancy, so `TenantAdoption.Refused` is the standing trust class and the value carries `spec.Tenant` from its callback to the internal push; the deleted form is an ambient read on the drain fork, which answered root for a value the MQTT receive pump had already refused a tenant for, so the push and every RLS predicate below disagreed with the admission above them.
 - Boundary: the client cell is the HANDLE's, so a second opener racing a reconnect reads `Ceded` and RELEASES what it opened rather than publishing a lane the winner's teardown will never reach; teardown is `Cell.Take`, so the closure disposing what it drained holds it and a repeated release drains nothing and disposes nothing.
 
 ```csharp
@@ -1265,8 +1217,8 @@ public sealed record LiveWireRuntime(
     UnitPolicy Units,
     Func<string, CommandArguments, IO<ToolResult>> PushInbound,
     ClockPolicy Clocks,
-    ReceiptSinkPort Sink,
     InstrumentSet Instruments,
+    HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail,
     Option<ILatencyContext> Latency,
     JsonSerializerOptions Wire,
     ActivitySource Traces,
@@ -1363,26 +1315,31 @@ public static class LiveWire {
         handle.Spec.Transport.Read(runtime, handle.Spec, handle.Spine.Token)
             .Bind(value => Inbound(runtime, handle.Spec, value))
             .RepeatUntil(_ => handle.Spine.Token.IsCancellationRequested)
-        | @catch<IO, Unit>(static error => error is WireFault, error =>
-            WireEvidence.Rejected(runtime, handle.Spec, Correlation.Mint(), "binding-drain", error)
-                .Bind(_ => BindingHealth.Transition(runtime, handle, BindingState.Faulted).Map(static _ => unit)));
+        | @catch<IO, Unit>(static error => error is WireFault, _ =>
+            BindingHealth.Transition(runtime, handle, BindingState.Faulted).Map(static _ => unit));
 
     public static IO<Unit> Inbound(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) {
         CorrelationId correlation = Correlation.Mint();
         return Suppression(runtime, spec, value).Switch(
             proven: static _ => IO.pure(unit),
-            mismatched: row => WireEvidence.Rejected(runtime, spec, correlation, "echo-class",
-                new WireFault.ProtocolRefused(row.Detail)),
+            mismatched: _ => IO.lift(() => {
+                ignore(runtime.Instruments.Write(AppHostMeasure.WireRejections.Row, 1L));
+                return unit;
+            }),
             open: _ => Coerce(spec, value, runtime.Units, correlation).Match(
                 Succ: coerced =>
                     from stamped in IO.lift(() => runtime.Handle(spec.BindingId).Map(handle => handle.LastGood.Swap(_ => Some(value))))
                     from pushed in runtime.PushInbound(spec.InternalDescriptor, new CommandArguments(
                         WireJson.Element(LiveWireContract.Coerced(coerced, spec)),
                         spec.Tenant, correlation))
-                    from observed in MachineLane.Fan(runtime, spec, value, correlation)
-                        | WireRecovery.Diagnostic(runtime, spec, "observation-fan")
+                    from observed in IO.lift(() => spec.Machine.Iter(machine => ignore(runtime.Instruments.Write(
+                        AppHostMeasure.MachineObservations.Row, 1L,
+                        InstrumentSet.Tags((AppHostSlot.Machine, machine))))))
                     select unit,
-                Fail: fault => WireEvidence.Rejected(runtime, spec, correlation, "inbound-coercion", fault)));
+                Fail: _ => IO.lift(() => {
+                    ignore(runtime.Instruments.Write(AppHostMeasure.WireRejections.Row, 1L));
+                    return unit;
+                })));
     }
 
     static Suppression Suppression(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) =>
@@ -1409,13 +1366,12 @@ public abstract partial record Suppression {
 }
 ```
 
-## [08]-[WRITE_BACK]
+## [07]-[WRITE_BACK]
 
-- Owner: `WriteVerdict` `[Union]` the operational write-back transaction disposition; `WriteAttempt` the verdict beside what it rendered; `WriteBackSurface` the static commit-or-rollback surface; generated `Host.WriteBackWire` and `Host.WriteReceiptWire` own the peer contract.
+- Owner: `WriteVerdict` `[Union]` the operational write-back transaction disposition; `WriteAttempt` the verdict beside what it rendered; `WriteBackSurface` the static commit-or-rollback surface; generated `Host.WriteBackWire` and `Host.WriteOutcomeWire` own the peer contract.
 - Cases: Acknowledged | Rejected | RolledBack | Indeterminate — Acknowledged carries the ECHO KEY the transport itself minted, Rejected the typed refusal that changed no external state, RolledBack carries the ambiguous attempt beside proof the prior external value was restored, and Indeterminate preserves both failures when rollback cannot establish the external state.
-- Entry: `Write(runtime, spec, canonicalValue)` returns `IO<Host.WriteReceiptWire>` — the write-back reads the prior external value, resolves the source's declared unit against the binding's `QuantityFamily`, converts the canonical value onto that unit numerically, writes through the row, retains the acknowledgement's echo proof in the host-local `Echoes` cell, consults the row's out-of-band fault surface, and executes the compensating write on an ambiguous outcome alone.
-- Auto: the write converts NUMERICALLY — `QuantityFamily.Resolve` turns the source's declared unit string into its `Enum` and `UnitAlgebra.Numeric` rescales onto it — so a bidirectional binding against a millimetre-reporting source writes millimetres with no local conversion math and no format-lossy text round-trip; `QuantityFamily.Render` stays the receipt's DISPLAY projection alone; the write rides the row's `OutboundHop` so it inherits retry, breaker, and deadline; the prior `ExternalValue` must carry a reading before conversion or transport begins; a definite refusal reports `Rejected` and moves no further bytes, while an ambiguous failure invokes the row's write with that exact admitted prior value; `RolledBack` retains that attempt after the compensating hop acknowledges, and `Indeterminate` carries both exact errors when it does not.
-- Receipt: generated `Host.WriteReceiptWire` — binding id, written canonical value, the OPTIONAL rendered external value and unit, generated oneof disposition, protobuf duration, and 16-byte correlation; the rendered pair is present only on an arm that genuinely rendered, so a refusal reports absence rather than a zero the dashboard reads as a written value.
+- Entry: `Write(runtime, spec, canonicalValue)` returns `IO<Host.WriteOutcomeWire>` — the write-back reads the prior external value, resolves the source's declared unit against the binding's `QuantityFamily`, converts the canonical value onto that unit numerically, writes through the row, retains the acknowledgement's echo proof in the host-local `Echoes` cell, consults the row's out-of-band fault surface, and executes the compensating write on an ambiguous outcome alone.
+- Auto: the write converts NUMERICALLY — `QuantityFamily.Resolve` turns the source's declared unit string into its `Enum` and `UnitAlgebra.Numeric` rescales onto it — so a bidirectional binding against a millimetre-reporting source writes millimetres with no local conversion math and no format-lossy text round-trip; `QuantityFamily.Render` stays the outcome's display projection alone; the write rides the row's `OutboundHop` so it inherits retry, breaker, and deadline; the prior `ExternalValue` must carry a reading before conversion or transport begins; a definite refusal reports `Rejected` and moves no further bytes, while an ambiguous failure invokes the row's write with that exact admitted prior value; `RolledBack` retains that attempt after the compensating hop acknowledges, and `Indeterminate` carries both exact errors when it does not; generated result carries binding id, written canonical value, optional rendered external value and unit, generated oneof disposition, and elapsed duration.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one disposition is one `WriteVerdict` case and one generated oneof arm breaking the producer switch and every generated consumer; zero hand carrier.
 - Boundary: refusal and failure are DIFFERENT dispositions because the compensating write is only ever correct over an ambiguous outcome — a broker that routed to nobody, a device that declined the value, a read-only row, each changed nothing, so a rollback fired over them writes a second value onto a line that never moved; a hop outcome never crosses back into this fold because `OutboundSurface.Carry` rails the body's value on delivery and fails on every other outcome, so the discriminant rides the typed `WireFault`; the prior value reads the binding's own last-good cell rather than the transport, so a write-back against a subscribe binding never dequeues the lane its drain fork owns, and a subscribe binding with no admitted value yet refuses rather than blocking on a queue for one; an acknowledgement standing beside a live out-of-band fault is exactly the ambiguous case, so the row's `Watch` downgrades it into the compensating path rather than reporting a delivery the transport already told someone else it lost; rollback is an actual second transport write and never a renamed failed acknowledgement; a rollback failure is indeterminate rather than a typed rejection because remote application cannot be disproved.
@@ -1438,15 +1394,13 @@ public sealed record WriteAttempt(WriteVerdict Verdict, Option<double> Rendered,
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class WriteBackSurface {
-    public static IO<Host.WriteReceiptWire> Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue) =>
+    public static IO<Host.WriteOutcomeWire> Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue) =>
         from key in IO.pure(Op.Of())
         from start in runtime.Clocks.Line.Capture(key).Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
         from attempt in Conduct(runtime, spec, canonicalValue) | WireRecovery.Refused()
         from remembered in IO.lift(() => Remember(runtime, spec.BindingId, attempt.Verdict))
-        from correlation in IO.lift(Correlation.Mint)
-        from receipt in Sealed(runtime, spec, canonicalValue, attempt, correlation, start, key)
-        from published in Publish(runtime, spec, correlation, receipt) | WireRecovery.Diagnostic(runtime, spec, "write-receipt")
-        select receipt;
+        from outcome in Sealed(runtime, spec, canonicalValue, attempt, start, key)
+        select outcome;
 
     static IO<WriteAttempt> Conduct(LiveWireRuntime runtime, BindingSpec spec, double canonical) =>
         from prior in Prior(runtime, spec)
@@ -1487,13 +1441,13 @@ public static class WriteBackSurface {
             | @catch<IO, WriteVerdict>(static error => error is WireFault,
                 rollback => IO.pure<WriteVerdict>(new WriteVerdict.Indeterminate(attempt, rollback)));
 
-    static IO<Host.WriteReceiptWire> Sealed(
+    static IO<Host.WriteOutcomeWire> Sealed(
         LiveWireRuntime runtime, BindingSpec spec, double canonical, WriteAttempt attempt,
-        CorrelationId correlation, MonotonicStamp start, Op key) =>
+        MonotonicStamp start, Op key) =>
         from end in runtime.Clocks.Line.Capture(key).Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>)
         from span in runtime.Clocks.Line.Elapsed(start, end, key).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
-        select LiveWireContract.Receipt(
-            spec.BindingId, canonical, attempt, Duration.FromTimeSpan(span), correlation);
+        select LiveWireContract.Outcome(
+            spec.BindingId, canonical, attempt, Duration.FromTimeSpan(span));
 
     static Unit Remember(LiveWireRuntime runtime, string bindingId, WriteVerdict verdict) =>
         verdict.Switch(
@@ -1502,23 +1456,19 @@ public static class WriteBackSurface {
             rolledBack: static _ => unit,
             indeterminate: static _ => unit);
 
-    static IO<Unit> Publish(
-        LiveWireRuntime runtime, BindingSpec spec, CorrelationId correlation, Host.WriteReceiptWire receipt) =>
-        runtime.Sink.Send(correlation, spec.Tenant, TelemetrySource.AppHost, ReceiptKind.Write.Key,
-            WireJson.Element(receipt)).Map(static _ => unit);
 }
 ```
 
-## [09]-[BINDING_HEALTH]
+## [08]-[BINDING_HEALTH]
 
 - Owner: `BindingState` `[SmartEnum<Host.BindingState>]` the per-binding lifecycle vocabulary whose rows carry their OWN legal successors; `BindingHealth` the static health-contribution surface projecting binding state onto the health fold.
 - Cases: 5 rows — connecting, subscribed, polling, stale, faulted — in lifecycle order; `stale` carries an EMPTY successor set because nothing transitions to it or out of it: it is derived at read off the stamped last-good value, and the empty row is that fact stated in the table rather than asserted in prose.
-- Entry: `Transition(runtime, handle, next)` returns `IO<BindingHandle>` — one guarded step over the binding's cell, refusing an illegal transition with typed evidence, levelling the stale gauge off the same step, and fanning the status wire row; `Effective(runtime, handle, now)` grades one binding's live state; `Contribute(runtime, cadence)` returns the one `HealthContributorRow` the host health fold reads.
-- Auto: the transition is `Cell.Step` over the row's OWN successor set, so the lifecycle diagram IS the table and an illegal transition answers `Refused` with a receipt rather than landing silently; staleness is DERIVED, never a fourth stored state — `Effective` compares `now - handle.LastGood` against the binding's own `Staleness` against the injected clock so a fake-clock spec drives staleness deterministically, and a resumed value clears it with no second transition; a silently dropped connection grades faulted the moment its out-of-band surface reports, rather than aging through the staleness window first; a faulted binding's health contribution carries `HealthStatus.Unhealthy` so a critical industrial binding's loss escalates the host through the existing `remote`-tagged degradation rule, never a parallel binding alarm.
-- Receipt: each committed state transition fans one generated `Host.BindingStatus` row under receipt-only `ReceiptKind.WireStatus`; a refused transition fans structured `WireRejectionWire` evidence under `ReceiptKind.WireRejection`; the aggregate state is the health snapshot's contribution.
+- Entry: `Transition(runtime, handle, next)` returns `IO<BindingHandle>` — one guarded step over the binding's cell, refusing an illegal transition with typed evidence, levelling the stale gauge and firing the generated status from the committed step; `Effective(runtime, handle, now)` grades one binding's live state; `Contribute(runtime, cadence)` returns the one `HealthContributorRow` the host health fold reads.
+- Auto: the transition is `Cell.Step` over the row's OWN successor set, so the lifecycle diagram IS the table and an illegal transition returns its typed cause rather than landing silently; staleness is DERIVED, never a fourth stored state — `Effective` compares `now - handle.LastGood` against the binding's own `Staleness` against the injected clock so a fake-clock spec drives staleness deterministically, and a resumed value clears it with no second transition; a silently dropped connection grades faulted the moment its out-of-band surface reports, rather than aging through the staleness window first; a faulted binding's health contribution carries `HealthStatus.Unhealthy` so a critical industrial binding's loss escalates the host through the existing `remote`-tagged degradation rule, never a parallel binding alarm.
+- Result: a committed state transition returns the updated `BindingHandle`; a refused transition returns its typed cause on the `IO` rail; `LiveWireContract.Status` remains the generated peer projection, and the aggregate state is the health snapshot's contribution.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one state is one `BindingState` row naming its successors; a new health tag rides the existing health contributor row family; zero new surface.
-- Boundary: the stale-and-faulted population level writes at its PRODUCING arm — the transition that changed it — so `AppHostMeasure.BindingStale` derives from the same step rather than a sampler re-reading the set, and a refused instrument write fans as wire evidence rather than failing the transition it merely describes; binding health is a read into the existing health fold — a parallel binding monitor, a per-binding alarm, and a binding-specific degradation level are the deleted forms; the staleness window is the binding's own `Staleness` value read by projection, never a literal; the binding state lifecycle is the binding's own cell, distinct from the host lifecycle phase, so a binding faults and recovers without touching the host phase machine; the contribution aggregates all bindings into one row so a host with a hundred bindings contributes one health entry, keeping the health fold bounded.
+- Boundary: the stale-and-faulted population level writes at its PRODUCING arm — the transition that changed it — so `AppHostMeasure.BindingStale` derives from the same step rather than a sampler re-reading the set; the committed state fires its generated `BindingStatus` on the typed hook rail, whose observe tap owns publication onto `Topic.Health`, so no binding-specific sink or parallel feed exists; binding health is a read into the existing health fold — a parallel binding monitor, a per-binding alarm, and a binding-specific degradation level are the deleted forms; the staleness window is the binding's own `Staleness` value read by projection, never a literal; the binding state lifecycle is the binding's own cell, distinct from the host lifecycle phase, so a binding faults and recovers without touching the host phase machine; the contribution aggregates all bindings into one row so a host with a hundred bindings contributes one health entry, keeping the health fold bounded.
 
 ```csharp
 // --- [TABLES] --------------------------------------------------------------------------
@@ -1542,26 +1492,22 @@ public static class BindingHealth {
         from stepped in IO.lift(() => Cell.Step(handle.State, held => held.Admits(next) ? Some(next) : None,
             new WireFault.ProtocolRefused($"binding-state:{handle.Spec.BindingId}:{handle.State.Value.Key}->{next.Key}")))
         from _ in stepped.Switch(
-            committed: _ => Levelled(runtime, handle).Bind(__ => Fanned(runtime, handle)),
-            ceded: _ => WireEvidence.Rejected(runtime, handle.Spec, Correlation.Mint(), "binding-state",
-                new KernelFault.InvalidResult(Op.Of(), Some("Cell.Step returned Ceded"))),
-            refused: refused => WireEvidence.Rejected(
-                runtime, handle.Spec, Correlation.Mint(), "binding-state", refused.Cause),
-            contended: row => WireEvidence.Rejected(runtime, handle.Spec, Correlation.Mint(), "binding-state",
-                new KernelFault.InvalidResult(Op.Of(), Some($"Cell.Step returned Contended after {row.Attempts.Value} attempts"))))
+            committed: row => Levelled(runtime).Bind(_ => runtime.Rail.Fire(
+                at: AppHostPoint.Binding,
+                fact: new AppHostFact.Binding(LiveWireContract.Status(handle, row.State)),
+                key: Op.Of()).Match(Succ: IO.pure, Fail: IO.fail<Unit>)),
+            ceded: _ => IO.fail<Unit>(new KernelFault.InvalidResult(Op.Of(), Some("Cell.Step returned Ceded"))),
+            refused: refused => IO.fail<Unit>(refused.Cause),
+            contended: row => IO.fail<Unit>(new KernelFault.InvalidResult(
+                Op.Of(), Some($"Cell.Step returned Contended after {row.Attempts.Value} attempts"))))
         select handle;
 
-    static IO<Unit> Levelled(LiveWireRuntime runtime, BindingHandle handle) =>
-        runtime.Instruments.Level(AppHostMeasure.BindingStale.Row, (double)Unhealthy(runtime, runtime.Bound(), runtime.Clocks.Now)).Match(
-            Succ: static _ => IO.pure(unit),
-            Fail: fault => WireEvidence.Rejected(
-                runtime, handle.Spec, Correlation.Mint(), "binding-level", fault));
-
-    static IO<Unit> Fanned(LiveWireRuntime runtime, BindingHandle handle) =>
-        runtime.Sink.Send(Correlation.Mint(), handle.Spec.Tenant, TelemetrySource.AppHost, ReceiptKind.WireStatus.Key,
-            WireJson.Element(LiveWireContract.Status(handle, Effective(runtime, handle, runtime.Clocks.Now))))
-            .Map(static _ => unit)
-        | WireRecovery.Diagnostic(runtime, handle.Spec, "binding-status");
+    static IO<Unit> Levelled(LiveWireRuntime runtime) => IO.lift(() => {
+        ignore(runtime.Instruments.Level(
+            AppHostMeasure.BindingStale.Row,
+            (double)Unhealthy(runtime, runtime.Bound(), runtime.Clocks.Now)));
+        return unit;
+    });
 
     public static BindingState Effective(LiveWireRuntime runtime, BindingHandle handle, Instant now) =>
         handle.State.Value == BindingState.Faulted || handle.Spec.Transport.Watch(runtime, handle.Spec).IsSome
@@ -1607,32 +1553,16 @@ stateDiagram-v2
     end note
 ```
 
-## [10]-[TS_PROJECTION]
+## [09]-[TS_PROJECTION]
 
-- Owner: generated `Host.BindingStatus`, `Host.CoercedValueWire`, `Host.WriteBackWire`, and `Host.WriteReceiptWire` own every peer-decoded live-wire contract; `LiveWireContract` is their single C# producer; `WireRejectionWire`, `MachineObservationWire`, and `QualityWire` remain host-local receipt payloads under `LiveWireContext`.
-- Entry: `LiveWireContract.Status(handle, state)` projects the graded lifecycle; `Coerced(value, spec)` projects capability input; `Receipt(...)` seals the generated write receipt; `LiveWireMap.Observed(value, spec, machine)` projects the host-local machine observation.
-- Auto: the operational `ExternalTransport`, `BindingState`, `BindingDirection`, and `EchoClass` tables key directly on their generated enums, so no string roster or enum lowering table stands between runtime policy and the descriptor; protobuf optional fields preserve absence; timestamps, durations, correlation ids, faults, and write disposition cross through their shared generated boundary types.
+- Owner: generated `Host.BindingStatus`, `Host.CoercedValueWire`, `Host.WriteBackWire`, and `Host.WriteOutcomeWire` own every peer-decoded live-wire contract; `LiveWireContract` is their single C# producer.
+- Entry: `LiveWireContract.Status(handle, state)` projects the graded lifecycle; `Coerced(value, spec)` projects capability input; `Outcome(...)` seals the generated write result.
+- Auto: the operational `ExternalTransport`, `BindingState`, `BindingDirection`, and `EchoClass` tables key directly on their generated enums, so no string roster or enum lowering table stands between runtime policy and the descriptor; protobuf optional fields preserve absence; timestamps, durations, faults, and write disposition cross through their shared generated boundary types.
 - Packages: Rasm.Contracts (project — host live-wire messages/enums), Google.Protobuf, NodaTime.Serialization.Protobuf, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL `System.Text.Json`
 - Growth: one protobuf member or oneof arm at the corpus and one producer assignment here; a new enum row keys the operational table directly; zero peer-facing hand carrier.
 - Boundary: generated messages cross only through `WireJson`, so ProtoJSON naming, optional presence, enum spelling, oneof shape, and shared `FaultObservation` stay descriptor-owned. Mapperly and STJ never transcribe a generated family. `Coercion`, `WriteAttempt`, and `WriteVerdict` are operational records containing evidence and control decisions a peer must not receive; their one crossing is `LiveWireContract`.
-- Boundary: the host-local rejection embeds the shared generated fault as a detached `JsonElement` produced by `WireJson.Element(FaultWire.Observe(error))`; this avoids asking STJ to rediscover protobuf semantics while retaining the local receipt envelope.
-- Boundary: the reading crosses OPTIONAL beside its quality, because a `Bad` measurement carries no number and a required slot filled with zero reads on the wire as a value the source published; `MachineObservationWire` rides `LiveWireContext` as a receipt payload and carries NO family row at the contracts manifest, its decoder being `ReceiptKind.Observation` in this same process.
 
 ```csharp
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record WireRejectionWire(
-    string BindingId,
-    string At,
-    JsonElement Fault);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record QualityWire {
-    private QualityWire() { }
-    public sealed record Good : QualityWire;
-    public sealed record Uncertain(string Reason) : QualityWire;
-    public sealed record Bad(string Reason) : QualityWire;
-}
-
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class LiveWireContract {
     public static Host.BindingStatus Status(BindingHandle handle, BindingState state) {
@@ -1647,6 +1577,12 @@ public static class LiveWireContract {
         return wire;
     }
 
+    public static Fin<DomainEvent> Event(Host.BindingStatus status, EventSource source, HlcStamp stamp) =>
+        DomainEvent.Of(
+            Topic.Health, EventType.Of(TelemetryDomain.AppHost.Key, "binding", status.State.ToString().ToLowerInvariant()), source,
+            $"{status.BindingId}:{status.State}:{stamp.Logical}:{ClockPolicy.Persisted(stamp.Physical)}",
+            WireJson.Element(status), DataClassification.Operational, stamp);
+
     public static Host.CoercedValueWire Coerced(Coercion value, BindingSpec spec) => new() {
         BindingId = spec.BindingId,
         Canonical = value.Canonical,
@@ -1655,14 +1591,13 @@ public static class LiveWireContract {
         SourceAt = value.SourceAt.ToTimestamp(),
     };
 
-    public static Host.WriteReceiptWire Receipt(
-        string bindingId, double canonical, WriteAttempt attempt, Duration elapsed, CorrelationId correlation) {
-        Host.WriteReceiptWire wire = new() {
+    public static Host.WriteOutcomeWire Outcome(
+        string bindingId, double canonical, WriteAttempt attempt, Duration elapsed) {
+        Host.WriteOutcomeWire wire = new() {
             BindingId = bindingId,
             Canonical = canonical,
             Disposition = Verdict(attempt.Verdict),
             Elapsed = elapsed.ToProtobufDuration(),
-            Correlation = HostWire.Correlation(correlation),
         };
         attempt.Rendered.Iter(value => wire.Rendered = value);
         attempt.RenderedUnit.Iter(value => wire.RenderedUnit = value);
@@ -1689,25 +1624,9 @@ public static class LiveWireContract {
             },
         });
 }
-
-public static class LiveWireMap {
-    public static MachineObservationWire Observed(ExternalValue value, BindingSpec spec, string machine) =>
-        new(machine, spec.ExternalAddress, value.Reading, value.Unit, Graded(value.Quality), value.SourceAt, spec.Transport);
-
-    public static QualityWire Graded(Quality quality) => quality.Switch(
-        good: static _ => new QualityWire.Good(),
-        uncertain: static row => new QualityWire.Uncertain(row.Reason.Value),
-        bad: static row => new QualityWire.Bad(row.Reason.Value));
-}
-
-// --- [ENTRY] ---------------------------------------------------------------------------
-[JsonSerializable(typeof(WireRejectionWire))]
-[JsonSerializable(typeof(QualityWire))]
-[JsonSerializable(typeof(MachineObservationWire))]
-public sealed partial class LiveWireContext : JsonSerializerContext;
 ```
 
-## [11]-[RESEARCH]
+## [10]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

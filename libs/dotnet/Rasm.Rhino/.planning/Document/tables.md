@@ -1,14 +1,13 @@
 # [RASM_RHINO_TABLES]
 
-`Rasm.Rhino.Document` owns document-table vocabulary, object addressing, mutation programs, and consequence evidence. `TableKind` captures each admitted host document table, `TableTarget` freezes explicit, runtime, and host-query addressing, and `TableOp` closes the mutation family. `Tables.Commit` executes one admitted program inside one session capability window, refreshes the kernel `Context`, frames the change through `Document/commit.md`'s `DocumentCommit.Sealed`, and returns one typed fact stream on `Document/facts.md`'s parameterized owner. The commit envelope, the undo bracket, and the redraw scope are that sibling's; the fact-stream machinery is `facts.md`'s; this page contributes the table vocabularies, the program algebra, and its own slot-and-body pair.
+`Rasm.Rhino.Document` owns document-table vocabulary, object addressing, and mutation programs. `TableKind` captures each admitted host document table, `TableTarget` freezes explicit and host-query addressing, and `TableOp` closes the mutation family. `Tables.Commit` executes one admitted program inside one session capability window, refreshes the kernel `Context`, and frames the change through `DocumentCommit.Sealed`.
 
 ## [01]-[INDEX]
 
 - [02]-[TABLE_VOCABULARY]: `TableKind` — document-table identity, component correspondence, and reclamation behavior.
-- [03]-[TARGET_ALGEBRA]: `ObjectKind`/`ObjectKinds`, `ActiveSpaceUse`, `ObjectRuntime`, `QueryAxis`, `QuerySpec`, `BoundsMatch`, `TablePredicate`, `TableTarget`, `ViewportTarget`, and the `DefinedView`/`IsoQuadrant` host projection rosters — object-type vocabulary, immutable object addressing, viewport addressing, projection vocabulary, and query composition.
+- [03]-[TARGET_ALGEBRA]: `ObjectKind`/`ObjectKinds`, `ActiveSpaceUse`, `QueryAxis`, `QuerySpec`, `BoundsMatch`, `TablePredicate`, `TableTarget`, `ViewportTarget`, and the `DefinedView`/`IsoQuadrant` host projection rosters — object-type vocabulary, immutable object addressing, viewport addressing, projection vocabulary, and query composition.
 - [04]-[RUN]: policy rows, `SelectionAxis`, `NamedRestore`, `HistoryRoll`, `TableOp`, `TableTransaction`, `GeometryIntake`, and `Tables` — the mutation program and its one commit entry.
-- [05]-[RECEIPTS]: `TableBodyKind`, `TableFact`, `TableSlot`, and the `TableReceipt` alias — this page's conformance to the shared fact stream.
-- [06]-[SURFACE_LEDGER]: the page owner map.
+- [05]-[SURFACE_LEDGER]: the page owner map.
 
 ## [02]-[TABLE_VOCABULARY]
 
@@ -89,7 +88,7 @@ public sealed partial class TableKind {
 - Owner: `ObjectKind` `[SmartEnum<ObjectType>]` is the corpus-wide OBJECT-TYPE vocabulary and `ObjectKinds` its admitted set, seated here because the concept has consumers at S1 (`Commands` modal object asks) and S2 (`HostUi` properties-page scope) and this spine is the lowest stratum both reach; `Mask` is the one OR-fold, `Any` the host's own catch-all row, and no folder mints a second type table.
 - Law: a raw `ObjectType` never crosses a public signature — every filter is `ObjectKinds`, every host member taking the flag reads `Mask` at its own call, and a page needing "every type" composes `ObjectKinds.Any` rather than spelling `ObjectType.AnyObject`. The same law binds `MeshType`: the raw host mesh discriminant crosses only as `Objects/materials.md`'s `MeshKind` row.
 - Owner: `ActiveSpaceUse` `[SmartEnum<ActiveSpace>]` is the space partition, seated here beside the enumerator's own `SpaceFilter` because an attribute set carries it at S2 and a conduit criterion and a gumball seat read it at S4; the roster mirrors the host enum completely, so `Get` is total over any value a host read returns and the row's `Key` is the one write.
-- Owner: `ObjectRuntime` `[ComplexValueObject]` admits the durable `(Guid, runtime serial)` pair required after an object leaves the active-id index. `QueryAxis` is the fourteen-row inclusion vocabulary whose every row carries its own host setter; `QuerySpec` `[ComplexValueObject]` holds those axes as ONE `CapabilitySet<QueryAxis>` beside the six filter columns and BUILDS the host settings inside the document callback, so the mutable host settings type never crosses a signature, every host sentinel is an `Option` whose absence reads as "every row", and the live `ViewportFilter` slot is the stable `ViewportTarget` owner. `TableTarget` `[Union]` closes nonempty explicit ids, nonempty runtime pairs, and admitted queries. `TablePredicate` `[Union]` adds composable tag, draw-color, and kernel-bounds predicates; `BoundsMatch` owns containment versus intersection behavior as rows, each comparison banded on the kernel `Duplicate` tolerance lane.
+- Owner: `QueryAxis` is the inclusion vocabulary whose every row carries its own host setter; `QuerySpec` `[ComplexValueObject]` holds those axes as ONE `CapabilitySet<QueryAxis>` beside the filter columns and builds the host settings inside the document callback, so the mutable host settings type never crosses a signature, every host sentinel is an `Option` whose absence reads as every row, and the live `ViewportFilter` slot is the stable `ViewportTarget` owner. `TableTarget` `[Union]` closes nonempty explicit ids and admitted queries. `TablePredicate` `[Union]` adds composable tag, draw-color, and kernel-bounds predicates; `BoundsMatch` owns containment versus intersection behavior as rows, each comparison banded on the kernel `Duplicate` tolerance lane.
 - Law: the query axes are a SET over a vocabulary whose rows OWN their host writes — `Build` is one fold over `QueryAxis.Items`, so the fourteen parallel bool columns, their fourteen `Of` options, and the fourteen hand assignments delete together and a fifteenth host axis is one row no consumer edits. The three admission constraints the product carries — fast selection demands the selected-only filter (the host silently drops it otherwise), at least one state axis, at least one category axis — state ONCE at construction over the set, so a spec cannot carry a knob the host will silently drop. The kernel `CapabilityLaw` carries corner SETS alone, so these pairwise and quantified clauses ride the owner's own admission rather than a law value.
 - Owner: `ViewportTarget` `[Union]` is the corpus-wide VIEWPORT address — active, named, id, page, detail, and census cases closed as one owner beside `TableKind` (which table), `TableTarget` (which objects), and `ResourceRef` (which component). `ViewportScope` `[SmartEnum<int>]` carries the model, page, and detail census generators and `EveryCase` freezes their set; `ViewportRef` is the ephemeral resolved row pairing `RhinoView`, `RhinoViewport`, and an optional `DetailViewObject`. `Active`/`Named`/`Id`/`Page`/`Detail`/`Every` construct, and `Resolve`, `ResolveOne`, and `ResolveViewport` fold one address to every row, exactly one row, or one native viewport inside the caller's document callback.
 - Law: viewport resolution names `RhinoDoc.Views.ActiveView`, `.Find`, `.GetViewList`, `.GetPageViews`, `RhinoPageView.GetDetailViews`, and `DetailViewObject.Viewport` exactly once; a detail address matches either `DetailViewObject.Id` or `DetailViewObject.Viewport.Id`, and a resolution yielding no row refuses before any consumer projects it.
@@ -97,9 +96,9 @@ public sealed partial class TableKind {
 - Law: viewport rows resolve live per call inside the document callback and leave as detached addresses or one native viewport, never a retained handle; `ResolveViewport` composes `Resolve` and `Tables.One`, so the single-viewport consumers — `QuerySpec` viewport filtering, `NamedRestore`, and the annotation dimension-scale probe — share one fold and no call site re-spells the resolve-then-one triple.
 - Owner: `ResourceRef` is the corpus-wide COMPONENT address — id, name, index closed as one `[Union]` over a per-table `ResourceLens<TComponent>` — completing the addressing triad beside `TableKind` (which table) and `TableTarget` (which objects); `ResourceId`, `ResourceName`, and `ResourceIndex` admit the native address scalars once, and the `ResourceId` and `ResourceIndex` `Maybe`/`Admit` pairs are the sole `Guid.Empty` and negative-index sentinel projectors — `Maybe` where the host miss value spells a normal absence, `Admit` where it is a genuine refusal.
 - Law: each component table contributes exactly one lens — Annotation's style, linetype, hatch, and section rails and Blocks' definition rail each declare one `ResourceLens<T>` row — and no folder mints a second address family; resolution reads live per call inside the owning operation, because tables mutate under commands, so no resolved component is cached on a value.
-- Entry: `QuerySpec.Of(...)`, `TableTarget.Of(params ReadOnlySpan<Guid>)`, `Deleted(params ReadOnlySpan<ObjectRuntime>)`, and `Query(QuerySpec, params ReadOnlySpan<TablePredicate>)` are the only constructors. `Resolve` returns distinct ids; `Serials` preserves or resolves runtime pairs. `ObjectRuntime.Canonical` derives every runtime-pair deduplication from generated structural equality. A deleted-object lifecycle request composes `Deleted` from a prior receipt instead of attempting `FindId`, which cannot find deleted objects.
+- Entry: `QuerySpec.Of(...)`, `TableTarget.Of(params ReadOnlySpan<Guid>)`, and `Query(QuerySpec, params ReadOnlySpan<TablePredicate>)` are the only constructors. `Resolve` returns distinct ids; `Serials` reads native runtime serials for lifecycle operations. Deleted-object lifecycle composes a query whose admitted axes select deleted objects, so the host query remains the source of the serial required by `Undelete` and `Purge`.
 - Law: query settings are BUILT at execution from an admitted value, never copied from a caller's instance — the host settings object exists only inside `QuerySpec.Build`, so no caller retains a handle that can mutate an admitted target, and the viewport resolves from stable identity inside the document callback. Predicate evaluation accumulates independent object and predicate faults through `Validation<Error, T>` before lowering once to `Fin<T>`.
-- Law: a predicate distinguishes NON-MATCH from HOST FAULT — a missing tag is a non-match, a missing attribute set is a refusal, because folding both onto `false` drops an unreadable object out of every filtered query with no receipt naming it. Draw-colour comparison lands on the quantized ARGB quadruple of two `PerceptualColor` values: `System.Drawing.Color` equality compares NAME before value, so a named row and its identical literal compare unequal, which is the trap a colour filter walks into on the first system colour.
+- Law: a predicate distinguishes NON-MATCH from HOST FAULT — a missing tag is a non-match, a missing attribute set is a refusal, because folding both onto `false` silently drops an unreadable object out of every filtered query. Draw-colour comparison lands on the quantized ARGB quadruple of two `PerceptualColor` values: `System.Drawing.Color` equality compares NAME before value, so a named row and its identical literal compare unequal, which is the trap a colour filter walks into on the first system colour.
 - Law: bounds predicates admit `BoundingBox.IsValid` before corner accumulation and compose the kernel `BoundsOf` owner; the containment and intersection comparisons read the kernel `Duplicate` tolerance lane admitted ONCE at the factory from the caller's `Context`, so an exact float equality never decides a near-coincident box and no site mints an epsilon. Inflation remains host-query policy, while candidate classification and coercion stay kernel-owned.
 - Boundary: `BoundingBox.Inflate` mutates a copied struct, so `Inflated` is the one statement kernel and never mutates request evidence.
 
@@ -182,25 +181,6 @@ public sealed partial class ActiveSpaceUse {
     public static readonly ActiveSpaceUse Page = new(key: ActiveSpace.PageSpace);
     public static readonly ActiveSpaceUse UvEditor = new(key: ActiveSpace.UVEditorSpace);
     public static readonly ActiveSpaceUse BlockEditor = new(key: ActiveSpace.BlockEditorSpace);
-}
-
-[ComplexValueObject]
-[ValidationError]
-public sealed partial class ObjectRuntime {
-    public Guid Id { get; }
-    public uint Serial { get; }
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid id, ref uint serial) =>
-        validationError = id == Guid.Empty || serial is 0u
-            ? new ValidationError(message: "Object runtime identity is incomplete.")
-            : null;
-
-    internal static Fin<ObjectRuntime> Of(Guid id, uint serial, Op? key = null) =>
-        key.OrDefault().AcceptValidated<ObjectRuntime>(
-            fault: Validate(id, serial, out ObjectRuntime? admitted),
-            admitted: admitted);
-
-    internal static Seq<ObjectRuntime> Canonical(Seq<ObjectRuntime> values) => values.Distinct();
 }
 
 [SmartEnum<string>]
@@ -406,7 +386,6 @@ public abstract partial record TableTarget {
     private TableTarget() { }
 
     private sealed record IdsCase(Seq<Guid> Values) : TableTarget;
-    private sealed record RuntimeCase(Seq<ObjectRuntime> Values) : TableTarget;
     private sealed record QueryCase(QuerySpec Spec, Seq<TablePredicate> Predicates) : TableTarget;
 
     public static Fin<TableTarget> Of(params ReadOnlySpan<Guid> ids) {
@@ -422,14 +401,6 @@ public abstract partial record TableTarget {
                select (TableTarget)new IdsCase(Values: distinct);
     }
 
-    public static Fin<TableTarget> Deleted(params ReadOnlySpan<ObjectRuntime> values) {
-        Op op = Op.Of();
-        return from admitted in Admission.All(values: values, key: op)
-               let distinct = ObjectRuntime.Canonical(values: admitted)
-               from _ in guard(!distinct.IsEmpty, op.InvalidInput()).ToFin()
-               select (TableTarget)new RuntimeCase(Values: distinct);
-    }
-
     public static Fin<TableTarget> Query(QuerySpec spec, params ReadOnlySpan<TablePredicate> predicates) {
         Op op = Op.Of();
         return (
@@ -442,36 +413,39 @@ public abstract partial record TableTarget {
             .ToFin();
     }
 
-    internal bool RetainsRuntime => Switch(
+    internal bool SelectsDeleted => Switch(
         idsCase: static _ => false,
-        runtimeCase: static _ => true,
         queryCase: static target => target.Spec.SelectsOnlyDeleted);
 
     internal Fin<Seq<Guid>> Resolve(RhinoDoc document, Op key) =>
         Switch(
             state: (Document: document, Op: key),
             idsCase: static (_, target) => Fin.Succ(value: target.Values),
-            runtimeCase: static (_, target) => Fin.Succ(value: target.Values.Map(static value => value.Id)),
             queryCase: static (context, target) => Evaluate(
                     target: target,
                     document: context.Document,
                     key: context.Op)
                 .Map(static rows => rows.Map(static native => native.Id).Distinct()));
 
-    internal Fin<Seq<ObjectRuntime>> Serials(RhinoDoc document, Op key) =>
+    internal Fin<Seq<uint>> Serials(RhinoDoc document, Op key) =>
         Switch(
             state: (Document: document, Op: key),
-            idsCase: static (context, target) => Tables.Runtime(document: context.Document, ids: target.Values, key: context.Op),
-            runtimeCase: static (_, target) => Fin.Succ(value: target.Values),
+            idsCase: static (context, target) => target.Values
+                .Traverse(id => Optional(context.Document.Objects.FindId(id))
+                    .ToFin(Fail: context.Op.InvalidResult())
+                    .Bind(native => guard(native.RuntimeSerialNumber > 0u, context.Op.InvalidResult()).ToFin()
+                        .Map(_ => native.RuntimeSerialNumber))
+                    .ToValidation())
+                .As()
+                .ToFin(),
             queryCase: static (context, target) => Evaluate(
                     target: target,
                     document: context.Document,
                     key: context.Op)
                 .Bind(rows => rows
-                    .Traverse(native => ObjectRuntime.Of(
-                        id: native.Id,
-                        serial: native.RuntimeSerialNumber,
-                        key: context.Op).ToValidation())
+                    .Traverse(native => guard(native.RuntimeSerialNumber > 0u, context.Op.InvalidResult()).ToFin()
+                        .Map(_ => native.RuntimeSerialNumber)
+                        .ToValidation())
                     .As()
                     .ToFin()));
 
@@ -692,18 +666,18 @@ public abstract partial record ResourceRef : IDetachedDocumentResult {
 
 ## [04]-[RUN]
 
-- Owner: policy vocabularies close every provider-mode discriminant on rows. `SelectionAxis` is the seven-row selection-conduct vocabulary the host's own select and census members read as ONE `CapabilitySet<SelectionAxis>`. `TableOp` `[Union]` carries admitted per-occurrence payloads; `TableTransaction` `[Union]` distinguishes recorded, immediate, and navigation programs by shape, and the `UndoTrait`/`OpTrait` sets derive required versus recorded undo behavior without plan booleans. The commit envelope — `UndoBracket`, `RedrawScope`, `DocumentCommit.Sealed`, and the `HostInteraction` axis — is `Document/commit.md`'s, and this rail composes it.
-- Entry: `TableOp` factories admit raw payloads once. `Add` and `Replace` seal heterogeneous geometry inside `GeometryIntake`; its later `Admit` stage applies the fresh kernel `Context`, `Requirement`, and `GeometryForm` lease without exposing the raw value again. `TableTransaction.Recorded`, `Immediate`, and `Navigate` admit program shape before `Tables.Commit(DocumentSession, TableTransaction, project)` enters the host boundary.
-- Law: `TransformPolicy.Relocate` reports the transformed identity as `Moved`; `Copy` and `History` report only the minted identity as `Created`. Sources remain unchanged on copy/history paths. Selection facts derive from before/after runtime snapshots, and state facts use separate `Hidden`/`Shown` and `Locked`/`Unlocked` slots.
-- Law: the selection conduct is ONE set — seven two-row vocabularies and a seven-column policy product spelled the same seven bits under fourteen names, and the two census axes were literal `true`s inside the census helper, which silently made every selection receipt include lights and grips whatever the caller asked. `SelectionAxis.Baseline` is the host's own default posture, every host argument reads `Admits` at its own call, and a clear's census reads the same two inclusion rows every other selection op reads, so a clear cannot report a different population than the select that preceded it.
-- Law: an operation-factory key threads through every constructor as a trailing `Op? key = null`, so one caller-minted key spans a whole program and every refusal names the request that produced it; the three `params`-bearing factories carve out and mint at the entry, because an optional before `params` forecloses the positional spread. A host member reporting failure as `Guid.Empty` — `Add`, `AddOrderedPointCloud`, `Transform` — admits through `ResourceId.Admit`, the spine's one empty-guid projector, so an empty id never enters a receipt as a created object.
+- Owner: policy vocabularies close every provider-mode discriminant on rows. `SelectionAxis` is the selection-conduct vocabulary the host's own selection members read as ONE `CapabilitySet<SelectionAxis>`. `TableOp` `[Union]` carries admitted per-occurrence payloads; `TableTransaction` `[Union]` distinguishes recorded, immediate, and navigation programs by shape, and the `UndoTrait`/`OpTrait` sets derive required versus recorded undo behavior without plan booleans. The commit envelope — `UndoBracket`, `RedrawScope`, `DocumentCommit.Sealed`, and the `HostInteraction` axis — is `Document/commit.md`'s, and this rail composes it.
+- Entry: `TableOp` factories admit raw payloads once. `Add` and `Replace` seal heterogeneous geometry inside `GeometryIntake`; its later `Admit` stage applies the fresh kernel `Context`, `Requirement`, and `GeometryForm` lease without exposing the raw value again. `TableTransaction.Recorded`, `Immediate`, and `Navigate` admit program shape before `Tables.Commit(DocumentSession, TableTransaction)` enters the host boundary.
+- Law: `TransformPolicy.Relocate` moves the source; `Copy` and `History` preserve it. `ObjectState` skips rows already in the requested state, and selection validates the host's affected-count return directly.
+- Law: selection conduct is ONE set. `SelectionAxis.Baseline` carries the host's default selection posture, and every host argument reads `Admits` at its own call.
+- Law: an operation-factory key threads through every constructor as a trailing `Op? key = null`, so one caller-minted key spans a whole program and every refusal names the request that produced it; the three `params`-bearing factories carve out and mint at the entry, because an optional before `params` forecloses the positional spread. A host member reporting failure as `Guid.Empty` — `Add`, `AddOrderedPointCloud`, `Transform` — admits through `ResourceId.Admit`, the spine's one empty-guid projector.
 - Law: `TableOp.Traits` totally classifies every case onto one of four trait rows — `Sourced`, `Recorded`, `Immediate`, `Navigation` — each carrying its undo, navigation, and kernel-context demands as ONE `CapabilitySet<OpTrait>` column. A host effect that cannot be reversed by the document record enters only an immediate transaction, so a recorded program has no untracked side effect.
 - Law: `Amend` owns a duplicated `ObjectAttributes` lease, takes the admitted `AttributeChange` payload, commits the duplicate synchronously, and disposes it before the operation leaves the host boundary. `AttributeChange` is the SEAM type: this spine is S0 and the typed attribute program is S2, so the payload value seats here and the objects page's `AttributeProgram` composes it upward.
-- Law: deleted-object operations require a runtime-preserving target. Explicit deleted rows and deleted-object queries preserve runtime serials without re-entering the active-id index, deletion captures runtime pairs before mutation, and receipts project them for a later `Revive` or `Expunge` request.
+- Law: deleted-object operations require a query whose admitted axes select deleted rows. `TableTarget.Serials` reads the native runtime serials from that query inside the operation window, so `Revive` and `Expunge` never re-enter the active-id index.
 - Law: `GeometryIntake` is the staged boundary union: `Of` separates native borrowed geometry from value-form conversion, while `Admit` resolves `Kind` and applies `Requirement.ForKind` under the fresh document context. Native geometry remains borrowed; every value-form conversion composes `GeometryForm` and is disposed by `Lease.Use` after the host copies it.
 - Law: page import carries `DocumentPath` and re-proves `DocumentFile.ThreeDm` inside the callback. Named-view restore carries `ViewportTarget`, resolves exactly one viewport immediately before the host call, and never retains a live viewport handle in request data; direct, proportional, constant-speed, and constant-time host modalities close as `NamedRestore` cases with delay and speed entering as admitted values.
-- Law: `Tables.Commit` keeps the document handle inside one `DocumentSession.Demand`, proving mutation, undo, and redraw needs against one snapshot before the first edit and refreshing the kernel context inside that window; the bracketing, sealing, rollback, and stamp custody are the commit envelope's own laws. The railed receipt projection executes inside the bracket — a consumer fold that must observe the committed receipt enters as `project`, its refusal rolls the owned record back like any operation fault, and the identity projection spells `project: Fin.Succ`, so receipt-shaped rails commit unchanged and no arity twin exists.
-- Boundary: `AddCustomUndoEvent` has no host remove counterpart, so the document retains a `TableCustomUndo` handler, its whole captured object graph, and its arbitrary `object` tag until the undo record clears — a retention no `Subscription` can shorten, unlike every other host attachment in the slice. A handler therefore captures DETACHED evidence only: runtime pairs, stamps, admitted values. A captured live `RhinoObject`, `ObjectAttributes`, session, or lease outlives the commit that minted it and is the leak this law forecloses; the events page's process-global custody census carries the matching row.
+- Law: `Tables.Commit` keeps the document handle inside one `DocumentSession.Demand`, proving mutation, undo, and redraw needs against one snapshot before the first edit and refreshing the kernel context inside that window; the bracketing, sealing, and rollback are the commit envelope's own laws.
+- Boundary: `AddCustomUndoEvent` has no host remove counterpart, so the document retains a `TableCustomUndo` handler, its whole captured object graph, and its arbitrary `object` tag until the undo record clears — a retention no `Subscription` can shorten, unlike every other host attachment in the slice. A handler therefore captures detached ids, stamps, and admitted values only. A captured live `RhinoObject`, `ObjectAttributes`, session, or lease outlives the commit that minted it and is the leak this law forecloses; the events page's process-global custody census carries the matching row.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -745,12 +719,10 @@ public sealed partial class SelectionAxis : ICapability<SelectionAxis> {
     public static readonly SelectionAxis IgnoreGrips = new(key: "ignore-grips");
     public static readonly SelectionAxis IgnoreLayerLocks = new(key: "ignore-layer-locks");
     public static readonly SelectionAxis IgnoreLayerVisibility = new(key: "ignore-layer-visibility");
-    public static readonly SelectionAxis CensusLights = new(key: "census-lights");
-    public static readonly SelectionAxis CensusGrips = new(key: "census-grips");
 
     public static CapabilitySet<SelectionAxis> Baseline => Seed.Value;
     private static readonly Lazy<CapabilitySet<SelectionAxis>> Seed = new(static () =>
-        CapabilitySet<SelectionAxis>.Of(SyncHighlight, Persistent, IgnoreGrips, CensusLights, CensusGrips));
+        CapabilitySet<SelectionAxis>.Of(SyncHighlight, Persistent, IgnoreGrips));
 }
 
 [ComplexValueObject]
@@ -769,11 +741,9 @@ public sealed partial class AttributeChange {
 
 [SmartEnum]
 public sealed partial class TransformPolicy {
-    public static readonly TransformPolicy Relocate = new(slot: TableSlot.Moved, apply: static (table, id, motion) => table.Transform(objectId: id, xform: motion, deleteOriginal: true));
-    public static readonly TransformPolicy Copy = new(slot: TableSlot.Created, apply: static (table, id, motion) => table.Transform(objectId: id, xform: motion, deleteOriginal: false));
-    public static readonly TransformPolicy History = new(slot: TableSlot.Created, apply: static (table, id, motion) => table.TransformWithHistory(objectId: id, xform: motion));
-
-    internal TableSlot Slot { get; }
+    public static readonly TransformPolicy Relocate = new(apply: static (table, id, motion) => table.Transform(objectId: id, xform: motion, deleteOriginal: true));
+    public static readonly TransformPolicy Copy = new(apply: static (table, id, motion) => table.Transform(objectId: id, xform: motion, deleteOriginal: false));
+    public static readonly TransformPolicy History = new(apply: static (table, id, motion) => table.TransformWithHistory(objectId: id, xform: motion));
 
     [UseDelegateFromConstructor]
     internal partial Guid Apply(ObjectTable table, Guid id, Transform motion);
@@ -807,12 +777,10 @@ public sealed partial class SelectionEdit {
 
 [SmartEnum]
 public sealed partial class ObjectState {
-    public static readonly ObjectState Hidden = new(slot: TableSlot.Hidden, done: static native => native.IsHidden, apply: static (table, id, ignore) => table.Hide(objectId: id, ignoreLayerMode: ignore));
-    public static readonly ObjectState Shown = new(slot: TableSlot.Shown, done: static native => !native.IsHidden, apply: static (table, id, ignore) => table.Show(objectId: id, ignoreLayerMode: ignore));
-    public static readonly ObjectState Locked = new(slot: TableSlot.Locked, done: static native => native.IsLocked, apply: static (table, id, ignore) => table.Lock(objectId: id, ignoreLayerMode: ignore));
-    public static readonly ObjectState Unlocked = new(slot: TableSlot.Unlocked, done: static native => !native.IsLocked, apply: static (table, id, ignore) => table.Unlock(objectId: id, ignoreLayerMode: ignore));
-
-    internal TableSlot Slot { get; }
+    public static readonly ObjectState Hidden = new(done: static native => native.IsHidden, apply: static (table, id, ignore) => table.Hide(objectId: id, ignoreLayerMode: ignore));
+    public static readonly ObjectState Shown = new(done: static native => !native.IsHidden, apply: static (table, id, ignore) => table.Show(objectId: id, ignoreLayerMode: ignore));
+    public static readonly ObjectState Locked = new(done: static native => native.IsLocked, apply: static (table, id, ignore) => table.Lock(objectId: id, ignoreLayerMode: ignore));
+    public static readonly ObjectState Unlocked = new(done: static native => !native.IsLocked, apply: static (table, id, ignore) => table.Unlock(objectId: id, ignoreLayerMode: ignore));
 
     [UseDelegateFromConstructor]
     internal partial bool Done(RhinoObject native);
@@ -1025,7 +993,7 @@ public abstract partial record TableOp {
     private sealed record AmendCase(TableTarget Target, AttributeChange Change, HostInteraction Interaction) : TableOp;
     private sealed record SelectCase(TableTarget Target, SelectionEdit Edit, CapabilitySet<SelectionAxis> Policy) : TableOp;
     private sealed record StateCase(TableTarget Target, ObjectState State, ModeRegard Modes) : TableOp;
-    private sealed record ClearSelectionCase(SelectionClear Scope, CapabilitySet<SelectionAxis> Census) : TableOp;
+    private sealed record ClearSelectionCase(SelectionClear Scope) : TableOp;
     private sealed record FlashCase(TableTarget Target, FlashMode Mode) : TableOp;
     private sealed record ReviveCase(TableTarget Target) : TableOp;
     private sealed record ExpungeCase(TableTarget Target) : TableOp;
@@ -1108,9 +1076,9 @@ public abstract partial record TableOp {
         Admitted(first: target, second: state, third: modes, key: key, mint: static (address, mutation, policy) =>
             new StateCase(Target: address, State: mutation, Modes: policy));
 
-    public static Fin<TableOp> ClearSelection(SelectionClear scope, CapabilitySet<SelectionAxis> census, Op? key = null) =>
+    public static Fin<TableOp> ClearSelection(SelectionClear scope, Op? key = null) =>
         key.OrDefault().Need(scope)
-            .Map(value => (TableOp)new ClearSelectionCase(Scope: value, Census: census));
+            .Map(value => (TableOp)new ClearSelectionCase(Scope: value));
 
     public static Fin<TableOp> Flash(TableTarget target, FlashMode mode, Op? key = null) =>
         Admitted(first: target, second: mode, key: key, mint: static (address, display) =>
@@ -1148,7 +1116,7 @@ public abstract partial record TableOp {
     private static Fin<TableOp> Retained(TableTarget target, Op? key, Func<TableTarget, TableOp> mint) {
         Op op = key.OrDefault();
         return op.Need(target)
-            .Bind(value => value.RetainsRuntime ? Fin.Succ(value: mint(arg: value)) : Fin.Fail<TableOp>(op.InvalidInput()));
+            .Bind(value => value.SelectsDeleted ? Fin.Succ(value: mint(arg: value)) : Fin.Fail<TableOp>(op.InvalidInput()));
     }
 
     public static Fin<TableOp> Cloud(
@@ -1237,7 +1205,7 @@ public abstract partial record TableOp {
         restoreViewCase: TableOpTraits.Immediate,
         rollCase: TableOpTraits.Navigation);
 
-    internal Fin<TableReceipt> Apply(RhinoDoc document, Option<Context> domain, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, Option<Context> domain, Op op) =>
         Switch(
             (Document: document, Domain: domain, Op: op),
             addCase: static (context, edit) =>
@@ -1250,38 +1218,31 @@ public abstract partial record TableOp {
                             history: Op.ToHostSlot(edit.History),
                             reference: edit.Custody.Key),
                         key: context.Op).Map(static id => id.Value)))).As()
-                from runtime in Tables.Runtime(document: context.Document, ids: ids, key: context.Op)
-                from receipt in TableReceipt.Objects(slot: TableSlot.Created, values: runtime, key: context.Op)
-                select receipt,
+                select unit,
             replaceCase: static (context, edit) =>
                 from model in context.Domain.ToFin(Fail: context.Op.MissingContext())
                 from ids in edit.Target.Resolve(document: context.Document, key: context.Op)
                 from single in Tables.One(rows: ids, key: context.Op)
                 from _ in edit.Replacement.Admit(domain: model, key: context.Op)
                     .Bind(lease => lease.Use(native => context.Op.Confirm(success: context.Document.Objects.Replace(objectId: single, geometry: native, ignoreModes: edit.Modes.Key))))
-                from runtime in Tables.Runtime(document: context.Document, ids: Seq(single), key: context.Op)
-                from receipt in TableReceipt.Objects(slot: TableSlot.Replaced, values: runtime, key: context.Op)
-                select receipt,
+                select unit,
             deleteCase: static (context, edit) =>
-                from targets in edit.Target.Serials(document: context.Document, key: context.Op)
+                from targets in edit.Target.Resolve(document: context.Document, key: context.Op)
                 from _ in edit.Modes.Key
-                    ? targets.TraverseM(target => Optional(context.Document.Objects.FindId(target.Id)).ToFin(Fail: context.Op.InvalidResult())
+                    ? targets.TraverseM(target => Optional(context.Document.Objects.FindId(target)).ToFin(Fail: context.Op.InvalidResult())
                         .Bind(native => context.Op.Confirm(success: context.Document.Objects.Delete(obj: native, quiet: edit.Interaction.IsQuiet, ignoreModes: true)))).As().Map(static _ => unit)
-                    : context.Op.Confirm(success: context.Document.Objects.Delete(objectIds: targets.Map(static target => target.Id).AsIterable(), quiet: edit.Interaction.IsQuiet) == targets.Count)
-                from receipt in TableReceipt.Objects(slot: TableSlot.Deleted, values: targets, key: context.Op)
-                select receipt,
+                    : context.Op.Confirm(success: context.Document.Objects.Delete(objectIds: targets.AsIterable(), quiet: edit.Interaction.IsQuiet) == targets.Count)
+                select unit,
             transformCase: static (context, edit) => Mapped(
                 document: context.Document,
                 target: edit.Target,
-                slot: edit.Policy.Slot,
                 step: id => ResourceId.Admit(
                     value: edit.Policy.Apply(table: context.Document.Objects, id: id, motion: edit.Motion),
-                    key: context.Op).Map(static minted => minted.Value),
+                    key: context.Op).Map(static _ => unit),
                 op: context.Op),
             amendCase: static (context, edit) => Mapped(
                 document: context.Document,
                 target: edit.Target,
-                slot: TableSlot.Amended,
                 step: id =>
                     from native in Optional(context.Document.Objects.FindId(id)).ToFin(Fail: context.Op.InvalidResult())
                     from attributes in Optional(native.Attributes?.Duplicate()).ToFin(Fail: context.Op.InvalidResult())
@@ -1292,40 +1253,34 @@ public abstract partial record TableOp {
                             newAttributes: owned,
                             quiet: edit.Interaction.IsQuiet))
                         select unit)
-                    select id,
+                    select unit,
                 op: context.Op),
             selectCase: static (context, edit) =>
                 from ids in edit.Target.Resolve(document: context.Document, key: context.Op)
-                from receipt in SelectionSpan(
-                    document: context.Document,
-                    census: edit.Policy,
-                    apply: () => edit.Edit.Apply(table: context.Document.Objects, ids: ids.AsIterable(), held: edit.Policy),
-                    op: context.Op)
-                select receipt,
+                from _ in guard(
+                    edit.Edit.Apply(table: context.Document.Objects, ids: ids.AsIterable(), held: edit.Policy) >= 0,
+                    context.Op.InvalidResult()).ToFin()
+                select unit,
             stateCase: static (context, edit) =>
-                from targets in edit.Target.Serials(document: context.Document, key: context.Op)
-                from changed in Tables.ApplyState(document: context.Document, targets: targets, state: edit.State, modes: edit.Modes, key: context.Op)
-                from receipt in TableReceipt.Objects(slot: edit.State.Slot, values: changed, key: context.Op)
-                select receipt,
-            clearSelectionCase: static (context, edit) => SelectionSpan(
-                document: context.Document,
-                census: edit.Census,
-                apply: () => context.Document.Objects.UnselectAll(ignorePersistentSelections: edit.Scope.Key),
-                op: context.Op),
+                from targets in edit.Target.Resolve(document: context.Document, key: context.Op)
+                from _ in Tables.ApplyState(document: context.Document, targets: targets, state: edit.State, modes: edit.Modes, key: context.Op)
+                select unit,
+            clearSelectionCase: static (context, edit) => guard(
+                context.Document.Objects.UnselectAll(ignorePersistentSelections: edit.Scope.Key) >= 0,
+                context.Op.InvalidResult()).ToFin(),
             flashCase: static (context, edit) =>
-                from targets in edit.Target.Serials(document: context.Document, key: context.Op)
-                from objects in targets.TraverseM(target => Optional(context.Document.Objects.FindId(target.Id)).ToFin(Fail: context.Op.InvalidResult())).As()
+                from targets in edit.Target.Resolve(document: context.Document, key: context.Op)
+                from objects in targets.TraverseM(target => Optional(context.Document.Objects.FindId(target)).ToFin(Fail: context.Op.InvalidResult())).As()
                 from _ in context.Op.Catch(() => {
                     context.Document.Views.FlashObjects(list: objects.AsIterable(), useSelectionColor: edit.Mode.Key);
                     return Fin.Succ(value: unit);
                 })
-                from receipt in TableReceipt.Objects(slot: TableSlot.Flashed, values: targets, key: context.Op)
-                select receipt,
+                select unit,
             reviveCase: static (context, edit) => Lifecycle(
-                document: context.Document, target: edit.Target, slot: TableSlot.Revived,
+                document: context.Document, target: edit.Target,
                 apply: static (objects, serial) => objects.Undelete(runtimeSerialNumber: serial), op: context.Op),
             expungeCase: static (context, edit) => Lifecycle(
-                document: context.Document, target: edit.Target, slot: TableSlot.Expunged,
+                document: context.Document, target: edit.Target,
                 apply: static (objects, serial) => objects.Purge(runtimeSerialNumber: serial), op: context.Op),
             cloudCase: static (context, edit) =>
                 from id in ResourceId.Admit(
@@ -1338,56 +1293,37 @@ public abstract partial record TableOp {
                         history: Op.ToHostSlot(edit.History),
                         reference: edit.Custody.Key),
                     key: context.Op)
-                from runtime in Tables.Runtime(document: context.Document, ids: Seq(id.Value), key: context.Op)
-                from receipt in TableReceipt.Objects(slot: TableSlot.Created, values: runtime, key: context.Op)
-                select receipt,
+                select unit,
             rebindCase: static (context, edit) => Mapped(
                 document: context.Document,
                 target: edit.Target,
-                slot: TableSlot.Replaced,
-                step: id => context.Op.Confirm(success: context.Document.Objects.ReplaceInstanceObject(objectId: id, instanceDefinitionIndex: edit.DefinitionIndex.Value)).Map(_ => id),
+                step: id => context.Op.Confirm(success: context.Document.Objects.ReplaceInstanceObject(objectId: id, instanceDefinitionIndex: edit.DefinitionIndex.Value)),
                 op: context.Op),
             reclaimCase: static (context, edit) => edit.Kind.Reclaim(document: context.Document, key: context.Op)
-                .Bind(count => TableReceipt.Component(kind: edit.Kind, tally: count, key: context.Op)),
+                .Map(static _ => unit),
             importPageCase: static (context, edit) =>
                 from path in edit.Path.Resolve(file: DocumentFile.ThreeDm, key: context.Op)
                 let before = context.Document.Views.PageViewCount
                 from _ in context.Op.Confirm(success: context.Document.Views.ImportPageView(filename: path, mainViewportId: edit.MainViewportId, pageName: edit.PageName))
                 let imported = context.Document.Views.PageViewCount - before
                 from __ in guard(imported > 0, context.Op.InvalidResult()).ToFin()
-                from receipt in TableReceipt.Component(
-                    kind: TableKind.Views,
-                    tally: imported,
-                    key: context.Op)
-                select receipt,
+                select unit,
             restoreViewCase: static (context, edit) =>
                 from _ in edit.Restore.Apply(document: context.Document, key: context.Op)
-                from receipt in TableReceipt.Restore(value: edit.Restore, key: context.Op)
-                select receipt,
+                select unit,
             rollCase: static (context, edit) =>
                 from _ in edit.Navigation.Apply(document: context.Document, key: context.Op)
-                from receipt in TableReceipt.History(value: edit.Navigation, key: context.Op)
-                select receipt);
+                select unit);
 
-    private static Fin<TableReceipt> SelectionSpan(RhinoDoc document, CapabilitySet<SelectionAxis> census, Func<int> apply, Op op) =>
-        from before in Tables.Selected(document: document, census: census, key: op)
-        from _ in guard(apply() >= 0, op.InvalidResult()).ToFin()
-        from after in Tables.Selected(document: document, census: census, key: op)
-        from receipt in TableReceipt.SelectionDelta(before: before, after: after, key: op)
-        select receipt;
-
-    private static Fin<TableReceipt> Lifecycle(RhinoDoc document, TableTarget target, TableSlot slot, Func<ObjectTable, uint, bool> apply, Op op) =>
+    private static Fin<Unit> Lifecycle(RhinoDoc document, TableTarget target, Func<ObjectTable, uint, bool> apply, Op op) =>
         from targets in target.Serials(document: document, key: op)
-        from changed in targets.TraverseM(value => op.Confirm(success: apply(document.Objects, value.Serial)).Map(_ => value)).As()
-        from receipt in TableReceipt.Objects(slot: slot, values: changed, key: op)
-        select receipt;
+        from _ in targets.TraverseM(serial => op.Confirm(success: apply(document.Objects, serial))).As()
+        select unit;
 
-    private static Fin<TableReceipt> Mapped(RhinoDoc document, TableTarget target, TableSlot slot, Func<Guid, Fin<Guid>> step, Op op) =>
+    private static Fin<Unit> Mapped(RhinoDoc document, TableTarget target, Func<Guid, Fin<Unit>> step, Op op) =>
         from ids in target.Resolve(document: document, key: op)
-        from mapped in ids.TraverseM(step).As()
-        from runtime in Tables.Runtime(document: document, ids: mapped, key: op)
-        from receipt in TableReceipt.Objects(slot: slot, values: runtime, key: op)
-        select receipt;
+        from _ in ids.TraverseM(step).As()
+        select unit;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -1545,240 +1481,60 @@ public abstract partial record GeometryIntake {
 }
 
 public static class Tables {
-    public static Fin<TOut> Commit<TOut>(
+    public static Fin<Unit> Commit(
         DocumentSession session,
         TableTransaction transaction,
-        Func<TableReceipt, Fin<TOut>> project,
         Op? key = null) {
         Op op = key.OrDefault();
         return from admission in Admission.Pair(first: session, second: transaction, key: op)
-               from fold in op.Need(project)
                let plan = admission.Second.Materialize()
-               from projected in admission.First.Demand(
-                   use: document => Run(document: document, plan: plan, project: fold, op: op),
+               from _ in admission.First.Demand(
+                   use: document => Run(document: document, plan: plan, op: op),
                    key: op,
                    needs: SessionNeed.Mutation(
                        undo: plan.Undo.Demands().Admits(capability: UndoTrait.Required),
                        redraw: plan.Redraw).ToArray())
-               select projected;
+               select unit;
     }
 
     internal static Fin<T> One<T>(Seq<T> rows, Op key) =>
         rows switch { [var only] => Fin.Succ(value: only), _ => Fin.Fail<T>(error: key.InvalidInput()) };
 
-    internal static Fin<Seq<ObjectRuntime>> Runtime(RhinoDoc document, Seq<Guid> ids, Op key) =>
-        ids.Distinct()
-            .Traverse(id => Optional(document.Objects.FindId(id))
-                .ToFin(Fail: key.InvalidResult())
-                .Bind(native => ObjectRuntime.Of(
-                    id: id,
-                    serial: native.RuntimeSerialNumber,
-                    key: key))
-                .ToValidation())
-            .As()
-            .ToFin();
-
-    internal static Fin<Seq<ObjectRuntime>> Selected(RhinoDoc document, CapabilitySet<SelectionAxis> census, Op key) =>
-        Optional(document.Objects.GetSelectedObjects(
-                includeLights: census.Admits(capability: SelectionAxis.CensusLights),
-                includeGrips: census.Admits(capability: SelectionAxis.CensusGrips)))
-            .ToFin(Fail: key.InvalidResult())
-            .Bind(values => values.AsIterable().ToSeq()
-                .Traverse(native => ObjectRuntime.Of(
-                    id: native.Id,
-                    serial: native.RuntimeSerialNumber,
-                    key: key).ToValidation())
-                .As()
-                .ToFin())
-            .Map(static values => ObjectRuntime.Canonical(values: values));
-
-    internal static Fin<Seq<ObjectRuntime>> ApplyState(RhinoDoc document, Seq<ObjectRuntime> targets, ObjectState state, ModeRegard modes, Op key) =>
-        targets.TraverseM(target => Optional(document.Objects.FindId(target.Id))
+    internal static Fin<Unit> ApplyState(RhinoDoc document, Seq<Guid> targets, ObjectState state, ModeRegard modes, Op key) =>
+        targets.TraverseM(target => Optional(document.Objects.FindId(target))
             .ToFin(Fail: key.InvalidResult())
             .Bind(native => state.Done(native: native)
-                ? Fin.Succ(value: Option<ObjectRuntime>.None)
-                : state.Apply(table: document.Objects, id: target.Id, ignoreLayerMode: modes.Key)
-                    ? Fin.Succ(value: Some(target))
-                    : Fin.Fail<Option<ObjectRuntime>>(error: key.InvalidResult()))).As().Map(static values => values.Somes());
+                ? Fin.Succ(value: unit)
+                : state.Apply(table: document.Objects, id: target, ignoreLayerMode: modes.Key)
+                    ? Fin.Succ(value: unit)
+                    : Fin.Fail<Unit>(error: key.InvalidResult()))).As().Map(static _ => unit);
 
-    private static Fin<TOut> Run<TOut>(RhinoDoc document, TransactionPlan plan, Func<TableReceipt, Fin<TOut>> project, Op op) =>
+    private static Fin<Unit> Run(RhinoDoc document, TransactionPlan plan, Op op) =>
         from domain in plan.Operations.Exists(static operation => operation.Traits.Demands().Admits(capability: OpTrait.RequiresContext))
             ? Rasm.Domain.Context.Of(doc: document).ToFin().Map(Some)
             : Fin.Succ(Option<Context>.None)
-        from projected in DocumentCommit.Sealed(
+        from _ in DocumentCommit.Sealed(
             document: document,
             name: plan.RecordName.IfNone(nameof(Tables)),
             recordsUndo: plan.Undo.Demands().Admits(capability: UndoTrait.Records),
             redraw: plan.Redraw,
             run: () =>
-                from custom in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, key: op)).As()
-                from folded in plan.Operations
+                from _registered in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, key: op)).As()
+                from _applied in plan.Operations
                     .TraverseM(operation => operation.Apply(document: document, domain: domain, op: op)).As()
-                    .Map(static receipts => receipts.Fold(TableReceipt.Empty, static (state, value) => state + value))
-                from names in TableReceipt.CustomUndo(names: custom, key: op)
-                select folded + names,
-            stamp: static (receipt, serial) => receipt.Stamped(
-                slot: TableSlot.Recorded,
-                record: static value => new TableFact.UndoCase(Serial: value),
-                serial: serial),
-            project: project,
+                select unit,
+            project: Fin.Succ,
             op: op)
-        select projected;
+        select unit;
 }
 ```
 
-## [05]-[RECEIPTS]
-
-- Owner: `TableBodyKind` — the six-row body-kind vocabulary; `TableFact` `[Union]` — the PUBLIC body family carrying object runtime evidence, component-table tallies, named-view restores, history navigation, undo serials, and custom-undo names, answering its kind through one total fold; `TableSlot` `[SmartEnum<int>]` — the slot vocabulary conforming to `Document/facts.md`'s kinded contract with one declared `Bodies` set per row; `TableReceipt` — the `global using` alias onto `FactStream<TableSlot, TableFact>` with this page's mint factories and readers riding one extension block.
-- Law: this page CONFORMS to the shared stream and re-mints nothing — the accumulation, the cross-product gate, the undo-stamp projection, and the slot-keyed reader are `facts.md`'s; this page contributes the two vocabularies and its extension block, exactly the two-declaration join the stream's own law promises. NAMED LOSS: the bespoke `TableReceipt` record's interior `Canonical` de-duplication — bought back as the extension's `Runtime` reader, which canonicalizes its projection; witness — `Tables.Run`'s fold over `TableReceipt.Empty` and `+` compiles unchanged on the alias.
-- Law: the undo stamp rides `Stamped` on the stream with `TableSlot.Recorded` as its slot and `UndoSerial` as its typed payload — the raw `uint` serial no longer enters a fact, and an unrecorded program contributes no fact rather than one claiming record zero.
-- Boundary: the COMMIT ENTRY does not unify. `DraftPlan<TOp>`, `BlockTransaction`, and `TableTransaction` share a four-field carrier — name, program, redraw, undo recording — and nothing else: Draft admits through a `DraftMode` row bundling redraw and recording, Block admits through per-operation trait homogeneity plus a kernel-context census, and Table admits three structurally distinct program shapes with custom-undo handlers and navigation semantics. One carrier under three incompatible admissions is a shape no caller can hold polymorphically, so the merge is refused; what the three genuinely share — the bracket, the redraw scope, and the seal — is already `DocumentCommit.Sealed`, and that IS the unified entry.
-- Entry: `Ids(TableSlot, Op?)` and `Runtime(TableSlot, Op?)` fail closed on an invalid slot and project object consequences; `Components`, `Restores`, `HistoryRolls`, `UndoRecords`, and `CustomUndoNames` project the remaining fact cases; a receipt feeds its deleted runtime rows directly into `TableTarget.Deleted`.
-
-```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-global using TableReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Document.TableSlot, Rasm.Rhino.Document.TableFact>;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class TableBodyKind : ICapability<TableBodyKind> {
-    public static readonly TableBodyKind Object = new(key: "object");
-    public static readonly TableBodyKind Component = new(key: "component");
-    public static readonly TableBodyKind Restore = new(key: "restore");
-    public static readonly TableBodyKind History = new(key: "history");
-    public static readonly TableBodyKind Undo = new(key: "undo");
-    public static readonly TableBodyKind Custom = new(key: "custom");
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record TableFact : IFactBody<TableBodyKind> {
-    private TableFact() { }
-    public sealed record ObjectCase(ObjectRuntime Value) : TableFact;
-    public sealed record ComponentCase(TableKind Kind, int Tally) : TableFact;
-    public sealed record RestoreCase(NamedRestore Value) : TableFact;
-    public sealed record HistoryCase(HistoryRoll Value) : TableFact;
-    public sealed record UndoCase(UndoSerial Serial) : TableFact;
-    public sealed record CustomCase(string Name) : TableFact;
-
-    TableBodyKind IFactBody<TableBodyKind>.Kind => Switch(
-        objectCase: static _ => TableBodyKind.Object,
-        componentCase: static _ => TableBodyKind.Component,
-        restoreCase: static _ => TableBodyKind.Restore,
-        historyCase: static _ => TableBodyKind.History,
-        undoCase: static _ => TableBodyKind.Undo,
-        customCase: static _ => TableBodyKind.Custom);
-}
-
-[SmartEnum<int>]
-public sealed partial class TableSlot : IFactSlot<TableFact, TableBodyKind> {
-    public static readonly TableSlot Created = new(key: 0, seated: static () => Objects);
-    public static readonly TableSlot Replaced = new(key: 1, seated: static () => Objects);
-    public static readonly TableSlot Deleted = new(key: 2, seated: static () => Objects);
-    public static readonly TableSlot Moved = new(key: 3, seated: static () => Objects);
-    public static readonly TableSlot Selected = new(key: 4, seated: static () => Objects);
-    public static readonly TableSlot Unselected = new(key: 5, seated: static () => Objects);
-    public static readonly TableSlot Hidden = new(key: 6, seated: static () => Objects);
-    public static readonly TableSlot Shown = new(key: 7, seated: static () => Objects);
-    public static readonly TableSlot Locked = new(key: 8, seated: static () => Objects);
-    public static readonly TableSlot Unlocked = new(key: 9, seated: static () => Objects);
-    public static readonly TableSlot Flashed = new(key: 10, seated: static () => Objects);
-    public static readonly TableSlot Amended = new(key: 11, seated: static () => Objects);
-    public static readonly TableSlot Revived = new(key: 12, seated: static () => Objects);
-    public static readonly TableSlot Expunged = new(key: 13, seated: static () => Objects);
-    public static readonly TableSlot Reclaimed = new(key: 14, seated: static () => CapabilitySet<TableBodyKind>.Of(TableBodyKind.Component));
-    public static readonly TableSlot Restored = new(key: 15, seated: static () => CapabilitySet<TableBodyKind>.Of(TableBodyKind.Restore));
-    public static readonly TableSlot Rolled = new(key: 16, seated: static () => CapabilitySet<TableBodyKind>.Of(TableBodyKind.History));
-    public static readonly TableSlot Recorded = new(key: 17, seated: static () => CapabilitySet<TableBodyKind>.Of(TableBodyKind.Undo));
-    public static readonly TableSlot CustomUndo = new(key: 18, seated: static () => CapabilitySet<TableBodyKind>.Of(TableBodyKind.Custom));
-
-    [UseDelegateFromConstructor]
-    private partial CapabilitySet<TableBodyKind> Seated();
-
-    public CapabilitySet<TableBodyKind> Bodies => Seated();
-
-    private static CapabilitySet<TableBodyKind> Objects => CapabilitySet<TableBodyKind>.Of(TableBodyKind.Object);
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class TableFacts {
-    extension(TableReceipt receipt) {
-        public static Fin<TableReceipt> Objects(TableSlot slot, Seq<ObjectRuntime> values, Op key) =>
-            TableReceipt.All(
-                slot: slot,
-                bodies: ObjectRuntime.Canonical(values: values).Map(static value => (TableFact)new TableFact.ObjectCase(Value: value)),
-                key: key);
-
-        public static Fin<TableReceipt> Component(TableKind kind, int tally, Op key) =>
-            from admitted in key.Need(kind)
-            from _ in guard(tally >= 0, key.InvalidResult()).ToFin()
-            from minted in TableReceipt.Of(slot: TableSlot.Reclaimed, body: new TableFact.ComponentCase(Kind: admitted, Tally: tally), key: key)
-            select minted;
-
-        public static Fin<TableReceipt> Restore(NamedRestore value, Op key) =>
-            TableReceipt.Of(slot: TableSlot.Restored, body: new TableFact.RestoreCase(Value: value), key: key);
-
-        public static Fin<TableReceipt> History(HistoryRoll value, Op key) =>
-            TableReceipt.Of(slot: TableSlot.Rolled, body: new TableFact.HistoryCase(Value: value), key: key);
-
-        public static Fin<TableReceipt> CustomUndo(Seq<string> names, Op key) =>
-            TableReceipt.All(
-                slot: TableSlot.CustomUndo,
-                bodies: names.Map(static name => (TableFact)new TableFact.CustomCase(Name: name)),
-                key: key);
-
-        public static Fin<TableReceipt> SelectionDelta(Seq<ObjectRuntime> before, Seq<ObjectRuntime> after, Op key) =>
-            from selected in TableReceipt.Objects(
-                slot: TableSlot.Selected,
-                values: after.Filter(value => !before.Exists(item => item.Equals(value))),
-                key: key)
-            from unselected in TableReceipt.Objects(
-                slot: TableSlot.Unselected,
-                values: before.Filter(value => !after.Exists(item => item.Equals(value))),
-                key: key)
-            select selected + unselected;
-
-        public Fin<Seq<Guid>> Ids(TableSlot slot, Op? key = null) =>
-            receipt.Runtime(slot: slot, key: key).Map(static values => values.Map(static value => value.Id));
-
-        public Fin<Seq<ObjectRuntime>> Runtime(TableSlot slot, Op? key = null) =>
-            Optional(slot).ToFin(Fail: key.OrDefault().InvalidInput()).Map(admitted =>
-                ObjectRuntime.Canonical(values: receipt.Project(
-                    slot: admitted,
-                    select: static body => body is TableFact.ObjectCase row ? Some(row.Value) : Option<ObjectRuntime>.None)));
-
-        public Seq<(TableKind Kind, int Tally)> Components => receipt.Project(
-            slot: TableSlot.Reclaimed,
-            select: static body => body is TableFact.ComponentCase row ? Some((row.Kind, row.Tally)) : Option<(TableKind, int)>.None);
-
-        public Seq<NamedRestore> Restores => receipt.Project(
-            slot: TableSlot.Restored,
-            select: static body => body is TableFact.RestoreCase row ? Some(row.Value) : Option<NamedRestore>.None);
-
-        public Seq<HistoryRoll> HistoryRolls => receipt.Project(
-            slot: TableSlot.Rolled,
-            select: static body => body is TableFact.HistoryCase row ? Some(row.Value) : Option<HistoryRoll>.None);
-
-        public Seq<UndoSerial> UndoRecords => receipt.Project(
-            slot: TableSlot.Recorded,
-            select: static body => body is TableFact.UndoCase row ? Some(row.Serial) : Option<UndoSerial>.None);
-
-        public Seq<string> CustomUndoNames => receipt.Project(
-            slot: TableSlot.CustomUndo,
-            select: static body => body is TableFact.CustomCase row ? Some(row.Name) : Option<string>.None);
-
-        public Fin<int> Count(TableSlot slot, Op? key = null) =>
-            receipt.Runtime(slot: slot, key: key).Map(static values => values.Count);
-    }
-}
-```
-
-## [06]-[SURFACE_LEDGER]
+## [05]-[SURFACE_LEDGER]
 
 | [INDEX] | [CONCERN]              | [OWNER]                        | [FORM]                       | [ENTRY]                               |
 | :-----: | :--------------------- | :----------------------------- | :--------------------------- | :------------------------------------ |
 |  [01]   | document tables        | `TableKind`                    | keyed behavior rows          | `ForComponentType` / `Reclaim`        |
-|  [02]   | object addressing      | `TableTarget`                  | ids/runtime/query union      | `Of` / `Deleted` / `Query`            |
+|  [02]   | object addressing      | `TableTarget`                  | ids/query union              | `Of` / `Query`                        |
 |  [03]   | query predicates       | `TablePredicate`               | frozen predicate union       | `Tag` / `Color` / `Bounds`            |
 |  [04]   | query axes + product   | `QueryAxis` / `QuerySpec`      | seated rows + admitted value | `Of` / `Build(document, key)`         |
 |  [05]   | mutation program       | `TableOp`                      | admitted total union         | operation factories / `Apply`         |
@@ -1786,20 +1542,18 @@ public static class TableFacts {
 |  [07]   | commit scope           | `TableTransaction`             | program-mode union           | `Recorded` / `Immediate` / `Navigate` |
 |  [08]   | resource ingress       | `GeometryIntake`               | native/value custody union   | `Admit`                               |
 |  [09]   | table commit spine     | `Tables`                       | session/commit fold          | `Commit`                              |
-|  [10]   | consequence evidence   | `TableReceipt` alias           | conformed fact stream        | extension mints / typed projections   |
-|  [11]   | component addressing   | `ResourceRef` / `ResourceLens` | id/name/index over a lens    | `Of` / `Resolve(document, lens, key)` |
-|  [12]   | viewport addressing    | `ViewportTarget`               | address & census union       | `Active` / `ResolveViewport`          |
-|  [13]   | object-type vocabulary | `ObjectKind` / `ObjectKinds`   | keyed rows over a set        | `Of` / `Any` / `Mask` / `OfMask`      |
-|  [14]   | space partition        | `ActiveSpaceUse`               | host-keyed rows              | `Get` / `Key`                         |
-|  [15]   | selection conduct      | `SelectionAxis`                | capability vocabulary        | `Baseline` / `Admits`                 |
+|  [10]   | component addressing   | `ResourceRef` / `ResourceLens` | id/name/index over a lens    | `Of` / `Resolve(document, lens, key)` |
+|  [11]   | viewport addressing    | `ViewportTarget`               | address & census union       | `Active` / `ResolveViewport`          |
+|  [12]   | object-type vocabulary | `ObjectKind` / `ObjectKinds`   | keyed rows over a set        | `Of` / `Any` / `Mask` / `OfMask`      |
+|  [13]   | space partition        | `ActiveSpaceUse`               | host-keyed rows              | `Get` / `Key`                         |
+|  [14]   | selection conduct      | `SelectionAxis`                | capability vocabulary        | `Baseline` / `Admits`                 |
 
-- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` + `api-rhinocommon-document-state.md` — the component-table surface: layers, groups, views, instance definitions, named states); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` query/selection/trait rows, `[Union]` `TableFact`, `[ValueObject]` `ResourceName` with `[KeyMemberEqualityComparer]`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`/`HashMap` table projections); kernel `Domain/rails` + `Domain/validation` (`Op.Row` host-enum admission).
+- Packages: `RhinoCommon` (`Rasm.Rhino/.api/api-rhinocommon-document.md` + `api-rhinocommon-document-state.md` — the component-table surface: layers, groups, views, instance definitions, named states); `Thinktecture.Runtime.Extensions` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum]` query/selection/trait rows and `[ValueObject]` `ResourceName` with `[KeyMemberEqualityComparer]`); `LanguageExt.Core` (`libs/dotnet/.api/api-languageext.md` — `Seq`/`HashMap` table projections); kernel `Domain/rails` + `Domain/validation` (`Op.Row` host-enum admission).
 
-## [07]-[RESEARCH]
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

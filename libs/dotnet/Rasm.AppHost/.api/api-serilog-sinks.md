@@ -80,7 +80,7 @@
 - `Rasm.AppHost` `Observability/telemetry#LOG_PROJECTION`: `SerilogSinks.For` mints every leg as a rail ARROW behind the `LogPipeline` arbitration — `WriteTo.Console(ITextFormatter)` on the hot tier, `AuditTo.Console(ITextFormatter)` on the audit leg, and the host-keyed `WriteTo.File(ITextFormatter, path, shared: true, flushToDiskInterval, rollingInterval)` on the `Fallible`/`FallbackChain` rescue leg — so `SerilogProjectionPolicy.Shape` folds arrows alone and the record holds no sink handle to dispose.
 
 [LOCAL_ADMISSION]:
-- Console output carries bounded structured event rendering for interactive and supervisor diagnostics, never domain receipts as log text.
+- Console output carries bounded structured event rendering for interactive and supervisor diagnostics, never domain outcomes as log text.
 - File output writes only owner-declared runtime log paths under composition-declared rolling interval, retention count, and size limits.
 - File lifecycle hooks serve retention and compliance composition and never mutate domain state.
 
@@ -88,4 +88,4 @@
 - Packages: `Serilog.Sinks.Console`, `Serilog.Sinks.File`
 - Own: local Serilog sink emission for interactive diagnostics and retained bounded log files
 - Accept: `WriteTo.Console`, `WriteTo.File`, `AuditTo.Console`, `AuditTo.File` in host bootstrap composition
-- Reject: sink configuration below AppHost composition; unbounded file growth; raw receipt serialization as log lines
+- Reject: sink configuration below AppHost composition; unbounded file growth; raw domain-result serialization as log lines

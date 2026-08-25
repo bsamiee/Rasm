@@ -74,10 +74,10 @@
 - Compression is a policy value: `{ compression: "DEFLATE", compressionOptions: { level } }` per entry or archive-wide, defaulting to `STORE`; `streamFiles: true` generates without holding the whole archive. `pako` is pure-JS, so DEFLATE is CPU-bound and a large archive belongs off the request path.
 - `JSZip`'s tree is mutable and imperative but the seam stays pure: `report` folds it inside `Effect.sync` and crosses to the rail once at `generateAsync`/`loadAsync` via `Effect.tryPromise`; no archive state leaks across the boundary.
 - `unsafeOriginalName` is the zip-slip control: a loaded entry's stored path may carry `..`; the owner resolves every name against a fixed root and rejects an escape before `FileSystem.writeFile`.
-- Progress is a receipt stream: `onUpdate(JSZipMetadata)` reports `{ percent, currentFile }`, folded into a `Ref`/`SubscriptionRef` or a `Metric.gauge` for live job progress.
+- Progress is a report stream: `onUpdate(JSZipMetadata)` reports `{ percent, currentFile }`, folded into a `Ref`/`SubscriptionRef` or a `Metric.gauge` for live job progress.
 
 [STACKING]:
-- `effect` (`../../.api/effect.md`): `Effect.tryPromise` lifts `generateAsync`/`loadAsync`/`entry.async`; `Effect.sync` owns the tree fold; `Stream.fromAsyncIterable` PULLS `generateNodeStream`, so the deflate paces against the drain; `Effect.forEach(artifacts, { concurrency })` populates entries; `Metric.gauge` folds the `percent` receipt; `Effect.acquireRelease` scopes a temp workspace.
+- `effect` (`../../.api/effect.md`): `Effect.tryPromise` lifts `generateAsync`/`loadAsync`/`entry.async`; `Effect.sync` owns the tree fold; `Stream.fromAsyncIterable` PULLS `generateNodeStream`, so the deflate paces against the drain; `Effect.forEach(artifacts, { concurrency })` populates entries; `Metric.gauge` folds the `percent` report; `Effect.acquireRelease` scopes a temp workspace.
 - `@effect/platform` (`../../.api/effect-platform.md`): the `Uint8Array` archive lands via `FileSystem.writeFile(path, bytes)` or `FileSystem.sink`; wire egress is `HttpBody.uint8Array(bytes, "application/zip")` or `HttpBody.stream(byteStream)`; `Path.resolve`/`Path.join` validate `unsafeOriginalName` against the extraction root.
 - `@effect/platform-node` (`../../.api/effect-platform-node.md`): `NodeStream.fromReadable` lifts `generateNodeStream`/`entry.nodeStream` to a `Stream<Uint8Array>`; `NodeSink.fromWritable` writes the archive stream into a Node `Writable`.
 - `jspdf` (`./jspdf.md`) / `exceljs` (`./exceljs.md`) / `papaparse` (`./papaparse.md`): the artifact producers — `report` builds each document to `Uint8Array` under one output-format row, then folds them into one `jszip` tree keyed by filename; jszip is the container over the document owners, never a producer. `report` sends the `application/zip` `Uint8Array` down the shared `deliver` egress — `FileSystem.writeFile`, `HttpBody`, or a `nodemailer` (`./nodemailer.md`) attachment.
@@ -92,6 +92,6 @@
 
 [RAIL_LAW]:
 - Package: `jszip`
-- Owns: ZIP container assembly and reading — the polymorphic `file`/`folder`/`filter` tree, the type-indexed `generateAsync`/`generateNodeStream`/`generateInternalStream` egress, `loadAsync` with CRC integrity, per-entry lazy byte access, the `STORE`/`DEFLATE` policy, and the `JSZipMetadata` progress receipt
+- Owns: ZIP container assembly and reading — the polymorphic `file`/`folder`/`filter` tree, the type-indexed `generateAsync`/`generateNodeStream`/`generateInternalStream` egress, `loadAsync` with CRC integrity, per-entry lazy byte access, the `STORE`/`DEFLATE` policy, and the `JSZipMetadata` progress report
 - Accept: `Effect.tryPromise`-lifted generate/load, `Effect.sync` tree folds, `Stream.fromAsyncIterable`/`NodeStream.fromReadable` over `generateNodeStream`, `uint8array` bytes to `FileSystem`/`HttpBody`/a `nodemailer` attachment, compression as a policy value, `unsafeOriginalName` validated against a resolved root
 - Reject: `addFile`/`getFile` proliferation, a serializer method per output format, the mutable tree crossing the `Effect` boundary, whole-archive buffering for unbounded bundles, unvalidated extraction of a loaded entry path

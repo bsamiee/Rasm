@@ -1,6 +1,6 @@
 # [PY_CAD]
 
-`cad` owns exact solid modeling and neutral CAD exchange: ISO 10303 and IGES admission and sealing, the OCCT boundary-representation algebra with its healing and local-feature families, measurement of exact shape down to the inertia tensor, and the budgeted glTF projection with its per-placement identity roster. Generated `CadService` is its only boundary, so every caller reaches that domain through typed requests and reference-carrying receipts rather than an import.
+`cad` owns exact solid modeling and neutral CAD exchange: ISO 10303 and IGES admission and sealing, the OCCT boundary-representation algebra with its healing and local-feature families, measurement of exact shape down to the inertia tensor, and the budgeted glTF projection with its per-placement identity roster. Generated `CadService` is its only boundary, so every caller reaches that domain through typed requests and reference-carrying replies rather than an import.
 
 ## [01]-[ROUTER]
 

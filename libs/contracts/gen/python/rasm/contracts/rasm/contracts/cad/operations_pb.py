@@ -20,8 +20,8 @@ if TYPE_CHECKING:
     from protobuf import DescFile, Oneof
     from protobuf.wkt import Empty
 
-    from ..spatial.vector_pb import Axis3, Curve3, Frame3, Point3, UnitDirection3
-    from .types_pb import BrepKernelReceipt, Profile, ProfileRegion, SealedStep
+    from ..spatial.vector_pb import Axis3, Curve3, Frame3, UnitDirection3
+    from .types_pb import BrepMeasure, Correspondence, Emission, Healing, Indices, Profile, ProfileRegion, SealedBody, Selection
 
 
 _BoxOpFields: TypeAlias = Literal["x_m", "y_m", "z_m", "frame"]
@@ -70,7 +70,151 @@ class BoxOp(Message[_BoxOpFields]):
         z_m: float
         frame: Frame3 | None
 
-_SphereOpFields: TypeAlias = Literal["radius_m", "center"]
+_WedgeWindowFields: TypeAlias = Literal["x_min_m", "z_min_m", "x_max_m", "z_max_m"]
+
+class WedgeWindow(Message[_WedgeWindowFields]):
+    """
+    Rectangular face on the frame's XY plane at its origin and a smaller parallel face at height z; the window form
+    places that top face by its own extents in the frame's XZ coordinates.
+
+    ```proto
+    message rasm.contracts.cad.WedgeWindow
+    ```
+
+    Attributes:
+        x_min_m:
+            ```proto
+            double x_min_m = 1;
+            ```
+        z_min_m:
+            ```proto
+            double z_min_m = 2;
+            ```
+        x_max_m:
+            ```proto
+            double x_max_m = 3;
+            ```
+        z_max_m:
+            ```proto
+            double z_max_m = 4;
+            ```
+    """
+
+    __slots__ = ("x_min_m", "z_min_m", "x_max_m", "z_max_m")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            x_min_m: float = 0,
+            z_min_m: float = 0,
+            x_max_m: float = 0,
+            z_max_m: float = 0,
+        ) -> None:
+            pass
+
+        x_min_m: float
+        z_min_m: float
+        x_max_m: float
+        z_max_m: float
+
+_WedgeOpFields: TypeAlias = Literal["x_m", "y_m", "z_m", "ridge_m", "window", "frame"]
+
+class WedgeOp(Message[_WedgeOpFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.WedgeOp
+    ```
+
+    Attributes:
+        x_m:
+            ```proto
+            double x_m = 1;
+            ```
+        y_m:
+            ```proto
+            double y_m = 2;
+            ```
+        z_m:
+            ```proto
+            double z_m = 3;
+            ```
+        taper:
+            ```proto
+            oneof taper
+            ```
+        frame:
+            ```proto
+            optional rasm.contracts.spatial.Frame3 frame = 6;
+            ```
+    """
+
+    __slots__ = ("x_m", "y_m", "z_m", "frame", "taper")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            x_m: float = 0,
+            y_m: float = 0,
+            z_m: float = 0,
+            taper: Oneof[Literal["ridge_m"], float] | Oneof[Literal["window"], WedgeWindow] | None = None,
+            frame: Frame3 | None = None,
+        ) -> None:
+            pass
+
+        x_m: float
+        y_m: float
+        z_m: float
+        taper: Oneof[Literal["ridge_m"], float] | Oneof[Literal["window"], WedgeWindow] | None
+        frame: Frame3 | None
+
+_SphereBoundsFields: TypeAlias = Literal["latitude_low_rad", "latitude_high_rad", "longitude_rad"]
+
+class SphereBounds(Message[_SphereBoundsFields]):
+    """
+    Latitude band from the equator in radians and a longitude sweep from the frame's X axis; the full sphere is
+    (-pi/2, pi/2, 2pi) and an absent bound on the operation elects it.
+
+    ```proto
+    message rasm.contracts.cad.SphereBounds
+    ```
+
+    Attributes:
+        latitude_low_rad:
+            ```proto
+            double latitude_low_rad = 1;
+            ```
+        latitude_high_rad:
+            ```proto
+            double latitude_high_rad = 2;
+            ```
+        longitude_rad:
+            ```proto
+            double longitude_rad = 3;
+            ```
+    """
+
+    __slots__ = ("latitude_low_rad", "latitude_high_rad", "longitude_rad")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            latitude_low_rad: float = 0,
+            latitude_high_rad: float = 0,
+            longitude_rad: float = 0,
+        ) -> None:
+            pass
+
+        latitude_low_rad: float
+        latitude_high_rad: float
+        longitude_rad: float
+
+_SphereOpFields: TypeAlias = Literal["radius_m", "frame", "bounds"]
 
 class SphereOp(Message[_SphereOpFields]):
     """
@@ -83,13 +227,17 @@ class SphereOp(Message[_SphereOpFields]):
             ```proto
             double radius_m = 1;
             ```
-        center:
+        frame:
             ```proto
-            optional rasm.contracts.spatial.Point3 center = 2;
+            optional rasm.contracts.spatial.Frame3 frame = 3;
+            ```
+        bounds:
+            ```proto
+            optional rasm.contracts.cad.SphereBounds bounds = 4;
             ```
     """
 
-    __slots__ = ("radius_m", "center")
+    __slots__ = ("radius_m", "frame", "bounds")
 
     if TYPE_CHECKING:
 
@@ -97,14 +245,16 @@ class SphereOp(Message[_SphereOpFields]):
             self,
             *,
             radius_m: float = 0,
-            center: Point3 | None = None,
+            frame: Frame3 | None = None,
+            bounds: SphereBounds | None = None,
         ) -> None:
             pass
 
         radius_m: float
-        center: Point3 | None
+        frame: Frame3 | None
+        bounds: SphereBounds | None
 
-_CylinderOpFields: TypeAlias = Literal["radius_m", "height_m", "axis"]
+_CylinderOpFields: TypeAlias = Literal["radius_m", "height_m", "frame", "sweep_rad"]
 
 class CylinderOp(Message[_CylinderOpFields]):
     """
@@ -121,13 +271,19 @@ class CylinderOp(Message[_CylinderOpFields]):
             ```proto
             double height_m = 2;
             ```
-        axis:
+        frame:
             ```proto
-            optional rasm.contracts.spatial.Axis3 axis = 3;
+            optional rasm.contracts.spatial.Frame3 frame = 4;
+            ```
+        sweep_rad:
+            Angular sweep about the frame's Z axis from its X axis; absent elects the full revolution.
+
+            ```proto
+            optional double sweep_rad = 5;
             ```
     """
 
-    __slots__ = ("radius_m", "height_m", "axis")
+    __slots__ = ("radius_m", "height_m", "frame", "sweep_rad")
 
     if TYPE_CHECKING:
 
@@ -136,15 +292,17 @@ class CylinderOp(Message[_CylinderOpFields]):
             *,
             radius_m: float = 0,
             height_m: float = 0,
-            axis: Axis3 | None = None,
+            frame: Frame3 | None = None,
+            sweep_rad: float | None = None,
         ) -> None:
             pass
 
         radius_m: float
         height_m: float
-        axis: Axis3 | None
+        frame: Frame3 | None
+        sweep_rad: float
 
-_ConeOpFields: TypeAlias = Literal["base_radius_m", "top_radius_m", "height_m", "axis"]
+_ConeOpFields: TypeAlias = Literal["base_radius_m", "top_radius_m", "height_m", "frame", "sweep_rad"]
 
 class ConeOp(Message[_ConeOpFields]):
     """
@@ -165,13 +323,17 @@ class ConeOp(Message[_ConeOpFields]):
             ```proto
             double height_m = 3;
             ```
-        axis:
+        frame:
             ```proto
-            optional rasm.contracts.spatial.Axis3 axis = 4;
+            optional rasm.contracts.spatial.Frame3 frame = 5;
+            ```
+        sweep_rad:
+            ```proto
+            optional double sweep_rad = 6;
             ```
     """
 
-    __slots__ = ("base_radius_m", "top_radius_m", "height_m", "axis")
+    __slots__ = ("base_radius_m", "top_radius_m", "height_m", "frame", "sweep_rad")
 
     if TYPE_CHECKING:
 
@@ -181,16 +343,60 @@ class ConeOp(Message[_ConeOpFields]):
             base_radius_m: float = 0,
             top_radius_m: float = 0,
             height_m: float = 0,
-            axis: Axis3 | None = None,
+            frame: Frame3 | None = None,
+            sweep_rad: float | None = None,
         ) -> None:
             pass
 
         base_radius_m: float
         top_radius_m: float
         height_m: float
-        axis: Axis3 | None
+        frame: Frame3 | None
+        sweep_rad: float
 
-_TorusOpFields: TypeAlias = Literal["major_radius_m", "minor_radius_m", "axis"]
+_TorusBoundsFields: TypeAlias = Literal["tube_low_rad", "tube_high_rad", "sweep_rad"]
+
+class TorusBounds(Message[_TorusBoundsFields]):
+    """
+    Tube parameter bounds in radians and the sweep about the frame's Z axis; the full torus is (0, 2pi, 2pi).
+
+    ```proto
+    message rasm.contracts.cad.TorusBounds
+    ```
+
+    Attributes:
+        tube_low_rad:
+            ```proto
+            double tube_low_rad = 1;
+            ```
+        tube_high_rad:
+            ```proto
+            double tube_high_rad = 2;
+            ```
+        sweep_rad:
+            ```proto
+            double sweep_rad = 3;
+            ```
+    """
+
+    __slots__ = ("tube_low_rad", "tube_high_rad", "sweep_rad")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            tube_low_rad: float = 0,
+            tube_high_rad: float = 0,
+            sweep_rad: float = 0,
+        ) -> None:
+            pass
+
+        tube_low_rad: float
+        tube_high_rad: float
+        sweep_rad: float
+
+_TorusOpFields: TypeAlias = Literal["major_radius_m", "minor_radius_m", "frame", "bounds"]
 
 class TorusOp(Message[_TorusOpFields]):
     """
@@ -207,13 +413,17 @@ class TorusOp(Message[_TorusOpFields]):
             ```proto
             double minor_radius_m = 2;
             ```
-        axis:
+        frame:
             ```proto
-            optional rasm.contracts.spatial.Axis3 axis = 3;
+            optional rasm.contracts.spatial.Frame3 frame = 4;
+            ```
+        bounds:
+            ```proto
+            optional rasm.contracts.cad.TorusBounds bounds = 5;
             ```
     """
 
-    __slots__ = ("major_radius_m", "minor_radius_m", "axis")
+    __slots__ = ("major_radius_m", "minor_radius_m", "frame", "bounds")
 
     if TYPE_CHECKING:
 
@@ -222,13 +432,15 @@ class TorusOp(Message[_TorusOpFields]):
             *,
             major_radius_m: float = 0,
             minor_radius_m: float = 0,
-            axis: Axis3 | None = None,
+            frame: Frame3 | None = None,
+            bounds: TorusBounds | None = None,
         ) -> None:
             pass
 
         major_radius_m: float
         minor_radius_m: float
-        axis: Axis3 | None
+        frame: Frame3 | None
+        bounds: TorusBounds | None
 
 _BooleanInputsFields: TypeAlias = Literal["operands", "fuzzy_m"]
 
@@ -241,7 +453,7 @@ class BooleanInputs(Message[_BooleanInputsFields]):
     Attributes:
         operands:
             ```proto
-            repeated rasm.contracts.cad.SealedStep operands = 1;
+            repeated rasm.contracts.cad.SealedBody operands = 1;
             ```
         fuzzy_m:
             ```proto
@@ -256,18 +468,21 @@ class BooleanInputs(Message[_BooleanInputsFields]):
         def __init__(
             self,
             *,
-            operands: list[SealedStep] | None = None,
+            operands: list[SealedBody] | None = None,
             fuzzy_m: float = 0,
         ) -> None:
             pass
 
-        operands: list[SealedStep]
+        operands: list[SealedBody]
         fuzzy_m: float
 
-_ProfileOffsetFields: TypeAlias = Literal["distance_m"]
+_ProfileOffsetFields: TypeAlias = Literal["distance_m", "join", "hole_m"]
 
 class ProfileOffset(Message[_ProfileOffsetFields]):
     """
+    `distance_m` moves the outer loop outward when positive; holes move by `hole_m` when stated and by the negated
+    outer distance otherwise, so an unstated hole keeps the wall thickness the outer offset implies.
+
     ```proto
     message rasm.contracts.cad.ProfileOffset
     ```
@@ -277,9 +492,17 @@ class ProfileOffset(Message[_ProfileOffsetFields]):
             ```proto
             double distance_m = 1;
             ```
+        join:
+            ```proto
+            rasm.contracts.cad.OffsetJoin join = 2;
+            ```
+        hole_m:
+            ```proto
+            optional double hole_m = 3;
+            ```
     """
 
-    __slots__ = ("distance_m",)
+    __slots__ = ("distance_m", "join", "hole_m")
 
     if TYPE_CHECKING:
 
@@ -287,10 +510,14 @@ class ProfileOffset(Message[_ProfileOffsetFields]):
             self,
             *,
             distance_m: float = 0,
+            join: OffsetJoin | None = None,
+            hole_m: float | None = None,
         ) -> None:
             pass
 
         distance_m: float
+        join: OffsetJoin
+        hole_m: float
 
 _PlacedProfileFields: TypeAlias = Literal["profile", "frame", "offset"]
 
@@ -508,7 +735,7 @@ class LoftOp(Message[_LoftOpFields]):
         tracks: list[LoftTrack]
         style: LoftStyle
 
-_ThickOpFields: TypeAlias = Literal["section", "distance_m", "thickness_m", "direction"]
+_ThickOpFields: TypeAlias = Literal["section", "distance_m", "thickness_m", "direction", "wall_join"]
 
 class ThickOp(Message[_ThickOpFields]):
     """
@@ -533,9 +760,13 @@ class ThickOp(Message[_ThickOpFields]):
             ```proto
             optional rasm.contracts.spatial.UnitDirection3 direction = 5;
             ```
+        wall_join:
+            ```proto
+            rasm.contracts.cad.OffsetJoin wall_join = 6;
+            ```
     """
 
-    __slots__ = ("section", "distance_m", "thickness_m", "direction")
+    __slots__ = ("section", "distance_m", "thickness_m", "direction", "wall_join")
 
     if TYPE_CHECKING:
 
@@ -546,6 +777,7 @@ class ThickOp(Message[_ThickOpFields]):
             distance_m: float = 0,
             thickness_m: float = 0,
             direction: UnitDirection3 | None = None,
+            wall_join: OffsetJoin | None = None,
         ) -> None:
             pass
 
@@ -553,6 +785,7 @@ class ThickOp(Message[_ThickOpFields]):
         distance_m: float
         thickness_m: float
         direction: UnitDirection3 | None
+        wall_join: OffsetJoin
 
 _SweepOpFields: TypeAlias = Literal["section", "spine"]
 
@@ -604,7 +837,7 @@ class TransformOp(Message[_TransformOpFields]):
     Attributes:
         source:
             ```proto
-            optional rasm.contracts.cad.SealedStep source = 1;
+            optional rasm.contracts.cad.SealedBody source = 1;
             ```
         source_frame:
             ```proto
@@ -627,77 +860,117 @@ class TransformOp(Message[_TransformOpFields]):
         def __init__(
             self,
             *,
-            source: SealedStep | None = None,
+            source: SealedBody | None = None,
             source_frame: Frame3 | None = None,
             target_frame: Frame3 | None = None,
             uniform_scale: float = 0,
         ) -> None:
             pass
 
-        source: SealedStep | None
+        source: SealedBody | None
         source_frame: Frame3 | None
         target_frame: Frame3 | None
         uniform_scale: float
 
-_EdgeIndicesFields: TypeAlias = Literal["values"]
+_RadiusRunFields: TypeAlias = Literal["start_m", "end_m"]
 
-class EdgeIndices(Message[_EdgeIndicesFields]):
+class RadiusRun(Message[_RadiusRunFields]):
     """
     ```proto
-    message rasm.contracts.cad.EdgeIndices
+    message rasm.contracts.cad.RadiusRun
     ```
 
     Attributes:
-        values:
+        start_m:
             ```proto
-            repeated uint32 values = 1 [packed = true];
+            double start_m = 1;
+            ```
+        end_m:
+            ```proto
+            double end_m = 2;
             ```
     """
 
-    __slots__ = ("values",)
+    __slots__ = ("start_m", "end_m")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            values: list[int] | None = None,
+            start_m: float = 0,
+            end_m: float = 0,
         ) -> None:
             pass
 
-        values: list[int]
+        start_m: float
+        end_m: float
 
-_EdgeSelectionFields: TypeAlias = Literal["all", "indices"]
+_RadiusKnotFields: TypeAlias = Literal["at", "radius_m"]
 
-class EdgeSelection(Message[_EdgeSelectionFields]):
+class RadiusKnot(Message[_RadiusKnotFields]):
     """
-    Indices are zero-based TopExp order within the exact decoded source artifact. They are not stable after resealing.
-
     ```proto
-    message rasm.contracts.cad.EdgeSelection
+    message rasm.contracts.cad.RadiusKnot
     ```
 
     Attributes:
-        selection:
+        at:
             ```proto
-            oneof selection
+            double at = 1;
+            ```
+        radius_m:
+            ```proto
+            double radius_m = 2;
             ```
     """
 
-    __slots__ = ("selection",)
+    __slots__ = ("at", "radius_m")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            selection: Oneof[Literal["all"], Empty] | Oneof[Literal["indices"], EdgeIndices] | None = None,
+            at: float = 0,
+            radius_m: float = 0,
         ) -> None:
             pass
 
-        selection: Oneof[Literal["all"], Empty] | Oneof[Literal["indices"], EdgeIndices] | None
+        at: float
+        radius_m: float
 
-_FilletOpFields: TypeAlias = Literal["source", "radius_m", "edges"]
+_RadiusLawFields: TypeAlias = Literal["knots"]
+
+class RadiusLaw(Message[_RadiusLawFields]):
+    """
+    Radius law over the normalized edge parameter: distinct knots spanning 0 to 1, ordered by the provider at admission.
+
+    ```proto
+    message rasm.contracts.cad.RadiusLaw
+    ```
+
+    Attributes:
+        knots:
+            ```proto
+            repeated rasm.contracts.cad.RadiusKnot knots = 1;
+            ```
+    """
+
+    __slots__ = ("knots",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            knots: list[RadiusKnot] | None = None,
+        ) -> None:
+            pass
+
+        knots: list[RadiusKnot]
+
+_FilletOpFields: TypeAlias = Literal["source", "edges", "constant_m", "run", "law"]
 
 class FilletOp(Message[_FilletOpFields]):
     """
@@ -708,36 +981,118 @@ class FilletOp(Message[_FilletOpFields]):
     Attributes:
         source:
             ```proto
-            optional rasm.contracts.cad.SealedStep source = 1;
-            ```
-        radius_m:
-            ```proto
-            double radius_m = 2;
+            optional rasm.contracts.cad.SealedBody source = 1;
             ```
         edges:
             ```proto
-            optional rasm.contracts.cad.EdgeSelection edges = 3;
+            optional rasm.contracts.cad.Selection edges = 3;
+            ```
+        radius:
+            ```proto
+            oneof radius
             ```
     """
 
-    __slots__ = ("source", "radius_m", "edges")
+    __slots__ = ("source", "edges", "radius")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            source: SealedStep | None = None,
-            radius_m: float = 0,
-            edges: EdgeSelection | None = None,
+            source: SealedBody | None = None,
+            edges: Selection | None = None,
+            radius: Oneof[Literal["constant_m"], float] | Oneof[Literal["run"], RadiusRun] | Oneof[Literal["law"], RadiusLaw] | None = None,
         ) -> None:
             pass
 
-        source: SealedStep | None
-        radius_m: float
-        edges: EdgeSelection | None
+        source: SealedBody | None
+        edges: Selection | None
+        radius: Oneof[Literal["constant_m"], float] | Oneof[Literal["run"], RadiusRun] | Oneof[Literal["law"], RadiusLaw] | None
 
-_ChamferOpFields: TypeAlias = Literal["source", "distance_m", "edges"]
+_ChamferSkewFields: TypeAlias = Literal["first_m", "second_m", "face"]
+
+class ChamferSkew(Message[_ChamferSkewFields]):
+    """
+    Two distances measured on the referenced face and its neighbour; `face` is a face ordinal every selected edge bounds.
+
+    ```proto
+    message rasm.contracts.cad.ChamferSkew
+    ```
+
+    Attributes:
+        first_m:
+            ```proto
+            double first_m = 1;
+            ```
+        second_m:
+            ```proto
+            double second_m = 2;
+            ```
+        face:
+            ```proto
+            uint32 face = 3;
+            ```
+    """
+
+    __slots__ = ("first_m", "second_m", "face")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            first_m: float = 0,
+            second_m: float = 0,
+            face: int = 0,
+        ) -> None:
+            pass
+
+        first_m: float
+        second_m: float
+        face: int
+
+_ChamferAngleFields: TypeAlias = Literal["distance_m", "angle_rad", "face"]
+
+class ChamferAngle(Message[_ChamferAngleFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.ChamferAngle
+    ```
+
+    Attributes:
+        distance_m:
+            ```proto
+            double distance_m = 1;
+            ```
+        angle_rad:
+            ```proto
+            double angle_rad = 2;
+            ```
+        face:
+            ```proto
+            uint32 face = 3;
+            ```
+    """
+
+    __slots__ = ("distance_m", "angle_rad", "face")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            distance_m: float = 0,
+            angle_rad: float = 0,
+            face: int = 0,
+        ) -> None:
+            pass
+
+        distance_m: float
+        angle_rad: float
+        face: int
+
+_ChamferOpFields: TypeAlias = Literal["source", "edges", "symmetric_m", "skew", "angled"]
 
 class ChamferOp(Message[_ChamferOpFields]):
     """
@@ -748,70 +1103,378 @@ class ChamferOp(Message[_ChamferOpFields]):
     Attributes:
         source:
             ```proto
-            optional rasm.contracts.cad.SealedStep source = 1;
-            ```
-        distance_m:
-            ```proto
-            double distance_m = 2;
+            optional rasm.contracts.cad.SealedBody source = 1;
             ```
         edges:
             ```proto
-            optional rasm.contracts.cad.EdgeSelection edges = 3;
+            optional rasm.contracts.cad.Selection edges = 3;
+            ```
+        form:
+            ```proto
+            oneof form
             ```
     """
 
-    __slots__ = ("source", "distance_m", "edges")
+    __slots__ = ("source", "edges", "form")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            source: SealedStep | None = None,
-            distance_m: float = 0,
-            edges: EdgeSelection | None = None,
+            source: SealedBody | None = None,
+            edges: Selection | None = None,
+            form: Oneof[Literal["symmetric_m"], float] | Oneof[Literal["skew"], ChamferSkew] | Oneof[Literal["angled"], ChamferAngle] | None = None,
         ) -> None:
             pass
 
-        source: SealedStep | None
-        distance_m: float
-        edges: EdgeSelection | None
+        source: SealedBody | None
+        edges: Selection | None
+        form: Oneof[Literal["symmetric_m"], float] | Oneof[Literal["skew"], ChamferSkew] | Oneof[Literal["angled"], ChamferAngle] | None
 
-_SewOpFields: TypeAlias = Literal["source", "tolerance_m"]
+_ShellOpFields: TypeAlias = Literal["source", "faces", "thickness_m", "join"]
 
-class SewOp(Message[_SewOpFields]):
+class ShellOp(Message[_ShellOpFields]):
     """
+    Hollows the body by removing the named faces and offsetting the rest; a negative thickness walls inward.
+
     ```proto
-    message rasm.contracts.cad.SewOp
+    message rasm.contracts.cad.ShellOp
     ```
 
     Attributes:
         source:
             ```proto
-            optional rasm.contracts.cad.SealedStep source = 1;
+            optional rasm.contracts.cad.SealedBody source = 1;
             ```
-        tolerance_m:
+        faces:
             ```proto
-            double tolerance_m = 2;
+            optional rasm.contracts.cad.Indices faces = 2;
+            ```
+        thickness_m:
+            ```proto
+            double thickness_m = 3;
+            ```
+        join:
+            ```proto
+            rasm.contracts.cad.OffsetJoin join = 4;
             ```
     """
 
-    __slots__ = ("source", "tolerance_m")
+    __slots__ = ("source", "faces", "thickness_m", "join")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            source: SealedStep | None = None,
+            source: SealedBody | None = None,
+            faces: Indices | None = None,
+            thickness_m: float = 0,
+            join: OffsetJoin | None = None,
+        ) -> None:
+            pass
+
+        source: SealedBody | None
+        faces: Indices | None
+        thickness_m: float
+        join: OffsetJoin
+
+_DraftOpFields: TypeAlias = Literal["source", "faces", "pull", "angle_rad", "neutral", "propagation"]
+
+class DraftOp(Message[_DraftOpFields]):
+    """
+    Tilts the named faces by `angle_rad` about their intersection with the neutral plane, the frame's XY plane, along `pull`.
+
+    ```proto
+    message rasm.contracts.cad.DraftOp
+    ```
+
+    Attributes:
+        source:
+            ```proto
+            optional rasm.contracts.cad.SealedBody source = 1;
+            ```
+        faces:
+            ```proto
+            optional rasm.contracts.cad.Indices faces = 2;
+            ```
+        pull:
+            ```proto
+            optional rasm.contracts.spatial.UnitDirection3 pull = 3;
+            ```
+        angle_rad:
+            ```proto
+            double angle_rad = 4;
+            ```
+        neutral:
+            ```proto
+            optional rasm.contracts.spatial.Frame3 neutral = 5;
+            ```
+        propagation:
+            ```proto
+            rasm.contracts.cad.DraftPropagation propagation = 6;
+            ```
+    """
+
+    __slots__ = ("source", "faces", "pull", "angle_rad", "neutral", "propagation")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            source: SealedBody | None = None,
+            faces: Indices | None = None,
+            pull: UnitDirection3 | None = None,
+            angle_rad: float = 0,
+            neutral: Frame3 | None = None,
+            propagation: DraftPropagation | None = None,
+        ) -> None:
+            pass
+
+        source: SealedBody | None
+        faces: Indices | None
+        pull: UnitDirection3 | None
+        angle_rad: float
+        neutral: Frame3 | None
+        propagation: DraftPropagation
+
+_OffsetOpFields: TypeAlias = Literal["source", "offset_m", "join"]
+
+class OffsetOp(Message[_OffsetOpFields]):
+    """
+    Offsets every face of the body along its normal; positive grows the body.
+
+    ```proto
+    message rasm.contracts.cad.OffsetOp
+    ```
+
+    Attributes:
+        source:
+            ```proto
+            optional rasm.contracts.cad.SealedBody source = 1;
+            ```
+        offset_m:
+            ```proto
+            double offset_m = 2;
+            ```
+        join:
+            ```proto
+            rasm.contracts.cad.OffsetJoin join = 3;
+            ```
+    """
+
+    __slots__ = ("source", "offset_m", "join")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            source: SealedBody | None = None,
+            offset_m: float = 0,
+            join: OffsetJoin | None = None,
+        ) -> None:
+            pass
+
+        source: SealedBody | None
+        offset_m: float
+        join: OffsetJoin
+
+_DefeatureOpFields: TypeAlias = Literal["source", "faces"]
+
+class DefeatureOp(Message[_DefeatureOpFields]):
+    """
+    Removes the named feature faces and re-closes the body over its neighbours.
+
+    ```proto
+    message rasm.contracts.cad.DefeatureOp
+    ```
+
+    Attributes:
+        source:
+            ```proto
+            optional rasm.contracts.cad.SealedBody source = 1;
+            ```
+        faces:
+            ```proto
+            optional rasm.contracts.cad.Indices faces = 2;
+            ```
+    """
+
+    __slots__ = ("source", "faces")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            source: SealedBody | None = None,
+            faces: Indices | None = None,
+        ) -> None:
+            pass
+
+        source: SealedBody | None
+        faces: Indices | None
+
+_SewStepFields: TypeAlias = Literal["tolerance_m"]
+
+class SewStep(Message[_SewStepFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.SewStep
+    ```
+
+    Attributes:
+        tolerance_m:
+            ```proto
+            double tolerance_m = 1;
+            ```
+    """
+
+    __slots__ = ("tolerance_m",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
             tolerance_m: float = 0,
         ) -> None:
             pass
 
-        source: SealedStep | None
         tolerance_m: float
 
-_ExecuteRequestFields: TypeAlias = Literal["box", "sphere", "cylinder", "cone", "torus", "fuse", "cut", "common", "section", "split", "extrude", "revolve", "loft", "thick", "fillet", "chamfer", "sew", "nurbs", "sweep", "transform"]
+_FixStepFields: TypeAlias = Literal["precision_m", "max_tolerance_m"]
+
+class FixStep(Message[_FixStepFields]):
+    """
+    Shape repair under one working precision and the tolerance ceiling it may inflate up to.
+
+    ```proto
+    message rasm.contracts.cad.FixStep
+    ```
+
+    Attributes:
+        precision_m:
+            ```proto
+            double precision_m = 1;
+            ```
+        max_tolerance_m:
+            ```proto
+            double max_tolerance_m = 2;
+            ```
+    """
+
+    __slots__ = ("precision_m", "max_tolerance_m")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            precision_m: float = 0,
+            max_tolerance_m: float = 0,
+        ) -> None:
+            pass
+
+        precision_m: float
+        max_tolerance_m: float
+
+_SmallEdgesStepFields: TypeAlias = Literal["precision_m"]
+
+class SmallEdgesStep(Message[_SmallEdgesStepFields]):
+    """
+    Merges edges shorter than the precision into their neighbours; the provider refuses a precision at or above the body's least edge.
+
+    ```proto
+    message rasm.contracts.cad.SmallEdgesStep
+    ```
+
+    Attributes:
+        precision_m:
+            ```proto
+            double precision_m = 1;
+            ```
+    """
+
+    __slots__ = ("precision_m",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            precision_m: float = 0,
+        ) -> None:
+            pass
+
+        precision_m: float
+
+_HealStepFields: TypeAlias = Literal["sew", "unify", "fix", "small_edges"]
+
+class HealStep(Message[_HealStepFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.HealStep
+    ```
+
+    Attributes:
+        step:
+            ```proto
+            oneof step
+            ```
+    """
+
+    __slots__ = ("step",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            step: Oneof[Literal["sew"], SewStep] | Oneof[Literal["unify"], Empty] | Oneof[Literal["fix"], FixStep] | Oneof[Literal["small_edges"], SmallEdgesStep] | None = None,
+        ) -> None:
+            pass
+
+        step: Oneof[Literal["sew"], SewStep] | Oneof[Literal["unify"], Empty] | Oneof[Literal["fix"], FixStep] | Oneof[Literal["small_edges"], SmallEdgesStep] | None
+
+_HealOpFields: TypeAlias = Literal["source", "steps"]
+
+class HealOp(Message[_HealOpFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.HealOp
+    ```
+
+    Attributes:
+        source:
+            ```proto
+            optional rasm.contracts.cad.SealedBody source = 1;
+            ```
+        steps:
+            ```proto
+            repeated rasm.contracts.cad.HealStep steps = 2;
+            ```
+    """
+
+    __slots__ = ("source", "steps")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            source: SealedBody | None = None,
+            steps: list[HealStep] | None = None,
+        ) -> None:
+            pass
+
+        source: SealedBody | None
+        steps: list[HealStep]
+
+_ExecuteRequestFields: TypeAlias = Literal["box", "sphere", "cylinder", "cone", "torus", "fuse", "cut", "common", "section", "split", "extrude", "revolve", "loft", "thick", "fillet", "chamfer", "nurbs", "sweep", "transform", "heal", "shell", "draft", "offset", "defeature", "wedge", "output"]
 
 class ExecuteRequest(Message[_ExecuteRequestFields]):
     """
@@ -824,54 +1487,101 @@ class ExecuteRequest(Message[_ExecuteRequestFields]):
             ```proto
             oneof operation
             ```
+        output:
+            ```proto
+            rasm.contracts.cad.Emission output = 30;
+            ```
     """
 
-    __slots__ = ("operation",)
+    __slots__ = ("output", "operation")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            operation: Oneof[Literal["box"], BoxOp] | Oneof[Literal["sphere"], SphereOp] | Oneof[Literal["cylinder"], CylinderOp] | Oneof[Literal["cone"], ConeOp] | Oneof[Literal["torus"], TorusOp] | Oneof[Literal["fuse"], BooleanInputs] | Oneof[Literal["cut"], BooleanInputs] | Oneof[Literal["common"], BooleanInputs] | Oneof[Literal["section"], BooleanInputs] | Oneof[Literal["split"], BooleanInputs] | Oneof[Literal["extrude"], ExtrudeOp] | Oneof[Literal["revolve"], RevolveOp] | Oneof[Literal["loft"], LoftOp] | Oneof[Literal["thick"], ThickOp] | Oneof[Literal["fillet"], FilletOp] | Oneof[Literal["chamfer"], ChamferOp] | Oneof[Literal["sew"], SewOp] | Oneof[Literal["nurbs"], SealedStep] | Oneof[Literal["sweep"], SweepOp] | Oneof[Literal["transform"], TransformOp] | None = None,
+            operation: Oneof[Literal["box"], BoxOp] | Oneof[Literal["sphere"], SphereOp] | Oneof[Literal["cylinder"], CylinderOp] | Oneof[Literal["cone"], ConeOp] | Oneof[Literal["torus"], TorusOp] | Oneof[Literal["fuse"], BooleanInputs] | Oneof[Literal["cut"], BooleanInputs] | Oneof[Literal["common"], BooleanInputs] | Oneof[Literal["section"], BooleanInputs] | Oneof[Literal["split"], BooleanInputs] | Oneof[Literal["extrude"], ExtrudeOp] | Oneof[Literal["revolve"], RevolveOp] | Oneof[Literal["loft"], LoftOp] | Oneof[Literal["thick"], ThickOp] | Oneof[Literal["fillet"], FilletOp] | Oneof[Literal["chamfer"], ChamferOp] | Oneof[Literal["nurbs"], SealedBody] | Oneof[Literal["sweep"], SweepOp] | Oneof[Literal["transform"], TransformOp] | Oneof[Literal["heal"], HealOp] | Oneof[Literal["shell"], ShellOp] | Oneof[Literal["draft"], DraftOp] | Oneof[Literal["offset"], OffsetOp] | Oneof[Literal["defeature"], DefeatureOp] | Oneof[Literal["wedge"], WedgeOp] | None = None,
+            output: Emission | None = None,
         ) -> None:
             pass
 
-        operation: Oneof[Literal["box"], BoxOp] | Oneof[Literal["sphere"], SphereOp] | Oneof[Literal["cylinder"], CylinderOp] | Oneof[Literal["cone"], ConeOp] | Oneof[Literal["torus"], TorusOp] | Oneof[Literal["fuse"], BooleanInputs] | Oneof[Literal["cut"], BooleanInputs] | Oneof[Literal["common"], BooleanInputs] | Oneof[Literal["section"], BooleanInputs] | Oneof[Literal["split"], BooleanInputs] | Oneof[Literal["extrude"], ExtrudeOp] | Oneof[Literal["revolve"], RevolveOp] | Oneof[Literal["loft"], LoftOp] | Oneof[Literal["thick"], ThickOp] | Oneof[Literal["fillet"], FilletOp] | Oneof[Literal["chamfer"], ChamferOp] | Oneof[Literal["sew"], SewOp] | Oneof[Literal["nurbs"], SealedStep] | Oneof[Literal["sweep"], SweepOp] | Oneof[Literal["transform"], TransformOp] | None
+        operation: Oneof[Literal["box"], BoxOp] | Oneof[Literal["sphere"], SphereOp] | Oneof[Literal["cylinder"], CylinderOp] | Oneof[Literal["cone"], ConeOp] | Oneof[Literal["torus"], TorusOp] | Oneof[Literal["fuse"], BooleanInputs] | Oneof[Literal["cut"], BooleanInputs] | Oneof[Literal["common"], BooleanInputs] | Oneof[Literal["section"], BooleanInputs] | Oneof[Literal["split"], BooleanInputs] | Oneof[Literal["extrude"], ExtrudeOp] | Oneof[Literal["revolve"], RevolveOp] | Oneof[Literal["loft"], LoftOp] | Oneof[Literal["thick"], ThickOp] | Oneof[Literal["fillet"], FilletOp] | Oneof[Literal["chamfer"], ChamferOp] | Oneof[Literal["nurbs"], SealedBody] | Oneof[Literal["sweep"], SweepOp] | Oneof[Literal["transform"], TransformOp] | Oneof[Literal["heal"], HealOp] | Oneof[Literal["shell"], ShellOp] | Oneof[Literal["draft"], DraftOp] | Oneof[Literal["offset"], OffsetOp] | Oneof[Literal["defeature"], DefeatureOp] | Oneof[Literal["wedge"], WedgeOp] | None
+        output: Emission
 
-_ExecuteResponseFields: TypeAlias = Literal["receipt", "step"]
+_ExecuteResponseFields: TypeAlias = Literal["measure", "body", "correspondence", "healing"]
 
 class ExecuteResponse(Message[_ExecuteResponseFields]):
     """
+    `correspondence` rides every operation whose kernel answers history and `healing` rides the heal arm alone.
+
     ```proto
     message rasm.contracts.cad.ExecuteResponse
     ```
 
     Attributes:
-        receipt:
+        measure:
             ```proto
-            optional rasm.contracts.cad.BrepKernelReceipt receipt = 1;
+            optional rasm.contracts.cad.BrepMeasure measure = 1;
             ```
-        step:
+        body:
             ```proto
-            optional rasm.contracts.cad.SealedStep step = 3;
+            optional rasm.contracts.cad.SealedBody body = 3;
+            ```
+        correspondence:
+            ```proto
+            optional rasm.contracts.cad.Correspondence correspondence = 4;
+            ```
+        healing:
+            ```proto
+            optional rasm.contracts.cad.Healing healing = 5;
             ```
     """
 
-    __slots__ = ("receipt", "step")
+    __slots__ = ("measure", "body", "correspondence", "healing")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            receipt: BrepKernelReceipt | None = None,
-            step: SealedStep | None = None,
+            measure: BrepMeasure | None = None,
+            body: SealedBody | None = None,
+            correspondence: Correspondence | None = None,
+            healing: Healing | None = None,
         ) -> None:
             pass
 
-        receipt: BrepKernelReceipt | None
-        step: SealedStep | None
+        measure: BrepMeasure | None
+        body: SealedBody | None
+        correspondence: Correspondence | None
+        healing: Healing | None
+
+class OffsetJoin(Enum):
+    """
+    Arc rounds every convex corner; intersection extends the neighbouring edges to their meet and refuses where no meet exists.
+
+    ```proto
+    enum rasm.contracts.cad.OffsetJoin
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            OFFSET_JOIN_UNSPECIFIED = 0
+            ```
+        ARC:
+            ```proto
+            OFFSET_JOIN_ARC = 1
+            ```
+        INTERSECTION:
+            ```proto
+            OFFSET_JOIN_INTERSECTION = 2
+            ```
+    """
+
+    UNSPECIFIED = 0
+    ARC = 1
+    INTERSECTION = 2
 
 class LoftStyle(Enum):
     """
@@ -898,9 +1608,36 @@ class LoftStyle(Enum):
     RULED = 1
     SMOOTH = 2
 
+class DraftPropagation(Enum):
+    """
+    Whether a drafted face pulls its tangent-continuous neighbours along or stops at its own boundary.
+
+    ```proto
+    enum rasm.contracts.cad.DraftPropagation
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            DRAFT_PROPAGATION_UNSPECIFIED = 0
+            ```
+        STOP:
+            ```proto
+            DRAFT_PROPAGATION_STOP = 1
+            ```
+        TANGENT:
+            ```proto
+            DRAFT_PROPAGATION_TANGENT = 2
+            ```
+    """
+
+    UNSPECIFIED = 0
+    STOP = 1
+    TANGENT = 2
+
 
 _DESC = file_desc(
-    b'\n#rasm/contracts/cad/operations.proto\x12\x12rasm.contracts.cad\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1erasm/contracts/cad/types.proto\x1a#rasm/contracts/spatial/vector.proto"\xb7\x01\n\x05BoxOp\x12!\n\x03x_m\x18\x01 \x01(\x01R\x02xMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12!\n\x03y_m\x18\x02 \x01(\x01R\x02yMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12!\n\x03z_m\x18\x03 \x01(\x01R\x02zMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12<\n\x05frame\x18\x04 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01R\x01xR\x01yR\x01z"\x7f\n\x08SphereOp\x12+\n\x08radius_m\x18\x01 \x01(\x01R\x07radiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12>\n\x06center\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Point3R\x06centerB\x06\xbaH\x03\xc8\x01\x01R\x06radius"\xb1\x01\n\nCylinderOp\x12+\n\x08radius_m\x18\x01 \x01(\x01R\x07radiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12+\n\x08height_m\x18\x02 \x01(\x01R\x07heightMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x129\n\x04axis\x18\x03 \x01(\x0b2\x1d.rasm.contracts.spatial.Axis3R\x04axisB\x06\xbaH\x03\xc8\x01\x01R\x06radiusR\x06height"\xf2\x02\n\x06ConeOp\x124\n\rbase_radius_m\x18\x01 \x01(\x01R\x0bbaseRadiusMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x122\n\x0ctop_radius_m\x18\x02 \x01(\x01R\ntopRadiusMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12+\n\x08height_m\x18\x03 \x01(\x01R\x07heightMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x129\n\x04axis\x18\x04 \x01(\x0b2\x1d.rasm.contracts.spatial.Axis3R\x04axisB\x06\xbaH\x03\xc8\x01\x01:u\xbaHr\x1ap\n\x0econe_op.radius\x12)at least one cone radius must be positive\x1a3this.base_radius_m > 0.0 || this.top_radius_m > 0.0R\x0bbase_radiusR\ntop_radiusR\x06height"\xc3\x02\n\x07TorusOp\x126\n\x0emajor_radius_m\x18\x01 \x01(\x01R\x0cmajorRadiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x126\n\x0eminor_radius_m\x18\x02 \x01(\x01R\x0cminorRadiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x129\n\x04axis\x18\x03 \x01(\x0b2\x1d.rasm.contracts.spatial.Axis3R\x04axisB\x06\xbaH\x03\xc8\x01\x01:q\xbaHn\x1al\n\x0ftorus_op.radius\x12.minor radius must be smaller than major radius\x1a)this.minor_radius_m < this.major_radius_mR\x0cmajor_radiusR\x0cminor_radius"\x80\x01\n\rBooleanInputs\x12D\n\x08operands\x18\x01 \x03(\x0b2\x1e.rasm.contracts.cad.SealedStepR\x08operandsB\x08\xbaH\x05\x92\x01\x02\x08\x02\x12)\n\x07fuzzy_m\x18\x02 \x01(\x01R\x06fuzzyMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00"@\n\rProfileOffset\x12/\n\ndistance_m\x18\x01 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b9\x00\x00\x00\x00\x00\x00\x00\x00@\x01"\xc7\x01\n\rPlacedProfile\x12=\n\x07profile\x18\x01 \x01(\x0b2\x1b.rasm.contracts.cad.ProfileR\x07profileB\x06\xbaH\x03\xc8\x01\x01\x12<\n\x05frame\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01\x129\n\x06offset\x18\x03 \x01(\x0b2!.rasm.contracts.cad.ProfileOffsetR\x06offset"\xcf\x01\n\tExtrudeOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x12/\n\ndistance_m\x18\x02 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12L\n\tdirection\x18\x03 \x01(\x0b2&.rasm.contracts.spatial.UnitDirection3R\tdirectionB\x06\xbaH\x03\xc8\x01\x01"\xc3\x01\n\tRevolveOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x126\n\tangle_rad\x18\x02 \x01(\x01R\x08angleRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@!\x00\x00\x00\x00\x00\x00\x00\x00\x129\n\x04axis\x18\x03 \x01(\x0b2\x1d.rasm.contracts.spatial.Axis3R\x04axisB\x06\xbaH\x03\xc8\x01\x01"\x8e\x01\n\x0bLoftSection\x12A\n\x06region\x18\x01 \x01(\x0b2!.rasm.contracts.cad.ProfileRegionR\x06regionB\x06\xbaH\x03\xc8\x01\x01\x12<\n\x05frame\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01"\xa9\x02\n\tLoftTrack\x12E\n\x08sections\x18\x01 \x03(\x0b2\x1f.rasm.contracts.cad.LoftSectionR\x08sectionsB\x08\xbaH\x05\x92\x01\x02\x08\x02:\xd4\x01\xbaH\xd0\x01\x1a\xcd\x01\n\x1eloft_track.hole_correspondence\x12Jevery loft section must carry the same number of index-corresponding holes\x1a_this.sections.all(section, section.region.holes.size() == this.sections[0].region.holes.size())"\x8a\x01\n\x06LoftOp\x12?\n\x06tracks\x18\x01 \x03(\x0b2\x1d.rasm.contracts.cad.LoftTrackR\x06tracksB\x08\xbaH\x05\x92\x01\x02\x08\x01\x12?\n\x05style\x18\x02 \x01(\x0e2\x1d.rasm.contracts.cad.LoftStyleR\x05styleB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00"\x8c\x02\n\x07ThickOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x12/\n\ndistance_m\x18\x02 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x121\n\x0bthickness_m\x18\x03 \x01(\x01R\nthicknessMB\x10\xbaH\r\x12\x0b9\x00\x00\x00\x00\x00\x00\x00\x00@\x01\x12L\n\tdirection\x18\x05 \x01(\x0b2&.rasm.contracts.spatial.UnitDirection3R\tdirectionB\x06\xbaH\x03\xc8\x01\x01J\x04\x08\x04\x10\x05R\x04join"\x82\x03\n\x07SweepOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x12<\n\x05spine\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Curve3R\x05spineB\x06\xbaH\x03\xc8\x01\x01:\xf3\x01\xbaH\xef\x01\x1a\xec\x01\n\x0fsweep_op.origin\x12/section frame origin must equal the spine start\x1a\xa7\x01this.section.frame.origin.x_m == this.spine.start.x_m && this.section.frame.origin.y_m == this.spine.start.y_m && this.section.frame.origin.z_m == this.spine.start.z_m"\x9a\x02\n\x0bTransformOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedStepR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12I\n\x0csource_frame\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x0bsourceFrameB\x06\xbaH\x03\xc8\x01\x01\x12I\n\x0ctarget_frame\x18\x03 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x0btargetFrameB\x06\xbaH\x03\xc8\x01\x01\x125\n\runiform_scale\x18\x04 \x01(\x01R\x0cuniformScaleB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00"1\n\x0bEdgeIndices\x12"\n\x06values\x18\x01 \x03(\rR\x06valuesB\n\xbaH\x07\x92\x01\x04\x08\x01\x18\x01"\x8c\x01\n\rEdgeSelection\x12*\n\x03all\x18\x01 \x01(\x0b2\x16.google.protobuf.EmptyH\x00R\x03all\x12;\n\x07indices\x18\x02 \x01(\x0b2\x1f.rasm.contracts.cad.EdgeIndicesH\x00R\x07indicesB\x12\n\tselection\x12\x05\xbaH\x02\x08\x01"\xb8\x01\n\x08FilletOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedStepR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12+\n\x08radius_m\x18\x02 \x01(\x01R\x07radiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12?\n\x05edges\x18\x03 \x01(\x0b2!.rasm.contracts.cad.EdgeSelectionR\x05edgesB\x06\xbaH\x03\xc8\x01\x01"\xbd\x01\n\tChamferOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedStepR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12/\n\ndistance_m\x18\x02 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12?\n\x05edges\x18\x03 \x01(\x0b2!.rasm.contracts.cad.EdgeSelectionR\x05edgesB\x06\xbaH\x03\xc8\x01\x01"z\n\x05SewOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedStepR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x121\n\x0btolerance_m\x18\x02 \x01(\x01R\ntoleranceMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00"\x84\t\n\x0eExecuteRequest\x12-\n\x03box\x18\x01 \x01(\x0b2\x19.rasm.contracts.cad.BoxOpH\x00R\x03box\x126\n\x06sphere\x18\x02 \x01(\x0b2\x1c.rasm.contracts.cad.SphereOpH\x00R\x06sphere\x12<\n\x08cylinder\x18\x03 \x01(\x0b2\x1e.rasm.contracts.cad.CylinderOpH\x00R\x08cylinder\x120\n\x04cone\x18\x04 \x01(\x0b2\x1a.rasm.contracts.cad.ConeOpH\x00R\x04cone\x123\n\x05torus\x18\x05 \x01(\x0b2\x1b.rasm.contracts.cad.TorusOpH\x00R\x05torus\x127\n\x04fuse\x18\x06 \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x04fuse\x125\n\x03cut\x18\x07 \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x03cut\x12;\n\x06common\x18\x08 \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x06common\x12=\n\x07section\x18\t \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x07section\x129\n\x05split\x18\n \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x05split\x129\n\x07extrude\x18\x0b \x01(\x0b2\x1d.rasm.contracts.cad.ExtrudeOpH\x00R\x07extrude\x129\n\x07revolve\x18\x0c \x01(\x0b2\x1d.rasm.contracts.cad.RevolveOpH\x00R\x07revolve\x120\n\x04loft\x18\r \x01(\x0b2\x1a.rasm.contracts.cad.LoftOpH\x00R\x04loft\x123\n\x05thick\x18\x0e \x01(\x0b2\x1b.rasm.contracts.cad.ThickOpH\x00R\x05thick\x126\n\x06fillet\x18\x0f \x01(\x0b2\x1c.rasm.contracts.cad.FilletOpH\x00R\x06fillet\x129\n\x07chamfer\x18\x10 \x01(\x0b2\x1d.rasm.contracts.cad.ChamferOpH\x00R\x07chamfer\x12-\n\x03sew\x18\x11 \x01(\x0b2\x19.rasm.contracts.cad.SewOpH\x00R\x03sew\x126\n\x05nurbs\x18\x12 \x01(\x0b2\x1e.rasm.contracts.cad.SealedStepH\x00R\x05nurbs\x123\n\x05sweep\x18\x13 \x01(\x0b2\x1b.rasm.contracts.cad.SweepOpH\x00R\x05sweep\x12?\n\ttransform\x18\x14 \x01(\x0b2\x1f.rasm.contracts.cad.TransformOpH\x00R\ttransformB\x12\n\toperation\x12\x05\xbaH\x02\x08\x01"\xa3\x01\n\x0fExecuteResponse\x12G\n\x07receipt\x18\x01 \x01(\x0b2%.rasm.contracts.cad.BrepKernelReceiptR\x07receiptB\x06\xbaH\x03\xc8\x01\x01\x12:\n\x04step\x18\x03 \x01(\x0b2\x1e.rasm.contracts.cad.SealedStepR\x04stepB\x06\xbaH\x03\xc8\x01\x01J\x04\x08\x02\x10\x03R\x05shape*T\n\tLoftStyle\x12\x1a\n\x16LOFT_STYLE_UNSPECIFIED\x10\x00\x12\x14\n\x10LOFT_STYLE_RULED\x10\x01\x12\x15\n\x11LOFT_STYLE_SMOOTH\x10\x02B\x15\xaa\x02\x12Rasm.Contracts.Cadb\x06proto3',
+    b'\n#rasm/contracts/cad/operations.proto\x12\x12rasm.contracts.cad\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1erasm/contracts/cad/types.proto\x1a#rasm/contracts/spatial/vector.proto"\xb7\x01\n\x05BoxOp\x12!\n\x03x_m\x18\x01 \x01(\x01R\x02xMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12!\n\x03y_m\x18\x02 \x01(\x01R\x02yMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12!\n\x03z_m\x18\x03 \x01(\x01R\x02zMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12<\n\x05frame\x18\x04 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01R\x01xR\x01yR\x01z"\x9b\x02\n\x0bWedgeWindow\x12\x1f\n\x07x_min_m\x18\x01 \x01(\x01R\x05xMinMB\x07\xbaH\x04\x12\x02@\x01\x12\x1f\n\x07z_min_m\x18\x02 \x01(\x01R\x05zMinMB\x07\xbaH\x04\x12\x02@\x01\x12\x1f\n\x07x_max_m\x18\x03 \x01(\x01R\x05xMaxMB\x07\xbaH\x04\x12\x02@\x01\x12\x1f\n\x07z_max_m\x18\x04 \x01(\x01R\x05zMaxMB\x07\xbaH\x04\x12\x02@\x01:\x87\x01\xbaH\x83\x01\x1a\x80\x01\n\x13wedge_window.extent\x12-the top face window must have positive extent\x1a:this.x_max_m > this.x_min_m && this.z_max_m > this.z_min_m"\xa8\x02\n\x07WedgeOp\x12!\n\x03x_m\x18\x01 \x01(\x01R\x02xMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12!\n\x03y_m\x18\x02 \x01(\x01R\x02yMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12!\n\x03z_m\x18\x03 \x01(\x01R\x02zMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12+\n\x07ridge_m\x18\x04 \x01(\x01H\x00R\x06ridgeMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x129\n\x06window\x18\x05 \x01(\x0b2\x1f.rasm.contracts.cad.WedgeWindowH\x00R\x06window\x12<\n\x05frame\x18\x06 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01B\x0e\n\x05taper\x12\x05\xbaH\x02\x08\x01"\xc6\x02\n\x0cSphereBounds\x12C\n\x10latitude_low_rad\x18\x01 \x01(\x01R\x0elatitudeLowRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\xf9?)\x18-DT\xfb!\xf9\xbf\x12E\n\x11latitude_high_rad\x18\x02 \x01(\x01R\x0flatitudeHighRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\xf9?)\x18-DT\xfb!\xf9\xbf\x12>\n\rlongitude_rad\x18\x03 \x01(\x01R\x0clongitudeRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@!\x00\x00\x00\x00\x00\x00\x00\x00:j\xbaHg\x1ae\n\x16sphere_bounds.latitude\x12\x1blatitude bounds must ascend\x1a.this.latitude_high_rad > this.latitude_low_rad"\xc5\x01\n\x08SphereOp\x12+\n\x08radius_m\x18\x01 \x01(\x01R\x07radiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12<\n\x05frame\x18\x03 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01\x128\n\x06bounds\x18\x04 \x01(\x0b2 .rasm.contracts.cad.SphereBoundsR\x06boundsJ\x04\x08\x02\x10\x03R\x06radiusR\x06center"\x8b\x02\n\nCylinderOp\x12+\n\x08radius_m\x18\x01 \x01(\x01R\x07radiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12+\n\x08height_m\x18\x02 \x01(\x01R\x07heightMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12<\n\x05frame\x18\x04 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01\x12;\n\tsweep_rad\x18\x05 \x01(\x01H\x00R\x08sweepRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@!\x00\x00\x00\x00\x00\x00\x00\x00\x88\x01\x01B\x0c\n\n_sweep_radJ\x04\x08\x03\x10\x04R\x06radiusR\x06heightR\x04axis"\xcc\x03\n\x06ConeOp\x124\n\rbase_radius_m\x18\x01 \x01(\x01R\x0bbaseRadiusMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x122\n\x0ctop_radius_m\x18\x02 \x01(\x01R\ntopRadiusMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12+\n\x08height_m\x18\x03 \x01(\x01R\x07heightMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12<\n\x05frame\x18\x05 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01\x12;\n\tsweep_rad\x18\x06 \x01(\x01H\x00R\x08sweepRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@!\x00\x00\x00\x00\x00\x00\x00\x00\x88\x01\x01B\x0c\n\n_sweep_rad:u\xbaHr\x1ap\n\x0econe_op.radius\x12)at least one cone radius must be positive\x1a3this.base_radius_m > 0.0 || this.top_radius_m > 0.0J\x04\x08\x04\x10\x05R\x0bbase_radiusR\ntop_radiusR\x06heightR\x04axis"\xfe\x02\n\x0bTorusBounds\x12;\n\x0ctube_low_rad\x18\x01 \x01(\x01R\ntubeLowRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@)\x18-DT\xfb!\x19\xc0\x12=\n\rtube_high_rad\x18\x02 \x01(\x01R\x0btubeHighRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@)\x18-DT\xfb!\x19\xc0\x126\n\tsweep_rad\x18\x03 \x01(\x01R\x08sweepRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@!\x00\x00\x00\x00\x00\x00\x00\x00:\xba\x01\xbaH\xb6\x01\x1a\xb3\x01\n\x11torus_bounds.tube\x127tube bounds must ascend and span at most one revolution\x1aethis.tube_high_rad > this.tube_low_rad && this.tube_high_rad - this.tube_low_rad <= 6.283185307179586"\x8b\x03\n\x07TorusOp\x126\n\x0emajor_radius_m\x18\x01 \x01(\x01R\x0cmajorRadiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x126\n\x0eminor_radius_m\x18\x02 \x01(\x01R\x0cminorRadiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12<\n\x05frame\x18\x04 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01\x127\n\x06bounds\x18\x05 \x01(\x0b2\x1f.rasm.contracts.cad.TorusBoundsR\x06bounds:q\xbaHn\x1al\n\x0ftorus_op.radius\x12.minor radius must be smaller than major radius\x1a)this.minor_radius_m < this.major_radius_mJ\x04\x08\x03\x10\x04R\x0cmajor_radiusR\x0cminor_radiusR\x04axis"\x80\x01\n\rBooleanInputs\x12D\n\x08operands\x18\x01 \x03(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x08operandsB\x08\xbaH\x05\x92\x01\x02\x08\x02\x12)\n\x07fuzzy_m\x18\x02 \x01(\x01R\x06fuzzyMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00"\xb9\x01\n\rProfileOffset\x12/\n\ndistance_m\x18\x01 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b9\x00\x00\x00\x00\x00\x00\x00\x00@\x01\x12>\n\x04join\x18\x02 \x01(\x0e2\x1e.rasm.contracts.cad.OffsetJoinR\x04joinB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00\x12,\n\x06hole_m\x18\x03 \x01(\x01H\x00R\x05holeMB\x10\xbaH\r\x12\x0b9\x00\x00\x00\x00\x00\x00\x00\x00@\x01\x88\x01\x01B\t\n\x07_hole_m"\xc7\x01\n\rPlacedProfile\x12=\n\x07profile\x18\x01 \x01(\x0b2\x1b.rasm.contracts.cad.ProfileR\x07profileB\x06\xbaH\x03\xc8\x01\x01\x12<\n\x05frame\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01\x129\n\x06offset\x18\x03 \x01(\x0b2!.rasm.contracts.cad.ProfileOffsetR\x06offset"\xcf\x01\n\tExtrudeOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x12/\n\ndistance_m\x18\x02 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12L\n\tdirection\x18\x03 \x01(\x0b2&.rasm.contracts.spatial.UnitDirection3R\tdirectionB\x06\xbaH\x03\xc8\x01\x01"\xc3\x01\n\tRevolveOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x126\n\tangle_rad\x18\x02 \x01(\x01R\x08angleRadB\x19\xbaH\x16\x12\x14@\x01\x19\x18-DT\xfb!\x19@!\x00\x00\x00\x00\x00\x00\x00\x00\x129\n\x04axis\x18\x03 \x01(\x0b2\x1d.rasm.contracts.spatial.Axis3R\x04axisB\x06\xbaH\x03\xc8\x01\x01"\x8e\x01\n\x0bLoftSection\x12A\n\x06region\x18\x01 \x01(\x0b2!.rasm.contracts.cad.ProfileRegionR\x06regionB\x06\xbaH\x03\xc8\x01\x01\x12<\n\x05frame\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x05frameB\x06\xbaH\x03\xc8\x01\x01"\xa9\x02\n\tLoftTrack\x12E\n\x08sections\x18\x01 \x03(\x0b2\x1f.rasm.contracts.cad.LoftSectionR\x08sectionsB\x08\xbaH\x05\x92\x01\x02\x08\x02:\xd4\x01\xbaH\xd0\x01\x1a\xcd\x01\n\x1eloft_track.hole_correspondence\x12Jevery loft section must carry the same number of index-corresponding holes\x1a_this.sections.all(section, section.region.holes.size() == this.sections[0].region.holes.size())"\x8a\x01\n\x06LoftOp\x12?\n\x06tracks\x18\x01 \x03(\x0b2\x1d.rasm.contracts.cad.LoftTrackR\x06tracksB\x08\xbaH\x05\x92\x01\x02\x08\x01\x12?\n\x05style\x18\x02 \x01(\x0e2\x1d.rasm.contracts.cad.LoftStyleR\x05styleB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00"\xd5\x02\n\x07ThickOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x12/\n\ndistance_m\x18\x02 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x121\n\x0bthickness_m\x18\x03 \x01(\x01R\nthicknessMB\x10\xbaH\r\x12\x0b9\x00\x00\x00\x00\x00\x00\x00\x00@\x01\x12L\n\tdirection\x18\x05 \x01(\x0b2&.rasm.contracts.spatial.UnitDirection3R\tdirectionB\x06\xbaH\x03\xc8\x01\x01\x12G\n\twall_join\x18\x06 \x01(\x0e2\x1e.rasm.contracts.cad.OffsetJoinR\x08wallJoinB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00J\x04\x08\x04\x10\x05R\x04join"\x82\x03\n\x07SweepOp\x12C\n\x07section\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PlacedProfileR\x07sectionB\x06\xbaH\x03\xc8\x01\x01\x12<\n\x05spine\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Curve3R\x05spineB\x06\xbaH\x03\xc8\x01\x01:\xf3\x01\xbaH\xef\x01\x1a\xec\x01\n\x0fsweep_op.origin\x12/section frame origin must equal the spine start\x1a\xa7\x01this.section.frame.origin.x_m == this.spine.start.x_m && this.section.frame.origin.y_m == this.spine.start.y_m && this.section.frame.origin.z_m == this.spine.start.z_m"\x9a\x02\n\x0bTransformOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12I\n\x0csource_frame\x18\x02 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x0bsourceFrameB\x06\xbaH\x03\xc8\x01\x01\x12I\n\x0ctarget_frame\x18\x03 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x0btargetFrameB\x06\xbaH\x03\xc8\x01\x01\x125\n\runiform_scale\x18\x04 \x01(\x01R\x0cuniformScaleB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00"]\n\tRadiusRun\x12)\n\x07start_m\x18\x01 \x01(\x01R\x06startMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12%\n\x05end_m\x18\x02 \x01(\x01R\x04endMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00"d\n\nRadiusKnot\x12)\n\x02at\x18\x01 \x01(\x01R\x02atB\x19\xbaH\x16\x12\x14@\x01\x19\x00\x00\x00\x00\x00\x00\xf0?)\x00\x00\x00\x00\x00\x00\x00\x00\x12+\n\x08radius_m\x18\x02 \x01(\x01R\x07radiusMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00"\xbd\x02\n\tRadiusLaw\x12>\n\x05knots\x18\x01 \x03(\x0b2\x1e.rasm.contracts.cad.RadiusKnotR\x05knotsB\x08\xbaH\x05\x92\x01\x02\x08\x02:\xef\x01\xbaH\xeb\x01\x1a\xe8\x01\n\x10radius_law.knots\x12,knots must open at 0, close at 1, and ascend\x1a\xa5\x01this.knots.exists(knot, knot.at == 0.0) && this.knots.exists(knot, knot.at == 1.0) && this.knots.all(knot, this.knots.filter(other, other.at == knot.at).size() == 1)"\xc1\x02\n\x08FilletOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12;\n\x05edges\x18\x03 \x01(\x0b2\x1d.rasm.contracts.cad.SelectionR\x05edgesB\x06\xbaH\x03\xc8\x01\x01\x121\n\nconstant_m\x18\x04 \x01(\x01H\x00R\tconstantMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x121\n\x03run\x18\x05 \x01(\x0b2\x1d.rasm.contracts.cad.RadiusRunH\x00R\x03run\x121\n\x03law\x18\x06 \x01(\x0b2\x1d.rasm.contracts.cad.RadiusLawH\x00R\x03lawB\x0f\n\x06radius\x12\x05\xbaH\x02\x08\x01J\x04\x08\x02\x10\x03R\x08radius_m"y\n\x0bChamferSkew\x12)\n\x07first_m\x18\x01 \x01(\x01R\x06firstMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12+\n\x08second_m\x18\x02 \x01(\x01R\x07secondMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x12\x12\n\x04face\x18\x03 \x01(\rR\x04face"\x8b\x01\n\x0cChamferAngle\x12/\n\ndistance_m\x18\x01 \x01(\x01R\tdistanceMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x126\n\tangle_rad\x18\x02 \x01(\x01R\x08angleRadB\x19\xbaH\x16\x12\x14@\x01\x11\x18-DT\xfb!\xf9?!\x00\x00\x00\x00\x00\x00\x00\x00\x12\x12\n\x04face\x18\x03 \x01(\rR\x04face"\xd1\x02\n\tChamferOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12;\n\x05edges\x18\x03 \x01(\x0b2\x1d.rasm.contracts.cad.SelectionR\x05edgesB\x06\xbaH\x03\xc8\x01\x01\x123\n\x0bsymmetric_m\x18\x04 \x01(\x01H\x00R\nsymmetricMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x125\n\x04skew\x18\x05 \x01(\x0b2\x1f.rasm.contracts.cad.ChamferSkewH\x00R\x04skew\x12:\n\x06angled\x18\x06 \x01(\x0b2 .rasm.contracts.cad.ChamferAngleH\x00R\x06angledB\r\n\x04form\x12\x05\xbaH\x02\x08\x01J\x04\x08\x02\x10\x03R\ndistance_m"\xf7\x01\n\x07ShellOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x129\n\x05faces\x18\x02 \x01(\x0b2\x1b.rasm.contracts.cad.IndicesR\x05facesB\x06\xbaH\x03\xc8\x01\x01\x121\n\x0bthickness_m\x18\x03 \x01(\x01R\nthicknessMB\x10\xbaH\r\x12\x0b9\x00\x00\x00\x00\x00\x00\x00\x00@\x01\x12>\n\x04join\x18\x04 \x01(\x0e2\x1e.rasm.contracts.cad.OffsetJoinR\x04joinB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00"\x9f\x03\n\x07DraftOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x129\n\x05faces\x18\x02 \x01(\x0b2\x1b.rasm.contracts.cad.IndicesR\x05facesB\x06\xbaH\x03\xc8\x01\x01\x12B\n\x04pull\x18\x03 \x01(\x0b2&.rasm.contracts.spatial.UnitDirection3R\x04pullB\x06\xbaH\x03\xc8\x01\x01\x12?\n\tangle_rad\x18\x04 \x01(\x01R\x08angleRadB"\xbaH\x1f\x12\x1d9\x00\x00\x00\x00\x00\x00\x00\x00@\x01\x11\x18-DT\xfb!\xf9?!\x18-DT\xfb!\xf9\xbf\x12@\n\x07neutral\x18\x05 \x01(\x0b2\x1e.rasm.contracts.spatial.Frame3R\x07neutralB\x06\xbaH\x03\xc8\x01\x01\x12R\n\x0bpropagation\x18\x06 \x01(\x0e2$.rasm.contracts.cad.DraftPropagationR\x0bpropagationB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00"\xb7\x01\n\x08OffsetOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12+\n\x08offset_m\x18\x02 \x01(\x01R\x07offsetMB\x10\xbaH\r\x12\x0b9\x00\x00\x00\x00\x00\x00\x00\x00@\x01\x12>\n\x04join\x18\x03 \x01(\x0e2\x1e.rasm.contracts.cad.OffsetJoinR\x04joinB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00"\x88\x01\n\x0bDefeatureOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x129\n\x05faces\x18\x02 \x01(\x0b2\x1b.rasm.contracts.cad.IndicesR\x05facesB\x06\xbaH\x03\xc8\x01\x01"<\n\x07SewStep\x121\n\x0btolerance_m\x18\x01 \x01(\x01R\ntoleranceMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00"\xfd\x01\n\x07FixStep\x121\n\x0bprecision_m\x18\x01 \x01(\x01R\nprecisionMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00\x128\n\x0fmax_tolerance_m\x18\x02 \x01(\x01R\rmaxToleranceMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00:\x84\x01\xbaH\x80\x01\x1a~\n\x12fix_step.tolerance\x12>the tolerance ceiling must not sit below the working precision\x1a(this.max_tolerance_m >= this.precision_m"C\n\x0eSmallEdgesStep\x121\n\x0bprecision_m\x18\x01 \x01(\x01R\nprecisionMB\x10\xbaH\r\x12\x0b@\x01!\x00\x00\x00\x00\x00\x00\x00\x00"\xf2\x01\n\x08HealStep\x12/\n\x03sew\x18\x01 \x01(\x0b2\x1b.rasm.contracts.cad.SewStepH\x00R\x03sew\x12.\n\x05unify\x18\x02 \x01(\x0b2\x16.google.protobuf.EmptyH\x00R\x05unify\x12/\n\x03fix\x18\x03 \x01(\x0b2\x1b.rasm.contracts.cad.FixStepH\x00R\x03fix\x12E\n\x0bsmall_edges\x18\x04 \x01(\x0b2".rasm.contracts.cad.SmallEdgesStepH\x00R\nsmallEdgesB\r\n\x04step\x12\x05\xbaH\x02\x08\x01"\x86\x01\n\x06HealOp\x12>\n\x06source\x18\x01 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x06sourceB\x06\xbaH\x03\xc8\x01\x01\x12<\n\x05steps\x18\x02 \x03(\x0b2\x1c.rasm.contracts.cad.HealStepR\x05stepsB\x08\xbaH\x05\x92\x01\x02\x08\x01"\xec\x0b\n\x0eExecuteRequest\x12-\n\x03box\x18\x01 \x01(\x0b2\x19.rasm.contracts.cad.BoxOpH\x00R\x03box\x126\n\x06sphere\x18\x02 \x01(\x0b2\x1c.rasm.contracts.cad.SphereOpH\x00R\x06sphere\x12<\n\x08cylinder\x18\x03 \x01(\x0b2\x1e.rasm.contracts.cad.CylinderOpH\x00R\x08cylinder\x120\n\x04cone\x18\x04 \x01(\x0b2\x1a.rasm.contracts.cad.ConeOpH\x00R\x04cone\x123\n\x05torus\x18\x05 \x01(\x0b2\x1b.rasm.contracts.cad.TorusOpH\x00R\x05torus\x127\n\x04fuse\x18\x06 \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x04fuse\x125\n\x03cut\x18\x07 \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x03cut\x12;\n\x06common\x18\x08 \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x06common\x12=\n\x07section\x18\t \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x07section\x129\n\x05split\x18\n \x01(\x0b2!.rasm.contracts.cad.BooleanInputsH\x00R\x05split\x129\n\x07extrude\x18\x0b \x01(\x0b2\x1d.rasm.contracts.cad.ExtrudeOpH\x00R\x07extrude\x129\n\x07revolve\x18\x0c \x01(\x0b2\x1d.rasm.contracts.cad.RevolveOpH\x00R\x07revolve\x120\n\x04loft\x18\r \x01(\x0b2\x1a.rasm.contracts.cad.LoftOpH\x00R\x04loft\x123\n\x05thick\x18\x0e \x01(\x0b2\x1b.rasm.contracts.cad.ThickOpH\x00R\x05thick\x126\n\x06fillet\x18\x0f \x01(\x0b2\x1c.rasm.contracts.cad.FilletOpH\x00R\x06fillet\x129\n\x07chamfer\x18\x10 \x01(\x0b2\x1d.rasm.contracts.cad.ChamferOpH\x00R\x07chamfer\x126\n\x05nurbs\x18\x12 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyH\x00R\x05nurbs\x123\n\x05sweep\x18\x13 \x01(\x0b2\x1b.rasm.contracts.cad.SweepOpH\x00R\x05sweep\x12?\n\ttransform\x18\x14 \x01(\x0b2\x1f.rasm.contracts.cad.TransformOpH\x00R\ttransform\x120\n\x04heal\x18\x15 \x01(\x0b2\x1a.rasm.contracts.cad.HealOpH\x00R\x04heal\x123\n\x05shell\x18\x16 \x01(\x0b2\x1b.rasm.contracts.cad.ShellOpH\x00R\x05shell\x123\n\x05draft\x18\x17 \x01(\x0b2\x1b.rasm.contracts.cad.DraftOpH\x00R\x05draft\x126\n\x06offset\x18\x18 \x01(\x0b2\x1c.rasm.contracts.cad.OffsetOpH\x00R\x06offset\x12?\n\tdefeature\x18\x19 \x01(\x0b2\x1f.rasm.contracts.cad.DefeatureOpH\x00R\tdefeature\x123\n\x05wedge\x18\x1a \x01(\x0b2\x1b.rasm.contracts.cad.WedgeOpH\x00R\x05wedge\x12@\n\x06output\x18\x1e \x01(\x0e2\x1c.rasm.contracts.cad.EmissionR\x06outputB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00B\x12\n\toperation\x12\x05\xbaH\x02\x08\x01J\x04\x08\x11\x10\x12R\x03sew"\xa6\x02\n\x0fExecuteResponse\x12A\n\x07measure\x18\x01 \x01(\x0b2\x1f.rasm.contracts.cad.BrepMeasureR\x07measureB\x06\xbaH\x03\xc8\x01\x01\x12:\n\x04body\x18\x03 \x01(\x0b2\x1e.rasm.contracts.cad.SealedBodyR\x04bodyB\x06\xbaH\x03\xc8\x01\x01\x12J\n\x0ecorrespondence\x18\x04 \x01(\x0b2".rasm.contracts.cad.CorrespondenceR\x0ecorrespondence\x125\n\x07healing\x18\x05 \x01(\x0b2\x1b.rasm.contracts.cad.HealingR\x07healingJ\x04\x08\x02\x10\x03R\x05shapeR\x04step*\\\n\nOffsetJoin\x12\x1b\n\x17OFFSET_JOIN_UNSPECIFIED\x10\x00\x12\x13\n\x0fOFFSET_JOIN_ARC\x10\x01\x12\x1c\n\x18OFFSET_JOIN_INTERSECTION\x10\x02*T\n\tLoftStyle\x12\x1a\n\x16LOFT_STYLE_UNSPECIFIED\x10\x00\x12\x14\n\x10LOFT_STYLE_RULED\x10\x01\x12\x15\n\x11LOFT_STYLE_SMOOTH\x10\x02*p\n\x10DraftPropagation\x12!\n\x1dDRAFT_PROPAGATION_UNSPECIFIED\x10\x00\x12\x1a\n\x16DRAFT_PROPAGATION_STOP\x10\x01\x12\x1d\n\x19DRAFT_PROPAGATION_TANGENT\x10\x02B\x15\xaa\x02\x12Rasm.Contracts.Cadb\x06proto3',
     [
         validate_pb.desc(),
         empty_pb.desc(),
@@ -909,9 +1646,13 @@ _DESC = file_desc(
     ],
     {
         "BoxOp": BoxOp,
+        "WedgeWindow": WedgeWindow,
+        "WedgeOp": WedgeOp,
+        "SphereBounds": SphereBounds,
         "SphereOp": SphereOp,
         "CylinderOp": CylinderOp,
         "ConeOp": ConeOp,
+        "TorusBounds": TorusBounds,
         "TorusOp": TorusOp,
         "BooleanInputs": BooleanInputs,
         "ProfileOffset": ProfileOffset,
@@ -924,14 +1665,27 @@ _DESC = file_desc(
         "ThickOp": ThickOp,
         "SweepOp": SweepOp,
         "TransformOp": TransformOp,
-        "EdgeIndices": EdgeIndices,
-        "EdgeSelection": EdgeSelection,
+        "RadiusRun": RadiusRun,
+        "RadiusKnot": RadiusKnot,
+        "RadiusLaw": RadiusLaw,
         "FilletOp": FilletOp,
+        "ChamferSkew": ChamferSkew,
+        "ChamferAngle": ChamferAngle,
         "ChamferOp": ChamferOp,
-        "SewOp": SewOp,
+        "ShellOp": ShellOp,
+        "DraftOp": DraftOp,
+        "OffsetOp": OffsetOp,
+        "DefeatureOp": DefeatureOp,
+        "SewStep": SewStep,
+        "FixStep": FixStep,
+        "SmallEdgesStep": SmallEdgesStep,
+        "HealStep": HealStep,
+        "HealOp": HealOp,
         "ExecuteRequest": ExecuteRequest,
         "ExecuteResponse": ExecuteResponse,
+        "OffsetJoin": OffsetJoin,
         "LoftStyle": LoftStyle,
+        "DraftPropagation": DraftPropagation,
     },
 )
 

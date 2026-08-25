@@ -9,10 +9,9 @@ Two READ-ONLY rails over historical cuts of one collaborative document, sharing 
 
 ## [02]-[TIME_TRAVEL]
 
-- Owner: `TimeTravel` the checkout-fork-preview-revert owner; `RevertPlan` the root-keyed inverse-decode table; `CollabUndo` the local-only undo respecting remote ops; `CollabRevertReceipt` the committed-revert receipt.
-- Entry: `public IO<Fin<CollabRevertReceipt>> Revert(IntentLedger ledger, Frontiers cut)` — the COMMITTED revert: diffs the live cut against the target, inverts each container change through the root-keyed plan, folds each inverse row through the ONE `IntentLedger.Commit` rail (durable-first, live apply through the same `IntentApply` dispatch replay uses), and seals a `CollabRevertReceipt`; `public Fin<DiffBatch> Changes(Frontiers from, Frontiers to)` — the typed change-set between two cuts, the revert-preview and audit-inspection read; `public Fin<CollabDoc> Fork(Frontiers cut)` — branches a new independent document from a historical cut; `public Fin<Unit> Undo()` / `Redo()` — drives the local-only `UndoManager` that skips remote ops; `public Fin<Unit> Group(Func<Fin<Unit>> edits)` — brackets a multi-edit transaction so it undoes as one unit.
+- Owner: `TimeTravel` the checkout-fork-preview-revert owner; `RevertPlan` the root-keyed inverse-decode table; `CollabUndo` the local-only undo respecting remote ops.
+- Entry: `public IO<Fin<Unit>> Revert(IntentLedger ledger, Frontiers cut, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail, Op key)` — the COMMITTED revert: diffs the live cut against the target, inverts each container change through the ONE `IntentLedger.Commit` rail (durable-first, live apply through the same `IntentApply` dispatch replay uses), and fires the settled revert through the AppUi hook rail; `public Fin<DiffBatch> Changes(Frontiers from, Frontiers to)` — the typed change-set between two cuts, the revert-preview and audit-inspection read; `public Fin<CollabDoc> Fork(Frontiers cut)` — branches a new independent document from a historical cut; `public Fin<Unit> Undo()` / `Redo()` — drives the local-only `UndoManager` that skips remote ops; `public Fin<Unit> Group(Func<Fin<Unit>> edits)` — brackets a multi-edit transaction so it undoes as one unit.
 - Auto: `UndoManager(doc)` is the local-only undo — `AddExcludeOriginPrefix` excludes the programmatic origins (set via `CommitWith(CommitOptions)`) so a user's Ctrl-Z never reverts a peer's concurrent edit, `SetMaxUndoSteps` bounds the window as a policy value, and the group scope coalesces a multi-edit transaction into one undo unit; the committed revert is INVERSE INTENTS through the one commit rail — `Diff(live, cut)` names exactly what inverts, the root-keyed plan projects those container diffs onto typed `EditIntent` rows (the same closed family every edit rides, aligned with `Editing/history#REVERT_ALGEBRA`'s inverse algebra), and the fold commits each row durable-first so cold-load replay reproduces the reverted state from the ledger alone; `Checkout(Frontiers)` time-travels the read state to a historical cut for inspection and `CheckoutToLatest` returns, while an edit during checkout faults `EditWhenDetached` so a detached edit is structurally rejected; `ForkAt(Frontiers)` branches an independent document so a what-if exploration never touches the shared timeline; the cut is a `Frontiers` DAG cut (a set of op-ids) read from `OplogFrontiers`, so time-travel keys on the op-log identity the live wire already broadcasts.
-- Receipt: the `CollabRevertReceipt` carries the target frontier digest and the committed inverse-intent count and projects through the `Diagnostics/evidence#RECEIPT_UNION` `EvidenceMap.ToEvidence(receipt)` seam onto the `EvidenceReceipt.CollabRevert` case; the undo/redo verbs surface as `CommandRow` table rows whose availability gates on `UndoManager.CanUndo`/`CanRedo`.
 - Packages: LoroCs, Rasm (project — `Custody`, `Cell`/`Transition`), Rasm.Persistence (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new time-travel verb is one operation on this owner; one undo verb is one `CommandRow` row; a new invertible root is one `RevertPlan` leg keyed by its `CollabRoot` row; zero new surface.
 - Boundary:
@@ -23,13 +22,10 @@ Two READ-ONLY rails over historical cuts of one collaborative document, sharing 
   - `GroupStart`/`GroupEnd` is UNCONDITIONAL DISPOSAL and takes the kernel bracket: the close runs on both exits and a failed close APPENDS to the edit's own cause on the `Error` monoid, where the hand-duplicated success-and-failure arm could only discard one of the two faults. The scope is an `IDisposable` so the custody algebra's own LIFO release owns it and no delegate arm opens a second release regime.
   - Every `Frontiers` and `DiffBatch` this rail acquires releases through the kernel custody algebra: the acquire chain rolls back on the arm that fails between two acquisitions and brackets unconditionally once both are held, so a refused decode strands neither handle and a release fault never silently replaces the decode fault that caused it.
   - The fork carries its OWN document identity, because the key prefixes the Persistence content-key namespace where two documents under one key are replicas that must converge — and two what-if branches off the same cut are exactly not that, so each fork admits a fresh key on the same v7 grammar the session epoch takes and a blank or duplicate one refuses at the key owner rather than downstream.
-  - Time enters as an `IClock` and nothing wider: this rail reads an `Instant` to stamp a revert receipt and nothing else, so an app-stratum clock policy record whose monotonic and provider legs no member here reads never crosses down.
   - Notebook replay remains a separate bit-identity concern.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record CollabRevertReceipt(string Key, string FrontierDigest, int InverseOps, Instant At, CorrelationId Correlation);
-
 public sealed record RevertPlan(Map<CollabRoot, Func<ContainerDiff, Fin<Seq<EditIntent>>>> Legs) {
     public Fin<Seq<EditIntent>> Invert(ContainerDiff change) =>
         Rooted(change).Bind(root => Legs.Find(root)
@@ -76,20 +72,24 @@ public sealed record CollabUndo(UndoManager Manager) : IDisposable {
 public sealed record TimeTravel(
     CollabDoc Document,
     RevertPlan Plan,
-    Func<DiffBatch, Seq<ContainerDiff>> Changed,
-    IClock Clock,
-    CorrelationId Correlation,
-    Func<CollabRevertReceipt, IO<Unit>> Publish) {
+    Func<DiffBatch, Seq<ContainerDiff>> Changed) {
 
     public const string RevertOrigin = "revert";
 
-    public IO<Fin<CollabRevertReceipt>> Revert(IntentLedger ledger, Frontiers cut) =>
+    public IO<Fin<Unit>> Revert(
+        IntentLedger ledger,
+        Frontiers cut,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Op key) =>
         (from intents in Decoded(cut)
          from applied in intents.TraverseM(intent =>
              new FinT<IO, Unit>(ledger.Commit(Document, intent, RevertOrigin))).As()
-         let receipt = new CollabRevertReceipt(Document.Key.Value, $"{cut}", applied.Count, Clock.GetCurrentInstant(), Correlation)
-         from published in FinT.liftIO<IO, Unit>(Publish(receipt))
-         select receipt).runFin.As();
+         let digest = ContentHash.Of(cut, static (frontier, writer) => writer.String(frontier.ToString()))
+         from fired in FinT.lift<IO, AppUiFact>(rail.Fire(
+             at: AppUiPoint.CollabRevert,
+             fact: new AppUiFact.CollabRevert(Document.Key.Value, digest, (uint)applied.Count),
+             key: key))
+         select unit).runFin.As();
 
     private FinT<IO, Seq<EditIntent>> Decoded(Frontiers cut) =>
         FinT.lift<IO, Seq<EditIntent>>(
@@ -135,7 +135,7 @@ flowchart LR
     TimeTravel -->|"Diff(live, cut)"| Batch["DiffBatch · Custody.Bracket"]
     Batch -->|"ContainerDiff.Path root hop"| RevertPlan
     RevertPlan -->|inverse EditIntent rows| IntentLedger["Collab/sync IntentLedger.Commit"]
-    IntentLedger --> Receipt[CollabRevertReceipt]
+    IntentLedger --> HookRail[AppUiFact.CollabRevert]
     CollabUndo -->|origin-exclude| UndoManager
     CollabUndo -->|"Group: Custody.Bracket"| GroupScope
 ```

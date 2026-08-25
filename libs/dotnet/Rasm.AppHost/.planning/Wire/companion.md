@@ -1,11 +1,11 @@
 # [APPHOST_COMPANION_SIDECAR]
 
-The inbound serving counterpart to the outbound boundary: three `ModalityRow` rows key on the Tier-0 `DeploymentTopology` closed axis and carry their spawn-attach-degrade-forward capability set under one legal-corner law, one `PeerRoster` folds every accepted connection into a lease-epoch attached-peer set through verdict-returning transitions, one `ControlVerb` roster folds local control transitions under one continuation, and one `ServiceHost` registration mounts control, capability discovery, health, every composition-supplied served plane, and the co-hosted asset seat over a Unix domain socket. The page also owns the cross-process degradation cascade, peer-credential admission, host-binding acquisition, and CloudEvents ingress door.
+Rasm.AppHost serves the inbound half of the outbound boundary. `ModalityRow` keys on the Tier-0 `DeploymentTopology` axis, `PeerRoster` owns accepted connections, `ControlVerb` folds local control transitions, and `ServiceHost` mounts control, capability discovery, health, supplied planes, and assets over a Unix domain socket. This page also owns degradation cascade, peer credential admission, host binding, and CloudEvents ingress.
 
 ## [01]-[INDEX]
 
 - [02]-[PROCESS_MODALITY]: Three modality rows under one capability law, the lease-epoch attached-peer roster, and the fault and signal families this page owns.
-- [03]-[CONTROL_SERVICE]: Wire verb roster folded onto its existing owners under one audit-trace-fan-fire continuation.
+- [03]-[CONTROL_SERVICE]: Wire verb roster folded onto its existing owners under one audit-and-trace continuation.
 - [04]-[SERVICE_HOST]: Generated control and capability-discovery services, served-plane mounting, assets, and local intake.
 - [05]-[DEGRADATION_CASCADE]: Parent floor written to the child cell over the control hop.
 - [06]-[PEER_ADMISSION]: Accept-side peer-credential read over the managed raw-socket-option route.
@@ -14,14 +14,14 @@ The inbound serving counterpart to the outbound boundary: three `ModalityRow` ro
 
 ## [02]-[PROCESS_MODALITY]
 
-- Owner: `ModalityCapability` `[SmartEnum<string>]` realizing kernel `ICapability<ModalityCapability>` — the four peer-modality capabilities; `ModalityRow` the per-topology policy record carrying that capability SET; `ModalityRows` the frozen row set with its total dispatch and its `CapabilityLaw`; `CompanionPeer` the attached-child capsule the modality row produces; `PeerRoster` the attached-connection cell carrying a monotone lease epoch; `RosterEntry` the per-connection lease record; `RosterReceipt` the join/renew/drop transition projection; `CompanionFault` `[Union]` the page's own fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Companion`); `CompanionSignal` `[Union]` the rail fact every transition on this page carries.
-- Cases: three of the closed axis's six values carry a peer modality — `Companion` is the host-spawned single-shot child (`Spawn`, `Degrade`), `Sidecar` is the co-deployed attach-only peer this process never started (`Admit`, `Forward`), `Service` is the independently-managed peer this process dials and admits (`Spawn`, `Admit`, `Degrade`); `InHost`, `Edge`, and `Cli` reach no peer and refuse on the typed rail naming the axis; three roster transitions — join on accept, renew on heartbeat, drop on lease expiry or disconnect; `CompanionSignal.Drain` carries the generated parent-side drain response, the peer pid, and its generated worst deadline outcome as one typed settled case.
-- Entry: `Fin<ModalityRow> Row` is the extension property total state-free `Switch` from topology value to frozen row, railing `CompanionFault.Excluded` on the three values this page serves no modality for and admitting the row's corner through `ModalityRows.Law`; `Attach(PeerRoster roster, ModalityRow row, OutboundRuntime outbound, ProcessStartInfo spec, RedrivePolicy attach, Func<Option<int>, Fin<DiscoveryManifest>> manifestOf, Func<DiscoveryManifest, CancellationToken, IO<Unit>> drainFan, GrpcChannelPolicy policy)` returns `IO<CompanionPeer>` and carries the gauged spawn-and-dial effect through `Wire/outbound#DELIVERY_FANOUT` `Discovery.Spawn`'s own five-parameter arity — the outbound runtime and the attach redrive ride the `HopRows.CompanionSpawn` hop — the manifest reader taking the started child's pid as an OPTION so the attach-only arm states that it spawned nothing; `ForwardWrite(PeerRoster roster, ModalityRow row, CommandIntent intent, Func<RosterEntry, CommandIntent, IO<CommandReceipt>> hop)` returns `IO<Option<Seq<CommandReceipt>>>` — the `Forward`-gated durable-write forward; `PeerRoster.Accept(ModalityRow row, ServerCallContext context, DiscoveryManifest manifest)` returns `IO<Fin<RosterReceipt>>` — the serving-side accept hop; `PeerRoster.Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now)`, `.Renew(int pid, Instant now)`, and `.Drop(int pid, Instant now)` each fold one transition over the cell and return `IO<Fin<RosterReceipt>>`, so a verb applied to a pid the roster does not hold answers a REFUSAL rather than a receipt naming a transition that never happened.
-- Auto: `Attach` reads the discovery manifest through the bound `Discovery.Read` projection and dials the control channel through `Discovery.Connect`, running the single-shot `Discovery.Spawn` only on rows admitting `Spawn` and the attach-only read only on rows admitting `Admit` — a row holding neither is unrepresentable because the law bars the empty corner — and both arms bracket the dial with the roster's own `ClockPolicy.Line` so one `ModalityReceipt` carries the real outcome, the MEASURED monotone elapsed, and the capability set the cascade consults; `Accept` reads the accepted socket off the connection's `IConnectionSocketFeature`, folds it through `PeerAdmission.Read`, and hands the credential to `Admit`, so the credential chain runs accept to admit with no prose hop between; `Admit` keys the entry by the kernel-reported `PeerCredential.Pid` — never the manifest's self-asserted pid — stamps the lease deadline from `LeasePolicy.Maintenance.CrashStaleness` so a peer's lease lapses on the same crash-staleness window the maintenance lease uses, and fires the bound `Contribute` edge so the local attach reaches the cluster view as a `Joining` row the probe sweep then grades; `Renew` extends the lease and `Sweep(Instant now)` drops every entry whose lease lapsed, so a vanished peer leaves the roster without an explicit disconnect; every landed transition mints one `RosterReceipt` fanned through the one `FactSink` and fired at `AppHostPoint.Companion`; the outbound drain consumer admits the generated reply once, folds its validated step outcomes onto the generated severity vocabulary, and fans the whole reply through the same sink before settling the hop.
-- Receipt: `ModalityReceipt` — topology key, the peer pid as an `Option`, attach outcome, elapsed `Duration`, and the row's capability set with `CascadeEligible` DERIVED from it; `RosterReceipt` — transition kind, peer pid, the peer uid as an `Option`, lease epoch, attached-count after the fold, `Instant`; generated `DrainRuntimeResponse` — the parent-side drain evidence, carried unchanged as ProtoJSON while `CompanionSignal.Drain` adds only in-process peer identity and the derived generated outcome.
+- Owner: `ModalityCapability` `[SmartEnum<string>]` realizes kernel `ICapability<ModalityCapability>`; `ModalityRow` carries each topology's capability set; `ModalityRows` owns its law and dispatch; `CompanionPeer` is the attached-child capsule; `PeerRoster` owns attached connections and their monotone lease epoch; `RosterEntry` is the admitted connection; `CompanionFault` is the typed fault family.
+- Cases: `Companion` admits spawn and degrade, `Sidecar` admits attach and forward, and `Service` admits spawn, attach, and degrade; `InHost`, `Edge`, and `Cli` refuse on the typed rail. `PeerRoster` admits, renews, and drops entries.
+- Entry: `Attach(...)` returns `IO<CompanionPeer>`; `ForwardWrite(...)` returns `IO<Option<Seq<CommandResult>>>`; `Accept` and `Admit` return `IO<Fin<RosterEntry>>`; `Renew` returns the renewed entry; `Drop` returns `Fin<Unit>`; `Sweep` returns every drop result.
+- Auto: `Attach` composes `Discovery.Spawn`, `Discovery.Read`, and `Discovery.Connect` according to the admitted capability set. `Accept` reads the kernel credential from the accepted socket and hands it to `Admit`. `Admit` keys by `PeerCredential.Pid`, stamps `LeasePolicy.Maintenance.CrashStaleness`, and invokes the existing membership contribution. `Renew` extends that lease and `Sweep` removes lapsed entries.
+- Result: attach returns the actual `CompanionPeer`; roster mutations return the admitted entry or typed refusal; forwarding returns the command owner's `CommandResult` values unchanged.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (kernel `CapabilitySet`/`CapabilityLaw`/`Cell`/`Transition`), Grpc.Net.Client, Grpc.AspNetCore.Server (`ServerCallContextExtensions.GetHttpContext`, `IConnectionSocketFeature`), BCL inbox
-- Growth: one `ModalityRow` over an existing `DeploymentTopology` value absorbs a new peer shape — the axis roster is Tier-0's and grows there alone; a new peer capability is one `ModalityCapability` row with the legal corners that admit it, never a bool column; a new roster transition is one `RosterTransition` case with one fold arm; a new observable transition is one `CompanionSignal` case with no roster edit; a new refusal is one `CompanionFault` case and the owning `FaultBand` span edit; zero new surface.
-- Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` from the dial-out owner and never re-declares the spawn or connect mechanics — `Discovery.Spawn`, `Discovery.Connect`, and `Discovery.Read` carry the bytes; the row keys on `DeploymentTopology` and mints no vocabulary of its own — the closed axis at Tier-0 `[10]-[CONSUMPTION_MODEL]` already spells `companion` and `sidecar`, and a local re-mint of those two values is the anchoring defect `[CONSUMPTION_DESCRIPTOR]` forecloses; a fourth `paired-peer` value is the rejected form for a second reason — pairing DIRECTION is already two capabilities, so a set holding `Admit` without `Spawn` states the symmetric attach exactly and `Service` is the axis value that peer already carries; FOUR ADJACENT BOOLS WERE A CORNER LAW IN DISGUISE — three of sixteen corners are legal and the other thirteen name peers this page cannot serve (a row spawning without degrading, a row forwarding writes it never admitted, the empty row that inherits the attach arm), so the set rides `CapabilitySet<ModalityCapability>` under an UNCONDITIONAL `CapabilityLaw.Legal` roster and `ModalityRows.Law.Admit` refuses at the `Fin` mint; NAMED LOSS — per-column compile-time exhaustiveness, bought back twice by that admit and by every consumer stating the capability it needs as a value through `Admits`; `ModalityReceipt.CascadeEligible` DERIVES from the carried set rather than storing a copy of one column, because a stored mirror answers the question its source already answers and diverges the moment a row moves; the attach deadline is the `DeadlineClass.HopAttempt` row read by projection and the lease deadline is the `LeasePolicy.Maintenance.CrashStaleness` value, never a literal here; `CompanionPeer` carries the `CompanionChild` produced by the outbound spawn and the `GrpcChannel` produced by the control dial so one capsule owns both legs of an attached child; `PeerRoster` is the single host-side attached-connection owner — the lease epoch is a monotone `ulong` bumped on every join and drop so a stale peer reconnecting under a prior epoch is detectable, and the roster never re-mints presence: it is the beat PRODUCER of the `Rasm.Persistence` `Version/ledger#PRESENCE` EPHEMERAL awareness lane — each join and drop crosses as the Persistence-OWNED `PresenceRow(Actor, State, At, Ttl)` through `Awareness.Present(actor, state, ttl, frame)` on the `Runtime/resources#DRAIN_QUEUES` `DrainSurface` lane, `durable: false`, never the durable store, never the exactly-once CDC envelope, and no AppHost type crosses down; THE ABSENT IDENTIFIER IS AN OPTION, NOT A ZERO — a receipt for a pid the roster does not hold reported uid 0, which names root, and an attach that faulted before a manifest existed reported pid 0, which names the kernel's own scheduler, so both columns are `Option`-shaped and an audit reader can no longer read a fabricated superuser or a fabricated peer out of a missing entry; that same law bars the pid-0 SENTINEL an attach-only manifest read once passed as its argument, so the reader takes `Option<int>` and the absent child is a value rather than a number the callee must know to disbelieve; FOREIGN ERRORS ARE ADOPTED, NEVER LAUNDERED — `CompanionFault.Of` passes a companion fault through untouched and wraps anything else as `Foreign`, carrying the original `Error` so its numeric identity and retry semantics survive instead of being rebuilt from message text; NAMED LOSS — the `Verify` case the ingress signature gate once minted from a message, which `Foreign` replaces at its own offset: the verifier's typed refusal now reaches the delivery tally under the band code its own owner gave it, which is stronger than a companion-band name carrying that owner's text; `WireHealth` reads the attached-count for per-peer serving status, never a second roster; the two-tier membership law holds — `PeerRoster` is the LOCAL kernel-credentialed attach set contributing into `Wire/coordination#MEMBERSHIP_VIEW` through `Membership.Contribute`, `FleetRoll` reads `MembershipView.Serving` (cluster liveness) for its fleet wave while each node's actual roll dials local over this control hop, and `ForwardWrite` reads `PeerRoster.Attached` as the LOCAL forwarding set; the page is host-local and crosses no browser or peer TS wire of its own — the verb messages are Rasm.Compute/Runtime/wire#PROTO_VOCABULARY-owned protobuf consumed here, and `RosterReceipt`/`ModalityReceipt` reconstruct as the `Runtime/ports#TS_PROJECTION` `ReceiptHeaderWire` beside an AppHost family arm the corpus still owes, so the page authors no `TS_PROJECTION` cluster and mints no second wire shape.
+- Growth: one `ModalityRow` over an existing `DeploymentTopology` value absorbs a new peer shape; a new peer capability is one `ModalityCapability` row with the legal corners that admit it; a new refusal is one `CompanionFault` case and the owning `FaultBand` span edit.
+- Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` and never re-declares spawn or connect mechanics. Each row keys on `DeploymentTopology`; pairing direction remains the admitted capability set rather than a second topology vocabulary or adjacent booleans. Attach and lease deadlines come from `DeadlineClass.HopAttempt` and `LeasePolicy.Maintenance.CrashStaleness`. `PeerRoster` owns host-side connections and contributes the existing Persistence-owned ephemeral presence row on join. Missing identifiers remain absent rather than becoming pid or uid zero. Foreign errors retain their owning identity through `CompanionFault.Of`. Cluster membership and local forwarding continue to read their existing owners.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -87,17 +87,6 @@ public sealed record CompanionPeer(
     GrpcChannel Control,
     DiscoveryManifest Manifest);
 
-public readonly record struct ModalityReceipt(
-    DeploymentTopology Topology,
-    Option<int> PeerPid,
-    HopOutcome Attach,
-    Duration Elapsed,
-    CapabilitySet<ModalityCapability> Capabilities) {
-    public bool CascadeEligible => Capabilities.Admits(ModalityCapability.Degrade);
-}
-
-
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CompanionFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Companion;
@@ -145,28 +134,6 @@ public abstract partial record CompanionFault : Fault {
     }
 }
 
-[Union]
-public abstract partial record CompanionSignal {
-    private CompanionSignal() { }
-
-    public sealed record Modality(ModalityReceipt Settled) : CompanionSignal;
-
-    public sealed record Roster(RosterReceipt Settled) : CompanionSignal;
-
-    public sealed record Verb(VerbReceipt Settled) : CompanionSignal;
-
-    public sealed record Cascade(CascadeReceipt Settled) : CompanionSignal;
-
-    public sealed record Bound(BindReceipt Settled) : CompanionSignal;
-
-    public sealed record Ingress(Delivery Settled) : CompanionSignal;
-
-    public sealed record Drain(
-        int PeerPid,
-        global::Rasm.Contracts.Compute.DeadlineOutcome Outcome,
-        DrainRuntimeResponse Reply) : CompanionSignal;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ModalityRows {
     public static readonly ModalityRow Companion = new(
@@ -203,46 +170,28 @@ public static class ModalityRows {
     }
 
     public static IO<CompanionPeer> Attach(
-        PeerRoster roster, ModalityRow row, OutboundRuntime outbound, ProcessStartInfo spec, RedrivePolicy attach,
+        ModalityRow row, OutboundRuntime outbound, ProcessStartInfo spec, RedrivePolicy attach,
         Func<Option<int>, Fin<DiscoveryManifest>> manifestOf,
-        Func<DiscoveryManifest, CancellationToken, IO<Unit>> drainFan, GrpcChannelPolicy policy) =>
-        from start in roster.Stamp
-        from peer in Dial(row, outbound, spec, attach, manifestOf, drainFan, policy)
-            .Catch(error => Settled(roster, row, None, new HopOutcome.Faulted(error), start).Bind(_ => IO.fail<CompanionPeer>(error)))
-        from _ in Settled(roster, row, Some(peer.Manifest.Pid), new HopOutcome.Delivered(), start)
-        select peer;
+        Func<DiscoveryManifest, CancellationToken, IO<Unit>> drain, GrpcChannelPolicy policy) =>
+        Dial(row, outbound, spec, attach, manifestOf, drain, policy);
 
-    public static IO<Option<Seq<CommandReceipt>>> ForwardWrite(
-        PeerRoster roster, ModalityRow row, CommandIntent intent, Func<RosterEntry, CommandIntent, IO<CommandReceipt>> hop) =>
+    public static IO<Option<Seq<CommandResult>>> ForwardWrite(
+        PeerRoster roster, ModalityRow row, CommandIntent intent, Func<RosterEntry, CommandIntent, IO<CommandResult>> hop) =>
         row.Capabilities.Admits(ModalityCapability.Forward)
             ? roster.Attached.TraverseM(entry => hop(entry, intent)).As().Map(Some)
-            : IO.pure(Option<Seq<CommandReceipt>>.None);
+            : IO.pure(Option<Seq<CommandResult>>.None);
 
     static IO<CompanionPeer> Dial(
         ModalityRow row, OutboundRuntime outbound, ProcessStartInfo spec, RedrivePolicy attach,
         Func<Option<int>, Fin<DiscoveryManifest>> manifestOf,
-        Func<DiscoveryManifest, CancellationToken, IO<Unit>> drainFan, GrpcChannelPolicy policy) =>
+        Func<DiscoveryManifest, CancellationToken, IO<Unit>> drain, GrpcChannelPolicy policy) =>
         row.Capabilities.Admits(ModalityCapability.Spawn)
-            ? Discovery.Spawn(outbound, spec, attach, pid => manifestOf(Some(pid)), drainFan)
+            ? Discovery.Spawn(outbound, spec, attach, pid => manifestOf(Some(pid)), drain)
                 .Bind(child => IO.pure(new CompanionPeer(row.Topology, child, Discovery.Connect(child.Manifest, policy), child.Manifest)))
             : IO.lift(() => manifestOf(None))
                 .Bind(read => read.Match(
                     Succ: manifest => IO.pure(new CompanionPeer(row.Topology, None, Discovery.Connect(manifest, policy), manifest)),
                     Fail: fault => IO.fail<CompanionPeer>(fault)));
-
-    static IO<Unit> Settled(PeerRoster roster, ModalityRow row, Option<int> pid, HopOutcome outcome, MonotonicStamp start) =>
-        from finish in roster.Stamp
-        from span in roster.Clocks.Line.Elapsed(start, finish, roster.Key).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
-        let receipt = new ModalityReceipt(row.Topology, pid, outcome, Duration.FromTimeSpan(span), row.Capabilities)
-        from _ in roster.Fan.Fan(Correlation.Mint(), nameof(ModalityRows), receipt, new CompanionSignal.Modality(receipt))
-        select unit;
-}
-
-[SmartEnum]
-public sealed partial class RosterTransition {
-    public static readonly RosterTransition Joined = new();
-    public static readonly RosterTransition Renewed = new();
-    public static readonly RosterTransition Dropped = new();
 }
 
 public sealed record RosterEntry(
@@ -253,85 +202,71 @@ public sealed record RosterEntry(
     Instant JoinedAt,
     Instant LeaseUntil);
 
-public readonly record struct RosterReceipt(
-    RosterTransition Transition,
-    int Pid,
-    Option<uint> Uid,
-    ulong Epoch,
-    int Attached,
-    Instant At);
-
 public sealed record PeerRoster(
     string Service,
     Atom<(HashMap<int, RosterEntry> Entries, ulong Epoch)> Peers,
     Func<PeerCredential, DiscoveryManifest, Unit> Contribute,
-    FactSink<CompanionSignal> Fan,
-    ClockPolicy Clocks,
-    Op Key) {
+    ClockPolicy Clocks) {
     public static PeerRoster Boot(
-        string service, Func<PeerCredential, DiscoveryManifest, Unit> contribute,
-        FactSink<CompanionSignal> fan, ClockPolicy clocks, Op key) =>
-        new(service, Atom((HashMap<int, RosterEntry>.Empty, 0UL)), contribute, fan, clocks, key);
+        string service, Func<PeerCredential, DiscoveryManifest, Unit> contribute, ClockPolicy clocks) =>
+        new(service, Atom((HashMap<int, RosterEntry>.Empty, 0UL)), contribute, clocks);
 
     public Seq<RosterEntry> Attached => Peers.Value.Entries.Values.ToSeq();
 
-    public IO<MonotonicStamp> Stamp => Clocks.Line.Capture(Key).Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>);
-
-    public IO<Fin<RosterReceipt>> Accept(ModalityRow row, ServerCallContext context, DiscoveryManifest manifest) =>
+    public IO<Fin<RosterEntry>> Accept(ModalityRow row, ServerCallContext context, DiscoveryManifest manifest) =>
         !row.Capabilities.Admits(ModalityCapability.Admit)
-            ? IO.pure(Fin.Fail<RosterReceipt>(new CompanionFault.Excluded($"{Service}:{row.Topology.Key}:does-not-admit")))
+            ? IO.pure(Fin.Fail<RosterEntry>(new CompanionFault.Excluded($"{Service}:{row.Topology.Key}:does-not-admit")))
             : IO.lift(() => Optional(context.GetHttpContext().Features.Get<IConnectionSocketFeature>()))
                 .Bind(feature => feature.Match(
                     Some: socket => PeerAdmission.Read(socket.Socket).Match(
                         Succ: credential => Admit(credential, manifest, Clocks.Now),
-                        Fail: error => IO.pure(Fin.Fail<RosterReceipt>(error))),
-                    None: () => IO.pure(Fin.Fail<RosterReceipt>(new CompanionFault.Credential($"{Service}:no-accepted-socket")))));
+                        Fail: error => IO.pure(Fin.Fail<RosterEntry>(error))),
+                    None: () => IO.pure(Fin.Fail<RosterEntry>(new CompanionFault.Credential($"{Service}:no-accepted-socket")))));
 
-    public IO<Fin<RosterReceipt>> Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now) =>
-        Commit(RosterTransition.Joined, credential.Pid, Some(credential.Uid), now, held => Some((
+    public IO<Fin<RosterEntry>> Admit(PeerCredential credential, DiscoveryManifest manifest, Instant now) => IO.lift(() =>
+        Cell.Step(Peers, held => Some((
                 held.Entries.AddOrUpdate(credential.Pid, new RosterEntry(
                     credential.Pid, credential.Uid, manifest, held.Epoch + 1UL, now,
                     now + LeasePolicy.Maintenance.CrashStaleness)),
-                held.Epoch + 1UL)))
-            .Bind(receipt => receipt.Match(
-                Succ: landed => IO.lift(() => Contribute(credential, manifest)).Map(_ => Fin.Succ(landed)),
-                Fail: error => IO.pure(Fin.Fail<RosterReceipt>(error))));
+                held.Epoch + 1UL)), new CompanionFault.Unattached(credential.Pid))
+            .Switch(
+                committed: landed => landed.State.Entries.Find(credential.Pid)
+                    .ToFin(new CompanionFault.Unattached(credential.Pid))
+                    .Map(entry => { ignore(Contribute(credential, manifest)); return entry; }),
+                ceded: _ => Fin.Fail<RosterEntry>(new CompanionFault.Unattached(credential.Pid)),
+                refused: declined => Fin.Fail<RosterEntry>(CompanionFault.Of(declined.Cause)),
+                contended: _ => Fin.Fail<RosterEntry>(new CompanionFault.Unattached(credential.Pid))));
 
-    public IO<Fin<RosterReceipt>> Renew(int pid, Instant now) =>
-        Commit(RosterTransition.Renewed, pid, Uid(pid), now, held => held.Entries.Find(pid).Map(entry => (
-            held.Entries.SetItem(pid, entry with { LeaseUntil = now + LeasePolicy.Maintenance.CrashStaleness }),
-            held.Epoch)));
+    public IO<Fin<RosterEntry>> Renew(int pid, Instant now) => IO.lift(() =>
+        Cell.Step(Peers, held => held.Entries.Find(pid).Map(entry => (
+                held.Entries.SetItem(pid, entry with { LeaseUntil = now + LeasePolicy.Maintenance.CrashStaleness }),
+                held.Epoch)), new CompanionFault.Unattached(pid))
+            .Switch(
+                committed: landed => landed.State.Entries.Find(pid).ToFin(new CompanionFault.Unattached(pid)),
+                ceded: _ => Fin.Fail<RosterEntry>(new CompanionFault.Unattached(pid)),
+                refused: declined => Fin.Fail<RosterEntry>(CompanionFault.Of(declined.Cause)),
+                contended: _ => Fin.Fail<RosterEntry>(new CompanionFault.Unattached(pid))));
 
-    public IO<Fin<RosterReceipt>> Drop(int pid, Instant now) =>
-        Commit(RosterTransition.Dropped, pid, Uid(pid), now, held => held.Entries.ContainsKey(pid)
-            ? Some((held.Entries.Remove(pid), held.Epoch + 1UL))
-            : None);
+    public IO<Fin<Unit>> Drop(int pid, Instant now) => IO.lift(() =>
+        Cell.Step(Peers, held => held.Entries.ContainsKey(pid)
+                ? Some((held.Entries.Remove(pid), held.Epoch + 1UL))
+                : None, new CompanionFault.Unattached(pid))
+            .Switch(
+                committed: static _ => Fin.Succ(unit),
+                ceded: _ => Fin.Fail<Unit>(new CompanionFault.Unattached(pid)),
+                refused: declined => Fin.Fail<Unit>(CompanionFault.Of(declined.Cause)),
+                contended: _ => Fin.Fail<Unit>(new CompanionFault.Unattached(pid))));
 
-    public IO<Seq<Fin<RosterReceipt>>> Sweep(Instant now) =>
+    public IO<Seq<Fin<Unit>>> Sweep(Instant now) =>
         Peers.Value.Entries.Values.Filter(entry => entry.LeaseUntil <= now).ToSeq()
             .TraverseM(entry => Drop(entry.Pid, now)).As();
-
-    Option<uint> Uid(int pid) => Peers.Value.Entries.Find(pid).Map(static entry => entry.Uid);
-
-    IO<Fin<RosterReceipt>> Commit(
-        RosterTransition transition, int pid, Option<uint> uid, Instant now,
-        Func<(HashMap<int, RosterEntry> Entries, ulong Epoch), Option<(HashMap<int, RosterEntry> Entries, ulong Epoch)>> step) =>
-        IO.lift(() => Cell.Step(Peers, step, new CompanionFault.Unattached(pid)))
-            .Bind(settled => settled.Switch(
-                committed: landed => Fanned(new RosterReceipt(transition, pid, uid, landed.State.Epoch, landed.State.Entries.Count, now)),
-                ceded: _ => IO.pure(Fin.Fail<RosterReceipt>(new CompanionFault.Unattached(pid))),
-                refused: declined => IO.pure(Fin.Fail<RosterReceipt>(CompanionFault.Of(declined.Cause))),
-                contended: _ => IO.pure(Fin.Fail<RosterReceipt>(new CompanionFault.Unattached(pid)))));
-
-    IO<Fin<RosterReceipt>> Fanned(RosterReceipt receipt) =>
-        Fan.Fan(Correlation.Mint(), nameof(PeerRoster), receipt, new CompanionSignal.Roster(receipt)).Map(Fin.Succ);
 }
 ```
 
 ```mermaid
 stateDiagram-v2
     accTitle: Companion process lifecycle
-    accDescr: A discovered companion spawning or attaching directly, serving under a control dial, cascading down and back on parent floor pressure, and draining to termination through the fan hop.
+    accDescr: A discovered companion spawning or attaching directly, serving under a control dial, cascading down and back on parent floor pressure, and draining to termination through the control hop.
     [*] --> Discovered
     Discovered --> Spawned: Spawn capability
     Discovered --> Attaching: Admit capability
@@ -345,14 +280,14 @@ stateDiagram-v2
 
 ## [03]-[CONTROL_SERVICE]
 
-- Owner: `ControlVerb` `[SmartEnum<string>]` the local verb roster carrying each operator-audit projection as a delegate column; `ControlInbound` the static handler folding each verb onto its existing transition owner; `ControlRuntime` the dependency record; `VerbReceipt` the per-verb projection the sink receives; `ControlServiceImpl` the generated-base implementation `ServiceHost.Map` mounts; `ControlContractInterceptor` the one request/response contract seat; `ControlReplyMap` the one `[Mapper]` projecting the two surviving RPC receipts onto their response messages.
+- Owner: `ControlVerb` `[SmartEnum<string>]` carries each operator-audit projection; `ControlInbound` folds each verb onto its existing transition owner; `ControlRuntime` is the dependency record; `ControlServiceImpl` is the generated-base implementation `ServiceHost.Map` mounts; `ControlContractInterceptor` is the request/response contract seat; `ControlReplyMap` projects the two domain results onto their generated responses.
 - Cases: set-degradation folds onto `DegradationCell.Force` and drain-runtime onto `Runtime/lifecycle#DRAIN_CONDUCTOR`; both survive as peer-called `ControlService` RPCs.
-- Entry: `SetDegradation(ControlRuntime runtime, ServerCallContext context, Control.DegradationLevel level, string reason)` returns `IO<DegradationState>` and `DrainRuntime(runtime, context, Duration inherited, string reason)` returns `IO<DrainReceipt>`; their generated overrides are the complete control RPC surface. `CapabilityDiscoveryServiceImpl.Discover` is the generated discovery request/response boundary and projects the current permitted catalog once.
-- Auto: `ControlContractInterceptor` admits each generated request once before the handler and each generated response once after it through `WireAdmission.Validate`; `Continued` then resolves the episode correlation, runs the row's audit projection, continues the caller trace, and fans the typed `VerbReceipt`. The wire level is the generated enum and admits through `DegradationLevel.OfWire` — the roster-derived inverse of the row's `Wire` column, folding `Unspecified` and any foreign ordinal to `None` — and drain inherits the tighter of the caller remainder and `DeadlineClass.DrainCooperative`.
-- Receipt: `DegradationState` and the conductor's own `DrainReceipt` cross the wire. `VerbReceipt` carries the local verb row and serialized typed payload the sink fans.
+- Entry: `SetDegradation(...)` returns `IO<DegradationState>` and `DrainRuntime(...)` returns `IO<PhaseCommit>`; their generated overrides are the complete control RPC surface. `CapabilityDiscoveryServiceImpl.Discover` projects the current permitted catalog once.
+- Auto: `ControlContractInterceptor` admits each generated request once before the handler and each generated response once after it through `WireAdmission.Validate`; `Continued` resolves the episode correlation, runs the row's audit projection, and continues the caller trace. `DegradationLevel.OfWire` admits the wire level, and drain inherits the tighter of the caller remainder and `DeadlineClass.DrainCooperative`.
+- Result: the degradation owner returns `DegradationState`; the drain conductor returns `PhaseCommit`; `ControlReplyMap` projects each directly onto its generated response.
 - Packages: LanguageExt.Core, NodaTime, NodaTime.Serialization.Protobuf, Thinktecture.Runtime.Extensions, Riok.Mapperly, Grpc.Core.Api (`Interceptor`), BCL inbox
 - Growth: a new RPC exists only when an independently real peer caller and server override both land.
-- Boundary: THE PROTO IS THE WIRE ROSTER'S EVIDENCE — `ControlService` declares only `SetDegradation` and `DrainRuntime`, and this page implements exactly those two generated overrides. Reload, tool dispatch, patch dispatch, and support capture stay with their local owners rather than becoming speculative operator RPCs. Response messages project typed receipts field-for-field through one `[Mapper]`; drain-runtime threads the admitted inherited allotment unchanged to the conductor, which owns the one `min(local, inherited)` intersection. `ControlContractInterceptor` reads the central two-rail verdict directly: authored request refusals raise `InvalidArgument`, authored response refusals raise `Internal`, and both pass the unchanged violation sequence into `FaultContext`; an unrostered type or CEL failure raises `Internal` with no fabricated field detail. It is registered for `ControlServiceImpl` alone, so generated health and externally supplied service planes do not pass through a corpus roster they do not belong to. No handler, mapper, or second validator rechecks a message. Ingress tenancy is admitted per carrier: `ControlRuntime.Adoption` is `TenantAdoption.Adopted` because `PeerAdmission` reads the connecting peer's kernel-reported uid and pid from the accepted socket.
+- Boundary: `ControlService` declares only `SetDegradation` and `DrainRuntime`, and this page implements exactly those generated overrides. Reload, tool dispatch, patch dispatch, and support capture stay with their local owners. Drain threads the admitted inherited allotment unchanged to the conductor, which owns the one `min(local, inherited)` intersection. `ControlContractInterceptor` maps authored request refusals to `InvalidArgument` and authored response refusals to `Internal`, preserving the violation sequence in `FaultContext`. It is registered for `ControlServiceImpl` alone. Ingress tenancy is admitted from the accepted socket credential.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -367,19 +302,14 @@ public sealed partial class ControlVerb {
     public partial Option<string> Audit(string detail);
 }
 
-// --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct VerbReceipt(ControlVerb Verb, JsonElement Payload);
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ControlRuntime(
     DegradationCell Degradation,
-    Func<Duration, IO<DrainReceipt>> Drain,
+    Func<Duration, IO<PhaseCommit>> Drain,
     ClockPolicy Clocks,
     CorrelationId Correlation,
     ActivitySource Source,
-    SupportRuntime Support,
-    FactSink<CompanionSignal> Fan,
-    JsonSerializerOptions Wire) {
+    SupportRuntime Support) {
     public static readonly TenantAdoption Adoption = TenantAdoption.Adopted;
 }
 
@@ -389,7 +319,7 @@ public sealed record ControlRuntime(
 internal static partial class ControlReplyMap {
     public static partial SetDegradationResponse Reply(DegradationState state);
 
-    public static partial DrainRuntimeResponse Reply(DrainReceipt receipt);
+    public static partial DrainRuntimeResponse Reply(PhaseCommit result);
 
     static Control.DegradationLevel Wire(DegradationLevel level) => level.Wire;
 }
@@ -398,17 +328,15 @@ internal static partial class ControlReplyMap {
 public static class ControlInbound {
     public static IO<DegradationState> SetDegradation(ControlRuntime runtime, ServerCallContext context, Control.DegradationLevel level, string reason) =>
         Continued(runtime, context, ControlVerb.SetDegradation, reason, _ =>
-            IO.lift(() => runtime.Degradation.Force(DegradationLevel.OfWire(level)))
-                .Map(state => (Value: state, Payload: (object)state)));
+            IO.lift(() => runtime.Degradation.Force(DegradationLevel.OfWire(level))));
 
-    public static IO<DrainReceipt> DrainRuntime(ControlRuntime runtime, ServerCallContext context, Duration inherited, string reason) =>
+    public static IO<PhaseCommit> DrainRuntime(ControlRuntime runtime, ServerCallContext context, Duration inherited, string reason) =>
         Continued(runtime, context, ControlVerb.DrainRuntime, reason, _ =>
-            runtime.Drain(inherited)
-                .Map(receipt => (Value: receipt, Payload: (object)receipt)));
+            runtime.Drain(inherited));
 
     static IO<A> Continued<A>(
         ControlRuntime runtime, ServerCallContext context, ControlVerb verb, string detail,
-        Func<CorrelationId, IO<(A Value, object Payload)>> fold) =>
+        Func<CorrelationId, IO<A>> fold) =>
         from correlation in IO.lift(() => runtime.Support.Active.Value.IfNone(Correlation.Mint))
         from _audit in verb.Audit(detail).Match(
             Some: reason => SupportCapture.Capture(runtime.Support, new SupportTrigger.Requested(correlation, SupportTriggerKind.ExternalCommand, reason)).Map(static _ => unit),
@@ -417,9 +345,7 @@ public static class ControlInbound {
             using var scope = TraceContext.Continue(runtime.Source, context.RequestHeaders, verb.Key, ControlRuntime.Adoption);
             return await fold(correlation).RunAsync();
         })
-        let receipt = new VerbReceipt(verb, JsonSerializer.SerializeToElement(settled.Payload, runtime.Wire))
-        from _fan in runtime.Fan.Fan(correlation, verb.Key, receipt, new CompanionSignal.Verb(receipt))
-        select settled.Value;
+        select settled;
 
 }
 
@@ -491,10 +417,10 @@ public sealed class ControlContractInterceptor(ControlRuntime runtime) : Interce
 - Cases: unix-domain-socket binds Kestrel over the `sun_path` endpoint, inherited-fd mounts Kestrel over a socket-activated descriptor the `HostBinding` owner acquired — the two local control-plane intake shapes on every supported platform.
 - Entry: `CapabilityDiscoveryPlane` is the one generated discovery registration/mapping row; `Register` and `Map` fold it with supplied planes, control, and health.
 - Auto: `WireAdmission.Warm` precedes the serving graph; control and discovery both run the contract interceptor, and discovery projects the current degradation-permitted catalog.
-- Receipt: an acquisition mints one `BindReceipt` — service, rendered address, origin, reuse policy, listener count — fanned through the one `FactSink` and fired at `AppHostPoint.Companion`; the served `ServingStatus` transition logs through one `SpineLog` delegate inside the `FaultBand.SpineEvents` stride; no parallel host receipt.
+- Result: acquisition returns `BoundEndpoint` with the bound address, origin, reuse policy, and held listeners; the served `ServingStatus` transition logs through the existing `SpineLog` delegate.
 - Packages: Grpc.AspNetCore.Server (`AddServiceOptions`/server interceptor pipeline), Grpc.AspNetCore.HealthChecks, Grpc.HealthCheck (transitive: `HealthServiceImpl`/`SetStatus`/`Grpc.Health.V1.ServingStatus`), Microsoft.AspNetCore.App (shared framework: `UseStaticFiles`/`StaticFileOptions`/`PhysicalFileProvider`), LanguageExt.Core, BCL inbox
 - Growth: a new served service is one `ServedPlane` row carrying registration beside mapping; a new intake is one `ControlTransport` case.
-- Boundary: a served plane arrives as a port and never as a named sibling type; one row binds both its registration and endpoint mapping. An empty row set serves control and health only. Contract warming is synchronous composition work, not the first request's work; the interceptor is scoped to `ControlServiceImpl`, because health and external planes carry package-owned generated messages outside `WireAdmission.Files`. The Unix leg reuses the `Discovery` `sun_path` law at the 104-byte cap and the inherited-fd leg consumes each activated listener through `ListenHandle`. `Grpc.HealthCheck.HealthServiceImpl` owns wire health; no diagnostic service is mounted.
+- Boundary: a served plane arrives as a port and never as a named sibling type; one row binds both its registration and endpoint mapping. Empty row sets serve control and health only. Contract warming is synchronous composition work, not the first request's work; the interceptor is scoped to `ControlServiceImpl`, because health and external planes carry package-owned generated messages outside `WireAdmission.Files`. `Discovery` supplies the Unix `sun_path` law at the 104-byte cap, and the inherited-fd leg consumes each activated listener through `ListenHandle`. `Grpc.HealthCheck.HealthServiceImpl` owns wire health; no diagnostic service is mounted.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -505,9 +431,6 @@ public abstract partial record ControlTransport {
     public sealed record UnixDomainSocket(string SocketPath) : ControlTransport;
     public sealed record InheritedHandle(SafeSocketHandle Handle) : ControlTransport;
 }
-
-// --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct BindReceipt(string Service, string Address, BindOrigin Origin, ReusePolicy Reuse, int Listeners);
 
 public sealed record ServedPlane(
     string Key,
@@ -571,30 +494,22 @@ public static class ServiceHost {
 
 ## [05]-[DEGRADATION_CASCADE]
 
-- Owner: `DegradationCascade` static write surface threading a parent-observed level onto the child `DegradationCell.Cascade` floor over the control hop; `CascadeReceipt` the cascade-decision projection.
-- Entry: `Cascade(PeerRoster roster, CompanionPeer peer, DegradationLevel level, string reason, ModalityRow row)` returns `IO<CascadeReceipt>` — the parent forwards its own effective level to the child over the control hop on rows admitting `Degrade`, fans the decision, and fires it.
-- Auto: the cascade rides the existing `degraded` lifecycle trigger receipt — no new instrument; the child re-derives on parent release because `DegradationCell.Cascade(None)` withdraws the floor and the existing `Derive` fold reclaims control; the floor never escalates below local pressure because `DegradationState.Floor` keeps the worse of the cascaded and derived ranks; the forwarding call carries `TraceContext.Inject(new Metadata())` as its headers so the child's cascade span descends from the parent's, the client half of the pair `CONTROL_SERVICE`'s `Continued` bracket closes.
-- Receipt: `CascadeReceipt` carries the source level, the child pid, and the `Option<DegradationLevel>` the child acknowledged over the wire reply — the parent never fabricates the child's `DegradationState`, because the child's real state is owned by the child cell and only the acknowledged level crosses the contract.
+- Owner: `DegradationCascade` threads a parent-observed level onto the child `DegradationCell.Cascade` floor over the control hop.
+- Entry: `Cascade(CompanionPeer peer, DegradationLevel level, string reason, ModalityRow row)` returns `IO<Option<DegradationLevel>>` — the child-acknowledged level when the row admits `Degrade`.
+- Auto: the child re-derives on parent release because `DegradationCell.Cascade(None)` withdraws the floor and the existing `Derive` fold reclaims control; `DegradationState.Floor` keeps the worse of cascaded and derived ranks; `TraceContext.Inject(new Metadata())` continues the parent trace.
+- Result: the generated response's acknowledged level returns directly; absence means the modality does not admit degradation.
 - Packages: LanguageExt.Core, NodaTime, Grpc.Core.Api, BCL inbox
 - Growth: a new cascade trigger is one call site over the existing `Cascade` fold; zero new surface — the parent-to-child cascade is a WRITE consumer of `DegradationCell.Cascade`, never a second `DegradationLevel` or `DegradationCell` owner.
 - Boundary: only a row admitting `ModalityCapability.Degrade` cascades, so a sidecar never floors its externally-supervised peer; the parent forwards its own `DegradationCell.Level` value as data to the child over the control hop, so the level value READ stays the parent's degradation owner and the floor WRITE lands on the child cell through `Cascade`, never the operator `Force` the set-degradation verb owns — the seam-split owner on `Observability/health#DEGRADATION_RAIL` keeps the level vocabulary, the `Derive` fold, and the `Cascade` floor admit; the child admits the cascaded wire enum through the same `DegradationLevel.OfWire` admission the wire verb uses so an unknown ordinal never floors the cell; NAMED LOSS — none: the child-side `Apply(cell, parent)` member DELETES because it forwarded verbatim to `DegradationCell.Cascade` and resolved no name in one hop, so the child's inbound leg calls that owner directly.
 
 ```csharp
-// --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct CascadeReceipt(
-    DegradationLevel Source,
-    int ChildPid,
-    Option<DegradationLevel> Acknowledged);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DegradationCascade {
-    public static IO<CascadeReceipt> Cascade(
-        PeerRoster roster, CompanionPeer peer, DegradationLevel level, string reason, ModalityRow row) =>
-        (row.Capabilities.Admits(ModalityCapability.Degrade)
+    public static IO<Option<DegradationLevel>> Cascade(
+        CompanionPeer peer, DegradationLevel level, string reason, ModalityRow row) =>
+        row.Capabilities.Admits(ModalityCapability.Degrade)
             ? Forward(peer, level, reason)
-            : IO.pure(Option<DegradationLevel>.None))
-        .Map(acked => new CascadeReceipt(level, peer.Manifest.Pid, acked))
-        .Bind(receipt => roster.Fan.Fan(Correlation.Mint(), nameof(DegradationCascade), receipt, new CompanionSignal.Cascade(receipt)));
+            : IO.pure(Option<DegradationLevel>.None);
 
     static IO<Option<DegradationLevel>> Forward(CompanionPeer peer, DegradationLevel level, string reason) =>
         IO.liftAsync(async () => {
@@ -613,7 +528,7 @@ public static class DegradationCascade {
 - Cases: linux reads `SO_PEERCRED` at `SOL_SOCKET` into a 12-byte `ucred`, macos reads `LOCAL_PEERCRED` at `SOL_LOCAL` into a 76-byte `xucred` then a second `LOCAL_PEERPID` read at `SOL_LOCAL` for the 4-byte peer pid — the platform branch selects the level, option name, struct width, and pid-read count at the single accept seam.
 - Entry: `Read(Socket accepted)` returns `Fin<PeerCredential>` — `Socket.GetRawSocketOption(level, name, span)` fills the platform struct off the connected socket and the read folds to the connecting peer's uid and pid, aborting when the returned count is fewer bytes than the struct width or the macOS `cr_version` word is non-zero; a kernel `getsockopt` failure surfaces as a `SocketException` the `Try` rail traps into `CompanionFault.Credential` carrying the `SocketException.SocketErrorCode`/`NativeErrorCode`, never an escaping exception.
 - Auto: the credential read targets a stack `Span<byte>` sized to the platform struct, the macOS pid arrives from a separate `LOCAL_PEERPID` read into a 4-byte span because `xucred` carries no pid field, and the Linux `ucred` carries pid, uid, and gid in one 12-byte read; the returned byte count is the filled-length proof the read compares against the declared struct width before reinterpreting the bytes through `MemoryMarshal.Read`; because `GetRawSocketOption` is the managed seam it raises `SocketException` rather than setting the P/Invoke last error, so the errno is read from `SocketException.SocketErrorCode`/`NativeErrorCode` on the trapped error, never from a stale `Marshal.GetLastPInvokeError()` after a managed call.
-- Receipt: `PeerCredential` carries the uid and pid the admission row trusts — read once at accept off the connected socket, never trusted from the manifest.
+- Result: `PeerCredential` carries the uid and pid read once from the accepted socket; the manifest never supplies them.
 - Packages: LanguageExt.Core, BCL inbox
 - Growth: a new platform is one branch on `Read` with one struct width and one credential layout; zero new surface.
 - Boundary: the read is `Socket.GetRawSocketOption(int level, int optionName, Span<byte> optionValue)` returning the kernel-filled byte count — the raw `getsockopt` P/Invoke and the managed `Socket.GetSocketOption` path are both rejected, the former because the BCL already owns the raw-option seam over the safe handle and the latter because the PAL carries no `SocketOptionLevel.Local`, no `SO_PEERCRED`/`LOCAL_PEERCRED` translation, and `SocketOptionName.BlockSource=17` shares the integer with Linux `SO_PEERCRED=17` only by coincidence; Linux `SOL_SOCKET=1`/`SO_PEERCRED=17` fills `ucred{pid,uid,gid}` 12 bytes captured at connect time so a later exec cannot launder identity, macOS `SOL_LOCAL=0`/`LOCAL_PEERCRED=1` fills `xucred{cr_version,cr_uid,cr_ngroups,cr_groups[16]}` 76 bytes with `cr_version` mandated to equal `XUCRED_VERSION=0` and `SOL_LOCAL=0`/`LOCAL_PEERPID=2` reads the 4-byte peer pid `xucred` omits; the accepted-socket credential read is the admission row the `Discovery` manifest read defers to, so a connecting peer's identity is the kernel-reported value, never the manifest's self-asserted pid, and `PeerRoster.Admit` keys the entry on this `PeerCredential.Pid`; the credential faults are the INBOUND band's own — they name a serving-side admission refusal, and reporting them on the outbound hop band made an unreadable peer identity indistinguishable from a failed dial at every reader keying on the code; the peer leg this read gates is `python:runtime/transport/serve#SERVE`, whose UDS serve row admits `insecure_loopback` alone precisely because identity arrives here through `SO_PEERCRED`/`LOCAL_PEERCRED` rather than a wire-carried PEM — so the two ends name one credential source and neither seats a second.
@@ -685,9 +600,9 @@ public static class PeerAdmission {
 
 - Owner: `HostBinding` static acquisition surface folding the OS, the activation source, and the address shape into one serving-endpoint claim binding through `ServiceHost.Bind`; `HostOs` `[SmartEnum<string>]` and `AddressKind` `[SmartEnum<string>]` the two axes the policy key needs beside the source; `BindAddress` `[Union]` the three address shapes; `BindOrigin` `[SmartEnum]` the three provenance cases; `ActivationSource` `[SmartEnum<string>]` the three socket-activation rows, each binding its own inheritance arm as a delegate column; `ReusePolicy` `[SmartEnum<string>]` the port-reuse semantics axis; `PortOverride` the explicit-port value record; `BindRequest` the acquisition input; `BoundEndpoint` the resolved listener artifact; `HostBindPolicy` the per-row policy record carrying its own key triple; `HostBindRows` the frozen keyed table; the boundary [LibraryImport]/env adapters `SystemdActivation`, `LaunchdActivation`, `SecretAcquisition`, and `ReusePort`.
 - Cases: three address shapes — unix-path for the credential-gated control plane, loopback-tcp for a host without a UDS budget, inherited-fd for a socket-activated listener; three provenance cases — fresh on a self-bound socket, inherited on a manager-passed fd, reclaimed on a stale-file takeover; three activation sources — systemd-socket reads the `LISTEN_FDS` env protocol, launchd-socket calls `launch_activate_socket`, fresh-bind inherits nothing; three reuse policies — load-balance on Linux `SO_REUSEPORT`, last-wins on macOS `SO_REUSEPORT`, none where reuse is rejected; twelve policy rows over the `(HostOs, ActivationSource, AddressKind)` cross-product each platform admits, so a Linux row asking for launchd activation is an unrostered key that REFUSES rather than a ternary's fall-through.
-- Entry: `Acquire(BindRequest request, FactSink<CompanionSignal> fan)` returns `IO<Fin<BoundEndpoint>>` — resolves the policy row by its key triple, runs the source's own inheritance arm, and settles the acquisition on the descriptors it returned or falls to a fresh bind when it returned none, applying the `ReusePolicy` through `ReusePort.Apply` on each held socket before bind; `Release(BoundEndpoint endpoint)` returns `IO<Unit>` unlinking a fresh-bound or reclaimed unix path and disposing every held socket exactly once, never an accepted socket.
+- Entry: `Acquire(BindRequest request)` returns `IO<Fin<BoundEndpoint>>` — resolves the policy row by its key triple, runs the source's own inheritance arm, and settles the acquisition on the descriptors it returned or falls to a fresh bind when it returned none, applying the `ReusePolicy` through `ReusePort.Apply` on each held socket before bind; `Release(BoundEndpoint endpoint)` returns `IO<Unit>` unlinking a fresh-bound or reclaimed unix path and disposing every held socket exactly once, never an accepted socket.
 - Auto: the two activation platforms INVERT each other on descriptor count and neither adapter is written to expect the other's shape, so each rides its OWN row's arm rather than a source comparison at the call site. A systemd row consumes `LISTEN_FDS` directly — no libsystemd binding — checking `$LISTEN_PID` equals `Environment.ProcessId`, taking the count off `LISTEN_FDS` (never an assumed family pair), adopting every fd of the named service's contiguous run from `SD_LISTEN_FDS_START=3`, and self-setting `FD_CLOEXEC` through `fcntl` on each because systemd passes them without the flag; a bare `ListenStream=<port>` yields ONE dual-mode `AF_INET6` descriptor serving IPv4 as `::ffff:*` under the default `net.ipv6.bindv6only=0`, and a second descriptor exists ONLY where the unit declares `BindIPv6Only=ipv6-only`; `$LISTEN_FDNAMES` REPEATS the unit name once per fd rather than naming each distinctly, so a name lookup returns the run's FIRST index and never disambiguates within it, and POSITION is the only selector — the adapter reads the name only to find and skip a foreign unit's block, then takes the whole matching span, answering an OPTION rather than a `(-1, 0)` sentinel a caller could arithmetic on; a launchd row calls `launch_activate_socket(name, &fds, &cnt)` and adopts EVERY descriptor the count reports before freeing the array through `free` — a `Sockets` entry declaring no `SockFamily` yields one listener per family, so taking `fds[0]` alone leaves its sibling open, unlistened, and undiagnosed, and each adopted descriptor's family is read off the `Socket` it opens rather than assumed from its array position; the call RETURNS its errno as the `int` result and never sets the errno global, so the mapping reads the return value alone and `EALREADY=37`, `ESRCH=3`, and `ENOENT=2` are separate typed cases routing to separate repairs; the set is captured once at composition-root startup and threaded, never re-derived per listener, and `free(fds)` is owed on the success arm alone because both failure arms answer NULL; an inherited row carries each activated descriptor as a held `Socket` Kestrel adopts through `ListenHandle`, a fresh loopback-tcp row binds and listens the held socket with `SO_REUSEPORT` applied before bind, and a fresh unix-path row holds no socket — it defers the `ListenUnixSocket` bind to `ServiceHost.Bind` at the `Discovery.SocketPath` `sun_path`, and a bind onto an existing path probes it first: a live peer answers and the acquisition refuses, a dead file unlinks and re-binds as `Reclaimed`, which is the bind-failure-is-mutex law spelled as a fold; `SO_REUSEPORT` applies through `ReusePort.Apply` over `Socket.SetRawSocketOption` so the Linux load-balance and macOS last-wins kernel behaviors are one option write whose semantic divergence is the `ReusePolicy` row's documented evidence, never a code branch.
-- Receipt: `BoundEndpoint` carries the bound `BindAddress`, the `BindOrigin`, the `ReusePolicy`, and the held `Seq<Socket>` listeners — one entry per fresh-tcp socket, one per activated descriptor, and empty for a unix path Kestrel binds and the drain unlinks; the acquisition itself fans one `BindReceipt` at `SERVICE_HOST`; readiness notify stays the `SystemdNotifier` mirror and the SIGTERM/SIGQUIT/SIGHUP traps stay `FaultSpine.ArmTraps`.
+- Result: `BoundEndpoint` carries the bound `BindAddress`, `BindOrigin`, `ReusePolicy`, and held `Seq<Socket>` listeners — one per fresh TCP socket, one per activated descriptor, and empty for a Unix path Kestrel binds and drain unlinks; readiness notify stays the `SystemdNotifier` mirror and SIGTERM/SIGQUIT/SIGHUP stay `FaultSpine.ArmTraps`.
 - Packages: Microsoft.Extensions.Hosting.Systemd, Rasm (kernel `CapabilitySet`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new OS or activation source is one `HostOs`/`ActivationSource` row carrying its own inheritance arm beside the policy rows its platform admits; a new address shape is one `BindAddress` case and one `AddressKind` row breaking every dispatch at compile time; a new reuse semantic is one `ReusePolicy` row; the macOS secret-acquisition route is one `SecretAcquisition` adapter call, never a child-process credential surface; zero new surface.
 - Boundary: THE POLICY KEY IS THE ROW'S OWN — the prior form re-derived the key inside a nested ternary that asked `is BindAddress.LoopbackTcp` four times and read `OperatingSystem.IsMacOS()` inside one arm of it, so the table's key existed only in that expression and a row could never be added without editing it; keying on `(HostOs, ActivationSource, AddressKind)` makes an unrostered combination a REFUSAL (Linux with launchd activation is exactly that) where the ternary answered a neighboring row; DISPATCH IS THE ROW'S OWN TOO — `Acquire` compared `request.Source` against two of the three rows over a `[SmartEnum]` that generates a total `Switch`, so a fourth source silently took the fresh-bind arm; the inheritance arm now rides the row and fresh-bind's arm answers an empty descriptor set, which is what selects the fresh path; `ProfileRoots` LEAVES the signature — it was never read and the activation-name lookup it claimed to scope is `BindRequest.ActivationName`; the host-binding owner resides beside `SERVICE_HOST` because `ServiceHost.Bind`/`KestrelServerOptions.ListenUnixSocket` is the listener seam it binds through — `host-profiles` owns profile variance and never the bind() call; `Microsoft.Extensions.Hosting.Systemd` carries the `SystemdNotifier` readiness mirror but no socket-activation fd intake, so `SystemdActivation` reads the listen protocol directly with no libsystemd P/Invoke — through the `Runtime/profiles#LIFETIME_ADAPTERS` `BootVariable` roster, the one owner of a coordinate resolved before any configuration source mounts, so the three handoff variables sit beside the watchdog pair rather than as bare reads at this boundary; there is no `Microsoft.Extensions.Hosting.Launchd` package, so `LaunchdActivation` is a `[LibraryImport("/usr/lib/libSystem.B.dylib")]` adapter over `launch_activate_socket(3)` whose `int**` out-parameter is a heap array of `getaddrinfo(3)`-derived descriptors the caller adopts WHOLE and whose `size_t*` count is the discriminant, with one `free(3)` release the man page mandates — the import carries no `SetLastError` because the call's own return value IS the errno, and the descriptors copy out of the array in ONE span read before the free rather than accumulating through a quadratic append; `SafeSocketHandle(nint preexistingHandle, bool ownsHandle)` is the adoption ctor — the `int` fd widens implicitly and the parameter is `nint`, so a fence spelling `(int, bool)` names a member that does not exist; descriptor OWNERSHIP settles at the `SafeSocketHandle` alone — `KestrelServerOptions.ListenHandle(ulong)` adopts the descriptor for listening and never takes the close, so `Release` disposing each held handle is the one close; the macOS secret-acquisition route is an in-process `Security.framework` `[LibraryImport]` over `SecItemCopyMatching`/`SecItemAdd` for parity with the launchd adapter, avoiding a child-process credential surface, and returns an exact kernel refusal which the `Runtime/secrets#SECRET_LEASE` owner wraps only after redacting the key id — never a second credential-fault owner and never this page's own band; its live execution triggers an OS keychain dialog and stays a tier-3 live-host residual the headless session never invokes; the abstract-unix namespace lands on Linux and refuses on macOS because no directory mode gates it, riding the policy row's own column, never a fourth address case; `NOTIFY_SOCKET` exists only on systemd so a launchd or fresh-bind row carries no readiness notify.
@@ -817,27 +732,13 @@ public static class HostBindRows {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostBinding {
-    public static IO<Fin<BoundEndpoint>> Acquire(BindRequest request, FactSink<CompanionSignal> fan) =>
-        Bound(request).Match(
-            Succ: endpoint => Fanned(fan, endpoint).Map(Fin.Succ),
-            Fail: error => IO.pure(Fin.Fail<BoundEndpoint>(error)));
+    public static IO<Fin<BoundEndpoint>> Acquire(BindRequest request) => IO.pure(Bound(request));
 
     static Fin<BoundEndpoint> Bound(BindRequest request) =>
         from row in HostBindRows.Of(request)
         from handles in request.Source.Inherit(request.ActivationName)
         from bound in handles.IsEmpty ? FreshBind(request, row) : Fin.Succ(Settle(request, row, handles))
         select bound;
-
-    static IO<BoundEndpoint> Fanned(FactSink<CompanionSignal> fan, BoundEndpoint endpoint) =>
-        IO.lift(() => new BindReceipt(
-                endpoint.Service, Rendered(endpoint.Address), endpoint.Origin, endpoint.Reuse, endpoint.Listeners.Count))
-            .Bind(receipt => fan.Fan(Correlation.Mint(), nameof(HostBinding), receipt, new CompanionSignal.Bound(receipt)))
-            .Map(_ => endpoint);
-
-    static string Rendered(BindAddress address) => address.Switch(
-        unixPath: static unix => unix.SocketPath,
-        loopbackTcp: static tcp => string.Create(CultureInfo.InvariantCulture, $"127.0.0.1:{tcp.Port}"),
-        inheritedFd: static inherited => string.Create(CultureInfo.InvariantCulture, $"fd:{inherited.Handles.Count}"));
 
     public static IO<Unit> Release(BoundEndpoint endpoint) =>
         IO.lift(() => {
@@ -1010,15 +911,15 @@ stateDiagram-v2
 ## [08]-[EVENT_INGRESS]
 
 - Owner: `WebhookOrigin` and `WebhookRate` admit the abuse-protection DNS expression and positive requests-per-minute value; `WebhookAllowance` renders a numeric grant or the standard `*` unlimited grant; `IngressBody` owns one bounded immutable capture whose exact bytes feed both integrity verification and event decoding; `EventSemconv` stamps only CloudEvents attributes at this HTTP door; `Delivery` carries the per-request tally and refusal causes; `EventIngress` consumes the identity owner, `PolicyDescriptor.WebhookDelivery`, source and classification trust gates, an optional integrity verifier, and `WireAdmission.EventExtensions`.
-- Cases: required request origin plus optional positive request rate against allowed origin and an optional policy ceiling, whose absence means unlimited; every immediate consent carries `WebHook-Allowed-Rate`, bounded to the request when one exists and rendered as `*` only when neither request nor policy imposes a limit; token transport is exactly one `Authorization: Bearer` header or one `access_token` query value; JSON and Protobuf structured or batch media plus Avro structured media select their exact `EventFormat` row; every generated `Extensions` field is declared from the generated descriptor; five `cloudevents.*` attributes stamp each admitted delivery.
+- Cases: required request origin with an optional positive request rate against allowed origin and an optional policy ceiling, whose absence means unlimited; every immediate consent carries `WebHook-Allowed-Rate`, bounded to the request when one exists and rendered as `*` only when neither request nor policy imposes a limit; token transport is exactly one `Authorization: Bearer` header or one `access_token` query value; JSON and Protobuf structured or batch media with Avro structured media select their exact `EventFormat` row; every generated `Extensions` field is declared from the generated descriptor; five `cloudevents.*` attributes stamp each admitted delivery.
 - Entry: `EventIngress.Validate(HttpRequest request, HttpResponse response, IngressPolicy policy)` handles the `OPTIONS` abuse-protection request and conveys consent only through grant headers. `EventIngress.Deliver(HttpRequest request, HttpResponse response, IngressPolicy policy, EventBus.Cell bus, Op key)` authenticates and authorizes the delivery, verifies the exact request body when the app supplied an integrity dialect, admits the generated extension message through `WireAdmission.EventExtensions.Admit`, applies the injected domain projection under the principal's roster-resolved tenant, deduplicates, and dispatches each admitted envelope through `EventBus.Dispatch`.
 - Law: the CloudEvents ASP.NET package supplies no handshake, origin policy, or cross-format body custody. This boundary captures once under `IngressPolicy.BodyLimit`, refuses an empty body, assigns typed HTTP 415 evidence to absent or unsupported content media, verifies the immutable bytes when configured, and decodes those same bytes through the exact JSON, Protobuf, or Avro formatter row.
-- Law: origin is a DNS name expression, never a URL; callback is the separate URL-shaped field and the synchronous response does not reinterpret either. Request rate is absent or a positive integer greater than zero. A configured policy rate is the ceiling; absence is unlimited, so a requested rate receives that rate or the lower ceiling and an unrequested unlimited grant renders `*`.
-- Law: `WebHook-Request-Origin` rides EVERY delivery request, not the handshake alone, so a target re-reads the claimed origin per message rather than trusting one validation forever; an origin the policy no longer allows refuses at that message without unregistering the whole subscription.
-- Law: the abuse handshake establishes no authentication context. Delivery admits exactly one token transport through `TokenValidation`, evaluates `PolicyDescriptor.WebhookDelivery` through `PolicyGate`, and uses the resulting `Principal.Tenant`; trace baggage never grants authority. An app-defined signature sees the exact received octets before CloudEvents parsing and adds integrity only — it never substitutes for token authorization.
+- Law: origin is a DNS name expression, never a URL; callback is the separate URL-shaped field and the synchronous response does not reinterpret either. Request rate is absent or a positive integer greater than zero. Configured policy rate is the ceiling; absence is unlimited, so a requested rate receives that rate or the lower ceiling and an unrequested unlimited grant renders `*`.
+- Law: `WebHook-Request-Origin` rides EVERY delivery request, not the handshake alone, so a target re-reads the claimed origin per message rather than trusting one validation forever; current policy refuses a disallowed origin at that message without unregistering the whole subscription.
+- Law: the abuse handshake establishes no authentication context. Delivery admits exactly one token transport through `TokenValidation`, evaluates `PolicyDescriptor.WebhookDelivery` through `PolicyGate`, and uses the resulting `Principal.Tenant`; trace baggage never grants authority. App-defined signatures see the exact received octets before CloudEvents parsing and add integrity only — they never substitute for token authorization.
 - Law: source trust and `DataGrade` classification both admit before domain projection, dedup, or dispatch. Dedup then reads the envelope's own `(source, id)` composite through the one `Runtime/resources#DEDUPE_WINDOW`, so an admitted HTTP redelivery collapses before bus dispatch.
 - Auto: batch and single share one `EventEnvelope.Decode` door whose parsed media chooses the exact formatter and framing. Every admitted envelope stamps `EventSemconv` before `EventBus.Dispatch`; the durable outbox relay remains an outbound hop over the exact Persistence envelope.
-- Receipt: one `Delivery` per request carrying accepted, duplicate, and externalized counts beside the REFUSAL CAUSES themselves, fanned through the one `FactSink` and fired at `AppHostPoint.Companion` — a 4xx names the axis or claim that refused it rather than a bare count, which is what the receipt line promised while both refusal arms discarded the cause.
+- Result: `Deliver` returns one `Delivery` per request carrying accepted, duplicate, and externalized counts beside the refusal causes themselves; `EventBus.Dispatch` remains the durable domain-event owner.
 - Packages: Rasm.Contracts (generated `Extensions` message), CloudNative.CloudEvents, Microsoft.AspNetCore.App (shared framework), Rasm (the `Rasm/Domain/event` envelope algebra), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new generated extension field joins declaration and reconstructed whole-message admission through `WireAdmission.EventExtensions`; a new protobuf value space is one kernel structural-kind bridge, never a field-name row here; a new HTTP event format is one `EventFormat` row this door consumes unchanged; a foreign refusal needs no case at all, since `CompanionFault.Of` adopts it whole — never a second door.
 - Boundary: `WireAdmission.EventExtensions` composes the kernel `EventExtensionContract<event.Extensions>` over AppHost's one descriptor-root validator; a private per-handler validator is the deleted duplicate rule graph. `IngressPolicy.Project` receives the admitted message and typed `DataGrade` whole, while this door reads only `HasDataref` for the externalized tally; binding applications resolve the URI-reference. `subject` and `time` remain CloudEvents context attributes, and foreign envelopes pass the generic `EventEnvelope` gate without being forced through the Rasm type/source/id grammar. Messaging semantic conventions do not describe this HTTP handler, so no stranded non-HTTP binding roster or `messaging.*` masquerade survives here.
@@ -1171,8 +1072,7 @@ public sealed record IngressPolicy(
     Func<DataGrade, Fin<Unit>> Classification,
     DedupeWindow Dedupe,
     Func<CloudEvent, global::Rasm.Contracts.Event.Extensions, DataGrade, TenantContext, Op, Fin<DomainEvent>> Project,
-    ClockPolicy Clocks,
-    FactSink<CompanionSignal> Fan);
+    ClockPolicy Clocks);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EventIngress {
@@ -1201,10 +1101,8 @@ public static class EventIngress {
                                 .TraverseM(envelope => Admitted(envelope, access.Principal, policy, bus, key)).As()
                                 .Map(static members => members.Fold(
                                     Delivery.Empty, static (tally, member) => tally.Add(member)))
-                                .Bind(tally => policy.Fan.Fan(
-                                    Correlation.Mint(), nameof(EventIngress), tally, new CompanionSignal.Ingress(tally)))
                                 .Map(Fin.Succ),
-                            Fail: error => IO.pure(Refused(response, error))));
+                            Fail: error => IO.pure(Refused(response, error)))));
             }));
 
     static IO<Fin<AuthenticatedWebhook>> Authorized(HttpRequest request, IngressPolicy policy) =>
@@ -1319,7 +1217,6 @@ public static class EventIngress {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

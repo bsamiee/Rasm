@@ -243,8 +243,7 @@ FROM pg_replication_slots
 WHERE slot_type = 'logical';
 
 -- Subscriber: worker activity
-SELECT pid, relid::regclass, received_lsn, last_msg_send_time,
-       last_msg_receipt_time
+SELECT pid, relid::regclass, received_lsn, last_msg_send_time
 FROM pg_stat_subscription;
 
 -- Conflict growth rate (alert on any non-zero delta)
@@ -259,4 +258,3 @@ Monitoring contracts:
 - Alert on `active = false` for any slot — inactive slot accumulates WAL without bound
 - `last_msg_send_time` older than `wal_sender_timeout` (default 60s) indicates stalled replication
 - Track conflict column growth rate in `pg_stat_subscription_stats` — any non-zero value requires investigation
-- `pg_stat_subscription` columns: `pid`, `subid`, `subname`, `relid`, `received_lsn`, `last_msg_send_time`, `last_msg_receipt_time`, `latest_end_lsn`, `latest_end_time`

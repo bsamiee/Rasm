@@ -4,16 +4,16 @@ Rhino publishes snapshot NAMES and nothing else, so capture, restore, and delete
 
 ## [01]-[INDEX]
 
-- [02]-[SCRIPTED_TABLE]: `SnapshotName`, `SnapshotPresence`, `SnapshotVerb`, `SnapshotOperation`, `SnapshotRoster`, `SnapshotReceipt`, `SnapshotAnswer`, and the `Snapshots` rail with its scoped-restore bracket.
+- [02]-[SCRIPTED_TABLE]: `SnapshotName`, `SnapshotPresence`, `SnapshotVerb`, `SnapshotOperation`, `SnapshotRoster`, `SnapshotMutation`, `SnapshotAnswer`, and the `Snapshots` rail with its scoped-restore bracket.
 - [03]-[PARTICIPANT_SEAMS]: `SnapshotCategory`, `ParticipantName`, `SnapshotObjectState`, the three lane contracts, and `ParticipantSpec`.
 - [04]-[HOST_ADAPTER]: `SnapshotParticipant` — the twenty-four `SnapShotsClient` overrides, the reporting funnel, and the one-time registration claim.
 - [05]-[RESEARCH]
 
 ## [02]-[SCRIPTED_TABLE]
 
-- Owner: `SnapshotName` admits a name safe to embed in a quoted script token; `SnapshotPresence` is the roster-presence vocabulary and `SnapshotVerb` the three scripted verbs, each carrying its script token and its presence set; `SnapshotOperation` is the request family; `SnapshotRoster` and `SnapshotReceipt` are the detached evidence; `Snapshots` is the rail.
+- Owner: `SnapshotName` admits a name safe to embed in a quoted script token; `SnapshotPresence` is the roster-presence vocabulary and `SnapshotVerb` the three scripted verbs, each carrying its script token and its presence set; `SnapshotOperation` is the request family; `SnapshotRoster` and `SnapshotMutation` are the detached evidence; `Snapshots` is the rail.
 - Entry: `SnapshotOperation.Roster()`, `.Capture(name)`, `.Restore(name)`, `.Delete(name)` mint the request; `Snapshots.Commit(DocumentSession, SnapshotOperation, Op?)` runs it; `Snapshots.Within(DocumentSession, SnapshotName, body, Op?)` restores a target for the length of a body and puts the document back.
-- Auto: the three mutation cases are ONE case carrying its verb, because the verb row already discriminates them — the script token, the presence law, and both roster guards read off `SnapshotVerb`, so a fourth scripted verb is one row and the request family does not grow. The receipt is a CENSUS, not a fact stream: this rail opens no `DocumentCommit.Sealed` and stamps no undo serial, so the before/after roster pair is the evidence and a slot vocabulary here names a timing class the page has none of.
+- Auto: the three mutation cases are ONE case carrying its verb, because the verb row already discriminates them — the script token, the presence law, and both roster guards read off `SnapshotVerb`, so a fourth scripted verb is one row and the request family does not grow. `SnapshotMutation` is a CENSUS, not a fact stream: this rail opens no `DocumentCommit.Sealed` and stamps no undo serial, so the before/after roster pair is the evidence and a slot vocabulary here names a timing class the page has none of.
 - Auto: the presence law is stated as its ILLEGAL corner, not as its legal roster. Three of the four corners are legal — capture leaves the name present, restore requires and leaves it, delete requires it and removes it — and the fourth, requiring the name absent and leaving it absent, is a verb that moves no roster at all. `Forbidden` bars that one corner, `SnapshotOperation.Of` admits every request through it, and the two guards in `Run` read the same set — so a fourth verb declaring the barred corner refuses at its first use instead of scripting a no-op. Enumerating three legal rows to exclude one inverts the author's intent and scales as `2^n - k`.
 - Law: the host publishes `SnapshotTable.Names` and no capture, restore, or delete member at any access level, so `RhinoApp.RunScript` against `_-Snapshot` is the only managed route a snapshot transition has. The carve pays for itself on the same rail: `SnapshotVerb` owns the token so no call site composes command text, `SnapshotName` refuses a quote or a newline so the composed line cannot be broken out of, and each run proves roster membership BEFORE and AFTER, so a silently-failed script is a typed refusal rather than an unnoticed no-op.
 - Law: the scripted rail records NO undo. Rhino's snapshot commands manage their own document state and the script is run against a pinned runtime serial, so the leg appends `SessionNeed.Interrupt` to the one mutation derivation rather than replacing it, and no `UndoBracket` opens over a transition the host's undo stack does not carry.
@@ -123,7 +123,7 @@ public sealed partial record SnapshotRoster([property: OrderedEquality] Seq<Snap
 }
 
 [Equatable]
-public sealed partial record SnapshotReceipt(
+public sealed partial record SnapshotMutation(
     SnapshotName Name,
     SnapshotVerb Verb,
     SnapshotRoster Before,
@@ -135,7 +135,7 @@ public abstract partial record SnapshotAnswer : IDetachedDocumentResult {
     private SnapshotAnswer() { }
 
     public sealed record RosterCase(SnapshotRoster Roster) : SnapshotAnswer;
-    public sealed record MutationCase(SnapshotReceipt Receipt) : SnapshotAnswer;
+    public sealed record MutationCase(SnapshotMutation Mutation) : SnapshotAnswer;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -154,7 +154,7 @@ public static class Snapshots {
                                name: mutation.Name,
                                verb: mutation.Verb,
                                key: state.Op)
-                           .Map<SnapshotAnswer>(static receipt => new SnapshotAnswer.MutationCase(Receipt: receipt))),
+                           .Map<SnapshotAnswer>(static outcome => new SnapshotAnswer.MutationCase(Mutation: outcome))),
                    key: op,
                    needs: request.Needs.ToArray())
                select answer;
@@ -188,7 +188,7 @@ public static class Snapshots {
                 Succ: _ => Fin.Fail<T>(error: primary),
                 Fail: secondary => Fin.Fail<T>(error: primary + secondary))));
 
-    private static Fin<SnapshotReceipt> Run(RhinoDoc document, SnapshotName name, SnapshotVerb verb, Op key) =>
+    private static Fin<SnapshotMutation> Run(RhinoDoc document, SnapshotName name, SnapshotVerb verb, Op key) =>
         from before in Roster(document: document, key: key)
         from _precondition in Proved(
             held: before.Holds(name: name),
@@ -210,7 +210,7 @@ public static class Snapshots {
             stage: "postcondition",
             key: key)
         from owner in key.AcceptValidated<DocKey>(candidate: document.RuntimeSerialNumber)
-        select new SnapshotReceipt(Name: name, Verb: verb, Before: before, After: after, Document: owner);
+        select new SnapshotMutation(Name: name, Verb: verb, Before: before, After: after, Document: owner);
 
     private static Fin<Unit> Proved(bool held, bool demanded, SnapshotName name, SnapshotVerb verb, string stage, Op key) =>
         held == demanded
@@ -669,7 +669,6 @@ public sealed class SnapshotParticipant : SnapShotsClient {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

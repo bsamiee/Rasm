@@ -199,7 +199,7 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 |  [07]   | `numpy.max` / `sum` / `argmin`                      | reduction      | worst-case / total / index reductions over a traced array        |
 
 [ENTRYPOINT_SCOPE]: pytree operations (`jax.tree_util`)
-- `tree_leaves` yields the ordered leaf list the receipt and finiteness rails fold; every sibling carrier (`equinox.Module`, `diffrax`/`optimistix`/`lineax` solver states, `optax.OptState`) is a registered pytree these ops walk and reconstruct.
+- `tree_leaves` yields the ordered leaf list the `Solve` and finiteness rails fold; every sibling carrier (`equinox.Module`, `diffrax`/`optimistix`/`lineax` solver states, `optax.OptState`) is a registered pytree these ops walk and reconstruct.
 - call: `tree_map(f, tree, *rest)`, `tree_leaves(tree, is_leaf=None)`, `tree_structure(tree)` / `tree_flatten(tree)`, `tree_unflatten(treedef, leaves)`, `tree_reduce(f, tree, initializer)`, `register_pytree_node(cls, flatten, unflatten)`, `Partial(fun, *args, **kwargs)`
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CAPABILITY]                                                        |
@@ -208,7 +208,7 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 |  [02]   | `tree_util.tree_leaves`                     | pytree extract | flat list of leaves in deterministic order (fold/finiteness source) |
 |  [03]   | `tree_util.tree_structure` / `tree_flatten` | pytree split   | `PyTreeDef` (+ leaves) for structure-preserving reconstruction      |
 |  [04]   | `tree_util.tree_unflatten`                  | pytree rebuild | rebuild a tree from a `PyTreeDef` and a leaf list                   |
-|  [05]   | `tree_util.tree_reduce`                     | pytree fold    | fold a binary op over all leaves (norm/sum receipts)                |
+|  [05]   | `tree_util.tree_reduce`                     | pytree fold    | fold a binary op over all leaves (norm/sum measures)                |
 |  [06]   | `tree_util.register_pytree_node`            | registration   | register a custom carrier as a pytree node                          |
 |  [07]   | `tree_util.Partial`                         | pytree closure | pytree-compatible partial application (traceable closure)           |
 
@@ -245,7 +245,7 @@ Rows [01]/[02] subclass `TypeError`, so `(TypeError, ValueError)` is the total n
 
 [STACKING]:
 - canonical stacked rail: define carriers as `equinox.Module` pytrees -> assemble the objective from `jax.numpy`/`interpax` interpolants and `quadax` quadrature -> integrate dynamics with `diffrax.diffeqsolve` (inner linear solves via `lineax`) -> differentiate with `jax.grad`/`equinox.filter_grad` -> descend with `optax`/`optimistix` -> compile with `jax.jit`/`equinox.filter_jit`
-- `tree_util` is the seam: `diffrax.Solution`, `optimistix.Solution`, `lineax` operators/states, `optax.OptState`, and `equinox.Module` are registered pytree nodes, so `tree_map`/`tree_leaves`/`tree_structure` walk and reconstruct any sibling carrier; a finiteness/divergence receipt folds `numpy.isfinite` over `tree_leaves(state)`
+- `tree_util` is the seam: `diffrax.Solution`, `optimistix.Solution`, `lineax` operators/states, `optax.OptState`, and `equinox.Module` are registered pytree nodes, so `tree_map`/`tree_leaves`/`tree_structure` walk and reconstruct any sibling carrier; a finiteness/divergence verdict folds `numpy.isfinite` over `tree_leaves(state)`
 - `random.key`/`split` is the determinism backbone every stochastic sibling consumes — `diffrax` Brownian paths, `numpyro`/`blackjax` MCMC chains, `equinox.nn` initialization, `optax.add_noise` — never a reseeded global RNG
 - `config.update("jax_enable_x64", True)` is a rail-wide precondition: `lineax`/`optimistix`/`diffrax` solves and `numpyro` log-densities assume float64
 - `custom_jvp`/`custom_vjp` attach analytic derivative rules where a sibling's internal solve is non-differentiable or the implicit-function theorem gives a closed-form adjoint (the mechanism `lineax`/`optimistix` use internally for differentiable solves)

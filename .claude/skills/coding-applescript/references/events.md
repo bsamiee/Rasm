@@ -14,7 +14,7 @@ A target descriptor decides routing before terminology resolves. `typeApplicatio
 
 Descriptor type selection carries its own security and coercion behavior. Text payloads ride `typeUTF8Text` or `typeUTF16ExternalRepresentation`; file references ride `typeFileURL` or `typeBookmarkData`; structured payloads ride `typeAERecord` for keyed records and `typeAEList` for ordered collections; object references ride object-specifier descriptors; numeric payloads ride explicit fixed-width descriptor types rather than a coerced string.
 
-A sender that transmits `document 1` transmits a descriptor tree carrying desired class, container, form, and key data, and the receiver resolves that tree inside its own object model on receipt.
+A sender that transmits `document 1` transmits a descriptor tree carrying desired class, container, form, and key data, and the receiver resolves that tree inside its own object model when received.
 
 ## [03]-[EVENT_CONSTRUCTION]
 
@@ -106,7 +106,6 @@ Reply and interaction axes are mutually exclusive; modifiers compose freely.
 |  [06]   | Interaction | `kAEAlwaysInteract` | `0x30`   | `NSAppleEventSendAlwaysInteract` | receiver always fronts UI              |
 |  [07]   | Modifier    | `kAECanSwitchLayer` | `0x40`   | `NSAppleEventSendCanSwitchLayer` | permits a layer switch to the receiver |
 |  [08]   | Modifier    | `kAEDontReconnect`  | `0x80`   | none                             | suppresses automatic session reconnect |
-|  [09]   | Modifier    | `kAEWantReceipt`    | `0x200`  | none                             | requests a transport return receipt    |
 |  [10]   | Modifier    | `kAEDontRecord`     | `0x1000` | `NSAppleEventSendDontRecord`     | excludes the event from recording      |
 |  [11]   | Modifier    | `kAEDontExecute`    | `0x2000` | `NSAppleEventSendDontExecute`    | builds the event without executing it  |
 
@@ -132,7 +131,7 @@ set safePath to quoted form of userSuppliedPath
 do shell script "rm -rf " & safePath
 ```
 
-Audit receipts hash the payload and never store it: a script body carries secrets, so the durable receipt persists a source digest and non-secret outcome fields, never a secret-bearing body that outlives the send.
+Logs never store a script payload: a script body carries secrets, so telemetry records only non-secret outcome fields.
 
 ## [06]-[FAILURE_SHAPES]
 

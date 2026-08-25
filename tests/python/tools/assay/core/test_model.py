@@ -35,7 +35,6 @@ from assay.core.model import (
     Diagnostic,
     Envelope,
     envelope,
-    ExecReceipt,
     Fault,
     field_cap,
     HOST_BOUND_CLAIMS,
@@ -47,7 +46,7 @@ from assay.core.model import (
     Parser,
     ProvisionRun,
     RailStatus,
-    receipt,
+    RemoteExecution,
     Report,
     RunDelta,
     Runner,
@@ -66,12 +65,7 @@ from assay.core.model import (
 )
 from assay.diagnostics import fold
 from tests.python._testkit.laws import spec
-from tests.python._testkit.spec import (
-    assert_roundtrip,
-    idempotent,
-    metamorphic,
-    refutes,
-)
+from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic, refutes
 from tests.python.tools.assay.kit import (
     api_resolution_st,
     api_source_st,
@@ -85,12 +79,12 @@ from tests.python.tools.assay.kit import (
     detail_st,
     diagnostic_st,
     envelope_st,
-    exec_receipt_st,
     fault_st,
     match_st,
     package_run_st,
     provision_run_st,
     rail_status_st,
+    remote_execution_st,
     report_st,
     run_delta_st,
     run_snapshot_st,
@@ -111,7 +105,7 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (Tool, tool_st),
     (Artifact, artifact_st),
     (Completed, completed_st),
-    (ExecReceipt, exec_receipt_st),
+    (RemoteExecution, remote_execution_st),
     (Fault, fault_st),
     (Counts, counts_st),
     (Match, match_st),
@@ -133,15 +127,7 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
 
 _STATUSES: tuple[RailStatus, ...] = tuple(RailStatus)
 
-_FROM_RC: tuple[tuple[int, RailStatus], ...] = (
-    (0, RailStatus.EMPTY),
-    (5, RailStatus.BUSY),
-    (124, RailStatus.TIMEOUT),
-    (1, RailStatus.FAILED),
-    (2, RailStatus.FAILED),
-    (127, RailStatus.FAILED),
-    (255, RailStatus.FAILED),
-)
+_FROM_RC: tuple[tuple[int, RailStatus], ...] = ((0, RailStatus.EMPTY), (5, RailStatus.BUSY), (124, RailStatus.TIMEOUT), (1, RailStatus.FAILED), (2, RailStatus.FAILED), (127, RailStatus.FAILED), (255, RailStatus.FAILED))
 
 _PRE_TRACE_ENVELOPE: bytes = (
     b'{"claim":"static","verb":"fix","status":"faulted","exit_code":2,'
@@ -152,23 +138,7 @@ _PRE_TRACE_ENVELOPE: bytes = (
     b'"resource":[["mem.rss_bytes",95715328.0],["sys.mem_percent",52.6],["sys.swap_percent",80.9]]}}'
 )
 
-COVERS: tuple[object, ...] = (
-    *(row[0] for row in _WIRE_ROWS),
-    Band,
-    Base,
-    BaseParams,
-    Bind,
-    Detail,
-    envelope,
-    field_cap,
-    fold,
-    language_choice,
-    receipt,
-    ToolArgs,
-    validate_detail,
-    wire_encode,
-    wire_safe,
-)
+COVERS: tuple[object, ...] = (*(row[0] for row in _WIRE_ROWS), Band, Base, BaseParams, Bind, Detail, envelope, field_cap, fold, language_choice, ToolArgs, validate_detail, wire_encode, wire_safe)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -293,15 +263,7 @@ def test_only_a_reached_verdict_bands_as_proved_or_refused() -> None:
     banded = {band: {status for status in RailStatus if status.band is band} for band in Band}
     assert banded[Band.PROVED] == {RailStatus.OK, RailStatus.EMPTY}, "only a lane that ran and answered clean is proved"
     assert banded[Band.REFUSED] == {RailStatus.FAILED}, "only a lane that ran and found defects is refused"
-    assert banded[Band.UNPROVED] == {
-        RailStatus.SKIP,
-        RailStatus.DEGRADED,
-        RailStatus.CANDIDATE,
-        RailStatus.UNSUPPORTED,
-        RailStatus.BUSY,
-        RailStatus.TIMEOUT,
-        RailStatus.FAULTED,
-    }, "a lane that reached no verdict proves nothing, however clean its exit code"
+    assert banded[Band.UNPROVED] == {RailStatus.SKIP, RailStatus.DEGRADED, RailStatus.CANDIDATE, RailStatus.UNSUPPORTED, RailStatus.BUSY, RailStatus.TIMEOUT, RailStatus.FAULTED}, "a lane that reached no verdict proves nothing, however clean its exit code"
     assert set().union(*banded.values()) == set(RailStatus), "the bands must cover the vocabulary"
 
 
@@ -394,31 +356,31 @@ def test_fold_empty_outcomes_is_empty_report() -> None:
     assert report.status is RailStatus.EMPTY
 
 
-def test_fold_merges_every_remote_receipt_not_just_the_first() -> None:
-    """A multi-check remote fold folds every outcome's ExecReceipt: push/pull counts sum, notes concat, host identity stays.
+def test_fold_merges_every_remote_execution() -> None:
+    """A multi-check remote fold sums transfer counts, concatenates notes, and preserves host identity.
 
-    A fan-out over one ``exec_target`` yields one receipt per check; the carrier must surface all transfer evidence,
-    not silently drop every receipt after the first as ``next(...)`` did.
+    A fan-out over one ``exec_target`` yields one value per check; the carrier must surface all transfer evidence.
     """
-    rx = ExecReceipt(target="ssh://root@vps:22", host="vps", exit_status=0, pushed=3, pulled=2, notes=("a",))
-    ry = ExecReceipt(target="ssh://root@vps:22", host="vps", exit_status=0, pushed=4, pulled=1, notes=("b",))
-    outcomes = (msgspec.structs.replace(receipt(("x",), 0), exec=rx), msgspec.structs.replace(receipt(("y",), 0), exec=ry))
+    rx = RemoteExecution(target="ssh://root@vps:22", host="vps", exit_status=0, pushed=3, pulled=2, notes=("a",))
+    ry = RemoteExecution(target="ssh://root@vps:22", host="vps", exit_status=0, pushed=4, pulled=1, notes=("b",))
+    outcomes = (Completed(argv=("x",), returncode=0, status=RailStatus.from_returncode(0), remote=rx), Completed(argv=("y",), returncode=0, status=RailStatus.from_returncode(0), remote=ry))
     report = fold(Claim.STATIC, "check", outcomes)
-    assert report.exec is not None
-    assert (report.exec.pushed, report.exec.pulled) == (7, 3), f"counts did not sum across receipts: {report.exec!r}"
-    assert report.exec.notes == ("a", "b"), f"notes did not concat across receipts: {report.exec.notes!r}"
-    assert (report.exec.host, report.exec.target) == ("vps", "ssh://root@vps:22")
+    assert report.remote is not None
+    assert (report.remote.pushed, report.remote.pulled) == (7, 3), f"transfer counts did not sum: {report.remote!r}"
+    assert report.remote.notes == ("a", "b"), f"notes did not concatenate: {report.remote.notes!r}"
+    assert (report.remote.host, report.remote.target) == ("vps", "ssh://root@vps:22")
 
 
-def test_fold_local_run_leaves_exec_carrier_none() -> None:
-    """A fold over outcomes that never offloaded leaves the dedicated exec carrier None."""
-    assert fold(Claim.STATIC, "check", (receipt(("ruff",), 0),)).exec is None
+def test_fold_local_run_leaves_remote_carrier_none() -> None:
+    """A fold over local outcomes leaves the remote carrier empty."""
+    done = Completed(argv=("ruff",), returncode=0, status=RailStatus.from_returncode(0))
+    assert fold(Claim.STATIC, "check", (done,)).remote is None
 
 
 def test_fold_failed_defect_row_carries_argv_id_and_stderr_tail() -> None:
-    """A FAILED receipt's defect row ids the shell-rendered argv and carries the 4 KiB stderr tail."""
+    """A FAILED outcome's defect row ids the shell-rendered argv and carries the 4 KiB stderr tail."""
     payload = b"x" * 5000
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "format", "src/App.csproj"), 1, stderr=payload),))
+    report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet", "format", "src/App.csproj"), returncode=1, stderr=payload, status=RailStatus.from_returncode(1)),))
     assert report.results
     assert report.results[0].id == "dotnet format src/App.csproj"
     assert report.results[0].text == payload[-4096:].decode()
@@ -429,20 +391,20 @@ def _stamped(done: Completed, parser: Parser) -> Completed:
 
 
 def test_fold_ignores_argv_text_without_parser_stamp() -> None:
-    """An unstamped receipt contributes no parsed diagnostic rows even when argv names a known tool — argv sniffing is dead."""
+    """An unstamped outcome contributes no parsed diagnostic rows even when argv names a known tool — argv sniffing is dead."""
     payload = b"pkg/a.py:3:5: error: Incompatible types in assignment [assignment]\n"
-    report = fold(Claim.STATIC, "check", (receipt(("uv", "run", "mypy"), 1, stdout=payload),))
+    report = fold(Claim.STATIC, "check", (Completed(argv=("uv", "run", "mypy"), returncode=1, stdout=payload, status=RailStatus.from_returncode(1)),))
     assert [m.severity for m in report.results] == ["failed"], "unstamped output must fold to the defect tail only"
 
 
 def test_fold_non_static_claims_keep_converted_rows_and_stay_inert_for_none() -> None:
-    """A non-static claim keeps the rows its stamped parser converted ahead of the defect tail; a Parser.NONE receipt converts to nothing."""
+    """A non-static claim keeps converted rows ahead of the defect tail; a Parser.NONE outcome converts to nothing."""
     annotation = b'{"path":"p.proto","start_line":4,"start_column":1,"end_line":4,"end_column":9,"type":"PACKAGE_DIRECTORY_MATCH","message":"m"}\n'
-    stamped = _stamped(receipt(("buf", "lint"), 100, stdout=annotation, status=RailStatus.FAILED), Parser.BUF)
+    stamped = _stamped(Completed(argv=("buf", "lint"), returncode=100, stdout=annotation, status=RailStatus.FAILED), Parser.BUF)
     report = fold(Claim.CONTRACTS, "check", (stamped,))
     assert [(m.id, m.severity) for m in report.results] == [("buf:package_directory_match", "error"), ("buf lint", "failed")]
-    plain = fold(Claim.CONTRACTS, "check", (receipt(("buf", "lint"), 100, stdout=annotation, status=RailStatus.FAILED),))
-    assert [m.severity for m in plain.results] == ["failed"], "an unstamped receipt must fold to the defect tail alone"
+    plain = fold(Claim.CONTRACTS, "check", (Completed(argv=("buf", "lint"), returncode=100, stdout=annotation, status=RailStatus.FAILED),))
+    assert [m.severity for m in plain.results] == ["failed"], "an unstamped outcome must fold to the defect tail alone"
 
 
 # --- [SARIF_FOLD]
@@ -467,31 +429,20 @@ def _sarif_drop(tmp_path: Path, **files: bytes) -> str:
     return str(sarif_dir)
 
 
-@pytest.mark.parametrize(
-    "level, severity",
-    [("error", "error"), ("warning", "warning"), ("note", "info"), ("none", "info"), (None, "warning")],
-    ids=["error", "warning", "note_rides_info", "none_rides_info", "absent_defaults_warning"],
-)
+@pytest.mark.parametrize("level, severity", [("error", "error"), ("warning", "warning"), ("note", "info"), ("none", "info"), (None, "warning")], ids=["error", "warning", "note_rides_info", "none_rides_info", "absent_defaults_warning"])
 def test_fold_sarif_level_maps_to_assay_severity(level: str | None, severity: str, tmp_path: Path) -> None:
     """SARIF levels map to assay severity while absent levels keep the SARIF warning default."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0903", level, 12, "tone probe")))
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
-    assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.message) for m in report.results] == [
-        ("csp0903", ArtifactKind.CODE, severity, "src/Probe.cs", 12, 1, "tone probe")
-    ]
+    report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet",), returncode=0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.message) for m in report.results] == [("csp0903", ArtifactKind.CODE, severity, "src/Probe.cs", 12, 1, "tone probe")]
     assert "src/Probe.cs" in report.results[0].text
     assert "tone probe" in report.results[0].text
 
 
 def test_fold_sarif_error_rows_fail_static_report(tmp_path: Path) -> None:
     """Error-level SARIF rows make static folds fail while exact duplicate source diagnostics dedupe before capping."""
-    sarif_dir = _sarif_drop(
-        tmp_path,
-        a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha"), _sarif_result("CSP0202", "warning", 7, "beta")),
-        b=_sarif_doc(_sarif_result("CSP0903", "note", 1, "gamma"), runs=2),
-        broken=b"{ not sarif",
-    )
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    sarif_dir = _sarif_drop(tmp_path, a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha"), _sarif_result("CSP0202", "warning", 7, "beta")), b=_sarif_doc(_sarif_result("CSP0903", "note", 1, "gamma"), runs=2), broken=b"{ not sarif")
+    report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet",), returncode=0, status=RailStatus.OK),), sarif_dir=sarif_dir)
     assert [m.id for m in report.results] == ["csp0101", "csp0202", "csp0903"]
     assert report.status is RailStatus.FAILED
     assert report.counts == Counts.of(RailStatus.OK)
@@ -502,22 +453,20 @@ def test_fold_sarif_suppressed_error_is_dropped_and_does_not_gate(tmp_path: Path
     """A pragma-suppressed error-level SARIF result never surfaces or gates, so the rail tracks dotnet build rc=0."""
     suppressed = {**_sarif_result("CA1822", "error", 5, "suppressed in source"), "suppressions": [{"kind": "inSource"}]}
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(suppressed))
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet",), returncode=0, status=RailStatus.OK),), sarif_dir=sarif_dir)
     assert report.results == ()
     assert report.status is RailStatus.OK
 
 
 def test_fold_sarif_findings_scope_to_built_project_stem(tmp_path: Path) -> None:
     """A .csproj build keys only its own <stem>.sarif so a dependency project never leaks cross-project findings."""
-    sarif_dir = _sarif_drop(
-        tmp_path, a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "target")), b=_sarif_doc(_sarif_result("CSP0202", "error", 7, "dependency"))
-    )
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet", "build", "a.csproj"), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+    sarif_dir = _sarif_drop(tmp_path, a=_sarif_doc(_sarif_result("CSP0101", "error", 3, "target")), b=_sarif_doc(_sarif_result("CSP0202", "error", 7, "dependency")))
+    report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet", "build", "a.csproj"), returncode=0, status=RailStatus.OK),), sarif_dir=sarif_dir)
     assert [m.id for m in report.results] == ["csp0101"]
 
 
 def test_fold_sarif_reads_build_scoped_csp_sarif_dirs(tmp_path: Path) -> None:
-    """Build receipts read their own typed sarif_dir stamp, with .csproj rows still scoped to the target project stem."""
+    """Build outcomes read their typed sarif_dir stamp, with .csproj rows scoped to the target project stem."""
     sarif_dir = tmp_path / "sarif"
     app_dir, lib_dir = sarif_dir / "App-a1", sarif_dir / "Lib-b2"
     app_dir.mkdir(parents=True)
@@ -526,8 +475,8 @@ def test_fold_sarif_reads_build_scoped_csp_sarif_dirs(tmp_path: Path) -> None:
     (app_dir / "Dep.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0202", "error", 7, "dependency")))
     (lib_dir / "Lib.sarif").write_bytes(_sarif_doc(_sarif_result("CSP0303", "warning", 11, "second")))
     outcomes = (
-        msgspec.structs.replace(receipt(("dotnet", "build", "src/App/App.csproj"), 0, status=RailStatus.OK), sarif_dir=str(app_dir)),
-        msgspec.structs.replace(receipt(("dotnet", "build", "src/Lib/Lib.csproj"), 0, status=RailStatus.OK), sarif_dir=str(lib_dir)),
+        msgspec.structs.replace(Completed(argv=("dotnet", "build", "src/App/App.csproj"), returncode=0, status=RailStatus.OK), sarif_dir=str(app_dir)),
+        msgspec.structs.replace(Completed(argv=("dotnet", "build", "src/Lib/Lib.csproj"), returncode=0, status=RailStatus.OK), sarif_dir=str(lib_dir)),
     )
     report = fold(Claim.STATIC, "build", outcomes, sarif_dir=str(sarif_dir))
     assert [m.id for m in report.results] == ["csp0101", "csp0303"]
@@ -537,16 +486,16 @@ def test_fold_sarif_reads_build_scoped_csp_sarif_dirs(tmp_path: Path) -> None:
 def test_fold_static_source_diagnostics_precede_defect_rows(tmp_path: Path) -> None:
     """Static folds rank source diagnostics ahead of process-tail fallback rows."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0101", "error", 3, "alpha")))
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 1, stderr=b"CS0103: boom"),), sarif_dir=sarif_dir)
+    report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet",), returncode=1, stderr=b"CS0103: boom", status=RailStatus.from_returncode(1)),), sarif_dir=sarif_dir)
     assert [(m.id, m.severity) for m in report.results] == [("csp0101", "error"), ("dotnet", "failed")]
     assert report.status is RailStatus.FAILED
     assert report.counts == Counts.of(RailStatus.FAILED)
 
 
-def test_fold_static_note_only_sarif_promotes_empty_receipt_to_ok(tmp_path: Path) -> None:
+def test_fold_static_note_only_sarif_promotes_empty_outcome_to_ok(tmp_path: Path) -> None:
     """``promote_empty`` keeps a note-only SARIF static run ok, not empty."""
     sarif_dir = _sarif_drop(tmp_path, probe=_sarif_doc(_sarif_result("CSP0903", "note", 1, "gamma")))
-    report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.EMPTY),), sarif_dir=sarif_dir, promote_empty=True)
+    report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet",), returncode=0, status=RailStatus.EMPTY),), sarif_dir=sarif_dir, promote_empty=True)
     assert [(m.id, m.severity) for m in report.results] == [("csp0903", "info")]
     assert report.status is RailStatus.OK
     assert report.counts == Counts.of(RailStatus.EMPTY)
@@ -554,7 +503,7 @@ def test_fold_static_note_only_sarif_promotes_empty_receipt_to_ok(tmp_path: Path
 
 def test_fold_static_green_executed_rows_are_ok() -> None:
     """A ``promote_empty`` static check that ran clean with no diagnostics reports ok instead of empty."""
-    report = fold(Claim.STATIC, "check", (receipt(("ruff",), 0, status=RailStatus.EMPTY),), promote_empty=True)
+    report = fold(Claim.STATIC, "check", (Completed(argv=("ruff",), returncode=0, status=RailStatus.EMPTY),), promote_empty=True)
     assert report.results == ()
     assert report.status is RailStatus.OK
     assert report.counts == Counts.of(RailStatus.EMPTY)
@@ -563,7 +512,7 @@ def test_fold_static_green_executed_rows_are_ok() -> None:
 def test_fold_promote_empty_is_opt_in_per_claim() -> None:
     """``promote_empty`` gates the promotion: an eligible claim stays empty by default and folds to ok only on opt-in."""
     for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS, Claim.TEST):
-        outcomes = (receipt((claim.value,), 0, status=RailStatus.EMPTY),)
+        outcomes = (Completed(argv=(claim.value,), returncode=0, status=RailStatus.EMPTY),)
         assert fold(claim, "check", outcomes).status is RailStatus.EMPTY
         promoted = fold(claim, "check", outcomes, promote_empty=True)
         assert promoted.status is RailStatus.OK
@@ -573,11 +522,8 @@ def test_fold_promote_empty_is_opt_in_per_claim() -> None:
 def test_fold_dotnet_process_output_parses_and_dedupes_source_diagnostics() -> None:
     """Dotnet format/build output becomes source Match rows before fallback tails, with exact duplicates collapsed."""
     line = b"src/App/HostControl.cs(148,71): error VSTHRD002: Synchronously waiting on tasks may deadlock [src/App/App.csproj]"
-    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=line + b"\n" + line), Parser.CS_CONSOLE),))
-    assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.score, m.project) for m in report.results[:2]] == [
-        ("vsthrd002", ArtifactKind.CODE, "error", "src/App/HostControl.cs", 148, 71, 71, "src/App/App.csproj"),
-        ("dotnet build", ArtifactKind.PROCESS, "failed", "", 0, 0, 0, ""),
-    ]
+    report = fold(Claim.STATIC, "build", (_stamped(Completed(argv=("dotnet", "build"), returncode=1, stdout=line + b"\n" + line, status=RailStatus.from_returncode(1)), Parser.CS_CONSOLE),))
+    assert [(m.id, m.kind, m.severity, m.path, m.line, m.column, m.score, m.project) for m in report.results[:2]] == [("vsthrd002", ArtifactKind.CODE, "error", "src/App/HostControl.cs", 148, 71, 71, "src/App/App.csproj"), ("dotnet build", ArtifactKind.PROCESS, "failed", "", 0, 0, 0, "")]
     assert report.results[0].message == "Synchronously waiting on tasks may deadlock"
     assert "HostControl.cs(148,71)" in report.results[0].text
 
@@ -586,73 +532,35 @@ def test_fold_dotnet_process_output_parses_and_dedupes_source_diagnostics() -> N
     "parser, payload, expected",
     [
         (Parser.RUFF, b"error[F401]: unused import\n --> pkg/a.py:1:1\n", ("ruff:f401", "error", "pkg/a.py", 1, 1, "unused import")),
-        (
-            Parser.RUFF,
-            b"line-too-long: Line too long (165 > 150)\n --> pkg/a.py:3:151\n",
-            ("ruff:line-too-long", "error", "pkg/a.py", 3, 151, "Line too long (165 > 150)"),
-        ),
-        (
-            Parser.TY,
-            b"error[unresolved-attribute]: object has no member\n --> pkg/a.py:2:9\n",
-            ("ty:unresolved-attribute", "error", "pkg/a.py", 2, 9, "object has no member"),
-        ),
-        (
-            Parser.MYPY,
-            b"pkg/a.py:3:5: error: Incompatible types in assignment [assignment]\n",
-            ("mypy:assignment", "error", "pkg/a.py", 3, 5, "Incompatible types in assignment"),
-        ),
-        (
-            Parser.TSC,
-            b"src/a.ts(4,7): error TS2322: Type 'number' is not assignable to type 'string'.\n",
-            ("tsc:ts2322", "error", "src/a.ts", 4, 7, "Type 'number' is not assignable to type 'string'."),
-        ),
+        (Parser.RUFF, b"line-too-long: Line too long (165 > 150)\n --> pkg/a.py:3:151\n", ("ruff:line-too-long", "error", "pkg/a.py", 3, 151, "Line too long (165 > 150)")),
+        (Parser.TY, b"error[unresolved-attribute]: object has no member\n --> pkg/a.py:2:9\n", ("ty:unresolved-attribute", "error", "pkg/a.py", 2, 9, "object has no member")),
+        (Parser.MYPY, b"pkg/a.py:3:5: error: Incompatible types in assignment [assignment]\n", ("mypy:assignment", "error", "pkg/a.py", 3, 5, "Incompatible types in assignment")),
+        (Parser.TSC, b"src/a.ts(4,7): error TS2322: Type 'number' is not assignable to type 'string'.\n", ("tsc:ts2322", "error", "src/a.ts", 4, 7, "Type 'number' is not assignable to type 'string'.")),
         (Parser.RUFF_FORMAT, b"Would reformat: pkg/a.py\n", ("ruff-format:format", "error", "pkg/a.py", 0, 0, "file would be reformatted")),
-        (
-            Parser.RUFF_FORMAT,
-            b"unformatted: File would be reformatted\n --> pkg/a.py:1:1\n",
-            ("ruff-format:unformatted", "error", "pkg/a.py", 1, 1, "File would be reformatted"),
-        ),
+        (Parser.RUFF_FORMAT, b"unformatted: File would be reformatted\n --> pkg/a.py:1:1\n", ("ruff-format:unformatted", "error", "pkg/a.py", 1, 1, "File would be reformatted")),
     ],
     ids=["ruff", "ruff-full", "ty", "mypy", "tsc", "ruff-format", "ruff-format-full"],
 )
 def test_fold_static_text_tools_emit_structured_diagnostics(parser: Parser, payload: bytes, expected: tuple[str, str, str, int, int, str]) -> None:
     """Text diagnostics from Python and TypeScript tools become first-class source Match rows, keyed by the parser stamp."""
-    report = fold(Claim.STATIC, "check", (_stamped(receipt(("tool",), 1, stdout=payload), parser),))
+    report = fold(Claim.STATIC, "check", (_stamped(Completed(argv=("tool",), returncode=1, stdout=payload, status=RailStatus.from_returncode(1)), parser),))
     row = report.results[0]
     assert (row.id, row.severity, row.path, row.line, row.column, row.message) == expected
 
 
 def test_fold_static_json_tools_emit_structured_diagnostics() -> None:
     """Embedded Biome JSON diagnostics become first-class source Match rows."""
-    biome_payload = msgspec.json.encode({
-        "diagnostics": [
-            {
-                "severity": "warning",
-                "message": "unused variable",
-                "category": "lint/correctness/noUnusedVariables",
-                "location": {"path": "src/a.ts", "start": {"line": 6, "column": 3}},
-            }
-        ]
-    })
-    report = fold(
-        Claim.STATIC,
-        "check",
-        (_stamped(receipt(("pnpm", "exec", "biome"), 1, stdout=b"Checked 1 file\n" + biome_payload + b"\nFound 1 error.\n"), Parser.BIOME),),
-    )
-    assert [(row.id, row.severity, row.path, row.line, row.column, row.message) for row in report.results[:1]] == [
-        ("biome:lint/correctness/nounusedvariables", "warning", "src/a.ts", 6, 3, "unused variable")
-    ]
+    biome_payload = msgspec.json.encode({"diagnostics": [{"severity": "warning", "message": "unused variable", "category": "lint/correctness/noUnusedVariables", "location": {"path": "src/a.ts", "start": {"line": 6, "column": 3}}}]})
+    report = fold(Claim.STATIC, "check", (_stamped(Completed(argv=("pnpm", "exec", "biome"), returncode=1, stdout=b"Checked 1 file\n" + biome_payload + b"\nFound 1 error.\n", status=RailStatus.from_returncode(1)), Parser.BIOME),))
+    assert [(row.id, row.severity, row.path, row.line, row.column, row.message) for row in report.results[:1]] == [("biome:lint/correctness/nounusedvariables", "warning", "src/a.ts", 6, 3, "unused variable")]
 
 
 def test_fold_dotnet_same_location_distinct_messages_are_distinct() -> None:
     """Same-location compiler rows with different messages remain separate structured diagnostics."""
     first = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PingAsync cannot implement static member"
     second = b"src/App/Probe.cs(30,35): error CS0736: ShellStub.PrepareQuitAsync cannot implement static member"
-    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=b"\n".join((first, second))), Parser.CS_CONSOLE),))
-    assert [row.message for row in report.results[:2]] == [
-        "ShellStub.PingAsync cannot implement static member",
-        "ShellStub.PrepareQuitAsync cannot implement static member",
-    ]
+    report = fold(Claim.STATIC, "build", (_stamped(Completed(argv=("dotnet", "build"), returncode=1, stdout=b"\n".join((first, second)), status=RailStatus.from_returncode(1)), Parser.CS_CONSOLE),))
+    assert [row.message for row in report.results[:2]] == ["ShellStub.PingAsync cannot implement static member", "ShellStub.PrepareQuitAsync cannot implement static member"]
 
 
 def test_fold_static_dedupes_process_and_sarif_source_diagnostics(tmp_path: Path) -> None:
@@ -664,28 +572,10 @@ def test_fold_static_dedupes_process_and_sarif_source_diagnostics(tmp_path: Path
         tmp_path,
         probe=msgspec.json.encode({
             "version": "2.1.0",
-            "runs": [
-                {
-                    "results": [
-                        {
-                            "ruleId": "VSTHRD002",
-                            "level": "error",
-                            "message": {"text": "Synchronously waiting on tasks may deadlock"},
-                            "locations": [
-                                {
-                                    "physicalLocation": {
-                                        "artifactLocation": {"uri": f"file://{source}"},
-                                        "region": {"startLine": 148, "startColumn": 71},
-                                    }
-                                }
-                            ],
-                        }
-                    ]
-                }
-            ],
+            "runs": [{"results": [{"ruleId": "VSTHRD002", "level": "error", "message": {"text": "Synchronously waiting on tasks may deadlock"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": f"file://{source}"}, "region": {"startLine": 148, "startColumn": 71}}}]}]}],
         }),
     )
-    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=line), Parser.CS_CONSOLE),), sarif_dir=sarif_dir)
+    report = fold(Claim.STATIC, "build", (_stamped(Completed(argv=("dotnet", "build"), returncode=1, stdout=line, status=RailStatus.from_returncode(1)), Parser.CS_CONSOLE),), sarif_dir=sarif_dir)
     assert [(m.id, m.path, m.line, m.column) for m in report.results[:2]] == [("vsthrd002", source, 148, 71), ("dotnet build", "", 0, 0)]
     assert "diagnostics: total=1 source=1 generated=0 error=1 warning=0 info=0" in report.notes
     assert "diagnostics.rules: vsthrd002=1" in report.notes
@@ -704,28 +594,10 @@ def test_fold_static_dedupes_relative_console_against_absolute_sarif(tmp_path: P
         tmp_path,
         probe=msgspec.json.encode({
             "version": "2.1.0",
-            "runs": [
-                {
-                    "results": [
-                        {
-                            "ruleId": "VSTHRD002",
-                            "level": "error",
-                            "message": {"text": "Synchronously waiting on tasks may deadlock"},
-                            "locations": [
-                                {
-                                    "physicalLocation": {
-                                        "artifactLocation": {"uri": f"file://{absolute}"},
-                                        "region": {"startLine": 148, "startColumn": 71},
-                                    }
-                                }
-                            ],
-                        }
-                    ]
-                }
-            ],
+            "runs": [{"results": [{"ruleId": "VSTHRD002", "level": "error", "message": {"text": "Synchronously waiting on tasks may deadlock"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": f"file://{absolute}"}, "region": {"startLine": 148, "startColumn": 71}}}]}]}],
         }),
     )
-    report = fold(Claim.STATIC, "build", (_stamped(receipt(("dotnet", "build"), 1, stdout=line), Parser.CS_CONSOLE),), sarif_dir=sarif_dir)
+    report = fold(Claim.STATIC, "build", (_stamped(Completed(argv=("dotnet", "build"), returncode=1, stdout=line, status=RailStatus.from_returncode(1)), Parser.CS_CONSOLE),), sarif_dir=sarif_dir)
     source_rows = tuple(m for m in report.results if m.id == "vsthrd002")
     assert len(source_rows) == 1
     assert "diagnostics: total=1 source=1 generated=0 error=1 warning=0 info=0" in report.notes
@@ -734,17 +606,10 @@ def test_fold_static_dedupes_relative_console_against_absolute_sarif(tmp_path: P
 def test_fold_static_groups_generated_diagnostics_after_source_rows() -> None:
     """Generated obj diagnostics are grouped so repeated CS0436 rows cannot crowd source errors out of the cap."""
     source = b"tools/rhino-bridge/Shell/ShellHost.cs(297,22): error MA0006: Use string.Equals instead of Equals operator"
-    generated = (
-        b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): "
-        b"warning CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
-    )
-    stamped = _stamped(receipt(("dotnet", "build"), 1, stdout=b"\n".join((generated, source, generated))), Parser.CS_CONSOLE)
+    generated = b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): warning CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
+    stamped = _stamped(Completed(argv=("dotnet", "build"), returncode=1, stdout=b"\n".join((generated, source, generated)), status=RailStatus.from_returncode(1)), Parser.CS_CONSOLE)
     report = fold(Claim.STATIC, "build", (stamped,))
-    assert [(m.id, m.kind, m.severity, m.count) for m in report.results[:3]] == [
-        ("ma0006", ArtifactKind.CODE, "error", 0),
-        ("cs0436", ArtifactKind.PROCESS, "warning", 2),
-        ("dotnet build", ArtifactKind.PROCESS, "failed", 0),
-    ]
+    assert [(m.id, m.kind, m.severity, m.count) for m in report.results[:3]] == [("ma0006", ArtifactKind.CODE, "error", 0), ("cs0436", ArtifactKind.PROCESS, "warning", 2), ("dotnet build", ArtifactKind.PROCESS, "failed", 0)]
     assert report.results[1].text.startswith("generated diagnostics grouped count=2:")
     assert "diagnostics: total=3 source=1 generated=2 error=1 warning=2 info=0" in report.notes
     assert "diagnostics.rules: cs0436=2 ma0006=1" in report.notes
@@ -752,26 +617,15 @@ def test_fold_static_groups_generated_diagnostics_after_source_rows() -> None:
 
 def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
     """Generated ``obj`` diagnostics stay visible without making an otherwise successful static fold fail."""
-    generated = (
-        b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): "
-        b"error CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
-    )
-    stamped = _stamped(receipt(("dotnet", "build"), 0, status=RailStatus.EMPTY, stdout=generated), Parser.CS_CONSOLE)
+    generated = b".artifacts/assay/build/abc/Release/obj/Debug/net10.0/Scenarios.GlobalUsings.g.cs(18,25): error CS0436: The type conflicts with imported type [tools/rhino-bridge/Scenarios.csproj]"
+    stamped = _stamped(Completed(argv=("dotnet", "build"), returncode=0, status=RailStatus.EMPTY, stdout=generated), Parser.CS_CONSOLE)
     report = fold(Claim.STATIC, "build", (stamped,), promote_empty=True)
     assert [(m.id, m.kind, m.severity, m.count) for m in report.results] == [("cs0436", ArtifactKind.PROCESS, "error", 1)]
     assert report.status is RailStatus.OK
     assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
 
 
-@pytest.mark.parametrize(
-    "path",
-    [
-        "libs/contracts/gen/python/rasm/contracts/rasm/contracts/compute/compute_connect.py",
-        "libs/contracts/gen/typescript/rasm/contracts/compute/compute_pb.ts",
-        "libs/contracts/gen/dotnet/Compute/ComputeGrpc.cs",
-    ],
-    ids=["python", "typescript", "dotnet"],
-)
+@pytest.mark.parametrize("path", ["libs/contracts/gen/python/rasm/contracts/rasm/contracts/compute/compute_connect.py", "libs/contracts/gen/typescript/rasm/contracts/compute/compute_pb.ts", "libs/contracts/gen/dotnet/Compute/ComputeGrpc.cs"], ids=["python", "typescript", "dotnet"])
 def test_fold_static_contracts_out_roots_census_as_generated(path: str) -> None:
     """Rows under a committed generated out root census as generated evidence, and the tool's own exit still fails the lane.
 
@@ -779,7 +633,7 @@ def test_fold_static_contracts_out_roots_census_as_generated(path: str) -> None:
     root would census as source and flood the display cap on every generator bump.
     """
     payload = f"error[missing-override-decorator]: overrides without @override\n --> {path}:7:9\n".encode()
-    report = fold(Claim.STATIC, "check", (_stamped(receipt(("ty",), 1, stdout=payload), Parser.TY),))
+    report = fold(Claim.STATIC, "check", (_stamped(Completed(argv=("ty",), returncode=1, stdout=payload, status=RailStatus.from_returncode(1)), Parser.TY),))
     assert [(m.id, m.kind, m.count) for m in report.results[:1]] == [("ty:missing-override-decorator", ArtifactKind.PROCESS, 1)]
     assert report.status is RailStatus.FAILED
     assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
@@ -788,7 +642,7 @@ def test_fold_static_contracts_out_roots_census_as_generated(path: str) -> None:
 def test_fold_sarif_absent_or_empty_dir_is_silent(tmp_path: Path) -> None:
     """A None, missing, or empty sarif directory contributes no rows and leaves the fold untouched."""
     for sarif_dir in (None, str(tmp_path / "missing" / "sarif"), _sarif_drop(tmp_path)):
-        report = fold(Claim.STATIC, "build", (receipt(("dotnet",), 0, status=RailStatus.OK),), sarif_dir=sarif_dir)
+        report = fold(Claim.STATIC, "build", (Completed(argv=("dotnet",), returncode=0, status=RailStatus.OK),), sarif_dir=sarif_dir)
         assert report.results == ()
         assert report.status is RailStatus.OK
 
@@ -827,37 +681,11 @@ def test_envelope_decodes_pre_trace_history_artifact() -> None:
     assert msgspec.json.decode(WIRE_ENCODER.encode(decoded), type=Envelope) == decoded, "pre-trace Envelope does not round-trip"
 
 
-# --- [RECEIPT]
-
-
-@pytest.mark.mutation
-@pytest.mark.parametrize(
-    "rc, explicit, expected",
-    [(0, None, RailStatus.EMPTY), (1, None, RailStatus.FAILED), (5, None, RailStatus.BUSY), (0, RailStatus.OK, RailStatus.OK)],
-)
-def test_receipt_status_derivation(rc: int, explicit: RailStatus | None, expected: RailStatus) -> None:
-    """Receipt derives status from the return code unless an explicit override is supplied."""
-    done = receipt(("ruff",), rc) if explicit is None else receipt(("ruff",), rc, status=explicit)
-    assert done.argv == ("ruff",)
-    assert done.returncode == rc
-    assert done.status is expected
-
-
 # --- [FIELD_CAP]
 
 
 @pytest.mark.mutation
-@pytest.mark.parametrize(
-    "subject, name, default, expected",
-    [
-        (Fault, "message", 0, 1024),
-        (Diagnostic, "hint", 0, 256),
-        (Match, "text", 0, 4096),
-        (VerifySummary, "first_fault_output", 0, 256),
-        (Fault, "argv", 42, 42),
-        (Counts, "absent", 7, 7),
-    ],
-)
+@pytest.mark.parametrize("subject, name, default, expected", [(Fault, "message", 0, 1024), (Diagnostic, "hint", 0, 256), (Match, "text", 0, 4096), (VerifySummary, "first_fault_output", 0, 256), (Fault, "argv", 42, 42), (Counts, "absent", 7, 7)])
 def test_field_cap_introspection(subject: type[msgspec.Struct], name: str, default: int, expected: int) -> None:
     """field_cap reads msgspec string caps and falls back for non-string or absent fields."""
     assert field_cap(subject, name, default=default) == expected
@@ -931,9 +759,7 @@ def test_tool_args_fill_tuple_splice_and_passthrough() -> None:
     assert args.fill(("test", "{argv*}")) == ("test",)
 
 
-@pytest.mark.parametrize(
-    "template", [("{targets}",), ("prefix-{filter}",), ("{max_cpu*}",)], ids=["tuple-embedded", "tuple-in-token", "string-under-star"]
-)
+@pytest.mark.parametrize("template", [("{targets}",), ("prefix-{filter}",), ("{max_cpu*}",)], ids=["tuple-embedded", "tuple-in-token", "string-under-star"])
 def test_tool_args_fill_kind_mismatch_faults(template: tuple[str, ...]) -> None:
     """A hole naming a field of the wrong kind (tuple embedded, or string under ``*``) raises ValueError."""
     with pytest.raises(ValueError, match="hole"):
@@ -966,23 +792,14 @@ def test_toolgroup_uv_flag_splits_dependency_groups_from_policy_tags() -> None:
     """Exactly the uv-flagged ToolGroup members name uv dependency groups; Tool.uv_groups keeps that subset, dropping policy tags."""
     uv_members = frozenset(g for g in ToolGroup if g.uv)
     assert uv_members == {ToolGroup.MUTATION}, "uv-dependency-group membership drifted from the MUTATION group"
-    tool = msgspec.structs.replace(
-        Tool("g", Runner.UV, ("ruff",), Input.NONE, Language.PYTHON, Claim.STATIC),
-        groups=(ToolGroup.MUTATION, ToolGroup.RUN_DEFAULT, ToolGroup.REQUIRES_COVERAGE),
-    )
+    tool = msgspec.structs.replace(Tool("g", Runner.UV, ("ruff",), Input.NONE, Language.PYTHON, Claim.STATIC), groups=(ToolGroup.MUTATION, ToolGroup.RUN_DEFAULT, ToolGroup.REQUIRES_COVERAGE))
     assert tool.uv_groups() == (ToolGroup.MUTATION,), "uv_groups must inject only genuine uv dependency groups for --group"
     assert msgspec.structs.replace(tool, groups=(ToolGroup.RUN_DEFAULT,)).uv_groups() == (), "a tag-only row injects no uv group"
 
 
 @pytest.mark.parametrize(
     "status, results, expected",
-    [
-        (SarifStatus.PRODUCED, 0, "produced:0"),
-        (SarifStatus.PRODUCED, 7, "produced:7"),
-        (SarifStatus.INCREMENTAL, 7, "absent:incremental"),
-        (SarifStatus.NO_BUILD, 7, "absent:no-build"),
-        (SarifStatus.BUILD_FAILED, 7, "absent:build-failed"),
-    ],
+    [(SarifStatus.PRODUCED, 0, "produced:0"), (SarifStatus.PRODUCED, 7, "produced:7"), (SarifStatus.INCREMENTAL, 7, "absent:incremental"), (SarifStatus.NO_BUILD, 7, "absent:no-build"), (SarifStatus.BUILD_FAILED, 7, "absent:build-failed")],
     ids=["produced_zero", "produced_qualified", "incremental", "no_build", "build_failed"],
 )
 def test_sarif_status_token_qualifies_produced_only(status: SarifStatus, results: int, expected: str) -> None:
@@ -990,11 +807,7 @@ def test_sarif_status_token_qualifies_produced_only(status: SarifStatus, results
     assert status.token(results) == expected
 
 
-@pytest.mark.parametrize(
-    "flags, expected",
-    [({}, None), ({"dotnet": True}, Language.DOTNET), ({"python": True}, Language.PYTHON), ({"typescript": True}, Language.TYPESCRIPT)],
-    ids=["unrestricted", "dotnet", "python", "typescript"],
-)
+@pytest.mark.parametrize("flags, expected", [({}, None), ({"dotnet": True}, Language.DOTNET), ({"python": True}, Language.PYTHON), ({"typescript": True}, Language.TYPESCRIPT)], ids=["unrestricted", "dotnet", "python", "typescript"])
 def test_language_choice_projects_single_flag(flags: dict[str, bool], expected: Language | None) -> None:
     """language_choice maps no flag to None (unrestricted) and one flag to that language."""
     assert language_choice("check", **flags) == expected

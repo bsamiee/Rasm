@@ -1,6 +1,6 @@
 # [RASM_FABRICATION_FAMILY]
 
-`ProcessKind`, `ProcessModality`, `InteractionKind`, `PhysicsKind`, `CutStrategy`, `MachineAxis`, and `PostDialect` remain bounded generated vocabularies. `Machine.Admit` generates equipment from keyed capability data, physical axes, holding, topology, and dimensional operating envelopes; canonical archetypes are `MachineIngress.Seed` data, never named machine API. Keyed selection accumulates axis failures before `ProcessFamily` resolves selection, ordering, connected families, policy-weighted compatibility routes, and slot-preserving fleet matching through typed receipts.
+`ProcessKind`, `ProcessModality`, `InteractionKind`, `PhysicsKind`, `CutStrategy`, `MachineAxis`, and `PostDialect` remain bounded generated vocabularies. `Machine.Admit` generates equipment from keyed capability data, physical axes, holding, topology, and dimensional operating envelopes; canonical archetypes are `MachineIngress.Seed` data, never named machine API. Keyed selection accumulates axis failures before `ProcessFamily` resolves selection, ordering, connected families, policy-weighted compatibility routes, and slot-preserving fleet matching through typed results.
 
 `MachineAxis` seats here beside the machine model it addresses: `Order` is TOTAL across the roster, so a posting block order never depends on declaration accident, and a gantry pair derives from the two duplicated rows sharing one address rather than from a companion string looked up by name.
 
@@ -1048,12 +1048,12 @@ public sealed partial class Machine {
 
 ## [04]-[FAMILY_GRAPH]
 
-- Owner: `ProcessFamily` owns the relational graph over the bounded axes and the admitted machines; `FamilyOp` names the queries; `FamilyResult` carries their receipts.
+- Owner: `ProcessFamily` owns the relational graph over the bounded axes and the admitted machines; `FamilyOp` names the queries; `FamilyResult` carries their results.
 - Entry: `ProcessFamily.Admit` consumes a machine registry; `FamilyOp.Select` carries one admitted `ProcessSelection`; `ProcessFamily.Apply` consumes one `FamilyOp` modality.
 - Law: routing weights are FINITE. A process node is the route's own pivot and every path transits one, so pricing it at infinity makes every total weight infinite and the weighted lane degenerate — a hop costs what `RouteBias` prices its node kind at, and unreachability is the algorithm's own answer, never an arithmetic sentinel.
 - Law: ONE undirected container serves both reachability and component labelling. Dijkstra takes the undirected graph directly, so a third container built by duplicating every edge in reverse is the deleted form.
 - Law: the matching solver's super-source and super-sink are SOLVER state on a solver-local vertex; widening the domain family with a synthetic case forces every consumer's switch to answer for a vertex no domain fact ever names. Matching edges carry REFERENCE identity through `Edge<T>` — a value edge collapses a forward edge onto its reverse and hands the solver twice the residual capacity it has.
-- Receipt: `FamilyResult` returns admitted selection, weighted or unreachable paths, ordering, component labels, allocation pairs, and unassigned demand slots without exposing mutable graph state.
+- Output: `FamilyResult` returns admitted selection, weighted or unreachable paths, ordering, component labels, allocation pairs, and unassigned demand slots without exposing mutable graph state.
 - Packages: `QuikGraph` (`BidirectionalGraph`, `UndirectedGraph`, `SEdge`, `Edge`, `ShortestPathsDijkstra`, `ConnectedComponents`, `TopologicalSort`, `MaximumBipartiteMatchingAlgorithm`).
 
 ```csharp
@@ -1188,7 +1188,7 @@ public sealed class ProcessFamily {
                 .Fold(
                     (Nodes: Seq(route.Source), Total: 0.0),
                     (state, edge) => (state.Nodes.Add(edge.Target), state.Total + route.Bias.Weight(edge.Target)))
-                .Apply(receipt => Fin.Succ<FamilyResult>(new FamilyResult.WeightedRoute(receipt.Nodes, receipt.Total)));
+                .Apply(route => Fin.Succ<FamilyResult>(new FamilyResult.WeightedRoute(route.Nodes, route.Total)));
     }
 
     private Map<FamilyNode, int> Components() {
@@ -1291,9 +1291,9 @@ flowchart LR
     Strategy["CutStrategy.Items"] --> Graph
     Dialect["PostDialect.Items"] --> Graph
     Machine --> Graph
-    Graph -->|Select| Selection["Selection receipt"]
-    Graph -->|RouteBias · Dijkstra| Route["Weighted route receipt"]
-    Graph -->|TopologicalSort| Order["Order receipt"]
+    Graph -->|Select| Selection["Selection result"]
+    Graph -->|RouteBias · Dijkstra| Route["Weighted route"]
+    Graph -->|TopologicalSort| Order["Topological order"]
     Graph -->|ConnectedComponents| Components["Component labels"]
     Graph -->|MaximumBipartiteMatching| Allocation["Assigned pairs · unassigned slots"]
     Selection --> Fabrication["owner FabricationInput.Admit"]
@@ -1303,7 +1303,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

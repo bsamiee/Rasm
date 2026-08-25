@@ -131,7 +131,7 @@
 
 [STACKING]:
 - boot chain: `[assembly: AvaloniaTestApplication(typeof(App))]` names the `BuildAvaloniaApp` type chaining `UseHeadless(new(){ UseHeadlessDrawing=false }).UseSkia().WithInterFont()`; a `[AvaloniaFact]` body drives `HeadlessWindowExtensions` input, `ForceRenderTimerTick` advances frames, `CaptureRenderedFrame` grabs the buffer, and the AppUi capture/evidence pages assert on it.
-- `Verify.XunitV3`(`.api/api-verify.md`): the captured `WriteableBitmap` serializes via `WriteableBitmap.Save(Stream)` to PNG bytes that `Verify(bytes, "png")` snapshots under `UseStreamComparer`, and `VerifyJson` proves a settled layout or command receipt.
+- `Verify.XunitV3`(`.api/api-verify.md`): the captured `WriteableBitmap` serializes via `WriteableBitmap.Save(Stream)` to PNG bytes that `Verify(bytes, "png")` snapshots under `UseStreamComparer`, and `VerifyJson` proves a settled layout or command outcome.
 - `Avalonia.Skia`(`.api/api-avalonia-skia.md`): `UseSkia` supplies the render backend real-pixel evidence needs; `Avalonia.Fonts.Inter`(`.api/api-avalonia-fonts.md`): `WithInterFont` embeds `fonts:Inter` for stable text metrics.
 - `Avalonia`(`.api/api-avalonia.md`): the injected `TopLevel`, `IDataTransfer`, `RawInputModifiers`, `Key`/`PhysicalKey`, and `RawDragEventType` types the extension methods carry.
 

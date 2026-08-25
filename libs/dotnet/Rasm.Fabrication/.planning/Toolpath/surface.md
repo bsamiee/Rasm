@@ -4,11 +4,11 @@ Surface planning closes analytic cutter positioning over one `SurfacePath.Sample
 
 `OpenCAMLib` crosses through an authored `extern "C"` shim because upstream is C++ only. One surface and cutter handle bind every capsule, so triangles marshal once per run. Each path capsule survives `setPath`, `run`, and `getCLPoints`; operations execute per drive, and one resettable capsule serves all waterline levels. Loop-count, per-loop point-count, and fiber-group reads preserve provider topology.
 
-Wire posture: HOST-LOCAL. `Seq<CutElement>` crosses to `Cam.Generate`; native handles stay file-local to the boundary, and the run, drive-set, and receipt carriers that cross between the sampling and boundary files stay package-`internal`, never public.
+Wire posture: HOST-LOCAL. `Seq<CutElement>` crosses to `Cam.Generate`; native handles stay file-local to the boundary, and the run, drive-set, and sampling carriers that cross between the sampling and boundary files stay package-`internal`, never public.
 
 ## [01]-[INDEX]
 
-- [02]-[SURFACE_PATH]: owns `SurfaceStrategy`, layout production, policy admission, and `SurfacePath.Sample → Fin<SurfacePathReceipt>`.
+- [02]-[SURFACE_PATH]: owns `SurfaceStrategy`, layout production, policy admission, and `SurfacePath.Sample → Fin<SurfaceSampling>`.
 - [03]-[OPENCAM_BOUNDARY]: owns operation/cutter row maps, mesh/path lowering, capsule lifetimes, grouped size-then-fill reads, typed native-status routing, the authored `ocl_shim.cpp` extern C body covering every declared entry point, and the shim build/RID asset matrix.
 
 ## [02]-[SURFACE_PATH]
@@ -16,12 +16,12 @@ Wire posture: HOST-LOCAL. `Seq<CutElement>` crosses to `Cam.Generate`; native ha
 - Owner: `SurfaceStrategy` is the payload-bearing request family over one base `SurfacePolicy`; `SurfaceLayoutKind` is the closed planar-or-kernel generator shape; `WaterlineMode` and `PathSamplingMode` are the two operation-selecting postures, each resolved by a generated total switch inside `OpenCamOperationKind.Of` and neither carrying a flag; `SurfaceLayout` produces drives; `SurfacePath` exposes the sole entry. Generated `SurfaceSampling.Validate` admits native bounds once, and `SurfaceRun.Of` accumulates aggregate request faults before layout or native execution.
 - Law: every sampling MEASURE rides the kernel `Tolerance` pair on the lane that names its gate — `ToleranceLane.Chord` for the band's two ends, `ToleranceLane.Orientation` for the contact limit, `ToleranceLane.Filter` for the simplification tolerance — so `Band` owns each range and this plane proves only lane identity, band ordering, and the allocation ceilings. Each independent axis gates through the `AdmissionSlots.Gate` deferred-mint arity, threading `FabConcern.Toolpath` and the `<owner>:<axis>` locus into `FabricationFault.Inadmissible` on the failing arm alone — a plane-local `Of(admitted, locus)` wrapper re-spelling that arity behind its own name is the deleted form. Unit conversion and the ABI's sentinel spellings live at `Configure` alone. `UnitsNet` carries a dimensioned strategy payload that gates nothing: the swarf flank standoff is the `Length` its emitter already holds, so the suffix that stated its unit where no compiler read it is gone and the millimetre projects once, at the ruling that offsets by it.
 - Cases: `SurfaceStrategy` carries waterline, scallop, pencil, rest, raster, fiber, indexed-axis, swarf, and drill demand. `SurfaceLayoutKind.Kernel(Key)` parameterizes geodesic, flow, morph, cross-field, iso-parametric, radial, spiral, projected-curve, boundary, contour, cusp, slope, curvature, texture, and drive-surface generation without one named row per algorithm. `FiberSlice` admits endpoint-pair drives into `BatchPushCutter`. `Raster` and `Rest` carry no drives at all: the region boundary seeds the engine's own direction-and-stepover fill, and the residual bounds the reachable-surface refinement. `ThreePlusTwo` is a real 3-axis lane per indexed view because the view fixes the tool axis for its whole pass; `Swarf` reads each admitted fiber as one flank ruling and emits the oriented station the S0 `MoveOrientation` payload carries, so continuous flank orientation is representable rather than refused.
-- Entry: `internal static Fin<SurfacePathReceipt> Sample(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter)` is the only surface entry, folding one admitted pass per indexed view and one pass for every other strategy. Empty and populated requests cross `SurfaceRun.Of`; work cardinality changes execution only after aggregate admission.
+- Entry: `internal static Fin<SurfaceSampling> Sample(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter)` is the only surface entry, folding one admitted pass per indexed view and one pass for every other strategy. Empty and populated requests cross `SurfaceRun.Of`; work cardinality changes execution only after aggregate admission.
 - Auto: `ToleranceSpec.Apply(ToleranceRequest.Scallop)` derives stepover. `SurfaceFrame.Of` builds one axis-angle rotation and its inverse from the indexed view, so mesh triangles marshal in frame coordinates and every returned location, fiber, interval contact, and witness facet restores to world before admission. `PlanarRaster` reads the frame-relative mesh bounds once and generates serpentine rows on the reference route. `Kernel(Key)` invokes the injected layout through `Op.Catch`, preserving callback failures on the rail. `SurfaceSampling.Tightened` narrows the contact limit for the pencil lane and owns the re-admission, and `SurfaceSampling.Filter` drives the upstream `LineCLFilter` so drop-cutter output reaches posting already simplified — its absence is no simplification, spelled as the ABI's zero at `Configure` alone. Rest drives `setMinSampling` from the residual's own admitted tolerance, clamped into the sampling band, so the reachable-surface field refines exactly where stock remains. Drill-family centers feed `BatchDropCutter`; an empty center set becomes a no-op only after aggregate admission.
-- Receipt: `SurfacePathReceipt` carries admitted `CutElement` rows keyed by the package's one `CutElement.Identify` mint over the indexed view, path ordinal, operation, tool, work offset, and cutter geometry, beside `SurfaceSample`; grouped `OpenCamLocation` rows, `OpenCamContactKind`, per-fiber `OpenCamInterval` engagement spans, and operation-owned topology survive lowering. `OpenCamDiagnostic` carries its operation and its `OpenCamWitness` set on every case, `Drop` adding the KD-tree instrumentation only where the operation exposes it. Locations that resolved no contact leave the triangles held under the cutter, so a gouge names geometry rather than an operation. Any nonzero native status or diagnostic-budget breach becomes `SampleStalled`; an OpenCAMLib throw retains the exact exceptional `Error`. `SurfaceSample` carries no key, band, or stamp and so takes no `*Receipt` name under the package ruling that `Receipt<TEvidence>` is the one settled-receipt carrier; `SurfacePathReceipt` keeps its name on keyed `CutElement` evidence and remains the topology-free carrier the folder ruling fixes.
+- Output: `SurfaceSampling` carries admitted `CutElement` rows keyed by the package's one `CutElement.Identify` mint over the indexed view, path ordinal, operation, tool, work offset, and cutter geometry, beside `SurfaceSample`; grouped `OpenCamLocation` rows, `OpenCamContactKind`, per-fiber `OpenCamInterval` engagement spans, and operation-owned topology survive lowering. `OpenCamDiagnostic` carries its operation and its `OpenCamWitness` set on every case, `Drop` adding the KD-tree instrumentation only where the operation exposes it. Locations that resolved no contact leave the triangles held under the cutter, so a gouge names geometry rather than an operation. Any nonzero native status or diagnostic-budget breach becomes `SampleStalled`; an OpenCAMLib throw retains the exact exceptional `Error`. `SurfaceSampling` stays the topology-free carrier the folder ruling fixes.
 - Packages: `OpenCAMLib` (`STLSurf`, `BatchDropCutter`, `PathDropCutter`, `AdaptivePathDropCutter`, `BatchPushCutter`, `Waterline` with `run2` and its X/Y fiber sets, `AdaptiveWaterline`, `CutterLocationSurface`, `ZigZag`, the composite cutter family, `getTrianglesUnderCutter`/`getOverlapTriangles`, `LineCLFilter`, `reset`, verified setters, contact rows, and grouped outputs), `System.Numerics.Tensors` (`TensorPrimitives.IsFiniteAll`), `Rasm.Meshing`, kernel `Rasm.Domain` (`Tolerance`, `ToleranceLane`), `Rasm.Element` (`AdmissionSlots`), `Spec/tolerance.md` (`ToleranceSpec.Apply`), `Toolpath/link.md` (`CutElement.Identify`, `ElementVariant.Of`), `Toolpath/motion.md` (`EngagementPolicy`), `UnitsNet` (`Length` — the swarf flank standoff the engagement hands over), `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `RhinoCommon`, source-generated interop, BCL inbox.
 - Growth: a new 3-axis operation is one strategy case, one operation row mapping, and one operation-specific capsule arm; a new cutter assembly shape is one relief row on the correspondence column its primary already declares. Simultaneous orientation rides the `Move.Orientation` payload the flank lane fills; indexed orientation needs none of it and rides `SurfaceFrame`. A new LAYOUT costs nothing here by construction: the caller mints its `SurfaceLayoutKey` and the injected generator answers it, so a kernel-owned field tracer — the `Rasm/Processing/flow` Morse atlas reached through `VectorIntent.Atlas`, whose `MorseGraph` projection yields the separatrix rows a flow or cross-field layout would drive on — composes inside that generator at the composition root and never inside this page.
-- Boundary: a caller-built drive set, a per-capsule triangle re-upload, path disposed before `run`, repeated `setPath` followed by one run, integer-code redispatch, flat loop/fiber decoding, unchecked output multiplication, non-finite native point, ignored contact-angle or residual payload, ambient thread count, or an unoriented station on the flank lane is a deleted form. The generator contract is DRIVES ALONE, so a layout-topology column on `SurfacePathReceipt` — fixed-point classes, separatrix rows, a Morse-graph handle — is the deleted form twice over: the generator returns no such evidence, so the column would have no producer, and a slot shaped for one of the fifteen layouts the key space spans sits dead under the other fourteen. A layout whose topology a consumer must read publishes it from the generator's own owner, keyed by the same `SurfaceLayoutKey`, never through this receipt.
+- Boundary: a caller-built drive set, a per-capsule triangle re-upload, path disposed before `run`, repeated `setPath` followed by one run, integer-code redispatch, flat loop/fiber decoding, unchecked output multiplication, non-finite native point, ignored contact-angle or residual payload, ambient thread count, or an unoriented station on the flank lane is a deleted form. The generator contract is DRIVES ALONE, so a layout-topology column on `SurfaceSampling` — fixed-point classes, separatrix rows, a Morse-graph handle — is the deleted form twice over: the generator returns no such evidence, so the column would have no producer, and a slot shaped for one of the fifteen layouts the key space spans sits dead under the other fourteen. A layout whose topology a consumer must read publishes it from the generator's own owner, keyed by the same `SurfaceLayoutKey`, never through this sampling.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -189,7 +189,7 @@ public readonly record struct SurfaceFrame(Transform Forward, Transform Inverse)
 }
 
 internal sealed record SurfaceDriveSet(SurfaceLayoutKind Kind, Seq<SurfaceDrive> Drives, double StepOverMm);
-internal sealed record SurfacePathReceipt(Seq<CutElement> Elements, SurfaceSample Native);
+internal sealed record SurfaceSampling(Seq<CutElement> Elements, SurfaceSample Native);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SurfaceStrategy(SurfacePolicy Policy) {
@@ -364,7 +364,7 @@ file static class SurfaceLayout {
 }
 
 internal static class SurfacePath {
-    internal static Fin<SurfacePathReceipt> Sample(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter) =>
+    internal static Fin<SurfaceSampling> Sample(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter) =>
         from admittedStrategy in Optional(strategy).ToFin(new KernelFault.InvalidValue("surface", "surface:strategy"))
         from _ in Optional(admittedStrategy.Policy).ToFin(new KernelFault.InvalidValue("surface", "surface:policy"))
         from admittedMesh in Optional(mesh).ToFin(new KernelFault.InvalidValue("surface", "surface:mesh"))
@@ -377,7 +377,7 @@ internal static class SurfacePath {
         from passes in views.Traverse(view => Pass(admittedStrategy, admittedMesh, admittedCutter, view))
         from lead in passes.Head
             .ToFin(new KernelFault.InvalidValue("surface", "surface:no-pass"))
-        select new SurfacePathReceipt(
+        select new SurfaceSampling(
             passes.Bind(static pass => pass.Elements),
             new SurfaceSample(
                 passes.Bind(static pass => pass.Native.Paths),
@@ -385,7 +385,7 @@ internal static class SurfacePath {
                 passes.Bind(static pass => pass.Native.Diagnostics),
                 passes.Bind(static pass => pass.Native.Fibers)));
 
-    private static Fin<SurfacePathReceipt> Pass(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter, int view) =>
+    private static Fin<SurfaceSampling> Pass(SurfaceStrategy strategy, MeshSpace mesh, CutterForm cutter, int view) =>
         from run in SurfaceRun.Of(strategy, mesh, cutter, view)
         from native in run.Strategy is SurfaceStrategy.DrillFamily { Centers.IsEmpty: true }
             ? Fin.Succ(new SurfaceSample(
@@ -403,7 +403,7 @@ internal static class SurfacePath {
         from elements in native.Paths.IsEmpty
             ? Fin.Succ(Seq<CutElement>())
             : native.ToElements(run, budget.FeedRate)
-        select new SurfacePathReceipt(elements, native);
+        select new SurfaceSampling(elements, native);
 }
 ```
 
@@ -413,7 +413,7 @@ internal static class SurfacePath {
 - Cases: operations `BatchDropCutter`, `PathDropCutter`, `AdaptivePathDropCutter`, `BatchPushCutter`, `Waterline`, `AdaptiveWaterline`, `CutterLocationSurface`, `ZigZag`, `WeaveWaterline`; primary cutters `Cyl`, `Ball`, `Bull`, `Cone` and their relieved forms `CompCyl`, `CompBall`, `CylCone`, `BallCone`, `BullCone`, `ConeCone`.
 - Entry: file-local `OpenCamLib.Position(SurfaceRun)` mints one `OpenCamBinding` — surface and cutter — then creates one capsule per path, one capsule per fiber-direction batch, one batch capsule for unordered drill centers, one capsule for a bounded raster region or a reachable-surface refinement, and exactly one waterline capsule reset across every level. Each capsule performs common setup, operation-specific setup, `run`, and the matching grouped read before disposal.
 - Auto: path drives create and retain `OclPathHandle` through execution; waterline levels read loops and the weave row's fiber sets beside them; push and flank drives read fibers and select X/Y scanning from the drive vector, and the flank lane reads each fiber's engaged interval as the ruling its oriented station departs from; the raster region and the drill centers both enter through the shared point append; the reachable surface reads one group per edge. Batch points preserve input/output independence as one singleton element per location, and the returned location census must equal the admitted center census. Count queries bound allocations, and fill results reject negative, excessive, empty, non-finite, or partial rows.
-- Receipt: the first nonzero native status routes `SampleStalled` with the exact status and a thrown native boundary outcome enters the same typed rail, so a receipt exists only for all-clean executions and never re-records status. `OpenCamLocation.Contact` retains `CCType` classification as plane-local evidence, and an interval carries that classification at both cutter-contact ends.
+- Law: the first nonzero native status routes `SampleStalled` with the exact status and a thrown native boundary outcome enters the same typed rail, so a sampling exists only for all-clean executions and never re-records status. `OpenCamLocation.Contact` retains `CCType` classification as plane-local evidence, and an interval carries that classification at both cutter-contact ends.
 - Packages: `vendor/ocl_shim/ocl_shim.cpp` is the package-owned `extern "C"` body — one shim export per declared `[LibraryImport]` entry point, `STLSurf` and `MillingCutter` each owning a handle family independent of operation lifetime, its status vocabulary the exact integers `Gate` lifts into `SampleStalled`; `vendor/ocl_shim/CMakeLists.txt` is the build owner, linking the shim SHARED against the shipped SHARED `libocl` per the LGPL dynamic-link law; the RID matrix rides `vendor/runtimes/<rid>/native/` — per RID the SHIM artifact the `Library` constant resolves (`win-x64/ocl_shim.dll`, `linux-x64/libocl_shim.so`, `osx-arm64/libocl_shim.dylib`) beside the upstream SHARED `libocl` it links — through the folder `.csproj`'s `Exists`-gated `Content` group.
 - Boundary: upstream OpenCAMLib has no C ABI. `ocl_shim.cpp` alone flattens C++ vectors and exposes opaque handles; raw handles, C++ mangled entry points, and unmanaged ownership never reach domain code; `libocl` stays dynamically linked and is never folded statically into the shim.
 
@@ -660,7 +660,7 @@ internal sealed record SurfaceSample(
 
     public Fin<Seq<CutElement>> ToElements(SurfaceRun run, double feed) =>
         !ValidTopology()
-            ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("surface", "opencam:receipt-topology"))
+            ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("surface", "opencam:sampling-topology"))
             : !(feed > 0.0 && double.IsFinite(feed))
                 ? Fin.Fail<Seq<CutElement>>(new KernelFault.InvalidValue("surface", "opencam:feed"))
                 : run.Strategy is SurfaceStrategy.Swarf swarf
@@ -903,7 +903,7 @@ internal static class OpenCamLib {
                         operation,
                         op => ReadGroups(op, run, OpenCamNative.OperationLoopCount, OpenCamNative.OperationLoopPointCount, OpenCamNative.OperationGetLoop)
                             .Bind(groups => ReadFibers(op, run).Map(fibers => (Groups: groups, Fibers: fibers)))))))
-              .Map(units => Receipt(
+              .Map(units => Sampled(
                   run,
                   units.Bind(static unit => unit.Value.Groups),
                   units.Map(static unit => unit.Diagnostic),
@@ -913,7 +913,7 @@ internal static class OpenCamLib {
     private static Fin<SurfaceSample> Paths(SurfaceRun run, OpenCamBinding binding) =>
         run.Drives.Match(
             None: () => Fin.Fail<SurfaceSample>(new KernelFault.InvalidValue("surface", "opencam:path-without-drives")),
-            Some: set => set.Drives.Traverse(drive => Path(run, binding, drive)).Map(units => Receipt(
+            Some: set => set.Drives.Traverse(drive => Path(run, binding, drive)).Map(units => Sampled(
                 run,
                 units.Map(static unit => unit.Value),
                 units.Map(static unit => unit.Diagnostic),
@@ -925,7 +925,7 @@ internal static class OpenCamLib {
             binding,
             operation => Gate(run, () => OpenCamNative.OperationSetMinSampling(operation, MinSampling(run, stock))),
             operation => ReadGroups(operation, run, OpenCamNative.OperationLoopCount, OpenCamNative.OperationLoopPointCount, OpenCamNative.OperationGetLoop))
-        .Map(unit => Receipt(run, unit.Value, Seq(unit.Diagnostic), Seq<OpenCamFiber>()));
+        .Map(unit => Sampled(run, unit.Value, Seq(unit.Diagnostic), Seq<OpenCamFiber>()));
 
     private static double MinSampling(SurfaceRun run, ResidualStock stock) =>
         Math.Clamp(
@@ -947,7 +947,7 @@ internal static class OpenCamLib {
                     () => OpenCamNative.OperationSetStepOver(operation, run.StepOverMm)),
                 (rail, corner) => rail.Bind(_ => Gate(run, () => OpenCamNative.OperationAppendPoint(operation, corner.X, corner.Y, corner.Z)))),
             operation => ReadLocations(operation, run))
-        .Map(unit => Receipt(run, Seq(unit.Value), Seq(unit.Diagnostic), Seq<OpenCamFiber>()));
+        .Map(unit => Sampled(run, Seq(unit.Value), Seq(unit.Diagnostic), Seq<OpenCamFiber>()));
 
     private static Fin<OpenCamUnit<Arr<OpenCamLocation>>> Path(SurfaceRun run, OpenCamBinding binding, SurfaceDrive drive) {
         using OclPathHandle path = OpenCamNative.PathCreate();
@@ -990,7 +990,7 @@ internal static class OpenCamLib {
                             drive.Points[drive.Points.Count - 1].Z)))),
                     operation => ReadGroups(operation, run, OpenCamNative.OperationFiberCount, OpenCamNative.OperationFiberPointCount, OpenCamNative.OperationGetFiber)
                         .Bind(groups => ReadFibers(operation, run).Map(fibers => (Groups: groups, Fibers: fibers)))))
-                .Map(units => Receipt(
+                .Map(units => Sampled(
                     run,
                     units.Bind(static unit => unit.Value.Groups),
                     units.Map(static unit => unit.Diagnostic),
@@ -1013,7 +1013,7 @@ internal static class OpenCamLib {
                     (state, point) => state.Bind(_ => Gate(run, () => OpenCamNative.OperationAppendPoint(operation, point.X, point.Y, point.Z)))),
                 operation => ReadLocations(operation, run))
               .Bind(rows => rows.Value.Count == centers.Count
-                  ? Fin.Succ(Receipt(
+                  ? Fin.Succ(Sampled(
                       run,
                       rows.Value.Map(static row => Arr(row)).ToSeq(),
                       Seq(rows.Diagnostic),
@@ -1183,7 +1183,7 @@ internal static class OpenCamLib {
                 : Fin.Fail<OpenCamDiagnostic>(run.Strategy.Stalled(calls))
             : Fin.Succ<OpenCamDiagnostic>(new OpenCamDiagnostic.Executed(run.Operation, witness)));
 
-    private static SurfaceSample Receipt(
+    private static SurfaceSample Sampled(
         SurfaceRun run,
         Seq<Arr<OpenCamLocation>> paths,
         Seq<OpenCamDiagnostic> diagnostics,
@@ -1711,7 +1711,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

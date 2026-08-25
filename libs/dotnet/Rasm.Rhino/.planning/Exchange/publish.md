@@ -1,13 +1,13 @@
 # [RASM_RHINO_PUBLISH]
 
-`Publishing.Run` owns deterministic page resolution, capture, stamping, encoding, spooling, atomic artifact landing, and typed egress evidence. Closed frame, raster-policy, source, target, mark, page, and evidence families preserve modality from admission through settlement; the request supplies one render instant for the complete ordered stream.
+`Publishing.Run` owns deterministic page resolution, capture, stamping, encoding, spooling, and atomic artifact landing. Closed frame, raster-policy, source, target, mark, and page families preserve modality from admission through settlement; the request supplies one render instant for the complete ordered stream.
 
 ## [01]-[INDEX]
 
 - [02]-[RASTER_ROWS]: `RasterCodec` the encoder rows, `TiffCompression` the compression vocabulary, `RasterPolicy` the encoding policy, and the one bitmap-save fold.
 - [03]-[STAMP_ALGEBRA]: `StampToken`/`StampScope`/`StampText` — the interpolation rows over the kernel title block and the one template scan; `PdfMark` — the closed stamp family over the `FilePdf` draw surface, drawn at kernel plot magnitudes.
 - [04]-[SOURCE_AND_TARGET]: `CaptureFrame`, `PageSource` → captured-or-blank `PublishPage` resolution, and the typed target family.
-- [05]-[PUBLISH_RAIL]: `PdfPolicy`, `PublishRequest`, `Landing` the delivery family, `PublishSlot`/`PublishBody`/`PublishReceipt`, and `Publishing.Run`.
+- [05]-[PUBLISH_RAIL]: `PdfPolicy`, `PublishRequest`, `Landing` the delivery family, and `Publishing.Run`.
 
 ## [02]-[RASTER_ROWS]
 
@@ -711,24 +711,19 @@ public abstract partial record PublishTarget {
 
 ## [05]-[PUBLISH_RAIL]
 
-- Owner: `Landing` is the S4 delivery family every leg of this rail dispatches on — raster, vector, printer, and the `Save` seam Display's framebuffer egress writes through. `PdfPolicy` carries the issued plot policy, one parameterized image budget, page marks, final marks, and custom printed-page definitions. `PublishRequest` admits source, target, frame modality, the optionally issued title block, and one render instant. `PublishSlot`/`PublishBody` join the Document fact stream, and `PublishReceipt` names that closed instantiation.
-- Law: this page CONFORMS to the Document fact stream and re-mints nothing — the slot-keyed accumulation, the cross-product gate, and the projections are `Document/facts`'s; this page contributes a slot vocabulary, a body union, and one extension block. NAMED LOSS: the former `PageEvidence` union's two-case exhaustive fold and the `PublishTargetKind` roster — bought back as the SLOT, which is the delivery leg a fact landed under, so a printed page and a landed artifact are two slots over one body family rather than two shapes a consumer must switch on; witness — every `PublishReceipt` reader projects on its slot and gains `FactCount` for free.
+- Owner: `Landing` is the S4 delivery family every leg of this rail dispatches on — raster, vector, printer, and the `Save` seam Display's framebuffer egress writes through. `PdfPolicy` carries the issued plot policy, one parameterized image budget, page marks, final marks, and custom printed-page definitions. `PublishRequest` admits source, target, frame modality, the optionally issued title block, and one render instant.
 - Law: PDF conformance, plot resolution, layer emission, orientation, and the issued scale are the kernel `PlotPolicy`'s columns, not this page's. `PdfPolicy.Plot` carries one optional `PlotPolicy` and `Emission` DERIVES from it, so `LayersAsOptionalContentGroups` reads `LayerEmission.OptionalContent` off the issued policy rather than a boolean nothing keys to a standard (D79, D84, D94).
-- Entry: `Publishing.Run(DocumentSession, MonotonicTimeline, PublishRequest, Op?) : Fin<PublishReceipt>` — page resolution proves `SessionNeed.Read` and `SessionNeed.Export` once, and each page capture proves `SessionNeed.Redraw` through the capture rail's own demand; the load-root timeline reaches transparent capture unchanged.
+- Entry: `Publishing.Run(DocumentSession, MonotonicTimeline, PublishRequest, Op?) : Fin<Unit>` — page resolution proves `SessionNeed.Read` and `SessionNeed.Export` once, and each page capture proves `SessionNeed.Redraw` through the capture rail's own demand; the load-root timeline reaches transparent capture unchanged.
 - Law: the PDF arm owns `FilePdf.Create`, host-minted page indices, page marks, custom pages, final marks, and `Write`. `FilePdf` is a plain abstract host class the plug-in lookup vends and never an `IDisposable`, so the arm holds it as an ordinary value across the page fold — its one custody obligation is the null return the lookup can give, which `Optional(...).ToFin(...)` refuses; bracketing it leases a type with nothing to release. `LayersAsOptionalContentGroups` is document-level state on the `FilePdf` instance — the policy value is hoisted once after `Create`, before any page mints, because a per-page set inside the page fold leaves only the last write effective and silently strips earlier pages' layer groups. A captured page derives one `CapturePlan`, enters `Captures.Stage`, and consumes the sole prepared settings row through `PreparedCapture.Use` inside that bracket, whose gate refuses once the bracket releases; blank pages use only the dots overload.
 - Law: `PublishTarget` stays the ADMITTED request vocabulary and `Landing` the DELIVERY family it projects onto — the rail constructs the matching `Landing` arm at its own dispatch, so a target case names what a caller asked for and a landing case names what the egress does; `PdfCase` is the one target keeping its own `FilePdf` arm, because a PDF is minted page by page rather than delivered from a prepared settings row.
-- Law: printer publication derives the complete `Seq<CapturePlan>`, enters ONE `Captures.Stage` window, and dispatches the whole prepared batch through `ViewCapture.SendToPrinter` under `Landing.Printer`. `SendToPrinter` answers a bare `bool`, never a page tally, so the dispatched-page count the law demands is proved INSIDE the window by the prepared-row arity equalling the plan count — a driver-reported count is unreadable here, and a receipt claiming one fabricates it. Raster and SVG pair each plan with its own `Landing` arm through the same staged window, one prepared row per page; alpha raster uses only `TransparentCaptureSpec`, whose facade-side transparency no settings row can express.
-- Law: every file delivery stages through `OutputPolicy.Land` — the operations rail's one atomic staging kernel — so temporary write, nonempty verification, byte-identical commit, and content keying are the folder's single spelling. A failed encoder, PDF write, SVG write, empty artifact, or move leaves no new partial destination and emits no landed evidence. The ONE exception is `Landing.Save`: its writer is a host member dispatching format on the destination extension, so it takes its settled `Resolve` path directly per the operations rail's own carve-out and content-keys the landed bytes through the rail's `Keyed` spelling.
-- Law: publication proves `Read` and `Export` and mutates no document, so landed evidence carries the native landing row and the `Landed` slot alone — an `ExchangeEvidence.MutationCase` on a filesystem landing claims a document change with no undo serial behind it and is the deleted form; the document-mutation rows stay on the exchange rail, where a real `DocumentCommit.Sealed` bracket supplies the serial. This receipt therefore declares no undo slot, and the stream's undo stamp is unreachable here by construction.
+- Law: printer publication derives the complete `Seq<CapturePlan>`, enters ONE `Captures.Stage` window, and dispatches the whole prepared batch through `ViewCapture.SendToPrinter` under `Landing.Printer`. `SendToPrinter` answers a bare `bool`, so success settles as `Unit` after the prepared-row arity proves the complete batch reached the driver. Raster and SVG pair each plan with its own `Landing` arm through the same staged window, one prepared row per page; alpha raster uses only `TransparentCaptureSpec`, whose facade-side transparency no settings row can express.
+- Law: every file delivery stages through `OutputPolicy.Land` — the operations rail's one atomic staging kernel — so temporary write, nonempty verification, byte-identical commit, and content keying are the folder's single spelling. A failed encoder, PDF write, SVG write, empty artifact, or move leaves no new partial destination. The `Landing.Save` exception takes its settled `Resolve` path directly because its host writer dispatches format on the destination extension.
 - Law: request admission accumulates — the six source, target, frame, and issue contracts fold applicatively through `Validation`, each rule minting its own `Op`-keyed refusal from its own name, so a caller learns every contract it broke instead of one collapsed input fault.
 - Law: the three `CaptureArtifact` consumers each state the SUBSET they admit rather than closing the union. `Landed` mints a raster or a vector arm and refuses the printer and save arms by name; the raster and vector deliveries admit their own case alone; the depth and sequence arms belong to modalities this rail never requests, and a catch-all over the Viewport-owned family turns a new capture modality from a compile break into a silent refusal at run time.
 - Boundary: `PdfGate` serializes THIS rail's replace-write-restore window over the process-global custom-page roster, so two concurrent `Publishing.Run` calls never interleave rosters. A `System.Threading.Lock` is the owner here and an atom is not: the window is MUTUAL EXCLUSION across two host calls, while `Cell.Step` is a compare-and-swap that lets a second writer install its roster between this one's replace and restore. The roster belongs to the host process, not the gate: a host-internal PDF export running outside this rail reads whichever roster the window has installed, and that exposure is unclosable from here because `FilePdf.SetCustomPages` carries no scope. Custom pages therefore ride only the blank-source contract, where the window is one write long. `Restored` attempts roster restoration after every body outcome and combines a write fault with a restoration fault instead of replacing either failure.
-- Packages: `Rasm.Drawing` (`PlotPolicy`, `PlotResolution`, `LayerEmission`, `TitleBlock`, `SheetSize`), `Rasm.Parametric` (`MonotonicTimeline`), `Document/facts` (`IFactSlot`, `IFactBody`, `FactStream`, `Fact`), `Document/session` (`DocumentSession`, `SessionNeed`), `Viewport/capture` (`Captures.Stage`, `PreparedCapture`, `CaptureArtifact`, `CapturePlan`), `Exchange/operations` (`OutputPolicy.Land`, `OutputPolicy.Resolve`, `Exchanges.Keyed`, `ExchangeEvidence`), `Domain/validation` (`CapabilitySet`, `ICapability`), LanguageExt.Core (`Validation` applicative, `TraverseM`, `Fin`), NodaTime (`Instant`), Thinktecture.Runtime.Extensions.
+- Packages: `Rasm.Drawing` (`PlotPolicy`, `PlotResolution`, `LayerEmission`, `TitleBlock`, `SheetSize`), `Rasm.Parametric` (`MonotonicTimeline`), `Document/session` (`DocumentSession`, `SessionNeed`), `Viewport/capture` (`Captures.Stage`, `PreparedCapture`, `CaptureArtifact`, `CapturePlan`), `Exchange/operations` (`OutputPolicy.Land`, `OutputPolicy.Resolve`), `Domain/validation` (`CapabilitySet`, `ICapability`), LanguageExt.Core (`Validation` applicative, `TraverseM`, `Fin`), NodaTime (`Instant`), Thinktecture.Runtime.Extensions.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-global using PublishReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Exchange.PublishSlot, Rasm.Rhino.Exchange.PublishBody>;
-
 // --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed record PdfPolicy(
@@ -819,85 +814,6 @@ public sealed record PublishRequest {
         guard(held, Op.Of(name: rule).InvalidInput()).ToFin().ToValidation();
 }
 
-// --- [TYPES] ---------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PublishBodyKind : ICapability<PublishBodyKind> {
-    public static readonly PublishBodyKind Artifact = new(key: "artifact");
-    public static readonly PublishBodyKind Spool = new(key: "spool");
-    public static readonly PublishBodyKind Note = new(key: "note");
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PublishBody : IFactBody<PublishBodyKind> {
-    private PublishBody() { }
-    public sealed record ArtifactCase(StampScope Scope, DocumentPath Artifact, UInt128 ContentKey) : PublishBody;
-    public sealed record SpoolCase(StampScope Scope, Rasm.Numerics.Dimension Copies) : PublishBody;
-    public sealed record NoteCase(ExchangeEvidence Value) : PublishBody;
-
-    PublishBodyKind IFactBody<PublishBodyKind>.Kind => Switch(
-        artifactCase: static _ => PublishBodyKind.Artifact,
-        spoolCase: static _ => PublishBodyKind.Spool,
-        noteCase: static _ => PublishBodyKind.Note);
-}
-
-[SmartEnum<int>]
-public sealed partial class PublishSlot : IFactSlot<PublishBody, PublishBodyKind> {
-    public static readonly PublishSlot Pdf = new(key: 0, seated: static () => Artifacts);
-    public static readonly PublishSlot Native = new(key: 5, seated: static () => Notes);
-    public static readonly PublishSlot Raster = new(key: 1, seated: static () => Artifacts);
-    public static readonly PublishSlot Vector = new(key: 2, seated: static () => Artifacts);
-    public static readonly PublishSlot Printed = new(key: 3, seated: static () => Spools);
-    public static readonly PublishSlot Saved = new(key: 4, seated: static () => Artifacts);
-
-    [UseDelegateFromConstructor]
-    private partial CapabilitySet<PublishBodyKind> Seated();
-
-    public CapabilitySet<PublishBodyKind> Bodies => Seated();
-
-    private static CapabilitySet<PublishBodyKind> Artifacts => CapabilitySet<PublishBodyKind>.Of(PublishBodyKind.Artifact);
-
-    private static CapabilitySet<PublishBodyKind> Spools => CapabilitySet<PublishBodyKind>.Of(PublishBodyKind.Spool);
-
-    private static CapabilitySet<PublishBodyKind> Notes => CapabilitySet<PublishBodyKind>.Of(PublishBodyKind.Note);
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class PublishFacts {
-    extension(PublishReceipt receipt) {
-        public static Fin<PublishReceipt> Artifact(
-            PublishSlot slot, StampScope scope, DocumentPath artifact, UInt128 key, Op op) =>
-            PublishReceipt.Of(
-                slot: slot,
-                body: new PublishBody.ArtifactCase(Scope: scope, Artifact: artifact, ContentKey: key),
-                key: op);
-
-        public static Fin<PublishReceipt> Spooled(Seq<StampScope> scopes, Rasm.Numerics.Dimension copies, Op op) =>
-            PublishReceipt.All(
-                slot: PublishSlot.Printed,
-                bodies: scopes.Map(scope => (PublishBody)new PublishBody.SpoolCase(Scope: scope, Copies: copies)),
-                key: op);
-
-        public static Fin<PublishReceipt> Noted(Seq<ExchangeEvidence> notes, Op op) =>
-            PublishReceipt.All(
-                slot: PublishSlot.Native,
-                bodies: notes.Map(static note => (PublishBody)new PublishBody.NoteCase(Value: note)),
-                key: op);
-
-        public Seq<ExchangeEvidence> Notes =>
-            receipt.Project(
-                slot: PublishSlot.Native,
-                select: static body => body is PublishBody.NoteCase row ? Some(row.Value) : Option<ExchangeEvidence>.None);
-
-        public Seq<(DocumentPath Path, UInt128 Key)> Landed(PublishSlot slot) =>
-            receipt.Project(
-                slot: slot,
-                select: static body => body is PublishBody.ArtifactCase row
-                    ? Some((row.Artifact, row.ContentKey))
-                    : Option<(DocumentPath, UInt128)>.None);
-    }
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Landing {
     private Landing() { }
@@ -911,7 +827,7 @@ public abstract partial record Landing {
 public static class Publishing {
     private static readonly System.Threading.Lock PdfGate = new();
 
-    public static Fin<PublishReceipt> Run(
+    public static Fin<Unit> Run(
         DocumentSession session, MonotonicTimeline timeline, PublishRequest request, Op? key = null) {
         Op op = key.OrDefault();
         return from active in op.Need(session)
@@ -928,7 +844,7 @@ public static class Publishing {
                    key: op,
                    needs: [SessionNeed.Read, SessionNeed.Export])
                from _count in guard(!pages.Pages.IsEmpty, op.InvalidInput()).ToFin()
-               from receipt in publication.Target.Switch(
+               from _published in publication.Target.Switch(
                    (Session: active, Timeline: clock, Request: publication, Pages: pages.Pages, Op: op),
                    pdfCase: static (ctx, target) => Pdf(session: ctx.Session, request: ctx.Request, target: target, pages: ctx.Pages, op: ctx.Op),
                    printerCase: static (ctx, target) => Printer(
@@ -936,7 +852,7 @@ public static class Publishing {
                        landing: new Landing.Printer(PrinterName: target.PrinterName, Copies: target.Copies),
                        pages: ctx.Pages, op: ctx.Op),
                    rasterCase: static (ctx, target) => Fanned(
-                       pages: ctx.Pages, slot: PublishSlot.Raster, op: ctx.Op,
+                       pages: ctx.Pages, op: ctx.Op,
                        capture: target.Policy.Transparent
                            ? page => Transparent(
                                session: ctx.Session, timeline: ctx.Timeline,
@@ -949,20 +865,18 @@ public static class Publishing {
                            capture: capture, page: page, target: target.Target, output: target.Output,
                            policy: target.Policy, op: op2)),
                    svgCase: static (ctx, target) => Fanned(
-                       pages: ctx.Pages, slot: PublishSlot.Vector, op: ctx.Op,
+                       pages: ctx.Pages, op: ctx.Op,
                        capture: page => Planned(
                            session: ctx.Session, frame: ctx.Request.Frame,
                            landing: new Landing.Vector(Target: target.Target, Output: target.Output),
                            page: page, op: ctx.Op),
                        artifact: (page, capture, op2) => Vector(capture: capture, page: page, target: target.Target, output: target.Output, op: op2)))
-               select receipt;
+               select unit;
     }
 
     private sealed record ResolvedPages(Seq<PublishPage> Pages) : IDetachedDocumentResult;
 
-    internal sealed record LandedArtifact(DocumentPath Path, UInt128 Key, Seq<ExchangeEvidence> Evidence);
-
-    private static Fin<PublishReceipt> Printer(
+    private static Fin<Unit> Printer(
         DocumentSession session,
         CaptureFrame frame,
         Landing.Printer landing,
@@ -983,34 +897,18 @@ public static class Publishing {
                     select unit,
                 key: op),
             key: op)
-        from spooled in PublishReceipt.Spooled(
-            scopes: captured.Map(static page => page.Stamp), copies: landing.Copies, key: op)
-        from noted in PublishReceipt.Noted(
-            notes: Seq<ExchangeEvidence>(
-                new ExchangeEvidence.NativeCase(
-                    Surface: nameof(ViewCapture.SendToPrinter),
-                    Succeeded: true,
-                    Detail: $"{plans.Count} prepared pages dispatched with {landing.Copies.Value} copies."),
-                new ExchangeEvidence.HostDefaultsCase(
-                    Surface: nameof(ViewCapture.SendToPrinter),
-                    Detail: "The selected printer driver owns device capabilities outside ViewCaptureSettings.")),
-            op: op)
-        select spooled + noted;
+        select unit;
 
-    private static Fin<PublishReceipt> Fanned(
+    private static Fin<Unit> Fanned(
         Seq<PublishPage> pages,
-        PublishSlot slot,
         Func<PublishPage.CapturedCase, Fin<CaptureArtifact>> capture,
-        Func<PublishPage.CapturedCase, CaptureArtifact, Op, Fin<LandedArtifact>> artifact,
+        Func<PublishPage.CapturedCase, CaptureArtifact, Op, Fin<Unit>> artifact,
         Op op) =>
-        from landed in pages.TraverseM(page =>
+        from _landed in pages.TraverseM(page =>
             from capturedPage in Captured(page: page, op: op)
-            from delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art, op))
-            from fact in PublishReceipt.Artifact(
-                slot: slot, scope: capturedPage.Stamp, artifact: delivered.Path, key: delivered.Key, op: op)
-            from noted in PublishReceipt.Noted(notes: delivered.Evidence, op: op)
-            select fact + noted).As()
-        select landed.Fold(PublishReceipt.Empty, static (held, next) => held + next);
+            from _delivered in capture(arg: capturedPage).Bind(art => artifact(capturedPage, art, op))
+            select unit).As()
+        select unit;
 
     private static Fin<CaptureArtifact> Planned(
         DocumentSession session,
@@ -1059,7 +957,7 @@ public static class Publishing {
             ? Fin.Succ(value: captured)
             : Fin.Fail<PublishPage.CapturedCase>(error: op.InvalidInput());
 
-    private static Fin<LandedArtifact> Raster(
+    private static Fin<Unit> Raster(
         CaptureArtifact capture,
         PublishPage.CapturedCase page,
         DocumentPath target,
@@ -1071,14 +969,13 @@ public static class Publishing {
                 scope: page.Stamp,
                 output: output,
                 codec: codec,
-                surface: nameof(Rasters.Save),
                 write: temporary => raster.Pixels.Use(bitmap =>
                     Rasters.Save(bitmap: bitmap, policy: policy, path: temporary, key: op)),
                 op: op)),
-            _ => Fin.Fail<LandedArtifact>(error: op.InvalidResult()),
+            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
         };
 
-    private static Fin<LandedArtifact> Vector(
+    private static Fin<Unit> Vector(
         CaptureArtifact capture,
         PublishPage.CapturedCase page,
         DocumentPath target,
@@ -1089,47 +986,31 @@ public static class Publishing {
                 scope: page.Stamp,
                 output: output,
                 codec: FileCodec.Svg,
-                surface: nameof(System.Xml.XmlDocument.Save),
                 write: temporary => op.Catch(() => {
                     vector.Svg.Save(filename: temporary);
                     return Fin.Succ(value: unit);
                 }),
                 op: op),
-            _ => Fin.Fail<LandedArtifact>(error: op.InvalidResult()),
+            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
         };
 
-    private static Fin<LandedArtifact> Deliver(
+    private static Fin<Unit> Deliver(
         DocumentPath target,
         StampScope scope,
         OutputPolicy output,
         FileCodec codec,
-        string surface,
         Func<string, Fin<Unit>> write,
         Op op) =>
         from named in op.Catch(() => Fin.Succ(value: DocumentPath.Create(value: StampText.Render(
             template: PageStem(target: target, scope: scope), scope: scope))))
-        from landed in output.Land(target: named, codec: codec, stage: write, key: op)
-        select new LandedArtifact(
-            Path: landed.Target,
-            Key: landed.ContentKey,
-            Evidence: LandedEvidence(surface: surface, target: landed.Target));
+        from _landed in output.Land(target: named, codec: codec, stage: write, key: op)
+        select unit;
 
-    internal static Fin<LandedArtifact> Land(Landing.Save landing, Func<DocumentPath, Fin<Unit>> write, Op op) =>
+    internal static Fin<Unit> Land(Landing.Save landing, Func<DocumentPath, Fin<Unit>> write, Op op) =>
         from writer in op.Need(value: write)
         from settled in landing.Output.Resolve(target: landing.Target, codec: Some(landing.Codec), key: op)
         from _written in writer(arg: settled)
-        from keyed in Exchanges.Keyed(path: settled.Value, op: op)
-        select new LandedArtifact(
-            Path: settled,
-            Key: keyed,
-            Evidence: LandedEvidence(surface: nameof(Landing.Save), target: settled));
-
-    private static Seq<ExchangeEvidence> LandedEvidence(string surface, DocumentPath target) => Seq<ExchangeEvidence>(
-        new ExchangeEvidence.NativeCase(
-            Surface: surface,
-            Succeeded: true,
-            Detail: "The temporary artifact was verified nonempty and byte-identical before commit.",
-            Target: Some(target)));
+        select unit;
 
     private static string PageStem(DocumentPath target, StampScope scope) =>
         scope.PageCount <= 1
@@ -1141,7 +1022,7 @@ public static class Publishing {
                     scope.Issue.IsSome ? "-%number%" : "-%pagenumber%",
                     System.IO.Path.GetExtension(target.Value)));
 
-    private static Fin<PublishReceipt> Pdf(
+    private static Fin<Unit> Pdf(
         DocumentSession session, PublishRequest request, PublishTarget.PdfCase target, Seq<PublishPage> pages, Op op) =>
         from pdf in op.Catch(() => Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult()))
         from _grouping in op.Catch(() => {
@@ -1165,18 +1046,12 @@ public static class Publishing {
                 scope: row.Scope,
                 op: op))
             .As()
-        from landed in target.Output.Land(
+        from _landed in target.Output.Land(
             target: target.Target,
             codec: FileCodec.Pdf,
             stage: temporary => Flush(pdf: pdf, target: target, path: temporary, op: op),
             key: op)
-        from facts in minted
-            .TraverseM(row => PublishReceipt.Artifact(
-                slot: PublishSlot.Pdf, scope: row.Scope, artifact: landed.Target, key: landed.ContentKey, op: op))
-            .As()
-        from noted in PublishReceipt.Noted(
-            notes: LandedEvidence(surface: nameof(FilePdf.Write), target: landed.Target), op: op)
-        select facts.Fold(PublishReceipt.Empty, static (held, next) => held + next) + noted;
+        select unit;
 
     private static Fin<int> AddPage(
         DocumentSession session,
@@ -1252,7 +1127,7 @@ config:
 ---
 flowchart LR
     accTitle: Publication capture and atomic artifact flow
-    accDescr: Ordered pages derive capture plans or transparent requests before atomic delivery and typed evidence.
+    accDescr: Ordered pages derive capture plans or transparent requests before atomic delivery settles the command.
     Source["PageSource — captured or blank pages"] -->|one session demand| Stream["ordered PublishPage stream"]
     Target["PublishTarget — PDF · printer · raster · SVG"] --> Rail["Publishing.Run"]
     Stream --> Rail["Publishing.Run"]
@@ -1263,16 +1138,6 @@ flowchart LR
     Request --> Atomic["temporary write · verify · atomic replace"]
     Transparent --> Atomic
     Staged --> Atomic
-    Spool --> Evidence["PublishSlot-keyed facts · ExchangeEvidence notes"]
-    Atomic --> Evidence
-    Evidence --> Receipt["PublishReceipt"]
+    Spool --> Done["Fin Unit"]
+    Atomic --> Done
 ```
-
-## [06]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
--->
-
-(none)

@@ -55,7 +55,7 @@ class IsNow(DirtyEquals[datetime]):
 
 ```python
 from dirty_equals import IsInt, IsNow, IsUUID, IsPartialDict, IsJson, IsApprox
-def test_receipt(emit: Callable[[], dict[str, object]]) -> None:
+def test_emitted(emit: Callable[[], dict[str, object]]) -> None:
     assert emit() == {"id": IsUUID(4), "count": IsInt(ge=1), "at": IsNow(tz="UTC"), "score": IsApprox(0.5, delta=0.01)}
     assert emit() == IsPartialDict(kind="shape")
 ```

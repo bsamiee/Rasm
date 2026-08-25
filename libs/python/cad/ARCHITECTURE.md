@@ -19,7 +19,7 @@ cad/
 │   ├── solid.py        # Primitives with angular bounds and generative sweeps under one mint-from-parameters regime
 │   ├── boolean.py      # N-ary set algebra: operand partition, fuzzy tolerance, non-destructive run under custody
 │   ├── feature.py      # Sub-topology selection and the edge and face feature builders it drives
-│   ├── healing.py      # Stepwise exact repair under typed steps and the receipt stating what moved
+│   ├── healing.py      # Stepwise exact repair under typed steps, answering what moved as Healing
 │   ├── provenance.py   # Generated, modified, deleted, and kept correspondence rekeyed onto the sealed artifact
 │   └── operation.py    # Operation fold, arm totality, emission dispatch, extent gate, and the seal handoff
 ├── metrology/          # Measurement of shape, seated below both native owners
@@ -83,7 +83,7 @@ flowchart TB
     Brep e8@-->|"[IMPORT]: Resealed"| Step
     Brep e9@-->|"[IMPORT]: Resealed"| Iges
     Brep e10@-->|"[IMPORT]: gp_Ax2"| Placement
-    Brep e11@-->|"[IMPORT]: BrepKernelReceipt"| Metrology
+    Brep e11@-->|"[IMPORT]: BrepMeasure"| Metrology
     Brep e12@-->|"[IMPORT]: Custody"| Regime
     Assembly e13@-->|"[IMPORT]: StepProtocol"| Step
     Step e14@-->|"[IMPORT]: unsealed"| Iges
@@ -102,7 +102,7 @@ flowchart TB
 - S3 native owners — `brep` and `exchange/assembly` build over admitted generated values; neither imports a Python branch package.
 - S4 `tessellation` reads the assembly document, emitted-file census, and custody grant, so it seats above both native owners.
 - S5 `service` — served boundary, one-slot native lane, and call-spool custody; the only stratum that may spell a raise.
-- S3→S1 `brep/operation` reads `metrology/properties` for receipts and `metrology/census` for extent; measurement imports no constructor.
+- S3→S1 `brep/operation` reads `metrology/properties` for measurement and `metrology/census` for extent; measurement imports no constructor.
 - `brep/operation` alone imports downward for placement, source resolution, and codec sealing; every arm remains below the apex.
 - `rasm.contracts` at `libs/contracts/gen/python` is the admitted import root every stratum reads, never a rank, carrying the same upward law.
 - S5 `service` alone composes runtime `transport/artifact` for spool custody and verified transfer; lower ranks remain branch-independent.
@@ -169,7 +169,7 @@ flowchart LR
 - Refusals cross that same seam as values, because a fault carries a frozen row and a coordinate that pickle by reference at both ends of it.
 - Process-global OCCT state initializes inside the worker on first fold, so the parent holds no latch the fold reads and a respawn re-establishes it.
 - Sealed outputs re-read before reply; readback proves format and extent, then rekeys correspondence onto decoded order.
-- One emitted-file census supplies kernel and tessellation receipts plus the parts roster, so measurement decodes once.
+- One emitted-file census supplies the measure's closure, the tessellation counts, and the parts roster, so measurement decodes once.
 - Refusal converges at the servicer alone; interior owners return the rail, and one row beside the admitted stamp builds the terminal Connect error.
 
 ## [05]-[BOUNDARIES]

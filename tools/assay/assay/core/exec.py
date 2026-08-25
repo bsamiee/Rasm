@@ -28,38 +28,8 @@ from assay.composition.catalog import launch
 from assay.composition.settings import AssaySettings, Local, Ssh
 from assay.composition.store import ArtifactScope
 from assay.core.aspect import checked, compose, traced
-from assay.core.govern import (
-    Captured,
-    captured_outputs,
-    diagnose,
-    dotnet_slot,
-    drain_pair,
-    ExecPlan,
-    fan_schedule,
-    governed_concurrency,
-    max_resources,
-    measure,
-    reap,
-    recv_anyio,
-    remaining,
-    reset_foreign_census,
-    resource_monitor,
-    stall_monitor,
-    stream_artifacts,
-    touched,
-)
-from assay.core.model import (
-    Check,
-    Completed,
-    Fault,
-    HOST_BOUND_CLAIMS,
-    Mode,
-    RailStatus,
-    receipt,
-    Runner,
-    Tool,
-    ToolGroup,
-)
+from assay.core.govern import Captured, captured_outputs, diagnose, dotnet_slot, drain_pair, ExecPlan, fan_schedule, governed_concurrency, max_resources, measure, reap, recv_anyio, remaining, reset_foreign_census, resource_monitor, stall_monitor, stream_artifacts, touched
+from assay.core.model import Check, Completed, Fault, HOST_BOUND_CLAIMS, Mode, RailStatus, Runner, Tool, ToolGroup
 from assay.core.remote import pooled_ssh, run_remote
 from assay.core.routing import discover, place, Routed
 from assay.diagnostics import AST_MATCHES
@@ -82,15 +52,11 @@ type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, floa
 class Executor(Protocol):
     """Execution port rails spawn checks through; the registry weave threads the bound instance into every handler."""
 
-    def run(
-        self, check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
-    ) -> Result[Completed, Fault]:
-        """Run one check to a completed receipt or an operational fault."""
+    def run(self, check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None) -> Result[Completed, Fault]:
+        """Run one check to a completed result or an operational fault."""
         ...
 
-    def fan(
-        self, checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
-    ) -> tuple[Result[Completed, Fault], ...]:
+    def fan(self, checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None) -> tuple[Result[Completed, Fault], ...]:
         """Run checks concurrently, preserving input order, one result slot per check."""
         ...
 
@@ -111,9 +77,7 @@ class _PreparedExec:
     thread_limiter: anyio.CapacityLimiter
 
 
-def splice_command(
-    runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str], mode: Mode
-) -> tuple[str, ...]:
+def splice_command(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str], mode: Mode) -> tuple[str, ...]:
     """Inject scope flags into eligible DOTNET build-graph commands.
 
     Returns:
@@ -132,10 +96,7 @@ def _dotnet_scope_flags(command: tuple[str, ...], scope: ArtifactScope) -> tuple
         case "":
             return scope.dotnet_flags
         case segment:
-            return tuple(
-                f"{scope.path.rstrip('/')}/dotnet/{segment}" if prior == "--artifacts-path" else current
-                for prior, current in zip(("", *scope.dotnet_flags[:-1]), scope.dotnet_flags, strict=True)
-            )
+            return tuple(f"{scope.path.rstrip('/')}/dotnet/{segment}" if prior == "--artifacts-path" else current for prior, current in zip(("", *scope.dotnet_flags[:-1]), scope.dotnet_flags, strict=True))
 
 
 def _project_scope(command: tuple[str, ...]) -> str:
@@ -282,9 +243,7 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
 
 async def _run_process_backend(plan: ExecPlan) -> Completed:
     started = time.monotonic()
-    _LOG.info(
-        "process.start", tool=plan.check.tool.name, argv=plan.argv, cwd=plan.cwd, streaming=plan.streaming, remote=bool(plan.settings.exec_target)
-    )
+    _LOG.info("process.start", tool=plan.check.tool.name, argv=plan.argv, cwd=plan.cwd, streaming=plan.streaming, remote=bool(plan.settings.exec_target))
     match plan.settings.exec_target:
         case Local():
             match plan.streaming:
@@ -295,33 +254,20 @@ async def _run_process_backend(plan: ExecPlan) -> Completed:
                         async with anyio.create_task_group() as tg:
                             _ = tg.start_soon(stall_monitor, proc.pid, last_output, stall)
                             _ = tg.start_soon(resource_monitor, proc.pid, last_output, samples, plan.check.tool.name)
-                            streams = await drain_pair(
-                                plan,
-                                touched(recv_anyio(proc.stdout, plan.chunk), last_output),
-                                touched(recv_anyio(proc.stderr, plan.chunk), last_output),
-                                proc.wait,
-                                stall,
-                            )
+                            streams = await drain_pair(plan, touched(recv_anyio(proc.stdout, plan.chunk), last_output), touched(recv_anyio(proc.stderr, plan.chunk), last_output), proc.wait, stall)
                             tg.cancel_scope.cancel()
                         resources = max_resources(tuple(samples))
                         duration_ms = (time.monotonic() - started) * 1000.0
-                        _LOG.info(
-                            "process.end",
-                            tool=plan.check.tool.name,
+                        _LOG.info("process.end", tool=plan.check.tool.name, argv=plan.argv, returncode=proc.returncode or 0, duration_ms=round(duration_ms, 1), **dict(resources))
+                        return Completed(
                             argv=plan.argv,
                             returncode=proc.returncode or 0,
-                            duration_ms=round(duration_ms, 1),
-                            **dict(resources),
-                        )
-                        return msgspec.structs.replace(
-                            receipt(
-                                plan.argv,
-                                proc.returncode or 0,
-                                stdout=streams.get("out", Captured()).read(plan.local_store()),
-                                stderr=streams.get("err", Captured()).preview,
-                                notes=tuple(stall),
-                                artifacts=stream_artifacts(plan.scope, plan.settings, plan.check, streams),
-                            ),
+                            stdout=streams.get("out", Captured()).read(plan.local_store()),
+                            stderr=streams.get("err", Captured()).preview,
+                            duration_ms=duration_ms,
+                            status=RailStatus.from_returncode(proc.returncode or 0),
+                            notes=tuple(stall),
+                            artifacts=stream_artifacts(plan.scope, plan.settings, plan.check, streams),
                             resources=(*resources, ("process.duration_ms", duration_ms)),
                         )
                     finally:
@@ -331,55 +277,39 @@ async def _run_process_backend(plan: ExecPlan) -> Completed:
                     streams = captured_outputs(plan, done.stdout, done.stderr)
                     resources = tuple(sorted(measure().to_resources()))
                     duration_ms = (time.monotonic() - started) * 1000.0
-                    _LOG.info(
-                        "process.end",
-                        tool=plan.check.tool.name,
+                    _LOG.info("process.end", tool=plan.check.tool.name, argv=plan.argv, returncode=done.returncode, duration_ms=round(duration_ms, 1), **dict(resources))
+                    return Completed(
                         argv=plan.argv,
                         returncode=done.returncode,
-                        duration_ms=round(duration_ms, 1),
-                        **dict(resources),
-                    )
-                    return msgspec.structs.replace(
-                        receipt(
-                            plan.argv,
-                            done.returncode,
-                            stdout=streams.get("out", Captured()).read(plan.local_store()),
-                            stderr=streams.get("err", Captured()).preview,
-                            artifacts=stream_artifacts(plan.scope, plan.settings, plan.check, streams),
-                        ),
+                        stdout=streams.get("out", Captured()).read(plan.local_store()),
+                        stderr=streams.get("err", Captured()).preview,
+                        duration_ms=duration_ms,
+                        status=RailStatus.from_returncode(done.returncode),
+                        artifacts=stream_artifacts(plan.scope, plan.settings, plan.check, streams),
                         resources=(*resources, ("process.duration_ms", duration_ms)),
                     )
         case Ssh() as target:
             remote_done = await run_remote(plan, target)
-            _LOG.info(
-                "process.end",
-                tool=plan.check.tool.name,
-                argv=plan.argv,
-                returncode=remote_done.returncode,
-                duration_ms=round((time.monotonic() - started) * 1000.0, 1),
-                remote=True,
-            )
+            _LOG.info("process.end", tool=plan.check.tool.name, argv=plan.argv, returncode=remote_done.returncode, duration_ms=round((time.monotonic() - started) * 1000.0, 1), remote=True)
             return remote_done
 
 
 def apply_row_status(tool: Tool, done: Completed) -> Completed:
-    """Apply a tool row's status policy to a process receipt.
+    """Apply a tool row's status policy to a completed process.
 
     An ``empty-on-exit1`` row whose returncode-1 stdout decodes as the no-match document maps to ``EMPTY``
     (the tool signals "no match" through exit 1); non-document stdout on exit 1 stays a tool fault (FAILED).
-    A row carrying an ``empty_signature`` maps its (returncode, marker) nothing-to-do receipt to ``EMPTY`` —
+    A row carrying an ``empty_signature`` maps its (returncode, marker) nothing-to-do result to ``EMPTY`` —
     a runner with no eligible work (pytest exit 5, vitest "No test files found") is an empty scope, never a defect.
 
     A row declaring ``defect_exit`` types its exit algebra: that exact code is the tool's rule-violation exit and reads
     ``FAILED`` with its parsed rows, every other non-zero exit is a tool failure and reads ``FAULTED`` carrying the
-    stderr tail; ``TIMEOUT`` and ``BUSY`` receipts stay untouched.
+    stderr tail; ``TIMEOUT`` and ``BUSY`` results stay untouched.
 
     Returns:
-        The receipt with the row-driven status applied, or unchanged when no policy matches.
+        The result with the row-driven status applied, or unchanged when no policy matches.
     """
-    empty = (ToolGroup.EMPTY_ON_EXIT1 in tool.groups and done.returncode == 1 and _is_match_document(done.stdout)) or (
-        tool.empty_signature is not None and done.returncode == tool.empty_signature[0] and tool.empty_signature[1] in done.stdout + done.stderr
-    )
+    empty = (ToolGroup.EMPTY_ON_EXIT1 in tool.groups and done.returncode == 1 and _is_match_document(done.stdout)) or (tool.empty_signature is not None and done.returncode == tool.empty_signature[0] and tool.empty_signature[1] in done.stdout + done.stderr)
     match (empty, tool.defect_exit, done.returncode, done.status):
         case (True, _, _, _):
             return msgspec.structs.replace(done, status=RailStatus.EMPTY)
@@ -399,9 +329,7 @@ def _is_match_document(raw: bytes) -> bool:
     return True
 
 
-async def _guarded(
-    check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
-) -> Result[Completed, Fault]:
+async def _guarded(check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None) -> Result[Completed, Fault]:
     t0 = time.monotonic()
     attempts = [1]
     argv: tuple[str, ...] = (check.tool.name,)
@@ -410,14 +338,7 @@ async def _guarded(
         match await _prepare_exec(check, settings, scope, routed, deadline):
             case Result(tag="ok", ok=prepared):
                 argv = prepared.argv
-                return (await _run_prepared(prepared, settings, scope, attempts)).map(
-                    lambda done: apply_row_status(
-                        check.tool,
-                        msgspec.structs.replace(
-                            done, duration_ms=(time.monotonic() - t0) * 1000.0, parser=check.tool.parser, sarif_dir=check.args.sarif_dir
-                        ),
-                    )
-                )
+                return (await _run_prepared(prepared, settings, scope, attempts)).map(lambda done: apply_row_status(check.tool, msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0, parser=check.tool.parser, sarif_dir=check.args.sarif_dir)))
             case Result(error=fault):
                 return Error(fault)
     except (TimeoutError, FileNotFoundError, ValueError, OSError) as exc:
@@ -434,18 +355,14 @@ def _exec_cwd(check: Check, settings: AssaySettings) -> str:
             return str(UPath(check.cwd or settings.local_root).path)
 
 
-async def _prepare_exec(
-    check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
-) -> Result[_PreparedExec, Fault]:
+async def _prepare_exec(check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None) -> Result[_PreparedExec, Fault]:
     match await to_thread.run_sync(_materialize, check, settings):
         case Result(tag="ok", ok=prepared):
             check = prepared
         case Result(error=fault):
             return Error(fault)
     if check.tool.claim in HOST_BOUND_CLAIMS and settings.exec_target:
-        return Error(
-            Fault((check.tool.name, check.tool.claim.value), status=RailStatus.UNSUPPORTED, message="host-bound tools require local execution")
-        )
+        return Error(Fault((check.tool.name, check.tool.claim.value), status=RailStatus.UNSUPPORTED, message="host-bound tools require local execution"))
     match _argv(check, routed, settings=settings, scope=scope):
         case Result(tag="ok", ok=argv):
             pass
@@ -457,37 +374,16 @@ async def _prepare_exec(
     env = await to_thread.run_sync(_apphost, check.tool, _overlay(check.tool, settings, scope), abandon_on_cancel=True)
     propagate.inject(env)
     trace.get_current_span().set_attribute("exec.target", settings.exec_target.url if isinstance(settings.exec_target, Ssh) else "")
-    return Ok(
-        _PreparedExec(
-            check=check,
-            argv=argv,
-            cwd=cwd,
-            env=env,
-            bound=bound,
-            thread_limiter=_FAN_LIMITER.get() or anyio.CapacityLimiter(governed_concurrency(settings, (check,))),
-        )
-    )
+    return Ok(_PreparedExec(check=check, argv=argv, cwd=cwd, env=env, bound=bound, thread_limiter=_FAN_LIMITER.get() or anyio.CapacityLimiter(governed_concurrency(settings, (check,)))))
 
 
-async def _run_prepared(
-    prepared: _PreparedExec, settings: AssaySettings, scope: ArtifactScope | None, attempts: list[int]
-) -> Result[Completed, Fault]:
+async def _run_prepared(prepared: _PreparedExec, settings: AssaySettings, scope: ArtifactScope | None, attempts: list[int]) -> Result[Completed, Fault]:
     async with dotnet_slot(prepared.check, settings, prepared.bound) as slot:
         match slot:
             case Result(tag="error", error=fault):
                 return Error(fault)
             case Result(tag="ok", ok=slot_notes):
-                done = await _execute_retrying(
-                    prepared.check,
-                    settings,
-                    scope,
-                    argv=prepared.argv,
-                    cwd=prepared.cwd,
-                    env=prepared.env,
-                    thread_limiter=prepared.thread_limiter,
-                    deadline=prepared.bound,
-                    attempts=attempts,
-                )
+                done = await _execute_retrying(prepared.check, settings, scope, argv=prepared.argv, cwd=prepared.cwd, env=prepared.env, thread_limiter=prepared.thread_limiter, deadline=prepared.bound, attempts=attempts)
                 return Ok(msgspec.structs.replace(done, notes=(*slot_notes, *done.notes)) if slot_notes else done)
             case never:  # pragma: no cover
                 return Error(Fault(prepared.argv, status=RailStatus.FAULTED, message=str(never)))
@@ -507,16 +403,7 @@ def _spawn_fault(argv: tuple[str, ...], exc: BaseException, attempts: int) -> Fa
 
 
 async def _execute_retrying(  # ruff:ignore[too-many-arguments]
-    check: Check,
-    settings: AssaySettings,
-    scope: ArtifactScope | None,
-    *,
-    argv: tuple[str, ...],
-    cwd: str,
-    env: Mapping[str, str],
-    thread_limiter: anyio.CapacityLimiter,
-    deadline: float | None,
-    attempts: list[int],
+    check: Check, settings: AssaySettings, scope: ArtifactScope | None, *, argv: tuple[str, ...], cwd: str, env: Mapping[str, str], thread_limiter: anyio.CapacityLimiter, deadline: float | None, attempts: list[int]
 ) -> Completed:
     done: Completed | None = None
     retrying = stamina.retry_context(on=retry_predicate(check, deadline), attempts=3, timeout=_retry_timeout(deadline))
@@ -532,34 +419,13 @@ async def _execute_retrying(  # ruff:ignore[too-many-arguments]
             return msgspec.structs.replace(result, notes=(*result.notes, f"retry attempts={attempts[0]}")) if attempts[0] > 1 else result
 
 
-async def _execute(
-    check: Check,
-    settings: AssaySettings,
-    scope: ArtifactScope | None,
-    *,
-    argv: tuple[str, ...],
-    cwd: str,
-    env: Mapping[str, str],
-    thread_limiter: anyio.CapacityLimiter,
-) -> Completed:
+async def _execute(check: Check, settings: AssaySettings, scope: ArtifactScope | None, *, argv: tuple[str, ...], cwd: str, env: Mapping[str, str], thread_limiter: anyio.CapacityLimiter) -> Completed:
     match check.tool.runner:
         case Runner.INPROC:
             return await _inproc(check, limiter=thread_limiter)
         case _:
             return await _run_process_backend(
-                ExecPlan(
-                    argv=argv,
-                    check=check,
-                    cwd=cwd,
-                    env=env,
-                    settings=settings,
-                    scope=scope,
-                    streaming=check.tool.mode.stream,
-                    tail_cap=settings.stream_tail_bytes,
-                    spill_cap=settings.capture_spill_bytes,
-                    chunk=settings.stream_chunk_bytes,
-                    thread_limiter=thread_limiter,
-                )
+                ExecPlan(argv=argv, check=check, cwd=cwd, env=env, settings=settings, scope=scope, streaming=check.tool.mode.stream, tail_cap=settings.stream_tail_bytes, spill_cap=settings.capture_spill_bytes, chunk=settings.stream_chunk_bytes, thread_limiter=thread_limiter)
             )
 
 
@@ -595,31 +461,25 @@ def retry_predicate(check: Check, deadline: float | None) -> Callable[[BaseExcep
 async def _inproc(check: Check, limiter: anyio.CapacityLimiter | None = None) -> Completed:
     match check.thunk:
         case None:
-            return receipt((check.tool.name,), 1, stderr=b"INPROC check carries no thunk")
+            return Completed(argv=(check.tool.name,), returncode=1, stderr=b"INPROC check carries no thunk", status=RailStatus.from_returncode(1))
         case thunk:
             try:
                 return await to_thread.run_sync(thunk, check, limiter=limiter)
             except Exception as exc:  # ruff:ignore[blind-except]
-                return receipt((check.tool.name, *check.paths), 1, stderr=f"{type(exc).__name__}: {exc}".encode()[:1024])
+                return Completed(argv=(check.tool.name, *check.paths), returncode=1, stderr=f"{type(exc).__name__}: {exc}".encode()[:1024], status=RailStatus.from_returncode(1))
 
 
 def _spawn(check: Check, settings: AssaySettings) -> _Woven:
-    span = traced(
-        span=check.tool.name,
-        attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name},
-        agent=lambda *_a, **_k: settings.agent_context,
-    )
+    span = traced(span=check.tool.name, attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name}, agent=lambda *_a, **_k: settings.agent_context)
     weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return weave(_guarded)
 
 
-def run_check(
-    check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
-) -> Result[Completed, Fault]:
+def run_check(check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None) -> Result[Completed, Fault]:
     """Run one check under a single event loop.
 
     Returns:
-        Completed receipt, or a fault when spawn, lease, or timeout handling fails.
+        Completed result, or a fault when spawn, lease, or timeout handling fails.
     """
 
     async def _run() -> Result[Completed, Fault]:
@@ -628,13 +488,11 @@ def run_check(
     return anyio.run(_run)
 
 
-async def run_check_async(
-    check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
-) -> Result[Completed, Fault]:
+async def run_check_async(check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None) -> Result[Completed, Fault]:
     """Run one check inside an existing event loop.
 
     Returns:
-        Completed receipt, or a fault when spawn, lease, or timeout handling fails.
+        Completed result, or a fault when spawn, lease, or timeout handling fails.
     """
     return await _spawn(check, settings)(check, settings, scope, routed, deadline)
 
@@ -649,7 +507,7 @@ class EngineExecutor:
         """Run one check under a single event loop.
 
         Returns:
-            Completed receipt, or a fault when spawn, lease, or timeout handling fails.
+            Completed result, or a fault when spawn, lease, or timeout handling fails.
         """
         return run_check(check, settings=settings, scope=scope, routed=routed, deadline=deadline)
 
@@ -664,9 +522,7 @@ class EngineExecutor:
         return fan_out(checks, settings=settings, scope=scope, routed=routed, deadline=deadline)
 
 
-def fan_out(
-    checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
-) -> tuple[Result[Completed, Fault], ...]:
+def fan_out(checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None) -> tuple[Result[Completed, Fault], ...]:
     """Run checks concurrently and preserve input order.
 
     ``deadline`` is a shared absolute ``time.monotonic()`` ceiling; expired checks yield timeout faults in their slots.
@@ -696,14 +552,4 @@ def fan_out(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "EngineExecutor",
-    "Executor",
-    "apply_row_status",
-    "argv_for",
-    "fan_out",
-    "retry_predicate",
-    "run_check",
-    "run_check_async",
-    "splice_command",
-]
+__all__ = ["EngineExecutor", "Executor", "apply_row_status", "argv_for", "fan_out", "retry_predicate", "run_check", "run_check_async", "splice_command"]

@@ -2,7 +2,7 @@
 
 Rasm.Persistence ingests and emits project-schedule files through ONE `ScheduleSource` owner over the `MPXJ.Net` interchange codec: ~20 read dialects (P6 `XER`/`PMXML`, MS Project `.mpp`/`MSPDI`/`MPX`, Asta, Phoenix, Planner, SDEF, …) materialize into the neutral `ProjectFile` graph through ONE format-sniffing ingress — `new UniversalProjectReader().ReadAll(string|Stream)` — and the WRITE half serializes back OUT through ONE egress — `new UniversalProjectWriter(FileFormat).Write(ProjectFile|IList<ProjectFile>, …)` — over the seven writable `FileFormat` members the `ScheduleFormat` `[SmartEnum<string>]` freezes, so the durable store round-trips a P6/MS-Project schedule in both directions and never truncates a multi-project XER container: the ingress is ALWAYS `ReadAll` (a single-project file is the one-element container, arity recoverable from the yield, never a `multi` knob), and the egress arity is the graph's own count (`Write(file)` at one, `Write(files, …)` past one). This persisted payload is the durable activity-network DAG a scheduling store keeps — the full `ScheduleActivity` row (schedule/actual/baseline windows, duration/work/cost, slack, constraint, WBS and activity ids, critical/milestone flags), the predecessor/successor/`DependencyKind`/lag `TaskRelation` rows (the CPM edge set), the working-time `WorkCalendarRow` weekly pattern with date-ranged `WeekRow` overrides and per-exception shift windows, and the `ResourceRow`/`ResourceAvailabilityRow`/`AssignmentRow` loading and capacity — reconstructed on the write leg through `Relation.Builder(ProjectFile)`, `Duration.GetInstance(double, TimeUnit)`, `Availability(DateTime?, DateTime?, double?)`, and the calendar day/hour surface, so the store's rows, not a retained foreign object, are the system of record.
 
-This codec NEVER knows the element graph and NEVER computes schedule math: the per-app schedule→element map (the wire-composition owner at the host/app composition root, the `ARCHITECTURE.md` `[02]-[SEAMS]` `Ingest → Rasm.Element` row-shape law) projects each activity row into a `Rasm.Element` graph node, and the CPM forward/backward pass, resource leveling, and 4D sequencing live in `Rasm.Bim` (the `TaskRelation` rows are exactly the `SequenceRel` DAG its QuikGraph `SourceFirstBidirectionalTopologicalSort` orders — the `Rasm.Bim/Planning/schedule` counterpart, widened read→round-trip along the `[02]-[SEAMS]` `Ingest ↔ Rasm.Bim` `TaskRelation` wire). `ScheduleRows.Reconcile` correlates a fresh progress-update import by `ActivityId`, then WBS, then file key and yields `ScheduleVariance` over every durable axis: activity scope and value changes, relation topology and lag, assignment loading, calendar patterns and recurrence, resource economics, and project anchors. This IKVM boundary is ONE seam: every `MPXJ.Net` proxy carries a `JavaObject` handle behind `IHasJavaObject`/`IJavaObjectProxy<T>`, and `ProjectRows.Of`/`Synthesis.Fold` are the only members that touch a proxy type — the handle never threads into a durable row, durations and lags cross unit-tagged as `Option<ScheduleSpan>` through the closed `ScheduleUnit` vocabulary, local wall stamps cross as NodaTime `LocalDateTime`/`LocalDate`, and the four `RelationType` members cross once through `DependencyKind` with the ten `ConstraintType` members crossing through `ConstraintKind`. Every nullable proxy column admits ONCE at that seam into an evidence-carrying row and the interior never re-reads a proxy: an identity is ADMITTED rather than defaulted (a `?? 0` fallback collided every keyless task onto one key and pointed every keyless edge at whatever held it), a nullable text column crosses as `Option` exactly as `WBS` and `ActivityID` already did rather than as a `""` a receipt reads as a real name, and an unreported percentage stays absent rather than becoming a measured zero an earned-value read trusts. Both legs fold every codec exception through one `ScheduleFault.Lift` funnel into `Validation<Error, …>` at the row boundary — a null `ReadAll` yield rails `UnknownDialect`, an absent requested project rails `ProjectMissing`, an unkeyed row or unanchored calendar exception rails `RowUnkeyed`, a codec throw rails `CodecReject`, and applicative traversal accumulates every offending row as `Error.Many` — with each case seating one `[FaultCase]` ordinal whose `Offset` codes it on the `FaultBand.StoreSchedule` decade and every fact riding the `ScheduleFactKind`-discriminated stream under `store.schedule.*`. `Origin` arrives from `Ingest/tabular#TABULAR_SOURCE`; `ProjectionContext` from `Element/graph#STORE_RAIL`; `FaultBand` from the `Rasm/Domain/rails#FAULT_BAND` roster; `ReceiptSinkPort` from AppHost.
+This codec NEVER knows the element graph and NEVER computes schedule math: the per-app schedule→element map projects each activity row into a `Rasm.Element` graph node, and CPM, resource leveling, and 4D sequencing live in `Rasm.Bim`. `ScheduleRows.Reconcile` correlates a fresh progress-update import by `ActivityId`, then WBS, then file key and yields `ScheduleVariance` over every durable axis. Every `MPXJ.Net` proxy remains at the IKVM seam; `ProjectRows.Of`/`Synthesis.Fold` are the only members that touch a proxy type. Nullable proxy columns admit once into typed optional rows, and both legs fold codec exceptions through `ScheduleFault.Lift` into `Validation<Error, …>` with independent failures accumulated as `Error.Many`.
 
 ## [01]-[INDEX]
 
@@ -11,11 +11,10 @@ This codec NEVER knows the element graph and NEVER computes schedule math: the p
 
 ## [02]-[SCHEDULE_SOURCE]
 
-- Owner: `ScheduleFormat` the `[SmartEnum<string>]` egress axis frozen to the seven writable `FileFormat` members; `DependencyKind` the four CPM dependency modalities carrying `RelationType`; `ConstraintKind` the ten constraint modalities carrying `ConstraintType`; `ScheduleUnit` the fourteen unit and elapsed-unit rows carrying `TimeUnit`; `DayKind` the three calendar day types carrying `DayType`; `RecurrenceEnd` the closed recurrence-termination family; `ScheduleSpec` the `[ComplexValueObject]` fixing `Origin` with the optional project selector; `ScheduleOp` the closed `Parse | Serialize | Probe` family; `ScheduleYield` the closed `Projects | Written | Profile` result; `[FaultCase]` the fault roster realizing the kernel `[FaultCase]` floor over the `StoreSchedule` row; `ScheduleFault` the closed row-boundary family above it; `ScheduleFactKind` the closed receipt vocabulary; `ScheduleFact` the receipt record; `ScheduleSource` the one `Run` dispatch.
-- Cases: `ScheduleOp.Parse(ScheduleSpec)` reads the container through `ReadAll`, validates the selector, and projects each `ProjectFile` into `ScheduleProject`; `ScheduleOp.Serialize(ScheduleSpec, ScheduleFormat, Seq<ScheduleProject>)` synthesizes the durable rows and writes the target format; `ScheduleOp.Probe(ScheduleSpec)` yields the per-project `ScheduleProfile` roster; `ScheduleFault` is `CodecReject | UnknownDialect | ProjectMissing | RowUnkeyed`; independent row failures accumulate as `Error.Many`. `ScheduleFactKind` is `Parse | Write | Probe`.
-- Entry: `public static IO<Validation<Error, ScheduleYield>> Run(ScheduleOp op, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink)` — ONE polymorphic entry discriminating the closed op union through the generated total `Switch` (a new modality is one case that breaks this dispatch at compile time), folding both legs through the `Capture` funnel so the receipt path never sees a thrown codec exception.
+- Owner: `ScheduleFormat` is the `[SmartEnum<string>]` egress axis; `DependencyKind` carries the four CPM dependency modalities; `ConstraintKind` carries the ten constraint modalities; `ScheduleUnit` carries unit and elapsed-unit rows; `DayKind` carries calendar day types; `RecurrenceEnd` closes recurrence termination; `ScheduleSpec` fixes `Origin` with the optional project selector; `ScheduleOp` closes `Parse | Serialize | Probe`; `ScheduleYield` closes `Projects | Written | Profile`; `ScheduleFault` is the row-boundary family; `ScheduleSource` owns the one `Run` dispatch.
+- Cases: `ScheduleOp.Parse(ScheduleSpec)` reads the container and projects each `ProjectFile` into `ScheduleProject`; `ScheduleOp.Serialize` writes the target format; `ScheduleOp.Probe` yields per-project profiles; `ScheduleFault` is `CodecReject | UnknownDialect | ProjectMissing | RowUnkeyed`; independent row failures accumulate as `Error.Many`.
+- Entry: `public static IO<Validation<Error, ScheduleYield>> Run(ScheduleOp op)` — ONE polymorphic entry discriminating the closed op union through the generated total `Switch`, folding both legs through `Capture` so codec exceptions cannot escape the boundary.
 - Auto: the parse leg opens the `Origin` (path or caller-owned stream) once, calls `ReadAll` — NEVER the single-project `Read`, which silently truncates a multi-project XER to its first project, and NEVER an extension branch, because the reader format-sniffs — then projects each `ProjectFile` through `ProjectRows.Of`, the ONE IKVM seam, where every nullable proxy column ADMITS — an identity refuses rather than defaulting to a key every other keyless row shares, and a nullable name, percentage, or currency crosses as `Option` — with the refusals accumulating across every family so one report names every offending row: activities from the flat `Tasks` container with the WBS parent threaded from `ChildTasks` reachability, the dependency network from each `Task.Predecessors` (`IList<Relation>` — reading one side of the symmetric pair so an edge lands once), the full calendar record (weekly day pattern via `GetCalendarDayType`/`GetCalendarHours`, `WorkWeeks` overrides, per-exception shift windows), resources and loading from `Resources`/`ResourceAssignments`; the serialize leg folds each `ScheduleProject` through `Synthesis.Fold` — anchor properties re-stamped, calendars rebuilt day-by-day (`SetWorkingDay`/`AddCalendarHours`/`AddWorkWeek`/`AddCalendarException` with each PERSISTED shift range re-added, never a fixed default shift), WBS children minted THROUGH their parent (`Task.AddTask()`), `Relation.Builder(file).PredecessorTask(pred).SuccessorTask(succ).Type(kind.Wire)` per relation with `.Lag(lag.Wire)` applied only on a present lag, `AddResource` and `Task.AddResourceAssignment(Resource)` per loading row — then writes through ONE `UniversalProjectWriter(to.Wire)` whose arity is the graph count; the probe leg reads `ProjectProperties` (`FileType` the parsed source dialect, `FileApplication`, `ProjectTitle`) and the container's task/relation counts, so a dialect census never pays `ProjectRows.Of` projection.
-- Receipt: every op rides a `ScheduleFact` through the `ReceiptSinkPort` message envelope under `store.schedule.*` — a `parse` fact carrying the source dialect, project count, and activity/relation totals; a `write` fact carrying the target format key, project count, and activity/relation totals; a `probe` fact carrying the dialect roster size — one kind-discriminated stream, never parallel receipt records; the message envelope stamps the HLC, the fact carrying `frame.Now()` as its own observation instant.
 - Packages: MPXJ.Net (`UniversalProjectReader.ReadAll`, `UniversalProjectWriter(FileFormat).Write` single and `IList` arities, `FileFormat`, `ProjectFile.Tasks`/`ChildTasks`/`Calendars`/`Resources`/`ResourceAssignments`/`ProjectProperties`/`AddTask`/`AddResource`/`AddCalendar`/`GetTaskByUniqueID`/`GetResourceByUniqueID`, `Task` schedule/early/late/actual/baseline/constraint/WBS accessors + `AddResourceAssignment`, `Relation.Builder`/`PredecessorTask`/`SuccessorTask`/`Type`/`Lag`, `RelationType`, `ConstraintType`, `Duration.DurationValue`/`Units`/`GetInstance`, all `TimeUnit` rows, `ProjectCalendar.CalendarExceptions`/`WorkWeeks`/`Type`/`AddWorkWeek`/`AddCalendarException`, `ProjectCalendarDays.GetCalendarDayType`/`GetCalendarHours`/`SetWorkingDay`/`AddCalendarHours`, `DayType` (all three members — `Default` is inheritance, not non-work), `TimeOnlyRange`, `DateOnlyRange`, `ResourceAssignment.Units`/`Work`/`Cost`/`BudgetCost`), Rasm (`Rasm/Domain/rails#FAULT_BAND` `FaultBand`), Rasm.Persistence (`Element/graph#STORE_RAIL` `ProjectionContext`, `Ingest/tabular#TABULAR_SOURCE` `Origin`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new writable dialect is one `ScheduleFormat` row carrying its `FileFormat` member (the read side grows upstream, zero rows here); a new durable axis is one row or member on the `#DURABLE_NETWORK` family; a new dependency semantics is one `DependencyKind` row; a new op modality is one `ScheduleOp` case breaking `Run` at compile time; a new boundary-fault class is one `ScheduleFault` case and one appended `[FaultCase]` ordinal at the next free offset; zero new surface — a hand-rolled XER/MSPDI parser, an extension-branched ingress, a `Read`-only lane that truncates containers, a parallel `ReadSchedule`/`WriteSchedule` name family beside the op union, CPM/leveling math inside the codec, or a schedule→element map inside this page is the deleted form because MPXJ owns parse/serialize, `Rasm.Bim` owns the schedule math, the op union owns modality, and the app composition root owns the element projection.
 - Boundary: `ScheduleSource` is the ONE schedule-file ingress/egress owner; spreadsheet/delimited lanes cannot parse binary MPP or P6 XER, and both codecs project into the same downstream record rail. Ingress always uses format-sniffed `ReadAll`; writes target the seven `FileFormat` members only. IKVM proxies remain inside `ProjectRows`/`Synthesis`; `ScheduleSpan` carries `ScheduleUnit`, absent durations remain `None`, and working-day arithmetic reads calendar rows. `← Rasm.Bim/Planning/schedule` consumes `TaskRelation` and `ScheduleSpan` for 4D/5D, and `→ Rasm.Element` receives row shape only.
@@ -382,66 +381,33 @@ public abstract partial record ScheduleFault : Fault {
     };
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ScheduleFactKind {
-    public static readonly ScheduleFactKind Parse = new("parse");
-    public static readonly ScheduleFactKind Write = new("write");
-    public static readonly ScheduleFactKind Probe = new("probe");
-}
-
-public readonly record struct ScheduleFact(ScheduleFactKind Kind, Option<string> Dialect, int Projects, long Activities, long Relations, Instant At);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ScheduleSource {
-    public static readonly Seq<StoreSlot> Slots =
-        toSeq(ScheduleFactKind.Items).Map(static kind => StoreSlot.Create($"store.schedule.{kind.Key}"));
-
-    public static IO<Validation<Error, ScheduleYield>> Run(ScheduleOp op, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
+    public static IO<Validation<Error, ScheduleYield>> Run(ScheduleOp op) =>
         op.Switch(
-            (frame, sink),
-            parse:     static (s, p) => Parsed(p.Spec, s.frame, s.sink),
-            serialize: static (s, w) => Serialized(w.Target, w.To, w.Graph, s.frame, s.sink),
-            probe:     static (s, p) => Probed(p.Spec, s.frame, s.sink));
+            parse:     static p => Parsed(p.Spec),
+            serialize: static w => Serialized(w.Target, w.To, w.Graph),
+            probe:     static p => Probed(p.Spec));
 
-    static IO<Validation<Error, ScheduleYield>> Parsed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
-        from rows in IO.lift(() => Container(spec).Bind(spec.Selected)
+    static IO<Validation<Error, ScheduleYield>> Parsed(ScheduleSpec spec) =>
+        IO.lift(() => Container(spec).Bind(spec.Selected)
             .Bind(projects => projects.Traverse(ProjectRows.Of).As())
-            .Map(static projects => (ScheduleYield)new ScheduleYield.Projects(projects)))
-        from _ in rows.Match(
-            Succ: y => y is ScheduleYield.Projects p
-                ? sink(new ScheduleFact(ScheduleFactKind.Parse, Dialect(p.Rows), p.Rows.Count, p.Rows.Sum(static r => (long)r.Activities.Count), p.Rows.Sum(static r => (long)r.Relations.Count), frame.Now()))
-                : IO.pure(unit),
-            Fail: _ => IO.pure(unit))
-        select rows;
+            .Map(static projects => (ScheduleYield)new ScheduleYield.Projects(projects)));
 
-    static IO<Validation<Error, ScheduleYield>> Serialized(ScheduleSpec target, ScheduleFormat to, Seq<ScheduleProject> graph, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
-        from done in IO.lift(() => graph.Traverse(Synthesis.Fold).As().Bind(files => Capture(() => {
+    static IO<Validation<Error, ScheduleYield>> Serialized(ScheduleSpec target, ScheduleFormat to, Seq<ScheduleProject> graph) =>
+        IO.lift(() => graph.Traverse(Synthesis.Fold).As().Bind(files => Capture(() => {
             target.Source.Read(
                 path:   p => { Write(to, files, p); return unit; },
                 stream: s => { Write(to, files, s); return unit; });
             return (ScheduleYield)new ScheduleYield.Written(files.Count);
-        })))
-        from _ in done.Match(
-            Succ: _ => sink(new ScheduleFact(
-                ScheduleFactKind.Write, Some(to.Key), graph.Count,
-                graph.Sum(static r => (long)r.Activities.Count), graph.Sum(static r => (long)r.Relations.Count), frame.Now())),
-            Fail: _ => IO.pure(unit))
-        select done;
+        })));
 
-    static IO<Validation<Error, ScheduleYield>> Probed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
-        from roster in IO.lift(() => Container(spec).Bind(spec.Selected).Map(projects =>
+    static IO<Validation<Error, ScheduleYield>> Probed(ScheduleSpec spec) =>
+        IO.lift(() => Container(spec).Bind(spec.Selected).Map(projects =>
             (ScheduleYield)new ScheduleYield.Profile(projects.Map(static p => new ScheduleProfile(
                 ProjectRows.Text(p.ProjectProperties.FileType), ProjectRows.Text(p.ProjectProperties.FileApplication),
-                ProjectRows.Text(p.ProjectProperties.ProjectTitle), p.Tasks.Count, p.Tasks.Sum(static t => t.Predecessors.Count))))))
-        from _ in roster.Match(
-            Succ: y => y is ScheduleYield.Profile profile
-                ? sink(new ScheduleFact(ScheduleFactKind.Probe, None, profile.Roster.Count, 0L, 0L, frame.Now()))
-                : IO.pure(unit),
-            Fail: _ => IO.pure(unit))
-        select roster;
+                ProjectRows.Text(p.ProjectProperties.ProjectTitle), p.Tasks.Count, p.Tasks.Sum(static t => t.Predecessors.Count))))));
 
     static Validation<Error, Seq<ProjectFile>> Container(ScheduleSpec spec) =>
         Capture(() => spec.Source.Read(
@@ -486,9 +452,8 @@ public static class ScheduleSource {
 |  [09]   | IKVM seam          | `ProjectRows.Of` / `Synthesis.Fold`          | proxy types and `JavaObject` never escape the two members         |
 |  [10]   | row-boundary fault | `Validation<Error, …>` both legs             | dialect, selector, and codec refusals stay typed                  |
 |  [11]   | fault band         | `[FaultCase]` ordinals on `Fault`            | 8400-8403; contiguous case-grain identity                         |
-|  [12]   | receipt            | one `ScheduleFact` stream `store.schedule.*` | kind-discriminated; never parallel receipt records                |
-|  [13]   | element projection | per-app schedule→element map                 | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; codec sees rows only |
-|  [14]   | proxy admission    | identity admitted; text and rate `Option`    | `?? 0` collided keyless rows; `?? ""` forged a real name          |
+|  [12]   | element projection | per-app schedule→element map                 | `[02]-[SEAMS]` `Ingest → Rasm.Element` wire; codec sees rows only |
+|  [13]   | proxy admission    | identity admitted; text and rate `Option`    | `?? 0` collided keyless rows; `?? ""` forged a real name          |
 
 ## [03]-[DURABLE_NETWORK]
 
@@ -496,7 +461,6 @@ public static class ScheduleSource {
 - Cases: activity parentage rides `Parent`; `ScheduleDirection`, `CalendarKind`, `ResourceKind`, `ConstraintKind`, and `ScheduleUnit` preserve foreign enums without strings; activity rows retain schedule, actual, baseline, planned, remaining, budget, hierarchy, and constraint axes; calendar rows retain base weeks, overrides, recurring exceptions, and exception shifts; resource and assignment rows retain calendars, dated availability, peak units, and actual/remaining cost and work; `ScheduleVariance` carries activity, topology, lag, loading, calendar, resource, and anchor drift.
 - Entry: `public static ScheduleVariance ScheduleRows.Reconcile(ScheduleProject baseline, ScheduleProject update)` — correlation resolves on `ActivityId`, then WBS, then file key, and applies pure set-algebra diff; everything else is values the `[02]` ops yield and accept: the store-rail write is the app's (`Element/graph#STORE_RAIL`), and `Ingest/tabular#BULK_LANE` lands these typed rows.
 - Auto: round-trip fidelity is structural — `ProjectRows.Of` then `Synthesis.Fold` reconstructs the WBS-parented activity hierarchy (children minted through `Task.AddTask()` off the flat `Parent` options), every settable activity axis (name, percent, critical/milestone, schedule/actual/baseline windows, duration/work/cost, slack, constraint, WBS/activity ids), the full relation DAG with kinds and unit-tagged lags, the calendars WITH their weekly pattern, work-week overrides, and per-exception shift windows, the resources, and the loading rows, so a P6 XER ingested and re-serialized as XER preserves the network byte-meaningfully; slack and baseline rows persist as PARSED evidence of the source tool's last CPM pass and re-emit verbatim, never recomputed here; field-level fidelity beyond the durable row set (activity codes, custom fields) widens as rows on `ScheduleActivity`, never as a retained `ProjectFile`.
-- Receipt: none of its own — the rows ride `[02]`'s facts; a reconciliation is a pure fold whose consumer stamps its own fact.
 - Packages: covered by `[02]`.
 - Growth: `ScheduleActivity`, `AssignmentRow`, and `ScheduleVariance` absorb every verified task, loading, and update-cycle axis; a durable `ProjectFile` blob, per-dialect row family, sidecar variance record, or recomputed-slack column is forbidden.
 - Boundary: the rows are the Persistence half of the relocated Bim schedule domain — `Rasm.Bim/Planning/schedule` runs CPM/4D over them (read AND round-trip: an edited durable network serializes back to XER/PMXML through `[02]`'s egress so the P6 authoring tool re-imports it), and `ScheduleVariance` is what its earned-value and critical-path-drift reads consume; the app composition root maps activity rows to `Rasm.Element` nodes (row-shape law); no row carries an MPXJ type, a Java handle, an absolute re-based duration, or a fabricated UTC stamp.

@@ -40,7 +40,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: open and stream-decode a LAS/LAZ source
-- note: `create()` mints the codec, `open_reader`/`open_reader_stream` opens a file or `ReadOnlyMemory<byte>`-backed stream and reports `is_compressed`, the forward loop calls `read_point()` filling `point`, and `get_coordinates` lifts real-world XYZ. Every method returns an `int` status (0 = success); a nonzero status admits `get_error()` as the owner's codec-refusal detail, while `get_warning()` remains receipt/telemetry evidence alongside success.
+- note: `create()` mints the codec, `open_reader`/`open_reader_stream` opens a file or `ReadOnlyMemory<byte>`-backed stream and reports `is_compressed`, the forward loop calls `read_point()` filling `point`, and `get_coordinates` lifts real-world XYZ. Every method returns an `int` status (0 = success); a nonzero status admits `get_error()` as the owner's codec-refusal detail, while `get_warning()` remains provider diagnostics alongside success.
 
 | [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                          |
 | :-----: | :--------------------------------------------------------------------------- | :------- | :------------------------------------ |
@@ -111,7 +111,7 @@
 - class reads `extended_point_type != 0 ? extended_classification : classification`, and raw `laszip_point`/`laszip_header` types never leak past their consuming fold — internal code holds the canonical carrier its own owner declares
 - any fold reading a channel subset sets `decompress_selective` before the loop to skip the rest
 - tiled and windowed ingest enters through the `.lax` `inside_rectangle` + `exploit_spatial_index` path when an index exists, and the full filtered stream otherwise
-- A nonzero `int` status maps once to the consuming owner's codec refusal using `get_error()` as provider evidence — the reconstruct leg's Bim-owned refusal and `ScanFault.CodecReject` on the residence leg. `get_warning()` appends to the decode receipt and never becomes a terminal fault.
+- A nonzero `int` status maps once to the consuming owner's codec refusal using `get_error()` as provider evidence — the reconstruct leg's Bim-owned refusal and `ScanFault.CodecReject` on the residence leg. `get_warning()` appends to the decode result diagnostics and never becomes a terminal fault.
 - LGPL-2.1 custody rides a SEPARATE assembly reference (`PackageReference`), never an ILMerge into a Rasm assembly; the pure-managed ns2.0 IL binds forward and the in-Rhino plugin ALC firebreak holds
 
 [RAIL_LAW]:

@@ -71,7 +71,7 @@
 - `[PolySliceStack]`: `nCount` `oSliceAt(int)` `oBBox` `AddSlices` `AddToViewer` — the layered contour program from `Voxels.oVectorize`.
 - `[PolySlice]`: `fZPos` `AddContour(PolyContour)` `Close` `bIsEmpty` `nContours` `oContourAt(int)` `SaveToSvgFile(string, bool)` `oFromSdf(Image, float, Vector2, float)` — one Z layer of closed loops.
 - `[PolyContour]`: `oVertices` `vecVertex(int)` `nCount` `eDetectWinding` `DetectWinding` `eWinding` `AsSvgPolyline(out string)` `AsSvgPath(out string)` `oBBox` — one closed loop with winding.
-- `[CliIo.Result]`: `oSlices` `nLayers` `oBBoxFile` `strHeaderDate` `strWarnings` — the imported CLI payload and header receipt.
+- `[CliIo.Result]`: `oSlices` `nLayers` `oBBoxFile` `strHeaderDate` `strWarnings` — the imported CLI payload and header fields.
 
 [PUBLIC_TYPE_SCOPE]: runtime, geometry primitives, faults
 

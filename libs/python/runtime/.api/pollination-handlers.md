@@ -32,7 +32,7 @@ Each handler is polymorphic on the value: a domain object serializes to a temp a
 
 [ENTRYPOINT_SCOPE]: result-reader handlers (invoked by `RecipeOutput.value`)
 
-Each reader turns the joined result folder into the typed ladybug object or summary dict the job receipt carries.
+Each reader turns the joined result folder into the typed ladybug object or summary dict the `RecipeProduct` carries.
 
 - [01]-[METRIC] `outputs.daylight.read_*_from_folder`: radiance result folder -> per-sensor metric lists — `read_da_from_folder` `read_udi_from_folder` `read_cda_from_folder` `read_ga_from_folder` `read_df_from_folder` `read_pit_from_folder` `read_hours_from_folder` `read_ase_from_folder`
 - [02]-[COLLECTION] `outputs.daylight`: sorted `.ill` files, images, and LEED `DataCollection`s — `sort_ill_from_folder` `read_images_from_folder` `read_leed_datacollection_from_folder`
@@ -51,7 +51,7 @@ Each reader turns the joined result folder into the typed ladybug object or summ
 [STACKING]:
 - `queenbee`(`queenbee.md`): the `IOAliasHandler` (`language`/`module`/`function`/`index`) addressing a handler and the `JobArgument` (`name`/`value`) the input handler coerces are queenbee models.
 - `lbt-recipes`(`lbt-recipes.md`): `_RecipeParameter` is the `importlib` resolution site, `RecipeInput.handle_value`/`RecipeOutput.value` the invocation sites, and `RecipeInput.INPUT_TYPES` casts the handler output to the `DAGInput` python type.
-- runtime rails: handler invocation rides the recipe-execution process lane inside the recipe-run OpenTelemetry span; a handler `ValueError` lifts into the boundary-fault `Result` rail and the run receipt.
+- runtime rails: handler invocation rides the recipe-execution process lane inside the recipe-run OpenTelemetry span; a handler `ValueError` lifts into the boundary-fault `Result` rail and the `RecipeRun`.
 - consumption is TRANSITIVE by design and the branch composes no member: `execution/recipe.md` rules handler resolution and chain ordering out of its Boundary and assigns both to `lbt-recipes`, reading the coerced product back through `output_value_by_name` alone, so this distribution is a resolved-and-invoked dependency of the recipe rail rather than a call site. Zero direct composition is the settled shape, never a gap a later pass fills — a page importing `pollination_handlers` would be duplicating the resolver `lbt-recipes` already owns. The AGPL-3.0 admission this status rests on is adjudicated once at `execution/recipe.md` under the process-boundary charter.
 
 [LOCAL_ADMISSION]:

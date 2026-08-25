@@ -1,6 +1,6 @@
 # [RASM_API_GENERATOR_EQUALS]
 
-`Generator.Equals` derives structural equality and member-level difference receipts for attributed `partial` C# types at compile time, reaching neither reflection nor IL injection. Member attributes bind each admitted member to one comparison and hashing policy, and the generated nested `EqualityComparer` projects every difference as a path-anchored receipt a structural merge reconciles.
+`Generator.Equals` derives structural equality and member-level differences for attributed `partial` C# types at compile time, reaching neither reflection nor IL injection. Member attributes bind each admitted member to one comparison and hashing policy, and the generated nested `EqualityComparer` projects every difference as a path-anchored `Inequality` a structural merge reconciles.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -12,7 +12,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: attributes selecting each member's comparison policy, the runtime comparer family implementing `IEqualityComparer<TInput>` under a static `Default`, and the receipt family `Inequalities` yields.
+[PUBLIC_TYPE_SCOPE]: attributes selecting each member's comparison policy, the runtime comparer family implementing `IEqualityComparer<TInput>` under a static `Default`, and the difference family `Inequalities` yields.
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [CAPABILITY]                       |
 | :-----: | :----------------------------------------- | :------------ | :--------------------------------- |
@@ -32,7 +32,7 @@
 |  [14]   | `SetEqualityComparer<T>`                   | class         | `IEnumerable<T>` set equality      |
 |  [15]   | `DictionaryEqualityComparer<TKey, TValue>` | class         | `IDictionary` entry equality       |
 |  [16]   | `ReferenceEqualityComparer<T>`             | class         | identity equality for `T : class`  |
-|  [17]   | `Inequality`                               | struct        | differing-member receipt           |
+|  [17]   | `Inequality`                               | struct        | differing-member value             |
 |  [18]   | `MemberPath`                               | struct        | ordered segment path               |
 |  [19]   | `MemberPathSegment`                        | struct        | kinded path step                   |
 |  [20]   | `MemberPathSegmentKind`                    | enum          | path-step vocabulary               |
@@ -75,7 +75,7 @@
 [Inequality]: `Path` `Left` `Right`
 
 - `Inequality.ToString()`: renders `{Path}: {Left} → {Right}`.
-- `MemberPath.ToString()`: dots property and field segments and brackets index, key, and membership segments, so a receipt reads `Addresses["home"].Street` or `Layers[2]`.
+- `MemberPath.ToString()`: dots property and field segments and brackets index, key, and membership segments, so an inequality reads `Addresses["home"].Street` or `Layers[2]`.
 - `DefaultEqualityComparer<T>`: routes a sealed `T` through `EqualityComparer<T>.Default` and every other `T` through `object.Equals`.
 - `SetEqualityComparer<T>.Equals`: takes the `ISet<T>.SetEquals` fast path only under the default element comparer.
 - `DictionaryEqualityComparer<TKey, TValue>`: takes independent key and value comparers readable back through `KeyEqualityComparer` and `ValueEqualityComparer`; `Equals` matches keys through the dictionary's own lookup while `KeyEqualityComparer` drives entry hashing.

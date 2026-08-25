@@ -207,13 +207,12 @@ Each row is set after `add_stream` and before the first `encode`, reading the sh
 - `BitStreamFilterContext` rewrites a packet bitstream (annexb, extradata) for a `demux` then `bsf.filter` then `mux` copy that changes container or codec without re-decoding.
 - `stream.encode(frame)` then `container.mux(packets)` is the one encode-then-mux row, flushed with `encode(None)`; `mux_one(packet)` serves one-at-a-time backpressure and `AudioFifo` rebuffers to the fixed `frame_size` encoders like AAC demand.
 - `FFmpegError` is a typed `tag`/`errno` tree whose lookup, decode, and protocol faults are distinct exception classes, never raw return codes.
-- Each op captures container format, codec, `pix_fmt`, frame count, resolution, frame rate, bit rate, GOP size, filter-graph chain, `ffmpeg_version_info`, and input/output byte length as a media receipt.
 
 [STACKING]:
 - `numpy`(`.api/numpy.md`): the frame seam is `VideoFrame.from_ndarray(arr, format)` in / `frame.to_ndarray()` out over a `uint8`/`float32` RGB24/RGBA/GRAY or 10-bit `yuv420p10le` buffer, `from_numpy_buffer` the zero-copy contiguous variant, `from_dlpack` the device edge a `torch`/`cupy`/`jax` CUDA tensor ingests with no host round-trip.
 - `anyio`(`.api/anyio.md`): the synchronous `demux`/`decode`/`encode`/`mux` loop drives one container per `anyio.to_thread.run_sync` worker under a `CapacityLimiter` fan, only the finished bytes crossing back to the async caller.
-- `expression`(`.api/expression.md`): the `FFmpegError` subtree maps at the boundary to `Result[MediaReceipt, MediaError]` — `EncoderNotFoundError`/`MuxerNotFoundError` the unregistered-codec arm, `InvalidDataError` the malformed-input arm, a successful `mux` trailer the `Ok` receipt.
-- `structlog`(`.api/structlog.md`)/`opentelemetry`(`.api/opentelemetry-api.md`): the per-op evidence is the structured event/span payload, and `av.library_versions` read once at boundary init rides the receipt as a deployment fact.
+- `expression`(`.api/expression.md`): the `FFmpegError` subtree maps at the boundary to `Result[Produced, MediaFault]` — `EncoderNotFoundError`/`MuxerNotFoundError` select the codec fault, `InvalidDataError` selects the malformed-input fault, and a completed mux returns bytes with `MediaEvidence`.
+- `structlog`(`.api/structlog.md`)/`opentelemetry`(`.api/opentelemetry-api.md`): each media operation binds its `MediaEvidence` fields to one event and span; the startup span binds `av.library_versions` once.
 - `pillow`(`.api/pillow.md`) is the still-image edge (`Image` to `VideoFrame.from_image`/`to_image`) for a poster or GIF frame, and the document owner (`pymupdf`/`reportlab`) embeds the produced MP4/GIF byte payload — each a `from_ndarray`/`from_image` row into the same `MediaOp`.
 - within-library: the `MediaOp` composes `av.open`, `add_stream`, `from_ndarray`, `encode`, `mux`, the filter `Graph`, and the `BitStreamFilterContext` remux path into one owner, so encode, decode, transcode, remux, and filter are arms rather than sibling packages.
 

@@ -4,15 +4,15 @@
 
 ## [01]-[INDEX]
 
-- [02]-[INGRESS_PUMP]: `CdcIngress` folds the instrumented consume leg, the `ResumeOrigin` rebalance resolve under its derived budget, the message envelope decode and source gate, the content-key dedup against the op-log, the durable apply-then-commit law, the `IngressReceipt` conservation and live-edge fold, and the 8500 fault band.
+- [02]-[INGRESS_PUMP]: `CdcIngress` folds the instrumented consume leg, the `ResumeOrigin` rebalance resolve under its derived budget, the message envelope decode and source gate, the content-key dedup against the op-log, the durable apply-then-commit law, the `IngressTally` conservation and live-edge fold, and the 8500 fault band.
 
 ## [02]-[INGRESS_PUMP]
 
-- Owner: `CdcIngress` the static surface owning the one consume fold — instrumented consume, context join, message envelope decode, generated-profile admission, source gate, content acquisition, atomic apply, offset commit; `IngressSource` the foreign-topic binding row (topic, group, admitted source URI set, batch width, resume origin, poll interval) the composition root fills; `ResumeOrigin` the closed start-position family the rebalance handler dispatches on, its one resolve owned here rather than handed to the composition root as a delegate; `IngressPayload` the inline-or-reference carrier; `IngressPorts` the injected resolve/apply/dead-letter frame so no provider type crosses into the fold and no roster arrives from a caller; `AdmittedRecord` the proved foreign record the apply leg takes, so nothing past admission re-validates; `IngressOutcome` the closed per-record settlement whose rows carry their own `IngressTally` step, making the conservation law structural; `IngressReceipt` the per-drain evidence implementing the kernel `IValidityEvidence`; `[FaultCase]`/`IngressFault` the 8500 band on the kernel `[FaultCase]`/`Fault` floor, one roster row per concern with `Code` sealed.
+- Owner: `CdcIngress` the static surface owning the one consume fold — instrumented consume, context join, message envelope decode, generated-profile admission, source gate, content acquisition, atomic apply, offset commit; `IngressSource` the foreign-topic binding row (topic, group, admitted source URI set, batch width, resume origin, poll interval) the composition root fills; `ResumeOrigin` the closed start-position family the rebalance handler dispatches on, its one resolve owned here rather than handed to the composition root as a delegate; `IngressPayload` the inline-or-reference carrier; `IngressPorts` the injected resolve/apply/dead-letter frame so no provider type crosses into the fold and no roster arrives from a caller; `AdmittedRecord` the proved foreign record the apply leg takes, so nothing past admission re-validates; `IngressOutcome` the closed per-record settlement whose rows carry their own `IngressTally` step, making the conservation law structural and the tally itself the kernel `IValidityEvidence` a drain returns; `[FaultCase]`/`IngressFault` the 8500 band on the kernel `[FaultCase]`/`Fault` floor, one roster row per concern with `Code` sealed.
 - Cases: a consumed record decodes through `EventFormat.Json` with declarations from `EventExtensionContract<Extensions>`, which reconstructs and validates the whole generated message. Inline bytes and a `dataref` URI-reference are the two payload arms; four message outcomes plus the partition-edge position close the conservation fold.
 - Entry: `Consume(IConsumer<string, byte[]>, IngressSource, IngressPorts, ProjectionContext, CancellationToken)` admits a positive batch, threads cancellation through the wrapped record settlement, and stores one offset after settlement; `Bind` constructs and subscribes the instrumented consumer, pinning `MaxPollIntervalMs` from the row's `PollInterval` and deriving the rebalance resolve budget from that pinned value, and seats the ONE `SetPartitionsAssignedHandler` this consumer takes — the client raises `InvalidOperationException` on a second set, so the handler binds at exactly one site and no revoked-handler `Func` binds beside it; `Throttle(IConsumer<string, byte[]>, bool)` pauses and resumes FETCH over the held assignment, the one back-pressure verb this client exposes; `Close(IConsumer<string, byte[]>, IngressSource, Op)` is the ONE teardown, committing stored offsets and leaving the group where a bare `Dispose` does neither.
 - Auto: the rebalance resolve runs on the poll thread INSIDE `Consume`, so every millisecond it spends is charged against `max.poll.interval.ms` and the resolve's whole budget is the `TimeSpan` it passes — an unreachable leader burns that timeout entire and raises `Local_TimedOut`, while the call's own work grows with assignment width at a marginal cost orders beneath the interval, so the timeout DERIVES from the pinned `PollInterval` by the declared `ResolveHeadroom` divisor, and no literal declares that budget a second time; one `OffsetsForTimes` covers the WHOLE held assignment because the client batches its `ListOffsets` per leader, and a chunked resolve is the deleted form on both axes — it multiplies the fixed round trip per chunk and, against a stalled leader, multiplies the timeout by the chunk count, so the guard meant to bound the handler is what overruns the interval; a refused resolve folds INSIDE the handler to `Offset.Stored`, the committed-position arm, because an exception leaving the assigned handler propagates out of `Consume` and faults the pump on a rebalance the group otherwise completes — and the containment is the kernel `Op.Catch` funnel over the WHOLE crossing rather than a `Local_TimedOut` filter, since a narrower provider-type catch left a disposed client or a cancelled budget wait free to escape the one member that must not throw; the consumer disables `EnableAutoCommit` and commits through `StoreOffset(consumeResult)` and explicit `Commit` only after each outcome settles durably, so a crash between apply and commit re-consumes and the uniqueness dedup absorbs the replay; dedup identity is the `(source, id)` composite the specification's own uniqueness rule fixes — `id` alone is unique only WITHIN one `source`, so an index on `id` merges two producers' unrelated operations the first time their id spaces overlap — passed into one `TryApply` arrow whose store-owned conditional insert and op fold share one transaction and return `true` only for the winning insert; the message envelope's `subject` crosses `ContentHash.Admit`, whose ROUND-TRIP proof refuses the upper-case and short hex spellings a bare `UInt128.TryParse` admits (`"A"` and a full-width key ending `0a` parse to one value and collapse onto one payload identity while each reads correct at its own site); the admitted-source gate reads the message envelope's `source` before apply; the wrapper's processing activity continues the foreign W3C context across the durable apply; that same wrapper returns a null-message or partition-edge result WITHOUT invoking its handler, so the settlement fold reads BOTH halves of it — the callback for record-bearing results and the return value for the two positions that carry no record — and a fold reading only the callback arms `EnablePartitionEof` for an edge count structurally pinned at zero; the wrapper also refuses any consumer that is not the instrumented twin, raising `ArgumentException` on a plain `IConsumer`, so `Bind` is the one construction path and a caller substituting a bare client fails at the first drain rather than at build; teardown crosses `Close` because a bare `Dispose` neither commits stored offsets nor tells the coordinator the member left, stranding the whole assignment for `session.timeout.ms`.
-- Receipt: a consume batch rides `store.ingress.consume` carrying the topic, group, consumed/applied/duplicate/dead-lettered counts, the at-edge count, and elapsed duration; a dead-letter rides `store.ingress.deadletter` carrying the fault-derived routing key and generated `FaultObservation` projected by AppHost composition; each settled drain receipt fires the `rasm.persistence.ingress.drained` observe point (`Store/observability#HOOK_RAIL`) as a composition-root tap on the drain outcome, the ingress counterpart of the `rasm.persistence.egress.delivered` tap and never an emit call inside the fold.
+- Output: `IngressTally` — consumed/applied/duplicate/dead-lettered counts and the at-edge count, conserving `Consumed` over the three settled halves; a dead letter carries the fault-derived routing key and the generated `FaultObservation` AppHost composition projects; each settled tally fires the `rasm.persistence.ingress.drained` observe point (`Store/observability#HOOK_RAIL`) as a composition-root tap on the drain outcome, the ingress counterpart of the `rasm.persistence.egress.delivered` tap and never an emit call inside the fold.
 - Packages: Confluent.Kafka, OpenTelemetry.Instrumentation.ConfluentKafka, CloudNative.CloudEvents.Kafka, Rasm.Contracts, Celly.Protovalidate, Rasm, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
 - Growth: a new foreign topic is one `IngressSource` row; a consumed extension changes `event.proto`; a new settlement is one `IngressOutcome` row.
 - Boundary: Kafka instrumentation owns causal links; Persistence owns consumer construction and contributes no extension roster. A reference-only event resolves through the injected residence port before apply, and both payload arms re-hash against `subject` before the store sees bytes. `TryApply` remains atomic, duplicate JSON keys refuse, processing cancellation reaches every effect, and the rebalance handler contains its own resolution faults.
@@ -58,8 +58,9 @@ public abstract partial record IngressPayload {
     public sealed record External(Uri Reference) : IngressPayload;
 }
 
-public readonly record struct IngressTally(int Consumed, int Applied, int Duplicates, int Dead, int Edge) {
+public readonly record struct IngressTally(int Consumed, int Applied, int Duplicates, int Dead, int Edge) : IValidityEvidence {
     public static readonly IngressTally Zero = default;
+    public bool IsValid => ValidityClaim.All(ValidityClaim.CountExactly(Applied + Duplicates + Dead, Consumed));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -87,11 +88,6 @@ public sealed record IngressPorts(
     Func<Uniqueness, UInt128, CloudEvent, global::Rasm.Contracts.Event.Extensions, ReadOnlyMemory<byte>, CancellationToken, IO<Fin<bool>>> TryApply,
     Func<Error, global::Rasm.Contracts.Fault.FaultObservation> ObserveFault,
     Func<global::Rasm.Contracts.Fault.FaultObservation, string, CancellationToken, IO<Unit>> DeadLetter);
-
-public sealed record IngressReceipt(string Topic, string Group, IngressTally Tally, Duration Elapsed, Instant At, CorrelationId Correlation) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(
-        ValidityClaim.CountExactly(Tally.Applied + Tally.Duplicates + Tally.Dead, Tally.Consumed));
-}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -137,10 +133,6 @@ public abstract partial record IngressFault : Fault {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CdcIngress {
-    public static readonly StoreSlot ConsumeSlot = StoreSlot.Create("store.ingress.consume");
-    public static readonly StoreSlot DeadLetterSlot = StoreSlot.Create("store.ingress.deadletter");
-    public static readonly Seq<StoreSlot> Slots = Seq(ConsumeSlot, DeadLetterSlot);
-
     const int ResolveHeadroom = 4;
 
     public static IConsumer<string, byte[]> Bind(ConsumerConfig config, IngressSource source) {
@@ -187,13 +179,12 @@ public static class CdcIngress {
                 static raised => raised is KafkaException or ObjectDisposedException,
                 cause => new IngressFault.CloseAbandoned(source.Group, cause))));
 
-    public static IO<Fin<IngressReceipt>> Consume(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
+    public static IO<Fin<IngressTally>> Consume(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
         ProjectionContext frame, CancellationToken token = default) =>
         ConsumeAdmitted(consumer, source, ports, frame, Op.Of(), token);
 
-    static IO<Fin<IngressReceipt>> ConsumeAdmitted(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
+    static IO<Fin<IngressTally>> ConsumeAdmitted(IConsumer<string, byte[]> consumer, IngressSource source, IngressPorts ports,
         ProjectionContext frame, Op key, CancellationToken token) =>
-        from mark in IO.lift(frame.Mark)
         from folded in Range(0, source.Batch.Value).FoldM(IngressTally.Zero, (tally, _) => IO.liftAsync(async () =>
             (await key.Catch(async _ => {
             Option<Error> refused = None;
@@ -224,8 +215,7 @@ public static class CdcIngress {
                     static raised => raised is KafkaException,
                     cause => new IngressFault.CommitRegressed(source.Topic, cause)));
         })
-        select committed.Map(_ => new IngressReceipt(
-            source.Topic, source.Group, folded, frame.Elapsed(mark), frame.Now(), frame.Correlation));
+        select committed.Map(_ => folded);
 
     static IngressOutcome Positioned(ConsumeResult<string, byte[]>? offered) =>
         offered is { IsPartitionEOF: true } ? IngressOutcome.AtEdge : IngressOutcome.Absent;

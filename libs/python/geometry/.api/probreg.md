@@ -29,7 +29,7 @@
 |  [06]   | `TPSTransformation`        | transform      | thin-plate-spline warp; `prepare(landmarks)`, `transform_basis(basis)` |
 |  [07]   | `DeformableKinematicModel` | transform      | dual-quaternion skinning; `make_weight(pairs, vals)` classmethod       |
 
-[PUBLIC_TYPE_SCOPE]: estimator and receipt family
+[PUBLIC_TYPE_SCOPE]: estimator and result family
 
 Every estimator shares `set_source(source)`, `set_callbacks(callbacks)`, and `registration(target, ...)`; CPD, FilterReg, and GMMTree return `MstepResult(transformation, sigma2, q)`, the L2-distance and Bayesian estimators a `Transformation` directly.
 
@@ -46,7 +46,7 @@ Every estimator shares `set_source(source)`, `set_callbacks(callbacks)`, and `re
 |  [09]   | `RigidSVR`/`TPSSVR`                  | estimator      | rigid and TPS-non-rigid support-vector registration       |
 |  [10]   | `BayesianCoherentPointDrift`         | estimator      | Bayesian CPD posterior over the deformation               |
 |  [11]   | `CombinedBCPD`                       | estimator      | combined rigid-plus-non-rigid Bayesian CPD                |
-|  [12]   | `MstepResult` / `EstepResult`        | receipt        | `(transformation, sigma2, q)` and EM per-point statistics |
+|  [12]   | `MstepResult` / `EstepResult`        | result         | `(transformation, sigma2, q)` and EM per-point statistics |
 
 [PUBLIC_TYPE_SCOPE]: feature and callback support
 
@@ -79,7 +79,7 @@ Each entrypoint takes `source, target` as a numpy `Nx3`/`Nx6` array or an `open3
 
 [ENTRYPOINT_SCOPE]: result and warp accessors
 
-`MstepResult` carries the optimization receipt; `Transformation.transform` warps arbitrary points through the recovered deformation field.
+`MstepResult` carries the optimization outcome; `Transformation.transform` warps arbitrary points through the recovered deformation field.
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [CAPABILITY]                                           |
 | :-----: | :-------------------------------------- | :------------- | :----------------------------------------------------- |
@@ -95,7 +95,7 @@ Each entrypoint takes `source, target` as a numpy `Nx3`/`Nx6` array or an `open3
 - import: `from probreg import cpd, filterreg, gmmtree, l2dist_regs, bcpd` at boundary scope only; probreg pulls `open3d` transitively at import.
 - algorithm axis: one `registration_*` per algorithm family; `tf_type_name` (`rigid`/`affine`/`nonrigid`/`nonrigid_constrained`) selects the transformation, never a per-modality function family, and FilterReg's `objective_type` (`pt2pt`/`pt2pl`) discriminates the geometry term, consuming `target_normals` for the point-to-plane arm.
 - deformation axis: the non-rigid arms return a `NonRigidTransformation`, `TPSTransformation`, or `DeformableKinematicModel` whose `transform` warps arbitrary query points — that warp IS the per-point deformation field the scan-deviation owner projects to split rigid residual from deformation magnitude.
-- receipt axis: CPD/FilterReg/GMMTree capture `MstepResult(transformation, sigma2, q)`; GMMReg/SVR/BCPD return a bare `Transformation` and expose convergence only through iteration callbacks.
+- result axis: CPD/FilterReg/GMMTree return `MstepResult(transformation, sigma2, q)`; GMMReg/SVR/BCPD return a bare `Transformation` and expose convergence only through iteration callbacks.
 - feature axis: `registration_filterreg(feature_fn=FPFH())` lifts the GMM correspondence into FPFH space; `GMM` and `OneClassSVM` are the alternate reducers, `feature_fn=lambda x: x` the raw-coordinate objective.
 - conditioning: `Normalizer` centres and scales a cloud to the unit cube before EM and denormalizes the recovered transform.
 

@@ -595,8 +595,8 @@ message ExecuteResponse {
   reserved 2;
   reserved "shape", "step";
 
-  BrepKernelReceipt receipt = 1 [(buf.validate.field).required = true];
+  BrepMeasure measure = 1 [(buf.validate.field).required = true];
   SealedBody body = 3 [(buf.validate.field).required = true];
   Correspondence correspondence = 4;
-  HealingReceipt healing = 5;
+  Healing healing = 5;
 }

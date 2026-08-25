@@ -19,7 +19,7 @@ runtime/
     │   ├── pubsub.ts          # Broker port with Fanout.Replayed pairs; in-process, BroadcastChannel, and jetstream rows
     │   └── coordinate.ts      # Accord — the engine-blind lease, elect, and CAS coordination port
     ├── otel/                  # OTLP wire: egress, W3C continuation, condition registration, crash capture, browser RUM
-    │   ├── emit.ts            # OTLP egress, W3C continuation, and a native local conformance receipt under one policy
+    │   ├── emit.ts            # OTLP egress, W3C continuation, and a native local conformance diagnostic under one policy
     │   ├── server.ts          # AsyncLocalStorage manager seat; the node _rows roster and the _egress/_authority exclusion pair
     │   ├── instrument.ts      # Zone manager seat; the document _rows roster and one anchored RegExp per self-egress origin
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
@@ -61,7 +61,7 @@ Strata rank the runtime interior; seating rows carry only the law the fence cann
 - S1 `proc` merge — `exec`, `life`, and `worker` mint their rails floor-free; only `config` and `flag` reach the net floor.
 - S1 `worker.main.ts` hands `Report.worker` in as composition-root code, never a stratum import.
 - S2 lateral — every lateral edge points at `otel`, and `otel` reads no S2 sibling back, so the shared rank closes no cycle.
-- S2 `otel` merge — condition nodes are registration seats the exports map resolves; `emit` owns egress and the terminal native conformance receipt.
+- S2 `otel` merge — condition nodes are registration seats the exports map resolves; `emit` owns egress and the native conformance diagnostic.
 - S2 `otel/dev.ts` composes the `plane:dev` DevTools layer at a dev composition root, never a stratum import.
 - S2 `work` merge — `deliver` drains under the queue verdict vocabulary, `filter` verdicts ride dialect rows; no member opens a second store.
 - S2 `browser` merge — `boot` alone mints the runtime handle, and its siblings compose that handle once per document.

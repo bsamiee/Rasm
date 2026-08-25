@@ -100,20 +100,20 @@ internal sealed class CargoGate : IDisposable {
         }
     }
 
-    internal CargoReceipt Swap(CargoManifest manifest, HostFingerprint running, Action<BridgeEvent> publish) {
+    internal LoadedCargo Swap(CargoManifest manifest, HostFingerprint running, Action<BridgeEvent> publish) {
         lock (sync) {
             long started = Stopwatch.GetTimestamp();
             bool reused = current is { } live && string.Equals(a: live.ContentHash, b: manifest.ContentHash, comparisonType: StringComparison.Ordinal);
             if (!reused) {
                 if (current is { } stale) {
                     current = null;
-                    PublishUnload(receipt: UnloadKernel(lease: stale), publish: publish);
+                    PublishUnload(outcome: UnloadKernel(lease: stale), publish: publish);
                 }
                 current = Activate(manifest: manifest, running: running);
             }
             CargoLease lease = current!;
             publish(BridgeEvent.Fact(key: reused ? "cargo.reused" : "cargo.swapped", value: manifest.ContentHash));
-            return new CargoReceipt(
+            return new LoadedCargo(
                 ContentHash: manifest.ContentHash,
                 SwapMs: Stopwatch.GetElapsedTime(startingTimestamp: started).TotalMilliseconds,
                 Scenarios: lease.Cargo.Discover(),
@@ -121,10 +121,10 @@ internal sealed class CargoGate : IDisposable {
         }
     }
 
-    internal UnloadReceipt Unload() {
+    internal UnloadOutcome Unload() {
         lock (sync) {
             if (current is not { } lease) {
-                return new UnloadReceipt(Confirmed: true, DebuggerAttached: Debugger.IsAttached, GcRetries: 0, ElapsedMs: 0.0);
+                return new UnloadOutcome(Confirmed: true, DebuggerAttached: Debugger.IsAttached, GcRetries: 0, ElapsedMs: 0.0);
             }
             current = null;
             return UnloadKernel(lease: lease);
@@ -155,7 +155,7 @@ internal sealed class CargoGate : IDisposable {
         }
     }
 
-    private static UnloadReceipt UnloadKernel(CargoLease lease) {
+    private static UnloadOutcome UnloadKernel(CargoLease lease) {
         long started = Stopwatch.GetTimestamp();
         bool debugger = Debugger.IsAttached;
         WeakReference probe = Release(lease: lease);
@@ -165,7 +165,7 @@ internal sealed class CargoGate : IDisposable {
             GC.Collect();
             GC.WaitForPendingFinalizers();
         }
-        return new UnloadReceipt(
+        return new UnloadOutcome(
             Confirmed: !probe.IsAlive,
             DebuggerAttached: debugger,
             GcRetries: retries,
@@ -184,6 +184,6 @@ internal sealed class CargoGate : IDisposable {
         return probe;
     }
 
-    private static void PublishUnload(UnloadReceipt receipt, Action<BridgeEvent> publish) =>
-        publish(BridgeEvent.Fact(key: receipt.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"gcRetries={receipt.GcRetries} elapsedMs={receipt.ElapsedMs:F0} debugger={receipt.DebuggerAttached}")));
+    private static void PublishUnload(UnloadOutcome outcome, Action<BridgeEvent> publish) =>
+        publish(BridgeEvent.Fact(key: outcome.Confirmed ? "cargo.unload.confirmed" : "cargo.unload.leaked", value: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"gcRetries={outcome.GcRetries} elapsedMs={outcome.ElapsedMs:F0} debugger={outcome.DebuggerAttached}")));
 }

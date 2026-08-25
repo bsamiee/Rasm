@@ -30,7 +30,7 @@
 |  [01]   | `IHealthCheck`            | contributor contract | capability probe           |
 |  [02]   | `HealthCheckContext`      | operation context    | registration input         |
 |  [03]   | `HealthCheckRegistration` | named contributor    | probe identity             |
-|  [04]   | `HealthCheckResult`       | contributor result   | probe receipt              |
+|  [04]   | `HealthCheckResult`       | contributor result   | probe outcome              |
 |  [05]   | `HealthReport`            | aggregate report     | health projection          |
 |  [06]   | `HealthReportEntry`       | named report entry   | contributor projection     |
 |  [07]   | `HealthStatus`            | status enum          | healthy/degraded/unhealthy |
@@ -79,7 +79,7 @@
 [LOCAL_ADMISSION]:
 - Health checks project capability state, never own runtime state; a probe returns a typed `HealthCheckResult`, and a thrown exception crossing the fold is the deleted form.
 - Every check enters through the one `HealthContributorRow` adapter carrying its tag for filtered projection, never a parallel `Add*` face.
-- Degraded maps to a usable-capability receipt, so a faulted dependency degrades the host rather than failing it.
+- Degraded maps to a usable-capability outcome, so a faulted dependency degrades the host rather than failing it.
 - `IHealthCheckPublisher` is the projection seam and `DegradationCell` the one publisher, never a second health store.
 
 [RAIL_LAW]:

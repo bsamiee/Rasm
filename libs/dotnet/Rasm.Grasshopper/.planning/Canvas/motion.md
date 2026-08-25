@@ -71,10 +71,10 @@ public sealed partial class PaceRow {
 ## [03]-[TWEENS]
 
 - Owner: `Lerp` — the ONE adapter from kernel interpolation onto the host `Interpolate<T>` delegate: `Of` lifts a kernel `Tween.Between` member (the clamp admission folds once, here), and `Perceptual` lifts the kernel colour blend with its refusals PARKED on the composition's `FaultCell` — a rejected intermediate sample holds the nearest endpoint visually while the fault is attributable evidence, never a silent wrong pixel. Five hand Eto interpolators are DELETED: the kernel `Tween` owns float, double, point, size, frame, and perceptual colour, and this page re-derives none of them.
-- Owner: `Tweens` (renamed from `Tween` — the kernel owns that name) binds the host signatures: `Hold`, `Glide` (span row or exact `TimeSpan`), `Extend` (retarget through the host `Chain` fold), and `Sample`. `FlexDrive` — the per-frame drive over `IFlexControl.Animate`, `Window` projecting `FrameWindow` timing evidence, and `ZoomGate` resolving the motion-gated ZUI factor.
+- Owner: `Tweens` (renamed from `Tween` — the kernel owns that name) binds the host signatures: `Hold`, `Glide` (span row or exact `TimeSpan`), `Extend` (retarget through the host `Chain` fold), and `Sample`. `FlexDrive` — the per-frame drive over `IFlexControl.Animate`, `Window` projecting `FrameWindow` timing evidence and writing it through `GhInstruments.Windowed` for the surface's document, and `ZoomGate` resolving the motion-gated ZUI factor.
 - Law: one tween owns one visual; chaining retargets the existing carrier without resetting motion from a stale endpoint.
 - Boundary: viewport navigation animation is the host's own (`Canvas/canvas.md`'s `NavTarget` carries `Duration`); skin blending is `Skin.Interpolate`; sparkle lifecycles are host-owned on `SparkleSpec`.
-- Packages: Grasshopper2 (`Animated<T>`, `Interpolate<T>`, `IFlexControl`, `ZoomThreshold`), `Rasm.Interaction` (`Tween`, `PaintColor`), `Rasm.Numerics` (`BlendPath`, `UnitInterval`, `PerceptualColor`), `Rasm.Domain` (`FaultCell`), LanguageExt.Core.
+- Packages: Grasshopper2 (`Animated<T>`, `Interpolate<T>`, `IFlexControl`, `ZoomThreshold`), `Rasm.Interaction` (`Tween`, `PaintColor`), `Rasm.Numerics` (`BlendPath`, `UnitInterval`, `PerceptualColor`), `Rasm.Domain` (`FaultCell`), `Shell/telemetry.md` (`GhInstruments`), LanguageExt.Core.
 - Growth: a new carrier type is one kernel `Tween` member lifted through `Lerp.Of`; the binder never widens.
 
 ```csharp
@@ -304,11 +304,11 @@ public sealed class CanvasPacer : IDisposable {
 ## [06]-[BUDGET]
 
 - Owner: `BudgetRow` `[SmartEnum<string>]` realizing `IGaugeLane<BudgetRow>` — the closed budget vocabulary whose every bound DERIVES from the reference frame period as a dimensionless frame fraction: one row per judged cost axis, no millisecond literal anywhere, and the kernel gauge floor is what a `GaugedSpan<BudgetRow>` reads its bound from.
-- Owner: `BudgetSubject` `[Union]` — the judgment ingress: one polymorphic gate discriminates on the receipt shape (`FrameWindow`, `FramePulse`, the kernel `PaintReceipt`, or a row-addressed raw cost).
-- Entry: `BudgetGate.Judge(BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null)` → `Fin<Seq<GaugedSpan<BudgetRow>>>` — EVERY measured axis answers as a kernel gauged span; the pass verdict is the consumer's own `Filter(span => span.Breached)` over the sequence (NAMED LOSS: the breach-only sequence — bought back by that one filter; witness `Shell/telemetry.md GhEvidence.BreachCase` folds exactly it), and `Overrun` derives on the span. Supplied `PaceBand` bounds every row as `Period × Frames` — the band's own period, no reference division — so a ProMotion panel judges at its real frame budget and an absent band reads the kernel `Portable` declared row.
-- Law: judgment happens at read time over receipts already minted — the gate never samples, never owns a clock, and never mutates a receipt; a breached span is shaped for the estate benchmark-claim fold, so the app-root benchmark rail consumes it without re-measuring.
+- Owner: `BudgetSubject` `[Union]` — the judgment ingress: one polymorphic gate discriminates on the result shape (`FrameWindow`, `FramePulse`, the kernel `PaintTally`, or a row-addressed raw cost).
+- Entry: `BudgetGate.Judge(BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null)` → `Fin<Seq<GaugedSpan<BudgetRow>>>` — EVERY measured axis answers as a kernel gauged span; the pass verdict is the consumer's own `Filter(span => span.Breached)` over the sequence (NAMED LOSS: the breach-only sequence — bought back by that one filter; the judging consumer writes each breached span through `Shell/telemetry.md`'s `GhInstruments.Breached`), and `Overrun` derives on the span. Supplied `PaceBand` bounds every row as `Period × Frames` — the band's own period, no reference division — so a ProMotion panel judges at its real frame budget and an absent band reads the kernel `Portable` declared row.
+- Law: judgment happens at read time over results already settled — the gate never samples, never owns a clock, and never mutates a result; a breached span is shaped for the estate benchmark-claim fold, so the app-root benchmark rail consumes it without re-measuring.
 - Law: the host-free kernel families this boundary exercises carry corpus benchmark rows in the tests estate; this gate owns the live-session judgment, the corpus owns the regression floor, and both read the same row bounds.
-- Packages: LanguageExt.Core, Thinktecture, `Rasm.Parametric` (`IGaugeLane`, `GaugedSpan`, `PaceBand`), `Rasm.Interaction` (`PaintReceipt`), `Canvas/canvas.md` (`FramePulse`), `Rasm.Domain`.
+- Packages: LanguageExt.Core, Thinktecture, `Rasm.Parametric` (`IGaugeLane`, `GaugedSpan`, `PaceBand`), `Rasm.Interaction` (`PaintTally`), `Canvas/canvas.md` (`FramePulse`), `Rasm.Domain`.
 - Growth: a new judged axis is one row with one subject arm; a tuned bound is a row fraction change with every consumer untouched.
 
 ```csharp
@@ -344,7 +344,7 @@ public abstract partial record BudgetSubject {
     private BudgetSubject() { }
     public sealed record WindowCase(FrameWindow Window) : BudgetSubject;
     public sealed record PulseCase(FramePulse Pulse) : BudgetSubject;
-    public sealed record PaintCase(PaintReceipt Receipt) : BudgetSubject;
+    public sealed record PaintCase(PaintTally Tally) : BudgetSubject;
     public sealed record StepCase(BudgetRow Row, TimeSpan Cost) : BudgetSubject;
 }
 
@@ -363,7 +363,7 @@ public static class BudgetGate {
                 (BudgetRow.LayerText, c.Pulse.Text), (BudgetRow.LayerIcon, c.Pulse.Icon),
                 (BudgetRow.LayerShape, c.Pulse.Shape), (BudgetRow.LayerLayout, c.Pulse.Layout),
                 (BudgetRow.FrameFull, c.Pulse.FullFrame))),
-            paintCase: static (s, c) => Spans(s, Seq((BudgetRow.PaintPass, c.Receipt.Span.Elapsed))),
+            paintCase: static (s, c) => Spans(s, Seq((BudgetRow.PaintPass, c.Tally.Span.Elapsed))),
             stepCase: static (s, c) => Spans(s, Seq((c.Row, c.Cost)))));
     }
 

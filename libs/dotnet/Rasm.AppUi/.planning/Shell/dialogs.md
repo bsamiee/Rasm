@@ -1,6 +1,6 @@
 # [APPUI_DIALOGS_NOTIFICATIONS]
 
-Rasm.AppUi presents every modal, transient, and persistent surface through one `DialogIntent` union resolved over a per-root ReactiveUI `Interaction` seam onto TWO stack owners: seven intent cases return typed results on the kernel `PromptSettle` carrier with dismissal as a case, `StackOwner` binds each case to the DialogHost session stack or the Ursa overlay canvas by modality class, one `DialogTopology` derives from the host and mount axes so a new host is zero topology edits, `MountPolicy` carries the whole per-mount capability set and chrome inset every root resolves, five `ToastRow` rows carry the ranked severity, linger, and quiet-hours piercing through one suppression fold before presentation and seal their close cause and measured presentation span on the way out, an inline banner family materializes as a control arm for conditions a transient note cannot carry, an activity center projects the receipt stream into a windowed inbox, and three `PickKind` rows route kernel `FilterPlan` filters through host-agnostic pick pipes. The page owns the intent vocabulary, the two-stack seam law, the topology derivation, the chrome bind, the notification policy with its morph, ceiling, and quiet-hours rules, the activity plane, and the picker and host-modality law over DialogHost.Avalonia, Irihi.Ursa, ReactiveUI, Avalonia, Thinktecture-generated vocabulary, LanguageExt rails, kernel `Rasm.Interaction` prompt vocabulary, and NodaTime instants.
+Rasm.AppUi presents every modal, transient, and persistent surface through one `DialogIntent` union resolved over a per-root ReactiveUI `Interaction` seam onto TWO stack owners: seven intent cases return typed results on the kernel `PromptSettle` carrier with dismissal as a case, `StackOwner` binds each case to the DialogHost session stack or the Ursa overlay canvas by modality class, one `DialogTopology` derives from the host and mount axes so a new host is zero topology edits, `MountPolicy` carries the whole per-mount capability set and chrome inset every root resolves, five `ToastRow` rows carry the ranked severity, linger, and quiet-hours piercing through one suppression fold before presentation and publish their close cause and measured presentation span on the way out, an inline banner family materializes as a control arm for conditions a transient note cannot carry, an activity center projects the toast-event stream into a windowed inbox, and three `PickKind` rows route kernel `FilterPlan` filters through host-agnostic pick pipes. The page owns the intent vocabulary, the two-stack seam law, the topology derivation, the chrome bind, the notification policy with its morph, ceiling, and quiet-hours rules, the activity plane, and the picker and host-modality law over DialogHost.Avalonia, Irihi.Ursa, ReactiveUI, Avalonia, Thinktecture-generated vocabulary, LanguageExt rails, kernel `Rasm.Interaction` prompt vocabulary, and NodaTime instants.
 
 Both stacks are reached ONLY through a mount-bound presence fact, because both registries answer an absent host dishonestly: the DialogHost static surface resolves its instance by identifier and THROWS on no loaded host, no match, and multiple matches, while the Ursa overlay registry is internal and answers an unregistered id with a silent no-op on the void shapes and `DialogResult.None` on the awaited ones — a value indistinguishable from a user cancel. The presence fact is therefore the first admission of every stack crossing, exactly as the picker's window fact is the first admission of every pick.
 
@@ -10,7 +10,7 @@ Both stacks are reached ONLY through a mount-bound presence fact, because both r
 - [03]-[SESSION_ALGEBRA]: Two stack owners with the seam law; the admitted root key; topology derived over the host and mount axes.
 - [04]-[DIALOG_CHROME]: Scrim, corner, ring, and blur addresses over the depth and material tiers, bound inside the registration lease.
 - [05]-[NOTIFICATIONS]: Toast rows, the pending morph, the one suppression fold, the presentation plane, and the banner family.
-- [06]-[ACTIVITY_CENTER]: The windowed inbox over the receipt stream, its accrual trait, and quiet hours.
+- [06]-[ACTIVITY_CENTER]: The windowed inbox over the toast-event stream, its accrual trait, and quiet hours.
 - [07]-[PICKERS_HOST_MODALITY]: Pick rows, capability gate, kernel filter plans, host modality law.
 
 ## [02]-[DIALOG_INTENTS]
@@ -730,18 +730,18 @@ public static class DialogChrome {
 
 ## [05]-[NOTIFICATIONS]
 
-- Owner: `ToastTrait` the note capability vocabulary; `ToastRow` the ranked-severity, linger, and trait rows; `ToastVerdict` the admission verdicts; `ToastAnchor` the plane placement rows; `ToastClose` the terminal fact the manager reports; `ToastReceipt` the one receipt shape; `QueuedToast` the presentable note; `NoticeGate` the admission context; `ToastPipe` the mount-bound presentation delegates; `ToastPlane` the interactive presenter; `ToastGate` the suppression fold and its instruments.
+- Owner: `ToastTrait` the note capability vocabulary; `ToastRow` the ranked-severity, linger, and trait rows; `ToastVerdict` the admission verdicts; `ToastAnchor` the plane placement rows; `ToastClose` the terminal fact the manager reports; `ToastEvent` the chronological admission and close event; `QueuedToast` the presentable note; `NoticeGate` the admission context; `ToastPipe` the mount-bound presentation delegates; `ToastPlane` the interactive presenter; `ToastGate` the suppression fold and its instruments.
 - Cases: Pending sticky | Info 4s | Success 4s | Warning 6s | Error sticky, where `Sticky` derives from zero linger and severity is the folder's ONE ranked `Severity` family; `ToastTrait` = pierce | accrue; admission verdicts shown | queued | dropped; close causes the `MessageCloseReason` vocabulary the manager reports — timeout, user action, displacement.
-- Entry: `public IO<ToastReceipt> Toast(QueuedToast note, NoticeGate gate)` — the presentable note arrives WHOLE and every admission fact arrives on one carrier, so the parked and presented forms are one value and no arm re-computes a verdict another arm was handed; `public IO<Fin<ToastReceipt>> Morph(CorrelationId correlation, ToastRow row, string body, Instant at)` — the pending row settles to its terminal severity IN PLACE and the linger clock starts at the morph; `public IO<Seq<ToastReceipt>> Flush(NoticeGate gate)` — the resume drain re-admits each held note through the same gate.
+- Entry: `public IO<ToastVerdict> Toast(QueuedToast note, NoticeGate gate)` — the presentable note arrives WHOLE and the returned verdict is the gate's actual admission result; `public IO<Fin<Unit>> Morph(CorrelationId correlation, ToastRow row, string body)` — the pending row settles to its terminal severity IN PLACE and the linger clock starts at the morph; `public IO<Seq<ToastVerdict>> Flush(NoticeGate gate)` — the resume drain re-admits each held note through the same gate.
 - Law: the LINGER CLOCK is the product's, not the manager's. The shipped manager copies severity and expiration onto a freshly built card at show time and then awaits a bare delay, so it cannot pause, cannot restart, and cannot re-tint — a hover-paused note, a morphing pending note, and a note whose severity settles later are all unexpressible against a copied timer. The plane therefore presents every note with a zero expiration, which is the manager's own never-auto-close posture, and owns the linger off the SAME injected scheduler the hover intent already rides, so one mechanism paces both and a headless proof lane advances them together.
-- Law: temporal identity is the kernel timeline's. A bare `TimeProvider` timer beside the estate's spans left a toast's presentation and dismissal unorderable against any kernel crossing; the plane captures a `MonotonicStamp` at seat and reads `Elapsed` at close, so the terminal receipt carries the span the note was actually readable for and the `ClockPolicy` an app-stratum record can never lower into this package leaves the page with it.
+- Law: temporal identity is the kernel timeline's. A bare `TimeProvider` timer beside the estate's spans left a toast's presentation and dismissal unorderable against any kernel crossing; the plane captures a `MonotonicStamp` at seat and reads `Elapsed` at close, so `ToastClose` carries the span the note was actually readable for.
 - Law: severity is the folder's ONE ranked family. A local notification-type column beside the chart and work ladders forked the ink three ways; the row carries `Severity` and the card's pseudo-class projects from it, so a re-ranked family moves the toast, the chart, and the alert board together.
-- Law: the pending row morphs UNDER ONE CORRELATION and emits no second admission — the morph rewrites the live card's severity and body and restarts the clock, so a promise flow produces exactly one admission receipt and exactly one terminal seal however many times its severity settles.
-- Auto: composition binds `ToastPipe` per derived topology over one mounted `ToastPlane` on a mount carrying an anchor and over a receipt-only recorder on the anchorless offscreen row; a toast action raises its command intent by key through the deck's own rail, so an unknown key refuses where every other invocation modality refuses; a `Queued` verdict parks the whole presentable note in the topology's register, and the one `PhaseSubscription` observing the support-capture resume drives `Flush` — a still-queued phase leaves the register untouched and emits no duplicate receipt, while a presentable phase atomically drains notes in arrival order through the same gate; entries past the plan's own hold window age out as `Dropped` unless their row is `Sticky`, which carries no expiry to have missed; the stack ceiling is the toast plan's `Cap` — the same column the stack projection reads as visible depth — and an overflowing plane closes EVERY card past the ceiling with the displacement cause, so a burst that seated two over the cap no longer leaves the second alive.
-- Receipt: `ToastReceipt` — row, surface, verdict, intent key, `Instant`, correlation, the `Option<MessageCloseReason>` cause that separates the admission verdict from the terminal seal, and the `Option<Duration>` span the terminal seal measured — sinks through the `ReceiptSinkPort` message envelope, and `Observe` projects it onto the three declared instrument rows: an admission carrying no cause counts presentation by verdict and surface, a seal carrying one counts dismissal by CAUSE and surface under its own declared slot, and the inbox level publishes what stands now under the source slot, so the vocabularies never share a dimension key and a shown note is counted once on each; the receipt stream absorbs the audit need and no notification-history store exists.
+- Law: the pending row morphs UNDER ONE CORRELATION and emits no second admission — the morph rewrites the live card's severity and body and restarts the clock, so a promise flow publishes exactly one admission event and one close event however many times its severity settles.
+- Auto: composition binds `ToastPipe` per derived topology over one mounted `ToastPlane` on a mount carrying an anchor and over an event-only publisher on the anchorless offscreen row; a toast action raises its command intent by key through the deck's own rail, so an unknown key refuses where every other invocation modality refuses; a `Queued` verdict parks the whole presentable note in the topology's register, and the one `PhaseSubscription` observing the support-capture resume drives `Flush` — a still-queued phase leaves the register untouched and publishes no duplicate event, while a presentable phase atomically drains notes in arrival order through the same gate; entries past the plan's own hold window age out as `Dropped` unless their row is `Sticky`, which carries no expiry to have missed; the stack ceiling is the toast plan's `Cap` — the same column the stack projection reads as visible depth — and an overflowing plane closes EVERY card past the ceiling with the displacement cause, so a burst that seated two over the cap no longer leaves the second alive.
+- Event: `ToastEvent` carries the original `QueuedToast`, surface, verdict, event instant, and optional `ToastClose`; `Observe` projects admissions and closes onto distinct instrument dimensions, and `ActivityCenter` accrues directly from the same event stream.
 - Packages: Avalonia, Irihi.Ursa, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.Reactive, Generator.Equals, Rasm (project — `Severity`, `CapabilitySet`, `Cell`/`Transition`, `Lease`, `MonotonicTimeline`, `InstrumentSpec`), Rasm.AppHost (project)
 - Growth: one `ToastRow` row carrying its own severity, linger, and trait set, one `ToastTrait` row, one `ToastVerdict` row, one `ToastAnchor` row, or one `InstrumentSpec` row on `ToastGate.TelemetryRow`; zero new surface.
-- Boundary: entry and exit choreography, the stack projection, the visible cap, the hover-intent linger, and the hold window all arrive from the toast motion plan — the row's own severity linger and the suppression fold are the only timing facts owned here, and a plane-local ceiling, dwell, or horizon literal is the deleted form, which is why `Flush` takes no horizon parameter and mints no refusal for one; the stack reflow is one `Stacked` read per live ordinal against the plane's OWN posture cell rather than the card's live pointer state, because a tree read inside the traverse samples a pointer the hover intent has not yet settled; the plane shows through the toast manager's own card and message contract, the card carrying the row's projected notification type and the row's body as its content, so severity re-tints through the shipped `:information`/`:success`/`:warning`/`:error` pseudo-classes and the page writes no paint; the Avalonia notification manager is the deleted form here because it reports no dismissal cause and carries no click action, so a presented note under it is fire-and-linger and its end is unmeasurable; the close callback stamps the DISMISSAL instant it observes rather than re-stamping the presentation instant, since a terminal receipt naming the moment the note appeared asserts a measurement nothing took; the click raise reaches the deck by key alone, so no toast body carries a command; the plane seats into the manager's own protected item list and closes through the card's verb rather than through `Show`/`Close`/`CloseAll`, so it takes the SAME `Dispatcher.UIThread` assertion those members carry at its own three entries and an off-thread raise is a thrown fact rather than a silently corrupted item list — the assertion stays Avalonia's because the kernel dispatch marshal is Eto-bound; native host toasts and status panes stay host-owned; a degradation level serving NO command access drops every note, read off the level's own access column so a future row inherits the rule; quiet hours park rather than drop, and the Error and Pending rows PIERCE because a failure and an in-flight promise are exactly the two facts a quiet window must not swallow.
+- Boundary: entry and exit choreography, the stack projection, the visible cap, the hover-intent linger, and the hold window all arrive from the toast motion plan — the row's own severity linger and the suppression fold are the only timing facts owned here, and a plane-local ceiling, dwell, or horizon literal is the deleted form, which is why `Flush` takes no horizon parameter and mints no refusal for one; the stack reflow is one `Stacked` read per live ordinal against the plane's OWN posture cell rather than the card's live pointer state, because a tree read inside the traverse samples a pointer the hover intent has not yet settled; the plane shows through the toast manager's own card and message contract, the card carrying the row's projected notification type and the row's body as its content, so severity re-tints through the shipped `:information`/`:success`/`:warning`/`:error` pseudo-classes and the page writes no paint; the Avalonia notification manager is the deleted form here because it reports no dismissal cause and carries no click action, so a presented note under it is fire-and-linger and its end is unmeasurable; the close callback stamps the DISMISSAL instant it observes; the click raise reaches the deck by key alone, so no toast body carries a command; the plane seats into the manager's own protected item list and closes through the card's verb rather than through `Show`/`Close`/`CloseAll`, so it takes the SAME `Dispatcher.UIThread` assertion those members carry at its own three entries and an off-thread raise is a thrown fact rather than a silently corrupted item list — the assertion stays Avalonia's because the kernel dispatch marshal is Eto-bound; native host toasts and status panes stay host-owned; a degradation level serving NO command access drops every note, read off the level's own access column so a future row inherits the rule; quiet hours park rather than drop, and the Error and Pending rows PIERCE because a failure and an in-flight promise are exactly the two facts a quiet window must not swallow.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -812,24 +812,16 @@ public sealed partial class ToastAnchor {
 
 public readonly record struct ToastClose(MessageCloseReason Cause, Instant At, Option<Duration> Presented);
 
-public readonly record struct ToastReceipt(
-    ToastRow Row,
-    RootKey Surface,
-    ToastVerdict Verdict,
-    Option<string> IntentKey,
-    Instant At,
-    CorrelationId Correlation,
-    Option<MessageCloseReason> Cause,
-    Option<Duration> Presented);
-
 public readonly record struct QueuedToast(ToastRow Row, string Title, string Body, Option<string> IntentKey, Instant At, CorrelationId Correlation);
+
+public readonly record struct ToastEvent(QueuedToast Note, RootKey Surface, ToastVerdict Verdict, Instant At, Option<ToastClose> Close);
 
 public sealed record NoticeGate(
     RuntimePhase Phase,
     DegradationState Degradation,
     bool Quiet,
     Instant At,
-    Func<ToastReceipt, Unit> Seal);
+    Func<ToastEvent, Unit> Publish);
 
 public sealed record ToastPipe(
     Func<QueuedToast, Func<ToastClose, Unit>, IO<Fin<Unit>>> Present,
@@ -1037,15 +1029,15 @@ public static class ToastGate {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Presented, Dismissed, Unread);
 
-    public static Fin<Unit> Observe(InstrumentSet set, ToastReceipt receipt, ActivityCenter center) =>
-        from counted in receipt.Cause.Match(
-            Some: cause => set.Write(Dismissed, 1d, InstrumentSet.Tags(
-                (AppUiTelemetry.CauseSlot, cause.ToString()),
-                (AppUiTelemetry.SurfaceSlot, receipt.Surface.Value))),
+    public static Fin<Unit> Observe(InstrumentSet set, ToastEvent @event, ActivityCenter center) =>
+        from counted in @event.Close.Match(
+            Some: close => set.Write(Dismissed, 1d, InstrumentSet.Tags(
+                (AppUiTelemetry.CauseSlot, close.Cause.ToString()),
+                (AppUiTelemetry.SurfaceSlot, @event.Surface.Value))),
             None: () => set.Write(Presented, 1d, InstrumentSet.Tags(
-                (AppUiTelemetry.OutcomeSlot, receipt.Verdict.Key),
-                (AppUiTelemetry.SurfaceSlot, receipt.Surface.Value))))
-        from levelled in set.Level(Unread, center.Unread, Some(receipt.Surface.Value))
+                (AppUiTelemetry.OutcomeSlot, @event.Verdict.Key),
+                (AppUiTelemetry.SurfaceSlot, @event.Surface.Value))))
+        from levelled in set.Level(Unread, center.Unread, Some(@event.Surface.Value))
         select levelled;
 
     public static ToastVerdict Admit(NoticeGate gate, ToastRow row) =>
@@ -1057,44 +1049,43 @@ public static class ToastGate {
         };
 
     extension(DialogTopology root) {
-        public IO<ToastReceipt> Toast(QueuedToast note, NoticeGate gate) =>
+        public IO<ToastVerdict> Toast(QueuedToast note, NoticeGate gate) =>
             Admit(gate, note.Row) switch {
                 var verdict when verdict == ToastVerdict.Shown =>
-                    root.Seam.Toasts.Present(note, close => gate.Seal(Sealed(root, note, close)))
-                        .Map(settled => Admitted(root, note, settled.IsSucc ? ToastVerdict.Shown : ToastVerdict.Dropped, gate.At)),
+                    root.Seam.Toasts.Present(note, close => gate.Publish(new ToastEvent(note, root.Key, ToastVerdict.Shown, close.At, Some(close))))
+                        .Map(settled => settled.IsSucc ? ToastVerdict.Shown : ToastVerdict.Dropped)
+                        .Map(verdict => (gate.Publish(new ToastEvent(note, root.Key, verdict, gate.At, None)), verdict).Item2),
                 var verdict when verdict == ToastVerdict.Queued =>
                     IO.lift(() => {
                         ignore(root.Park(note));
-                        return Admitted(root, note, ToastVerdict.Queued, gate.At);
+                        ignore(gate.Publish(new ToastEvent(note, root.Key, ToastVerdict.Queued, gate.At, None)));
+                        return ToastVerdict.Queued;
                     }),
-                var verdict => IO.pure(Admitted(root, note, verdict, gate.At)),
+                var verdict => IO.lift(() => {
+                    ignore(gate.Publish(new ToastEvent(note, root.Key, verdict, gate.At, None)));
+                    return verdict;
+                }),
             };
 
-        public IO<Fin<ToastReceipt>> Morph(CorrelationId correlation, ToastRow row, string body, Instant at) =>
-            root.Seam.Toasts.Settle(correlation, row, body)
-                .Map(settled => settled.Map(_ => new ToastReceipt(row, root.Key, ToastVerdict.Shown, None, at, correlation, None, None)));
+        public IO<Fin<Unit>> Morph(CorrelationId correlation, ToastRow row, string body) =>
+            root.Seam.Toasts.Settle(correlation, row, body);
 
-        public IO<Seq<ToastReceipt>> Flush(NoticeGate gate) =>
+        public IO<Seq<ToastVerdict>> Flush(NoticeGate gate) =>
             IO.lift(root.Drain)
                 .Bind(taken => taken
                     .TraverseM(note => Admit(gate, note.Row) == ToastVerdict.Queued
-                        ? IO.pure(Parked(root, note))
+                        ? IO.lift(() => {
+                            ignore(root.Park(note));
+                            return ToastVerdict.Queued;
+                        })
                         : note.Row.Sticky || gate.At - note.At <= MotionPlan.Toast.Hold
                             ? root.Toast(note, gate)
-                            : IO.pure(Admitted(root, note, ToastVerdict.Dropped, gate.At)))
+                            : IO.lift(() => {
+                                ignore(gate.Publish(new ToastEvent(note, root.Key, ToastVerdict.Dropped, gate.At, None)));
+                                return ToastVerdict.Dropped;
+                            }))
                     .As()
-                    .Map(static receipts => receipts.Strict()));
-    }
-
-    private static ToastReceipt Admitted(DialogTopology root, QueuedToast note, ToastVerdict verdict, Instant at) =>
-        new(note.Row, root.Key, verdict, note.IntentKey, at, note.Correlation, None, None);
-
-    private static ToastReceipt Sealed(DialogTopology root, QueuedToast note, ToastClose close) =>
-        new(note.Row, root.Key, ToastVerdict.Shown, note.IntentKey, close.At, note.Correlation, Some(close.Cause), close.Presented);
-
-    private static ToastReceipt Parked(DialogTopology root, QueuedToast note) {
-        ignore(root.Park(note));
-        return Admitted(root, note, ToastVerdict.Queued, note.At);
+                    .Map(static verdicts => verdicts.Strict()));
     }
 }
 ```
@@ -1107,8 +1098,8 @@ The banner family is PERSISTENT BY CONSTRUCTION and materializes as one `Control
 |  [02]   | placement | plane anchor derived from the mount    | tree position plus the page/section chrome row |
 |  [03]   | severity  | ranked family, projected onto the card | ranked family, projected onto the strip        |
 |  [04]   | verbs     | one intent key raised on the deck rail | child button intents over the command deck     |
-|  [05]   | evidence  | correlation and span on the receipt    | child intent beside the body                   |
-|  [06]   | accrual   | terminal receipt into the inbox        | none — a visible condition cannot be missed    |
+|  [05]   | evidence  | correlation and span on the event      | child intent beside the body                   |
+|  [06]   | accrual   | terminal event into the inbox          | none — a visible condition cannot be missed    |
 
 ```mermaid
 ---
@@ -1120,32 +1111,32 @@ config:
 ---
 flowchart LR
     accTitle: Toast admission, morph, and verdict fan
-    accDescr: A toast admitting through the gate into the presentation plane, the held register, or a dropped receipt, a pending note morphing in place on the plane under its admission correlation, held entries flushing back on resume or aging past the motion plan hold window, and the plane sealing a cause-bearing and span-bearing receipt when the card reports its close.
+    accDescr: A toast admitting through the gate into the presentation plane, the held register, or a dropped verdict, a pending note morphing in place on the plane under its admission correlation, held entries flushing back on resume or aging past the motion plan hold window, and the plane publishing a cause-bearing event when the card reports its close.
     Toast["Toast"] --> Admit["ToastGate.Admit"]
     Admit -->|"shown"| Plane["ToastPlane"]
     Admit -->|"queued"| Held["Held register"]
-    Admit -->|"dropped"| Receipt["ToastReceipt"]
+    Admit -->|"dropped"| Event["ToastEvent"]
     Morph["Morph"] --> Plane
     Held -->|"flush on resume"| Admit
-    Plane -->|"admission verdict"| Receipt
-    Plane -->|"close cause and span"| Receipt
-    Held -->|"hold window aged"| Receipt
-    Receipt --> Observe["ToastGate.Observe"]
-    Receipt --> Center["ActivityCenter.Accrue"]
+    Plane -->|"admission verdict"| Event
+    Plane -->|"close cause and span"| Event
+    Held -->|"hold window aged"| Event
+    Event --> Observe["ToastGate.Observe"]
+    Event --> Center["ActivityCenter.Accrue"]
 ```
 
 ## [06]-[ACTIVITY_CENTER]
 
-- Owner: `ReadState` `[Union]` — the inbox row's read fact; `ActivityEntry` — the inbox row; `QuietHours` — the global and per-source quiet policy; `ActivityCenter` — the projection over the receipt stream with its accrual fold and command keys.
+- Owner: `ReadState` `[Union]` — the inbox row's read fact; `ActivityEntry` — the inbox row; `QuietHours` — the global and per-source quiet policy; `ActivityCenter` — the projection over the toast-event stream with its accrual fold and command keys.
 - Cases: `ReadState` = Unread | Read carrying the instant the operator read it.
-- Entry: `public Option<ActivityEntry> Accrue(ToastReceipt receipt)` — the one accrual, absent where the receipt names a note the operator demonstrably read; `public Fin<Unit> Dismiss(CorrelationId correlation)` — per-entry dismissal refused while its operation runs; `public Fin<Unit> Clear()` — the clear-all fold; `public IO<Fin<Unit>> Invoke(CorrelationId correlation)` — the deck raise; `public bool Quiet(RootKey source, Instant at)` — the quiet verdict composition folds onto the `NoticeGate`.
-- Law: the center is a PROJECTION over the receipt stream, never a second evidence log — every entry derives from receipts the notification rail already seals, so a missed note is recoverable without a parallel store and the two can never disagree.
-- Law: accrual reads the row's own ACCRUE trait and the receipt's terminal facts. A note sealed by user action was read and acted on, so it accrues nothing; a note sealed by timeout or displacement may have been missed and accrues; a dropped note was never presented and accrues; and every row carrying the trait accrues whatever its cause, because a severe fact stays recoverable after the operator waves it away — which is one column read where a two-term row-identity ladder used to re-derive the severity family's own ranking.
+- Entry: `public Option<ActivityEntry> Accrue(ToastEvent event)` — the one accrual, absent where the event names a note the operator demonstrably read; `public Fin<Unit> Dismiss(CorrelationId correlation)` — per-entry dismissal refused while its operation runs; `public Fin<Unit> Clear()` — the clear-all fold; `public IO<Fin<Unit>> Invoke(CorrelationId correlation)` — the deck raise; `public bool Quiet(RootKey source, Instant at)` — the quiet verdict composition folds onto the `NoticeGate`.
+- Law: the center is a PROJECTION over the toast-event stream, never a second evidence log — every entry derives from events the notification rail already publishes, so a missed note is recoverable without a parallel store and the two can never disagree.
+- Law: accrual reads the row's own ACCRUE trait and the event's terminal facts. A note closed by user action was read and acted on, so it accrues nothing; a note closed by timeout or displacement may have been missed and accrues; a dropped note was never presented and accrues; and every row carrying the trait accrues whatever its cause, because a severe fact stays recoverable after the operator waves it away — which is one column read where a two-term row-identity ladder used to re-derive the severity family's own ranking.
 - Law: this owner holds live cells, so it is a SEALED CLASS and its entry roster crosses as a value. A record copy would hand two readers one register while presenting itself as two inboxes, and a raw cell handed outward would let a caller swap the roster the window is realizing.
 - Auto: the entry list is a change-set over the correlation key, so the inbox realizes through the one virtual window fabric and a thousand accrued entries realize a constant window; the unread count publishes as the one level instrument the chrome affordance binds and the notification `Observe` fold writes; quiet hours resolve globally with per-source exemptions and the verdict enters the `NoticeGate` at composition so a quiet window PARKS a note in the same register a support capture does and the same resume drain flushes it.
 - Packages: LanguageExt.Core, NodaTime, DynamicData, System.Reactive, Thinktecture.Runtime.Extensions, Generator.Equals, Rasm (project — `UnitInterval`, `Cell`/`Transition`), BCL inbox
 - Growth: one `QuietHours` source exemption, one `ReadState` case, or one command key on the entry; zero new surface.
-- Boundary: a progress-bearing entry REFUSES dismissal while its fraction is short of complete, so an operator cannot clear the only handle onto a running job — the refusal is a typed policy fault, not a disabled button, because the same rule must hold for the clear-all fold and for a remote invocation that never sees a button; the refusal NAMES which rule refused, read off the transition's own post-state, because a running job and an unknown correlation are two different answers to one verb and one message for both is evidence a caller cannot act on; the clear-all fold therefore skips running entries rather than failing whole, so one running job never blocks a cleanup; the completion fraction is the kernel `UnitInterval`, so the "short of complete" reading is a bounded value's own comparison rather than a raw double gated at each site; entries carry command keys and never commands, exactly as a toast does, and the raise ANSWERS the deck's rail so an unlifted key refuses where every other invocation modality refuses; ordering tiebreaks on the ARRIVAL ORDINAL the register minted, never a stringly compare of a correlation, because two entries minted inside one clock tick still hold a total order the window's ordinal snapshot depends on; quiet hours are wall-clock local, so the row carries its own zone and the fold projects the receipt instant through it rather than reading an ambient one; a quiet window that spans midnight is the wrapped comparison rather than a second row, because two rows for one window drift the moment one edge moves; the exemption roster is an ordinal frozen set, so an admission is a hash probe rather than a linear scan on every note, and its unordered equality is declared because the default structural comparison over a set compares by reference.
+- Boundary: a progress-bearing entry REFUSES dismissal while its fraction is short of complete, so an operator cannot clear the only handle onto a running job — the refusal is a typed policy fault, not a disabled button, because the same rule must hold for the clear-all fold and for a remote invocation that never sees a button; the refusal NAMES which rule refused, read off the transition's own post-state, because a running job and an unknown correlation are two different answers to one verb and one message for both is evidence a caller cannot act on; the clear-all fold therefore skips running entries rather than failing whole, so one running job never blocks a cleanup; the completion fraction is the kernel `UnitInterval`, so the "short of complete" reading is a bounded value's own comparison rather than a raw double gated at each site; entries carry command keys and never commands, exactly as a toast does, and the raise ANSWERS the deck's rail so an unlifted key refuses where every other invocation modality refuses; ordering tiebreaks on the ARRIVAL ORDINAL the register minted, never a stringly compare of a correlation, because two entries minted inside one clock tick still hold a total order the window's ordinal snapshot depends on; quiet hours are wall-clock local, so the row carries its own zone and the fold projects the event instant through it rather than reading an ambient one; a quiet window that spans midnight is the wrapped comparison rather than a second row, because two rows for one window drift the moment one edge moves; the exemption roster is an ordinal frozen set, so an admission is a hash probe rather than a linear scan on every note, and its unordered equality is declared because the default structural comparison over a set compares by reference.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -1239,13 +1230,13 @@ public sealed class ActivityCenter {
 
     public int Unread => entries.Value.Count(static row => row.State is ReadState.Unread);
 
-    public Option<ActivityEntry> Accrue(ToastReceipt receipt) =>
-        Accrues(receipt) ? Some(Recorded(receipt)) : None;
+    public Option<ActivityEntry> Accrue(ToastEvent @event) =>
+        Accrues(@event) ? Some(Recorded(@event)) : None;
 
-    static bool Accrues(ToastReceipt receipt) =>
-        receipt.Row.Traits.Admits(ToastTrait.Accrue)
-        || receipt.Verdict == ToastVerdict.Dropped
-        || receipt.Cause.Exists(static cause => cause != MessageCloseReason.UserAction);
+    static bool Accrues(ToastEvent @event) =>
+        @event.Note.Row.Traits.Admits(ToastTrait.Accrue)
+        || @event.Verdict == ToastVerdict.Dropped
+        || @event.Close.Exists(static close => close.Cause != MessageCloseReason.UserAction);
 
     public Fin<Unit> Dismiss(CorrelationId correlation) =>
         Cell.Step(entries, rows => Removable(rows, correlation),
@@ -1289,18 +1280,18 @@ public sealed class ActivityCenter {
             ? byTime
             : right.Ordinal.CompareTo(left.Ordinal));
 
-    ActivityEntry Recorded(ToastReceipt receipt) {
+    ActivityEntry Recorded(ToastEvent @event) {
         ActivityEntry entry = new(
-            Correlation: receipt.Correlation,
+            Correlation: @event.Note.Correlation,
             Ordinal: Cell.Step(arrivals, static held => held == long.MaxValue ? None : Some(held + 1L),
                 new DialogFault.PolicyRejected("activity-ordinal:exhausted")).Current,
-            Row: receipt.Row,
-            Source: receipt.Surface,
-            Body: receipt.Row.Key,
-            IntentKey: receipt.IntentKey,
-            Fraction: progress(receipt.Correlation),
-            At: receipt.At,
-            Cause: receipt.Cause,
+            Row: @event.Note.Row,
+            Source: @event.Surface,
+            Body: @event.Note.Row.Key,
+            IntentKey: @event.Note.IntentKey,
+            Fraction: progress(@event.Note.Correlation),
+            At: @event.At,
+            Cause: @event.Close.Map(static close => close.Cause),
             State: new ReadState.Unread());
         ignore(entries.Swap(rows => rows.Filter(row => row.Correlation != entry.Correlation).Add(entry)));
         return entry;

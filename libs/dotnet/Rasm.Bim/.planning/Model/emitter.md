@@ -6,7 +6,7 @@
 
 - [02]-[VOCABULARY_OVERLAYS]: `OverlayVerdict` the ONE census verdict per overlay key — abstract supertype, deprecated survivor, retired, retired-unmarked, ghost — `ClaimTier` the discipline-claim order as a behaviour column, `DomainClaim` the per-entity claim row, `IfcVocabulary` the joined emitter input, and `IfcOverlays` the committed hand tiers.
 - [03]-[TAXONOMY_EMITTER]: `IfcVocabularyEmitter` — `Emit` the one entrypoint, `Census` the accumulating `[Obsolete]` tripwire, `DomainAtlas` the QuikGraph inheritance DAG with its BFS claim fold, `RowOf`/`Tokens`/`Introduced` the span-sourcing rail, `Audit` the accumulating Gate-0 drift audit, and `Render` the deterministic region fold; `VocabularyRow` the row currency one render line commits.
-- [04]-[REGENERATION]: `VocabularyRegeneration` the design-time entry a pin bump runs — the assembly, change index, and stamp seeds admitted, the emit run, the marker-pair region spliced into the committed source, and `RegenerationReceipt` the typed evidence its exit code projects.
+- [04]-[REGENERATION]: `VocabularyRegeneration` the design-time entry a pin bump runs — the assembly, change index, and stamp seeds admitted, the emit run, the marker-pair region spliced into the committed source, and `EmittedRegion` the committed region's identity its exit code projects.
 
 ## [02]-[VOCABULARY_OVERLAYS]
 
@@ -451,9 +451,9 @@ public static class IfcVocabularyEmitter {
 
 ## [04]-[REGENERATION]
 
-- Owner: `VocabularyRegeneration` the design-time runner a GeometryGym pin bump or a new IFC release executes — the ONE producer of the committed region, so the generator stops being law without a producer; `RegenerationRequest` the four admitted seeds (pinned assembly, EXPRESS change index, Materials stamp seeds, the committed source file); `RegenerationReceipt` the typed evidence one run leaves.
-- Entry: `VocabularyRegeneration.Run(RegenerationRequest request, Op key)` returns `Fin<RegenerationReceipt>` and is the whole regeneration; `Main(string[] args)` is the process boundary the `Codegen` configuration starts, projecting that rail onto an exit code. Invocation is `dotnet run --project libs/dotnet/Rasm.Bim/Rasm.Bim.csproj -c Codegen -- <assembly> <index> <stamps> <source>`; the configuration condition is the only thing it adds to the shipped library, whose `Debug`/`Release` output is unchanged.
-- Auto: the run admits its four seeds at the boundary, mints the `IfcVocabulary` through `IfcOverlays.Vocabulary`, runs `Emit`, then SPLICES the returned region between the committed marker pair — a source whose markers are absent, out of order, or duplicated refuses `region-marker-miss` rather than writing a region into an unknown position. The receipt content-keys the emitted region through the kernel `ContentHash.Of` so two runs over one pin prove identical without a text diff.
+- Owner: `VocabularyRegeneration` the design-time runner a GeometryGym pin bump or a new IFC release executes — the ONE producer of the committed region, so the generator stops being law without a producer; `RegenerationRequest` the four admitted seeds (pinned assembly, EXPRESS change index, Materials stamp seeds, the committed source file); `EmittedRegion` the assembly, row count, and region digest one run commits.
+- Entry: `VocabularyRegeneration.Run(RegenerationRequest request, Op key)` returns `Fin<EmittedRegion>` and is the whole regeneration; `Main(string[] args)` is the process boundary the `Codegen` configuration starts, projecting that rail onto an exit code. Invocation is `dotnet run --project libs/dotnet/Rasm.Bim/Rasm.Bim.csproj -c Codegen -- <assembly> <index> <stamps> <source>`; the configuration condition is the only thing it adds to the shipped library, whose `Debug`/`Release` output is unchanged.
+- Auto: the run admits its four seeds at the boundary, mints the `IfcVocabulary` through `IfcOverlays.Vocabulary`, runs `Emit`, then SPLICES the returned region between the committed marker pair — a source whose markers are absent, out of order, or duplicated refuses `region-marker-miss` rather than writing a region into an unknown position. `EmittedRegion.Region` content-keys the emitted region through the kernel `ContentHash.Of` so two runs over one pin prove identical without a text diff.
 - Packages: `Rasm` (the kernel `Op`, `ContentHash`), Rasm.Element (the seam `ReleaseVersion` the index admits to), LanguageExt.Core, BCL inbox
 - Growth: a new seed is one `RegenerationRequest` column and one admission; the emit body never learns about a file.
 - Boundary: the exit status is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, and `FaultBand.Bim.Code(offset)` is 2600-decade, so `2600 & 0xFF` is 40 and a run returning its own band code reports an unrelated status to every shell and CI gate reading it; the STATUS carries the verdict (0 written, 1 refused) and the STREAM carries the identity. The runner writes ONE file and only between the markers — regenerating a whole source file, emitting a sidecar, or running at model time are each the deleted form; the committed table stays the system of record.
@@ -472,7 +472,7 @@ namespace Rasm.Bim.Model;
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RegenerationRequest(string Assembly, string Index, string Stamps, string Source);
 
-public readonly record struct RegenerationReceipt(string Assembly, int Rows, UInt128 Region);
+public readonly record struct EmittedRegion(string Assembly, int Rows, UInt128 Region);
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 public static class VocabularyRegeneration {
@@ -483,8 +483,8 @@ public static class VocabularyRegeneration {
 
     public static int Main(string[] args) =>
         Admit(args).Bind(request => Run(request, Key)).Match(
-            Succ: static receipt => {
-                Console.Out.WriteLine($"{receipt.Rows} rows {ContentHash.Hex(receipt.Region)} {receipt.Assembly}");
+            Succ: static emitted => {
+                Console.Out.WriteLine($"{emitted.Rows} rows {ContentHash.Hex(emitted.Region)} {emitted.Assembly}");
                 return 0;
             },
             Fail: static error => {
@@ -492,14 +492,14 @@ public static class VocabularyRegeneration {
                 return 1;
             });
 
-    public static Fin<RegenerationReceipt> Run(RegenerationRequest request, Op key) =>
+    public static Fin<EmittedRegion> Run(RegenerationRequest request, Op key) =>
         from assembly in key.Catch(() => Assembly.LoadFrom(request.Assembly))
         from spans in ChangeIndex(request.Index, key)
         from stamps in StampSeeds(request.Stamps, key)
         from source in Text(request.Source, key)
         from region in IfcVocabularyEmitter.Emit(assembly, IfcOverlays.Vocabulary(spans), stamps, key)
         from written in Splice(request.Source, source, region, key)
-        select new RegenerationReceipt(
+        select new EmittedRegion(
             assembly.GetName().Name ?? request.Assembly,
             written.Count(c => c == '\n') - 1,
             ContentHash.Of(region, static (text, writer) => writer.String(text)));

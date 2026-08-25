@@ -79,11 +79,11 @@
 
 [STACKING]:
 - `Microsoft.Diagnostics.Tracing.TraceEvent`(`.api/api-traceevent.md`): `EventPipeSession.EventStream` feeds `new EventPipeEventSource(stream).Process()` on a dedicated pump — the one capture→decode hand-off composing the `event-trace` artifact.
-- `Microsoft.Diagnostics.Runtime`(`.api/api-diagnostics-runtime.md`): `WriteDump` writes the minidump `DataTarget.LoadDump` reads back for heap/thread triage — the capture→triage hand-off composing the `dump` + `dump-triage` receipt pair.
-- capture fan (`.planning/Observability/bundles.md`): the `process-dump` `SupportArtifact` binds `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` under the window freeze; dump completeness rides `DumpPolicy` row data and capture faults map to `SupportFault` folded into `SupportReceipt.Partial`.
+- `Microsoft.Diagnostics.Runtime`(`.api/api-diagnostics-runtime.md`): `WriteDump` writes the minidump `DataTarget.LoadDump` reads back for heap/thread triage — the capture→triage hand-off composing the `dump` + `dump-triage` artifact pair.
+- capture fan (`.planning/Observability/bundles.md`): the `process-dump` `SupportArtifact` binds `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` under the window freeze; dump completeness rides `DumpPolicy` row data and capture faults map to `SupportFault` manifest entries.
 
 [LOCAL_ADMISSION]:
-- Process-dump and EventPipe capture fill the support-bundle capture fan; the dump is one `SupportArtifact` under the window size cap, its path recorded in the `SupportReceipt` manifest, never streamed into telemetry.
+- Process-dump and EventPipe capture fill the support-bundle capture fan; the dump is one `SupportArtifact` under the window size cap, its path recorded in `SupportManifest`, never streamed into telemetry.
 - Dump completeness is `DumpPolicy` row data, never a call-site literal: `Triage`/`Normal` for routine capture, `WithHeap`/`Full` only under an explicit escalation trigger; `WriteDumpFlags` rides the same row.
 - `DiagnosticsClient` is bounded to the host and companion process tree the AppHost owns, and capture rides `DeadlineClass` bounds so a stuck endpoint degrades one artifact row rather than wedging the pipeline.
 

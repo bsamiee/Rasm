@@ -1,6 +1,6 @@
 # [RASM_BINDING]
 
-`Rasm.Interaction` owns the one control-to-model fusion. A binding is a PLAN — a keyed value carrying its source shape, its propagation direction, its write timing, and its admission gate — that rigs onto a live control and answers a leased receipt owning refresh and exact unbind. The triple deciding whether a fusion is even expressible is a closed table rather than a guard at each use: a source, a flow, and a timing that do not name a legal row refuse at admission, so no rigged plan can hold a combination the host binding machinery cannot honour.
+`Rasm.Interaction` owns the one control-to-model fusion. Every binding is a PLAN — a keyed value carrying its source shape, its propagation direction, its write timing, and its admission gate — that rigs onto a live control and answers a leased link owning refresh and exact unbind. `BindLaw` decides whether a fusion is even expressible as a closed table rather than a guard at each use: a source, a flow, and a timing that do not name a legal row refuse at admission, so no rigged plan can hold a combination the host binding machinery cannot honour.
 
 Both host boundaries built this twice. Rhino carried the atom-state arm, the timing axis, the legality ladder, the commit latch, and the keyed failure ledger; Grasshopper carried the model lens with its delegate and notify arms, the typed value gate with its refusal posture, the ambient context assignment, and the collection-store mount. Neither carried the other's half. This owner is the union: every axis takes the richer side's shape and the poorer side gains it, and both boundaries compose this page with no adapter.
 
@@ -11,12 +11,12 @@ Composition is downward: `Op`, `Lease<T>`, `Atom`, `Transition<TState>`, `Cell`,
 - [02]-[FLOW]: `BindingKey`, `FlowMode`, `Cadence`, `SourceKind`, `CadenceKind` — the identity and the three axes a fusion is keyed on.
 - [03]-[SOURCE]: `Lens<TState,TValue>`, `StateCell<TState>`, `BindSource<TValue>` — the model side, from an atom lens to a delegate accessor to a drilled child path.
 - [04]-[GATE]: `ValueGate<TRaw,TModel>`, `GatePolicy<TModel>`, `BindFusion`, `BindLaw`, `BindingPlan`, `CommitLatch<TPayload>` — the typed admission seam, the legality table, and the rig.
-- [05]-[LEDGER]: `LedgerCapacity`, `BindLedgerEntry`, `BindLedger`, `BindReceipt`, `DataScope` — keyed current failure over bounded history, the leased link, and the ambient model assignment.
+- [05]-[LEDGER]: `LedgerCapacity`, `BindLedgerEntry`, `BindLedger`, `BindLink`, `DataScope` — keyed current failure over bounded history, the leased link, and the ambient model assignment.
 - [06]-[STORE]: `StoreRow<T>`, `StoreItemLens`, `TreeStore<T>`, `StoreSink<T>`, `StoreRail` — the collection carriers and the one mount gate over grid, list, and tree.
 
 ## [02]-[FLOW]
 
-- Owner: `BindingKey` the fusion identity every ledger row, refusal, and receipt is addressed by; `FlowMode` the propagation row carrying BOTH host direction columns; `Cadence` the write-timing family; `SourceKind` and `CadenceKind` the two remaining discriminants the legality table is keyed on.
+- Owner: `BindingKey` the fusion identity every ledger row, refusal, and link is addressed by; `FlowMode` the propagation row carrying BOTH host direction columns; `Cadence` the write-timing family; `SourceKind` and `CadenceKind` the two remaining discriminants the legality table is keyed on.
 - Cases: `Cadence` is `Edit` (every keystroke propagates), `Commit` (writes latch until focus leaves), `Coalesced` (a settling window that does not restart on further input), and `Restarted` (a window that restarts on every input). The host exposes the last two as one call with a reset flag; the two names make which behaviour a plan chose recoverable from the value.
 - Auto: a debounce window admits as `PositiveMagnitude`, so a zero or negative window is UNREPRESENTABLE rather than a legality arm. The Rhino form carried a raw `TimeSpan` and paid for it with a `Window.Ticks <= 0` guard inside the legality ladder; that arm has no place to live here.
 - Law: `FlowMode` carries `DualBindingMode` AND `BindingUpdateMode` on one row. The Grasshopper form carried direction alone, so an explicit refresh named its own update direction at each call site. The refresh column is the row's, and `ToSource`/`ToControl` DERIVE from the direction column — a stored relay pair would be a second authority over what the host mode already states.
@@ -224,7 +224,7 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
 
 - Owner: `ValueGate<TRaw,TModel>` the bidirectional admission seam between a control primitive and a domain value; `GatePolicy<TModel>` the refused-write posture; `BindFusion` the three-coordinate key; `FusionLaw` the five legality clause rows and `BindLaw` the table they derive; `BindingPlan<TControl,TValue,TModel>` the admitted riggable plan; `CommitLatch<TPayload>` the focus-scoped write buffer.
 - Cases: `GatePolicy` is `Hold` — the control snaps back to the last admitted model value — or `Fallback` carrying an ALREADY-ADMITTED substitute. The Grasshopper form carried a raw substitute and re-admitted it inside the refusal path, so a fallback could itself refuse and the fold had nothing left but a default; carrying the model value forecloses that.
-- Entry: `BindingPlan.Admitted` accumulates every absent dependency through `Validation`, gates the fusion through `BindLaw.Admit`, and stores only a legal plan; `Rig` selects the control binding, wires the source, arms the latch under commit timing, and answers a leased receipt.
+- Entry: `BindingPlan.Admitted` accumulates every absent dependency through `Validation`, gates the fusion through `BindLaw.Admit`, and stores only a legal plan; `Rig` selects the control binding, wires the source, arms the latch under commit timing, and answers a leased link.
 - Auto: the legal roster DERIVES from the five `FusionLaw` rows at type init over the full `SourceKind × FlowMode × CadenceKind` cross-product. A clause, a flow row, or a timing kind lands as one declaration and the table re-materializes with no corner edited — that derivation is the executable statement of which fusions both host boundaries actually support.
 - Auto: admission reads the roster as one frozen-set probe and reads the clause rows only to NAME a refusal, so the settled path pays a hash and the refusal reports EVERY clause the fusion violated rather than the first — one typed `Rejected` per violated row, joined through the `Error` monoid. The roster is accessor-backed, because all four generated rosters fill from their own static constructors and an eager field materializes the cross-product of three EMPTY sequences.
 - Law: a `(source, flow, cadence)` triple outside the roster is unrepresentable in a rigged plan. The Rhino form guarded the same corners as an eight-arm ladder inside its factory, where each arm restated the product it excluded and no reader could enumerate what remained legal.
@@ -233,7 +233,7 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
 - Law: the host conversion demands totality on the to-model direction, so `Admit` and the policy fold into ONE total function and the refusal lands on the ledger rather than escaping. The exception trap catches a host-thrown conversion fault and records it, because an uncaught cast escaping a binding into the event pump is the defect this trap forecloses.
 - Law: `TValue` and `TModel` stay distinct parameters and the ungated fusion is the case where they coincide, so one plan serves the primitive and admitted forms. NAMED LOSS: the primitive fusion loses its own entry signature and gains a plan whose gate reads `None`. Witness: the Grasshopper `Fuse` and `FuseGated` entries (`Eto/binding.md:96`, `:113`) become one `Admitted` call differing in one argument.
 - Law: commit timing closes an interlocked latest-value latch drained when focus leaves AND once more on detach, so the value typed before a surface closes is written rather than dropped. Every latch transition answers a `Transition<Option<TPayload>>`, and a drain on an empty latch is `Refused` — a nothing-to-commit verdict, never a fault.
-- Receipt: `Fin<Lease<BindReceipt>>` — the link's lifetime is the caller's custody and the receipt's key addresses its own ledger row.
+- Output: `Fin<Lease<BindLink>>` — the link's lifetime is the caller's custody and its key addresses its own ledger row.
 - Packages: Eto.Forms for `BindableBinding`, `DualBinding`, `Convert`, `CatchException`, and `BindDataContext` (verified in `libs/dotnet/.api/api-eto-binding.md`); LanguageExt.Core for `Validation`, `Fin`, `Atom`, and `Lease`.
 - Growth: a new refusal posture is one `GatePolicy` case; a new legality clause is one `FusionLaw` row beside its `RejectReason` row, and the two land together.
 - Boundary: host binding construction, cadence attach, rollback, and unbind are the binding-provider statement seam, and all four cross `UiThread` on the immediate lane.
@@ -315,7 +315,7 @@ public static class BindLaw {
 // --- [SERVICES] ------------------------------------------------------------------------
 public interface IBindingPlan {
     BindingKey Key { get; }
-    Fin<Lease<BindReceipt>> Rig(Control control, Op key);
+    Fin<Lease<BindLink>> Rig(Control control, Op key);
 }
 
 public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where TControl : Control {
@@ -362,18 +362,18 @@ public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where 
     }
 
     [BoundaryAdapter]
-    public Fin<Lease<BindReceipt>> Rig(Control control, Op key) =>
+    public Fin<Lease<BindLink>> Rig(Control control, Op key) =>
         from typed in control is TControl accepted
             ? Fin.Succ(accepted)
             : Fin.Fail<TControl>(new UiFault.Rejected(
                 Key: key, Field: FieldTag.Create(value: Key.Value), Reason: RejectReason.ControlType))
-        from receipt in UiThread.Run(
-            new UiDispatch<BindReceipt>.Blocking(() => key.Catch(() => Wire(typed, key))),
+        from link in UiThread.Run(
+            new UiDispatch<BindLink>.Blocking(() => key.Catch(() => Wire(typed, key))),
             DispatchLane.Immediate,
             key)
-        select (Lease<BindReceipt>)new Lease<BindReceipt>.Owned(receipt);
+        select (Lease<BindLink>)new Lease<BindLink>.Owned(link);
 
-    private Fin<BindReceipt> Wire(TControl control, Op key);
+    private Fin<BindLink> Wire(TControl control, Op key);
 }
 
 internal sealed class CommitLatch<TPayload> : IDisposable {
@@ -396,18 +396,18 @@ internal sealed class CommitLatch<TPayload> : IDisposable {
 
 ## [05]-[LEDGER]
 
-- Owner: `LedgerCapacity` the admitted history bound; `BindLedgerEntry` one recorded refusal; `BindLedger` the keyed current-failure map beside bounded history; `BindReceipt` the leased link with refresh and exact unbind; `DataScope` the ambient model assignment.
-- Entry: `BindLedger.Admitted` refuses a non-positive capacity before allocating; `Reject` and `Accept` are the two ledger transitions; `Holds` reads a key's current refusal; `Refresh` and `Release` are the receipt's lifecycle; `DataScope.Assign` seats a model on a bindable root.
+- Owner: `LedgerCapacity` the admitted history bound; `BindLedgerEntry` one recorded refusal; `BindLedger` the keyed current-failure map beside bounded history; `BindLink` the leased link with refresh and exact unbind; `DataScope` the ambient model assignment.
+- Entry: `BindLedger.Admitted` refuses a non-positive capacity before allocating; `Reject` and `Accept` are the two ledger transitions; `Holds` reads a key's current refusal; `Refresh` and `Release` are the link's lifecycle; `DataScope.Assign` seats a model on a bindable root.
 - Auto: current failure and history are INDEPENDENT. History truncates at capacity; the current map never prunes, so a fusion that failed and stayed failed is still refusing after its entry ages out. One bounded log would silently declare a broken binding valid at capacity.
 - Auto: every ledger mutation answers a `Transition<BindLedgerState>` verdict, so a caller that must know its record landed reads the case rather than assuming a swap.
 - Law: `IsValid` is the ruled evidence fold — an unreleased link with no current refusal under its EXACT key. A field-only key lets two fusions on one control share a rejection state, which is precisely the failure the identity value object exists to prevent.
 - Law: the release one-shot is an `Atom<bool>` seated through a guarded transition, so a second release reads a REFUSED verdict rather than no-opping into silence; a hand interlocked integer beside this page's `Atom`/`Cell`/`Transition` custody is the deleted form.
-- Law: refusal routing rides `Release`, so the one non-throwing terminal every capsule on this sub-domain shares stays unmodified and this receipt still records its keyed rejection without minting a second terminal.
-- Law: a teardown fault lands on the receipt's own ledger, never on the unwinding stack — disposal fires from a `finally` and from a `using` unwind, where a raise REPLACES the primary exception with a teardown fault.
+- Law: refusal routing rides `Release`, so the one non-throwing terminal every capsule on this sub-domain shares stays unmodified and this link still records its keyed rejection without minting a second terminal.
+- Law: a teardown fault lands on the link's own ledger, never on the unwinding stack — disposal fires from a `finally` and from a `using` unwind, where a raise REPLACES the primary exception with a teardown fault.
 - Law: `DataScope.Assign` is the ONE ambient-model seam. Assignment on a container propagates to every bound descendant, which is what makes per-control source wiring the deleted form; it crosses the marshal because propagation raises host change events across the whole subtree.
-- Receipt: `BindReceipt` carries its key, its validity fold, its release faults, and a `Refresh` pushing in the flow row's declared update direction.
+- Output: `BindLink` carries its key, its validity fold, its release faults, and a `Refresh` pushing in the flow row's declared update direction.
 - Growth: a new evidence column extends `BindLedgerEntry`; retention and current failure stay independent.
-- Boundary: control realization retains receipts and releases them in reverse tree order, so a partially rigged subtree unwinds exactly what it wired.
+- Boundary: control realization retains links and releases them in reverse tree order, so a partially rigged subtree unwinds exactly what it wired.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -464,13 +464,13 @@ public sealed class BindLedger {
         Cell.Commit(state, held => held with { Current = held.Current.Remove(key) });
 }
 
-public sealed class BindReceipt : IDisposable, IValidityEvidence {
+public sealed class BindLink : IDisposable, IValidityEvidence {
     private readonly BindLedger ledger;
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
     private readonly Atom<bool> released = Atom(false);
     private readonly Op key;
 
-    internal BindReceipt(BindingKey identity, BindLedger ledger, Op key, Func<Fin<Unit>> refresh, Func<Fin<Unit>> unbind);
+    internal BindLink(BindingKey identity, BindLedger ledger, Op key, Func<Fin<Unit>> refresh, Func<Fin<Unit>> unbind);
 
     public BindingKey Identity { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
@@ -551,7 +551,6 @@ public static class StoreRail {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

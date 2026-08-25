@@ -5,8 +5,8 @@ package rasm.contracts.ui;
 import "buf/validate/validate.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
+import "rasm/contracts/clock/hlc.proto";
 import "rasm/contracts/fault/fault.proto";
-import "rasm/contracts/receipt/envelope.proto";
 import "rasm/contracts/ui/commands.proto";
 
 // --- [VOCABULARIES] ---------------------------------------------------------------------
@@ -42,9 +42,7 @@ message NativeAssetFactWire {
   string rid = 4 [(buf.validate.field).string.min_len = 1];
 }
 
-// One arm per process-local evidence family; the sealed envelope carries correlation, tenant, and the HLC
-// stamp, so no arm repeats them beyond its own producer columns.
-message EvidenceReceiptWire {
+message EvidenceWire {
   // Ordinal 2 is MEDIA_OUTCOME_FAILED. A CEL naming an enum value by its qualified path compiles under buf and
   // raises `No value with name "rasm" found in Activation` under protovalidate, leaving the message unvalidatable
   // on every input.
@@ -62,7 +60,7 @@ message EvidenceReceiptWire {
     Render render = 3;
     Disposal disposal = 4;
     Edit edit = 5;
-    DeckReceiptWire command = 6;
+    DeckOutcomeWire command = 6;
     NativeAssetFactWire native_asset = 7;
     Theme theme = 8;
     Motion motion = 9;
@@ -267,14 +265,12 @@ message SkewBandWire {
   google.protobuf.Timestamp latest = 2 [(buf.validate.field).required = true];
 }
 
-// The composition site: the cross-package receipt spine beside THIS package's closed receipt family, so the
-// payload is exhaustive at every arm and the producing package derives from the arm rather than from a key.
 message EvidenceRowWire {
   uint32 ordinal = 1;
   uint32 uncertainty_group = 2;
-  rasm.contracts.receipt.ReceiptHeaderWire header = 3 [(buf.validate.field).required = true];
-  SkewBandWire band = 4 [(buf.validate.field).required = true];
-  EvidenceReceiptWire receipt = 5 [(buf.validate.field).required = true];
+  SkewBandWire band = 3 [(buf.validate.field).required = true];
+  EvidenceWire evidence = 4 [(buf.validate.field).required = true];
+  rasm.contracts.clock.Hlc stamp = 5 [(buf.validate.field).required = true];
 }
 
 message EvidenceTimelineWire {

@@ -23,7 +23,7 @@ Every case admits through exactly one factory that internalizes `Domain/validati
 
 - Entry: `Project<TOut>(Context, Op?)` is frozen; a context gate rejects a null `Context` before the total `Switch`, and `TOut` — the output discriminant each owner's projection rows resolve — lets one entry serve every typed evidence carrier the owners publish.
 - Auto: every arm delegates to its owning page's entry and gates output through the `AtomProjection` rail; the `Switch` body carries each arm's owner target.
-- Receipt: this rail mints no receipt of its own; every arm surfaces the owner's typed receipt through the owner's projection rows, so evidence provenance is single-sourced.
+- Law: this rail mints no evidence of its own; every arm surfaces the owner's typed result through the owner's projection rows, so evidence provenance is single-sourced.
 - Boundary: dispatch carries zero domain math; `Project<TOut>` is total over the `Fin` rail, an unsupported `TOut` returns the owner's typed `Unsupported` fault naming both the case and the requested type, and the generated `Switch` with no `_` arm is the exhaustiveness proof a new case cannot silently escape.
 
 ```csharp
@@ -379,8 +379,8 @@ public abstract partial record VectorIntent {
             select output,
         sampleCase: static (state, intent) => intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),
         alignCase: static (state, intent) =>
-            from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
-            from output in receipt.Project<TOut>(key: state.Key)
+            from alignment in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
+            from output in alignment.Project<TOut>(key: state.Key)
             select output,
         remeshHostCase: static (state, intent) =>
             from result in SegmentKernel.ApplyRemeshDetailed(kind: intent.Kind, space: intent.Space, key: state.Key)
@@ -401,8 +401,8 @@ public abstract partial record VectorIntent {
             from output in topology.Project<TOut>(key: state.Key)
             select output,
         featuresCase: static (state, intent) =>
-            from receipt in SegmentKernel.DetectFeatureEdgesDetailed(space: intent.Space, policy: intent.Policy, key: state.Key)
-            from output in receipt.Project<TOut>(key: state.Key)
+            from features in SegmentKernel.DetectFeatureEdgesDetailed(space: intent.Space, policy: intent.Policy, key: state.Key)
+            from output in features.Project<TOut>(key: state.Key)
             select output,
         descriptorCase: static (state, intent) => SegmentKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
         discreteCalculusCase: static (state, intent) =>
@@ -417,7 +417,6 @@ public abstract partial record VectorIntent {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -247,14 +247,14 @@
 [STACKING]:
 - `api-ffmpeg-autogen.md`(`.api/api-ffmpeg-autogen.md`): the seamed decode-in versus encode-out pair — `libmpv` owns media decode and on-screen OpenGL playback (Editing MediaSurface), `FFmpeg.AutoGen` owns the RGBA→MP4 encode-out (Render capture).
 - `api-avalonia-gpu-interop.md`(`.api/api-avalonia-gpu-interop.md`): `OpenGlView : OpenGlControlBase` shares the compositor GL surface, so playback composites in-tree rather than in a `NativeControlHost` airspace window.
-- `api-silk-webgpu-wgpu`(`libs/dotnet/.api/api-silk-webgpu-wgpu.md`): `LogMessage` and `EndFile` route into the AppUi receipt sink as counted media-fault rows, the decode-side peer of wgpu's `PfnLogCallback` `ViewportFault` stream.
+- `api-silk-webgpu-wgpu`(`libs/dotnet/.api/api-silk-webgpu-wgpu.md`): media materialization fires `AppUiFact.Media` after `LoadFile` settles, the decode-side peer of wgpu's `PfnLogCallback` `ViewportFault` stream; `LogMessage` and `EndFile` remain typed native observables.
 - `api-reactiveui.md`(`.api/api-reactiveui.md`): observed `MpvPropertyRead` members marshalled onto `Dispatcher.UIThread` drive ReactiveUI transport bindings with no cross-thread hop.
 - MediaSurface owner: `MpvView` with `Renderer` set to `VideoRenderer.OpenGl`; playback flows through the bound `IVideoView`'s `MpvContext` — `LoadFile` intake, `Pause` / `Speed` / `Volume` / `Mute` transport, `TimePos` / `PercentPos` seek, observed `MpvPropertyRead` and `PropertyChanged` state, `IVideoView.Dispose` teardown.
 
 [LOCAL_ADMISSION]:
 - Native libmpv provisions at the app-host distribution layer and binds at load; these assemblies ship no native binary.
 - `MpvEventLoop.Default` (the `MpvSimpleEventLoop`) is the Avalonia path: events marshal onto the `Dispatcher.UIThread` the `MpvView` lives on, so `PropertyChanged` updates bindings without a cross-thread hop; `MpvEventLoop.Thread` serves a headless host where no dispatcher pumps.
-- `LogMessage` (gated by `RequestLogMessages(minLevel)`) and `EndFile` (`MpvEndFileEventArgs.Reason` : `EndReason`) route into the AppUi receipt sink, so a decode failure or unsupported codec is a counted media-fault row, not a swallowed native print.
+- `LogMessage` (gated by `RequestLogMessages(minLevel)`) and `EndFile` (`MpvEndFileEventArgs.Reason` : `EndReason`) remain available for playback diagnostics; the media owner publishes the settled `LoadFile` outcome once through `AppUiFact.Media`.
 - Every `MpvContext`, view, and overlay releases through `IVideoView.Dispose` at teardown to free the render context.
 
 [RAIL_LAW]:

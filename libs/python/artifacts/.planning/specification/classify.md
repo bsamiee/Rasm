@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_CLASSIFY]
 
-Construction classification binds `MasterFormat` work results, `UniFormat` elements, `OmniClass` facets, and the drawing-to-specification `ReferenceIndex`. `crosswalk` preserves relation semantics across systems; `resolve` and `coordinate` bind sections to drawing references. This pure substrate authors no artifact or receipt.
+Construction classification binds `MasterFormat` work results, `UniFormat` elements, `OmniClass` facets, and the drawing-to-specification `ReferenceIndex`. `crosswalk` preserves relation semantics across systems; `resolve` and `coordinate` bind sections to drawing references.
 
 `ClassCode` stores a `ClassSystem` discriminant and one per-mode `ClassPayload`: numeric segments for `MasterFormat` and `OmniClass`, or `(group, segments)` for `UniFormat`. `__post_init__` admits assigned divisions, known elements, known OmniClass tables, bounded segment pairs, and valid hierarchy depth. `_CROSSWALK` stores related division-to-element rows, `_ELEMENT_DIVISIONS` derives the inverse, OmniClass Table 22 mirrors `MasterFormat` exactly, and Table 21 remains a broader elemental anchor because its notation differs. `ClassRelation` keeps `EXACT`, `RELATED`, and `BROADER` results distinguishable.
 
@@ -15,10 +15,8 @@ Construction classification binds `MasterFormat` work results, `UniFormat` eleme
 - Cases: the three vocabularies are closed correspondence tables authored to exact published cardinality — `_DIVISIONS` (the `MasterFormat` 2020 divisions over six `Subgroup` bands), `_ELEMENTS` (the `UniFormat` groups and their Level-2 elements), `_OMNI_TABLES` (the OmniClass tables); the reserved `MasterFormat` slots are the `range(50)` complement over the assigned set, never fabricated titles, each row a frozen value, never a stringly prefix probe.
 - Entry: `ClassCode.parse(system, text)` returns `Result[Self, ClassFault]` — the system's module-level `re.Pattern` matches once, then the HEAD validates against its vocabulary, so a deeper code admits under a known broadscope parent (`UniFormat` `B1010` under element `B10`, `MasterFormat` `03 30 53` under Division `03`). A reserved slot, an out-of-range division, an unknown element, and an unknown table each surface as their own `ClassFault` case, the `_RESERVED` complement splitting the future-expansion slot from the invalid number.
 - Auto: `crosswalk` derives relation-bearing peers from `_CROSSWALK`, `_ELEMENT_DIVISIONS`, and OmniClass table alignment. Division-to-element edges are `RELATED`, Table 22 mirrors are `EXACT`, and Table 21 roots are `BROADER`. `level` and `parent` share `_deepest`; `descends_from` treats trailing `MasterFormat` heading zeros as wildcards after an exact division head and uses exact prefixes for `UniFormat` and `OmniClass`.
-- Receipt: none — `ClassCode` is a pure value object and `crosswalk` a pure projection; the validated code travels INTO the composing producers' facts, exactly as `exchange/detect#DETECT` and `drawing/regime#REGIME` contribute none.
 - Packages: `msgspec` supplies frozen value owners and `structs.replace`; `re` supplies compiled system parsers; `frozendict` carries relation projections; `expression` supplies `Map`, `Result`, `Option`, and `Block` rails.
 - Growth: a new division/element/table is one `_DIVISIONS`/`_ELEMENTS`/`_OMNI_TABLES` row; a new classification system is one `ClassSystem` member plus one `re.Pattern` and one arm on each projection (`assert_never` forcing each); a new crosswalk edge is one `_CROSSWALK` row the inverse absorbs; a new fault cause is one `ClassFault` case.
-- Boundary: this owner authors classification semantics, never bytes — no `ArtifactReceipt` case (the composing producers carry the code in their own facts), no rendered artifact.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -426,11 +424,9 @@ __all__ = ["ClassCode", "ClassFault", "ClassPeer", "ClassRelation", "ClassSystem
 - Owner: `ReferenceIndex` admits deduplicated `Reference` links as its primary fact; `_indexes` derives both query directions together, so stored indexes cannot drift from their source.
 - Cases: `SheetRef` carries a required sheet, optional detail, and regime-owned `Discipline`; `Reference` binds one classification to one sheet reference; `Coordination` carries matched links, undrawn specification sections, and unspecced drawing details.
 - Entry: `ReferenceIndex.of` deduplicates admitted links. `resolve` discriminates `ClassCode`-to-sheets from `SheetRef`-to-sections and derives both indexes through `_indexes`; `coordinate` reconciles the primary links against specified sections.
-- Auto: `coordinate` partitions the reference set against `specified` in one `Block.partition` so the `specifies` predicate runs once per reference, `orphan_sections` the filtered-into-`frozenset` of specified codes no reference reaches. `rows()` projects the flat records a `visualization/table#TABLE` `TablePlan.of` frame renders and `facts()` the native-int tally the composing producer folds into its OWN `ArtifactReceipt` — this owner computes the verdict, never the rendered artifact.
-- Receipt: none — `ReferenceIndex`/`Coordination` are a pure reconciliation whose `rows`/`facts` a downstream `visualization/table#TABLE` or `specification/section#SECTION` producer renders and folds into its own receipt.
 - Packages: `msgspec` (`Struct(frozen=True)` the value objects, `Reference`/`SheetRef` hashable for the admitted-set dedup); `expression` (`Map` the two indexes built by one fold, `Block.partition`/`filter` the one-pass reconciliation); `frozendict` (the flat projections and the orphan frozenset); `drawing/regime#REGIME` (`Discipline`) and the sibling `ClassCode` (`.render`/`.descends_from`), composed never re-declared.
 - Growth: a new reference axis is one `Reference`/`SheetRef` field the fold and `rows` absorb; a new query modality is one `resolve` arm (`assert_never` forcing it); a new reconciliation category is one `Coordination` field; a new coordination fact is one `facts()` entry.
-- Boundary: this owner computes the coordination, never the artifact — no rendered matrix (the `visualization/table#TABLE` renderer folds `rows`/`facts`), no receipt rail.
+- Boundary: this owner computes the coordination, never the artifact — no rendered matrix (the `visualization/table#TABLE` renderer folds `rows`/`facts`), no second producer rail.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -568,7 +564,6 @@ __all__ = ["Coordination", "Reference", "ReferenceIndex", "SheetRef"]
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

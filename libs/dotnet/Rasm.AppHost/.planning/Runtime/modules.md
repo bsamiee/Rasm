@@ -1,11 +1,11 @@
 # [APPHOST_COMPOSITION_AND_MODULES]
 
-One composition root per process folds a frozen module table into the service graph, arms every seam the corpus declares must bind, and freezes it. Composition owns four axes: the `ModuleContribution` row — assembly, scan, slot-keyed descriptor carrier, registrar, and decoration columns — the one-pass receipted composition fold whose single ordinal pass over `DescriptorSlot.Items` carries every admission and every apply, admission-boundary activation carrying availability probing, async-scope ownership, keyed decoration introspection, and validator discovery, and the MUST-BIND ledger whose module folds and root seams are every declared owner's one call site. One descriptor algebra serves every seam: `DescriptorSlot` rows name the admitting member and the admission their descriptors cross first, so registration, keyed registration, idempotent defaults, and ordered fan-in sets are four rows of one roster rather than four columns and four counts. The package spine is `Microsoft.Extensions.DependencyInjection` with `Scrutor` scanning and decoration, `FluentValidation.DependencyInjectionExtensions` validator discovery at the root, and `System.CommandLine` as the app-root verb boundary — one `ParseResult`-driven projection onto the existing owners, never a second dispatcher.
+One composition root per process folds a frozen module table into the service graph, arms every seam the corpus declares must bind, and freezes it. Composition owns four axes: the `ModuleContribution` row — assembly, scan, slot-keyed descriptor carrier, registrar, and decoration columns — the one-pass composition fold whose single ordinal pass over `DescriptorSlot.Items` carries every admission and apply, admission-boundary activation carrying availability probing, async-scope ownership, keyed decoration introspection, and validator discovery, and the MUST-BIND ledger whose module folds and root seams are every declared owner's one call site. One descriptor algebra serves every seam: `DescriptorSlot` rows name the admitting member and the admission their descriptors cross first. The package spine is `Microsoft.Extensions.DependencyInjection` with `Scrutor` scanning and decoration, `FluentValidation.DependencyInjectionExtensions` validator discovery at the root, and `System.CommandLine` as the app-root verb boundary.
 
 ## [01]-[INDEX]
 
 - [02]-[MODULE_TABLE]: Frozen contribution rows over one slot roster carrying every descriptor admission.
-- [03]-[SCAN_AND_DECORATE]: One-pass scan, slot fold, and decoration with receipted freeze.
+- [03]-[SCAN_AND_DECORATE]: One-pass scan, slot fold, decoration, and freeze.
 - [04]-[BOUNDARY_ACTIVATION]: Activation plans, availability probes, async scopes, keyed decoration, and validators.
 - [05]-[COMMAND_SURFACE]: `System.CommandLine` verb table — seed DATA projecting `ParseResult` onto existing owners.
 - [06]-[MODULE_LEDGER]: Module folds, the must-bind seam roster, and the two-altitude fold that is every row's one call site.
@@ -15,10 +15,9 @@ One composition root per process folds a frozen module table into the service gr
 - Owner: `DescriptorSlot` `[SmartEnum<string>]` — the descriptor algebra as ROW DATA, each row carrying the admission its descriptors cross and the collection member that admits them; `ModuleContribution` — the frozen per-process module-table row; modules contribute registrations and never resolve services.
 - Cases: `Service` admits unkeyed descriptors and `Keyed` keyed ones — each row enforces its own regime against the descriptor's `IsKeyedService` — `Default` adds idempotently across both regimes, and `Contributor` joins the ordered fan-in set behind the port-cardinality admission.
 - Auto: the composition fold walks `DescriptorSlot.Items` in `Rank` order, so slot ordering is the roster's own column and no fold body names a slot.
-- Receipt: `ContributionReceipt` — module key, scan delta, registrar and decoration counts, the APPLIED per-slot tally (`Slots`, each slot's collection delta across its own apply, so an idempotent `TryAdd` that landed nothing counts nothing), and the DECLARED lifetime partition (`Lifetimes`, the mix the module authored) — the two questions named apart rather than folded under one derivation claim.
 - Packages: Microsoft.Extensions.DependencyInjection, Thinktecture.Runtime.Extensions
-- Growth: a new admission regime is ONE `DescriptorSlot` row carrying its `Admits` and `Admit` columns — the fold, the receipt, and every module row are untouched; one module row per contributing package, one descriptor row per service; zero new surface.
-- Boundary: descriptor construction spells `ServiceDescriptor.Describe` and `DescribeKeyed` only — the `AddSingleton`/`AddScoped`/`AddTransient` and `AddKeyedSingleton`/`AddKeyedScoped`/`AddKeyedTransient` overload families are the deleted spellings; NAMED LOSS — the named-property receipt read. `receipt.Singletons` and `receipt.Contributors` become `receipt.Lifetimes[ServiceLifetime.Singleton]` and `receipt.Slots[DescriptorSlot.Contributor]`, so a reader keys instead of dotting. What that buys is the ordinal fold: four `Seq<ServiceDescriptor>` columns applied by four hand-written statements, guarded by one hand-written admission, and counted by six stored ints were one concept spelled sixteen times, and a fifth admission regime edited every one of them; it now lands as one roster row while the fold, the carrier, and the receipt hold still. No stored count survives that a fold already reconstructs.
+- Growth: a new admission regime is ONE `DescriptorSlot` row carrying its `Admits` and `Admit` columns; one module row lands per contributing package and one descriptor row per service.
+- Boundary: descriptor construction spells `ServiceDescriptor.Describe` and `DescribeKeyed` only; the ordinal slot fold applies every admission regime without stored counts or a parallel summary value.
 
 Row law:
 - One composition root per process folds the table; packages ship rows into it. A per-package registration extension, a module interface with configure members, and an event-style registration hook are the deleted patterns — the row is the whole module contract.
@@ -27,7 +26,7 @@ Row law:
 - `Default` is the additive-only floor: a package-shipped default whose contract a host or later module may pre-empt applies through the package's own `TryAdd`, which compares `(ServiceType, ServiceKey)` and reads no implementation type, so the keyed and unkeyed arms are ONE member and the deleted lifetime switch was both redundant and narrower — it dereferenced `KeyedImplementationType`, which is null on every keyed factory and keyed instance descriptor this law admits. A default that must override an earlier registration is a `Service` row.
 - `FromKeyedServicesAttribute` binds keyed constructor parameters, `ServiceKeyAttribute` injects the resolved key into the implementation, and `KeyedService.AnyKey` selects keyed enumerables and never resolves a single service.
 - `Registrars` carries collection-shaped package registrations that no descriptor spelling expresses — the validator-discovery row and other collection-shaped admissions — each a `Func<IServiceCollection, IServiceCollection>` applied after the module's descriptor rows.
-- `Decorations` carries the typed decoration column: each entry is one `DecorationRow` application naming the inner service contract and the wrapping decorator, so the decoration topology is data the fold reads and the receipt counts, never an opaque registrar `Func`. A profile that drops a contributor port carries the entry with `Conditional: true`, so the same column decorates on the service profile and skips on the plugin profile by `TryDecorate` row presence.
+- `Decorations` carries the typed decoration column: each entry is one `DecorationRow` application naming the inner service contract and the wrapping decorator, so the decoration topology is data the fold reads, never an opaque registrar `Func`. A profile that drops a contributor port carries the entry with `Conditional: true`, so the same column decorates on the service profile and skips on the plugin profile by `TryDecorate` row presence.
 - The `Scan` column is `Option`-typed: a row constructed with `Scan: default` composes through explicit descriptor rows alone. The web and AOT module tables construct every row that way — the same table, zero parallel composition system, and the column flip is the growth proof.
 
 ```csharp
@@ -77,21 +76,14 @@ public sealed record ModuleContribution(
 
 public readonly record struct DecorationRow(Type Service, Type Decorator, bool Conditional);
 
-public readonly record struct ContributionReceipt(
-    string Module,
-    int Scanned,
-    int Registrars,
-    int Decorated,
-    HashMap<DescriptorSlot, int> Slots,
-    HashMap<ServiceLifetime, int> Lifetimes);
 ```
 
-Module keys are `nameof`-derived assembly symbols, never free literals; the receipt's `Module` field repeats the row key so receipt streams group by module without positional reconstruction.
+Module keys are `nameof`-derived assembly symbols, never free literals.
 
 ## [03]-[SCAN_AND_DECORATE]
 
 - Owner: `CompositionSurface` — one fold composes scan, the ordinal slot pass carrying every descriptor admission, decoration, and freeze in one pass over the table.
-- Entry: `Fin<Seq<ContributionReceipt>> Compose(params ReadOnlySpan<ModuleContribution> modules)` — `Fin` aborts on the first rejected module with module provenance in the failure, whether the rejection was thrown by the scan or railed by an admission.
+- Entry: `Fin<Unit> Compose(params ReadOnlySpan<ModuleContribution> modules)` — `Fin` aborts on the first rejected module with module provenance in the failure, whether the rejection was thrown by the scan or railed by an admission.
 - Auto: `MakeReadOnly` freezes the collection after the fold; `BuildServiceProvider` under `ServiceProviderOptions` with `ValidateOnBuild` and `ValidateScopes` proves the frozen graph on the test row.
 - Packages: Scrutor, Microsoft.Extensions.DependencyInjection
 - Growth: one scan filter row or one registrar row per cross-cutting concern; zero new surface — the fold absorbs it.
@@ -101,47 +93,36 @@ Pass law:
 - Scan sources are `FromAssemblies` over the row's explicit `Assembly`. `FromApplicationDependencies` and `FromDependencyContext` walk the default dependency closure and are the deleted sources: plugin load contexts never appear in that closure, so closure-walking scans silently miss every plugin assembly.
 - Selection composes `AddClasses`, then `AssignableTo`, `WithAttribute`, and `InNamespaces` filters, then mapping: `UsingAttributes` maps `ServiceDescriptorAttribute`-annotated classes, `AsImplementedInterfaces` and `AsSelfWithInterfaces` map the rest, and `WithLifetime` and `WithServiceKey` bind lifetime and key inside the same pass.
 - Duplicate registrations resolve under `UsingRegistrationStrategy(RegistrationStrategy.Throw)` bound inside the same `Scan` pass; the thrown rejection captures into the rail as conflict evidence carrying the module key — never a silent append, never a silent replace. `RegistrationStrategy.Replace` survives only as an explicit row-level policy on a row that names the contract it overrides.
-- Descriptors apply through ONE ordinal pass over `DescriptorSlot.Items`: each slot accumulates its own `Admits` over its rows and then hands them to the member its `Admit` column names, so the whole descriptor stage is one expression whatever the roster holds. The pass ACCUMULATES within a slot and across the roster alike, so a module adding three foreign contributor ports beside a mis-slotted keyed row names all four on one boot rather than one per attempt; each slot's apply answers its own collection delta, which is the count the receipt carries.
-- The `Decorations` column applies before registrars through `BoundaryActivation.Decorate`, wrapping contributor ports with telemetry and receipt decoration; the decorated contract stays the public contract, and the `Conditional` flag selects `TryDecorate` on a profile-conditional target. A `Conditional: false` entry whose target reports undecorated refuses on the rail — a count alone leaves the composition defect for a reader to notice — and the surviving count is the receipt's `Decorated` column. Decoration owns this cluster's keyed-decoration pass-law; `BOUNDARY_ACTIVATION` owns the decoration introspection.
+- Descriptors apply through ONE ordinal pass over `DescriptorSlot.Items`: each slot accumulates its own `Admits` over its rows and then hands them to the member its `Admit` column names, so the whole descriptor stage is one expression whatever the roster holds. The pass ACCUMULATES within a slot and across the roster alike, so a module adding three foreign contributor ports beside a mis-slotted keyed row names all four on one boot rather than one per attempt.
+- The `Decorations` column applies before registrars through `BoundaryActivation.Decorate`; `Conditional` selects `TryDecorate`, while a required target that remains undecorated refuses on the rail.
 - Registration is bootstrap-only: after `MakeReadOnly`, descriptor mutation throws, so every late registration attempt surfaces at the root instead of drifting into runtime state.
 
 ```csharp
 public static class CompositionSurface {
     extension(ServiceCollection services) {
-        public Fin<Seq<ContributionReceipt>> Compose(params ReadOnlySpan<ModuleContribution> modules) =>
+        public Fin<Unit> Compose(params ReadOnlySpan<ModuleContribution> modules) =>
             Iterable<ModuleContribution>.FromSpan(modules)
                 .TraverseM(module => Op.Of().Catch(() => Fin.Succ(Applied(services, module)))
                     .Bind(static admitted => admitted)
                     .MapFail(error => (Error)new LifecycleFault.ModuleRejected(module.Module, error)))
                 .As()
-                .Map(receipts => (fun(services.MakeReadOnly)(), receipts.ToSeq()).Item2);
+                .Map(_ => (fun(services.MakeReadOnly)(), unit).Item2);
     }
 
-    private static Fin<ContributionReceipt> Applied(IServiceCollection services, ModuleContribution module) {
-        int admitted = services.Count;
+    private static Fin<Unit> Applied(IServiceCollection services, ModuleContribution module) {
         module.Scan.IfSome(select => services.Scan(source => select(source.FromAssemblies(module.Assembly))));
-        int scanned = services.Count - admitted;
         return toSeq(DescriptorSlot.Items)
             .OrderBy(static slot => slot.Rank)
             .ToSeq()
             .Traverse(slot => Seated(services, slot, module[slot])
-                .Map(landed => (Slot: slot, Landed: landed))
                 .ToValidation())
             .As()
             .ToFin()
             .Bind(landed => {
                 module.Decorations.Iter(decoration => BoundaryActivation.Decorate(services, decoration));
                 ignore(module.Registrars.Fold(services, static (current, registrar) => registrar(current)));
-                return Decorated(services, module.Decorations)
-                    .Map(decorated => (Landed: landed, Decorated: decorated));
-            })
-            .Map(applied => new ContributionReceipt(
-                Module: module.Module,
-                Scanned: scanned,
-                Registrars: module.Registrars.Count,
-                Decorated: applied.Decorated,
-                Slots: applied.Landed.ToHashMap(static row => row.Slot, static row => row.Landed),
-                Lifetimes: Lifetimes(module)));
+                return Decorated(services, module.Decorations);
+            });
     }
 
     private static Fin<int> Seated(IServiceCollection services, DescriptorSlot slot, Seq<ServiceDescriptor> rows) =>
@@ -155,18 +136,13 @@ public static class CompositionSurface {
             ? services.Count - before
             : 0;
 
-    private static Fin<int> Decorated(IServiceCollection services, Seq<DecorationRow> rows) =>
+    private static Fin<Unit> Decorated(IServiceCollection services, Seq<DecorationRow> rows) =>
         rows.Traverse(row => row.Conditional || services.IsDecorated(row.Service)
                 ? Validation<Error, Unit>.Success(unit)
                 : new KernelFault.InvalidValue(Label: row.Service.Name, Requirement: "<a decorated contract>"))
             .As()
-            .Map(_ => rows.Filter(row => services.IsDecorated(row.Service)).Count)
+            .Map(static _ => unit)
             .ToFin();
-
-    private static HashMap<ServiceLifetime, int> Lifetimes(ModuleContribution module) =>
-        module.Rows.Fold(
-            HashMap<ServiceLifetime, int>(),
-            static (tally, row) => tally.AddOrUpdate(row.Lifetime, static held => held + 1, 1));
 }
 ```
 
@@ -191,7 +167,7 @@ Activation law:
 Decoration pass-law:
 - `Decorate` applies one `DecorationRow` column entry over the collection: a `Conditional: false` entry spells `Decorate(serviceType, decoratorType)` on a contract guaranteed present, and a `Conditional: true` entry spells `TryDecorate(serviceType, decoratorType)` so a profile where the inner port is absent decorates nothing rather than failing. The same module table decorates a contributor port on the service profile and skips it on the plugin profile by entry presence and the `Conditional` flag, never by a runtime branch at a call site.
 - The decorated contract stays the public contract: a decorated port resolves to the decorator, and the decorator resolves the inner registration through the generated `DecoratedService<TService>` handle, so a third decoration wraps the second with no registration rewrite. Keyed contributor ports decorate by their smart-enum service key, so decoration composes per key without a parallel keyed-decoration path.
-- `Decorated` folds the pass into the receipt without a hand-kept tally: `IsDecorated(serviceType)` confirms the frozen collection wraps each `DecorationRow.Service`, so `ContributionReceipt.Decorated` counts confirmed targets from the graph, and `Decorated<TService>` over `GetDecoratedServices<TService>` enumerates the decorated descriptors for graph introspection; a `Conditional: false` entry whose `Service` reports undecorated is the composition defect this fold surfaces.
+- `Decorated` confirms every required target through `IsDecorated(serviceType)`; `Decorated<TService>` over `GetDecoratedServices<TService>` remains the graph-introspection read.
 
 ```csharp
 public static class BoundaryActivation {
@@ -336,15 +312,14 @@ public static class AppRootVerbs {
 
 - Owner: `RootBinding` `[Union]` the two-altitude seam row; `RootInputs` the composed values every row reads, with `CoordinationArrows`, `ControlSeed`, `ObservabilitySeed`, `WireSeed`, `AgentSeed`, and `SandboxSeed` the deploy-declared seeds beside it; `CompositionRoot` the static ledger, the measured `CapsulePins` load-context roster, the `Metered` pre-`Arm` instrument mount carrying the declaring-package contributor roster, and the one fold that is each row's call site.
 - Cases: `Seated` binds while the collection is still editable; `Proven` runs against the BUILT provider because the fact it needs — a materialized pipeline, a loaded plugin, an issued token — does not exist before the build.
-- Entry: `Arm(ServiceCollection services, RootInputs inputs, ServiceProviderOptions options, params ReadOnlySpan<ModuleContribution> modules)` returns `Fin<(IServiceProvider Provider, Seq<ContributionReceipt> Receipts)>` — folds every `Seated` row, folds the module table, freezes, builds, then folds every `Proven` row, so a boot either yields a provider whose declared seams are all armed or names the seam that refused.
+- Entry: `Arm(ServiceCollection services, RootInputs inputs, ServiceProviderOptions options, params ReadOnlySpan<ModuleContribution> modules)` returns `Fin<IServiceProvider>` after seating, composing, freezing, building, and proving every ledger row.
 - Auto: the ledger is DATA, so a page declaring a new must-bind seam adds one row and no fold body changes; declaration order IS dependency order — `hooks-mount` runs first because every later fold reads the rail it seats, and a fold needing a value an earlier fold produced resolves it inside a factory lambda the fold never runs, so no row reads a graph still being written and no dependency graph is computed to recover an order the roster already states; the root's own seams seat AHEAD of the module table so a module row decorating a platform contract finds it already registered, and `Compose`'s `MakeReadOnly` stays the one freeze — a ledger row after it throws at the append rather than registers; both folds accumulate per row on the rail, so one boot names every unbound seam instead of one per attempt.
-- Receipt: `Arm` yields the module `ContributionReceipt` sequence beside the provider; a ledger row mints no receipt of its own — its evidence is the boot that either produced a provider or named the refusing seam.
 - Packages: Microsoft.Extensions.DependencyInjection, Polly.Extensions, NuGet.Versioning, LanguageExt.Core, BCL inbox
 - Growth: a new must-bind seam is one `RootBinding` row at its altitude; a new module is one `<module>-seat`/`<module>-boot` pair; a new composed value the rows read is one `RootInputs` column, and a value whose halves belong to other owners is one seed record beside it, so an owner's law reaches this fold as a filled column rather than a re-implementation; a package that declares an instrument family is one `Metered` contributor argument; a member measured to pin a collectible load context is one `CapsulePins` row the unload proof already folds; zero new surface.
 - Boundary: this ledger is the ONE composition-scoped call site for every seam a page declares and no ordinary consumer reaches, so a declared-and-unbound seam is a missing row rather than a sentence a reader audits against the corpus — the class the ledger exists to close is a `Bind`, `Register`, `Mount`, or `Of` member with a page-long law behind it and zero callers. Runtime-scoped PRODUCERS never appear here and the two altitudes never trade: an instrument write, a dispatched tool, a continued trace binds at its own producing arm, because hoisting one into this fold fires it once at boot where the law wants it per event, and sinking a composition binding into a producing arm re-registers on a frozen collection; the `DescriptorSlot.Contributor` admission stays inside `SCAN_AND_DECORATE`'s per-module fold for the same reason — the module row is the thing that can violate the port invariant, so the admission belongs at the row and not at the root; a row's delegate composes an owner and never re-implements one, so the ledger holds no logic of its own and a body doing work past its composed calls is the deleted form; the `ILatencyContext` factory is the composition's single mint — `DrainConductor.Drain`, `OutboundSurface.Run`, and `SupportCapture.Capture` each take the context as a parameter, so a fold minting its own context, or timing a phase off a `Stopwatch`, is the deleted form; `LatencySpine.Register` owns the NAME table alone while this ledger owns the provider registration, so the option that gates the issuer sets once at this seat; capsule unload is a MEMBERSHIP proof and never a sweep — the roster carries only members a live collectible host measured as pinning, so a blanket dispose-everything row claims a guarantee the runtime does not give while a type proven not to pin (an undisposed `ActivitySource`, an instrument-free `Meter`) buys an unload nothing.
 
 Seat law:
-- `hooks-mount` freezes the point census through `HookRegistry.Mount` and decorates `ReceiptSinkPort.Emit` through `AppHostHooks.Tap`, so every stamped envelope crosses the `Receipt` row before egress and every later fold resolves the decorated port. The rail arrives on `RootInputs` already composed because `HookRail.Of` seats its gates and taps AT construction and rolls the whole subscription set back on the first refusal — the taps it mounts project capsules this same fold registers, so a mint at this seat obliges a row to resolve what a later row writes.
+- `hooks-mount` freezes the point census and seats the precomposed rail; `HookRail.Of` has already admitted every gate and tap before the service graph freezes.
 - `redaction-and-sampling` reaches the log chain through `SignalGovernance.GovernLogs`, whose `RedactionRegistration.Bind` carries every redactor row — sealing the chain without it leaves the erasing fallback as the ONLY resolution and every classified tag erases, including the operational dimensions the pass rows exist to spare.
 - `latency-context` seats the pooled provider, issuer, and the ONE `Func<ILatencyContext>` factory the three threading folds read; `latency-names` folds this root's roster with every contributed `LatencyRoster` into the single registration under `ThrowOnUnregisteredNames`, because an unregistered name resolves to a positionless token whose writes drop with nothing raised.
 - `drain-thread` seats the `Func<DrainThread>` MINT rather than an opaque input: each drain opens its own context and token through `LatencySpine.Open` beside the mounted instrument set and the ledger exporter the terminal `Seal` feeds, so every drain-gated rollover receives the conductor's whole telemetry tail from the one root and an unbound tail refuses at boot instead of compiling on a trailing default. The cooperative and forced budgets are NOT on it — the conductor reads its own `DeadlineClass` rows, so a budget travelling beside the fold that owns it is a second value to disagree.
@@ -355,7 +330,7 @@ Seat law:
 - `coordination-seat` constructs the ONE `LeaseElection.Runtime` off the coordination seed's four decoded lease arrows, because those decoded arrows are its only producer and no fold below this one reaches them; the same row FORCES `LeasePolicy.Outlasts`, since this is where the reclamation window meets the drain bounds it must outlast and a proof no reader forces guarantees nothing.
 - `control-inbound` completes `ControlRuntime` with the drain arrow over the degradation, support, source, and wire values in `ControlSeed`.
 - `design-regime` is the seat-law row this doctrine binds on any PRODUCT root that composes `Rasm.Bim` — it lives on that root's own ledger, never here, because this package references the kernel alone and a Bim type cannot appear in this fence, exactly as the `BrickBinding` class election rides the composing root. The root elects the project's national design regime ONCE: `StageLabels.Nation` (the typed `Option<ICountry>` off the compiled `IGovernance.Country` pin, `Rasm.Bim/Planning/schedule#SCHEDULE`) feeds `AnnexRegime.Of(ICountry)` (`Rasm.Bim/Model/eurocode#EUROCODE_ALGEBRA` — the ISO-keyed nation→annex bridge whose row KEY is the SAF `ExcelNationalCode`) into the `EurocodePolicy` the root constructs, and the SAME `Option<AnnexRegime>` threads to `SafEmit.Export` (`Rasm.Bim/Exchange/export#SAF_EMIT`). Both parameters are REQUIRED and undefaulted at their Bim owners, so an unelected root breaks loudly at compile rather than silently designing under `Recommended` or writing no design code cell; a second election beside the export call, or a free country string standing in for the typed nation, forks the national annex the eurocode tables and the SAF workbook must share.
-- `bim-compute-tessellation` is likewise a PRODUCT-root module row, never an AppHost project reference: the root that references both packages binds Bim's `ITessellationCompanion` directly to one `BimComputeCompanion`. The outer app call supplies its existing `CorrelationId` to `TessellationRequest.Resolve`; the adapter passes it to the Compute-owned singleton `CallSpineFactory`, which mints one spine for source Put, Tessellate, and output Fetch. The adapter frames and puts the IFC source, projects that admitted `ArtifactRef` through `TessellationWire.Project`, drives `CompanionEdge`, proves the peer's reported content key and projects its count, semantic, and generated spill fields through `TessellationWire.Admit`, and returns one `TessellationCross` on the asynchronous port. The module seats `CallSpineFactory` itself; `ClockPolicy`, `WireServices`, `StreamPool`, and `ReceiptSurface` are one-per-composition singleton dependencies already seated by that root's Compute module. `ValidateOnBuild` and `ValidateScopes` prove the complete singleton constructor graph and refuse any missing or shorter-lived dependency. No `IServiceProvider` crosses the adapter, no blocking wait collapses `IO`, no correlation is derived from `Op` or captured at composition, no `AdmittedIntent` is fabricated for a call outside the compute-dispatch algebra, and no second request, frame, semantic, spill, or fault shape exists.
+- `bim-compute-tessellation` is likewise a PRODUCT-root module row, never an AppHost project reference: the root that references both packages binds Bim's `ITessellationCompanion` directly to one `BimComputeCompanion`. The outer app call supplies its existing `CorrelationId` to `TessellationRequest.Resolve`; the adapter passes it to the Compute-owned singleton `CallSpineFactory`, which mints one spine for source put, tessellation, and output fetch. The adapter frames and puts the IFC source, projects the admitted `ArtifactRef` through `TessellationWire.Project`, drives `CompanionEdge`, and passes the returned `CompanionArtifact.Response` and GLB to `TessellationWire.Admit`. `ClockPolicy`, `WireServices`, and `StreamPool` remain composition singletons. `ValidateOnBuild` and `ValidateScopes` prove the constructor graph.
 - `AgentSeed.Leases` is the ONE bearer holder both the `membership` probe and the `wire-seat` HTTP lane dereference, each at its own moment — per probe and per send — so a lease that `agent-boot` armed and its own occurrence later renewed reaches every hop with no re-registration at either seat and no held copy anywhere to go stale; `WireSeed.Credentials` is what tells them WHICH registration answers for a dialed authority, and an authority carrying no row is anonymous by declaration.
 - Every `<module>-seat` row registers what its owners declare while the collection is editable; every `<module>-boot` row runs the gates whose facts exist only after the build. A gate whose refusal must stop the process rails there, so a refused trust anchor, an unhosted solver, an unrebuilt member set, or a peer surface the registry never took names itself at boot rather than at first call.
 
@@ -379,7 +354,6 @@ public sealed record RootInputs(
     ClockPolicy Clocks,
     CorrelationId Correlation,
     DeploymentTopology Topology,
-    ReceiptSinkPort Sink,
     Op Key,
     IConfiguration Configuration,
     RoleName Role,
@@ -408,7 +382,6 @@ public sealed record ControlSeed(
     JsonSerializerOptions Wire);
 
 public sealed record ObservabilitySeed(
-    ReceiptFan Fan,
     Seq<(DriverProbe Row, IHealthCheck Check)> Probes,
     EnergyCell Energy,
     Seq<HealthContributorPort> Health,
@@ -459,7 +432,7 @@ public sealed record SandboxSeed(
     Seq<SolverManifest> Solvers,
     Func<SolverManifest, Fin<Seq<(NuGetVersion Version, PluginArtifact Artifact)>>> Catalog,
     Func<string, Option<NuGetVersion>> Installed,
-    Func<Seq<CapabilityDescriptor>, IO<Seq<DescriptorReceipt>>> Project,
+    Func<Seq<CapabilityDescriptor>, IO<Unit>> Project,
     GrantScope Scope,
     UpdateChannel Channel,
     FleetRuntime Fleet);
@@ -472,10 +445,7 @@ public static class CompositionRoot {
                 .Add(ServiceDescriptor.Describe(
                     typeof(HookRail<AppHostPoint, AppHostFact, TelemetrySource>), _ => inputs.Rail, ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(HookRegistry), _ => census, ServiceLifetime.Singleton))
-                .Add(ServiceDescriptor.Describe(typeof(FaultCell), _ => inputs.Rail.Faults, ServiceLifetime.Singleton))
-                .Add(ServiceDescriptor.Describe(
-                    typeof(ReceiptSinkPort),
-                    _ => AppHostHooks.Tap(inputs.Sink, inputs.Rail, inputs.Key), ServiceLifetime.Singleton)))),
+                .Add(ServiceDescriptor.Describe(typeof(FaultCell), _ => inputs.Rail.Faults, ServiceLifetime.Singleton)))),
 
         new RootBinding.Seated("redaction-and-sampling", static (services, inputs) =>
             Fin.Succ(services.AddLogging(logging => ignore(SignalGovernance.GovernLogs(logging, inputs.Telemetry))))),
@@ -557,8 +527,7 @@ public static class CompositionRoot {
                         View: Atom(MembershipView.Empty),
                         Scheme: DialScheme.Secure,
                         Clocks: inputs.Clocks,
-                        Staleness: LeasePolicy.Maintenance.CrashStaleness,
-                        Fan: Fanned<CoordinationSignal>(provider, inputs, static signal => new AppHostFact.Coordination(signal))),
+                        Staleness: LeasePolicy.Maintenance.CrashStaleness),
                     ServiceLifetime.Singleton))
                 .AddHttpClient(nameof(Membership))
                 .AddServiceDiscovery()
@@ -575,9 +544,7 @@ public static class CompositionRoot {
                         credential.Pid,
                         inputs.Role,
                         new UnixDomainSocketEndPoint(manifest.SocketPath))),
-                    fan: Fanned<CompanionSignal>(provider, inputs, static signal => new AppHostFact.Companion(signal)),
-                    clocks: inputs.Clocks,
-                    key: inputs.Key),
+                    clocks: inputs.Clocks),
                 ServiceLifetime.Singleton)))),
 
         new RootBinding.Seated("control-inbound", static (services, inputs) =>
@@ -589,9 +556,7 @@ public static class CompositionRoot {
                     Clocks: inputs.Clocks,
                     Correlation: inputs.Correlation,
                     Source: inputs.Control.Source,
-                    Support: inputs.Control.Support,
-                    Fan: Fanned<CompanionSignal>(provider, inputs, static signal => new AppHostFact.Companion(signal)),
-                    Wire: inputs.Control.Wire),
+                    Support: inputs.Control.Support),
                 ServiceLifetime.Singleton)))),
 
         // --- [MODULE_SEATS] ------------------------------------------------------------
@@ -610,8 +575,7 @@ public static class CompositionRoot {
         new RootBinding.Seated("observability-seat", static (services, inputs) =>
             UtilizationCell.Of(PressurePolicy.Canonical.Source, inputs.Clocks.Line, inputs.Key).Map(utilization => services
                 .Add(ServiceDescriptor.Describe(typeof(UtilizationCell), _ => utilization, ServiceLifetime.Singleton))
-                .Add(ServiceDescriptor.Describe(typeof(ReceiptFan), _ => inputs.Observability.Fan, ServiceLifetime.Singleton))
-                .Add(ServiceDescriptor.Describe(typeof(InstrumentSet), _ => inputs.Observability.Fan.Set, ServiceLifetime.Singleton))
+                .Add(ServiceDescriptor.Describe(typeof(InstrumentSet), _ => inputs.Telemetry.Signals, ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(AlertCell), _ => new AlertCell(AlertPolicy.Canonical), ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(
                     typeof(DegradationCell),
@@ -623,7 +587,7 @@ public static class CompositionRoot {
                     typeof(BenchmarkRun.Session),
                     provider => new BenchmarkRun.Session(
                         Source: inputs.Control.Source,
-                        Sink: provider.GetRequiredService<ReceiptSinkPort>(),
+                        Instruments: inputs.Telemetry.Signals,
                         Rail: inputs.Rail,
                         Signals: ProfileTracking.Canonical,
                         Capture: ProfileCapturePolicy.Canonical,
@@ -657,12 +621,11 @@ public static class CompositionRoot {
                     provider => new OrchestrationRuntime(
                         Dispatch: provider.GetRequiredService<DispatchRuntime>(),
                         Store: provider.GetRequiredService<StepStateSeam>(),
-                        Assess: provider.GetRequiredService<Func<CommandReceipt, Option<StepDisposition>>>(),
+                        Assess: provider.GetRequiredService<Func<CommandResult, Option<StepDisposition>>>(),
                         Redrive: Orchestrator.StepRedrive,
                         Lease: provider.GetRequiredService<LeaseElection.Runtime>(),
                         Schedule: provider.GetRequiredService<Func<ScheduleEntry, IO<Unit>>>(),
-                        Clocks: inputs.Clocks,
-                        Sink: provider.GetRequiredService<ReceiptSinkPort>()),
+                        Clocks: inputs.Clocks),
                     ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(
                     typeof(Atom<Option<InMemoryProvider>>), static _ => Atom(Option<InMemoryProvider>.None), ServiceLifetime.Singleton))
@@ -688,10 +651,7 @@ public static class CompositionRoot {
                         provider => new EventBus.Runtime(
                             Delivery: provider.GetRequiredService<DeliveryRuntime>(),
                             Level: () => provider.GetRequiredService<DegradationCell>().Level,
-                            Drops: drop => ignore(provider.GetRequiredService<ReceiptSinkPort>().Send(
-                                inputs.Correlation, TenantContext.Current, TelemetrySource.AppHost,
-                                ReceiptKind.Drop.Key,
-                                WireJson.Element(drop)).Run()),
+                            Instruments: inputs.Telemetry.Signals,
                             Register: row => ignore(provider.GetRequiredService<Atom<Seq<DrainRow>>>().Swap(held => held.Add(row))),
                             Clocks: inputs.Clocks,
                             Spine: provider.GetRequiredService<Lifecycle>().Spine),
@@ -729,20 +689,12 @@ public static class CompositionRoot {
                             NodeId: Environment.ProcessId,
                             Lease: provider.GetRequiredService<LeaseElection.Runtime>(),
                             Clocks: inputs.Clocks,
-                            Staleness: LeasePolicy.Maintenance.CrashStaleness,
-                            Sink: provider.GetRequiredService<ReceiptSinkPort>()),
+                            Staleness: LeasePolicy.Maintenance.CrashStaleness),
                         ServiceLifetime.Singleton))
-                    .Add(ServiceDescriptor.Describe(
-                        typeof(FactSink<CoordinationSignal>),
-                        provider => Fanned<CoordinationSignal>(provider, inputs, static signal => new AppHostFact.Coordination(signal)),
-                        ServiceLifetime.Singleton)))),
+                    )),
 
         new RootBinding.Seated("companion-seat", static (services, inputs) =>
             Fin.Succ(ServiceHost.Register(services, [.. inputs.Wire.Planes])
-                .Add(ServiceDescriptor.Describe(
-                    typeof(FactSink<CompanionSignal>),
-                    provider => Fanned<CompanionSignal>(provider, inputs, static signal => new AppHostFact.Companion(signal)),
-                    ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(IngressPolicy), _ => inputs.Wire.Ingress, ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(ModalityRow), _ => inputs.Wire.Modality, ServiceLifetime.Singleton))
                 .Add(Participant("host-binding", DrainBand.Interaction, 1, static provider => _ =>
@@ -750,10 +702,10 @@ public static class CompositionRoot {
                 .Add(Participant("degradation-cascade", DrainBand.Interaction, 2, static provider => _ =>
                     provider.GetRequiredService<PeerRoster>().Attached
                         .TraverseM(entry => DegradationCascade.Cascade(
-                            provider.GetRequiredService<PeerRoster>(), entry.Peer,
+                            entry.Peer,
                             provider.GetRequiredService<DegradationCell>().Level,
                             nameof(DrainBand.Interaction), provider.GetRequiredService<ModalityRow>()))
-                        .As().Map(static _ => unit)))),
+                        .As().Map(static _ => unit))))),
 
         new RootBinding.Seated("agent-seat", static (services, inputs) =>
             FederationProjection.Federate(
@@ -783,22 +735,19 @@ public static class CompositionRoot {
                             Broker: provider.GetRequiredService<GrantBroker>(),
                             Lanes: provider.GetRequiredService<Atom<Option<LaneGuard.Runtime>>>().Value
                                 .IfNone(() => throw new UnreachableException(nameof(LaneGuard))),
-                            Dispatch: provider.GetRequiredService<Func<CommandBody, Spec, CommandArguments, IO<Fin<DispatchReceipt>>>>(),
+                            Dispatch: provider.GetRequiredService<Func<CommandBody, Spec, CommandArguments, IO<Fin<DispatchResult>>>>(),
                             CompensationOf: provider.GetRequiredService<Func<string, Option<string>>>(),
                             Clocks: inputs.Clocks,
-                            Sink: provider.GetRequiredService<ReceiptSinkPort>(),
-                            Wire: inputs.Control.Wire,
                             Spine: provider.GetRequiredService<Lifecycle>().Spine),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
                         typeof(DispatchRuntime),
                         provider => new DispatchRuntime(
                             Command: provider.GetRequiredService<CommandRuntime>(),
-                            Mediation: provider.GetRequiredService<MediationRuntime>(),
-                            ScopeOf: provider.GetRequiredService<Func<CommandIntent, Option<GrantScope>>>(),
                             Chain: provider.GetRequiredService<Atom<EventLog.Chain>>(),
                             Context: inputs.Telemetry.Determinism,
                             Changefeed: inputs.Changefeed,
+                            Instruments: inputs.Telemetry.Signals,
                             Rail: inputs.Rail,
                             Key: inputs.Key),
                         ServiceLifetime.Singleton))
@@ -812,7 +761,6 @@ public static class CompositionRoot {
                             Ledger: inputs.Agent.Ledger,
                             Clocks: inputs.Clocks,
                             Faults: provider.GetRequiredService<FaultCell>(),
-                            Sink: provider.GetRequiredService<ReceiptSinkPort>(),
                             Wire: inputs.Control.Wire),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
@@ -842,14 +790,13 @@ public static class CompositionRoot {
                             EpochPeriod: inputs.Sandbox.EpochPeriod,
                             Vehicles: inputs.Sandbox.Vehicles,
                             Clocks: inputs.Clocks,
-                            Sink: provider.GetRequiredService<ReceiptSinkPort>(),
                             Spine: provider.GetRequiredService<Lifecycle>().Spine),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
                         typeof(UpdateRail),
                         provider => new UpdateRail(
                             feed, provider.GetRequiredService<Lifecycle>(),
-                            provider.GetRequiredService<ReceiptSinkPort>(), gate,
+                            gate,
                             provider.GetRequiredService<IMeterFactory>().Create(nameof(UpdateRail))),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(typeof(FleetRuntime), _ => inputs.Sandbox.Fleet, ServiceLifetime.Singleton))
@@ -878,7 +825,7 @@ public static class CompositionRoot {
             Scheduled(provider,
                 Cadence("alert-sweep", DegradationPolicy.Canonical.PublishPeriod, DeadlineClass.HealthProbe, () =>
                     AlertEngine.Sweep(
-                            new AlertEngine.Runtime(Sink: provider.GetRequiredService<ReceiptSinkPort>(), Key: inputs.Key),
+                            new AlertEngine.Runtime(Rail: inputs.Rail, Key: inputs.Key),
                             provider.GetRequiredService<AlertCell>(),
                             provider.GetRequiredService<DegradationCell>().Read(),
                             inputs.Clocks.Now)
@@ -914,14 +861,12 @@ public static class CompositionRoot {
                     Cadence("outbox-sweep", inputs.Wire.Outbox.Cadence, () =>
                         RoleElection.Elect(
                                 provider.GetRequiredService<FencedRuntime>(),
-                                provider.GetRequiredService<FactSink<CoordinationSignal>>(),
                                 provider.GetRequiredService<Membership.Runtime>().View.Value,
                                 RoleName.Create(OutboxRelay.SweepRole.Id))
                             .Bind(elected => elected.Match(
                                 Succ: holding => RoleElection
                                     .Hold(
                                         provider.GetRequiredService<FencedRuntime>(),
-                                        provider.GetRequiredService<FactSink<CoordinationSignal>>(),
                                         holding, FenceVerb.Renew)
                                     .Bind(_ => inputs.Wire.Watermark().Match(
                                         Succ: watermark => OutboxRelay
@@ -936,7 +881,7 @@ public static class CompositionRoot {
                 .Bind(_ => Scheduled(provider, Membership.Cadence(provider.GetRequiredService<Membership.Runtime>())))),
 
         new RootBinding.Proven("companion-boot", static (provider, inputs) =>
-            HostBinding.Acquire(inputs.Wire.Listener, provider.GetRequiredService<FactSink<CompanionSignal>>()).Run()
+            HostBinding.Acquire(inputs.Wire.Listener).Run()
                 .Bind(static bound => bound)
                 .Map(static _ => unit)),
 
@@ -973,13 +918,13 @@ public static class CompositionRoot {
 
     public static readonly Seq<Type> CapsulePins = [typeof(UtilizationCell), typeof(TelemetryComposition)];
 
-    public static Fin<(IServiceProvider Provider, Seq<ContributionReceipt> Receipts)> Arm(
+    public static Fin<IServiceProvider> Arm(
         ServiceCollection services, RootInputs inputs, ServiceProviderOptions options,
         params ReadOnlySpan<ModuleContribution> modules) =>
         Seated(services, inputs)
             .Bind(seated => seated.Compose(modules))
-            .Map(receipts => (Provider: (IServiceProvider)services.BuildServiceProvider(options), Receipts: receipts))
-            .Bind(built => Built(built.Provider, inputs).Map(_ => built));
+            .Map(_ => (IServiceProvider)services.BuildServiceProvider(options))
+            .Bind(provider => Built(provider, inputs).Map(_ => provider));
 
     static Fin<ServiceCollection> Seated(ServiceCollection services, RootInputs inputs) =>
         Ledger.Traverse(row => row.Switch(
@@ -999,31 +944,20 @@ public static class CompositionRoot {
             .Map(static _ => unit)
             .ToFin();
 
-    // --- [INSTRUMENT_MOUNT]
-    public static Fin<ReceiptFan> Metered(
-        IMeterFactory factory, CorrelationId root, LevelCells cells, string version,
-        Seq<HashMap<ArmKey, InstrumentArm>> contributed, params ReadOnlySpan<TelemetryContributorPort> external) =>
-        InstrumentFan.Mount(factory, root, cells, contributed,
-            [AppHostMeasure.Telemetry(version), UpdateMetrics.Port(version), .. external]);
-
     // --- [COMPOSITION] -----------------------------------------------------------------
-    static IO<DrainReceipt> Conducted(IServiceProvider provider, Duration inherited) =>
+    static IO<PhaseCommit> Conducted(IServiceProvider provider, Duration inherited) =>
         from thread in IO.lift(provider.GetRequiredService<Func<DrainThread>>())
-        from receipt in provider.GetRequiredService<Lifecycle>().Drain(
+        from commit in provider.GetRequiredService<Lifecycle>().Drain(
             toSeq(provider.GetServices<DrainParticipantPort>())
                 .Map(static row => new DrainRow(row.Name, row.Band, row.Rank, row.Drain))
                 + provider.GetRequiredService<Atom<Seq<DrainRow>>>().Value,
             thread.Latency, thread.Checkpoint, thread.Instruments, inherited)
         from _sealed in LatencySpine.Seal(thread.Exporter, thread.Latency)
-        select receipt;
+        select commit;
 
     static DrainThread Threaded(
         (ILatencyContext Context, CheckpointToken Phase) opened, InstrumentSet instruments, ILatencyDataExporter exporter) =>
         new(opened.Context, opened.Phase, instruments, exporter);
-
-    static FactSink<TSignal> Fanned<TSignal>(
-        IServiceProvider provider, RootInputs inputs, Func<TSignal, AppHostFact> fact) where TSignal : notnull =>
-        new(provider.GetRequiredService<ReceiptSinkPort>(), inputs.Rail, fact, inputs.Key);
 
     static ServiceDescriptor Participant(
         string name, DrainBand band, int rank, Func<IServiceProvider, Func<CancellationToken, IO<Unit>>> drain) =>
@@ -1180,8 +1114,7 @@ namespace Rasm.Product;
 public sealed class BimComputeCompanion(
     WireServices services,
     CallSpineFactory spines,
-    StreamPool pool,
-    ReceiptSurface receipts) : ITessellationCompanion {
+    StreamPool pool) : ITessellationCompanion {
     public IO<Fin<TessellationCross>> Cross(
         Rasm.Bim.TessellationRequest request,
         CorrelationId correlation,
@@ -1193,9 +1126,9 @@ public sealed class BimComputeCompanion(
             Succ: partition => FrameEdge.Put(calls, spine, partition, cancel).Bind(uploaded => uploaded.Match(
                 Succ: source => TessellationWire.Project(request, source, key).Match(
                     Succ: wire => CompanionEdge
-                        .Tessellate(services, spine, pool, receipts, wire, cancel)
+                        .Tessellate(services, spine, pool, wire, cancel)
                         .Map(outcome => outcome.Bind(artifact =>
-                            TessellationWire.Admit(request, artifact.Receipt, artifact.Glb, key))),
+                            TessellationWire.Admit(request, artifact.Response, artifact.Glb, key))),
                     Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error))),
                 Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)))),
             Fail: static error => IO.pure(Fin.Fail<TessellationCross>(error)));
@@ -1226,7 +1159,6 @@ public static class ProductModules {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

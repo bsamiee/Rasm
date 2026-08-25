@@ -1,12 +1,12 @@
 # [CORE_CAUSAL]
 
-The causality owner: `Vector` — the per-replica version vector whose comparison is the four-way causal ordering and whose join/meet are `Merge` lattice instances — plus delivery order and finality over it: the happened-before fold that answers causality honestly under the `value/clock` uncertainty window, the causal hold-and-drain buffer whose drained receipt separates deliveries from duplicate no-ops, the stability frontier (the GLB meet of the declared replica topology's acknowledged vectors), the finalize partition, the retention-frontier value handed to the durable journal and to `fold` compaction, and the live `Tracker` whose buffer advance is one `TRef` transaction and whose topology-seeded ack table is a `Merge.cell` over the `Vector.join` lattice — batch-atomic ack absorb, committed-snapshot frontier reads, whole-table `settled` stability waits. Every ordering answer is four-way: overlapping uncertainty windows yield `"concurrent"` rather than a fabricated order, so no consumer acts on clock precision the hardware never had. The version-vector wire shape C# mints decodes through the interchange codec INTO `Vector`, and no TS re-mint of a wire shape exists. The module is `core/src/state/causal.ts`; a new causality read is a static composing the same comparisons, a new tracker read is one transactional member.
+The causality owner: `Vector` — the per-replica version vector whose comparison is the four-way causal ordering and whose join/meet are `Merge` lattice instances — plus delivery order and finality over it: the happened-before fold that answers causality honestly under the `value/clock` uncertainty window, the causal hold-and-drain buffer whose `Drained` tally separates deliveries from duplicate no-ops, the stability frontier (the GLB meet of the declared replica topology's acknowledged vectors), the finalize partition, the retention-frontier value handed to the durable journal and to `fold` compaction, and the live `Tracker` whose buffer advance is one `TRef` transaction and whose topology-seeded ack table is a `Merge.cell` over the `Vector.join` lattice — batch-atomic ack absorb, committed-snapshot frontier reads, whole-table `settled` stability waits. Every ordering answer is four-way: overlapping uncertainty windows yield `"concurrent"` rather than a fabricated order, so no consumer acts on clock precision the hardware never had. The version-vector wire shape C# mints decodes through the interchange codec INTO `Vector`, and no TS re-mint of a wire shape exists. The module is `core/src/state/causal.ts`; a new causality read is a static composing the same comparisons, a new tracker read is one transactional member.
 
 ## [01]-[INDEX]
 
 - [02]-[VECTOR_LATTICE]: version-vector class, four-way comparison, join/meet instances; `Vector`.
 - [03]-[HAPPENED_BEFORE]: the stamped-event comparison under honest uncertainty; `Causal.compare`, `Causal.Stamped`.
-- [04]-[DELIVERY_BUFFER]: the causal hold-and-drain Mealy step and its drained receipt; `Causal.admit/.Buffer/.Envelope/.Drained`.
+- [04]-[DELIVERY_BUFFER]: the causal hold-and-drain Mealy step and its `Drained` tally; `Causal.admit/.Buffer/.Envelope/.Drained`.
 - [05]-[FRONTIER_TRACKER]: frontier fold, finalize partition, retention mint, STM tracker; `Causal.frontier/.finalize/.retention/.tracker`.
 
 ## [02]-[VECTOR_LATTICE]
@@ -295,7 +295,6 @@ export { Causal }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

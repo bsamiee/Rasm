@@ -1,20 +1,19 @@
 # [RASM_GRASSHOPPER_DOCUMENT_DOCUMENT]
 
-`DocumentScope` is the document spine of the GH2 graph boundary — ONE scope operator owning document minting across the inert/inactive/active tiers, the closed inert-facet read, and ONE settlement gate absorbing the whole `DocumentMethods` verb surface AND the lifecycle/persistence/shelf commands: the former `Apply`/`Transact` arity twins are one `Transact` over one `DocumentAct` union, the case deciding whether it seals, observes, or neither. This page also declares the folder's shared settlement machinery — `GateLane`, `GateReceipt`, `GateOutcome` with its payload records, and the `DocumentGate.Run` spine every `Document/*` gate composes — so the five gates that each re-spelled the open-timeline/resolve/stamp/marshal preamble now spell one line.
+`DocumentScope` is the document spine of the GH2 graph boundary — ONE scope operator owning document minting across the inert/inactive/active tiers, the closed inert-facet read, and ONE command gate absorbing the whole `DocumentMethods` verb surface AND the lifecycle/persistence/shelf commands: the former `Apply`/`Transact` arity twins are one `Transact` over one `DocumentAct` union. This page also declares `GateOutcome` with its payload records and the `DocumentGate.Run` marshal spine every `Document/*` command composes.
 
-Every gate takes the session's injected `MonotonicTimeline` REQUIRED (folder RULINGS `[02]`), crosses the marshal through the kernel's SYNCHRONOUS `UiThread.Run` arity, and settles a `GaugedSpan<GateLane>` — entry, settlement, latency, and the budget verdict all derive from the kernel gauge, never a stored stamp pair. Mutation gate fires the `document.mutate` veto row on the hook rail before committing, which is that row's fire-site producer.
+Every gate crosses the marshal through the kernel's synchronous `UiThread.Run` arity and returns the host's `GateOutcome`. Mutation fires the `document.mutate` veto row on the hook rail before committing, which is that row's fire-site producer.
 
 ## [01]-[INDEX]
 
-- [02]-[LIFECYCLE]: `DocumentTier` + `MarkPosture` + `DocumentFacet` + `DocumentAnswer` + `GateLane` + `GateOutcome` + `GateReceipt` + `DocumentGate` — mint and archive-load rows, the closed facet read, the folder's settlement machinery, and the shared gate spine.
-- [03]-[TRANSACT]: `SelectionTarget` + `SelectionSweep` + `SelectionPosture` + `DeleteDepth` + `IsolationAxis` + `DocumentAct` + `DocumentScope` — the one settlement union over the whole verb surface with its selection-target discriminant, the wrap preflight, the seal law, and the causal-delta window.
+- [02]-[LIFECYCLE]: `DocumentTier` + `MarkPosture` + `DocumentFacet` + `DocumentAnswer` + `GateOutcome` + `DocumentGate` — mint and archive-load rows, the closed facet read, the result family, and the shared marshal spine.
+- [03]-[TRANSACT]: `SelectionTarget` + `SelectionSweep` + `SelectionPosture` + `DeleteDepth` + `IsolationAxis` + `DocumentAct` + `DocumentScope` — the one command union over the whole verb surface with its selection-target discriminant, wrap preflight, and seal law.
 
 ## [02]-[LIFECYCLE]
 
 - Owner: `DocumentTier` `[SmartEnum<int>]` — 3 mint rows over one `Mint()` column (`NewInertDocument`/`NewInactiveDocument`/`NewActiveDocument`); tier is data, so headless pipelines, background parsing, and canvas-bound editing mint through one gate. `MarkPosture` `[SmartEnum<int>]` — the dirty flag as two rows over one `Stamp` column, so the polarity is a named row, never a boolean payload. `DocumentFacet` `[SmartEnum<int>]` — the closed inert-read vocabulary over one `Project(HostDocument) -> DocumentAnswer` column; `DocumentAnswer` `[Union]` the closed result, one case per evidence shape. Mapperly is REFUTED for this page's projections — the facets hand out host accessor OBJECTS, not field correspondences.
-- Owner: `GateLane` `[SmartEnum<int>]` realizing `IGaugeLane<GateLane>` — the folder's gauge vocabulary: `Lifecycle`, `Mutate`, `Undo`, `Solve` (reads settle answers, not receipts, so no read lane exists to go unread); each row's bound DERIVES from the kernel dispatch lane it crosses on, so the four gates that measured with no declared bound now measure against one.
-- Owner: `GateReceipt<TFacts>` — the folder's ONE settlement evidence, generic over its FACTS case (E-G47): the settled case's generated `SelfOp` identity, the `Option<VerbNoun>` seal (present exactly when the act minted an undo record), the `GateOutcome` the host verb answered, the `GaugedSpan<GateLane>`, and the gate's own facts — for every document gate the causal `Seq<UiEvent<GhFact>>` delta window (empty for unobserved gates), for `Shell/editor.md`'s gate its settled shell posture. `GateOutcome` `[Union]` closes what a host verb hands back — `SettledCase`, `CountCase`, `ClearedCase` (typed apart so cleared never reads as removed), `ChangedCase`, `MintedCase`, `RefusedCase` (the host's own why-not from a preflighted wrap, settled with no seal), `RemapCase`, `WirelessCase(WirelessPair)`, `RepairCase(Seq<PinRepairRow>)`, `RunCase(RunPulse)`. Three payload records live HERE beside the spine that carries them (`Document/graph.md` composes them — a spine importing its payload page was the inverted layering), and the former `ObservedCase` wrapper deletes: deltas are a RECEIPT column, not an outcome nesting.
-- Owner: `DocumentGate` — the shared gate SPINE: resolve the target document (supplied or session-acquired), cross the marshal synchronously, run the body, gauge the whole window on the lane, and mint the receipt. Five `Document/*` gates compose it and none re-spells the preamble.
+- Owner: `GateOutcome` `[Union]` closes what a host verb hands back — `SettledCase`, `CountCase`, `ClearedCase` (typed apart so cleared never reads as removed), `ChangedCase`, `MintedCase`, `RefusedCase` (the host's own why-not from a preflighted wrap), `RemapCase`, `WirelessCase(WirelessPair)`, `RepairCase(Seq<PinRepairRow>)`, `RunCase(RunPulse)`. Three payload records live HERE beside the spine that carries them (`Document/graph.md` composes them — a spine importing its payload page was the inverted layering).
+- Owner: `DocumentGate` — the shared gate spine: resolve the target document (supplied or session-acquired), cross the marshal synchronously, run the body, and return its `GateOutcome`. Every `Document/*` command composes it and none re-spells the preamble.
 - Entry: `DocumentScope.Mint(tier, key)` → `Fin<HostDocument>`; `Load(IReader, key)` — the archive mint; `ReadProbe<T>(reader, name, key)` → `Fin<Option<T>>` — probe-gates-accessor (`HasItemOrNode` before `Storable<T>`); `Read(facet, graph, key)` → `Fin<DocumentAnswer>`; `Recall<T>(name, graph, key)` → `Fin<Option<T>>` — ABSENCE rides the option; the caller-supplied fallback is deleted, because a fabricated default past the boundary spelled absence as a value; `Roster(key)` — the live `AllDocuments` sweep.
 - Law: absence of a target document is a modality, never an overload — `Option<HostDocument>` discriminates the supplied graph from the session-active document, and the absent branch resolves through `GhSession.Run(ScopeTarget.DocumentHost, …)`.
 - Law: every gate settles inside one marshal window through the kernel SYNC arity — `UiThread.Run(new UiDispatch<T>.Blocking(body), DispatchLane.Interactive, key)` composes inside the gate's own `Fin` query; the live `HostDocument` never crosses back out, because `Read` takes a facet ROW and returns the row's own answer case — a caller lambda over the live document voids that law from the signature down.
@@ -22,8 +21,8 @@ Every gate takes the session's injected `MonotonicTimeline` REQUIRED (folder RUL
 - Law: keyed state is one shelf — `Document.CustomValues` is the host's only `KeyedValues` facet; a shelf selector over a one-inhabitant vocabulary carries no information.
 - Law: the archive is symmetric on ONE axis — `Store(IWriter[, FileContents])` writes and the `Document(IReader)` constructor reads, so the load posture is a MINT beside `DocumentTier`, never a gate case.
 - Boundary: autosave requests are per-object and ride `Document/history.md`; file-compare and editor reveal are `Shell/editor.md`'s; the retired session-cache eviction claim is gone with the cache estate.
-- Packages: Grasshopper2 (the document surface), GrasshopperIO (`IWriter`, `IReader`, `IStorable`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`), `Rasm.Parametric` (`MonotonicTimeline`, `GaugedSpan`, `IGaugeLane`), LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new mint posture is one `DocumentTier` row; a new inert read is one facet row with its answer case; a new host answer shape is one `GateOutcome` case; a new gauged gate is one `GateLane` row.
+- Packages: Grasshopper2 (the document surface), GrasshopperIO (`IWriter`, `IReader`, `IStorable`), `Rasm.Interaction` (`UiThread`, `UiDispatch<T>`, `DispatchLane`), LanguageExt.Core, `Rasm.Domain`.
+- Growth: a new mint posture is one `DocumentTier` row; a new inert read is one facet row with its answer case; a new host answer shape is one `GateOutcome` case.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -34,7 +33,6 @@ using GrasshopperIO;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
-using Rasm.Parametric;
 using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
@@ -53,17 +51,6 @@ public sealed partial class MarkPosture {
     public static readonly MarkPosture Dirty = new(key: 0, stamp: static document => Op.Side(action: document.Modify));
     public static readonly MarkPosture Clean = new(key: 1, stamp: static document => Op.Side(action: document.Unmodify));
     [UseDelegateFromConstructor] internal partial Unit Stamp(HostDocument document);
-}
-
-[SmartEnum<int>]
-public sealed partial class GateLane : IGaugeLane<GateLane> {
-    public static readonly GateLane Lifecycle = new(key: 0, lane: static () => DispatchLane.Interactive);
-    public static readonly GateLane Mutate = new(key: 1, lane: static () => DispatchLane.Interactive);
-    public static readonly GateLane Undo = new(key: 2, lane: static () => DispatchLane.Interactive);
-    public static readonly GateLane Solve = new(key: 3, lane: static () => DispatchLane.Deferred);
-
-    [UseDelegateFromConstructor] internal partial DispatchLane Lane();
-    public TimeSpan Bound => Lane().Bound;
 }
 
 [SmartEnum<int>]
@@ -152,32 +139,13 @@ public abstract partial record GateOutcome {
     public sealed record RunCase(RunPulse Pulse) : GateOutcome;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct GateReceipt<TFacts>(
-    Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome,
-    GaugedSpan<GateLane> Span, TFacts Facts) : IValidityEvidence {
-    public TimeSpan Latency => Span.Elapsed;
-    public bool Breached => Span.Breached;
-    public bool IsValid => Span.IsValid;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class DocumentGate {
-    public static Fin<GateReceipt<Seq<UiEvent<GhFact>>>> Run(
-        GateLane lane,
-        MonotonicTimeline clock,
+    public static Fin<GateOutcome> Run(
         Option<HostDocument> graph,
-        Func<HostDocument, Fin<(Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome, Seq<UiEvent<GhFact>> Deltas)>> body,
-        Op key) =>
-        from gauged in clock.Gauged<(Op, Option<VerbNoun>, GateOutcome, Seq<UiEvent<GhFact>>), GateLane>(
-            lane: lane,
-            work: key,
-            body: () => Resolve(graph: graph, key: key, body: body),
-            key: key)
-        from settled in gauged.Value
-        select new GateReceipt<Seq<UiEvent<GhFact>>>(
-            Verb: settled.Item1, Seal: settled.Item2, Outcome: settled.Item3, Span: gauged.Span, Facts: settled.Item4);
+        Func<HostDocument, Fin<GateOutcome>> body,
+        Op key) => Resolve(graph: graph, key: key, body: body);
 
     internal static Fin<TOut> Resolve<TOut>(Option<HostDocument> graph, Op key, Func<HostDocument, Fin<TOut>> body) =>
         graph.Match(
@@ -206,16 +174,15 @@ public static partial class DocumentScope {
 ## [03]-[TRANSACT]
 
 - Owner: `SelectionTarget` `[Union]` — selection-scope discriminant, read by every scoped verb: `Selected` names the live selection and `Explicit(Seq<IDocumentObject>)` a computed set riding the host's `*Objects` twin. GAIN over the deleted `Seq`-emptiness convention: a computed EMPTY set no longer silently means "the whole selection" — it is an explicit set that touches nothing. `SelectionSweep` names the 8-row sweep family; `SelectionPosture` the 9-row posture family whose explicit twin is an `Option` column (the four pin-side reveals carry `None` and the gate refuses an explicit target on them typed); `DeleteDepth` the 2-row depth family; `IsolationAxis` `[SmartEnum<string>]` realizing `ICapability` — three axes the host names by what each KEEPS reachable, carried as `CapabilitySet<IsolationAxis>` and read per named position at the one host call (the `[Flags]` enum with its `HasFlag` reads deletes; that change also lands `Document/graph.md`'s two flag enums).
-- Owner: `DocumentAct` `[Union]` `[GenerateUnionOps]` — THE one settlement union: the five lifecycle/shelf cases (`CloseCase`, `StoreCase`, `MarkCase`, `StashCase`, `ForgetCase` — the former `DocumentGate` union, merged: two gates over one receipt were arity twins) beside the seventeen graph cases (`SweepCase`, the clipboard three, the wrapper three, `DeleteCase(DeleteDepth, SelectionTarget, Seq<WireEnds>)`, `DropCase`, `SnippetCase`, `NudgeCase`, `PostureCase(SelectionPosture, SelectionTarget)`, `DressCase(PerceptualColor, SelectionTarget)`, `IsolateCase(IDocumentObject, CapabilitySet<IsolationAxis>)`, `MigrateCase`, `DependencyCase`, `RevealDependenciesCase`). Host discriminants (`ClipboardKind`, `PasteBehaviour`, `OpenColor.Family`) ride case payloads unchanged because this package IS the seam; the colour override crosses as the KERNEL `PerceptualColor` and projects to the host colour at its one write arm.
-- Entry: `DocumentScope.Transact(Option<VerbNoun> label, DocumentAct op, MonotonicTimeline clock, Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateReceipt<Seq<UiEvent<GhFact>>>>` — the ONE gate; a sealing case with an absent label refuses typed, a non-sealing case ignores it, and the case BAND selects the gauge lane (`GateLane.Lifecycle` for the shelf/lifecycle band, `GateLane.Mutate` for the graph band).
+- Owner: `DocumentAct` `[Union]` `[GenerateUnionOps]` — THE one command union: the five lifecycle/shelf cases (`CloseCase`, `StoreCase`, `MarkCase`, `StashCase`, `ForgetCase` — the former `DocumentGate` union, merged: two gates over one result were arity twins) beside the seventeen graph cases (`SweepCase`, the clipboard three, the wrapper three, `DeleteCase(DeleteDepth, SelectionTarget, Seq<WireEnds>)`, `DropCase`, `SnippetCase`, `NudgeCase`, `PostureCase(SelectionPosture, SelectionTarget)`, `DressCase(PerceptualColor, SelectionTarget)`, `IsolateCase(IDocumentObject, CapabilitySet<IsolationAxis>)`, `MigrateCase`, `DependencyCase`, `RevealDependenciesCase`). Host discriminants (`ClipboardKind`, `PasteBehaviour`, `OpenColor.Family`) ride case payloads unchanged because this package IS the seam; the colour override crosses as the KERNEL `PerceptualColor` and projects to the host colour at its one write arm.
+- Entry: `DocumentScope.Transact(Option<VerbNoun> label, DocumentAct op, Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GateOutcome>` — the ONE gate; a sealing case with an absent label refuses typed, and a non-sealing case ignores it.
 - Law: the `document.mutate` veto fires HERE — a mutating case fires `rail.Fire(at: GrasshopperPoint.DocumentMutate, fact: new HookSignal.IntentCase(Operation: op, DocumentId: Some(document.Identity)), key: key)` before its verb, and a `Fail` verdict refuses the transaction with nothing mutated; an absent rail dispatches ungoverned (the test-host arm). This is the fire-site producer the hook census names.
-- Law: mutation and undo are one act — every mutating arm mints one `ActionList`, runs its host verb into it, and seals through `HistoryLedger.Seal` under the caller's `VerbNoun`, carried as `Seal: Some(label)`; non-mutating arms settle `Seal: None`. `DocumentMethods` call outside this gate is the deleted form.
-- Law: the receipt reports what the HOST answered — each arm folds the host's own return into its `GateOutcome` case, so a settled receipt over an unmeasured act is unrepresentable; chain and cluster wraps preflight through the host's own `CanCreate*` verdict on the same roster the mint consumes, a refusal settling `RefusedCase(whyNot)` with no seal.
+- Law: mutation and undo are one act — every mutating arm mints one `ActionList`, runs its host verb into it, and seals through `HistoryLedger.Seal` under the caller's `VerbNoun`. `DocumentMethods` call outside this gate is the deleted form.
+- Law: each arm returns what the HOST answered through its `GateOutcome` case; chain and cluster wraps preflight through the host's own `CanCreate*` verdict on the same roster the mint consumes, with refusal returning `RefusedCase(whyNot)`.
 - Law: a `Data`-depth delete carrying a wire span refuses at admission — `DeleteObjectData` takes no wire span by host design.
-- Law: the outcome is CAUSAL — the mutation window opens a window-local kernel `EvidenceDrain<GhFact>`, observes the document's own `GhSource` rows (`graph.object-added`, `graph.object-removed`, `graph.selection`, `document.modified`) under `Atomicity.AllOrNothing`, runs the verb, completes the drain, and folds the ordered `UiEvent<GhFact>` envelopes into the receipt's `Deltas` — a consumer reads what the mutation did as typed evidence, never by re-diffing the graph; attach, verb, seal, and fold share one marshal, so no concurrent delta interleaves.
 - Boundary: wire mutation, id remapping, pins, and window selection are `Document/graph.md`'s operator; canvas room-making is `Canvas/layout.md`'s; repaint intent after a transaction is `Shell/session.md`'s `RepaintCase`, composed by the consumer.
-- Packages: Grasshopper2 (`DocumentMethods`, `CanCreateChain`/`CanCreateCluster`, `ObjectList.SelectedObjects`, `ClipboardKind`, `PasteBehaviour`, `Snippet`, `WireEnds`, `OpenColor.Family`, `ActionList`), `Shell/events.md` (`GhSource`, `GhFact`), `Rasm.Interaction` (`UiEvents`, `EvidenceDrain`, `Atomicity`, `PaintColor`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/history.md` (`HistoryLedger.Seal`), `Rasm.Numerics` (`PerceptualColor`), LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new document verb is one `DocumentAct` case whose `Switch` arm breaks the gate loudly; a new sweep, posture, or depth verb is one row on its owning family; a new causal stream is one `GhSource` row added to the observation set.
+- Packages: Grasshopper2 (`DocumentMethods`, `CanCreateChain`/`CanCreateCluster`, `ObjectList.SelectedObjects`, `ClipboardKind`, `PasteBehaviour`, `Snippet`, `WireEnds`, `OpenColor.Family`, `ActionList`), `Rasm.Interaction` (`PaintColor`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/history.md` (`HistoryLedger.Seal`), `Rasm.Numerics` (`PerceptualColor`), LanguageExt.Core, `Rasm.Domain`.
+- Growth: a new document verb is one `DocumentAct` case whose `Switch` arm breaks the gate loudly; a new sweep, posture, or depth verb is one row on its owning family; lifecycle observation grows only through `Shell/events.md`'s `GhSource` rows.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -226,7 +193,6 @@ using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
 using Rasm.Numerics;
-using Rasm.Parametric;
 using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
@@ -341,18 +307,14 @@ public abstract partial record DocumentAct {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class DocumentScope {
-    public static Fin<GateReceipt<Seq<UiEvent<GhFact>>>> Transact(
+    public static Fin<GateOutcome> Transact(
         Option<VerbNoun> label,
         DocumentAct op,
-        MonotonicTimeline clock,
         Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default,
         Option<HostDocument> graph = default,
         Op? key = null);
 
-    internal static Fin<(Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome, Seq<UiEvent<GhFact>> Deltas)> Observed(
-        HostDocument document, MonotonicTimeline clock, Func<Fin<(Op, Option<VerbNoun>, GateOutcome)>> verb, Op key);
-
-    private static Fin<(Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Wrap(
+    private static Fin<GateOutcome> Wrap(
         HostDocument document, Op caseOp, SelectionTarget target,
         Func<DocumentMethods, IDocumentObject[], (bool Can, string WhyNot)> preflight,
         Func<DocumentMethods, IDocumentObject[], ActionList, Guid> mint,
@@ -366,11 +328,11 @@ public static partial class DocumentScope {
 | :-----: | :------------------ | :--------------------------------- | :--------------------------------------------------------- | :-----: |
 |  [01]   | document minting    | `DocumentTier`                     | `Mint → Fin<HostDocument>`                                 |    3    |
 |  [02]   | inert facet read    | `DocumentFacet` + `DocumentAnswer` | `Read → Fin<DocumentAnswer>`                               | 11 + 11 |
-|  [03]   | gate spine          | `DocumentGate.Run` + `GateLane`    | one gauged preamble for five gates                         |    5    |
-|  [04]   | settlement evidence | `GateReceipt` + `GateOutcome`      | kernel span + deltas, payloads co-homed                    |   10    |
+|  [03]   | gate spine          | `DocumentGate.Run`                 | one marshal preamble for document commands                 |    1    |
+|  [04]   | command result      | `GateOutcome`                      | host return shapes                                         |   10    |
 |  [05]   | selection scope     | `SelectionTarget`                  | Selected / Explicit — empty set honest                     |    2    |
 |  [06]   | verb families       | `SelectionSweep`/`Posture`/`Depth` | delegate rows, Option explicit twins                       |  8+9+2  |
-|  [07]   | settlement union    | `DocumentAct`                      | `Transact → Fin<GateReceipt<Seq<UiEvent<GhFact>>>>` + veto |   22    |
+|  [07]   | command union       | `DocumentAct`                      | `Transact → Fin<GateOutcome>` + veto                       |   22    |
 
 `Apply`/`Transact` twin gates, the `ObservedCase` nesting, the stored stamp pair, the fallback-fabricating `Recall`, the `[Flags]` enum, the `Seq`-emptiness selection convention, the nullable explicit arm, and the per-call clock mint are all deleted; the graph-verb payload records moved home beside their spine (E-G45).
 

@@ -121,7 +121,7 @@ public sealed record PortAxes(
 - Owner: `PinKey` `[ValueObject<string>]` is the admitted pin identity (E-G44) — trimmed and non-blank through the kernel default validation bridge; `PinPlan` carries the `PinKey` name and nick, selected row, access, presence, writable appearance, one optional complete trim, visibility, and optional `ITree` persistence. `PinTrim` mirrors every verified writable modifier column; `PresetsWeak` and `TypeAssistantWeak` remain read-only host projections, and assistant reads live on `GardenData`.
 - Cases: `PinTrim` closes over Boolean null/negation policy, connection collection, vector flags, angle enforcement and reduction, integer index policy and hint, number hint, numeric exotic filtering, curve parameterization and flip, surface mesh admission/parameterization/flip, text/file behavior, and text-pattern behavior. Invalid corners are UNREPRESENTABLE, not guarded (E-G43): `NullPosture` (`AsIs`/`AsTrue`/`AsFalse`) replaces the Boolean case's two-flag pair whose both-true cell the old `IsValid` had to refuse, and `IndexPosture` (`Plain(Option<UiInteger>)`/`Indexed(IndexRow)` — the host-enum owner row, so the raw `IndexModifier` never crosses a folder signature) replaces the integer case's `AsIndex` flag whose false-with-indexing cell the old guard AND the `AdmitsTrim` cross-checks re-refused; the property writes are the GENERATED `TrimMap` Mapperly seam — one `[MapProperty]`-annotated update pair per case, `[MapDerivedType]`-style correspondence stated as data, the eleven hand assignment blocks deleted.
 - Entry: `PinPlan.Realize(IParameter)` admits one trim, projects its exact host property types, and assigns only carrier-compatible persistent tree data.
-- Receipt: a refused trim-to-parameter pairing is `GhFault.ContractRefused(GhContract.Pin, evidence)` naming both shapes.
+- Law: a refused trim-to-parameter pairing is `GhFault.ContractRefused(GhContract.Pin, evidence)` naming both shapes.
 - Growth: a new writable parameter policy is one trim case and one row capability; a new adder shape is one `PortBinding` case.
 - Boundary: policy assignment crosses through `HostCall.Run`; an incompatible trim fails by exact case and host type before any property is written. Every column a trim writes is a `public { get; set; }` auto-property on the concrete parameter, so a trim is a post-declaration write and never a declaration argument.
 - Boundary: `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the base's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol — so `AngleEnforcement` is the owner that types those four wire constants and its `int Host` column is the host's own value, not a hand-numbered stand-in for an enum ordinal.
@@ -606,7 +606,7 @@ public sealed partial class PortRow {
 
 - Owner: `Ports` is the one declaration fold — side selection is the adder argument's static type, every plan folds through the accumulating carrier so a malformed pin roster reports every violation at once, and each minted `IParameter` realizes its trim and persistent data on the same fault rail.
 - Entry: `Declare` admits every row policy, invokes the binding union, and realizes the minted parameter; `Realize` re-applies the trim and persistent tree through `ComponentParameters.Input(int)` and `Output(int)`; the `DeclareEnum<T>` input/output pair admits only non-flags, `Int32`-backed enums and retains the integer row's applicable policy.
-- Receipt: declaration returns `Validation<Error, Seq<IParameter>>` carrying row-policy, host, trim, and persistence failures.
+- Law: declaration returns `Validation<Error, Seq<IParameter>>` carrying row-policy, host, trim, and persistence failures.
 - Growth: a new maintenance projection is one fold over the returned parameter seq; enum pins remain integer carriers, while `T` supplies presets and the input seed.
 - Boundary: a rejected policy never reaches the host; presets and assistants are observed through their get-only host contracts rather than projected as plan setters.
 
@@ -690,7 +690,6 @@ public static class Ports {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -15,44 +15,14 @@ import pytest
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.govern import exclusive_lease
-from assay.core.model import (
-    ArtifactKind,
-    Band,
-    Claim,
-    Fault,
-    Mode,
-    PackageRun,
-    RailStatus,
-    receipt,
-)
+from assay.core.model import ArtifactKind, Band, Claim, Completed, Fault, Mode, PackageRun, RailStatus
 from assay.core.routing import parse_csproj
 import assay.core.transaction as transaction_mod
 from assay.diagnostics import fold
 from assay.rails import package as _pkg_mod
-from assay.rails.package import (
-    _commit_or_fail,
-    _drive_steps,
-    _finish,
-    _lone_match,
-    _merge_stage,
-    _read_bytes,
-    _resolve_package_file,
-    _safe_package_pattern,
-    _stamp_version,
-    evaluate_meta,
-    list as pkg_list,
-    PackageParams,
-    plan,
-    publish,
-    YakMeta,
-)
+from assay.rails.package import _commit_or_fail, _drive_steps, _finish, _lone_match, _merge_stage, _read_bytes, _resolve_package_file, _safe_package_pattern, _stamp_version, evaluate_meta, list as pkg_list, PackageParams, plan, publish, YakMeta
 from tests.python._testkit.laws import spec
-from tests.python._testkit.spec import (
-    assert_error,
-    assert_error_status,
-    assert_ok,
-    assert_roundtrip,
-)
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, assert_roundtrip
 from tests.python.tools.assay.kit import SeamExecutor, YakShape
 
 if TYPE_CHECKING:
@@ -60,7 +30,7 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from assay.core.model import Check, Completed, Report
+    from assay.core.model import Check, Report
     from tests.python.tools.assay.kit import AssayHarness
 
 
@@ -86,12 +56,7 @@ _PATTERN_CASES: tuple[tuple[str, str, bool], ...] = (
     ("null_byte", "file\x00null.yak", False),
 )
 
-_LONE_CASES: tuple[tuple[str, tuple[tuple[str, str], ...], bool, bool], ...] = (
-    ("pkg", (("a.csproj", "pkg"),), True, False),
-    ("pkg", (("a.csproj", "other"),), False, False),
-    ("pkg", (("a.csproj", "pkg"), ("b.csproj", "pkg")), False, True),
-    ("pkg", (), False, False),
-)
+_LONE_CASES: tuple[tuple[str, tuple[tuple[str, str], ...], bool, bool], ...] = (("pkg", (("a.csproj", "pkg"),), True, False), ("pkg", (("a.csproj", "other"),), False, False), ("pkg", (("a.csproj", "pkg"), ("b.csproj", "pkg")), False, True), ("pkg", (), False, False))
 
 _VALIDATE_CASES: tuple[tuple[str, str | None, _MetaMutator | None, str | None], ...] = (
     ("ok", None, None, None),
@@ -114,15 +79,7 @@ def _props_stdout(yak_shape: YakShape, meta: YakMeta) -> bytes:
     return msgspec.json.encode({"Properties": yak_shape.props(meta)})
 
 
-def _flow_run_check(
-    yak_shape: YakShape,
-    meta: YakMeta,
-    *,
-    build_status: RailStatus = RailStatus.OK,
-    stage_status: RailStatus = RailStatus.OK,
-    build_fault: Fault | None = None,
-    bridge_verbs: builtins.list[str] | None = None,
-) -> Callable[..., Result[Completed, Fault]]:
+def _flow_run_check(yak_shape: YakShape, meta: YakMeta, *, build_status: RailStatus = RailStatus.OK, stage_status: RailStatus = RailStatus.OK, build_fault: Fault | None = None, bridge_verbs: builtins.list[str] | None = None) -> Callable[..., Result[Completed, Fault]]:
     """Build a canned executor run lane materializing the stage pipeline artifacts and playing supervisor sessions.
 
     Returns:
@@ -134,7 +91,7 @@ def _flow_run_check(
         filled = check.args.fill(check.tool.command)
         match mode:
             case Mode.QUERY:
-                return Ok(receipt(filled, 0, stdout=_props_stdout(yak_shape, meta), status=RailStatus.OK))
+                return Ok(Completed(filled, 0, stdout=_props_stdout(yak_shape, meta), status=RailStatus.OK))
             case Mode.BUILD:
                 scope = kwargs["scope"]
                 settings = kwargs["settings"]
@@ -145,15 +102,15 @@ def _flow_run_check(
                 target.mkdir(parents=True, exist_ok=True)
                 (target / f"{meta.assembly_name}{meta.target_ext}").write_bytes(b"rhp")
                 (target / f"{meta.assembly_name}.dll").write_bytes(b"dll")
-                return Error(build_fault) if build_fault is not None else Ok(receipt(("dotnet", "build"), 0, status=build_status))
+                return Error(build_fault) if build_fault is not None else Ok(Completed(("dotnet", "build"), 0, status=build_status))
             case Mode.STAGE:
                 (Path(str(check.cwd)) / meta.package_pattern).write_bytes(b"PK\x03\x04yak")
-                return Ok(receipt((str(meta.yak_path), "build"), 0, status=stage_status))
+                return Ok(Completed((str(meta.yak_path), "build"), 0, status=stage_status))
             case Mode.VERIFY:
                 bridge_verbs.append(str(check.args.verb)) if bridge_verbs is not None else None
-                return Ok(receipt(filled, 0, stdout=msgspec.json.encode({"status": RailStatus.OK.value}), status=RailStatus.OK))
+                return Ok(Completed(filled, 0, stdout=msgspec.json.encode({"status": RailStatus.OK.value}), status=RailStatus.OK))
             case _:
-                return Ok(receipt((str(meta.yak_path), str(mode)), 0, status=RailStatus.OK))
+                return Ok(Completed((str(meta.yak_path), str(mode)), 0, status=RailStatus.OK))
 
     return fake
 
@@ -175,33 +132,18 @@ def _marker_path(meta: YakMeta) -> Path:
     return meta.package_dir.with_name(f"{meta.package_dir.name}.commit-pending.json")
 
 
-def _seed_marker(
-    meta: YakMeta, pid: int, previous: Path, staged: Path | None = None, phase: transaction_mod._Phase = transaction_mod._Phase.PREPARED
-) -> Path:
+def _seed_marker(meta: YakMeta, pid: int, previous: Path, staged: Path | None = None, phase: transaction_mod._Phase = transaction_mod._Phase.PREPARED) -> Path:
     marker = _marker_path(meta)
     marker.parent.mkdir(parents=True, exist_ok=True)
     pending = staged or meta.package_dir.with_name(f"{meta.package_dir.name}.staged.{pid}.0")
     if phase is transaction_mod._Phase.PREPARED and not pending.exists():
         pending.mkdir(parents=True)
         (pending / "dist.yak").write_bytes(b"pending")
-    original = transaction_mod._Artifact(
-        identity=transaction_mod._identity(os.lstat(previous)), content=transaction_mod._content(transaction_mod._snapshot(previous))
-    )
+    original = transaction_mod._Artifact(identity=transaction_mod._identity(os.lstat(previous)), content=transaction_mod._content(transaction_mod._snapshot(previous)))
     image_path = meta.package_dir if phase is transaction_mod._Phase.COMMITTED else pending
-    image = transaction_mod._Artifact(
-        identity=transaction_mod._identity(os.lstat(image_path)), content=transaction_mod._content(transaction_mod._snapshot(image_path))
-    )
+    image = transaction_mod._Artifact(identity=transaction_mod._identity(os.lstat(image_path)), content=transaction_mod._content(transaction_mod._snapshot(image_path)))
     marker.write_bytes(
-        msgspec.json.encode(
-            transaction_mod._Journal(
-                pid=pid,
-                create_time=psutil.Process(pid).create_time() if pid == os.getpid() else 1.0,
-                phase=phase,
-                entries=(
-                    transaction_mod._Entry(staged=str(pending), target=str(meta.package_dir), previous=str(previous), original=original, image=image),
-                ),
-            )
-        )
+        msgspec.json.encode(transaction_mod._Journal(pid=pid, create_time=psutil.Process(pid).create_time() if pid == os.getpid() else 1.0, phase=phase, entries=(transaction_mod._Entry(staged=str(pending), target=str(meta.package_dir), previous=str(previous), original=original, image=image),)))
     )
     return marker
 
@@ -246,10 +188,7 @@ def test_safe_package_pattern_truth_table(label: str, pattern: str, expected: bo
     assert _safe_package_pattern(pattern) is expected, f"[{label}]: {pattern!r}"
 
 
-@pytest.mark.parametrize(
-    "raw, expected",
-    [(_PLAIN_XML, "rasm-bridge"), (_NAMESPACED_XML, "rasm-bridge"), (_NO_SLUG_XML, ""), (b"{not xml", ""), (b"", ""), (b"<Project/>", "")],
-)
+@pytest.mark.parametrize("raw, expected", [(_PLAIN_XML, "rasm-bridge"), (_NAMESPACED_XML, "rasm-bridge"), (_NO_SLUG_XML, ""), (b"{not xml", ""), (b"", ""), (b"<Project/>", "")])
 def test_slug_from_bytes_cases(raw: bytes, expected: str) -> None:
     """parse_csproj extracts YakPackageSlug across namespace and malformed XML cases."""
     assert next(iter(parse_csproj(raw, "YakPackageSlug")), "") == expected
@@ -273,9 +212,7 @@ def test_lone_match_resolution(slug: str, pairs: tuple[tuple[str, str], ...], ex
 
 
 @pytest.mark.parametrize("label, evaluated_slug, mutator, error_fragment", _VALIDATE_CASES, ids=[c[0] for c in _VALIDATE_CASES])
-def test_yakmeta_validate_matrix(
-    label: str, evaluated_slug: str | None, mutator: _MetaMutator | None, error_fragment: str | None, assay_root: AssayHarness, yak_shape: YakShape
-) -> None:
+def test_yakmeta_validate_matrix(label: str, evaluated_slug: str | None, mutator: _MetaMutator | None, error_fragment: str | None, assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """YakMeta.validate is Ok on the intact tree and faults on slug/extension/escape/pattern violations."""
     meta = yak_shape.materialize(assay_root)
     mutated = mutator(meta) if mutator is not None else meta
@@ -331,9 +268,7 @@ def test_evaluate_meta_decodes_canned_msbuild_props(assay_root: AssayHarness, ya
 def test_evaluate_meta_malformed_output_faults(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """evaluate_meta turns non-JSON MSBuild output into a bounded metadata Fault."""
     meta = yak_shape.materialize(assay_root)
-    executor = SeamExecutor(
-        run_fn=lambda _c, **_kw: Ok(receipt(("dotnet", "msbuild"), 1, stdout=b"MSB1009: project file does not exist", status=RailStatus.FAILED))
-    )
+    executor = SeamExecutor(run_fn=lambda _c, **_kw: Ok(Completed(("dotnet", "msbuild"), 1, stdout=b"MSB1009: project file does not exist", status=RailStatus.FAILED)))
     result = evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "1.0.0", executor)
     e = assert_error_status(result, RailStatus.FAULTED)
     assert "msbuild metadata evaluation failed" in e.message
@@ -364,7 +299,7 @@ def test_verbs_fault_on_unresolvable_slug(verb_fn: Callable[..., Result[object, 
 def test_plan_propagates_meta_fault(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """Plan propagates the evaluate_meta Fault without wrapping when MSBuild metadata fails."""
     yak_shape.materialize(assay_root)
-    executor = SeamExecutor(run_fn=lambda _c, **_kw: Ok(receipt(("dotnet", "msbuild"), 1, stdout=b"error text", status=RailStatus.FAILED)))
+    executor = SeamExecutor(run_fn=lambda _c, **_kw: Ok(Completed(("dotnet", "msbuild"), 1, stdout=b"error text", status=RailStatus.FAILED)))
     e = assert_error(plan(assay_root.settings, assay_root.scope(Claim.PACKAGE), PackageParams(slug=yak_shape.slug, version="1.0.0"), executor))
     assert "msbuild" in e.message
 
@@ -428,9 +363,7 @@ def test_publish_bridge_slug_cycles_host_with_install_and_push(assay_root: Assay
 
 
 @pytest.mark.parametrize("build_status, stage_status", [(RailStatus.FAILED, RailStatus.OK), (RailStatus.OK, RailStatus.FAILED)])
-def test_publish_stage_step_failure_short_circuits(
-    build_status: RailStatus, stage_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape
-) -> None:
+def test_publish_stage_step_failure_short_circuits(build_status: RailStatus, stage_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """Failed build or yak build folds into the report without committing or running post-stage steps."""
     meta = yak_shape.materialize(assay_root)
     executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta, build_status=build_status, stage_status=stage_status))
@@ -445,14 +378,12 @@ def test_publish_stage_step_failure_short_circuits(
 def test_finish_empty_policy_returns_staged_unchanged(assay_root: AssayHarness, yak_shape: YakShape) -> None:
     """_finish with a verb carrying no policy row returns the staged report verbatim, never resolving a package file."""
     meta = yak_shape.materialize(assay_root)
-    staged = fold(Claim.PACKAGE, "plan", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
+    staged = fold(Claim.PACKAGE, "plan", (Completed(("yak", "build"), 0, status=RailStatus.OK),))
     assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "plan", staged, SeamExecutor())) is staged
 
 
 @pytest.mark.parametrize("bad_status", _NON_OK_STATUSES)
-def test_finish_non_ok_stage_skips_post_steps(
-    bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_finish_non_ok_stage_skips_post_steps(bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
     """_finish skips publish post-stage steps after a non-OK stage status."""
     meta = yak_shape.materialize(assay_root)
     staged = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", ()), status=bad_status)
@@ -466,7 +397,7 @@ def test_drive_steps_bridge_policy_acquires_bridge_lock(assay_root: AssayHarness
     meta = yak_shape.materialize(assay_root)
     assay_root.supervisor()
     executor = SeamExecutor(run_fn=_flow_run_check(yak_shape, meta))
-    staged = fold(Claim.PACKAGE, "publish", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
+    staged = fold(Claim.PACKAGE, "publish", (Completed(("yak", "build"), 0, status=RailStatus.OK),))
     steps = _pkg_mod._STEP_POLICY["publish", True]
     package_file = assay_root.write(yak_shape.project.parent / "yak" / yak_shape.package_pattern, "yak")
     scope = assay_root.scope(Claim.PACKAGE)
@@ -490,8 +421,8 @@ def test_merge_stage_combines_evidence() -> None:
     The census combines per status, so the merged tally still names which lane proved and which refused — the
     stage evidence is not flattened into one bucket by the merge.
     """
-    staged = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (receipt(("yak", "build"), 0, status=RailStatus.OK),)), notes=("staged-note",))
-    steps = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (receipt(("yak", "install"), 1, status=RailStatus.FAILED),)), notes=("step-note",))
+    staged = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (Completed(("yak", "build"), 0, status=RailStatus.OK),)), notes=("staged-note",))
+    steps = msgspec.structs.replace(fold(Claim.PACKAGE, "publish", (Completed(("yak", "install"), 1, status=RailStatus.FAILED),)), notes=("step-note",))
     merged = _merge_stage(staged, steps)
     assert merged.counts.total == staged.counts.total + steps.counts.total
     assert all(merged.counts.band(band) == staged.counts.band(band) + steps.counts.band(band) for band in Band)
@@ -511,14 +442,12 @@ def test_stamp_version_stamps_packagerun_and_defaults() -> None:
 
 
 @pytest.mark.parametrize("bad_status", [RailStatus.FAILED, RailStatus.FAULTED, RailStatus.TIMEOUT])
-def test_commit_or_fail_non_ok_folds_without_commit(
-    bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """_commit_or_fail folds non-OK yak receipts without committing."""
+def test_commit_or_fail_non_ok_folds_without_commit(bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_commit_or_fail folds non-OK yak outcomes without committing."""
     meta = yak_shape.materialize(assay_root)
     staged = Path(assay_root.write(yak_shape.project.parent / "staged-tmp" / yak_shape.package_pattern, "yak")).parent
     monkeypatch.setattr(_pkg_mod, "_commit", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("commit must not run")))
-    done = receipt((str(meta.yak_path), "build"), 1, status=bad_status)
+    done = Completed((str(meta.yak_path), "build"), 1, status=bad_status)
     report = assert_ok(_commit_or_fail(meta, staged, yak_shape.slug, "1.0.0", done))
     assert report.status is bad_status
     assert not staged.exists()
@@ -625,9 +554,7 @@ def test_recover_live_pid_marker_is_busy(assay_root: AssayHarness, yak_shape: Ya
     assert marker.exists()
 
 
-def test_recover_delegates_liveness_to_engine_process_identity(
-    assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_recover_delegates_liveness_to_engine_process_identity(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
     """Package recovery delegates pid-reuse-safe liveness to the engine process-identity ladder."""
     meta = yak_shape.materialize(assay_root)
     previous = _seed_previous(meta)

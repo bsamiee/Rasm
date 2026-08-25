@@ -38,7 +38,7 @@
 - Journal-stratum custody crosses `RefRead` and `Preserve`, ports the object plane satisfies — a fence naming a store member inverts the strata.
 - Data hook ports answer `Tap.Verdict` whole — collapsing it to an option erases fan arity, delivery census, and the unrostered arm.
 - Digest-preimage payload columns are TEXT in EVERY dialect — JSONB respells bytes off the minted key; json survives where no digest addresses it.
-- Journal shape change RE-MINTS the log whole under a custody receipt — one generation answers every read, so no entry versions and no reader lifts.
+- Journal shape change RE-MINTS the log whole under a custody row — one generation answers every read, so no entry versions and no reader lifts.
 - Cutover shadows derive from each relation's DDL owner; PostgreSQL and SQLite rows preserve shape without copying conflicting names or policies.
 - Cutover carries the prior log's identity ledger; PostgreSQL and SQLite seed their native counters before copied rows can allocate ids.
 - `sqlite_sequence` seeds by `INSERT` before copy; `UPDATE` can miss an absent row and replacement can mint an ungoverned duplicate.

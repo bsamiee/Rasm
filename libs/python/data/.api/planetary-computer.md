@@ -55,7 +55,7 @@
 - `get_token(account_name, container_name, retry_total=10, retry_backoff_factor=0.8)` is the single token source; tokens cache per `{sas_url}/{account}/{container}`, refresh when TTL drops below 60s, and retry `429/500/502/503/504`.
 - `Settings.get()` resolves `subscription_key`/`sas_url` from `PC_SDK_SUBSCRIPTION_KEY`/`PC_SDK_SAS_URL` then `~/.planetarycomputer/settings.env`; `set_subscription_key` overrides in-process without writing the settings file.
 - `copy=True` clones STAC objects before rewriting HREFs; `sign_inplace`/`copy=False` mutates the passed object; `copy` is inert for strings and the `ItemSearch` row, which returns a fresh signed `ItemCollection`.
-- Each signing run captures the resolved account/container, the `msft:expiry` written onto signed items, token TTL, and the rewritten-versus-passed HREF counts as a catalog-signing receipt.
+- Each signing run returns the signed STAC object; account/container, `msft:expiry`, token TTL, and rewritten HREF counts stay on that result or its operation span only when consumed.
 
 [STACKING]:
 - `pystac-client`(`.api/pystac-client.md`): `sign`/`sign_inplace` is the `modifier=` callable on `Client.open`/`search`, threaded through `StacApiIO` onto every hydrated `Modifiable`; signing rides the catalog request as a patch step, never a re-fetch or a hand-stitched URL concatenation.

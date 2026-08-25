@@ -208,7 +208,7 @@
 
 [LOCAL_ADMISSION]:
 - a resource enters through its table `Add`/`Modify`, fully composed (lines, segments, shapes, indices) before the add and mutated only through `Modify` after. A section style's `HatchIndex`/`BoundaryLinetypeIndex` binds only after the referenced pattern and linetype resolve in their tables.
-- live `Hatch`, `HatchPattern`, `Linetype`, `Font`, and `SectionStyle` values stay inside the document grant; downstream code receives bounded owners, detached geometry (boundary curves, pattern lines, solid breps, preview lines), resolved font handles, or projected receipts.
+- live `Hatch`, `HatchPattern`, `Linetype`, `Font`, and `SectionStyle` values stay inside the document grant; downstream code receives bounded owners, detached geometry (boundary curves, pattern lines, solid breps, preview lines), resolved font handles, or detached results.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon`

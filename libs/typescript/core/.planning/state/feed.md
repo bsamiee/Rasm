@@ -7,8 +7,7 @@
 - [02]-[DOCUMENT_REF]: the content-keyed result-document reference and its column band; `Feed.Document`.
 - [03]-[ENTRY_FAMILY]: the tagged entry union and its total projections; `Feed.Entry`, `Feed.at/.lane/.subject`.
 - [04]-[FEED_FOLD]: the ordered feed state, absorb step, policy row, merge, fold plan; `Feed.absorb/.merge/.plan`.
-- [05]-[EVIDENCE_TIMELINE]: correlated receipt-envelope batches absorbed through the core entry fold; `Feed.timeline`.
-- [06]-[FEED_READS]: window and recency reads over the folded feed; `Feed.window/.recent`.
+- [05]-[FEED_READS]: window and recency reads over the folded feed; `Feed.window/.recent`.
 
 ## [02]-[DOCUMENT_REF]
 
@@ -75,6 +74,7 @@ const _Document = Schema.Union(
 ## [03]-[ENTRY_FAMILY]
 
 [ENTRY_FAMILY]:
+- Law: `Outcome` lands one CloudEvent — `subject`, `time` with `sequence`, the `rasm.tenant` baggage member, `traceparent`, and `Event.address` arrive as columns and `data` as `Evidence.Outcome` — so contribution identity is the operation's `(source, id)` address and never a payload cell.
 - Growth: a new evidence vocabulary joins as one case; the feed, reads, and plan absorb it with zero edits beyond the demanded record rows.
 
 ```typescript
@@ -84,7 +84,14 @@ declare namespace Feed {
   type Correlation = Schema.Schema.Type<typeof _Correlation>
   type Subject = Fold.Cell
   type Entry = Data.TaggedEnum<{
-    Receipt: { readonly envelope: Evidence.ReceiptEnvelope; readonly correlation: Option.Option<Correlation> }
+    Outcome: {
+      readonly outcome: Evidence.Outcome
+      readonly subject: Digest.Key<"content">
+      readonly stamp: Clock.Hlc
+      readonly tenant: Identity.Tenant
+      readonly address: Digest.Key<"content">
+      readonly correlation: Option.Option<Correlation>
+    }
     Progress: { readonly tally: Evidence.Tally }
     Shift: { readonly snapshot: Evidence.Availability }
     Document: { readonly ref: Document }
@@ -95,25 +102,21 @@ const _Correlation = Schema.NonEmptyString.pipe(Schema.brand("FeedCorrelation"))
 const _Entry = Data.taggedEnum<Feed.Entry>()
 
 const _at: (entry: Feed.Entry) => Clock.Hlc = _Entry.$match({
-  Receipt: ({ envelope }) => envelope.stamp,
+  Outcome: ({ stamp }) => stamp,
   Progress: ({ mark }) => mark.stamp,
   Shift: ({ snapshot }) => snapshot.since,
   Document: ({ ref }) => ref.stamp,
 })
 
 const _lane: (entry: Feed.Entry) => Identity.Tenant.Scope = _Entry.$match({
-  Receipt: ({ envelope }) => envelope.tenant.scope,
+  Outcome: ({ tenant }) => tenant.scope,
   Progress: ({ mark }) => mark.tenant.scope,
   Shift: ({ snapshot }) => snapshot.tenant.scope,
   Document: ({ ref }) => ref.tenant.scope,
 })
 
 const _subject: (entry: Feed.Entry) => Fold.Cell = _Entry.$match({
-  Receipt: ({ envelope }) => Fold.cell([
-    envelope.tenant.scope,
-    "evidence",
-    Option.getOrElse(envelope.subject, () => envelope.command),
-  ]),
+  Outcome: ({ tenant, subject }) => Fold.cell([tenant.scope, "evidence", subject]),
   Progress: ({ mark }) => Fold.cell([mark.tenant.scope, "evidence", mark.operation]),
   Shift: ({ snapshot }) => Fold.cell([snapshot.tenant.scope, "availability"]),
   Document: ({ ref }) => Fold.cell([
@@ -124,7 +127,7 @@ const _subject: (entry: Feed.Entry) => Fold.Cell = _Entry.$match({
 })
 
 const _correlation: (entry: Feed.Entry) => Option.Option<Feed.Correlation> = _Entry.$match({
-  Receipt: ({ correlation }) => correlation,
+  Outcome: ({ correlation }) => correlation,
   Progress: () => Option.none(),
   Shift: () => Option.none(),
   Document: () => Option.none(),
@@ -133,18 +136,6 @@ const _correlation: (entry: Feed.Entry) => Option.Option<Feed.Correlation> = _En
 const _none = Fold.cell(["none"])
 const _optional = <A>(value: Option.Option<A>, cell: (held: A) => Fold.Cell): Fold.Cell =>
   Option.match(value, { onNone: () => _none, onSome: (held) => Fold.cell(["some", cell(held)]) })
-const _receiptCell = (receipt: Evidence.Receipt): Fold.Cell => Match.valueTags(receipt, {
-  Accepted: () => Fold.cell(["Accepted"]),
-  Applied: ({ touched }) => Fold.cell(["Applied", ...Array.sort(Array.fromIterable(touched), Order.string)]),
-  Refused: ({ evidence, fault, retryable }) => Fold.cell([
-    "Refused",
-    fault,
-    String(retryable),
-    ...Array.sort(Array.map(HashMap.toEntries(evidence), ([key, value]) =>
-      Fold.cell([key, typeof value, typeof value === "boolean" ? String(value) : value])), Order.string),
-  ]),
-  Superseded: ({ by }) => Fold.cell(["Superseded", by]),
-})
 const _verdictCell = (verdict: Evidence.Availability.Verdict): Fold.Cell => Match.valueTags(verdict, {
   Available: () => Fold.cell(["Available"]),
   Gated: ({ reason, until }) => Fold.cell(["Gated", reason, _optional(until, (stamp) =>
@@ -171,19 +162,7 @@ const _documentCell = (document: Feed.Document): Fold.Cell => Match.value(docume
   Match.exhaustive,
 )
 const _contribution: (entry: Feed.Entry) => Fold.Cell = _Entry.$match({
-  Receipt: ({ correlation, envelope }) => Fold.cell([
-    envelope.tenant.scope,
-    envelope.command,
-    _optional(envelope.subject, (subject) => Fold.cell([subject])),
-    envelope.stamp.physical,
-    envelope.stamp.logical,
-    _optional(envelope.basis, (basis) => Fold.cell(Array.sort(
-      Array.map(HashMap.toEntries(basis.clocks), ([replica, count]) => Fold.cell([replica, count])),
-      Order.string,
-    ))),
-    _receiptCell(envelope.receipt),
-    _optional(correlation, (held) => Fold.cell([held])),
-  ]),
+  Outcome: ({ address }) => Fold.cell([address]),
   Progress: ({ mark }) => Fold.cell([
     mark.tenant.scope,
     mark.operation,
@@ -276,7 +255,6 @@ declare namespace Feed {
     readonly correlation: (entry: Entry) => Option.Option<Correlation>
     readonly empty: <P extends Policy>(policy: P) => State<P>
     readonly absorb: <P extends Policy>(state: State<P>, entry: Entry) => State<P>
-    readonly timeline: <P extends Policy>(state: State<P>, timeline: Timeline) => State<P>
     readonly merge: <P extends Policy>(policy: P) => Merge.Instance<State<P>>
     readonly plan: <P extends Policy>(policy: P) => Fold.Plan<Entry, Identity.Tenant.Scope, State<P>>
     readonly grouped: <E, R>(entries: Stream.Stream<Entry, E, R>, policy: Policy) => Stream.Stream<Chunk.Chunk<Entry>, E, R>
@@ -355,22 +333,7 @@ const _empty = <P extends Feed.Policy>(policy: P): Feed.State<P> => ({
 })
 ```
 
-## [05]-[EVIDENCE_TIMELINE]
-
-[EVIDENCE_TIMELINE]:
-- Growth: a receipt batch carries one correlation and folds through the same `Feed.Entry` arm.
-
-```typescript
-declare namespace Feed {
-  type Timeline = { readonly correlation: Correlation; readonly envelopes: Chunk.Chunk<Evidence.ReceiptEnvelope> }
-}
-
-const _timeline = <P extends Feed.Policy>(state: Feed.State<P>, timeline: Feed.Timeline): Feed.State<P> =>
-  Chunk.reduce(timeline.envelopes, state, (folded, envelope) =>
-    _absorb(folded, _Entry.Receipt({ envelope, correlation: Option.some(timeline.correlation) })))
-```
-
-## [06]-[FEED_READS]
+## [05]-[FEED_READS]
 
 [FEED_READS]:
 - Growth: a new read (per-kind lane, subject history) is one projection member over the same two structures.
@@ -388,7 +351,6 @@ const Feed: Feed.Shape = {
   correlation: _correlation,
   empty: _empty,
   absorb: _absorb,
-  timeline: _timeline,
   merge: (policy) =>
     ({
       combine: Semigroup.make((self: Feed.State<typeof policy>, that: Feed.State<typeof policy>) =>
@@ -438,11 +400,10 @@ const Feed: Feed.Shape = {
 export { Feed }
 ```
 
-## [07]-[RESEARCH]
+## [06]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

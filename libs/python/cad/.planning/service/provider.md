@@ -44,7 +44,8 @@ from rasm.contracts.rasm.contracts.cad.operations_pb import ExecuteRequest, Exec
 from rasm.contracts.rasm.contracts.cad.service_connect import CadService, CadServiceASGIApplication
 from rasm.contracts.rasm.contracts.cad.service_pb import TessellateRequest
 from rasm.contracts.rasm.contracts.cad.types_pb import (
-    BrepKernelReceipt,
+    BrepMeasure,
+    Correspondence,
     SealedStep,
     StepProtocol,
     TessellateResponse,
@@ -84,7 +85,8 @@ _EXECUTE: Final[Rpc[ExecuteRequest, ExecuteResponse, BrepMarshal, SourceRows]] =
     resolve=SourceRows.of,
     kernel=brep_kernel,
     reply=lambda marshal, artifact: ExecuteResponse(
-        receipt=BrepKernelReceipt.from_binary(marshal.receipt),
+        measure=BrepMeasure.from_binary(marshal.measure),
+        correspondence=Correspondence.from_binary(marshal.correspondence),
         step=SealedStep(protocol=StepProtocol(marshal.protocol), artifact=artifact),
     ),
 )
@@ -97,7 +99,7 @@ _TESSELLATE: Final[Rpc[TessellateRequest, TessellateResponse, MeshMarshal, OneSo
     reply=lambda marshal, artifact: TessellateResponse(
         element_count=marshal.element_count,
         triangle_count=marshal.triangle_count,
-        kernel=BrepKernelReceipt.from_binary(marshal.kernel),
+        measure=BrepMeasure.from_binary(marshal.measure),
         artifact=artifact,
     ),
 )

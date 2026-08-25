@@ -15,34 +15,14 @@ from typing import TYPE_CHECKING
 
 import anyio
 import anyio.lowlevel
-from expression import Result
+from expression import Ok, Result
 import msgspec
 import pytest
 
 from assay.automation import engine as _eng
 from assay.automation.engine import drive, is_governed
-from assay.automation.model import (
-    Action,
-    Debounce,
-    Edge,
-    Manual,
-    Program,
-    Rail,
-    Schedule,
-    Sequence,
-    Trigger,
-    Watch,
-    WatchFilter,
-)
-from assay.core.model import (
-    Claim,
-    Completed,
-    Counts,
-    envelope,
-    Fault,
-    RailStatus,
-    receipt,
-)
+from assay.automation.model import Action, Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Trigger, Watch, WatchFilter
+from assay.core.model import Claim, Completed, Counts, envelope, Fault, RailStatus
 from assay.diagnostics import fold
 from tests.python.tools.assay.kit import RailProbe
 
@@ -50,11 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from assay.core.model import Envelope
-    from tests.python.tools.assay.kit import (
-        AssayHarness,
-        CpuDoubleInstaller,
-        CpuSampler,
-    )
+    from tests.python.tools.assay.kit import AssayHarness, CpuDoubleInstaller, CpuSampler
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -121,13 +97,13 @@ _GOVERNOR_CASES: tuple[_GovernorCase, ...] = (
     _GovernorCase("primed-reads-nonblocking", 0.5, 80.0, governed=True, intervals=(None,)),
 )
 
-_OK_ROW = RailProbe.receipt(("dotnet", "build"), 0, status=RailStatus.OK, stdout=b"Build succeeded.\n")
+_OK_ROW = Ok(Completed(("dotnet", "build"), 0, status=RailStatus.OK, stdout=b"Build succeeded.\n"))
 _PROGRAM_CASES: tuple[_ProgramCase, ...] = (
     _ProgramCase("ok-report", ("dotnet", "build"), _OK_ROW, RailStatus.OK),
     _ProgramCase("fault-arm", ("missing-tool",), RailProbe.error(("missing-tool",), "spawn: no tool"), RailStatus.FAULTED, message="spawn: no tool"),
-    _ProgramCase("rc1-failed", ("tool",), RailProbe.receipt(("tool",), 1, status=RailStatus.FAILED), RailStatus.FAILED),
-    _ProgramCase("rc0-empty", ("tool",), RailProbe.receipt(("tool",), 0, status=RailStatus.EMPTY), RailStatus.EMPTY),
-    _ProgramCase("rc124-timeout", ("t",), RailProbe.receipt(("t",), 124, status=RailStatus.TIMEOUT), RailStatus.TIMEOUT),
+    _ProgramCase("rc1-failed", ("tool",), Ok(Completed(("tool",), 1, status=RailStatus.FAILED)), RailStatus.FAILED),
+    _ProgramCase("rc0-empty", ("tool",), Ok(Completed(("tool",), 0, status=RailStatus.EMPTY)), RailStatus.EMPTY),
+    _ProgramCase("rc124-timeout", ("t",), Ok(Completed(("t",), 124, status=RailStatus.TIMEOUT)), RailStatus.TIMEOUT),
 )
 
 _NESTED = Sequence(actions=(Program(argv=("p", "out")), Sequence(actions=(Program(argv=("p", "in")),)), Debounce(action=Program(argv=("p", "w")))))
@@ -147,10 +123,7 @@ _FAULT_CASES: tuple[_FaultCase, ...] = (
     _FaultCase("debounce-setup-inner-label", _BAD_ZONE, Debounce(action=Rail(claim=Claim.CODE, verb="search")), Claim.CODE, "search"),
 )
 
-_WATCH_BATCH_CASES: tuple[tuple[str, tuple[tuple[tuple[str, str], ...], ...], int], ...] = (
-    ("fires-per-batch", (_FIRST, _SECOND), 2),
-    ("skips-empty-heartbeat", ((), _FIRST, ()), 1),
-)
+_WATCH_BATCH_CASES: tuple[tuple[str, tuple[tuple[tuple[str, str], ...], ...], int], ...] = (("fires-per-batch", (_FIRST, _SECOND), 2), ("skips-empty-heartbeat", ((), _FIRST, ()), 1))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -242,7 +215,7 @@ def test_drive_program_outcome_matrix(row: _ProgramCase, assay_root: AssayHarnes
     """Program leaves project outcomes through ``fold``: rc rides the Completed channel, spawn/timeout Faults ride the error arm.
 
     Falsified by: ``_program_outcome`` promoting a nonzero exit to Fault, swallowing a Fault into an OK
-    Report, mis-routing the argv, or ``fold`` miscounting a receipt status.
+    Report, mis-routing the argv, or ``fold`` miscounting an outcome status.
     """
     anyio.run(partial(drive, Manual(), Program(argv=row.argv), assay_root.settings, executor=rail_probe.port(row.canned)))
 
@@ -261,14 +234,12 @@ def test_drive_program_outcome_matrix(row: _ProgramCase, assay_root: AssayHarnes
 # --- [LAWS_DRIVE_RAIL]
 
 
-def test_drive_rail_resolves_bind_and_emits_canned_envelope(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drive_rail_resolves_bind_and_emits_canned_envelope(assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
     """A bound Rail resolves, decodes params, and does not double-emit an already-written Envelope.
 
     Falsified by: re-emitting the rail Envelope or failing to resolve the registered claim/verb pair.
     """
-    rail_env = envelope(fold(Claim.STATIC, "static", (receipt(("static",), 0, status=RailStatus.OK),)), claim=Claim.STATIC, verb="static")
+    rail_env = envelope(fold(Claim.STATIC, "static", (Completed(("static",), 0, status=RailStatus.OK),)), claim=Claim.STATIC, verb="static")
     rail_probe.install(monkeypatch, _eng, "rail", rail_env)
 
     anyio.run(drive, Manual(), Rail(claim=Claim.STATIC, verb="static"), assay_root.settings)
@@ -280,9 +251,7 @@ def test_drive_rail_resolves_bind_and_emits_canned_envelope(
 # --- [LAWS_DRIVE_GOVERNOR]
 
 
-def test_drive_governed_skip_emits_one_skip_envelope(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, cpu_double: CpuDoubleInstaller, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drive_governed_skip_emits_one_skip_envelope(assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, cpu_double: CpuDoubleInstaller, monkeypatch: pytest.MonkeyPatch) -> None:
     """A tripped CPU governor emits one SKIP Envelope and never runs the leaf.
 
     Falsified by: ``_emit_leaf`` running the leaf despite the governor, mis-counting the governed leaf, or
@@ -348,9 +317,7 @@ def test_hardened_fire_coalesces_reentrant_tick(assay_root: AssayHarness, monkey
     assert completed == [1]
 
 
-def test_hardened_fire_faults_reset_after_exception(
-    assay_root: AssayHarness, captured_emits: list[Envelope], monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_hardened_fire_faults_reset_after_exception(assay_root: AssayHarness, captured_emits: list[Envelope], monkeypatch: pytest.MonkeyPatch) -> None:
     """A raising fire emits one FAULTED Envelope and resets the cell for the next tick.
 
     Falsified by: removing the ``except``/``finally`` — the exception escapes the task group or wedges
@@ -462,15 +429,7 @@ def test_debounce_signal_after_close_is_silent() -> None:
 
 
 @pytest.mark.parametrize("label,batches,fires", _WATCH_BATCH_CASES, ids=[c[0] for c in _WATCH_BATCH_CASES])
-def test_drive_watch_batch_matrix(
-    label: str,
-    batches: tuple[tuple[tuple[str, str], ...], ...],
-    fires: int,
-    assay_root: AssayHarness,
-    captured_emits: list[Envelope],
-    rail_probe: RailProbe,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_drive_watch_batch_matrix(label: str, batches: tuple[tuple[tuple[str, str], ...], ...], fires: int, assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
     """Watch drive fires once per non-empty ``awatch`` batch; empty timeout heartbeats never fire.
 
     Falsified by: ``_watch`` dropping a real batch, firing on a heartbeat, or ``_drive`` deadlocking with no
@@ -486,11 +445,7 @@ def test_drive_watch_batch_matrix(
     assert all(env.status is RailStatus.OK for env in captured_emits)
 
 
-@pytest.mark.parametrize(
-    "filter_tag,expected_type",
-    [(WatchFilter.DEFAULT, "DefaultFilter"), (WatchFilter.PYTHON, "PythonFilter")],
-    ids=["default-filter", "python-filter"],
-)
+@pytest.mark.parametrize("filter_tag,expected_type", [(WatchFilter.DEFAULT, "DefaultFilter"), (WatchFilter.PYTHON, "PythonFilter")], ids=["default-filter", "python-filter"])
 def test_watch_filter_resolves_tag_to_watchfiles_filter(filter_tag: WatchFilter, expected_type: str) -> None:
     """Watch filter tags project to the matching watchfiles filter instance.
 
@@ -513,9 +468,7 @@ def test_watch_filter_default_extends_builtin_noise_suppression() -> None:
     assert {".git", "node_modules"} <= set(flt._ignore_dirs), "default ignore_dirs (.git/node_modules) stay suppressed"
 
 
-def test_drive_watch_debounce_collapses_storm(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drive_watch_debounce_collapses_storm(assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
     """Debounced Watch co-resides the worker and collapses a two-batch storm to one fire.
 
     Falsified by: the debounce firing per-batch, or ``_co_resident`` failing to cancel the task group on stop
@@ -546,9 +499,7 @@ def test_drive_watch_debounce_collapses_storm(
 # --- [LAWS_DRIVE_SCHEDULE]
 
 
-def test_drive_schedule_fires_then_stops(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drive_schedule_fires_then_stops(assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
     """Schedule drive fires once per cron wakeup and stops on the shared event.
 
     Falsified by: the stop event not breaking the cron loop (run hangs past the timeout).
@@ -570,9 +521,7 @@ def test_drive_schedule_fires_then_stops(
     assert _one(captured_emits).status is RailStatus.OK
 
 
-def test_drive_schedule_debounce_co_resides_worker(
-    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drive_schedule_debounce_co_resides_worker(assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
     """Schedule Debounce co-resides a worker and collapses cron bursts to one fire.
 
     Falsified by: failing to cancel on stop or wrapping worker fire in a second single-flight cell.
@@ -702,7 +651,7 @@ def test_drive_emits_ndjson_on_stdout(assay_root: AssayHarness, capsysbinary: py
 
     Falsified by: writing to stderr, writing non-JSON bytes, or omitting the newline separator.
     """
-    from tests.python.tools.assay.kit import read_one_envelope_from_bytes  # ruff: ignore[import-outside-top-level, unsorted-imports]
+    from tests.python.tools.assay.kit import read_one_envelope_from_bytes  # ruff: ignore[import-outside-top-level]
 
     anyio.run(drive, Manual(), Program(argv=()), assay_root.settings)
 

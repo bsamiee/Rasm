@@ -101,7 +101,7 @@
 - `LasZipDll` owns the per-point path: `header()`/`point()` return live `LasZipHeader`/`LasZipPoint` references mutated in place across `read_point`/`write_point`, driven for writing by `set_header`/`set_point_type_and_size`/`set_point`/`update_inventory` — one header/point record per engine, not per IO direction.
 - `LaszipError` is the single raised failure across stream open, chunk overflow, and malformed header, crossing the boundary into the data rail's typed error.
 - append is a full rewrite: the `LasZipDll` writer path recomputes the stream, never an in-place append over an existing LAZ file.
-- each codec run captures point-data format, record length, point count, selective mask, `get_version()` build, and compressed/decompressed byte length as a point-cloud receipt.
+- each codec run exposes point-data format, record length, point count, selective mask, `get_version()` build, and compressed/decompressed byte length as codec measurements.
 
 [STACKING]:
 - `laspy`(`.api/laspy.md`): `laspy` selects this codec as `LazBackend.Laszip`, feeds `DecompressionSelection.to_laszip() -> int` into the second-arity `LasUnZipper(source, selection)`, and drives `decompress_into(bytearray(n * point_size))` per chunk after asserting `header.point_data_format`/`point_data_record_length` against `LasHeader.point_format`; the writer seeds `LasZipper(dest, header_bytes)` from a `LasHeader.write_to` serialization, streams `compress(...)`, then `done()`, with EVLR-count fixups rewritten out-of-band.

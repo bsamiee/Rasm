@@ -52,9 +52,9 @@ message WriteBackWire {
   }
 }
 
-message WriteReceiptWire {
+message WriteOutcomeWire {
   option (buf.validate.message).cel = {
-    id: "write_receipt.rendered"
+    id: "write_outcome.rendered"
     message: "rendered and rendered_unit cross together"
     expression: "has(this.rendered) == has(this.rendered_unit)"
   };
@@ -65,8 +65,7 @@ message WriteReceiptWire {
     (buf.validate.field).required = true,
     (buf.validate.field).duration.gte = {}
   ];
-  bytes correlation = 5 [(buf.validate.field).bytes.len = 16];
-  optional double rendered = 6 [(buf.validate.field).double.finite = true];
+  optional double rendered = 5 [(buf.validate.field).double.finite = true];
   // `rendered_unit` is the unit the host echoed back in its own spelling, so it stays open like the source it echoes.
-  optional string rendered_unit = 7 [(buf.validate.field).string.min_len = 1];
+  optional string rendered_unit = 6 [(buf.validate.field).string.min_len = 1];
 }

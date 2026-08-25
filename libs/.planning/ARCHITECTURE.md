@@ -138,8 +138,7 @@ Transcription spells the rows per branch and `libs/contracts/` `TELEMETRY_CONVEN
 - Absent entries on any sometimes-absent dimension — tenant, level-family, or substrate key — read as the untagged whole, never as a sentinel value.
 - Sometimes-absent keys stay rostered on every branch allow-list and census; an unrostered key strips from the entries that do carry it.
 - Keyed families whose key is the cell's own identity never construct the absent-key state; an unmeasured cell publishes nothing, spelling absence.
-- Receipts stay the truth: signals project from typed receipts through each branch's one instrument owner.
-- Metrics minted beside a receipt fan are a second truth.
+- Results are the truth: signals project from typed results at each branch's one instrument owner; a fact stream minted beside them forks it.
 
 [HOOK_PLANE]: Domain code fires typed facts at package-qualified `rasm.<pkg>.<domain>.<point>` rows on one scoped hook registry per runtime (the kernel signal capsule's `HookPoint` roster for C#, `python:runtime/observability/hooks`, `typescript:core/observe/tap`) under one closed `veto` | `observe` | `replay` modality vocabulary. Registration is composition-unique, a subscriber fault isolates as typed evidence with the emitter's value untouched, and a signal emitter is an observe subscription over fired facts, never an emit inside a domain fold.
 
@@ -217,14 +216,14 @@ Every `libs/` package is an independently versioned library an unrelated applica
 
 One design language makes disparate estates read as one system: a consumer crossing packages, branches, or hosts meets the same shapes under different spellings, so capability composes without per-package relearning. Each row states the invariant, and `docs/stacks/<language>/` owns its spelling.
 
-| [INDEX] | [INVARIANT]            | [LAW]                                                                                           |
-| :-----: | :--------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | one concept, one name  | One semantic name per bounded concept, spelled in the branch's casing law.                      |
-|  [02]   | one polymorphic entry  | One entry folds modality, arity, tenancy, topology, and provider off the request shape.         |
-|  [03]   | failure is a value     | Domain logic returns typed error rails; exception flow stays at the boundary.                   |
-|  [04]   | results carry receipts | Route, status, sampling, solver, and host evidence ride typed receipt fields.                   |
-|  [05]   | variation is data      | Rows, cases, tables, and policy values own variation; a bounded vocabulary dispatches.          |
-|  [06]   | refusal at admission   | Unservable axis values refuse with typed evidence naming the axis, once at the admission owner. |
+| [INDEX] | [INVARIANT]           | [LAW]                                                                                               |
+| :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | one concept, one name | One semantic name per bounded concept, spelled in the branch's casing law.                          |
+|  [02]   | one polymorphic entry | One entry folds modality, arity, tenancy, topology, and provider off the request shape.             |
+|  [03]   | failure is a value    | Domain logic returns typed error rails; exception flow stays at the boundary.                       |
+|  [04]   | results carry facts   | Route, status, sampling, solver, and host facts only the producer knows ride columns on its result. |
+|  [05]   | variation is data     | Rows, cases, tables, and policy values own variation; a bounded vocabulary dispatches.              |
+|  [06]   | refusal at admission  | Unservable axis values refuse with typed evidence naming the axis, once at the admission owner.     |
 
 - `Get`/`GetMany`/`GetBy<Key>` families, per-topology entries, and boolean knob pairs each push the fold onto every caller; the entry folds instead.
 - Growth is one row, arm, or case on the owner; a new consumer shape never widens the public surface.
@@ -279,7 +278,7 @@ Surface appearance crosses as generated `rasm.contracts.appearance.Set` and `Mat
 
 ## [14]-[EVENT_FABRIC]
 
-Domain facts cross the runtimes as CloudEvents message envelopes under the official attribute grammar, the publisher formats, and the generated estate extension vocabulary. Message envelopes announce a fact and never gain authority over it: the producing receipt stays the evidence truth and the announcement projects it, so a consumer routes on attributes without opening the payload.
+Domain facts cross the runtimes as CloudEvents message envelopes under the official attribute grammar, the publisher formats, and the generated estate extension vocabulary. Message envelopes announce a fact and never gain authority over it: the producing result stays the truth and the announcement projects it, so a consumer routes on attributes without opening the payload.
 
 [AUTHORITY]: Specification is the semantic owner and an SDK is an admitted acceleration. Libraries expose a generic, strict CloudEvents capability first; the Rasm type grammar, content-key subject, classification, and generated extension message compose as one profile rather than narrowing the generic envelope. Bindings, formats, and filters delegate to SDK members where available and stay branch-owned where absent.
 
@@ -289,7 +288,7 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 - C# seats the message-envelope algebra inside `Rasm`'s `Domain` sub-domain beside its identity, rails, and telemetry owners.
 - TypeScript lands the message envelope as rows on the `core/interchange` owners it already carries, and mints no page beside them.
 - Python lands the message envelope and every binding under `runtime/transport`, and mints no eventing sub-domain.
-- Sub-domains minted for the message envelope fail the `[12]-[ADMISSION]` earn-test — their nouns are the identity, receipt, and wire nouns S0 holds.
+- Sub-domains minted for the message envelope fail the `[12]-[ADMISSION]` earn-test — their nouns are the identity, event, and wire nouns S0 holds.
 
 [GRAMMAR]: one row per attribute, spelled in each branch's own casing law.
 
@@ -345,7 +344,7 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 - JSON and Protobuf formats define batch envelopes; Avro defines no batch.
 - Empty decoded batches are valid wire documents; a sender refuses one only as a local no-op policy.
 - Bindings admit batch only where their specification defines it; MQTT, Kafka, and NATS refuse batch even where an SDK helper constructs one.
-- Batches settle per event, and the receipt carries accepted beside matched-duplicate as separate halves.
+- Batches settle per event, and the settlement carries accepted beside matched-duplicate as separate halves.
 - Batch position carries no event order: an intermediary may add, remove, or reassign batches, while each event keeps its own `sequence` attribute.
 - Transport budgets split batches at any admitted sending leg; each resulting body is encoded and accounted independently.
 
@@ -354,7 +353,7 @@ Domain facts cross the runtimes as CloudEvents message envelopes under the offic
 [AXIS_REFUSAL]: Binding a deployment cannot serve refuses on the `providers` open axis as one `[10]-[CONSUMPTION_MODEL]` `[CONSUMPTION_DESCRIPTOR]` row, since a boolean knob re-mints the assumed consumer that roster forecloses.
 
 [SECURITY]: CloudEvents defines no authorization, integrity, or confidentiality mechanism, so an app-declared webhook dialect verifies the exact body octets received under that delivery leg's header, prefix, and hash row; the envelope carries no second signature, attribute preimage, or unverifiable security claim.
-- Verification precedes parsing, and its receipt remains paired with the same held octets through ingress.
+- Verification precedes parsing, and its verdict remains paired with the same held octets through ingress.
 - Reformatting or re-batching changes the body and cannot inherit its inbound signature.
 - Outbound legs sign final body octets only where destination policy requires it and signer authority exists.
 - Relays carry no blanket re-sign duty.

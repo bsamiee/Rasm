@@ -2,11 +2,9 @@
 
 `Synthesis` owns media generation through one closed `SynthOp`: harmonic oscillators, duty-cycle pulse, periodic wavetable, spectral-color noise, additive/FM/AM, sweep, unit impulse, and calibration video. Video cases cover SMPTE-style `75%` bars with PLUGE bands, ramp, grid, countdown, checker, standalone PLUGE, and radial zone plate. Audio produces `float32` mono `Pcm` blocks through `_encode_audio`, video produces `rgb24` frames through `_encode_video`, tone-bearing bars compose both through `_mux_av`, and `MediaProfile`, `MediaEvidence`, and `MediaFault` keep encode policy and evidence.
 
-`_admitted` validates only the selected mode's profile and payload fields — each arm carries its own bounds. `_phase` gives every periodic generator one zero-origin cumulative phase, `_TINT` derives noise colors from one spectral-exponent table, `_patterned` paints test patterns from typed per-mode payloads, and ADSR shapes continuous audio while `Impulse` preserves its unit sample. Every generation projects its full mode parameters into `ArtifactReceipt.Media.facts` and enters `ArtifactPipeline` as one root `ArtifactWork` keyed by `SynthOp` with only its relevant `SynthProfile` policy.
 
 ## [01]-[INDEX]
 
-- [02]-[SYNTHESIS]: `Synthesis` owns the closed audio and calibration-video `SynthOp` family, admits every payload once, encodes through the media spine, and folds full generation parameters into `ArtifactReceipt.Media`.
 
 ## [02]-[SYNTHESIS]
 
@@ -14,7 +12,6 @@
 - Cases: `_phase` is polymorphic over scalar or per-sample frequency and starts at zero. `_oscillator` sums only Nyquist-safe harmonics and normalizes the band-limited series; `_wavetable` interpolates a periodic table; `Pulse` derives duty from phase; `Sweep` selects linear or geometric frequency data. Video painters cover bars/PLUGE, ramp, grid, countdown, checker, and zone-plate calibration families.
 - Entry: `Synthesis.of` binds one `SynthOp` and `SynthProfile` under the composition-root `lane`, so every factory-built owner is fully initialized. `_synthesize` admits once, `_encoded` dispatches by derived `domain`, and the container `_worker` aspect maps call-contract violations to `MediaFault.contract`. `LanePolicy.offload` maps outer `BoundaryFault` through `_lapsed` and flattens the worker `Result`.
 - Auto: `_HARMONICS[waveform]`, `_TINT[color]`, scalar-or-track `_phase`, and `_patterned` per-mode payloads drive generation. `_blocks` reflects the current eager `tuple[Pcm, ...]` audio contract; still-video tuples share one frame array, while countdown frames retain their distinct raster payloads.
-- Receipt: pre-run identity hashes `SynthOp` with `_identity_policy`, so irrelevant audio, video, seed, envelope, and harmonic fields never perturb another mode. `_keyed` threads that pre-run key as the receipt slot — the `core/receipt#RECEIPT` elision law — and lands the `ContentIdentity.key(container, bytes)` product address as the `address` band fact. `_audio_band` carries only active shaping/rate/duration facts with each mode's payload, while `_patterned` carries pattern geometry and policy values.
 - Packages: `numpy` owns oscillator, noise FFT, interpolation, and test-pattern kernels; `_encode_audio`, `_encode_video`, and `_mux_av` own egress.
 - Growth: a harmonic waveform is one `Waveform` and `_HARMONICS` row; a noise color is one `NoiseColor` and `_TINT` row; a distinct payload modality is one `SynthOp` case with admission, kernel, and evidence arms.
 
@@ -34,11 +31,11 @@ from msgspec import Struct
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import ArtifactsLeg, BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.media.audio import Master, Pcm, _encode_audio
 from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, ContainerFormat, MediaFault, MediaProfile, Produced, _lapsed, _worker
 
@@ -280,37 +277,27 @@ class Synthesis(Struct, frozen=True):
     def of(op: SynthOp, profile: SynthProfile = SynthProfile(), /, *, lane: LanePolicy) -> "Synthesis":
         return Synthesis(op=op, lane=lane, profile=profile)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[Produced]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"media.synthesis-{self.op.tag}", CANON.encode((self.op, _identity_policy(self.op, self.profile))))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[Produced]:
         railed = await async_boundary(SYNTHESIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
-        return railed.bind(
+        settled = railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SYNTHESIS_FOLD.subject, fault)))
         )
+        match settled:
+            case Result(tag="ok", ok=product):
+                Metrics.record({BYTE_VOLUME: float(len(product[0]))}, domain=DOMAIN, kind="media", scope=self.lane.scope)
+        return settled
 
-    async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:
+    async def _folded(self, /) -> Result[Produced, MediaFault]:
         replayable = not any(row.container.segmented and row.segment is not None for row in (self.profile.media, self.profile.video))
         railed = await self.lane.offload(Kernel.of(_synthesize, KernelTrait.HOSTILE, idempotent=replayable), self.op, self.profile)
-        return railed.map_error(_lapsed).bind(lambda inner: inner).map(self._keyed)
-
-    def _keyed(self, produced: Produced, /) -> ArtifactReceipt:
-        blob, evidence = produced
-        address = ContentIdentity.key(evidence.container.value, blob)
-        return ArtifactReceipt.Media(
-            self._key,
-            evidence.container.value,
-            evidence.codec,
-            evidence.duration,
-            evidence.byte_count,
-            evidence.frame_count,
-            evidence.bit_rate,
-            evidence.facts | {"address": address.hex},
-        )
+        return railed.map_error(_lapsed).bind(lambda inner: inner)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

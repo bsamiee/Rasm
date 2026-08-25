@@ -17,7 +17,7 @@ uv run assay bridge build
 uv run assay bridge status
 ```
 
-Expected signal: each command returns one Assay envelope, and the status receipt carries `bridge.reportDir=<path>` when the supervisor emitted a `SessionEnvelope`.
+Expected signal: each command returns one Assay envelope, and the status envelope notes `bridge.reportDir=<path>` when the supervisor emitted a `SessionEnvelope`.
 
 ## [03]-[VERIFY]
 
@@ -135,14 +135,14 @@ Text equivalent: Assay calls the supervisor; the supervisor reconciles host stat
 
 ## [07]-[FAILURE_READING]
 
-Terminal signals map to one first repair surface. Read `fault`, `probeReceipt`, `reportDir`, and spool artifacts from the same `SessionEnvelope`; when relayed events and durable spool counts diverge, the spool owns evidence through the last decoded JSONL line.
+Terminal signals map to one first repair surface. Read `fault.detail`, `reportDir`, and spool artifacts from the same `SessionEnvelope`; when relayed events and durable spool counts diverge, the spool owns evidence through the last decoded JSONL line.
 
 [REPAIR_SURFACES]:
 - Lease: inspect or release `~/.rasm/rhino-bridge-rbx.lease`.
 - Package: read `fault`, then rebuild or redeploy `rasm-bridge`.
 - Launch: check launch, endpoint liveness, and shell load evidence.
 - Contract: redeploy `rasm-bridge`, then rerun `bridge status`.
-- Capability: read `probeReceipt`, then change the scenario requirement or host lane.
+- Capability: read `fault.detail` for `capability-absent`, then change the scenario requirement or host lane.
 - Host: rebuild closures against the active RhinoWIP bundle.
 - UI: read spool tail, captures, and host exceptions under `reportDir`.
 - Crash: read `.ips` summary, spool JSONL, and captured artifacts.

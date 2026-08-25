@@ -2,19 +2,19 @@
 
 Mesh-feature detection projected onto the `networkx` analytic graph: sharp-edge, planar, curvature, and boundary detection are rows of one `FEATURE_OPS` detect/project table, never sibling functions, and the `ANALYTICS` table closes the connectivity/centrality/spanning/cycle/community families over that one projection, `mode_guard` skipping a directed-only or undirected-only algorithm by data rather than an inline graph-kind branch. `Features` is the mesh-feature-projection producer of `network-graph`; the `algebra` sibling is the compas-adjacency producer of the same literal, never folded into one file.
 
-Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) imports downward from the tier-0 `graph/analytic` substrate, no local twin. `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_FEATURES` — span, fence, and receipt harvest in one composition over the one pure module-level `_extracted` both paths share, matching the sibling wiring — and `bridged` ships that module-qualified body `REFERENCE` as a `KernelTrait.HOSTILE` kernel onto the warm process pool with only the mesh and request as crossing payload and zero geometry-minted limiters, because the `trimesh`/`numpy` detector band imports under no isolated subinterpreter. Each feature graph graduates under `GeometrySubject.NETWORK_GRAPH`; the compute crossing is the carrier's `wire()` data, never an import.
+Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) imports downward from the tier-0 `graph/analytic` substrate, no local twin. `run` and `bridged` delegate observation through `evidence_run` over the one pure module-level `_extracted` both paths share, and `bridged` ships that body as a `KernelTrait.HOSTILE` kernel with only the mesh and request as crossing payload. `FeatureResult` retains the node-link bytes, structural census, analytic boards, and `NETWORK_GRAPH` subject directly.
 
 ## [01]-[INDEX]
 
-- [02]-[FEATURES]: `FEATURE_OPS` detect/project table, `MARK_PROJECT` projection algebra, `ANALYTICS` reducer table, and the `run`/`bridged` pair under one `ReceiptContributor`.
+- [02]-[FEATURES]: `FEATURE_OPS` detect/project table, `MARK_PROJECT` projection algebra, `ANALYTICS` reducer table, and the `run`/`bridged` pair.
 
 ## [02]-[FEATURES]
 
 - Owner: `Features` holds the conditioned `trimesh.Trimesh` beside its lane and its composition `ScopeKey`, so every weave call this owner makes stamps the key the app root bound rather than a default. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms and one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
 - Entry: `run` discriminates a single request or a batch, each returning through its own weave rail; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the weave's fence. `bridged` never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
-- Receipt: phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; node-link evidence is real JSON bytes, never a Python `repr`; `frame` projects one held analytic board through the graduation `EvidenceFrame` port off the substrate's `tabled` columns, so a centrality leaderboard crosses the geometry-to-data seam with zero receipt re-parsing. Both egress ports fold the receipt's own `spec` — the node-link document beside the detector kind — through the spine's `evidence_key` mint, so `graduates()` and `frame()` key one evidence identically and neither takes a key from its caller.
+- Output: leaderboards and partitions stay on typed `Census.values`; node-link evidence stays real JSON bytes; `frame` projects one held analytic board through `EvidenceFrame` using the result's own specification-derived key.
 - Packages: `trimesh`, `numpy`, and `networkx` per the fence imports; the analytic vocabulary and the graduation spine import downward from their geometry owners.
-- Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row, the graduation axes riding the one `_FEATURE_CASE` value unchanged; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row — and `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
+- Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
 - Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
 
 ```python
@@ -30,14 +30,14 @@ import networkx as nx
 import numpy as np
 import trimesh
 from expression.collections import Block, Map
-from msgspec import Struct, structs
+from msgspec import Struct
 from numpy.typing import NDArray
 
-from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_key, evidence_run
-from rasm.geometry.graph.analytic import AnalyticValue, peak_of, ranked, scalar_of
+from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometrySubject, evidence_key, evidence_run
+from rasm.geometry.graph.analytic import AnalyticValue, ranked
 from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -109,14 +109,6 @@ _DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.PAGERANK,
     AnalyticOp.SPANNING_WEIGHT,
 })
-_HEAD_OPS: Final[frozenset[AnalyticOp]] = frozenset({
-    AnalyticOp.BETWEENNESS,
-    AnalyticOp.DEGREE,
-    AnalyticOp.CLOSENESS,
-    AnalyticOp.EIGENVECTOR,
-    AnalyticOp.PAGERANK,
-})
-_EMPTY_CEILING: Final[Mapping[str, float]] = MappingProxyType({"empty_graph_fraction": 0.0})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -158,19 +150,6 @@ class Census(Struct, frozen=True):
     edges: int
     values: Map[AnalyticOp, AnalyticValue]
 
-    def scalar(self, op: AnalyticOp) -> float:
-        return peak_of(self.values, op) if op in _HEAD_OPS else scalar_of(self.values, op)
-
-    def facts(self) -> dict[str, object]:
-        flat = {key: value for key, value in structs.asdict(self).items() if key != "values"}
-        return flat | {op.value: self.scalar(op) for op in self.values}
-
-
-class CaseSpec(Struct, frozen=True):
-    subject: GeometrySubject
-    ledger: Callable[[Census], dict[str, float]]
-    ceiling: Mapping[str, float]
-
 
 class FeatureResult(Struct, frozen=True):
     kind: FeatureKind
@@ -178,18 +157,10 @@ class FeatureResult(Struct, frozen=True):
     node_link: bytes
     graduation_subject: GeometrySubject
 
-    def contribute(self) -> Iterable[Receipt]:
-        phase: Phase = "emitted" if self.census.nodes else "admitted"
-        return (Receipt.of("rasm.geometry.graph.features", (phase, self.graduation_subject, self.census.facts())),)
-
     @property
     def spec(self) -> bytes:
-        return b"|".join((self.kind.value.encode(), self.node_link))
 
-    def graduates(self) -> GeometryHandoff:
-        return GeometryHandoff.of(
-            self.graduation_subject, evidence_key(self.graduation_subject, self.spec), _FEATURE_CASE.ledger(self.census), _FEATURE_CASE.ceiling
-        )
+        return b"|".join((self.kind.value.encode(), self.node_link))
 
     def frame(self, op: AnalyticOp) -> "RuntimeRail[EvidenceFrame]":
         board = self.census.values.try_find(op).default_value(AnalyticValue.Leaderboard(())).tabled()
@@ -348,11 +319,6 @@ ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
     ),
 )
 
-_FEATURE_CASE: Final[CaseSpec] = CaseSpec(
-    GeometrySubject.NETWORK_GRAPH, lambda c: {"empty_graph_fraction": 0.0 if c.nodes else 1.0}, _EMPTY_CEILING
-)
-
-
 def _analyse(graph: nx.Graph, policy: FeaturePolicy, *, ops: frozenset[AnalyticOp]) -> Map[AnalyticOp, AnalyticValue]:
     selected = (spec for spec in ANALYTICS if spec.op in ops and spec.mode_guard(policy.mode))
     return Map.of_seq([(spec.op, spec.reducer(graph, policy)) for spec in selected])
@@ -377,7 +343,7 @@ def _assemble(graph: nx.Graph, marks: Marks, kind: FeatureKind, policy: FeatureP
     return FeatureResult(
         kind=kind,
         census=census,
-        graduation_subject=_FEATURE_CASE.subject,
+        graduation_subject=GeometrySubject.NETWORK_GRAPH,
         node_link=msgspec.json.encode(nx.node_link_data(graph, edges="edges")),
     )
 

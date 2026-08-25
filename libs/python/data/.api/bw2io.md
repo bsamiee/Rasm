@@ -69,7 +69,7 @@
 | :-----: | :------------------------------------------------------------------------------------------ | :----------------------------- |
 |  [01]   | `imp = ImporterClass(filepath, db_name, ...)` then `imp.data`                               | extract source into `imp.data` |
 |  [02]   | `imp.apply_strategies(strategies=None, verbose=True)` / `imp.apply_strategy(fn)`            | run the strategy pipeline      |
-|  [03]   | `imp.statistics(print_stats=True)`                                                          | linking-quality receipt        |
+|  [03]   | `imp.statistics(print_stats=True)`                                                          | linking-quality measurements   |
 |  [04]   | `imp.match_database(db_name=None, fields=None, relink=False, edge_kinds=None, ...)`         | link exchanges against a DB    |
 |  [05]   | `imp.write_database(delete_existing=True, activate_parameters=False)`                       | persist the `bw2data.Database` |
 |  [06]   | `imp.write_excel(...)` / `imp.create_randonneur_excel_template_for_unlinked(...)`           | matching/diagnostic export     |
@@ -84,7 +84,7 @@
 - `imp.write_database`: returns the `ProcessedDataStore`; guards duplicate `code` → `NonuniqueCode`, wrong target → `WrongDatabase`, and auto-selects `MultifunctionalDatabase`.
 - `imp.add_unlinked_activities()`: promotes still-unlinked technosphere activities into a database and relinks.
 - `imp.drop_unlinked`: raises unless `i_am_reckless=True`.
-- LCIA importers mirror the shape: `apply_strategies()` → `write_methods(overwrite=False, verbose=True)`, with `add_missing_cfs()`, `drop_unlinked(verbose=True)`, `migrate(migration_name)`, and `statistics()`/`all_linked` as the receipt.
+- LCIA importers mirror the shape: `apply_strategies()` → `write_methods(overwrite=False, verbose=True)`, with `add_missing_cfs()`, `drop_unlinked(verbose=True)`, `migrate(migration_name)`, and `statistics()`/`all_linked` as linking-quality results.
 
 [ENTRYPOINT_SCOPE]: one-shot full-system imports (network/credentialed)
 
@@ -135,5 +135,5 @@
 [RAIL_LAW]:
 - Package: `bw2io`
 - Owns: extraction of external LCI/LCIA formats, the strategy-pipeline linking model, `bw2data.Database`/method writing, the biosphere/LCIA/migration bootstrap, `randonneur` migrations, GEXF/matrix export, and `BW2Package` interchange
-- Accept: the `extract → apply_strategies → statistics → match → write_database` pipeline; custom linking as a `list[dict] -> list[dict]` strategy passed to `apply_strategy`; `statistics()`/`all_linked` as the receipt; `randonneur`/`migrate` for field remaps; the one-shot `import_*`/`useeio20`/`exiobase_monetary` imports under a retry; `.bw2package` for portable interchange
-- Reject: hand-rolled ecospold/SimaPro/Excel parsing when an importer owns the format; hand-rolled exchange linking when a `bw2io.strategies` function or `match_database` covers it; re-implementing the matrix build or LCA solve (`bw_processing`/`bw2calc`); treating `statistics()` as a print instead of a persisted quality receipt
+- Accept: the `extract → apply_strategies → statistics → match → write_database` pipeline; custom linking as a `list[dict] -> list[dict]` strategy passed to `apply_strategy`; direct `statistics()`/`all_linked` quality results; `randonneur`/`migrate` for field remaps; the one-shot `import_*`/`useeio20`/`exiobase_monetary` imports under a retry; `.bw2package` for portable interchange
+- Reject: hand-rolled ecospold/SimaPro/Excel parsing when an importer owns the format; hand-rolled exchange linking when a `bw2io.strategies` function or `match_database` covers it; re-implementing the matrix build or LCA solve (`bw_processing`/`bw2calc`); discarding `statistics()` instead of retaining caller-required quality measurements on `IngestResult`

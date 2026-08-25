@@ -2,7 +2,7 @@
 
 `Frame` owns bounded artifact reassembly, residency admission, and IFC container admission. Interleaved bands fold by artifact and generation under one ingress budget, verification gates the joined allocation, and each residency manifest replaces whole against the producer's pinned cluster roster and the budget it declares. Module `core/src/interchange/frame.ts` admits an arrival class as one refusal row, a residency payload as one kind row, and an IFC serialization as one admission row.
 
-`Frame` composes the `value` floor's `Digest` identity and `Shape.Ingress` ceilings, the `codec` owner's fault, gap, parity, and quarantine rails, and the `format` owner's proto suite and JSON schema mints. Producers own every payload axis crossing this plane, so `Frame` folds arrivals into receipts, views, ledgers, and admissions and mints no payload axis of its own.
+`Frame` composes the `value` floor's `Digest` identity and `Shape.Ingress` ceilings, the `codec` owner's fault, gap, parity, and quarantine rails, and the `format` owner's proto suite and JSON schema mints. Producers own every payload axis crossing this plane, so `Frame` folds arrivals into artifacts, views, censuses, and admissions and mints no payload axis of its own.
 
 ## [01]-[INDEX]
 
@@ -138,7 +138,7 @@ const _gathered = (budget: Shape.Ingress) => {
 
 ## [03]-[KEY_VERIFY]
 
-- Owner: `Frame.Artifact` verifies held bands before joining and emits the artifact receipt with its octets.
+- Owner: `Frame.Artifact` verifies held bands before joining and emits the verified `Artifact` beside its octets.
 - Law: verification covers the complete artifact, and parity failure prevents the joined allocation.
 - Exemption: `_joined` performs one bounded allocation and ordinal copy.
 
@@ -544,7 +544,7 @@ const Frame = {
 
 declare namespace Frame {
   type Band = ArtifactBand
-  type Receipt = Artifact
+  type Artifact = Schema.Schema.Type<typeof ArtifactAssembly.Artifact>
   type IfcWire = Ifc.Payload
   type IfcForm = Ifc.Form
   type IfcDescriptor = Ifc.Descriptor
@@ -566,7 +566,6 @@ export { Frame }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

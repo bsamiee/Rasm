@@ -1,6 +1,6 @@
 # [PY_DATA_API_XARRAY_SPATIAL]
 
-`xarray-spatial` mints the Numba-accelerated raster-analytics surface for the data terrain rail: a flat `xrspatial` namespace of pure-function operators consuming a 2D `xarray.DataArray`/`Dataset` elevation or band grid and returning a same-shaped grid, or a tabular receipt for zonal reductions. Numba dispatches every operator across NumPy, Dask, and CuPy element types on one grid carrier. Coverage raster IO — GeoTIFF read and writeback, reprojection, mosaic, and vector<->raster bridging — routes to the `rioxarray` and `rasterio` owners.
+`xarray-spatial` mints the Numba-accelerated raster-analytics surface for the data terrain rail: a flat `xrspatial` namespace of pure-function operators consuming a 2D `xarray.DataArray`/`Dataset` elevation or band grid and returning a same-shaped grid or a zonal-reduction table. Numba dispatches every operator across NumPy, Dask, and CuPy element types on one grid carrier. Coverage raster IO — GeoTIFF read and writeback, reprojection, mosaic, and vector<->raster bridging — routes to the `rioxarray` and `rasterio` owners.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -73,7 +73,7 @@ Focal operators apply a `numpy.ndarray` kernel from the `convolution` builders o
 
 [ENTRYPOINT_SCOPE]: proximity, zonal, and pathfinding operators
 
-Proximity operators emit distance/allocation/direction fields under a `distance_metric`; `zonal.stats` reduces `values` per `zones` to a tabular receipt; `pathfinding.a_star_search` returns a cost-accumulated least-cost path grid.
+Proximity operators emit distance/allocation/direction fields under a `distance_metric`; `zonal.stats` reduces `values` per `zones` to a table; `pathfinding.a_star_search` returns a cost-accumulated least-cost path grid.
 - `proximity`/`allocation`/`direction` share `(raster, x, y, target_values, max_distance, distance_metric)`.
 - `zonal.stats(zones, values, *, zone_ids, stats_funcs, nodata_values, return_type, column, rasterize_kw)`; `zonal.apply`/`crosstab`/`regions` extend the zone vocabulary.
 - `surface_distance.surface_distance(...)` with `surface_allocation`/`surface_direction`; `corridor.least_cost_corridor(...)` with `cost_distance`/`balanced_allocation`.
@@ -140,9 +140,9 @@ Morphology shares the `agg`/`kernel`/`boundary` shape; edge detection emits grad
 - focal axis: neighborhood statistics consume a `convolution`-built `numpy.ndarray` kernel (cell size via `calc_cellsize`) as kernel-keyed rows; `boundary` selects the edge policy.
 - hydro axis: the stack threads one flow grid `fill` -> `flow_direction` -> `flow_accumulation` -> `stream_order`/`watershed`/`twi`/`hand`; the flow model is the `_d8`/`_dinf`/`_mfd` suffix row with an unsuffixed dispatcher, never a per-model module.
 - proximity axis: `proximity`/`allocation`/`direction` share `target_values`/`max_distance`/`distance_metric`; `surface_distance.*` add the 3D-surface variants and `corridor`/`cost_distance`/`balanced_allocation` the cost-surface family over one source raster.
-- zonal axis: `zonal.stats` is the single reduction surface keyed by `zones`/`stats_funcs`/`return_type` emitting a tabular receipt; `regions`/`crosstab`/`apply`/`crop`/`trim`/`hypsometric_integral` extend the same zone vocabulary.
+- zonal axis: `zonal.stats` is the single reduction surface keyed by `zones`/`stats_funcs`/`return_type` emitting a table; `regions`/`crosstab`/`apply`/`crop`/`trim`/`hypsometric_integral` extend the same zone vocabulary.
 - backend axis: NumPy, Dask, and CuPy are element-type dispatch under Numba on the same operator surface; out-of-core and GPU execution are array-type rows, never parallel APIs.
-- evidence: each result captures operator name, resolved `boundary`/`method`/`z_unit`/`distance_metric`/flow-model suffix, output units, grid shape, and backend element type as a terrain receipt.
+- evidence: each result retains operator name, resolved `boundary`/`method`/`z_unit`/`distance_metric`/flow-model suffix, output units, grid shape, and backend element type.
 
 [STACKING]:
 - `rioxarray`(`.api/rioxarray.md`): a terrain result `DataArray` flows into the `.rio` accessor for CRS/transform tagging, `reproject`/`reproject_match` grid alignment, `merge_arrays`/`merge_datasets` mosaic, and `to_raster` GeoTIFF writeback — the coverage raster-IO path this surface reads its grids from and writes its results to.

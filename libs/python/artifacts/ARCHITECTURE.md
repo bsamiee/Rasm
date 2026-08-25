@@ -35,7 +35,7 @@ artifacts/
 │   └── schedule.py      # ScheduleContent payload shapes, TableOp derivation from template data, legend lowerings
 ├── specification/       # CSI construction-specification plane on the pub/print substrate
 │   ├── section.py       # SpecPayload single admission, article-roster validation, classify-resolved section numbers
-│   └── classify.py      # MasterFormat/UniFormat/OmniClass vocabularies and the drawing<->spec resolver; mints no receipt
+│   └── classify.py      # MasterFormat/UniFormat/OmniClass vocabularies and the drawing<->spec resolver
 ├── delivery/            # ISO 19650 delivery plane: container register, issue-for-construction transmittal, and issue announcement
 │   ├── register.py      # RegisterOp union folded once into Composed; Schematron-validated, c14n2-canonical container XML
 │   ├── gate.py          # GateVerdict fold; ArtifactKind-keyed threshold policy rows with a declared default, no bytes
@@ -50,10 +50,10 @@ artifacts/
 │   │   ├── plane.py     # float32 (H,W,C) carrier, storage/transfer/alpha/mip vocabulary, and the DEEP_CODEC rows
 │   │   ├── derive.py    # Channel derivation: normal/height/occlusion/curvature, packing, mip fold, one resampler
 │   │   ├── ingest.py    # _ROLE_SPACE law table and _ALIASES grammar; classify stays total, pure, and accumulating
-│   │   ├── set.py       # TextureSet producer, egress grammar, KTX2 tool seam; contributes the Texture receipt
+│   │   ├── set.py       # TextureSet producer, egress grammar, KTX2 tool seam
 │   │   └── ibl.py       # Environment prefilter kernels over the deep plane; products land on the set manifest
 │   ├── vector/
-│   │   ├── path.py      # PathOp traversal into PathRail on the shared PathFault | BoundaryFault union; receiptless
+│   │   ├── path.py      # PathOp traversal into PathRail on the shared PathFault | BoundaryFault union
 │   │   ├── region.py    # RegionOp family; applied() in-process rail beside the HOSTILE process-pool batch crossing
 │   │   └── pattern.py   # StrokeFamily placement rows, Motif payload cases, and the DensityLaw scale resolver
 │   ├── marks/
@@ -93,14 +93,13 @@ artifacts/
 │   └── synthesis.py     # SynthOp oscillator, noise, and calibration-video cases; MediaProfile/MediaEvidence seats
 ├── scene/               # 3D and spatial visualization
 │   ├── spec.py          # RenderSpec projections, the closed style/camera/texture families, and the lazy pyvista proxy
-│   ├── render.py        # Scene3d SceneOp producer: content-key mint, process-lane offload, receipt fold, and the rgb24 frame egress
+│   ├── render.py        # Scene3d SceneOp producer: content-key mint, process-lane offload, and rgb24 frame egress
 │   ├── render_worker.py # Worker-only render bodies the runtime shipped gate resolves inside the process lane
 │   ├── export.py        # Per-target ExportRow law: plotter writes, bundle capture, and USD delegation over every SceneTarget
 │   └── stage.py         # RenderExport and MeshAuthor sources, PackageOp closes, recursive MeshScene PrimKind graph
 ├── core/                # Production spine
 │   ├── plan.py          # ArtifactWork node columns, the PyDiGraph front resolution, and the min-slack CPM schedule
 │   ├── issue.py         # Constructing owner: issue(IssueRequest) over the modality union, composing the lane front drive
-│   ├── receipt.py       # ArtifactReceipt union, ConformanceVerdict, and the Metrics.record + hook-tap seam
 │   ├── hooks.py         # ArtifactsLeg raise-leg roster, point rows under the rasm.artifacts grammar, closed msgspec payloads
 │   └── bench.py         # BenchEntry rows pairing BenchSubject with typed BenchFeed edges; grading stays runtime-owned
 └── package/             # Content-addressed compression, archive, and delta over one shared bundle vocabulary
@@ -112,7 +111,7 @@ artifacts/
 
 ## [02]-[STRATA]
 
-Strata rank the artifacts interior; seating rows carry only the law the fence cannot show. Every plane composes the floor (`ArtifactWork`, `ArtifactReceipt`), and the fence draws only each plane's discriminating imports.
+Strata rank the artifacts interior; seating rows carry only the law the fence cannot show. Every plane composes the `ArtifactWork` and production-observation floor, and the fence draws only each plane's discriminating imports.
 
 ```mermaid
 ---
@@ -124,7 +123,7 @@ config:
 ---
 flowchart TB
     accTitle: Artifacts interior import strata
-    accDescr: Import strata from the issue conductor down to the plan-receipt floor, the TextureMap counter-edge crossing texture data to scene.
+    accDescr: Import strata from the issue conductor down to the plan and hook floor, the TextureMap counter-edge crossing texture data to scene.
     subgraph S5["S5 CONDUCTOR"]
         Issue[core/issue]
         Bench[core/bench]
@@ -152,7 +151,6 @@ flowchart TB
     end
     subgraph S0["S0 FLOOR"]
         Plan[core/plan]
-        Receipt[core/receipt]
         Hooks[core/hooks]
     end
     Issue e1@-->|"[IMPORT]: Transmittal"| Delivery
@@ -177,21 +175,17 @@ flowchart TB
     Graphic e20@-->|"[IMPORT]: DetectEngine"| Exchange
     Drawing e21@-->|"[IMPORT]: PositionedGlyphRun"| Typography
     Visualization e22@-->|"[IMPORT]: Formula"| Typography
-    Plan e23@-->|"[IMPORT]: ArtifactReceipt"| Receipt
     Issue e24@-->|"[IMPORT]: Production"| Hooks
     Bench e25@-->|"[IMPORT]: Codec"| Package
-    Bench e26@-->|"[IMPORT]: ArtifactKind"| Receipt
     Bench e27@-->|"[IMPORT]: SynthOp"| Media
     Delivery e28@-->|"[IMPORT]: Production"| Hooks
     Delivery e29@-->|"[IMPORT]: StructureAudit"| Document
     Graphic e30@-.->|"[COUNTER]: TextureMap"| Scene
-    Receipt f1@-->|"forbidden: upward import"| S5
 ```
 
-- S0 `core/plan` + `core/receipt` + `core/hooks` — the spine floor imports no artifacts sibling above it.
-- S0 seats the `ARTIFACT_POINTS` hook rows beside the work and receipt owners; `hooks` composes the runtime registry, never a producer page.
+- S0 `core/plan` + `core/hooks` — the spine floor imports no artifacts sibling above it.
+- S0 seats the `ARTIFACT_POINTS` hook rows beside the work owner; `hooks` composes the runtime registry, never a producer page.
 - `hooks` seats the `ArtifactsLeg` roster: it imports no artifacts sibling, so every raiser reaches it acyclically and mints its own `RAISES` table.
-- S0 `receipt` composes runtime, the compute `HandoffAxis`, and the hooks `Production` fire — the one same-stratum interleave.
 - S1 `typography`, `exchange`, `package`, `scene` — substrate planes composing the floor alone, holding no intra-stratum edge among themselves.
 - S2 `graphic` + `drawing` + `visualization` + `export` — one visual stratum, module-acyclic.
 - S2 `drawing/regime` composes `graphic/color/derive` and `vector/pattern`; `graphic/layer` and `style` compose the regime back.
@@ -202,9 +196,9 @@ flowchart TB
 - S3 `specification/section` composes the document `BlockKind` tree in-stratum; `media` rides the scene `framed` parse floor and raster save hop.
 - S4 `delivery` then S5 `core/issue` — `issue` alone imports upward-named producers, so the spine is floor and conductor, never one stratum.
 - S4 `transmittal` fires its issued fact on the floor `Production` row and `notice` subscribes to it, so neither delivery page imports the other.
-- S4 `delivery/gate` composes the S3 document audits and the S0 receipt bands downward; nothing imports it back, so the verdict adds no cycle.
+- S4 `delivery/gate` composes the S3 document audits and direct producer facts downward; nothing imports it back, so the verdict adds no cycle.
 - S5 `core/bench` rides the conductor stratum without conducting — no producer imports it or cycles through it.
-- S5 `bench` composes the package recipes, the receipt `ArtifactKind`, and `media/synthesis` replay; native-offload kernels arrive as caller values.
+- S5 `bench` composes package recipes and `media/synthesis` replay; native-offload kernels arrive as caller values.
 
 ## [03]-[SEAMS]
 
@@ -218,7 +212,7 @@ config:
 ---
 flowchart LR
     accTitle: Artifacts package seam registry
-    accDescr: Artifacts sub-domain owners exchanging content keys, receipts, wires, and shapes with Python, C#, and TypeScript peers.
+    accDescr: Artifacts sub-domain owners exchanging content keys, wires, and shapes with Python, C#, and TypeScript peers.
     subgraph artifacts[PY:ARTIFACTS]
         Core[Core spine]
         Document[Document]
@@ -241,10 +235,9 @@ flowchart LR
     Materials([dotnet:Rasm.Materials])
     Interchange([typescript:core])
     Runtime e1@-->|"[CONTENT_KEY]: ContentKey"| Core
-    Core e2@-->|"[RECEIPT]: ArtifactReceipt"| Runtime
+    artifacts e2@-->|"[METRIC]: BYTE_VOLUME"| Runtime
     Runtime e3@-->|"[CONTENT_KEY]: ContentIdentity"| Exchange
     Runtime e4@-->|"[CONTENT_KEY]: ContentIdentity"| Package
-    Core e5@-->|"[GRADUATION]: HandoffAxis"| Compute
     Media e6@-->|"[SHAPE]: SignalOp"| Compute
     Document e7@-->|"[WIRE]: CorpusRow"| Data
     Export e8@-->|"[WIRE]: GeoJSON"| Data
@@ -257,23 +250,19 @@ flowchart LR
     Runtime e15@-->|"[SHAPE]: appearance.Set"| Graphic
     Graphic e16@-->|"[WIRE]: appearance.Set"| Materials
     Graphic e17@-->|"[WIRE]: appearance.Set"| Interchange
-    Core e18@-->|"[SHAPE]: Fact"| Runtime
-    Delivery e19@-->|"[SHAPE]: Fact"| Runtime
-    Document e20@-->|"[SHAPE]: Fact"| Runtime
-    Graphic e21@-->|"[SHAPE]: Fact"| Runtime
-    Media e22@-->|"[SHAPE]: Fact"| Runtime
-    Exchange e23@-->|"[SHAPE]: Fact"| Runtime
+    Delivery e19@-->|"[EVENT]: TransmittalIssued"| Runtime
+    Document e20@-->|"[FACT]: AuditFact"| Runtime
 ```
 
-`[SHAPE]: Fact` edges are the evidence half of the runtime seam and run outward: `core/receipt` builds each kind's `AuditFact` and `MeterFact` fan off the receipt it already carries, and every producer leg records that block through the runtime journal writer. Producing legs stay AWAITABLE by law, since recording suspends on a bounded intake, so the synchronous `contribute` projection carries no such edge.
+Each producer records `BYTE_VOLUME` from its settled domain value. Document producers journal regulatory `AuditFact` changes, and delivery fires `TransmittalIssued` after the issue closes.
 
-Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `fabrication.FeatureControl` from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-spelled `GraduationEvidence`.
+Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, and `fabrication.FeatureControl` from Rasm.Fabrication admitted into `GdtFrame` at dimensioning.
 
 Python mints the plane set as its appearance document: generated `rasm.contracts.appearance.Set` carries the shape, and `graphic/texture/set` validates the completed document from its descriptor before it leaves the producer. Merkle set keys order the document while each stored file stays addressed by its own `PlaneRef.digest`, and two peers read the admitted set: Rasm.Materials as classification input, TypeScript core as a census-and-landing pair.
 
 C#-pressed `baked` rides the same `Set` message under its own producer with the `appearance_key`, `provenance`, and `press` columns python leaves absent, and python reads none of it.
 
-Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing. `TransmittalNotice` projects the issued fact onto `runtime/transport/event#MESSAGE`, so this folder mints no message envelope and joins no broker edge.
+Issue lifecycle and transmittal points register onto the runtime `Hooks` registry, and the bench corpus consumes the runtime `Bench` tier. `TransmittalNotice` projects the issued fact onto `runtime/transport/event#MESSAGE`.
 
 ## [04]-[INTERNAL]
 
@@ -289,31 +278,27 @@ config:
 ---
 flowchart LR
     accTitle: Artifacts production spine
-    accDescr: How one issue request flows from plan admission through the producer and finishing stages onto the single receipt fold.
+    accDescr: How one issue request flows from plan admission through producer and finishing stages to delivery.
     Issue([Issue request]) e1@--> Plan[[Pipeline plan]]
     Substrate[(Graphic + type substrate)] e2@--> Engines
     Plan e3@--> Engines[[Producer engines]]
     Engines e4@--> Compose[[Composition]]
     Compose e5@--> Finish[[Export + exchange]]
-    Finish e6@--> Fold[(Contribution fold)]
+    Finish e6@--> Fold[(Observation)]
     Fold e7@--> Package[[Package close]]
     Package e8@--> Deliver([Transmittal])
 ```
 
 High-order producer planes sit on a shared primitive substrate. `graphic` and `typography` own the raster, vector, marks, color, style, layer, font, shaping, math, and line-layout primitives every plane composes over one `PositionedGlyphRun` seam; the producer planes lower onto them; `composition` places the outputs, `export` and `exchange` finish them, `core` is the production spine, and `package` is the content-addressed close.
 
-- `core/receipt` is the one shared receipt owner every producer contributes one case to.
 - `core/plan` seats the one product-egress port — `ProductFact` describes each produced file, `ProductSink[F]` threading egress per fault family.
 - Composite owners drive sibling producers only through the uniform `emit()`/`work()` contract; a sibling convenience entry is a phantom.
-- `slot` threads the producer's pre-run input key; a produced-output content address lands only as a facts-band scalar.
+- Producer nodes retain their pre-run input key while actual domain results carry any output identity and evidence their callers require.
 - Producer sync projections read the landed evidence successor; re-invoking the fold or a frame author is a split-execution defect.
 - Un-folded owners project nothing, so absence stays distinct from evidence.
 - Dual-license provider pairs split by import reachability: no copyleft module is reachable from the permissive footing.
 - Derivable constants land as policy tables on the owner, and each footing's closure audits from its imports alone.
-- `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
-- `core/receipt.evidence` is the one durable-fact builder every kind funnels through; async legs await the record and sync entrypoints record none.
-- Retention class per kind and the metered fact rows are receipt-owned tables; the aging window and the resource series stay the journal's.
-- Production facts fire on the `core/hooks` rows at the issue seams and the contribute fold; `FRONT_DRAINED` fires from the lane drive as its gate.
+- Issue lifecycle and transmittal facts fire on the `core/hooks` rows; only admission and front-drain points can veto work.
 - Observability subscribes through `Production.subscribed` at the app root, never in producer code.
 - Issue-scope baggage the issue bracket binds attributes every signal; tenant promotion stays runtime-owned.
 - `core/bench` grades producer kernels against threshold policy rows through the runtime bench tier.
@@ -322,8 +307,6 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - `delivery/gate` is the one quality-threshold owner: every bar, grade, and per-kind policy row seats there and no producer re-derives one.
 - `delivery/notice` is the plane's one `Project` row over the `TRANSMITTAL_ISSUED` fact, handed to the runtime emitter at the composition root.
 - Announcement ends at the message envelope value; lowering, format, and delivery are the runtime transport owner's.
-- Outward figure handoff is landed, not re-minted: `core/receipt.graduates` projects any `ArtifactReceipt` into the compute graduation hub.
-- Projection keys by `ContentIdentity` under the governed residual-ceiling policy, a caller's tighter ceiling overriding.
 - Sources re-mint no canonical concept, so the runtime structural-drift query stays clean.
 - `graphic/color/derive` is the one upstream color source every visual plane pulls palettes from.
 - `graphic/color/managed` is the downstream ICC/LUT/CCTF egress the raster and document outputs route through.

@@ -115,7 +115,7 @@ flowchart LR
     Bim e18@-->|"[WIRE]: BcfViewpointWire"| Ui
     Bim e15@-->|"[WIRE]: ModelDiffWire"| Ui
     AppUi e11@-->|"[WIRE]: AppUiSurfaceProgram + CommandGateWire"| Ui
-    AppHost e10@-->|"[WIRE]: BindingStatus + CoercedValueWire + WriteReceiptWire"| Ui
+    AppHost e10@-->|"[WIRE]: BindingStatus + CoercedValueWire + WriteOutcomeWire"| Ui
     AppHost e9@-->|"[TRANSPORT]: OtelExport"| Runtime
     AppHost e16@-->|"[WIRE]: DescriptorPinWire"| Core
     Artifacts e17@-->|"[WIRE]: Set"| Core
@@ -169,34 +169,38 @@ config:
 ---
 flowchart LR
     accTitle: TypeScript branch observability spine
-    accDescr: Folder-owned registries compose core Tap grammar; runtime exports signals, and data residence supplies Board.Query targets.
-    Facts[branch folders · typed domain facts]
-    Tap[core observe · Tap grammar]
-    Registry[folder-owned registries]
+    accDescr: Effect outcomes and explicit domain events remain truth; runtime projects OTel signals, and data residence supplies Board.Query targets.
+    Operations[branch operations · Effect success/error]
+    Settlement[terminal fold · Exit]
+    Events[domain owners · explicit events]
+    Tap[core observe · in-process hooks]
     Names[core observe · convention names]
     Board[core observe · board query owner]
     Mint[branch folders · instrument mints]
     Egress[runtime otel · OTLP egress]
-    Deploy[iac observe · collector + store + boards]
+    Deploy[iac/operate/observe · Lgtm + Boards + Dev]
     Fact[(data journal fact · settlement truth)]
-    Residence[(data olap · analytics residence)]
-    Facts e8@-->|"publish: domain fact"| Registry
-    Tap e9@-->|"compose: name + modality + handler"| Registry
-    Registry e10@-->|"observe: subscription"| Mint
+    Residence[(StackOutputs.analytics · residence rows)]
+    Operations e8@-->|"settle: Effect.onExit"| Settlement
+    Operations e9@-->|"publish: domain event"| Events
+    Events e10@-->|"observe: local extension"| Tap
+    Settlement e11@-->|"project: outcome"| Mint
+    Events e12@-->|"project: event"| Mint
     Names e1@-->|"name: rasm series"| Mint
     Mint e2@-->|"emit: scoped series"| Egress
     Egress e3@-->|"TRANSPORT: OtelExport"| Deploy
-    Fact e4@-->|"settle: spend + usage"| Deploy
-    Deploy e5@-->|"[PORT]: analytics residence"| Residence
+    Events e13@-->|"append: audit + meter"| Fact
+    Fact e4@-->|"project: spend + usage"| Deploy
+    Deploy e5@-->|"[PORT]: StackOutputs.analytics"| Residence
     Fact e6@-.->|"rebuild: derived plane"| Residence
     Residence e7@-->|"[SHAPE]: Board.Query.Target"| Board
 ```
 
-Domain code publishes typed facts through folder-owned registries composed from core Tap grammar, and a signal emitter is an observe handler over those facts, never an emit inside a domain fold. Runtime otel alone laces egress, while each folder mints instruments against core conventions; the JS-side name source holds name-level parity with OpenTelemetry, never a shared artifact.
+Operations return their canonical value or typed fault on `Effect`; `Effect.onExit` observes the settled `Exit` once at the instrumentation seam. Command lifecycles publish `Evidence.Outcome` as CloudEvent data, state machines publish `Transition.Macro`, and `Tap` carries in-process extension observation. `runtime/otel` alone owns egress, and each folder mints instruments against core conventions.
 
-One folder owns each signal concept two folders both spell, whichever holds the platform surface producing it, and publishes the intake its peer taps rather than capturing a second time. Peer evidence rows carry whatever that platform surface leaves unmeasured.
+One folder owns each signal concept two folders both spell, whichever holds the platform surface producing it, and publishes the event its peer observes. Domain results and journal facts retain whatever OTel leaves unmeasured.
 
-Boards and retention are deploy-plane facts `iac` realizes from the core-encoded models; the data journal fact stream settles spend and usage, and the OTel series stay its lossy health projection keyed by the same identity. Evidence outliving a store's series window lands in an analytics residence `data` custodies and `iac` arms as one spec axis, derived and rebuildable from the journal, and the one core `Query` owner renders it under a target parameter.
+`Lgtm`, `Boards`, and `Dev` realize collector, store, and board topology at `iac/operate/observe`; the data journal fact stream settles spend and usage, and OTel series remain its lossy health projection keyed by the same identity. `StackOutputs.analytics` binds the residence `data` custodies, derived and rebuildable from the journal, and the one core `Query` owner renders it under a target parameter.
 
 ## [05]-[ROUTING]
 
@@ -227,7 +231,6 @@ Boards and retention are deploy-plane facts `iac` realizes from the core-encoded
 
 ## [06]-[BOUNDARIES]
 
-- Each external receipt family lands as its own typed decode; per-verb receipt schemas keep the family typed end to end.
 - IFC and BCF vocabulary lives only at the codec registry landings and the viewer marks; every consumer reads the decoded landing.
 
 ## [07]-[ADMISSION_POLICY]

@@ -192,5 +192,5 @@
 [RAIL_LAW]:
 - Package: `mpmath`
 - Owns: arbitrary-precision real/complex/interval arithmetic, a broad special-function/calculus/linear-algebra library, and the precision-oracle role for fast-path validation
-- Accept: `mp.dps`-scoped evaluation through the `workdps`/`extradps` context managers; `fsum`/`fdot`/`fprod` accumulation; receipts capturing precision, method, and residual
+- Accept: `mp.dps`-scoped evaluation through the `workdps`/`extradps` context managers; `fsum`/`fdot`/`fprod` accumulation; certified `Enclosure` values carrying their precision floor
 - Reject: fixed-precision reimplementations of functions mpmath owns; performance-critical production evaluation through mpmath; Python `sum`/dot accumulation where cancellation matters

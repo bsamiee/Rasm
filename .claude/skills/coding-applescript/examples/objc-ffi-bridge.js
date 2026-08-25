@@ -32,12 +32,6 @@ function fourCharCode(text) {
     return text.split('').reduce((acc, ch) => ((acc << 8) | (ch.charCodeAt(0) & 0xff)) >>> 0, 0) >>> 0;
 }
 
-// The inverse keeps a receipt readable as text and hex together, since a logged code alone is ambiguous.
-function codeReceipt(value) {
-    const text = [24, 16, 8, 0].map((shift) => String.fromCharCode((value >>> shift) & 0xff)).join('');
-    return { text, hex: `0x${value.toString(16).padStart(8, '0')}` };
-}
-
 // aeDesc hands out a raw AEDesc* the descriptor object owns. `use` receives that pointer and returns
 // plain JavaScript values only — a returned pointer outlives its owner and dangles the moment the
 // descriptor binding leaves scope.
@@ -62,7 +56,7 @@ function descriptorPayload(descriptor) {
     return borrowAEDesc(descriptor, (aeDesc) => {
         const size = Number($.AEGetDescDataSize(aeDesc));
         if (size <= 0) {
-            return { size: 0, text: null };
+            return { size: 0 };
         }
         const buffer = $.NSMutableData.dataWithLength(size);
         const status = $.AEGetDescData(aeDesc, buffer.mutableBytes, size);
@@ -81,22 +75,28 @@ function scriptingDefinition(bundlePath) {
     const url = $.NSURL.fileURLWithPath(bundlePath);
     const status = $.OSACopyScriptingDefinitionFromURL(url, 0, sdefOut);
     if (status !== 0) {
-        return { status, bytes: 0 };
+        throw new Error(`OSACopyScriptingDefinitionFromURL returned ${status}`);
     }
-    return { status, bytes: Number(ObjC.castRefToObject(sdefOut[0]).length) };
+    return Number(ObjC.castRefToObject(sdefOut[0]).length);
 }
 
 function run(argv) {
     const [bundleID, bundlePath] = argv;
     if (!bundleID) {
-        return JSON.stringify({ ok: false, error: 'usage: <bundle-id> [app-bundle-path]' });
+        throw new Error('usage: <bundle-id> [app-bundle-path]');
     }
     const target = bundleTarget(bundleID);
+    const descriptorType = target.descriptorType;
+    const descriptorText = [24, 16, 8, 0]
+        .map((shift) => String.fromCharCode((descriptorType >>> shift) & 0xff))
+        .join('');
     return JSON.stringify({
-        ok: true,
         bundleID,
-        descriptorType: codeReceipt(target.descriptorType),
+        descriptorType: {
+            text: descriptorText,
+            hex: `0x${descriptorType.toString(16).padStart(8, '0')}`,
+        },
         payload: descriptorPayload(target),
-        dictionary: bundlePath ? scriptingDefinition(bundlePath) : null,
+        ...(bundlePath ? { dictionaryBytes: scriptingDefinition(bundlePath) } : {}),
     });
 }

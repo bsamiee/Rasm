@@ -130,7 +130,7 @@ Facet constructors carry a `cardinality="required", instructions=None` tail — 
 - validation axis: `Ids.validate` clears the `get_pset`/`get_psets` caches, then per spec runs `reset_status()` -> `check_ifc_version()` -> `validate()`, mutating the tri-state `status` and the entity sets in place; `Facet.filter` is the single match engine every facet shares.
 - usage axis: `Cardinality` maps to `minOccurs`/`maxOccurs` through `get_usage`/`set_usage`; `Restriction.base` (`"string"`/`"decimal"`/`"integer"`/`"boolean"`) drives value coercion.
 - reporter axis: each reporter binds the validated `Ids`, runs `report()` (the `Json` family returning the `Results` graph, `Console`/`Txt` a buffer), then `to_string()`/`to_file(path)`; `Json` subclasses override `to_file` for their artifact.
-- evidence: each validation captures the per-spec tri-state `status`, the passing/failing entity-set sizes, and the `Results` totals as an IDS receipt.
+- evidence: `Results` carries the per-spec tri-state `status`, passing/failing entity-set sizes, and totals.
 
 [STACKING]:
 - `ifcopenshell`(`.api/ifcopenshell.md`): `Ids.validate`/`Specification.validate` take an `ifcopenshell.file` target, and `Facet.filter(ifc_file, elements)` runs the match over its `entity_instance` elements — the single engine, never a hand-rolled entity filter.

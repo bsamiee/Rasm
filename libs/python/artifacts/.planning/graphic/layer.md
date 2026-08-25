@@ -19,7 +19,7 @@ Semantic layer structure enters every layered writer through one `LayerPlan`. `L
 - Law: `LayerPath` contains every stable editorial segment from root to node. View-state membership never keys on a leaf name alone, so equal names in distinct groups remain distinct.
 - Auto: `walked` owns one immutable preorder frontier and accepts the node projection as data. `Block.unfold` carries arbitrary depth, emits empty groups as first-class rows, and fixes siblings through `zsorted`; `flattened` uses nested `traverse` calls so every node path succeeds or the first typed naming fault aborts the projection.
 - Growth: a semantic meaning extends `LayerIntent`; a payload modality extends `LayerContent` and each writer match; a naming grammar extends the `drawing/regime#REGIME` `LayerSchema` roster alone — `NamingSchema` and `named` widen with it; an editor capability extends `LayerState`; a compositing mode extends `graphic/color/derive#DERIVE` and each writer match.
-- Boundary: PSD/OCG/SVG/IDML/TIFF/ORA mutation belongs to `export/layered#LAYERED`, IDML mutation to `export/indesign#INDESIGN`, and PDF OCG authoring to `document/emit#DOCUMENT`. Geometry, receipt, async, host handles, discipline vocabulary, and compositing vocabulary remain outside this value owner.
+- Boundary: PSD/OCG/SVG/IDML/TIFF/ORA mutation belongs to `export/layered#LAYERED`, IDML mutation to `export/indesign#INDESIGN`, and PDF OCG authoring to `document/emit#DOCUMENT`. Geometry, async, host handles, discipline vocabulary, and compositing vocabulary remain outside this value owner.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -258,7 +258,6 @@ __all__ = [
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

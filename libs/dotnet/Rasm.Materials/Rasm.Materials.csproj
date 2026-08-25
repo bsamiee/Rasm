@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Host-neutral AEC-domain materials: the polymorphic Component owner over the closed ComponentFamily axis (one SectionSolver over the closed SectionProfile algebra, the ComputedSection receipt), the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), the typed engineering-property and sustainability catalogues, and the ComponentProjector onto the Rasm.Element seam.</Description>
+        <Description>Host-neutral AEC-domain materials: the polymorphic Component owner over the closed ComponentFamily axis (one SectionSolver over the closed SectionProfile algebra, the frozen ComputedSection), the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), the typed engineering-property and sustainability catalogues, and the ComponentProjector onto the Rasm.Element seam.</Description>
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 

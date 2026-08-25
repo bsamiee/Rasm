@@ -5,7 +5,7 @@
 ## [01]-[INDEX]
 
 - [02]-[VALUE_AND_KIND]: `SettingReach`, `SettingKind` — the layer-reach capability and the one row family naming a host `TryGet*`/`Set*` member.
-- [03]-[REQUEST_ALGEBRA]: `SettingKey`, `SettingsRoot`, `SettingPath`, `ChildPolicy`, `ISettingGuard`, `SettingsVisibility`, `SettingTrait`, `SettingDelta`, `ChangeVerdict`, `SaveOrigin`, `IntegerBound`, `SettingOperation`, `SettingObservation`, `SettingMutationReceipt`, `SettingMetadata`, `SettingsTree`, `SettingsSaved`, `SettingGuardSeat`, `SettingNodeReceipt`, `SavedSettingsRoot`, `SettingAnswer` — the addressing, request, and answer vocabularies.
+- [03]-[REQUEST_ALGEBRA]: `SettingKey`, `SettingsRoot`, `SettingPath`, `ChildPolicy`, `ISettingGuard`, `SettingsVisibility`, `SettingTrait`, `SettingDelta`, `ChangeVerdict`, `SaveOrigin`, `IntegerBound`, `SettingOperation`, `SettingObservation`, `SettingMutation`, `SettingMetadata`, `SettingsTree`, `SettingsSaved`, `SettingGuardSeat`, `NodeMutation`, `SavedSettingsRoot`, `SettingAnswer` — the addressing, request, and answer vocabularies.
 - [04]-[INTERPRETER]: `SettingStore` — node resolution, total dispatch, the two reflection seams, and the guard seat.
 
 ## [02]-[VALUE_AND_KIND]
@@ -350,8 +350,8 @@ public sealed partial class SettingKind {
 - Law: `Legacy` is an ORDERED rename-precedence roster the host walks only when the current key is absent, stopping at the FIRST roster key it resolves, so a repeat and a self-reference name a rank that can never win and both refuse at admission.
 - Law: the enum row is legacy-blind by host construction, so a roster carried on an enum read rides into a walk the host never makes and publishes an `Adopted` rename that never happened.
 - Law: `ClampCase` is a MUTATING read. Every defaulted `Get<Kind>(key, default)` stamps the default layer on a hit and registers the default AND materializes the key on a miss, so the clamped integer reads route with `ChildPolicy.Create` and answer a value the tree now holds. `int` is the only kind carrying clamp overloads, and the case names it.
-- Law: every flag on a node or value rides `CapabilitySet<SettingTrait>` and every two-state host answer rides its own `[SmartEnum<bool>]` row, so `ReadOnly`, `Hidden`, and `Changed` are one held set and no receipt carries a bare bool a reader must interpret from position.
-- Law: `SettingNodeReceipt` carries the prior and current visibility rows alone — a child-deleted flag beside an `Option<SettingKey> Child` was a second authority over the same fact, true exactly when the child is present.
+- Law: every flag on a node or value rides `CapabilitySet<SettingTrait>` and every two-state host answer rides its own `[SmartEnum<bool>]` row, so `ReadOnly`, `Hidden`, and `Changed` are one held set and no answer carries a bare bool a reader must interpret from position.
+- Law: `NodeMutation` carries the prior and current visibility rows alone — a child-deleted flag beside an `Option<SettingKey> Child` was a second authority over the same fact, true exactly when the child is present.
 - Law: `SettingGuardSeat` is published rather than swallowed: `PersistentSettings` publishes no unregister, no clear, and no null-accepting overload, so a seated guard holds for the node's process lifetime and the caller holds what it can never hand back.
 - Growth: a new request is one `SettingOperation` case with its `Route` arm and its `Execute` arm; a new flag is one `SettingTrait` row.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Document/events` (`PluginKey`); `Persistence/dictionary` (`ArchiveValue`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TREE]`/`[SETTINGS_METADATA]` — `FromPlugInId`, `RhinoAppSettings`, `Keys`, `ChildKeys`, `HiddenFromUserInterface`, `GetSettingType`, `GetSettingIsReadOnly`, `GetSettingIsHiddenFromUserInterface`, `StringListRootKey`, `PersistentSettingsSavedEventArgs`), RhinoCommon commands (`api-rhinocommon-commands.md` — `Command.Settings`).
@@ -509,7 +509,7 @@ public abstract partial record SettingObservation {
     public sealed record FaultedCase(SettingKind Kind, Error Fault) : SettingObservation;
 }
 
-public sealed record SettingMutationReceipt(
+public sealed record SettingMutation(
     SettingPath Path,
     SettingKey Key,
     SettingObservation Prior,
@@ -532,7 +532,7 @@ public sealed record SettingsSaved(SettingsTree Tree, SaveOrigin Origin);
 
 public sealed record SettingGuardSeat(SettingPath Path, SettingKey Key, SettingKind Kind);
 
-public sealed record SettingNodeReceipt(
+public sealed record NodeMutation(
     SettingPath Path,
     Option<SettingKey> Child,
     SettingsVisibility Prior,
@@ -543,11 +543,11 @@ public abstract partial record SettingAnswer {
     private SettingAnswer() { }
 
     public sealed record ValueCase(Option<ArchiveValue> Value, Option<SettingKey> Adopted) : SettingAnswer;
-    public sealed record MutationCase(SettingMutationReceipt Receipt) : SettingAnswer;
+    public sealed record MutationCase(SettingMutation Mutation) : SettingAnswer;
     public sealed record MetadataCase(SettingMetadata Metadata) : SettingAnswer;
     public sealed record ChangedCase(ChangeVerdict Verdict) : SettingAnswer;
     public sealed record GuardCase(SettingGuardSeat Seat) : SettingAnswer;
-    public sealed record NodeCase(SettingNodeReceipt Receipt) : SettingAnswer;
+    public sealed record NodeCase(NodeMutation Mutation) : SettingAnswer;
     public sealed record TreeCase(SettingsTree Tree) : SettingAnswer;
 }
 ```
@@ -557,7 +557,7 @@ public abstract partial record SettingAnswer {
 - Owner: `SettingStore` — the one settings entry: `Commit` resolves exactly one node and dispatches the operation exhaustively, `Observe` attaches the saved-settings watch.
 - Entry: admission → root resolution → child resolution under the request's own `ChildPolicy` → typed host action → detached answer. Every operation outside the creating policy fails on a missing path with `MissingContext`.
 - Law: explicit reads use `TryGet*` and never call mutating defaulted getters, and every read — enum included — enters through the owning `SettingKind` row's `Read` column. `ClampCase` is the one declared exception and says so in its own case.
-- Law: one mutation fold owns observable and write-only receipts. A failed post-write read lands as `FaultedCase` evidence with `SettingDelta.Unobserved`, and deletion emits absence only after a host re-probe.
+- Law: one mutation fold owns observable and write-only mutations. A failed post-write read lands as `FaultedCase` evidence with `SettingDelta.Unobserved`, and deletion emits absence only after a host re-probe.
 - Law: `AdmitTarget` compares each payload row with the existing host type, INCLUDING exact enum identity, before explicit or default writes, so a write against a key's seated kind refuses before it lands.
 - Law: the guard seat is CLAIMED, not probed. `RegisterSettingsValidator<T>` is one assignment onto a private per-node map that OVERWRITES unconditionally, so a probe-then-write pair is a TOCTOU two callers both pass; the claim is first-writer-wins over one process-wide seat map keyed by path and key, and the `GetValidator<T>` probe deletes with the `InvalidCastException` arm it needed. NAMED LOSS: a validator seated by FOREIGN code on the same node and key is invisible to the claim, so the claim commits and the host silently overwrites it; witness — the deleted probe was already blind to exactly that case whenever the foreign specialization differed, because `GetValidator<T>` throws rather than answering for a mismatched `T`.
 - Law: a claim whose host write then refuses RELEASES its seat, so a transient host refusal does not strand the key against every later attempt.
@@ -565,7 +565,7 @@ public abstract partial record SettingAnswer {
 - Law: the saved-settings handler has no return path, so the rail lands on the RECEIVER: a root projection or snapshot fault reaches the sink as a failed read rather than dying inside the frame, and only a sink that itself throws is converted and dropped, because there is nowhere left to report it.
 - Law: the tree walk carries a depth budget and answers a TYPED exhaustion fault naming it, because the child chain is host-shaped and an unbounded walk fails the stack instead of the rail.
 - Law: `ArchiveValue` (dictionary.md) is the one payload carrier across this boundary; `SettingsTree` admits and orders value and child keys before recursive projection, and this page owns no parallel event lifecycle beside `PlugIn.SettingsSaved`.
-- Growth: a new operation is one case, one `Route` arm, and one `Execute` arm; the resolver and the receipt folds are untouched.
+- Growth: a new operation is one case, one `Route` arm, and one `Execute` arm; the resolver and the mutation folds are untouched.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`, `[SmartEnum<TKey>]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Atom`, `Traverse`); kernel `Domain/rails` (`Op`, `Op.Probe`, `Op.Catch`, `Op.Side`, `Op.AcceptValidated`, `Cell.Claim`, `Cell.Step`, `Transition`, `KernelFault.InvalidValue`), `Numerics/atoms` (`Dimension`); `Document/lifetime` (`Subscription`), `Document/events` (`PluginKey`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TREE]`/`[SETTINGS_TYPED_READ]`/`[SETTINGS_METADATA]` — `FromPlugInId`, `RhinoAppSettings`, `TryGetChild`, `AddChild`, `DeleteChild`, `GetChild`, `DeleteItem`, `GetInteger` clamp overloads, `HideSettingFromUserInterface`, `RegisterSettingsValidator<T>`, `ContainsChangedValues`, `ClearChangedFlag`, `ContainsModifiedValues`, `PersistentSettingsEventArgs<T>`), RhinoCommon plug-ins (`api-rhinocommon-plugins.md` — `PlugIn.SettingsSaved`), RhinoCommon commands (`api-rhinocommon-commands.md` — `Command.Settings`).
 
 ```csharp
@@ -837,7 +837,7 @@ public static class SettingStore {
         Func<Fin<Option<ArchiveValue>>> read,
         Func<Fin<Unit>> write) => reach.Admits(SettingReach.Read)
         ? Observe(path, key, kind, read, write)
-        : write().Map(_ => (SettingAnswer)new SettingAnswer.MutationCase(new SettingMutationReceipt(
+        : write().Map(_ => (SettingAnswer)new SettingAnswer.MutationCase(new SettingMutation(
             path,
             key,
             new SettingObservation.UnobservableCase(kind),
@@ -853,13 +853,13 @@ public static class SettingStore {
         from prior in read()
         from _ in write()
         select read().Match(
-            Succ: current => (SettingAnswer)new SettingAnswer.MutationCase(new SettingMutationReceipt(
+            Succ: current => (SettingAnswer)new SettingAnswer.MutationCase(new SettingMutation(
                 path,
                 key,
                 new SettingObservation.ObservedCase(prior),
                 new SettingObservation.ObservedCase(current),
                 Same(prior, current) ? SettingDelta.Unchanged : SettingDelta.Changed)),
-            Fail: fault => new SettingAnswer.MutationCase(new SettingMutationReceipt(
+            Fail: fault => new SettingAnswer.MutationCase(new SettingMutation(
                 path,
                 key,
                 new SettingObservation.ObservedCase(prior),
@@ -898,7 +898,7 @@ public static class SettingStore {
             None: () => Fin.Succ(value: Option<ArchiveValue>.None))
         from _ in op.Catch(() => node.DeleteItem(request.Key.Value))
         from _absent in op.Catch(() => guard(SeatedType(node, request.Key).IsNone, op.InvalidResult()).ToFin())
-        select (SettingAnswer)new SettingAnswer.MutationCase(new SettingMutationReceipt(
+        select (SettingAnswer)new SettingAnswer.MutationCase(new SettingMutation(
             request.Path,
             request.Key,
             new SettingObservation.ObservedCase(prior),
@@ -913,7 +913,7 @@ public static class SettingStore {
             Child(node, request.Child).IsNone,
             op.InvalidResult(detail: $"Settings child '{request.Child.Value}' survived deletion.")).ToFin())
         from after in Visibility(node, op)
-        select (SettingAnswer)new SettingAnswer.NodeCase(new SettingNodeReceipt(
+        select (SettingAnswer)new SettingAnswer.NodeCase(new NodeMutation(
             request.Path,
             Some(request.Child),
             before,
@@ -929,7 +929,7 @@ public static class SettingStore {
         from _proof in guard(
             after == request.Visibility,
             op.InvalidResult(detail: "Settings node visibility postcondition failed.")).ToFin()
-        select (SettingAnswer)new SettingAnswer.NodeCase(new SettingNodeReceipt(request.Path, None, before, after));
+        select (SettingAnswer)new SettingAnswer.NodeCase(new NodeMutation(request.Path, None, before, after));
 
     private static Fin<SettingsVisibility> Visibility(PersistentSettings node, Op op) =>
         op.Catch(() => Fin.Succ(value: (SettingsVisibility)node.HiddenFromUserInterface));
@@ -1092,7 +1092,6 @@ public static class SettingStore {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

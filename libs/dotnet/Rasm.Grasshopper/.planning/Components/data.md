@@ -6,7 +6,7 @@
 
 - [02]-[FAULT_AND_NOTICE]: `GhFault` family, the `HostCall` funnel, and the `Severity`/`Notice` diagnostic vocabulary
 - [03]-[TRANSFER]: topology transfer, array and assistant ingress, metadata retagging, and typed `Garden` folds
-- [04]-[CONVERSION]: scope-ranked broker rows, leased participation, conversion receipts, and geometry discriminants
+- [04]-[CONVERSION]: scope-ranked broker rows, leased participation, typed conversion, and geometry discriminants
 - [05]-[HOST_CONTEXT]: tolerance and unit capture projected into the canonical domain context
 
 ## [02]-[FAULT_AND_NOTICE]
@@ -117,7 +117,7 @@ public sealed record Notice(
 - Owner: `Transfer<T>` is the topology union for pin payloads; `Retention` owns metadata preservation or reprojection across every topology; `HostRead<T>` is the ONE typed ingress row over every out-parameter `IDataAccess` read — the array family and the assistant family were two parallel delegate-plus-wrapper shapes over one fact (a host read that answers a value and a bool), so one `HostIngress<T>` delegate and one row type carry both, an assistant pair riding as `HostRead<Assisted<TValue, TAssistant>>` whose row lambda fuses the host's two out-parameters.
 - Cases: `Item` carries a bare value with its `MetaData`; `OfPear`, `OfTwig`, and `OfTree` carry the host carriers verbatim.
 - Entry: `GardenData.Read<T>` discriminates depth by `PinAccess`; `GardenData.Read<T>(access, pin, HostRead<T>)` consumes any typed ingress row — the `ReadArray`/`ReadAssistant` arity twins collapse onto it; `Write<T>` retags pear metadata before emission; `AsTree`, `Zip`, `Amend`, `Evaluate`, and `ConvertTwig` lift the host algebra onto `Fin`.
-- Receipt: every fold lands on `Fin` — an absent pin is `GhFault.Absent`, while `Op.Catch` retains a raised host exception as its original `Error`.
+- Law: every fold lands on `Fin` — an absent pin is `GhFault.Absent`, while `Op.Catch` retains a raised host exception as its original `Error`.
 - Packages: `Grasshopper2` `Garden`, `Tree<T>`/`Twig<T>`/`Pear<T>`, and `MetaData` are the composed algebra; no local tree walker exists beside them.
 - Growth: a new topology the host admits is one `Transfer<T>` case with one arm per fold.
 - Boundary: presence law remains the pin's declared host `Requirement`; a failed ingress becomes `GhFault.Absent`, and all metadata reconstruction uses the `Pear<T>.Create(T, MetaData)` mint.
@@ -282,10 +282,9 @@ public static class GardenData {
 - Owner: `Coerce` is the conversion fold: direct assignment admits first, the ROOT-OWNED `BrokerLedger` evaluates scope-ranked rows, and `ConversionServer` is the terminal generic route. `BrokerLedger` is an INSTANCE the composition root constructs and holds (`Platform/composition.md` row `[03]` — a process-global static registry on a library page was the seat defect), its row store an `AtomHashMap` whose per-key transitions replace the whole-map swap. `CurveShape` and `SurfaceShape` project the geometry brokers' returned `CurveType` and `SurfaceLikeType` discriminants without inferring a case from out-parameter defaults.
 - Cases: `BrokerScope` closes at `Document` and `Plugin`; `BrokerRank` states that lower values run first; the enrolment ordinal orders rows stably within an equal scope and rank.
 - Entry: `Coerce.To<TOut>(raw, ledger, scope, key)` is the one typed conversion entry; broker candidates settle by first success and LanguageExt combines plural failures without a package-local aggregate case.
-- Receipt: every success carries a `ConversionReceipt` naming source, target, route, and the host `Merit` where the server resolved it.
 - Auto: enrolment returns an owned `Lease<BrokerRegistration>`; disposing the lease revokes the row exactly once through the canonical resource rail.
 - Growth: a new conversion route is one broker row; a new geometry family member is one union case with one probe arm.
-- Boundary: the `BrokerLedger` per-key transitions and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives typed carriers and receipts only, and the ledger's ONE instance lives on `PlatformRoot.Brokers` — no page constructs a second.
+- Boundary: the `BrokerLedger` per-key transitions and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives the typed value on `Fin`, and the ledger's ONE instance lives on `PlatformRoot.Brokers` — no page constructs a second.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -319,8 +318,6 @@ public sealed record ConversionScope(Option<Guid> Document, Option<Guid> Plugin)
         document: static (held, row) => held.Document.Map(id => id == row.DocumentId).IfNone(false),
         plugin: static (held, row) => held.Plugin.Map(id => id == row.PluginId).IfNone(false));
 }
-
-public sealed record ConversionReceipt(string Source, string Target, string Route, Option<Grasshopper2.Types.Conversion.Merit> Merit);
 
 public sealed class BrokerRegistration : IDisposable {
     private readonly BrokerLedger ledger;
@@ -377,11 +374,11 @@ public sealed class BrokerLedger {
 }
 
 public static class Coerce {
-    public static Fin<(TOut Value, ConversionReceipt Receipt)> To<TOut>(object? raw, BrokerLedger ledger, ConversionScope scope, Op? key = null) => raw switch {
-        null => Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Absent(new GhSubject(key.OrDefault(), typeof(TOut).Name))),
-        TOut direct => Fin.Succ((direct, Receipt<TOut>(raw, nameof(Type), None))),
+    public static Fin<TOut> To<TOut>(object? raw, BrokerLedger ledger, ConversionScope scope, Op? key = null) => raw switch {
+        null => Fin.Fail<TOut>(new GhFault.Absent(new GhSubject(key.OrDefault(), typeof(TOut).Name))),
+        TOut direct => Fin.Succ(direct),
         _ => ledger.Resolved(raw.GetType(), typeof(TOut), scope)
-            .Fold(Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Conversion(key.OrDefault(), raw.GetType().Name, typeof(TOut).Name, nameof(BrokerLedger))),
+            .Fold(Fin.Fail<TOut>(new GhFault.Conversion(key.OrDefault(), raw.GetType().Name, typeof(TOut).Name, nameof(BrokerLedger))),
                 (state, row) => state | Projected<TOut>(raw, row, key.OrDefault()))
             .BindFail(brokerFault => Served<TOut>(raw, key.OrDefault())
                 .MapFail(serveFault => Error.Many([brokerFault, serveFault]))),
@@ -399,24 +396,24 @@ public static class Coerce {
             .Bind(held => op.Catch(() => SurfaceProbe(held, op)));
     }
 
-    private static Fin<(TOut Value, ConversionReceipt Receipt)> Served<TOut>(object raw, Op key) =>
+    private static Fin<TOut> Served<TOut>(object raw, Op key) =>
         key.Catch(() =>
-            Grasshopper2.Types.Conversion.ConversionServer.Convert(raw, typeof(TOut), out object converted, out Grasshopper2.Types.Conversion.Merit merit, out string detail)
+            Grasshopper2.Types.Conversion.ConversionServer.Convert(raw, typeof(TOut), out object converted, out _, out string detail)
                 ? converted is TOut value
-                    ? Fin.Succ((value, Receipt<TOut>(raw, nameof(Grasshopper2.Types.Conversion.ConversionServer), Optional(merit))))
-                    : Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Conversion(key, converted?.GetType().Name ?? "<null>", typeof(TOut).Name, detail))
-                : Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Conversion(key, raw.GetType().Name, typeof(TOut).Name, detail)));
+                    ? Fin.Succ(value)
+                    : Fin.Fail<TOut>(new GhFault.Conversion(key, converted?.GetType().Name ?? "<null>", typeof(TOut).Name, detail))
+                : Fin.Fail<TOut>(new GhFault.Conversion(key, raw.GetType().Name, typeof(TOut).Name, detail)));
 
-    private static Fin<(TOut Value, ConversionReceipt Receipt)> Projected<TOut>(object raw, BrokerRow row, Op key) =>
+    private static Fin<TOut> Projected<TOut>(object raw, BrokerRow row, Op key) =>
         typeof(TOut).IsAssignableFrom(row.Target)
             ? row.Convert(raw).Bind(value => value is TOut projected
-                ? Fin.Succ((projected, Receipt<TOut>(raw, nameof(BrokerRow), None)))
-                : Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Conversion(
+                ? Fin.Succ(projected)
+                : Fin.Fail<TOut>(new GhFault.Conversion(
                     key,
                     value?.GetType().Name ?? "<null>",
                     typeof(TOut).Name,
                     row.Target.Name)))
-            : Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Conversion(
+            : Fin.Fail<TOut>(new GhFault.Conversion(
                 key,
                 row.Target.Name,
                 typeof(TOut).Name,
@@ -453,8 +450,6 @@ public static class Coerce {
                 nameof(Grasshopper2.Parameters.Standard.SurfaceBroker))),
         };
 
-    private static ConversionReceipt Receipt<TOut>(object raw, string route, Option<Grasshopper2.Types.Conversion.Merit> merit) =>
-        new(raw.GetType().Name, typeof(TOut).Name, route, merit);
 }
 ```
 
@@ -497,7 +492,6 @@ public sealed record HostUnits(double Absolute, double Relative, Grasshopper2.Ty
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

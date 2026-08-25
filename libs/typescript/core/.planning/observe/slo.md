@@ -179,7 +179,7 @@ const _Burn = Shape.vocabulary(_burnKinds, _burnRows)
 
 ## [04]-[ALGEBRA]
 
-- Receipt: `Verdict` carries each row's burn state and optional dominant severity as routable data.
+- Output: `Verdict` carries each row's burn state and optional dominant severity as routable data.
 - Growth: a new verdict axis is one field on the fold's construction — the table and arithmetic are closed.
 
 ```typescript
@@ -341,7 +341,6 @@ export { Reliability }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

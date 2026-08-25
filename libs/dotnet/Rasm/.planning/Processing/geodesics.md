@@ -2,21 +2,21 @@
 
 `Geodesics` owns the on-mesh distance-and-tangent-transport suite over `MeshSpace`: every solver runs against the shared `LaplacianCache`, so repeated sampling of one distance, curvature, wavefront, or transport field pays a single solve. `fields` `ScalarField`/`VectorField` case names delegate their bodies here as frozen contract, and every linear system rides the `matrix` owners this page never re-derives.
 
-Every linear solve rides the `matrix` owners — `CholeskySparse.SolveDetailed` factors and `SparseMatrix.SingularSolveDetailed` under the pinned min-zero gauge, each `SolveReceipt` READ rather than projected away — while the heat scaffold composes the `dec` source-delta, gradient, and divergence operators as settled. Memoization rides `LaplacianCache`'s type-keyed `Memoized` entry over the frozen `IntrinsicMesh` snapshot and the scalar-heat and connection Cholesky factors; `FrameBundle` and `MeshProbe` are the one tangent-frame and closest-face owners shared with the sibling shape page.
+Every linear solve rides the `matrix` owners — `CholeskySparse.SolveDetailed` factors and `SparseMatrix.SingularSolveDetailed` under the pinned min-zero gauge, each `LinearSolution` READ rather than projected away — while the heat scaffold composes the `dec` source-delta, gradient, and divergence operators as settled. Memoization rides `LaplacianCache`'s type-keyed `Memoized` entry over the frozen `IntrinsicMesh` snapshot and the scalar-heat and connection Cholesky factors; `FrameBundle` and `MeshProbe` are the one tangent-frame and closest-face owners shared with the sibling shape page.
 
 ## [01]-[INDEX]
 
 - [02]-[HEAT_DISTANCE]: heat-method geodesic distance, geodesic tangent, and implicit MCF as cache-memoized per-vertex fields sampled through `MeshProbe`.
 - [03]-[EXACT_GEODESICS]: MMP window propagation, the one `WalkChart` tracer over IVP/BVP/overlay seats, and the BVP source backtrace with its independent distance witness.
-- [04]-[TANGENT_TRANSPORT]: vector-heat parallel transport, the three-arm `TangentLogMapAlgorithm` log-map surface, and the receipt family.
+- [04]-[TANGENT_TRANSPORT]: vector-heat parallel transport, the three-arm `TangentLogMapAlgorithm` log-map surface, and the `LogMapTrace` evidence.
 
 ## [02]-[HEAT_DISTANCE]
 
 - Owner: `GeodesicKey`/`McfKey` cache probes (value identity = memo identity: ordered-distinct sources, time-step + iteration count); `FrameBundleKey` the frame memo probe seating the per-vertex tangent frames on the snapshot cache — the ONE tangent encode/decode owner this page and the sibling shape page share, refusing typed at a vertex whose normal never seated; `MeshProbe` the shared closest-face sampling substrate (`ClosestFace`, scalar/vector/complex barycentric interpolation, the scale-derived search distance `max(tolerance, mean edge)`); the `GeodesicKernel` heat-distance arms.
 - Entry: `GeodesicKernel.HeatGeodesicAt(space, sources, sample, key)` → `Fin<double>`; `GeodesicKernel.GeodesicTangentAt(space, sources, sample, key)` → `Fin<Vector3d>`; `GeodesicKernel.MeanCurvatureMagnitudeAt(space, timeStep, iterations, sample, key)` → `Fin<double>` — all reached through the frozen `ScalarField.Geodesic`/`MeanCurvatureFlow` and `VectorField.GeodesicTangent` case delegations and `VectorIntent`; sources are deduplicated and ordered before probing the cache so permuted source sets hit one memo.
 - Auto: heat pipeline guards the intrinsic snapshot un-flipped (heat distance on a flipped IDT is `Unsupported`, never silently extrinsic), selects the `MeshLaplacian.IntrinsicDelaunay` Laplacian, seats the Crane time `t = h²` off the cached mean edge length, solves `(M+tL)u = δ` through the cached scalar-heat Cholesky, normalizes the per-face gradient field, scatters the cotan vertex divergence, and closes with the pinned singular Poisson solve (`GaugePolicy.Pinned(sources, mass, GaugeShift.MinZero)`) shifted so the minimum is zero at the sources — distances are nonnegative by construction. MCF factors `(M + tL)` ONCE and backward-Euler iterates the three coordinate axes as mass-weighted solves (`TraverseM` over axes), returning per-vertex displacement magnitudes. Geodesic-tangent sampling reads the per-face gradient of the cached distance field at the closest face, rejecting degenerate faces.
-- Receipt: the distance/displacement fields are cached `Arr<double>` per-vertex carriers; failure evidence routes the `Op` rail (`InvalidInput` for empty/out-of-range sources or non-positive time, `InvalidResult` for degenerate scale, `Unsupported` for flipped intrinsic snapshots).
-- Law: every sparse solve READS its `SolveReceipt` through the one `Solved` gate — `IsValid` folds the stop's usability — so an unusable factorization refuses typed instead of caching a divergent field as a distance.
+- Output: the distance/displacement fields are cached `Arr<double>` per-vertex carriers; failure evidence routes the `Op` rail (`InvalidInput` for empty/out-of-range sources or non-positive time, `InvalidResult` for degenerate scale, `Unsupported` for flipped intrinsic snapshots).
+- Law: every sparse solve READS its `LinearSolution` through the one `Solved` gate — `IsValid` folds the stop's usability — so an unusable factorization refuses typed instead of caching a divergent field as a distance.
 - Boundary: the `dec` scaffold (`SourceDelta`/`FaceGradients`/`Divergence`) composes as settled; `MeshProbe` is the one closest-face interpolation owner the sibling shape page composes; the heat time is scale-derived (`h²`), since transport spread is vector heat's semantic and distance carries none.
 
 ```csharp
@@ -100,8 +100,8 @@ internal static class MeshProbe {
 }
 
 internal static partial class GeodesicKernel {
-    internal static Fin<Arr<double>> Solved(Fin<SolveReceipt> solve, Op key) =>
-        solve.Bind(receipt => receipt.IsValid ? Fin.Succ(receipt.Solution) : Fin.Fail<Arr<double>>(key.InvalidResult()));
+    internal static Fin<Arr<double>> Solved(Fin<LinearSolution> solve, Op key) =>
+        solve.Bind(solved => solved.IsValid ? Fin.Succ(solved.Solution) : Fin.Fail<Arr<double>>(key.InvalidResult()));
 
     // --- [HEAT_METHOD]
     internal static Fin<double> HeatGeodesicAt(MeshSpace space, Seq<int> sources, Point3d sample, Op key) =>
@@ -188,7 +188,7 @@ internal static partial class GeodesicKernel {
 - Cases: stop kinds (5); walk modes (2); tracer entries — IVP exp seat · BVP log replay · overlay edge-trace — three seats over ONE `WalkChart` loop.
 - Exemption: the MMP frontier is a BCL `PriorityQueue` with its refused operator named in-fence — an event stream of minted, clipped, and evicted windows is not a relaxation over a static container, and QuikGraph carries no event queue. `GeodesicWalkMode`'s two columns stay INDEPENDENT bools: crossing capture and snap suppression answer different questions and no legal-corner law binds them, so a third seat may take either corner.
 - Entry: `GeodesicKernel.PropagateWindows(imesh, source, policy, coneAngle, key)` → `Fin<WindowPropagation>` (the converged field + MMP-exact vertex distances; the log-map consumer memoizes it per `WindowFieldKey` so repeated sampling of one source pays one wavefront); `GeodesicKernel.TraceStraightestGeodesic(imesh, mesh, frames, source, startFace, worldDir, traceLength, coneAngles, policy)` → `ExpTrace`; `GeodesicKernel.BacktraceGeodesicToSource(imesh, mesh, frames, field, targetDistance, source, targetFace, targetWeights, coneAngles, policy)` → `Option<BvpTrace>` — internal arms surfaced through the [04] log/exp map results; the `mesh` common-subdivision overlay seats the same `WalkChart` in `EdgeOverlay` mode, so ONE unfold kernel serves distance, log, exp, and overlay.
-- Auto: wavefront propagation seeds every source-incident face's opposite edge (pseudosource projected to `(sx, sy≤0)` from endpoint distances), advances a `PriorityQueue` min-frontier keyed on `sigma + min(d0,d1)`, unfolds each popped window across its edge (apex laid flat by the law of cosines), updates the apex distance only inside the window's angular shadow (`WithinShadow` — the SAME predicate the BVP backtrace later uses for owning-window selection, so forward and backward provably agree), casts children onto the two far edges with the occlusion clamp `sy = −sqrt(max(0, d0²−sx²))` counted into the receipt (the classic MMP saddle-overestimation fix), re-emits saddle pseudosources at interior vertices whose cone angle strictly exceeds the threshold, bounds the pop budget by `4·maxPerEdge·edgeCount` and REFUSES TYPED on a live frontier at the bound — a truncated wavefront reads as converged and publishes distances MMP never proved — closes stranded vertices with ONE Jacobi (snapshot-relaxed, order-independent) edge sweep — vertices still unreached keep `+∞`, the honest unreachable encoding that fails downstream interpolation rather than reading as on-source — and reports a cut-locus census on request. Window admission drops children wholly dominated by a cheaper covering window and evicts the farthest window at the per-edge budget. Tracing lays the start face flat (`va` at origin, `vb` on +x), shoots the seat-angle ray, exits faces by segment-ray intersection, unfolds the neighbor sharing the crossed edge's 2D placement (mirror-side sign load-bearing), snaps grazing exits inside `VertexSnap·edgeLength` into vertex passes continued by the half-cone bisector split (`theta_l = theta_r = theta/2`, the fan chained geometrically via `FaceAcrossEdge` — enumeration order is never rotation order), and terminates on length/boundary/vertex/cap. BVP backtrace recovers boundary conditions from the converged field — owning window at the target (the EXACT pseudosource-chart distance `σ + |(bary,0)−(sx,sy)|`, never an endpoint interpolation), saddle chain walked monotone toward the source with the confirmed first leg replayed through strip development (a chain pseudosource is a seeded saddle by construction, so no cone re-derivation) — then inverse-seats the source-outgoing chart angle to world and replays through `WalkChart`, so `TracedLength` is an INDEPENDENT chart-geometry distance witnessed against the field distance, never the input echoed back; a bent geodesic returns the confirmed first leg's direction scaled by the target's field-exact distance (`|log| = d(p,q)`).
+- Auto: wavefront propagation seeds every source-incident face's opposite edge (pseudosource projected to `(sx, sy≤0)` from endpoint distances), advances a `PriorityQueue` min-frontier keyed on `sigma + min(d0,d1)`, unfolds each popped window across its edge (apex laid flat by the law of cosines), updates the apex distance only inside the window's angular shadow (`WithinShadow` — the SAME predicate the BVP backtrace later uses for owning-window selection, so forward and backward provably agree), casts children onto the two far edges with the occlusion clamp `sy = −sqrt(max(0, d0²−sx²))` counted into the trace (the classic MMP saddle-overestimation fix), re-emits saddle pseudosources at interior vertices whose cone angle strictly exceeds the threshold, bounds the pop budget by `4·maxPerEdge·edgeCount` and REFUSES TYPED on a live frontier at the bound — a truncated wavefront reads as converged and publishes distances MMP never proved — closes stranded vertices with ONE Jacobi (snapshot-relaxed, order-independent) edge sweep — vertices still unreached keep `+∞`, the honest unreachable encoding that fails downstream interpolation rather than reading as on-source — and reports a cut-locus census on request. Window admission drops children wholly dominated by a cheaper covering window and evicts the farthest window at the per-edge budget. Tracing lays the start face flat (`va` at origin, `vb` on +x), shoots the seat-angle ray, exits faces by segment-ray intersection, unfolds the neighbor sharing the crossed edge's 2D placement (mirror-side sign load-bearing), snaps grazing exits inside `VertexSnap·edgeLength` into vertex passes continued by the half-cone bisector split (`theta_l = theta_r = theta/2`, the fan chained geometrically via `FaceAcrossEdge` — enumeration order is never rotation order), and terminates on length/boundary/vertex/cap. BVP backtrace recovers boundary conditions from the converged field — owning window at the target (the EXACT pseudosource-chart distance `σ + |(bary,0)−(sx,sy)|`, never an endpoint interpolation), saddle chain walked monotone toward the source with the confirmed first leg replayed through strip development (a chain pseudosource is a seeded saddle by construction, so no cone re-derivation) — then inverse-seats the source-outgoing chart angle to world and replays through `WalkChart`, so `TracedLength` is an INDEPENDENT chart-geometry distance witnessed against the field distance, never the input echoed back; a bent geodesic returns the confirmed first leg's direction scaled by the target's field-exact distance (`|log| = d(p,q)`).
 - Boundary: saddle threshold is a cone-angle gate seated at `2π` (`PositiveMagnitude`, unbounded above — a hyperbolic cone point carries total angle above `2π`) compared strictly `>`, so flat and convex vertices never seed pseudosources. Unfold, cast, walk, and strip loops are the named statement-kernel exemption — pure-scalar hot loops over the intrinsic geometry detached at the `IntrinsicMesh` freeze boundary, admitted through `Fin` at every entry. Unconfirmed bent paths keep the honest `IterationCap` terminal with the MMP-exact distance recorded and NO direction — the log direction is optional, so an unconfirmed arm publishes absence rather than a zero vector consumers scale. Chart-geometry refusals — a ray exiting no edge, a pinched fan, a cone below the floor — report `DegenerateChart`, so a caller never retries them under a larger step budget. Budgets and snap bands are policy rows. Boundary exits report `BoundaryHit`; a barrier stop reads the `GeodesicTracePolicy.Barrier` feature-edge set at the walk's exit test and terminates `BarrierHit` with the consumed arc recorded — barrier semantics are edge-crossing alone, so a vertex-snap continuation never tunnels custody the edge set does not spell.
 
 ```csharp
@@ -728,11 +728,11 @@ internal static partial class GeodesicKernel {
 
 ## [04]-[TANGENT_TRANSPORT]
 
-- Owner: `VectorHeatKey` cache probe (time + ordered source tangents); `TangentLogMapAlgorithm` `[SmartEnum<int>]` (VectorHeatApproximate/ExactStraightestExp/ExactWindowPropagation); `TangentLogMapReceipt`/`TangentLogMapResult` the log-map evidence on the rails fold with the path law as the declared gate; the `GeodesicKernel` transport arms.
+- Owner: `VectorHeatKey` cache probe (time + ordered source tangents); `TangentLogMapAlgorithm` `[SmartEnum<int>]` (VectorHeatApproximate/ExactStraightestExp/ExactWindowPropagation); `LogMapTrace`/`TangentLogMapResult` the log-map evidence on the rails fold with the path law as the declared gate; the `GeodesicKernel` transport arms.
 - Entry: `GeodesicKernel.VectorHeatAt(space, sources, time, sample, key)` → `Fin<Vector3d>` (Sharp-Soliman-Crane parallel transport of tangent data — the frozen `VectorField.VectorHeat` case delegates here); `GeodesicKernel.TangentLogMapAt(space, source, sample, time, algorithm, trace, windows, key)` → `Fin<TangentLogMapResult>` — ONE log-map surface routing three algorithms through the generated `Switch` (a new `TangentLogMapAlgorithm` row is a hard compile gate), Func-form so the allocating exact arms stay unevaluated until dispatch; `GeodesicKernel.ExactExpMapAt(space, source, sample, policy, key)` → `Fin<TangentLogMapResult>` (the IVP seat of the one tracer).
 - Auto: vector-heat transport orders sources deterministically (vertex, then direction components — permuted source sets hit one memo), encodes each source tangent into the vertex frame as a mass-weighted complex (the scalar heat-method source convention), solves the connection system at symmetry 1 through the cached connection Cholesky and the magnitude/indicator scalars through the cached scalar-heat Cholesky, and recovers `unit(direction) · (magnitude/indicator)` per vertex — transported direction from the connection, transported magnitude from the ratio; sampling decodes per-vertex complexes through the frame bundle and blends barycentrically. Approximate log map scales the transported source tangent by the heat geodesic distance and records the magnitude residual; the exact exp map seats the world chord tangent and walks the straightest geodesic with the closing residual `|requested − traced|/requested`; the exact log map interpolates MMP-exact vertex distances barycentrically (an unreached island interpolates `+∞` and fails the rail), backtraces the BVP, and accepts a direction ONLY when the backtrace reached the source with a finite ray AND the independent chart distance matches the field distance inside the scale-relative band (`PathRelativeResidual ≤ SqrtEpsilon`) — a confirmed saddle chain returns the first leg's initial direction scaled by the target's field distance (`|log| = d(p,q)`), while an unconfirmed bend, a wrong owning-window pick, or a degenerate ray disagrees the two witnesses and fails the projection rather than fabricating a direction.
-- Receipt: `TangentLogMapReceipt` — algorithm, source vertex, optional magnitude residual and heat time, the degenerate-frame census, the path evidence (`PathFaces`/`CrossedEdges`/`TracedLength`/`PathRelativeResidual`/segment-crossing-pass counts/stop kind), and the wavefront census (window/clamp/pseudosource/cut-locus/drop counts and the pop budget left). Postures derivable from `Algorithm` carry no column of their own. Validity is the rails `ValidityClaim.All` fold — mechanical rows conjoined with the declared gate: path arrays match their counts and `SegmentCount = EdgeCrossingCount + VertexPassCount + 1` whenever a stop kind is present and segments exist.
-- Boundary: the near-source case returns the zero tangent under the `AtSource` terminal (log of the base point is zero, and nothing was traced); the two exact arms reject rather than degrade — `ExactWindowPropagation` with an unconfirmed direction fails the projection while still carrying the MMP-exact distance in its receipt, and a consumer wanting best-effort direction selects `VectorHeatApproximate` by row.
+- Output: `LogMapTrace` — algorithm, source vertex, optional magnitude residual and heat time, the degenerate-frame census, the path evidence (`PathFaces`/`CrossedEdges`/`TracedLength`/`PathRelativeResidual`/segment-crossing-pass counts/stop kind), and the wavefront census (window/clamp/pseudosource/cut-locus/drop counts and the pop budget left). Postures derivable from `Algorithm` carry no column of their own. Validity is the rails `ValidityClaim.All` fold — mechanical rows conjoined with the declared gate: path arrays match their counts and `SegmentCount = EdgeCrossingCount + VertexPassCount + 1` whenever a stop kind is present and segments exist.
+- Boundary: the near-source case returns the zero tangent under the `AtSource` terminal (log of the base point is zero, and nothing was traced); the two exact arms reject rather than degrade — `ExactWindowPropagation` with an unconfirmed direction fails the projection while still carrying the MMP-exact distance in its trace, and a consumer wanting best-effort direction selects `VectorHeatApproximate` by row.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -756,7 +756,7 @@ public sealed partial class GeodesicStopKind {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TangentLogMapReceipt(
+public readonly record struct LogMapTrace(
     TangentLogMapAlgorithm Algorithm, int SourceVertex,
     Option<double> MaxMagnitudeResidual, Option<double> HeatTime, Arr<int> PathFaces, Arr<int> CrossedEdges,
     double TracedLength, double PathRelativeResidual, int SegmentCount, int EdgeCrossingCount, int VertexPassCount,
@@ -774,7 +774,7 @@ public readonly record struct TangentLogMapReceipt(
         !StopKind.IsSome || SegmentCount == 0 || SegmentCount == EdgeCrossingCount + VertexPassCount + 1);
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, TangentLogMapReceipt Receipt);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, LogMapTrace Trace);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
@@ -860,7 +860,7 @@ internal static partial class GeodesicKernel {
                from tangent in distance <= space.Tolerance.Absolute.Value
                    ? key.AcceptValue(value: Vector3d.Zero)
                    : TransportedLog(transported: transported, scale: distance, key: key)
-               select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(
+               select new TangentLogMapResult(Tangent: tangent, Trace: new LogMapTrace(
                    Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate, SourceVertex: source,
                    MaxMagnitudeResidual: Some(residual), HeatTime: Some(time),
                    PathFaces: [], CrossedEdges: [], TracedLength: distance, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0,
@@ -879,13 +879,13 @@ internal static partial class GeodesicKernel {
             : from frames in FrameBundle.Of(space: space, key: key)
               let seat = SeatChord(frames: frames, from: space.Native.Vertices[index: source], to: sample, vertex: source)
               from result in seat.Chord <= space.Tolerance.Absolute.Value
-                  ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: ZeroTraceReceipt(algorithm: TangentLogMapAlgorithm.ExactStraightestExp, source: source, degenerateVertices: frames.DegenerateVertexCount)))
+                  ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Trace: ZeroTrace(algorithm: TangentLogMapAlgorithm.ExactStraightestExp, source: source, degenerateVertices: frames.DegenerateVertexCount)))
                   : from imesh in space.Cache.EnsureFrozenIntrinsic(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                     from coneAngles in ConeAngles(space: space, imesh: imesh, key: key)
                     from startFace in FirstLiveFaceAt(imesh: imesh, vertex: source) switch { int face when face >= 0 => Fin.Succ(face), _ => Fin.Fail<int>(key.InvalidResult()) }
                     let traceLength = seat.Chord > EpsilonPolicy.ZeroTolerance ? seat.Chord : Math.Max(val1: space.Cache.MeanEdgeLength, val2: space.Tolerance.Absolute.Value) * policy.TraceLengthFactor.Value
                     let walk = TraceStraightestGeodesic(imesh: imesh, mesh: space.Native, frames: frames, source: source, startFace: startFace, worldDir: seat.Direction, traceLength: traceLength, coneAngles: coneAngles, policy: policy)
-                    let receipt = new TangentLogMapReceipt(
+                    let logMap = new LogMapTrace(
                         Algorithm: TangentLogMapAlgorithm.ExactStraightestExp, SourceVertex: source,
                         MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
                         PathFaces: walk.PathFaces, CrossedEdges: walk.CrossedEdges,
@@ -893,8 +893,8 @@ internal static partial class GeodesicKernel {
                         PathRelativeResidual: traceLength > EpsilonPolicy.SqrtEpsilon ? Math.Abs(value: traceLength - walk.TracedLength) / traceLength : 0.0,
                         SegmentCount: walk.PathFaces.Count, EdgeCrossingCount: walk.EdgeCrossingCount, VertexPassCount: walk.VertexPassCount,
                         DegenerateVertexCount: frames.DegenerateVertexCount, StopKind: Some(walk.Stop))
-                    from tangent in receipt.IsValid ? key.AcceptValue(value: walk.SeatedWorldDir * walk.TracedLength) : Fin.Fail<Vector3d>(key.InvalidResult())
-                    select new TangentLogMapResult(Tangent: tangent, Receipt: receipt)
+                    from tangent in logMap.IsValid ? key.AcceptValue(value: walk.SeatedWorldDir * walk.TracedLength) : Fin.Fail<Vector3d>(key.InvalidResult())
+                    select new TangentLogMapResult(Tangent: tangent, Trace: logMap)
               select result;
     }
 
@@ -919,7 +919,7 @@ internal static partial class GeodesicKernel {
                           double witnessDistance = trace.FieldDistance;
                           double pathResidual = nearSource || witnessDistance <= EpsilonPolicy.SqrtEpsilon ? 0.0 : Math.Abs(value: trace.TracedLength - witnessDistance) / Math.Max(val1: witnessDistance, val2: EpsilonPolicy.SqrtEpsilon);
                           Option<Vector3d> recovered = trace.WorldLogDir.Filter(direction => trace.Stop.Equals(GeodesicStopKind.LengthReached) && direction.IsValid && direction.Length > EpsilonPolicy.ZeroTolerance && pathResidual <= EpsilonPolicy.SqrtEpsilon);
-                          TangentLogMapReceipt receipt = new(
+                          LogMapTrace logMap = new(
                               Algorithm: TangentLogMapAlgorithm.ExactWindowPropagation, SourceVertex: source,
                               MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
                               PathFaces: trace.PathFaces, CrossedEdges: trace.CrossedEdges,
@@ -931,9 +931,9 @@ internal static partial class GeodesicKernel {
                               PseudosourceCount: wave.Field.PseudosourceCount, CutLocusCount: wave.Field.CutLocusCount,
                               DroppedWindowCount: wave.Field.DroppedWindowCount, PopBudgetRemaining: Some(wave.Field.PopBudgetRemaining));
                           return nearSource
-                              ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Receipt: receipt))
-                              : receipt.IsValid && recovered.Case is Vector3d direction
-                                  ? key.AcceptValue(value: direction).Map(value => new TangentLogMapResult(Tangent: value, Receipt: receipt))
+                              ? key.AcceptValue(value: Vector3d.Zero).Map(zero => new TangentLogMapResult(Tangent: zero, Trace: logMap))
+                              : logMap.IsValid && recovered.Case is Vector3d direction
+                                  ? key.AcceptValue(value: direction).Map(value => new TangentLogMapResult(Tangent: value, Trace: logMap))
                                   : Fin.Fail<TangentLogMapResult>(key.InvalidResult());
                       },
                       None: () => Fin.Fail<TangentLogMapResult>(key.InvalidResult()));
@@ -962,7 +962,7 @@ internal static partial class GeodesicKernel {
         IntrinsicEdge incident = imesh.EdgeAt(index: edge);
         return incident.Face0 >= 0 ? incident.Face0 : incident.Face1;
     }
-    private static TangentLogMapReceipt ZeroTraceReceipt(TangentLogMapAlgorithm algorithm, int source, int degenerateVertices) => new(
+    private static LogMapTrace ZeroTrace(TangentLogMapAlgorithm algorithm, int source, int degenerateVertices) => new(
         Algorithm: algorithm, SourceVertex: source, MaxMagnitudeResidual: Option<double>.None, HeatTime: Option<double>.None,
         PathFaces: [], CrossedEdges: [], TracedLength: 0.0, PathRelativeResidual: 0.0, SegmentCount: 0, EdgeCrossingCount: 0, VertexPassCount: 0,
         DegenerateVertexCount: degenerateVertices, StopKind: Some(GeodesicStopKind.AtSource));
@@ -979,7 +979,7 @@ config:
 ---
 flowchart LR
     accTitle: Geodesic kernel dispatch
-    accDescr: Heat, MMP, and transport bands folding through the intrinsic mesh, frame bundle, and window field onto typed receipts.
+    accDescr: Heat, MMP, and transport bands folding through the intrinsic mesh, frame bundle, and window field onto typed traces.
     Fields["fields: Geodesic / MCF / VectorHeat / GeodesicTangent / TangentLogMap cases"] --> GeodesicKernel
     GeodesicKernel -->|"heat: (M+tL)u=δ → ∇ → div → pinned Poisson"| Cache["mesh: LaplacianCache factors + memos"]
     GeodesicKernel -->|scaffold| Dec["dec: DecAssembly source-delta / gradients / divergence"]
@@ -995,7 +995,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

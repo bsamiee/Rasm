@@ -1,13 +1,13 @@
 # [PY_COMPUTE_SYMBOLIC]
 
-`SymbolicDerivation` is the one classical computer-algebra owner. A derivation is a `Block[SymbolicOp]` left-folded over an `ExprForm` to one typed `SymbolicReceipt`: every non-terminal op rewrites the carried expression and the terminal op produces the artifact, so a `Refine -> simplify -> diff -> Lower(numpy)` derivation is one fold, never a `pre`/`terminal` split. Its terminal artifact is one discriminated `Outcome` the receipt carries whole, and the input is parameterized as tightly as the output — `ExprForm` discriminates a `str` spelling, a `MatrixForm`, or a constructed `Expr` through one `derive` entry. No learned or generative symbolic search enters this owner.
+`SymbolicDerivation` owns classical computer algebra, left-folding a `Block[SymbolicOp]` over an `ExprForm`: every staging op rewrites the carried expression and the terminal op returns its exact provider product with the derivation key. `ExprForm` discriminates a `str` spelling, a `MatrixForm`, or a constructed `Expr` through one `derive` entry.
 
 This is the core solver route with a gating law per backend: `sympy` is pure-Python and imports on the runtime, so calculus, rewrite, solve, matrix algebra, assumption logic, number theory, heuristic numeric evaluation, and the source-printer family run as live core; `python-flint`'s exact kernels and the certified-ball `Evaluate` precision row gate on the worker lane; `Lower(jax)` reads `jax` at usage on the jaxlib floor; `Lower(native)`'s `autowrap`/`ufuncify` rows gate on a host C/Fortran toolchain. Derivations key through the runtime `ContentIdentity` over the canonical `SymbolicPayload`, so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference; a `source` derivation graduates outward on the symbolic `HandoffAxis` case once stable and reproducible.
 
 ## [01]-[INDEX]
 
 - [02]-[OP]: the `SymbolicOp` bounded vocabulary — staging expression-to-expression rows composing ahead of one terminal artifact row, with the `GroundDomain` and `Precision` accelerator axes.
-- [03]-[DERIVATION]: `SymbolicDerivation.derive` left-folding a `Block[SymbolicOp]` over an `ExprForm` to one content-keyed `SymbolicReceipt`.
+- [03]-[DERIVATION]: `SymbolicDerivation.derive` left-folding a `Block[SymbolicOp]` over an `ExprForm` to the terminal provider value and its content key.
 
 ## [02]-[OP]
 
@@ -29,38 +29,36 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 - `Calculus`: unevaluated `Derivative`/`Integral`/`Sum` nodes force through `.doit()`, and `series` trims its `Order` term in the same row, never a second method.
 - `Substitute`: map keys and values are spellings resolved against the live `SymbolSpec`, never raw strings escaping the boundary.
 - `Refine`: assumptions are derivation inputs the `SymbolSpec` declares, never a post-hoc filter.
-- `Solve`: every polynomial route carries a real `metric` — discriminant magnitude, resultant magnitude, or `nsolve` residual — never a dead `0.0`.
-- `NumberTheory`: an empty prime range and an empty factorization carry `Nothing` for `magnitude`, since neither measured an extremum.
 - `LinAlg`: `GroundDomain.FLINT` accelerates only the `_FLINT_MATRIX_ROUTES` exact-over-rationals subset, and `MINPOLY` is FLINT-only — sympy `Matrix` owns no minimal-polynomial kernel, so the sympy ground rails a fenced typed fault.
-- `NumberTheory`: GCD/LCM reinterpret unary by operand shape — a polynomial reads `gcd(p, p')`, a leaf integer its genuine divisor-lattice structure, never the vacuous `gcd(n, n) == n` tautology.
-- `Evaluate`: `CERTIFIED` re-evaluates through a `python-flint` `arb` ball whose `rad()` is the certified error bound `HEURISTIC` lacks — and `HEURISTIC` carries `Nothing` for it, so an absent bound never clears a stability ceiling as a zero.
+- `NumberTheory`: GCD/LCM read a polynomial with its derivative; constant inputs refuse because the unary request carries no second operand.
+- `Evaluate`: `CERTIFIED` returns a `python-flint` `arb` ball whose `rad()` supplies the stability bound; `HEURISTIC` returns SymPy's native numeric value and clears no certified ceiling.
 - `Codegen`: a new target is one `CodeTarget` value and one `_CODE_PRINTER` row, never a parallel emitter.
 
 ## [03]-[DERIVATION]
 
-`SymbolicDerivation` threads an assumption-carrying `SymbolSpec` over an `ExprForm` and left-folds a `Block[SymbolicOp]` pipeline to one typed `SymbolicReceipt` from one shared `cse` lowering, never parallel entries per artifact.
+`SymbolicDerivation` threads an assumption-carrying `SymbolSpec` over an `ExprForm` and left-folds a `Block[SymbolicOp]` pipeline to the terminal provider product from one shared `cse` lowering.
 
 - Cases: `ExprForm` is the polymorphic input — a `str` spelling, a `MatrixForm` of cell spellings, or a constructed `Expr` — discriminated by one `derive` entry rather than `derive`/`derive_matrix`/`derive_expr` siblings.
-- Entry: `derive(form, spec, *ops)` is the one railed entrypoint riding the hub weave as `evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=...)` — the span carries terminal, op-count, and symbol discriminants, the weave harvest emits the receipt on the clean exit, and no second un-railed constructor exists; the graduation gate reads the `source` evidence through the symbolic `HandoffAxis` case.
+- Entry: `derive(form, spec, *ops)` is the one railed entrypoint riding the hub weave as `evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=...)`; the span carries terminal, op-count, and symbol discriminants.
 - Auto: the runtime content owner mints the derivation key over the canonical `SymbolicPayload`, never a hand-rolled canonical encode; two derivations differing in assumption context, op pipeline, or terminal route key distinctly.
-- Receipt: `outcome` is the terminal `Outcome` case owning its `facts()` projection, and the carried `LoweredSpec` is a VALUE consumers project off the outcome, never a receipt fact; a derivation graduates through the self-wired `graduates` producer — `Precision.CERTIFIED` ships its arb radius, a reproducibly `HEURISTIC` run ships zero instability — against the `_CEILING` family row.
-- Growth: a new calculus transform is one `CalculusKind` row and one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row and one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row and one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case with its `facts()` arm and one terminal `apply` arm.
+- Output: `derive` retains the exact terminal provider value beside its content key; `graduates` reads certification from the actual `arb` product.
+- Growth: a new calculus transform is one `CalculusKind` row and one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row and one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row and one `_CODE_PRINTER` entry.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from enum import StrEnum
-from typing import TYPE_CHECKING, Final, Literal, assert_never
+from typing import TYPE_CHECKING, Final, Literal, assert_never, cast
 
-from expression import Nothing, Option, Some, case, tag, tagged_union
+from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
+from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, Graduation, HandoffAxis, evidence_run
 from rasm.compute.numerics.jit import JitBackend, LoweredSpec
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, rostered
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 
 lazy import flint
 lazy import sympy
@@ -72,7 +70,8 @@ lazy from sympy.utilities.autowrap import autowrap, ufuncify
 lazy from sympy.utilities.codegen import codegen
 
 if TYPE_CHECKING:
-    from sympy import Expr
+    from flint import acb, arb, fmpq, fmpq_mat, fmpq_poly, fmpz
+    from sympy import Basic, Expr, MatrixBase, Set
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -199,7 +198,38 @@ class CodeTarget(StrEnum):
 
 
 type MatrixForm = tuple[tuple[str, ...], ...]
-type ExprForm = str | MatrixForm | "Expr"
+type ExprForm = str | MatrixForm | Expr | MatrixBase
+type AlgebraValue = (
+    Basic
+    | MatrixBase
+    | Set
+    | fmpz
+    | fmpq
+    | fmpq_mat
+    | fmpq_poly
+    | arb
+    | acb
+    | LoweredSpec
+    | str
+    | bool
+    | int
+    | list[Basic]
+    | list[int]
+    | list[tuple[Basic, ...]]
+    | list[dict[Basic, Basic]]
+    | list[tuple[Basic, int]]
+    | list[tuple[Basic, int, list[MatrixBase]]]
+    | list[tuple[fmpz, int]]
+    | list[tuple[arb | acb, int]]
+    | dict[Basic, int]
+    | tuple[Basic, list[tuple[Basic, int]]]
+    | tuple[fmpq, list[tuple[fmpq_poly, int]]]
+    | tuple[MatrixBase, ...]
+    | tuple[MatrixBase, MatrixBase]
+    | tuple[MatrixBase, MatrixBase, list[tuple[int, int]]]
+    | tuple[MatrixBase, tuple[int, ...]]
+    | tuple[fmpq_mat, int]
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -228,85 +258,6 @@ class SymbolicPayload(Struct, frozen=True, gc=False):
             form=_form_spelling(form),
             assume=tuple(sorted((name, pred.value) for name, pred in spec.assume.items())),
             ops=tuple(f"{op.tag}:{op.signature()}" for op in ops),
-        )
-
-
-@tagged_union(frozen=True)
-class Outcome:
-    tag: Literal["staged", "solution", "spectrum", "arithmetic", "numeric", "callable_", "source"] = tag()
-    staged: "Expr" = case()
-    solution: tuple[SolveRoute, int, float] = case()
-    spectrum: tuple[MatrixRoute, int, float] = case()
-    arithmetic: tuple[NumberRoute, int, Option[float]] = case()
-    numeric: tuple[int, float, Option[float]] = case()
-    callable_: tuple[LowerBackend, int, LoweredSpec] = case()
-    source: tuple[CodeTarget, str, str] = case()
-
-    @staticmethod
-    def Staged(expr: "Expr") -> "Outcome":
-        return Outcome(staged=expr)
-
-    @staticmethod
-    def Solution(route: SolveRoute, cardinality: int, metric: float = 0.0) -> "Outcome":
-        return Outcome(solution=(route, cardinality, metric))
-
-    @staticmethod
-    def Spectrum(route: MatrixRoute, dimension: int, invariant: float = 0.0) -> "Outcome":
-        return Outcome(spectrum=(route, dimension, invariant))
-
-    @staticmethod
-    def Arithmetic(route: NumberRoute, cardinality: int, magnitude: Option[float]) -> "Outcome":
-        return Outcome(arithmetic=(route, cardinality, magnitude))
-
-    @staticmethod
-    def Numeric(digits: int, magnitude: float, radius: Option[float] = Nothing) -> "Outcome":
-        return Outcome(numeric=(digits, magnitude, radius))
-
-    @staticmethod
-    def Callable(backend: LowerBackend, arity: int, spec: LoweredSpec) -> "Outcome":
-        return Outcome(callable_=(backend, arity, spec))
-
-    @staticmethod
-    def Source(target: CodeTarget, name: str, source: str) -> "Outcome":
-        return Outcome(source=(target, name, source))
-
-    def facts(self) -> dict[str, object]:
-        match self:
-            case Outcome(tag="solution", solution=(route, cardinality, metric)):
-                return {"route": route.value, "cardinality": cardinality, "metric": metric}
-            case Outcome(tag="spectrum", spectrum=(route, dimension, invariant)):
-                return {"route": route.value, "dimension": dimension, "invariant": invariant}
-            case Outcome(tag="arithmetic", arithmetic=(route, cardinality, magnitude)):
-                return {"route": route.value, "cardinality": cardinality, **magnitude.map(lambda m: {"magnitude": m}).default_value({})}
-            case Outcome(tag="numeric", numeric=(digits, magnitude, radius)):
-                return {"digits": digits, "magnitude": magnitude, **radius.map(lambda r: {"radius": r}).default_value({})}
-            case Outcome(tag="callable_", callable_=(backend, arity, _spec)):
-                return {"backend": backend.value, "arity": arity}
-            case Outcome(tag="source", source=(target, name, source)):
-                return {"target": target.value, "name": name, "byte_count": len(source)}
-            case Outcome(tag="staged"):
-                return {}
-            case _ as unreachable:
-                assert_never(unreachable)
-
-
-class SymbolicReceipt(Struct, frozen=True):
-    op: str
-    symbols: tuple[str, ...]
-    content_key: ContentKey
-    outcome: Outcome
-
-    @staticmethod
-    def of(op: str, symbols: tuple[str, ...], key: ContentKey, outcome: Outcome) -> "SymbolicReceipt":
-        return SymbolicReceipt(op, symbols, key, outcome)
-
-    def contribute(self) -> Iterable[Receipt]:
-        facts = {"op": self.op, "symbols": ",".join(self.symbols), **self.outcome.facts()}
-        yield Receipt.of(
-            EvidenceScope.SYMBOLIC.value,
-            ("emitted", self.op, facts),
-            key=Some(self.content_key),
-            provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
         )
 
 
@@ -385,24 +336,26 @@ class SymbolicOp:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def apply(self, sym: object, expr: "Expr", free: tuple["Expr", ...]) -> Outcome:
+    def apply(
+        self, sym: object, expr: "Expr | MatrixBase", free: tuple["Expr", ...]
+    ) -> AlgebraValue:
         match self:
             case SymbolicOp(tag="calculus", calculus=(kind, order)):
-                return Outcome.Staged(_CALCULUS[kind](sym, expr, _primary(free, self.tag), order))
+                return _CALCULUS[kind](sym, expr, _primary(free, self.tag), order)
             case SymbolicOp(tag="rewrite", rewrite=pass_):
                 args = (expr, _primary(free, self.tag)) if pass_ is RewritePass.COLLECT else (expr,)
-                return Outcome.Staged(getattr(sym, pass_.value)(*args))
+                return getattr(sym, pass_.value)(*args)
             case SymbolicOp(tag="substitute", substitute=(SubstituteMode.SUBS, mapping)):
                 local = {s.name: s for s in free}
-                return Outcome.Staged(expr.subs({sym.sympify(k, locals=local): sym.sympify(v, locals=local) for k, v in mapping.items()}))
+                return expr.subs({sym.sympify(k, locals=local): sym.sympify(v, locals=local) for k, v in mapping.items()})
             case SymbolicOp(tag="substitute", substitute=(SubstituteMode.REPLACE, mapping)):
                 [(pattern, target)] = mapping.items()
-                return Outcome.Staged(expr.replace(sym.Wild(pattern), sym.sympify(target, locals={s.name: s for s in free})))
+                return expr.replace(sym.Wild(pattern), sym.sympify(target, locals={s.name: s for s in free}))
             case SymbolicOp(tag="substitute", substitute=(SubstituteMode.REWRITE, mapping)):
                 [(_, basis)] = mapping.items()
-                return Outcome.Staged(expr.rewrite(getattr(sym, basis)))
+                return expr.rewrite(getattr(sym, basis))
             case SymbolicOp(tag="refine", refine=predicate):
-                return Outcome.Staged(sym.refine(expr, getattr(sym.Q, predicate.value)(_primary(free, self.tag))))
+                return sym.refine(expr, getattr(sym.Q, predicate.value)(_primary(free, self.tag)))
             case SymbolicOp(tag="solve", solve=(route, domain, ground)):
                 return _solve(sym, expr, free, route, domain, ground)
             case SymbolicOp(tag="linalg", linalg=(route, ground)):
@@ -420,9 +373,9 @@ class SymbolicOp:
                     signature=", ".join(str(s) for s in free),
                     route=_LOWER_ROUTE[backend],
                 )
-                return Outcome.Callable(backend, len(free), spec)
+                return spec
             case SymbolicOp(tag="codegen", codegen=(target, name)):
-                return Outcome.Source(target, name, _emit(sym, expr, target, name))
+                return _emit(sym, expr, target, name)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -459,160 +412,132 @@ _CODE_PRINTER: Final[Map[CodeTarget, Callable[[object, "Expr"], str]]] = Map.of_
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _solve(sym: object, expr: "Expr", free: tuple["Expr", ...], route: SolveRoute, domain: SolveDomain, ground: GroundDomain) -> Outcome:
+def _solve(sym: object, expr: "Expr", free: tuple["Expr", ...], route: SolveRoute, domain: SolveDomain, ground: GroundDomain) -> AlgebraValue:
     match route:
         case SolveRoute.SOLVE:
-            return Outcome.Solution(route, _cardinality(sym.solve(expr, *free)))
+            return sym.solve(expr, *free)
         case SolveRoute.SOLVESET:
-            return Outcome.Solution(route, _cardinality(sym.solveset(expr, _primary(free, route.value), domain=getattr(sym, domain.value))))
+            return sym.solveset(expr, _primary(free, route.value), domain=getattr(sym, domain.value))
         case SolveRoute.LINSOLVE | SolveRoute.NONLINSOLVE:
-            return Outcome.Solution(route, _cardinality(getattr(sym, route.value)((expr,), *free)))
+            return getattr(sym, route.value)((expr,), *free)
         case SolveRoute.NSOLVE:
-            primary = _primary(free, route.value)
-            root = sym.nsolve(expr, primary, 0.0)
-            return Outcome.Solution(route, 1, abs(float(sym.N(expr.subs(primary, root)))))
+            return sym.nsolve(expr, _primary(free, route.value), 0.0)
         case SolveRoute.DSOLVE | SolveRoute.PDSOLVE:
-            return Outcome.Solution(route, _cardinality(getattr(sym, route.value)(expr)))
+            return getattr(sym, route.value)(expr)
         case SolveRoute.ROOTS:
-            return Outcome.Solution(route, len(sym.roots(sym.Poly(expr, _primary(free, route.value)))))
+            return sym.roots(sym.Poly(expr, _primary(free, route.value)))
         case _:
             return _poly_route(sym, expr, _primary(free, route.value), route, ground)
 
 
-def _poly_route(sym: object, expr: "Expr", primary: "Expr", route: SolveRoute, ground: GroundDomain) -> Outcome:
+def _poly_route(sym: object, expr: "Expr", primary: "Expr", route: SolveRoute, ground: GroundDomain) -> AlgebraValue:
     poly = sym.Poly(expr, primary)
     if ground is GroundDomain.FLINT:
         return _flint_poly(sym, poly, route)
     match route:
         case SolveRoute.REAL_ROOTS:
-            return Outcome.Solution(route, len(poly.real_roots()), abs(float(poly.discriminant())))
+            return poly.real_roots()
         case SolveRoute.NROOTS:
-            return Outcome.Solution(route, len(poly.nroots()), abs(float(poly.discriminant())))
+            return poly.nroots()
         case SolveRoute.FACTOR_LIST:
-            _, factors = poly.factor_list()
-            return Outcome.Solution(route, len(factors), abs(float(poly.discriminant())))
+            return poly.factor_list()
         case _:
-            return Outcome.Solution(route, poly.degree(), abs(float(sym.resultant(poly.as_expr(), poly.diff(primary).as_expr(), primary))))
+            return sym.resultant(poly.as_expr(), poly.diff(primary).as_expr(), primary)
 
 
-def _flint_poly(sym: object, poly: object, route: SolveRoute) -> Outcome:
+def _flint_poly(sym: object, poly: object, route: SolveRoute) -> AlgebraValue:
     fp = fmpq_poly([_as_fmpq(sym, c) for c in reversed(poly.all_coeffs())])
-    disc = abs(float(fp.resultant(fp.derivative())))
     match route:
         case SolveRoute.REAL_ROOTS:
-            roots = fp.complex_roots()
-            return Outcome.Solution(route, sum(1 for r, _ in roots if abs(complex(r).imag) < 1e-12), disc)
+            return fp.real_roots()
         case SolveRoute.NROOTS:
-            return Outcome.Solution(route, len(fp.complex_roots()), disc)
+            return fp.complex_roots()
         case SolveRoute.FACTOR_LIST:
-            _, factors = fp.factor()
-            return Outcome.Solution(route, len(factors), disc)
+            return fp.factor()
         case _:
-            return Outcome.Solution(route, fp.degree(), disc)
+            return fp.resultant(fp.derivative())
 
 
-def _linalg(sym: object, expr: "Expr", route: MatrixRoute, ground: GroundDomain) -> Outcome:
+def _linalg(sym: object, expr: "Expr", route: MatrixRoute, ground: GroundDomain) -> AlgebraValue:
     matrix = expr if hasattr(expr, "rref") else sym.Matrix(expr)
     if ground is GroundDomain.FLINT and route in _FLINT_MATRIX_ROUTES:
         return _flint_matrix(sym, matrix, route)
-    dimension = matrix.shape[0]
     match route:
         case MatrixRoute.DETERMINANT:
-            return Outcome.Spectrum(route, dimension, abs(float(matrix.det())))
+            return matrix.det()
         case MatrixRoute.RANK:
-            return Outcome.Spectrum(route, matrix.rank())
-        case MatrixRoute.EIGENVALS | MatrixRoute.EIGENVECTS:
-            spectral = matrix.eigenvals() if route is MatrixRoute.EIGENVALS else {v: m for v, m, _ in matrix.eigenvects()}
-            radius = max((abs(complex(sym.N(v))) for v in spectral), default=0.0)
-            return Outcome.Spectrum(route, len(spectral), radius)
+            return matrix.rank()
+        case MatrixRoute.EIGENVALS:
+            return matrix.eigenvals()
+        case MatrixRoute.EIGENVECTS:
+            return matrix.eigenvects()
         case MatrixRoute.SINGULAR:
-            values = matrix.singular_values()
-            return Outcome.Spectrum(route, len(values), max((abs(float(sym.N(v))) for v in values), default=0.0))
+            return matrix.singular_values()
         case MatrixRoute.CHARPOLY:
-            poly = matrix.charpoly()
-            return Outcome.Spectrum(route, poly.degree(), abs(float(sym.N(poly.discriminant()))))
+            return matrix.charpoly()
         case MatrixRoute.MINPOLY:
             raise ValueError("minimal polynomial requires GroundDomain.FLINT; sympy Matrix owns no exact minpoly kernel")
         case MatrixRoute.NULLSPACE:
-            return Outcome.Spectrum(route, len(matrix.nullspace()))
+            return matrix.nullspace()
         case MatrixRoute.INVERSE | MatrixRoute.PINV:
-            inverse = matrix.inv() if route is MatrixRoute.INVERSE else matrix.pinv()
-            magnitude = abs(float(matrix.det())) if route is MatrixRoute.INVERSE else abs(float(sym.N(inverse.norm())))
-            return Outcome.Spectrum(route, inverse.shape[0], magnitude)
+            return matrix.inv() if route is MatrixRoute.INVERSE else matrix.pinv()
         case _:
-            extracted = getattr(matrix, route.value)()
-            head = extracted[0] if isinstance(extracted, tuple) else extracted
-            return Outcome.Spectrum(route, head.shape[0])
+            return getattr(matrix, route.value)()
 
 
-def _flint_matrix(sym: object, matrix: object, route: MatrixRoute) -> Outcome:
+def _flint_matrix(sym: object, matrix: object, route: MatrixRoute) -> AlgebraValue:
     fm = fmpq_mat([[_as_fmpq(sym, matrix[i, j]) for j in range(matrix.shape[1])] for i in range(matrix.shape[0])])
-    dimension = fm.nrows()
     match route:
         case MatrixRoute.DETERMINANT:
-            return Outcome.Spectrum(route, dimension, abs(float(fm.det())))
+            return fm.det()
         case MatrixRoute.RANK:
-            return Outcome.Spectrum(route, fm.rank())
+            return fm.rank()
         case MatrixRoute.CHARPOLY | MatrixRoute.MINPOLY:
-            poly = fm.charpoly() if route is MatrixRoute.CHARPOLY else fm.minpoly()
-            return Outcome.Spectrum(route, poly.degree(), abs(float(poly.resultant(poly.derivative()))))
+            return fm.charpoly() if route is MatrixRoute.CHARPOLY else fm.minpoly()
         case MatrixRoute.INVERSE:
-            return Outcome.Spectrum(route, fm.inv().nrows(), abs(float(fm.det())))
+            return fm.inv()
         case _:
-            extracted = getattr(fm, route.value)()
-            head = extracted[0] if isinstance(extracted, tuple) else extracted
-            return Outcome.Spectrum(route, head.nrows())
+            return getattr(fm, route.value)()
 
 
-def _number(sym: object, expr: "Expr", route: NumberRoute, ground: GroundDomain) -> Outcome:
-    if ground is GroundDomain.FLINT and route is not NumberRoute.PRIMERANGE and expr.is_integer:
+def _number(sym: object, expr: "Expr", route: NumberRoute, ground: GroundDomain) -> AlgebraValue:
+    if ground is GroundDomain.FLINT and route in {NumberRoute.FACTORINT, NumberRoute.ISPRIME} and expr.is_integer:
         return _flint_number(int(expr), route)
     match route:
         case NumberRoute.FACTORINT:
-            factors = sym.factorint(expr)
-            return Outcome.Arithmetic(route, len(factors), Some(float(max(factors))) if factors else Nothing)
+            return sym.factorint(expr)
         case NumberRoute.PRIMERANGE:
-            primes = tuple(sym.primerange(2, int(expr) + 1))
-            return Outcome.Arithmetic(route, len(primes), Some(float(primes[-1])) if primes else Nothing)
+            return list(sym.primerange(2, int(expr) + 1))
         case NumberRoute.ISPRIME:
-            return Outcome.Arithmetic(route, int(bool(sym.isprime(expr))), Some(float(expr)))
+            return bool(sym.isprime(expr))
         case _:
             free = tuple(expr.free_symbols)
             if not free:
-                factors = sym.factorint(expr)
-                return Outcome.Arithmetic(route, len(factors), float(max(factors, default=0)))
-            value = getattr(sym, route.value)(expr, sym.diff(expr, free[0]))
-            if value.is_number:
-                return Outcome.Arithmetic(route, 1, abs(float(sym.N(value))))
-            poly = sym.Poly(value, *free)
-            return Outcome.Arithmetic(route, poly.degree(), abs(float(sym.N(poly.LC()))))
+                raise ValueError(f"{route.value} requires a polynomial free symbol")
+            return getattr(sym, route.value)(expr, sym.diff(expr, free[0]))
 
 
-def _flint_number(n: int, route: NumberRoute) -> Outcome:
+def _flint_number(n: int, route: NumberRoute) -> AlgebraValue:
     z = fmpz(n)
     match route:
         case NumberRoute.FACTORINT:
-            factors = z.factor()
-            return Outcome.Arithmetic(route, len(factors), float(max((int(p) for p, _ in factors), default=0)))
+            return z.factor()
         case NumberRoute.ISPRIME:
-            return Outcome.Arithmetic(route, int(bool(z.is_prime())), float(n))
-        case NumberRoute.GCD:
-            return Outcome.Arithmetic(route, int(z.divisor_sigma(0)), abs(float(z.divisor_sigma(1))))
+            return bool(z.is_prime())
         case _:
-            return Outcome.Arithmetic(route, int(z.euler_phi()), float(n))
+            raise ValueError(f"unsupported FLINT integer route {route.value}")
 
 
-def _evaluate(sym: object, expr: "Expr", free: tuple["Expr", ...], digits: int, precision: Precision) -> Outcome:
+def _evaluate(sym: object, expr: "Expr", free: tuple["Expr", ...], digits: int, precision: Precision) -> AlgebraValue:
     scalar = expr if expr.is_number else sym.Poly(expr, _primary(free, "evaluate")).all_coeffs()[0]
     if precision is Precision.HEURISTIC:
-        return Outcome.Numeric(digits, abs(float(sym.N(scalar, digits))))
+        return sym.N(scalar, digits)
     return _certified(scalar, digits)
 
 
-def _certified(scalar: "Expr", digits: int) -> Outcome:
+def _certified(scalar: "Expr", digits: int) -> "arb":
     with flint.ctx.workdps(digits):
-        ball = flint.good(lambda: arb(str(scalar.evalf(flint.ctx.dps + 2))))
-    return Outcome.Numeric(digits, abs(float(ball.mid())), Some(float(ball.rad())))
+        return flint.good(lambda: arb(str(scalar.evalf(flint.ctx.dps + 2))))
 
 
 def _lower(sym: object, expr: "Expr", free: tuple["Expr", ...], backend: LowerBackend) -> object:
@@ -639,10 +564,6 @@ def _primary(free: tuple["Expr", ...], tag: str) -> "Expr":
     return free[0]
 
 
-def _cardinality(solution: object) -> int:
-    return len(tuple(solution)) if hasattr(solution, "__len__") else 1
-
-
 def _as_fmpq(sym: object, cell: object) -> object:
     rational = cell if hasattr(cell, "q") else sym.Rational(cell)
     return fmpq(int(rational.p), int(rational.q))
@@ -661,10 +582,12 @@ RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SYMBOLIC_DER
 
 class SymbolicDerivation:
     @staticmethod
-    def derive(form: ExprForm, spec: SymbolSpec, *ops: SymbolicOp, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SymbolicReceipt]":
+    def derive(
+        form: ExprForm, spec: SymbolSpec, *ops: SymbolicOp, composition: ScopeKey = DEFAULT_SCOPE
+    ) -> "RuntimeRail[tuple[AlgebraValue, ContentKey]]":
         terminal = ops[-1].tag if ops else "noop"
 
-        def rail() -> "RuntimeRail[SymbolicReceipt]":
+        def rail() -> "RuntimeRail[tuple[AlgebraValue, ContentKey]]":
             return ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops)).bind(
                 lambda key: boundary(
                     SYMBOLIC_DERIVE,
@@ -677,29 +600,32 @@ class SymbolicDerivation:
         return evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=facts, composition=composition)
 
 
-_CEILING: Final[Map[str, float]] = Map.of_seq([("radius", 1e-12), ("unstable", 0.0)])
-
-
 def graduates(
-    receipt: SymbolicReceipt, *, certified: bool, radius: Option[float] = Nothing, composition: ScopeKey = DEFAULT_SCOPE
-) -> "RuntimeRail[GraduationReceipt]":
-    ledger = {"unstable": 0.0 if certified else 1.0} | radius.map(lambda r: {"radius": r}).default_value({})
-    return GraduationReceipt.graduates(
-        EvidenceScope.SYMBOLIC.value, HandoffAxis(symbolic=receipt.op), receipt.content_key, ledger, dict(_CEILING.items()), composition=composition
+    terminal: SymbolicOp, result: tuple[AlgebraValue, ContentKey], *, composition: ScopeKey = DEFAULT_SCOPE
+) -> "RuntimeRail[Graduation]":
+    value, key = result
+    match terminal:
+        case SymbolicOp(tag="evaluate", evaluate=(_digits, Precision.CERTIFIED)):
+            ledger, ceiling = ({"radius": float(cast("arb", value).rad()), "unstable": 0.0}, {"radius": 1e-12, "unstable": 0.0})
+        case SymbolicOp(tag="evaluate"):
+            ledger, ceiling = ({"unstable": 1.0}, {"unstable": 0.0})
+        case _:
+            ledger, ceiling = ({"unstable": 0.0}, {"unstable": 0.0})
+    return Graduation.graduates(
+        EvidenceScope.SYMBOLIC.value, HandoffAxis(symbolic=terminal.tag), key, ledger, ceiling, composition=composition
     )
 
 
-def _derive(form: ExprForm, spec: SymbolSpec, ops: tuple[SymbolicOp, ...], key: ContentKey) -> SymbolicReceipt:
+def _derive(form: ExprForm, spec: SymbolSpec, ops: tuple[SymbolicOp, ...], key: ContentKey) -> tuple[AlgebraValue, ContentKey]:
     if not ops:
         raise ValueError("symbolic derivation needs at least one terminal op")
     free = spec.symbols(sympy)
     staged = _sympify_form(sympy, form, free)
     *stages, terminal = ops
     folded = Block.of_seq(stages).fold(lambda acc, op: _stage(op, sympy, acc, free), staged)
-    outcome = terminal.apply(sympy, folded, free)
-    if outcome.tag == "staged":
+    if terminal.tag in {"calculus", "rewrite", "substitute", "refine"}:
         raise ValueError(f"symbolic pipeline terminal {terminal.tag} yields a staging op, not an artifact")
-    return SymbolicReceipt.of(terminal.tag, spec.names, key, outcome)
+    return terminal.apply(sympy, folded, free), key
 
 
 def _form_spelling(form: ExprForm) -> str:
@@ -712,7 +638,7 @@ def _form_spelling(form: ExprForm) -> str:
             return srepr(form)
 
 
-def _sympify_form(sym: object, form: ExprForm, free: tuple["Expr", ...]) -> "Expr":
+def _sympify_form(sym: object, form: ExprForm, free: tuple["Expr", ...]) -> "Expr | MatrixBase":
     local = {s.name: s for s in free}
     match form:
         case str() as source:
@@ -723,12 +649,10 @@ def _sympify_form(sym: object, form: ExprForm, free: tuple["Expr", ...]) -> "Exp
             return form
 
 
-def _stage(op: SymbolicOp, sym: object, expr: "Expr", free: tuple["Expr", ...]) -> "Expr":
-    match op.apply(sym, expr, free):
-        case Outcome(tag="staged", staged=rewritten):
-            return rewritten
-        case _:
-            raise ValueError(f"non-terminal op {op.tag} must be a calculus/rewrite/substitute/refine staging op")
+def _stage(op: SymbolicOp, sym: object, expr: "Expr | MatrixBase", free: tuple["Expr", ...]) -> "Expr | MatrixBase":
+    if op.tag not in {"calculus", "rewrite", "substitute", "refine"}:
+        raise ValueError(f"non-terminal op {op.tag} must be a calculus/rewrite/substitute/refine staging op")
+    return cast("Expr | MatrixBase", op.apply(sym, expr, free))
 ```
 
 ## [04]-[RESEARCH]

@@ -12,7 +12,7 @@ eventmodeling
   tf 06 cmd RunGate
   tf 07 evt GatePassed
   tf 08 pcr LandingProcessor
-  tf 09 evt CardLanded `json`{ "receipt": "ok" }
+  tf 09 evt CardLanded `json`{ "outcome": "ok" }
 ```
 
 Refill by renaming frames to the real command-event chain in causal order — the implicit relation chain is the assertion, so a frame that must source from an earlier lane declares immediately after it, namespaced ids (`stream.Name`) open extra lanes per stream, and a join of two streams leaves this family.

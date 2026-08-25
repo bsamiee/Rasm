@@ -47,8 +47,8 @@ plugins:
         - rasm.contracts.feature.FlagVerdictWire
         - rasm.contracts.binding.BindingStatus
         - rasm.contracts.binding.CoercedValueWire
-        - rasm.contracts.binding.WriteReceiptWire
-        - rasm.contracts.ui.EvidenceReceiptWire
+        - rasm.contracts.binding.WriteOutcomeWire
+        - rasm.contracts.ui.EvidenceWire
         - rasm.contracts.bcf.BcfViewpointWire
         - rasm.contracts.appearance.Set
         - rasm.contracts.capability.DescriptorPinWire
@@ -58,7 +58,6 @@ plugins:
         - rasm.contracts.organization.Organization
         - io.cloudevents.v1.CloudEvent
         - io.cloudevents.v1.CloudEventBatch
-        - rasm.contracts.board.BoardPackWire
     - local: .venv/bin/protoc-gen-py                  # Buf's protobuf-py generator; uv pins it as a pair with its runtime
       out: libs/contracts/gen/python/rasm/contracts   # ONE root: package + proto path is the import grammar, publisher trees included
       opt: [init_files=false]                         # rasm/ and rasm/contracts/ stay PEP 420 portions; py.typed is projected after the sweep
@@ -144,8 +143,8 @@ plugins:
         - rasm.contracts.feature.FlagVerdictWire
         - rasm.contracts.binding.BindingStatus
         - rasm.contracts.binding.CoercedValueWire
-        - rasm.contracts.binding.WriteReceiptWire
-        - rasm.contracts.ui.EvidenceReceiptWire
+        - rasm.contracts.binding.WriteOutcomeWire
+        - rasm.contracts.ui.EvidenceWire
         - rasm.contracts.bcf.BcfViewpointWire
         - rasm.contracts.appearance.Set
         - rasm.contracts.capability.DescriptorPinWire
@@ -158,7 +157,6 @@ plugins:
         - rasm.contracts.scene.SceneDescriptor
         - rasm.contracts.fabrication.FeatureControl
         - rasm.contracts.declaration.DeclarationRecord
-        - rasm.contracts.board.BoardPackWire
         - rasm.contracts.stage.StageRequestWire
         - rasm.contracts.stage.StageResultWire
         - rasm.contracts.sync.PullRequest

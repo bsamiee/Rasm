@@ -113,14 +113,14 @@ One protocol spans every estimator; the mixin selects the verb, and `set_output`
 [TOPOLOGY]:
 - protocol: every estimator derives from `base.BaseEstimator` exposing `fit`/`get_params`/`set_params`/`set_output`/`set_*_request`; transformers add `transform`/`fit_transform`/`get_feature_names_out`, classifiers add `predict`/`predict_proba`/`decision_function`, regressors add `predict`, clusterers add `fit_predict` — the mixin discriminates the task.
 - composition: a model composes as one `Pipeline` of `preprocessing`/`impute`/`decomposition`/`feature_selection` steps and a final estimator; heterogeneous columns route through `compose.ColumnTransformer`; the graph clones with `base.clone` and round-trips through `get_params`/`set_params`.
-- output: `set_config(transform_output='pandas'|'polars')` or per-step `set_output` carries feature names through the pipeline so the ONNX `initial_types` and the receipt name columns consistently; `set_*_request` routes `sample_weight`/`groups` to the consuming steps.
+- output: `set_config(transform_output='pandas'|'polars')` or per-step `set_output` carries feature names through the pipeline so the ONNX `initial_types` and the `ModelAssetManifest` name columns consistently; `set_*_request` routes `sample_weight`/`groups` to the consuming steps.
 - selection: hyperparameters tune through `GridSearchCV`/`RandomizedSearchCV` (or halving variants under the enable import) over a task splitter (`StratifiedKFold`, `GroupKFold`, `TimeSeriesSplit`); one `make_scorer`/`get_scorer` value is the `scoring=` reused across train and tune.
 
 [STACKING]:
 - `skl2onnx`(`.api/skl2onnx.md`): the fitted `Pipeline` is the export source — `to_onnx(pipeline, X, target_opset=...)` with `initial_types` from the trained `get_feature_names_out()` schema, gated at or below `get_latest_tested_opset_version()`.
 - `onnx`(`.api/onnx.md`) / `onnxruntime`(`.api/onnxruntime.md`): the exported `ModelProto` graduates through the structural `checker` and an `InferenceSession` parity `run` against `predict`/`predict_proba`.
 - `scipy`(`.api/scipy.md`): sparse `scipy.sparse.csr_array` feeds linear and SVM estimators, and `scipy.stats` distributions supply `RandomizedSearchCV` `param_distributions`.
-- `ModelAsset`: folds one fitted pipeline — composition (`get_params`), the `cross_validate` score, inspection importances, and the ONNX export with its `onnxruntime`-session check — into the compute model-asset receipt.
+- `ModelAsset`: folds one fitted pipeline — composition (`get_params`), the `cross_validate` score, inspection importances, and the ONNX export with its `onnxruntime`-session check — into the compute `ModelAssetManifest`.
 
 [LOCAL_ADMISSION]:
 - submodule imports at boundary scope; the `enable_halving_search_cv`/`enable_iterative_imputer` gate import precedes the gated symbol's use.
@@ -129,5 +129,5 @@ One protocol spans every estimator; the mixin selects the verb, and `set_output`
 [RAIL_LAW]:
 - Package: `scikit-learn`
 - Owns: offline classical-ML fitting, pipeline and column composition, decomposition and feature selection, probability calibration, model selection and inspection, scoring, and ONNX export sourcing for the model-asset rail
-- Accept: a fitted `Pipeline`/`ColumnTransformer` with named-column output, a `cross_validate` score over a task-appropriate splitter, inspection importances, and an ONNX export plus `onnxruntime` validation receipt
+- Accept: a fitted `Pipeline`/`ColumnTransformer` with named-column output, a `cross_validate` score over a task-appropriate splitter, inspection importances, and an ONNX export validated through `onnxruntime`
 - Reject: production model serving; hand-rolled estimators, splitters, or metrics sklearn owns; per-task method-name proliferation over the uniform `fit`/`predict`/`transform`/`score` protocol

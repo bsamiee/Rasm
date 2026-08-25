@@ -1,13 +1,13 @@
 # [APPUI_COMMANDS_AVAILABILITY]
 
-Rasm.AppUi runs one command rail: a single `CommandRow` table is the UI's one intent-row table, and menus, toolbars, access keys, hotkeys, tray items, palette entries, deep links, and remote verbs are derivation folds over it. Command IDENTITY is not this package's — it is `Rasm.AppHost/Agent/runtime#DISPATCH_FRONT_DOOR` `CommandIntent`, and every row executes by minting one through `CommandRow.ToIntent` and crossing that page's `Run` door. The page owns the intent row shape with its payload union, the keyed arrow table and the family-row data every cross-page verb reaches the deck through, the typed availability algebra over the degradation vocabulary, the execution receipt family sealed through the receipt sink, the deck-owned search and invocation spine, and the generated command wire families it lowers onto. The federated palette, its surface frames, and the binding editor are `Shell/palette.md`'s — presentation over this deck.
+Rasm.AppUi runs one command rail: a single `CommandRow` table is the UI's one intent-row table, and menus, toolbars, access keys, hotkeys, tray items, palette entries, deep links, and remote verbs are derivation folds over it. Command IDENTITY is not this package's — it is `Rasm.AppHost/Agent/runtime#DISPATCH_FRONT_DOOR` `CommandIntent`, and every row executes by minting one through `CommandRow.ToIntent` and crossing that page's `Run` door. The page owns the intent row shape with its payload union, the keyed arrow table and the family-row data every cross-page verb reaches the deck through, the typed availability algebra over the degradation vocabulary, the total execution outcome, the deck-owned search and invocation spine, and the generated command wire families it lowers onto. The federated palette, its surface frames, and the binding editor are `Shell/palette.md`'s — presentation over this deck.
 
 ## [01]-[INDEX]
 
 - [02]-[INTENT_TABLE]: One frozen row table, payload shapes, binding overlays, per-surface deck freeze.
 - [03]-[DECK_FAMILIES]: The keyed arrow table, the row-shape policy, and the family-row data every owner roster projects through.
 - [04]-[AVAILABILITY_ALGEBRA]: Typed availability inputs fold into one `CanExecute` stream.
-- [05]-[EXECUTION_RECEIPTS]: Total outcome rail; receipts sealed through the sink message envelope; the one raise and the one remote entry.
+- [05]-[EXECUTION_OUTCOME]: Total outcome rail, one hook fact, one raise, and one remote entry.
 - [06]-[TS_PROJECTION]: The generated command families the deck produces and admits.
 - [07]-[RESEARCH]
 
@@ -17,8 +17,8 @@ Rasm.AppUi runs one command rail: a single `CommandRow` table is the UI's one in
 - Cases: `CommandPayload` = None | Single | Many | Text | Fields — one case per `Ui.CommandPayloadWire.kind` arm (`none`, `single`, `many`, `text`, `fields`), so the discriminant is the generated `KindOneofCase` and no literal restates it; parameterized intents discriminate on payload shape, never on name suffixes; each row's `Accepts` set names its admitted arm domain, and `Admit` seals `DeckFault.PayloadRejected` before the crossing on every invocation modality, so a payload the row never admitted opens no suite transaction.
 - Entry: `public static Fin<CommandDeck> Freeze(CommandComposition composition, params ReadOnlySpan<CommandRow> rows)` — identity admission accumulates every duplicate-key and duplicate-text defect through `Validation` before the first `GestureContest` refuses; one freeze per mounted surface, and the composition-time services travel as one carrier.
 - Auto: the `Surfaces` predicate filters rows exactly once at freeze against the supplied `ConsumptionProfile` and the resolved `SurfaceMount`; the composition's `BindingOverlay` rebinds each surviving row's gesture and widens the index with its aliases BEFORE the contest fold runs, so a user chord collides on the same oracle a default one does; `Claimants` is the one chord-ownership read and `Contests` is that read filtered to contested chords, so `Freeze` refuses the first deterministic contest before any command materializes and the binding editor asks the identical question at assignment time.
-- Receipt: `Composition.Conflict` seals the deterministic `GestureContest` through the composition-bound evidence sink immediately before `Freeze` returns `DeckFault.GestureConflict` carrying the same value; execution receipts begin only after a contest-free deck exists.
-- Packages: Thinktecture.Runtime.Extensions, Avalonia, LanguageExt.Core, Rasm (kernel fault floor, `CapabilitySet`, `MonotonicTimeline`), Rasm.AppHost (project — `ConsumptionProfile`, `CommandIntent`, `CommandArguments`, `CallerModality`, `CommandTxn`), BCL inbox
+- Evidence: `Composition.Conflict` records the deterministic `GestureContest` immediately before `Freeze` returns `DeckFault.GestureConflict` carrying the same value; command execution begins only after a contest-free deck exists.
+- Packages: Thinktecture.Runtime.Extensions, Avalonia, LanguageExt.Core, Rasm (kernel fault floor, `CapabilitySet`, `MonotonicTimeline`), Rasm.AppHost (project — `ConsumptionProfile`, `CommandIntent`, `CommandArguments`, `CallerModality`, `CommandResult`), BCL inbox
 - Growth: one `CommandRow` absorbs a new verb across every derived surface, one `CommandPayload` case absorbs a new argument shape, and one `BindingOverlay` row absorbs a whole named keymap; zero new surface.
 - Boundary: every column here is a UI DERIVATION column — what the row presents, where it mounts, which chord claims it, which palette kinds it acts on, which schema collects its arguments — and the columns naming WHAT command are read off `Rasm.AppHost/Agent/runtime#DISPATCH_FRONT_DOOR` `CommandIntent` at `ToIntent` rather than re-declared here, because a second command identity in a package that references its owner is a strata twin whose two spellings dispatch resolves by whichever page a call site happened to cite; the locked row shape — intent key, capability requirement, availability delegate over the two-plane `Availability` input, `Option<KeyGesture>`, surface predicate, palette-kind target set, argument schema — deletes menu registries, toolbar registries, palette registries, hotkey tables, keymap files, and deep-link maps in one stroke; `CommandPayload` crosses as the generated `CommandPayloadWire` alone — `Many` fills the arm's `ids` repeated field and `Fields` its `Struct`, each field value parsed through the AppHost `WireJson.Parser` as a well-known `Value`, so no carrier converter exists on this rail and a `JsonSerializerOptions` column on the composition is the deleted form; the intent key is simultaneously the localization string key the `Label` resolver consumes and the icon catalog key, so a label column and an icon column are the deleted forms; `Chord` is the host-agnostic Cmd/Ctrl column transform, so per-platform gesture rows are the rejected form; `Execute` delegates bind host work at composition and no case body names a host API outside its own row; `Targets` names the `PaletteKind` keys a verb acts on as a CONTEXTUAL action — keys rather than rows, because the set crosses the intent wire; `Arguments` carries the `Editing/forms#FORM_SCHEMA` schema a parameterized verb collects its own arguments through, the schema's `SubmitIntent` and this row's key being one value by construction; the discriminants of `CommandPayload` and `CommandOutcome` are the generated `KindOneofCase` enums — `CommandWire.Kind` reads a payload's arm off its own lowering and `CommandWire.KindOf` renders an outcome's arm name off the descriptor, so a literal roster beside the corpus is the deleted form; a surface verb absent from this table is not a dead button but a screen that FAILS TO MATERIALIZE, because a tree resolves its expansion command and a strip its jump command against this frozen deck and both abort the materialize on a miss.
 
@@ -207,9 +207,9 @@ public sealed record CommandComposition(
     MonotonicTimeline Line,
     CorrelationId Correlation,
     TenantContext Tenant,
-    ReceiptSinkPort Sink,
+    HookRail<AppUiPoint, AppUiFact, TelemetrySource> Rail,
     Func<GestureContest, Unit> Conflict,
-    Func<CommandIntent, CancellationToken, IO<CommandTxn>> Cross);
+    Func<CommandIntent, CancellationToken, IO<CommandResult>> Cross);
 
 public sealed record CommandDeck(
     FrozenDictionary<string, CommandRow> Rows,
@@ -563,16 +563,16 @@ public static class CommandGate {
 }
 ```
 
-## [05]-[EXECUTION_RECEIPTS]
+## [05]-[EXECUTION_OUTCOME]
 
-- Owner: `CommandOutcome` `[Union]` total result vocabulary; `DeckReceipt` execution evidence record; `CommandExecution` — the materialize-cross-seal fold, the `CommandTxn` translation, the batch-combine projection, the deck-owned span-ranked search, the one raise, the one remote entry, and the telemetry contribution.
-- Cases: `CommandOutcome` = Completed | Cancelled | Rejected | RolledBack | Compensated — one case per `Ui.CommandOutcomeWire.kind` arm; the evidence fan's outcome dimension reads `CommandWire.KindOf`, the arm name the descriptor publishes, so the dimension value and the wire discriminator are one spelling.
-- Entry: `public ReactiveCommand<CommandPayload, DeckReceipt> Materialize(CommandDeck deck)` — one generated command per admitted row; `public IO<DeckReceipt> Run(CommandPayload payload, CommandDeck deck, CallerModality caller, CancellationToken cancel = default)` — the one admit-mint-cross fold every modality ends at, minting the row's `CommandIntent` and handing it to the AppHost `Run` door; `Raise(key, payload, cancel)` — the one non-wire raise the palette activation, the action panel, and the argument submit all end at, seating `CallerModality.Operator` for all three; `Invoke(key, CommandPayloadWire payload, caller, cancel)` — the single remote, deep-link, and journal-replay route, taking the generated message its caller parsed through the AppHost `WireJson.Parser` and carrying the caller's declared modality; `Search(query)` — the deck-owned span-ranked lookup the palette's command provider and the binding editor's text probe both read.
-- Auto: `Settled` folds the returned `CommandTxn` through the union's generated total `Switch`, so the outcome is total by CONSTRUCTION rather than by a catch-all rail and a fifth transaction case breaks this page at compile time; the only residual catch is cancellation, which the suite reports as a rolled-back transaction the UI must still tell apart from a fault; residual throws ride `ThrownExceptions` into the one screen fault state and the error dialog intent row; elapsed derives from the kernel `MonotonicTimeline` stamp pair the composition binds, so a broken gauge refuses on the rail rather than fabricating a duration; `Combine` resolves each batch key through `Row` and a fail-closed `Traverse` into `Fin`, so an unknown intent key aborts the macro rather than silently dropping.
-- Receipt: `DeckReceipt` — intent key, surface key, elapsed `Duration`, outcome, payload digest, `CorrelationId` — sealed as the `EvidenceReceipt.Command` case through the one `Seal` every evidence case takes, so the envelope carries the `command` arm of `EvidenceReceiptWire` under `TelemetrySource.AppUi` with the boot-bound tenant threaded; `TelemetryRow` contributes the command-outcome and command-elapsed instrument rows inward through the contributor port; outcome counts ride the evidence fan's command arm and elapsed records direct off the sealed receipt through `Observe`, so the fan never parses duration text.
-- Packages: ReactiveUI, LanguageExt.Core, NodaTime, Rasm (kernel `ContentHash`, `MonotonicTimeline`, sink port, instrument rows), Rasm.AppHost (project — `CommandIntent`, `CallerModality`, `CommandTxn`), BCL inbox
+- Owner: `CommandOutcome` `[Union]` total result vocabulary; `DeckOutcome` execution result; `CommandExecution` — the materialize-cross-observe fold, the `CommandResult` translation, the batch-combine projection, the deck-owned span-ranked search, the one raise, the one remote entry, and the telemetry contribution.
+- Cases: `CommandOutcome` = Completed | Cancelled | Rejected | RolledBack | Compensated — one case per `Ui.CommandOutcomeWire.kind` arm; `CommandExecution.Observe` writes the outcome dimension from `CommandWire.KindOf`, the arm name the descriptor publishes, so the dimension value and the wire discriminator are one spelling.
+- Entry: `public ReactiveCommand<CommandPayload, DeckOutcome> Materialize(CommandDeck deck)` — one generated command per admitted row; `public IO<DeckOutcome> Run(CommandPayload payload, CommandDeck deck, CallerModality caller, CancellationToken cancel = default)` — the one admit-mint-cross fold every modality ends at, minting the row's `CommandIntent`, handing it to the AppHost `Run` door, and firing the returned outcome on the package hook rail; `Raise(key, payload, cancel)` — the one non-wire raise the palette activation, the action panel, and the argument submit all end at, seating `CallerModality.Operator` for all three; `Invoke(key, CommandPayloadWire payload, caller, cancel)` — the single remote, deep-link, and journal-replay route, taking the generated message its caller parsed through the AppHost `WireJson.Parser` and carrying the caller's declared modality; `Search(query)` — the deck-owned span-ranked lookup the palette's command provider and the binding editor's text probe both read.
+- Auto: `Settled` folds the returned `CommandResult.Txn` through the union's generated total `Switch`, so the outcome is total by CONSTRUCTION rather than by a catch-all rail and a fifth transaction case breaks this page at compile time; the only residual catch is cancellation, which the suite reports as a rolled-back transaction the UI must still tell apart from a fault; residual throws ride `ThrownExceptions` into the one screen fault state and the error dialog intent row; elapsed derives from the kernel `MonotonicTimeline` stamp pair the composition binds, so a broken gauge refuses on the rail rather than fabricating a duration; `Combine` resolves each batch key through `Row` and a fail-closed `Traverse` into `Fin`, so an unknown intent key aborts the macro rather than silently dropping.
+- Evidence: `DeckOutcome` carries the intent key, surface key, elapsed `Duration`, command outcome, and payload digest; `AppUiFact.Command` fires it at `AppUiPoint.Command` on the composition's `HookRail`, whose observe tap lowers it to the generated `Ui.EvidenceWire` command arm and publishes that data through the CloudEvent envelope; `TelemetryRow` contributes the command-outcome and command-elapsed instrument rows inward through the contributor port, and `Observe` records elapsed directly from the outcome.
+- Packages: ReactiveUI, LanguageExt.Core, NodaTime, Rasm (kernel `ContentHash`, `MonotonicTimeline`, `HookRail`, instrument rows), Rasm.AppHost (project — `CommandIntent`, `CallerModality`, `CommandResult`), BCL inbox
 - Growth: one `CommandOutcome` case absorbs a new result class and breaks every dispatch site at compile time; one command instrument is one `InstrumentSpec` row here; zero new surface.
-- Boundary: this fold is a DERIVATION over the AppHost door, never a second dispatcher — the row mints one `CommandIntent`, crosses `Composition.Cross`, and reads the disposition back, so the veto rail, the caller mediation, the meter, and the hash-chained event log all see a UI command exactly as they see an MCP tool call, and a UI-local invocation of `row.Execute` is the deleted form; the sealed `DeckReceipt` here is PRESENTATION evidence — surface key, elapsed, digest, correlation — over the suite receipt the crossing already sealed, never a rival record of the transaction; cancellation crosses as ONE token on two planes — `EnvIO` cuts the effect chain and the transaction's own `CancelScope` spine passes explicitly to the row's bound body, so the work stops where the receipt says it stopped; the receipt crosses as the generated `DeckReceiptWire` through `DeckWire.Lower` and re-admits through `DeckWire.Admit`, so no package context row names it; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction the rejected form; the digest is the kernel `ContentHash.Of` over the payload's own canonical bytes (the federation one-hasher; seed zero) and crosses as its 16 big-endian bytes through `ContentHash.Wire`, so receipt payloads stay fixed-size on the hot path; `Combine` is the only batch-verb spelling and each child execution still seals its own receipt, so batch evidence never collapses into one opaque receipt; `Search` and its `Score` kernel are the page's one language-owned boundary capsule carrying statement forms for the alternate-lookup probe and the span walk; intent keys cross every boundary as ordinal strings.
+- Boundary: this fold is a DERIVATION over the AppHost door, never a second dispatcher — the row mints one `CommandIntent`, crosses `Composition.Cross`, and reads the disposition back, so the veto rail, the caller mediation, the meter, and the hash-chained event log all see a UI command exactly as they see an MCP tool call, and a UI-local invocation of `row.Execute` is the deleted form; cancellation crosses as ONE token on two planes — `EnvIO` cuts the effect chain and the transaction's own `CancelScope` spine passes explicitly to the row's bound body, so the work stops where the outcome says it stopped; `DeckOutcome` crosses as the generated `DeckOutcomeWire` through `DeckWire.Lower` and re-admits through `DeckWire.Admit`, so no package context row names it; ICommand wrapper classes are the deleted form; the digest is the kernel `ContentHash.Of` over the payload's own canonical bytes (the federation one-hasher; seed zero) and crosses as its 16 big-endian bytes through `ContentHash.Wire`, so command outcomes stay fixed-size on the hot path; `Combine` is the only batch-verb spelling and each child execution fires its own outcome; `Search` and its `Score` kernel are the page's one language-owned boundary capsule carrying statement forms for the alternate-lookup probe and the span walk; intent keys cross every boundary as ordinal strings.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -587,13 +587,12 @@ public abstract partial record CommandOutcome {
     public sealed record Compensated(string Reason) : CommandOutcome;
 }
 
-public sealed record DeckReceipt(
+public sealed record DeckOutcome(
     string Key,
     string Surface,
     Duration Elapsed,
     CommandOutcome Outcome,
-    UInt128 PayloadDigest,
-    CorrelationId Correlation);
+    UInt128 PayloadDigest);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -658,19 +657,17 @@ public static partial class CommandWire {
     RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class DeckWire {
-    public static partial Wire.DeckReceiptWire Lower(DeckReceipt receipt);
+    public static partial Wire.DeckOutcomeWire Lower(DeckOutcome outcome);
 
-    public static Fin<DeckReceipt> Admit(Wire.DeckReceiptWire wire, Op key) =>
+    public static Fin<DeckOutcome> Admit(Wire.DeckOutcomeWire wire, Op key) =>
         (CommandWire.Admit(wire.Outcome, key).ToValidation(),
-         ContentHash.Admit(wire.PayloadDigest.Span, key).ToValidation(),
-         CorrelationId.Admit(wire.Correlation.Span, key).ToValidation())
-            .Apply((outcome, digest, correlation) => new DeckReceipt(wire.Key, wire.Surface, wire.Elapsed.ToNodaDuration(), outcome, digest, correlation))
+         ContentHash.Admit(wire.PayloadDigest.Span, key).ToValidation())
+            .Apply((outcome, digest) => new DeckOutcome(wire.Key, wire.Surface, wire.Elapsed.ToNodaDuration(), outcome, digest))
             .As().ToFin();
 
     [UserMapping] private static Wire.CommandOutcomeWire Outcome(CommandOutcome outcome) => CommandWire.Lower(outcome);
     [UserMapping] private static WkDuration Lapse(Duration elapsed) => elapsed.ToProtobufDuration();
     [UserMapping] private static ByteString Key(UInt128 digest) => ContentHash.Wire(digest);
-    [UserMapping] private static ByteString Key(CorrelationId correlation) => correlation.Wire();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -689,17 +686,19 @@ public static class CommandExecution {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Outcome, Elapsed);
 
-    public static Fin<Unit> Observe(InstrumentSet set, DeckReceipt receipt) =>
-        set.Write(Elapsed, receipt.Elapsed.TotalSeconds, InstrumentSet.Tags((AppUiTelemetry.CommandSlot, receipt.Key)));
+    public static Fin<Unit> Observe(InstrumentSet set, DeckOutcome outcome) =>
+        (set.Write(Outcome, 1L, InstrumentSet.Tags((AppUiTelemetry.OutcomeSlot, CommandWire.KindOf(outcome.Outcome)))).ToValidation(),
+         set.Write(Elapsed, outcome.Elapsed.TotalSeconds, InstrumentSet.Tags((AppUiTelemetry.CommandSlot, outcome.Key))).ToValidation())
+            .Apply(static (_, _) => unit).As().ToFin();
 
     extension(CommandRow row) {
-        public ReactiveCommand<CommandPayload, DeckReceipt> Materialize(CommandDeck deck) =>
-            ReactiveCommand.CreateFromTask<CommandPayload, DeckReceipt>(
+        public ReactiveCommand<CommandPayload, DeckOutcome> Materialize(CommandDeck deck) =>
+            ReactiveCommand.CreateFromTask<CommandPayload, DeckOutcome>(
                 (payload, token) => row.Run(payload, deck, CallerModality.Operator, token).RunAsync(EnvIO.New(token: token)).AsTask(),
                 row.CanExecute(deck.Composition.Inputs),
                 deck.Composition.Scheduler);
 
-        public IO<DeckReceipt> Run(CommandPayload payload, CommandDeck deck, CallerModality caller, CancellationToken cancel = default) =>
+        public IO<DeckOutcome> Run(CommandPayload payload, CommandDeck deck, CallerModality caller, CancellationToken cancel = default) =>
             from start in Stamp(deck)
             from outcome in row.Admit(payload).Match(
                 Succ: admitted => deck.Composition
@@ -708,12 +707,18 @@ public static class CommandExecution {
                     .Catch(static error => error is KernelFault.Cancelled, static _ => IO.pure((CommandOutcome)new CommandOutcome.Cancelled())),
                 Fail: static fault => IO.pure((CommandOutcome)new CommandOutcome.Rejected(Observed(fault))))
             from elapsed in Gauge(deck, start)
-            from receipt in deck.Seal(row.Key, outcome, elapsed, payload.Digest())
-            select receipt;
+            let result = new DeckOutcome(row.Key, deck.Composition.SurfaceKey, elapsed, outcome, payload.Digest())
+            from fired in IO.lift(() => deck.Composition.Rail.Fire(
+                AppUiPoint.Command,
+                new AppUiFact.Command(result),
+                RunKey,
+                body: _ => Fin.Succ(result)))
+                .Bind(static settled => IO.lift(settled))
+            select fired;
     }
 
-    static CommandOutcome Settled(CommandTxn txn) =>
-        txn.Switch(
+    static CommandOutcome Settled(CommandResult result) =>
+        result.Txn.Switch(
             committed: static _ => (CommandOutcome)new CommandOutcome.Completed(),
             refused: static refused => new CommandOutcome.Rejected(Observed(refused.Fault)),
             rolledBack: static back => new CommandOutcome.RolledBack(back.Reason),
@@ -730,13 +735,7 @@ public static class CommandExecution {
             .Match(Succ: static span => IO.pure(Duration.FromTimeSpan(span)), Fail: IO.fail<Duration>));
 
     extension(CommandDeck deck) {
-        public IO<DeckReceipt> Seal(string key, CommandOutcome outcome, Duration elapsed, UInt128 digest) =>
-            IO.pure(new DeckReceipt(key, deck.Composition.SurfaceKey, elapsed, outcome, digest, deck.Composition.Correlation))
-                .Bind(receipt => new EvidenceReceipt.Command(receipt)
-                    .Seal(deck.Composition.Sink, deck.Composition.Correlation, deck.Composition.Tenant)
-                    .Map(_ => receipt));
-
-        public Fin<CombinedReactiveCommand<CommandPayload, DeckReceipt>> Combine(params ReadOnlySpan<string> keys) =>
+        public Fin<CombinedReactiveCommand<CommandPayload, DeckOutcome>> Combine(params ReadOnlySpan<string> keys) =>
             toSeq(keys.ToArray())
                 .Traverse(key => deck.Row(key)
                     .Map(row => row.Materialize(deck))
@@ -744,25 +743,19 @@ public static class CommandExecution {
                 .As()
                 .Map(children => ReactiveCommand.CreateCombined(children, outputScheduler: deck.Composition.Scheduler));
 
-        public IO<DeckReceipt> Raise(string key, CommandPayload payload, CancellationToken cancel = default) =>
+        public IO<DeckOutcome> Raise(string key, CommandPayload payload, CancellationToken cancel = default) =>
             deck.Row(key).Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
                 Some: row => row.Run(payload, deck, CallerModality.Operator, cancel),
-                None: () => Unavailable(deck, key));
-    }
-
-    static IO<DeckReceipt> Unavailable(CommandDeck deck, string key) {
-        DeckFault fault = new DeckFault.UnknownIntent(key);
-        return deck.Seal(key, new CommandOutcome.Rejected(Observed(fault)), Duration.Zero, new CommandPayload.None().Digest());
+                None: () => IO.fail<DeckOutcome>(new DeckFault.UnknownIntent(key)));
     }
 
     extension(CommandDeck deck) {
 
-        public IO<DeckReceipt> Invoke(string key, Wire.CommandPayloadWire payload, CallerModality caller, CancellationToken cancel = default) =>
+        public IO<DeckOutcome> Invoke(string key, Wire.CommandPayloadWire payload, CallerModality caller, CancellationToken cancel = default) =>
             deck.Row(key).Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
                 Some: row => CommandWire.Admit(payload, RunKey).Match(
                     Succ: decoded => row.Run(decoded, deck, caller, cancel),
-                    Fail: failure => deck.Seal(
-                        key, new CommandOutcome.Rejected(Observed(failure)), Duration.Zero, new CommandPayload.None().Digest())),
+                    Fail: IO.fail<DeckOutcome>),
                 None: () => deck.Raise(key, new CommandPayload.None(), cancel));
 
         public Seq<(string Key, int Rank)> Search(ReadOnlySpan<char> query) {
@@ -806,7 +799,7 @@ The ControlService operational verbs surface as ordinary table rows on companion
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: the generated `rasm.contracts.ui` command families — `CommandGateWire`, `CommandPayloadWire` (the `none`/`single`/`many`/`text`/`fields` oneof), `CommandInvocation`, `CommandOutcomeWire`, `DeckReceiptWire` — produced by `CommandWire.Lower`, `CommandGate.Wire`, and `DeckWire.Lower` and admitted by their owning readers; `libs/contracts/manifest.json` seats each live actor on its exact message.
+- Owner: the generated `rasm.contracts.ui` command families — `CommandGateWire`, `CommandPayloadWire` (the `none`/`single`/`many`/`text`/`fields` oneof), `CommandInvocation`, `CommandOutcomeWire`, `DeckOutcomeWire` — produced by `CommandWire.Lower`, `CommandGate.Wire`, and `DeckWire.Lower` and admitted by their owning readers; `libs/contracts/manifest.json` seats each live actor on its exact message.
 - Packages: Rasm.Contracts (project), Rasm.AppHost (project — `WireJson`)
 - Growth: one payload or outcome arm is one `kind` arm at the corpus, one domain case here, and one arm on each of `CommandWire`'s two total `Switch` lowerings and two exhaustive admissions; zero new surface.
 - Boundary: TypeScript peers bind `@rasm\/contracts/rasm/contracts/ui/commands_pb` and re-author nothing, so no hand interface mirrors a family on either side. `many.ids` is the arm's repeated field and `fields` its `Struct`, owned by the addressed form schema. The `rejected` outcome arm carries generated `Fault.FaultObservation`; `rolled_back` and `compensated` carry their transaction's own reason, so no arm fabricates a code. Palette frames and binding-editor rows stay host-local; remote callers cross through `CommandInvocation`. `CommandGateWire` carries the row gate while the AppHost availability snapshot stays in its own `availability` family. Every family's JSON leaves through AppHost `WireJson.Formatter` and enters through `WireJson.Parser`.

@@ -42,7 +42,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Metric-stream shaping is data at the instrument owner and SDK objects at the install root — only that root names a `View` or an aggregation.
 - Metric cardinality bounds at two tiers — the allow-list closes the KEY axis and a tenant budget the VALUE axis, folding at `otel.metric.overflow`.
 - Temporality preferences key SDK FAMILY classes — monotonic sums and the histogram ride DELTA, non-monotonic sums CUMULATIVE; an API key raises.
-- Tag-partitioned counters carry terminal partitions alone — the admitted count is a receipt line, and one more dimension value doubles every sum.
+- Tag-partitioned counters carry terminal partitions alone — the admitted count rides the drained line, so an added value doubles every sum.
 - Cross-cutting metric dimensions carry no domain segment — a discriminant meaningful everywhere names no capability subject, riding `rasm.<key>`.
 - Measure shape decides the instrument class — a per-event delta records synchronously, a level observes from a probe the EXPORT CYCLE calls.
 - Declared aggregation intent picks the census row's kind — percentile, mean, and maximum ride one histogram whose data point already carries them.
@@ -134,7 +134,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Hook subscription answers the DETACHER and a scope releases WHOLE — a count retires nothing and an undrained table outlives its own composition.
 - Isolation emits behind its OWN fence and parks the verdict — an unfenced sink destroys what it isolates and a silent eviction reads as no loss.
 - Rostered raises seat in ONE fault census — a per-module `DETAILS` fold builds a map `retriability` and `facts` never read.
-- Receipts settle on ONE six-column spine bearing absence in key, provenance, band, and stamp — a required slot makes every producer forge one.
+- Producer-only facts are result columns whose lines write through `structlog` at the producing site — no spine stands beside result and span.
 - Fault span and log attribute keys roster at the fault root — a per-page literal forks the vocabulary the C# and TypeScript ends both publish.
 - Deadlines construct through ONE fold over a DECLARED unknown-budget floor — a per-site zero fuses an unmeasured bound with a real zero.
 - Typed band tokens cross a worker as DATA and re-mint parent-side — a kwarg-only `@tagged_union` reconstructs through no pickler, raised or railed.
@@ -149,7 +149,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Shutdown closes the intake and awaits the drain, retiring custody — a drain-deadline parameter re-threads the cancellation the scope already owns.
 - ONE row-driven `BrokerLane` owns every connection; one state agent serializes immutable custody and event-driven drain.
 - Provider coordinates own frames; `(source, id)` alone owns deduplication and journal verdicts.
-- Expired deliveries remain frame-bound, bypass durable recording, and settle under a distinct `MOOT` receipt.
+- Expired deliveries remain frame-bound, bypass durable recording, and settle under a distinct `MOOT` verdict.
 - `transport/body` `BodyAdmission` composes Protovalidate with every async Connect interceptor protocol; no handler or client carries a prologue.
 - Client refusals retain phase and violations on `AdmissionError`; server request constraints alone expose details, engine defects staying INTERNAL.
 - Lazy client-stream refusals ride one per-call carrier that restores its own refusal — the body boundary maps iterator exceptions onto status.

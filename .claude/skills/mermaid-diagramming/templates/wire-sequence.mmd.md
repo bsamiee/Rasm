@@ -38,7 +38,7 @@ sequenceDiagram
         end
         deactivate R
     end
-    R--)C: telemetry(receipt)
+    R--)C: telemetry(span)
 ```
 
 Refill by renaming the participants to the real boundary pair; an async fire-and-forget rides `--)` and expects no return, and a unary exchange drops the stream loop while keeping the trailer's `critical`/`option` pair wherever a mandatory step can fault.

@@ -139,7 +139,7 @@ Each wrapper takes a `ReadableStore` as its first `store` argument.
 - `opentelemetry-api` / `structlog`: `TracingReadableStore.on_request(RequestRecord)` emits one structured event per range request (path/offset/length/duration/method) into the observability rail, one record mapping to one span attribute set.
 - `pandas`(`.api/pandas.md`): `RequestTrace.to_dataframe()` yields a lazy-imported frame into the data-profile rail to grade cloud-read efficiency by request count, byte volume, and request-size distribution.
 - `stamina` / `ContentIdentity`: wrap `registry.resolve(url)` and the read in a `stamina` retry for transient cloud failures — obstore stores carry native `RetryConfig`, the wrappers do not, so retry lives at the rail — keying the object by the runtime `ContentIdentity` so the egress reuse ledger dedupes across stores.
-- `msgspec` / `pydantic`: decode the `obspec` `ObjectMeta`/`PutResult`/`ListResult` TypedDicts into `msgspec.Struct`/`pydantic` models at the boundary when a typed receipt is needed downstream.
+- `msgspec` / `pydantic`: admit the native `ObjectMeta`/`PutResult`/`ListResult` TypedDicts at a typed downstream boundary without wrapping them inside another result.
 
 [LOCAL_ADMISSION]:
 - Import each owner from its subpackage (`obspec_utils.registry`/`readers`/`wrappers`/`protocols`/`stores`); the top-level surface re-exports only `glob`/`glob_objects`/`glob_async`/`glob_objects_async`, so `from obspec_utils import ObjectStoreRegistry` raises `ImportError`.

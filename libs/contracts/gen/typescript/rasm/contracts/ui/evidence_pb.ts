@@ -7,11 +7,11 @@ import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import { file_buf_validate_validate } from "../../../buf/validate/validate_pb.js";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Hlc, HlcValid } from "../clock/hlc_pb.js";
+import { file_rasm_contracts_clock_hlc } from "../clock/hlc_pb.js";
 import type { FaultObservation, FaultObservationValid } from "../fault/fault_pb.js";
 import { file_rasm_contracts_fault_fault } from "../fault/fault_pb.js";
-import type { ReceiptHeaderWire, ReceiptHeaderWireValid } from "../receipt/envelope_pb.js";
-import { file_rasm_contracts_receipt_envelope } from "../receipt/envelope_pb.js";
-import type { DeckReceiptWire, DeckReceiptWireValid } from "./commands_pb.js";
+import type { DeckOutcomeWire, DeckOutcomeWireValid } from "./commands_pb.js";
 import { file_rasm_contracts_ui_commands } from "./commands_pb.js";
 import type { Message, UnknownEnum } from "@bufbuild/protobuf";
 
@@ -19,7 +19,7 @@ import type { Message, UnknownEnum } from "@bufbuild/protobuf";
  * Describes the file rasm/contracts/ui/evidence.proto.
  */
 export const file_rasm_contracts_ui_evidence: GenFile = /*@__PURE__*/
-  fileDesc("CiByYXNtL2NvbnRyYWN0cy91aS9ldmlkZW5jZS5wcm90bxIRcmFzbS5jb250cmFjdHMudWkilwEKEVBpeGVsSWRlbnRpdHlXaXJlEjoKBmxheW91dBgBIAEoDjIeLnJhc20uY29udHJhY3RzLnVpLlBpeGVsTGF5b3V0Qgq6SAeCAQQQASAAEhYKBXdpZHRoGAIgASgNQge6SAQqAiAAEhcKBmhlaWdodBgDIAEoDUIHukgEKgIgABIVCgRoYXNoGAQgASgMQge6SAR6AmgQIocBChNOYXRpdmVBc3NldEZhY3RXaXJlEhgKB2xpYnJhcnkYASABKAlCB7pIBHICEAESHQoHdmVyc2lvbhgCIAEoCUIHukgEcgIQAUgAiAEBEhUKBHBhdGgYAyABKAlCB7pIBHICEAESFAoDcmlkGAQgASgJQge6SARyAhABQgoKCF92ZXJzaW9uIqshChNFdmlkZW5jZVJlY2VpcHRXaXJlEkEKB3N1cmZhY2UYASABKAsyLi5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLlN1cmZhY2VIABI9CgVmb2N1cxgCIAEoCzIsLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuRm9jdXNIABI/CgZyZW5kZXIYAyABKAsyLS5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLlJlbmRlckgAEkMKCGRpc3Bvc2FsGAQgASgLMi8ucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5EaXNwb3NhbEgAEjsKBGVkaXQYBSABKAsyKy5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLkVkaXRIABI1Cgdjb21tYW5kGAYgASgLMiIucmFzbS5jb250cmFjdHMudWkuRGVja1JlY2VpcHRXaXJlSAASPgoMbmF0aXZlX2Fzc2V0GAcgASgLMiYucmFzbS5jb250cmFjdHMudWkuTmF0aXZlQXNzZXRGYWN0V2lyZUgAEj0KBXRoZW1lGAggASgLMiwucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5UaGVtZUgAEj8KBm1vdGlvbhgJIAEoCzItLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuTW90aW9uSAASPwoGZWZmZWN0GAogASgLMi0ucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5FZmZlY3RIABI9CgVhc3NldBgLIAEoCzIsLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuQXNzZXRIABJECglsaXZlX2RhdGEYDCABKAsyLy5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLkxpdmVEYXRhSAASSAoLY29sbGFiX3N5bmMYDSABKAsyMS5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLkNvbGxhYlN5bmNIABJMCg1jb2xsYWJfcmV2ZXJ0GA4gASgLMjMucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5Db2xsYWJSZXZlcnRIABI9CgVtZWRpYRgPIAEoCzIsLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuTWVkaWFIABJBCgdxdWFsaXR5GBAgASgLMi4ucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5RdWFsaXR5SAASRAoJZ3B1X2ZyYW1lGBEgASgLMi8ucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5HcHVGcmFtZUgAEj8KBmxheW91dBgSIAEoCzItLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUmVjZWlwdFdpcmUuTGF5b3V0SAASTgoOZGlzcGF0Y2hlcl9sYWcYEyABKAsyNC5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLkRpc3BhdGNoZXJMYWdIABJGCgpwcmVfY29tbWl0GBQgASgLMjAucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VSZWNlaXB0V2lyZS5QcmVDb21taXRIABqHAQoHU3VyZmFjZRIVCgRob3N0GAEgASgJQge6SARyAhABEhsKCmRlc2NyaXB0b3IYAiABKAlCB7pIBHICEAESHwoFc2NhbGUYAyABKAFCELpIDRILQAEhAAAAAAAAAAASHAoGaGFuZGxlGAQgASgJQge6SARyAhABSACIAQFCCQoHX2hhbmRsZRoxCgVGb2N1cxIXCgZ0YXJnZXQYASABKAlCB7pIBHICEAESDwoHZm9jdXNlZBgCIAEoCBrTAgoGUmVuZGVyEhUKBHNsb3QYASABKAlCB7pIBHICEAESFwoGZm9ybWF0GAIgASgJQge6SARyAhABEhsKCmZyYW1lX2hhc2gYAyABKAxCB7pIBHoCaBASDQoFYnl0ZXMYBCABKAQSNwoHZWxhcHNlZBgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbkILukgIyAEBqgECMgASHAoLY29sb3Jfc3BhY2UYBiABKAlCB7pIBHICEAESHwoJZHJhd19oYXNoGAcgASgMQge6SAR6AmgQSACIAQESNAoGcGl4ZWxzGAggASgLMiQucmFzbS5jb250cmFjdHMudWkuUGl4ZWxJZGVudGl0eVdpcmUSIQoLZGVzdGluYXRpb24YCSABKAlCB7pIBHICEAFIAYgBAUIMCgpfZHJhd19oYXNoQg4KDF9kZXN0aW5hdGlvbhpzCghEaXNwb3NhbBIaCglzY3JlZW5faWQYASABKAlCB7pIBHICEAESNgoGYWN0aXZlGAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQgu6SAjIAQGqAQIyABITCgtkaXNwb3NhYmxlcxgDIAEoDRqDAQoERWRpdBIVCgRzbG90GAEgASgJQge6SARyAhABEhgKB3N1cmZhY2UYAiABKAlCB7pIBHICEAESFwoGdGFyZ2V0GAMgASgJQge6SARyAhABEhcKBmVkaXRvchgEIAEoCUIHukgEcgIQARIYCgdvdXRjb21lGAUgASgJQge6SARyAhABGmsKBVRoZW1lEhgKB3ZhcmlhbnQYASABKAlCB7pIBHICEAESGAoHZGVuc2l0eRgCIAEoCUIHukgEcgIQARIYCgd0cmlnZ2VyGAMgASgJQge6SARyAhABEhQKDGNoYW5nZWRfa2V5cxgEIAEoDRpMCgZNb3Rpb24SFgoFdG9rZW4YASABKAlCB7pIBHICEAESGQoIcmVzb2x2ZWQYAiABKAlCB7pIBHICEAESDwoHcmVkdWNlZBgDIAEoCBqEAwoGRWZmZWN0EhYKBXBsYW5lGAEgASgJQge6SARyAhABEhQKA2tleRgCIAEoCUIHukgEcgIQARIYCgdvdXRjb21lGAMgASgJQge6SARyAhABEgwKBGZsYWcYBCABKAgSDQoFY291bnQYBSABKA0SGAoFd2hvbGUYBiABKANCB7pIBCICKABIABIZCgZkaWdlc3QYByABKAxCB7pIBHoCaBBIABJGCgZleHRlbnQYCCABKAsyNC5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlLkVmZmVjdC5FeHRlbnRIABIsCgZtb21lbnQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAASHQoKY29vcmRpbmF0ZRgKIAEoCUIHukgEcgIQAUgAGjkKBkV4dGVudBIVCgRyb3dzGAEgASgNQge6SAQqAiAAEhgKB2NvbHVtbnMYAiABKA1CB7pIBCoCIABCEAoHbWVhc3VyZRIFukgCCAEakwEKBUFzc2V0EhQKA2tleRgBIAEoCUIHukgEcgIQARIbCgphc3NldF9raW5kGAIgASgJQge6SARyAhABEhcKBm9yaWdpbhgDIAEoCUIHukgEcgIQARIfCgVzY2FsZRgEIAEoAUIQukgNEgtAASEAAAAAAAAAABIdCgxjb250ZW50X2hhc2gYBSABKAxCB7pIBHoCaBAaZAoITGl2ZURhdGESFQoEc2xvdBgBIAEoCUIHukgEcgIQARIMCgRhZGRzGAIgASgNEg8KB3VwZGF0ZXMYAyABKA0SDwoHcmVtb3ZlcxgEIAEoDRIRCglyZWZyZXNoZXMYBSABKA0aZwoKQ29sbGFiU3luYxIYCgdkb2Nfa2V5GAEgASgJQge6SARyAhABEg4KBmRlbHRhcxgCIAEoDRINCgVieXRlcxgDIAEoBBIPCgdwZW5kaW5nGAQgASgNEg8KB2FwcGxpZWQYBSABKAgaXwoMQ29sbGFiUmV2ZXJ0EhgKB2RvY19rZXkYASABKAlCB7pIBHICEAESIAoPZnJvbnRpZXJfZGlnZXN0GAIgASgMQge6SAR6AmgQEhMKC2ludmVyc2Vfb3BzGAMgASgNGsMBCgVNZWRpYRIUCgNrZXkYASABKAlCB7pIBHICEAESFgoFY29kZWMYAiABKAlCB7pIBHICEAESFwoGc291cmNlGAMgASgJQge6SARyAhABEjwKB291dGNvbWUYBCABKA4yHy5yYXNtLmNvbnRyYWN0cy51aS5NZWRpYU91dGNvbWVCCrpIB4IBBBABIAASNQoFZmF1bHQYBSABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uGsABCgdRdWFsaXR5EhUKBHRpZXIYASABKAlCB7pIBHICEAESGgoScGF0aF90cmFjZV9zYW1wbGVzGAIgASgNEioKEHdhdGVybWFya19mYWN0b3IYAyABKAFCELpIDRILQAEhAAAAAAAAAAASFwoGbW90aW9uGAQgASgJQge6SARyAhABEhcKD2ZvdmVhdGlvbl9sZXZlbBgFIAEoDRIkCgpyZWZyZXNoX2h6GAYgASgBQhC6SA0SC0ABIQAAAAAAAAAAGmMKCEdwdUZyYW1lEhUKDWZyYW1lX29yZGluYWwYASABKAQSDgoGcGFzc2VzGAIgASgNEhIKCnVubWVhc3VyZWQYAyABKA0SHAoUbWVhc3VyZWRfbmFub3NlY29uZHMYBCABKAQapQEKBkxheW91dBIWCgVwYW5lbBgBIAEoCUIHukgEcgIQARITCgtjb25zdHJhaW50cxgCIAEoDRI3CgdlbGFwc2VkGAMgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQgu6SAjIAQGqAQIyABI1CgVmYXVsdBgEIAEoCzImLnJhc20uY29udHJhY3RzLmZhdWx0LkZhdWx0T2JzZXJ2YXRpb24aYwoNRGlzcGF0Y2hlckxhZxIZCghib3VuZGFyeRgBIAEoCUIHukgEcgIQARI3CgdlbGFwc2VkGAIgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQgu6SAjIAQGqAQIyABqHAQoJUHJlQ29tbWl0EhgKB2RvY19rZXkYASABKAlCB7pIBHICEAESDwoHbGFtcG9ydBgCIAEoBBILCgNvcHMYAyABKAQSFwoGb3JpZ2luGAQgASgJQge6SARyAhABEh0KB21lc3NhZ2UYBSABKAlCB7pIBHICEAFIAIgBAUIKCghfbWVzc2FnZTquAbpIqgEapwEKFGV2aWRlbmNlLm1lZGlhLmZhdWx0EkVhIGZhaWxlZCBtZWRpYSBvdXRjb21lIGNhcnJpZXMgaXRzIGZhdWx0IGFuZCBhIHJlYWR5IG9uZSBjYXJyaWVzIG5vbmUaSCFoYXModGhpcy5tZWRpYSkgfHwgKCh0aGlzLm1lZGlhLm91dGNvbWUgPT0gMikgPT0gaGFzKHRoaXMubWVkaWEuZmF1bHQpKUINCgRraW5kEgW6SAIIASLRAQoMU2tld0JhbmRXaXJlEjQKCGVhcmxpZXN0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEIGukgDyAEBEjIKBmxhdGVzdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCBrpIA8gBATpXukhUGlIKE2V2aWRlbmNlLnNrZXdfb3JkZXISHXRoZSBza2V3IGJhbmQgbXVzdCBiZSBvcmRlcmVkGhx0aGlzLmVhcmxpZXN0IDw9IHRoaXMubGF0ZXN0IvgBCg9FdmlkZW5jZVJvd1dpcmUSDwoHb3JkaW5hbBgBIAEoDRIZChF1bmNlcnRhaW50eV9ncm91cBgCIAEoDRJBCgZoZWFkZXIYAyABKAsyKS5yYXNtLmNvbnRyYWN0cy5yZWNlaXB0LlJlY2VpcHRIZWFkZXJXaXJlQga6SAPIAQESNQoEYmFuZBgEIAEoCzIfLnJhc20uY29udHJhY3RzLnVpLlNrZXdCYW5kV2lyZUIGukgDyAEBEj8KB3JlY2VpcHQYBSABKAsyJi5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJlY2VpcHRXaXJlQga6SAPIAQEi7AEKFEV2aWRlbmNlVGltZWxpbmVXaXJlEhwKC2NvcnJlbGF0aW9uGAEgASgMQge6SAR6AmgQEjsKBHJvd3MYAiADKAsyIi5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVJvd1dpcmVCCbpIBpIBAxCAIDp5ukh2GnQKIWV2aWRlbmNlLnRpbWVsaW5lX29yZGluYWxzX3VuaXF1ZRIpZXZpZGVuY2UgdGltZWxpbmUgb3JkaW5hbHMgbXVzdCBiZSB1bmlxdWUaJHRoaXMucm93cy5tYXAociwgci5vcmRpbmFsKS51bmlxdWUoKSpdCgtQaXhlbExheW91dBIcChhQSVhFTF9MQVlPVVRfVU5TUEVDSUZJRUQQABIwCixQSVhFTF9MQVlPVVRfUkdCQThfU1JHQl9TVFJBSUdIVF9UT1BfTEVGVF9WMhABKmAKDE1lZGlhT3V0Y29tZRIdChlNRURJQV9PVVRDT01FX1VOU1BFQ0lGSUVEEAASFwoTTUVESUFfT1VUQ09NRV9SRUFEWRABEhgKFE1FRElBX09VVENPTUVfRkFJTEVEEAJCFKoCEVJhc20uQ29udHJhY3RzLlVpYgZwcm90bzM", [file_buf_validate_validate, file_google_protobuf_duration, file_google_protobuf_timestamp, file_rasm_contracts_fault_fault, file_rasm_contracts_receipt_envelope, file_rasm_contracts_ui_commands]);
+  fileDesc("CiByYXNtL2NvbnRyYWN0cy91aS9ldmlkZW5jZS5wcm90bxIRcmFzbS5jb250cmFjdHMudWkilwEKEVBpeGVsSWRlbnRpdHlXaXJlEjoKBmxheW91dBgBIAEoDjIeLnJhc20uY29udHJhY3RzLnVpLlBpeGVsTGF5b3V0Qgq6SAeCAQQQASAAEhYKBXdpZHRoGAIgASgNQge6SAQqAiAAEhcKBmhlaWdodBgDIAEoDUIHukgEKgIgABIVCgRoYXNoGAQgASgMQge6SAR6AmgQIocBChNOYXRpdmVBc3NldEZhY3RXaXJlEhgKB2xpYnJhcnkYASABKAlCB7pIBHICEAESHQoHdmVyc2lvbhgCIAEoCUIHukgEcgIQAUgAiAEBEhUKBHBhdGgYAyABKAlCB7pIBHICEAESFAoDcmlkGAQgASgJQge6SARyAhABQgoKCF92ZXJzaW9uIp8gCgxFdmlkZW5jZVdpcmUSOgoHc3VyZmFjZRgBIAEoCzInLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5TdXJmYWNlSAASNgoFZm9jdXMYAiABKAsyJS5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVdpcmUuRm9jdXNIABI4CgZyZW5kZXIYAyABKAsyJi5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVdpcmUuUmVuZGVySAASPAoIZGlzcG9zYWwYBCABKAsyKC5yYXNtLmNvbnRyYWN0cy51aS5FdmlkZW5jZVdpcmUuRGlzcG9zYWxIABI0CgRlZGl0GAUgASgLMiQucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLkVkaXRIABI1Cgdjb21tYW5kGAYgASgLMiIucmFzbS5jb250cmFjdHMudWkuRGVja091dGNvbWVXaXJlSAASPgoMbmF0aXZlX2Fzc2V0GAcgASgLMiYucmFzbS5jb250cmFjdHMudWkuTmF0aXZlQXNzZXRGYWN0V2lyZUgAEjYKBXRoZW1lGAggASgLMiUucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLlRoZW1lSAASOAoGbW90aW9uGAkgASgLMiYucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLk1vdGlvbkgAEjgKBmVmZmVjdBgKIAEoCzImLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5FZmZlY3RIABI2CgVhc3NldBgLIAEoCzIlLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5Bc3NldEgAEj0KCWxpdmVfZGF0YRgMIAEoCzIoLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5MaXZlRGF0YUgAEkEKC2NvbGxhYl9zeW5jGA0gASgLMioucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLkNvbGxhYlN5bmNIABJFCg1jb2xsYWJfcmV2ZXJ0GA4gASgLMiwucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLkNvbGxhYlJldmVydEgAEjYKBW1lZGlhGA8gASgLMiUucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLk1lZGlhSAASOgoHcXVhbGl0eRgQIAEoCzInLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlV2lyZS5RdWFsaXR5SAASPQoJZ3B1X2ZyYW1lGBEgASgLMigucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLkdwdUZyYW1lSAASOAoGbGF5b3V0GBIgASgLMiYucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLkxheW91dEgAEkcKDmRpc3BhdGNoZXJfbGFnGBMgASgLMi0ucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLkRpc3BhdGNoZXJMYWdIABI/CgpwcmVfY29tbWl0GBQgASgLMikucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlLlByZUNvbW1pdEgAGocBCgdTdXJmYWNlEhUKBGhvc3QYASABKAlCB7pIBHICEAESGwoKZGVzY3JpcHRvchgCIAEoCUIHukgEcgIQARIfCgVzY2FsZRgDIAEoAUIQukgNEgtAASEAAAAAAAAAABIcCgZoYW5kbGUYBCABKAlCB7pIBHICEAFIAIgBAUIJCgdfaGFuZGxlGjEKBUZvY3VzEhcKBnRhcmdldBgBIAEoCUIHukgEcgIQARIPCgdmb2N1c2VkGAIgASgIGtMCCgZSZW5kZXISFQoEc2xvdBgBIAEoCUIHukgEcgIQARIX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aWVzdBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCBrpIA8gBARIyCgZsYXRlc3QYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQga6SAPIAQE6V7pIVBpSChNldmlkZW5jZS5za2V3X29yZGVyEh10aGUgc2tldyBiYW5kIG11c3QgYmUgb3JkZXJlZBocdGhpcy5lYXJsaWVzdCA8PSB0aGlzLmxhdGVzdCLhAQoPRXZpZGVuY2VSb3dXaXJlEg8KB29yZGluYWwYASABKA0SGQoRdW5jZXJ0YWludHlfZ3JvdXAYAiABKA0SNQoEYmFuZBgDIAEoCzIfLnJhc20uY29udHJhY3RzLnVpLlNrZXdCYW5kV2lyZUIGukgDyAEBEjkKCGV2aWRlbmNlGAQgASgLMh8ucmFzbS5jb250cmFjdHMudWkuRXZpZGVuY2VXaXJlQga6SAPIAQESMAoFc3RhbXAYBSABKAsyGS5yYXNtLmNvbnRyYWN0cy5jbG9jay5IbGNCBrpIA8gBASLsAQoURXZpZGVuY2VUaW1lbGluZVdpcmUSHAoLY29ycmVsYXRpb24YASABKAxCB7pIBHoCaBASOwoEcm93cxgCIAMoCzIiLnJhc20uY29udHJhY3RzLnVpLkV2aWRlbmNlUm93V2lyZUIJukgGkgEDEIAgOnm6SHYadAohZXZpZGVuY2UudGltZWxpbmVfb3JkaW5hbHNfdW5pcXVlEilldmlkZW5jZSB0aW1lbGluZSBvcmRpbmFscyBtdXN0IGJlIHVuaXF1ZRokdGhpcy5yb3dzLm1hcChyLCByLm9yZGluYWwpLnVuaXF1ZSgpKl0KC1BpeGVsTGF5b3V0EhwKGFBJWEVMX0xBWU9VVF9VTlNQRUNJRklFRBAAEjAKLFBJWEVMX0xBWU9VVF9SR0JBOF9TUkdCX1NUUkFJR0hUX1RPUF9MRUZUX1YyEAEqYAoMTWVkaWFPdXRjb21lEh0KGU1FRElBX09VVENPTUVfVU5TUEVDSUZJRUQQABIXChNNRURJQV9PVVRDT01FX1JFQURZEAESGAoUTUVESUFfT1VUQ09NRV9GQUlMRUQQAkIUqgIRUmFzbS5Db250cmFjdHMuVWliBnByb3RvMw", [file_buf_validate_validate, file_google_protobuf_duration, file_google_protobuf_timestamp, file_rasm_contracts_clock_hlc, file_rasm_contracts_fault_fault, file_rasm_contracts_ui_commands]);
 
 /**
  * @generated from message rasm.contracts.ui.PixelIdentityWire
@@ -90,50 +90,47 @@ export const NativeAssetFactWireSchema: GenMessage<NativeAssetFactWire, {validTy
   messageDesc(file_rasm_contracts_ui_evidence, 1);
 
 /**
- * One arm per process-local evidence family; the sealed envelope carries correlation, tenant, and the HLC
- * stamp, so no arm repeats them beyond its own producer columns.
- *
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire
+ * @generated from message rasm.contracts.ui.EvidenceWire
  */
-export type EvidenceReceiptWire = Message<"rasm.contracts.ui.EvidenceReceiptWire"> & {
+export type EvidenceWire = Message<"rasm.contracts.ui.EvidenceWire"> & {
   /**
-   * @generated from oneof rasm.contracts.ui.EvidenceReceiptWire.kind
+   * @generated from oneof rasm.contracts.ui.EvidenceWire.kind
    */
   kind: {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Surface surface = 1;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Surface surface = 1;
      */
-    value: EvidenceReceiptWire_Surface;
+    value: EvidenceWire_Surface;
     case: "surface";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Focus focus = 2;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Focus focus = 2;
      */
-    value: EvidenceReceiptWire_Focus;
+    value: EvidenceWire_Focus;
     case: "focus";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Render render = 3;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Render render = 3;
      */
-    value: EvidenceReceiptWire_Render;
+    value: EvidenceWire_Render;
     case: "render";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Disposal disposal = 4;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Disposal disposal = 4;
      */
-    value: EvidenceReceiptWire_Disposal;
+    value: EvidenceWire_Disposal;
     case: "disposal";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Edit edit = 5;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Edit edit = 5;
      */
-    value: EvidenceReceiptWire_Edit;
+    value: EvidenceWire_Edit;
     case: "edit";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.DeckReceiptWire command = 6;
+     * @generated from field: rasm.contracts.ui.DeckOutcomeWire command = 6;
      */
-    value: DeckReceiptWire;
+    value: DeckOutcomeWire;
     case: "command";
   } | {
     /**
@@ -143,130 +140,127 @@ export type EvidenceReceiptWire = Message<"rasm.contracts.ui.EvidenceReceiptWire
     case: "nativeAsset";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Theme theme = 8;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Theme theme = 8;
      */
-    value: EvidenceReceiptWire_Theme;
+    value: EvidenceWire_Theme;
     case: "theme";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Motion motion = 9;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Motion motion = 9;
      */
-    value: EvidenceReceiptWire_Motion;
+    value: EvidenceWire_Motion;
     case: "motion";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Effect effect = 10;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Effect effect = 10;
      */
-    value: EvidenceReceiptWire_Effect;
+    value: EvidenceWire_Effect;
     case: "effect";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Asset asset = 11;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Asset asset = 11;
      */
-    value: EvidenceReceiptWire_Asset;
+    value: EvidenceWire_Asset;
     case: "asset";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.LiveData live_data = 12;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.LiveData live_data = 12;
      */
-    value: EvidenceReceiptWire_LiveData;
+    value: EvidenceWire_LiveData;
     case: "liveData";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.CollabSync collab_sync = 13;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.CollabSync collab_sync = 13;
      */
-    value: EvidenceReceiptWire_CollabSync;
+    value: EvidenceWire_CollabSync;
     case: "collabSync";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.CollabRevert collab_revert = 14;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.CollabRevert collab_revert = 14;
      */
-    value: EvidenceReceiptWire_CollabRevert;
+    value: EvidenceWire_CollabRevert;
     case: "collabRevert";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Media media = 15;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Media media = 15;
      */
-    value: EvidenceReceiptWire_Media;
+    value: EvidenceWire_Media;
     case: "media";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Quality quality = 16;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Quality quality = 16;
      */
-    value: EvidenceReceiptWire_Quality;
+    value: EvidenceWire_Quality;
     case: "quality";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.GpuFrame gpu_frame = 17;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.GpuFrame gpu_frame = 17;
      */
-    value: EvidenceReceiptWire_GpuFrame;
+    value: EvidenceWire_GpuFrame;
     case: "gpuFrame";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Layout layout = 18;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Layout layout = 18;
      */
-    value: EvidenceReceiptWire_Layout;
+    value: EvidenceWire_Layout;
     case: "layout";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.DispatcherLag dispatcher_lag = 19;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.DispatcherLag dispatcher_lag = 19;
      */
-    value: EvidenceReceiptWire_DispatcherLag;
+    value: EvidenceWire_DispatcherLag;
     case: "dispatcherLag";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.PreCommit pre_commit = 20;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.PreCommit pre_commit = 20;
      */
-    value: EvidenceReceiptWire_PreCommit;
+    value: EvidenceWire_PreCommit;
     case: "preCommit";
   } | { case: undefined; value?: undefined };
 };
 
 /**
- * One arm per process-local evidence family; the sealed envelope carries correlation, tenant, and the HLC
- * stamp, so no arm repeats them beyond its own producer columns.
- *
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire
+ * @generated from message rasm.contracts.ui.EvidenceWire
  */
-export type EvidenceReceiptWireValid = Message<"rasm.contracts.ui.EvidenceReceiptWire"> & {
+export type EvidenceWireValid = Message<"rasm.contracts.ui.EvidenceWire"> & {
   /**
-   * @generated from oneof rasm.contracts.ui.EvidenceReceiptWire.kind
+   * @generated from oneof rasm.contracts.ui.EvidenceWire.kind
    */
   kind: {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Surface surface = 1;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Surface surface = 1;
      */
-    value: EvidenceReceiptWire_SurfaceValid;
+    value: EvidenceWire_SurfaceValid;
     case: "surface";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Focus focus = 2;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Focus focus = 2;
      */
-    value: EvidenceReceiptWire_FocusValid;
+    value: EvidenceWire_FocusValid;
     case: "focus";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Render render = 3;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Render render = 3;
      */
-    value: EvidenceReceiptWire_RenderValid;
+    value: EvidenceWire_RenderValid;
     case: "render";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Disposal disposal = 4;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Disposal disposal = 4;
      */
-    value: EvidenceReceiptWire_DisposalValid;
+    value: EvidenceWire_DisposalValid;
     case: "disposal";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Edit edit = 5;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Edit edit = 5;
      */
-    value: EvidenceReceiptWire_EditValid;
+    value: EvidenceWire_EditValid;
     case: "edit";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.DeckReceiptWire command = 6;
+     * @generated from field: rasm.contracts.ui.DeckOutcomeWire command = 6;
      */
-    value: DeckReceiptWireValid;
+    value: DeckOutcomeWireValid;
     case: "command";
   } | {
     /**
@@ -276,96 +270,96 @@ export type EvidenceReceiptWireValid = Message<"rasm.contracts.ui.EvidenceReceip
     case: "nativeAsset";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Theme theme = 8;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Theme theme = 8;
      */
-    value: EvidenceReceiptWire_ThemeValid;
+    value: EvidenceWire_ThemeValid;
     case: "theme";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Motion motion = 9;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Motion motion = 9;
      */
-    value: EvidenceReceiptWire_MotionValid;
+    value: EvidenceWire_MotionValid;
     case: "motion";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Effect effect = 10;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Effect effect = 10;
      */
-    value: EvidenceReceiptWire_EffectValid;
+    value: EvidenceWire_EffectValid;
     case: "effect";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Asset asset = 11;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Asset asset = 11;
      */
-    value: EvidenceReceiptWire_AssetValid;
+    value: EvidenceWire_AssetValid;
     case: "asset";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.LiveData live_data = 12;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.LiveData live_data = 12;
      */
-    value: EvidenceReceiptWire_LiveDataValid;
+    value: EvidenceWire_LiveDataValid;
     case: "liveData";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.CollabSync collab_sync = 13;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.CollabSync collab_sync = 13;
      */
-    value: EvidenceReceiptWire_CollabSyncValid;
+    value: EvidenceWire_CollabSyncValid;
     case: "collabSync";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.CollabRevert collab_revert = 14;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.CollabRevert collab_revert = 14;
      */
-    value: EvidenceReceiptWire_CollabRevertValid;
+    value: EvidenceWire_CollabRevertValid;
     case: "collabRevert";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Media media = 15;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Media media = 15;
      */
-    value: EvidenceReceiptWire_MediaValid;
+    value: EvidenceWire_MediaValid;
     case: "media";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Quality quality = 16;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Quality quality = 16;
      */
-    value: EvidenceReceiptWire_QualityValid;
+    value: EvidenceWire_QualityValid;
     case: "quality";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.GpuFrame gpu_frame = 17;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.GpuFrame gpu_frame = 17;
      */
-    value: EvidenceReceiptWire_GpuFrameValid;
+    value: EvidenceWire_GpuFrameValid;
     case: "gpuFrame";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Layout layout = 18;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Layout layout = 18;
      */
-    value: EvidenceReceiptWire_LayoutValid;
+    value: EvidenceWire_LayoutValid;
     case: "layout";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.DispatcherLag dispatcher_lag = 19;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.DispatcherLag dispatcher_lag = 19;
      */
-    value: EvidenceReceiptWire_DispatcherLagValid;
+    value: EvidenceWire_DispatcherLagValid;
     case: "dispatcherLag";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.PreCommit pre_commit = 20;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.PreCommit pre_commit = 20;
      */
-    value: EvidenceReceiptWire_PreCommitValid;
+    value: EvidenceWire_PreCommitValid;
     case: "preCommit";
   } | { case: undefined; value?: undefined };
 };
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.
- * Use `create(EvidenceReceiptWireSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.
+ * Use `create(EvidenceWireSchema)` to create a new message.
  */
-export const EvidenceReceiptWireSchema: GenMessage<EvidenceReceiptWire, {validType: EvidenceReceiptWireValid}> = /*@__PURE__*/
+export const EvidenceWireSchema: GenMessage<EvidenceWire, {validType: EvidenceWireValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Surface
+ * @generated from message rasm.contracts.ui.EvidenceWire.Surface
  */
-export type EvidenceReceiptWire_Surface = Message<"rasm.contracts.ui.EvidenceReceiptWire.Surface"> & {
+export type EvidenceWire_Surface = Message<"rasm.contracts.ui.EvidenceWire.Surface"> & {
   /**
    * @generated from field: string host = 1;
    */
@@ -387,19 +381,19 @@ export type EvidenceReceiptWire_Surface = Message<"rasm.contracts.ui.EvidenceRec
   handle?: string | undefined;
 };
 
-export type EvidenceReceiptWire_SurfaceValid = EvidenceReceiptWire_Surface;
+export type EvidenceWire_SurfaceValid = EvidenceWire_Surface;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Surface.
- * Use `create(EvidenceReceiptWire_SurfaceSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Surface.
+ * Use `create(EvidenceWire_SurfaceSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_SurfaceSchema: GenMessage<EvidenceReceiptWire_Surface, {validType: EvidenceReceiptWire_SurfaceValid}> = /*@__PURE__*/
+export const EvidenceWire_SurfaceSchema: GenMessage<EvidenceWire_Surface, {validType: EvidenceWire_SurfaceValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 0);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Focus
+ * @generated from message rasm.contracts.ui.EvidenceWire.Focus
  */
-export type EvidenceReceiptWire_Focus = Message<"rasm.contracts.ui.EvidenceReceiptWire.Focus"> & {
+export type EvidenceWire_Focus = Message<"rasm.contracts.ui.EvidenceWire.Focus"> & {
   /**
    * @generated from field: string target = 1;
    */
@@ -411,19 +405,19 @@ export type EvidenceReceiptWire_Focus = Message<"rasm.contracts.ui.EvidenceRecei
   focused: boolean;
 };
 
-export type EvidenceReceiptWire_FocusValid = EvidenceReceiptWire_Focus;
+export type EvidenceWire_FocusValid = EvidenceWire_Focus;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Focus.
- * Use `create(EvidenceReceiptWire_FocusSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Focus.
+ * Use `create(EvidenceWire_FocusSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_FocusSchema: GenMessage<EvidenceReceiptWire_Focus, {validType: EvidenceReceiptWire_FocusValid}> = /*@__PURE__*/
+export const EvidenceWire_FocusSchema: GenMessage<EvidenceWire_Focus, {validType: EvidenceWire_FocusValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 1);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Render
+ * @generated from message rasm.contracts.ui.EvidenceWire.Render
  */
-export type EvidenceReceiptWire_Render = Message<"rasm.contracts.ui.EvidenceReceiptWire.Render"> & {
+export type EvidenceWire_Render = Message<"rasm.contracts.ui.EvidenceWire.Render"> & {
   /**
    * @generated from field: string slot = 1;
    */
@@ -471,9 +465,9 @@ export type EvidenceReceiptWire_Render = Message<"rasm.contracts.ui.EvidenceRece
 };
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Render
+ * @generated from message rasm.contracts.ui.EvidenceWire.Render
  */
-export type EvidenceReceiptWire_RenderValid = Message<"rasm.contracts.ui.EvidenceReceiptWire.Render"> & {
+export type EvidenceWire_RenderValid = Message<"rasm.contracts.ui.EvidenceWire.Render"> & {
   /**
    * @generated from field: string slot = 1;
    */
@@ -521,16 +515,16 @@ export type EvidenceReceiptWire_RenderValid = Message<"rasm.contracts.ui.Evidenc
 };
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Render.
- * Use `create(EvidenceReceiptWire_RenderSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Render.
+ * Use `create(EvidenceWire_RenderSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_RenderSchema: GenMessage<EvidenceReceiptWire_Render, {validType: EvidenceReceiptWire_RenderValid}> = /*@__PURE__*/
+export const EvidenceWire_RenderSchema: GenMessage<EvidenceWire_Render, {validType: EvidenceWire_RenderValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 2);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Disposal
+ * @generated from message rasm.contracts.ui.EvidenceWire.Disposal
  */
-export type EvidenceReceiptWire_Disposal = Message<"rasm.contracts.ui.EvidenceReceiptWire.Disposal"> & {
+export type EvidenceWire_Disposal = Message<"rasm.contracts.ui.EvidenceWire.Disposal"> & {
   /**
    * @generated from field: string screen_id = 1;
    */
@@ -548,9 +542,9 @@ export type EvidenceReceiptWire_Disposal = Message<"rasm.contracts.ui.EvidenceRe
 };
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Disposal
+ * @generated from message rasm.contracts.ui.EvidenceWire.Disposal
  */
-export type EvidenceReceiptWire_DisposalValid = Message<"rasm.contracts.ui.EvidenceReceiptWire.Disposal"> & {
+export type EvidenceWire_DisposalValid = Message<"rasm.contracts.ui.EvidenceWire.Disposal"> & {
   /**
    * @generated from field: string screen_id = 1;
    */
@@ -568,16 +562,16 @@ export type EvidenceReceiptWire_DisposalValid = Message<"rasm.contracts.ui.Evide
 };
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Disposal.
- * Use `create(EvidenceReceiptWire_DisposalSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Disposal.
+ * Use `create(EvidenceWire_DisposalSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_DisposalSchema: GenMessage<EvidenceReceiptWire_Disposal, {validType: EvidenceReceiptWire_DisposalValid}> = /*@__PURE__*/
+export const EvidenceWire_DisposalSchema: GenMessage<EvidenceWire_Disposal, {validType: EvidenceWire_DisposalValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 3);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Edit
+ * @generated from message rasm.contracts.ui.EvidenceWire.Edit
  */
-export type EvidenceReceiptWire_Edit = Message<"rasm.contracts.ui.EvidenceReceiptWire.Edit"> & {
+export type EvidenceWire_Edit = Message<"rasm.contracts.ui.EvidenceWire.Edit"> & {
   /**
    * @generated from field: string slot = 1;
    */
@@ -604,19 +598,19 @@ export type EvidenceReceiptWire_Edit = Message<"rasm.contracts.ui.EvidenceReceip
   outcome: string;
 };
 
-export type EvidenceReceiptWire_EditValid = EvidenceReceiptWire_Edit;
+export type EvidenceWire_EditValid = EvidenceWire_Edit;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Edit.
- * Use `create(EvidenceReceiptWire_EditSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Edit.
+ * Use `create(EvidenceWire_EditSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_EditSchema: GenMessage<EvidenceReceiptWire_Edit, {validType: EvidenceReceiptWire_EditValid}> = /*@__PURE__*/
+export const EvidenceWire_EditSchema: GenMessage<EvidenceWire_Edit, {validType: EvidenceWire_EditValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 4);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Theme
+ * @generated from message rasm.contracts.ui.EvidenceWire.Theme
  */
-export type EvidenceReceiptWire_Theme = Message<"rasm.contracts.ui.EvidenceReceiptWire.Theme"> & {
+export type EvidenceWire_Theme = Message<"rasm.contracts.ui.EvidenceWire.Theme"> & {
   /**
    * @generated from field: string variant = 1;
    */
@@ -638,19 +632,19 @@ export type EvidenceReceiptWire_Theme = Message<"rasm.contracts.ui.EvidenceRecei
   changedKeys: number;
 };
 
-export type EvidenceReceiptWire_ThemeValid = EvidenceReceiptWire_Theme;
+export type EvidenceWire_ThemeValid = EvidenceWire_Theme;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Theme.
- * Use `create(EvidenceReceiptWire_ThemeSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Theme.
+ * Use `create(EvidenceWire_ThemeSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_ThemeSchema: GenMessage<EvidenceReceiptWire_Theme, {validType: EvidenceReceiptWire_ThemeValid}> = /*@__PURE__*/
+export const EvidenceWire_ThemeSchema: GenMessage<EvidenceWire_Theme, {validType: EvidenceWire_ThemeValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 5);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Motion
+ * @generated from message rasm.contracts.ui.EvidenceWire.Motion
  */
-export type EvidenceReceiptWire_Motion = Message<"rasm.contracts.ui.EvidenceReceiptWire.Motion"> & {
+export type EvidenceWire_Motion = Message<"rasm.contracts.ui.EvidenceWire.Motion"> & {
   /**
    * @generated from field: string token = 1;
    */
@@ -667,19 +661,19 @@ export type EvidenceReceiptWire_Motion = Message<"rasm.contracts.ui.EvidenceRece
   reduced: boolean;
 };
 
-export type EvidenceReceiptWire_MotionValid = EvidenceReceiptWire_Motion;
+export type EvidenceWire_MotionValid = EvidenceWire_Motion;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Motion.
- * Use `create(EvidenceReceiptWire_MotionSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Motion.
+ * Use `create(EvidenceWire_MotionSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_MotionSchema: GenMessage<EvidenceReceiptWire_Motion, {validType: EvidenceReceiptWire_MotionValid}> = /*@__PURE__*/
+export const EvidenceWire_MotionSchema: GenMessage<EvidenceWire_Motion, {validType: EvidenceWire_MotionValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 6);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Effect
+ * @generated from message rasm.contracts.ui.EvidenceWire.Effect
  */
-export type EvidenceReceiptWire_Effect = Message<"rasm.contracts.ui.EvidenceReceiptWire.Effect"> & {
+export type EvidenceWire_Effect = Message<"rasm.contracts.ui.EvidenceWire.Effect"> & {
   /**
    * @generated from field: string plane = 1;
    */
@@ -706,7 +700,7 @@ export type EvidenceReceiptWire_Effect = Message<"rasm.contracts.ui.EvidenceRece
   count: number;
 
   /**
-   * @generated from oneof rasm.contracts.ui.EvidenceReceiptWire.Effect.measure
+   * @generated from oneof rasm.contracts.ui.EvidenceWire.Effect.measure
    */
   measure: {
     /**
@@ -722,9 +716,9 @@ export type EvidenceReceiptWire_Effect = Message<"rasm.contracts.ui.EvidenceRece
     case: "digest";
   } | {
     /**
-     * @generated from field: rasm.contracts.ui.EvidenceReceiptWire.Effect.Extent extent = 8;
+     * @generated from field: rasm.contracts.ui.EvidenceWire.Effect.Extent extent = 8;
      */
-    value: EvidenceReceiptWire_Effect_Extent;
+    value: EvidenceWire_Effect_Extent;
     case: "extent";
   } | {
     /**
@@ -741,19 +735,19 @@ export type EvidenceReceiptWire_Effect = Message<"rasm.contracts.ui.EvidenceRece
   } | { case: undefined; value?: undefined };
 };
 
-export type EvidenceReceiptWire_EffectValid = EvidenceReceiptWire_Effect;
+export type EvidenceWire_EffectValid = EvidenceWire_Effect;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Effect.
- * Use `create(EvidenceReceiptWire_EffectSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Effect.
+ * Use `create(EvidenceWire_EffectSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_EffectSchema: GenMessage<EvidenceReceiptWire_Effect, {validType: EvidenceReceiptWire_EffectValid}> = /*@__PURE__*/
+export const EvidenceWire_EffectSchema: GenMessage<EvidenceWire_Effect, {validType: EvidenceWire_EffectValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 7);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Effect.Extent
+ * @generated from message rasm.contracts.ui.EvidenceWire.Effect.Extent
  */
-export type EvidenceReceiptWire_Effect_Extent = Message<"rasm.contracts.ui.EvidenceReceiptWire.Effect.Extent"> & {
+export type EvidenceWire_Effect_Extent = Message<"rasm.contracts.ui.EvidenceWire.Effect.Extent"> & {
   /**
    * @generated from field: uint32 rows = 1;
    */
@@ -765,19 +759,19 @@ export type EvidenceReceiptWire_Effect_Extent = Message<"rasm.contracts.ui.Evide
   columns: number;
 };
 
-export type EvidenceReceiptWire_Effect_ExtentValid = EvidenceReceiptWire_Effect_Extent;
+export type EvidenceWire_Effect_ExtentValid = EvidenceWire_Effect_Extent;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Effect.Extent.
- * Use `create(EvidenceReceiptWire_Effect_ExtentSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Effect.Extent.
+ * Use `create(EvidenceWire_Effect_ExtentSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_Effect_ExtentSchema: GenMessage<EvidenceReceiptWire_Effect_Extent, {validType: EvidenceReceiptWire_Effect_ExtentValid}> = /*@__PURE__*/
+export const EvidenceWire_Effect_ExtentSchema: GenMessage<EvidenceWire_Effect_Extent, {validType: EvidenceWire_Effect_ExtentValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 7, 0);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Asset
+ * @generated from message rasm.contracts.ui.EvidenceWire.Asset
  */
-export type EvidenceReceiptWire_Asset = Message<"rasm.contracts.ui.EvidenceReceiptWire.Asset"> & {
+export type EvidenceWire_Asset = Message<"rasm.contracts.ui.EvidenceWire.Asset"> & {
   /**
    * @generated from field: string key = 1;
    */
@@ -804,19 +798,19 @@ export type EvidenceReceiptWire_Asset = Message<"rasm.contracts.ui.EvidenceRecei
   contentHash: Uint8Array;
 };
 
-export type EvidenceReceiptWire_AssetValid = EvidenceReceiptWire_Asset;
+export type EvidenceWire_AssetValid = EvidenceWire_Asset;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Asset.
- * Use `create(EvidenceReceiptWire_AssetSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Asset.
+ * Use `create(EvidenceWire_AssetSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_AssetSchema: GenMessage<EvidenceReceiptWire_Asset, {validType: EvidenceReceiptWire_AssetValid}> = /*@__PURE__*/
+export const EvidenceWire_AssetSchema: GenMessage<EvidenceWire_Asset, {validType: EvidenceWire_AssetValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 8);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.LiveData
+ * @generated from message rasm.contracts.ui.EvidenceWire.LiveData
  */
-export type EvidenceReceiptWire_LiveData = Message<"rasm.contracts.ui.EvidenceReceiptWire.LiveData"> & {
+export type EvidenceWire_LiveData = Message<"rasm.contracts.ui.EvidenceWire.LiveData"> & {
   /**
    * @generated from field: string slot = 1;
    */
@@ -843,19 +837,19 @@ export type EvidenceReceiptWire_LiveData = Message<"rasm.contracts.ui.EvidenceRe
   refreshes: number;
 };
 
-export type EvidenceReceiptWire_LiveDataValid = EvidenceReceiptWire_LiveData;
+export type EvidenceWire_LiveDataValid = EvidenceWire_LiveData;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.LiveData.
- * Use `create(EvidenceReceiptWire_LiveDataSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.LiveData.
+ * Use `create(EvidenceWire_LiveDataSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_LiveDataSchema: GenMessage<EvidenceReceiptWire_LiveData, {validType: EvidenceReceiptWire_LiveDataValid}> = /*@__PURE__*/
+export const EvidenceWire_LiveDataSchema: GenMessage<EvidenceWire_LiveData, {validType: EvidenceWire_LiveDataValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 9);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.CollabSync
+ * @generated from message rasm.contracts.ui.EvidenceWire.CollabSync
  */
-export type EvidenceReceiptWire_CollabSync = Message<"rasm.contracts.ui.EvidenceReceiptWire.CollabSync"> & {
+export type EvidenceWire_CollabSync = Message<"rasm.contracts.ui.EvidenceWire.CollabSync"> & {
   /**
    * @generated from field: string doc_key = 1;
    */
@@ -882,19 +876,19 @@ export type EvidenceReceiptWire_CollabSync = Message<"rasm.contracts.ui.Evidence
   applied: boolean;
 };
 
-export type EvidenceReceiptWire_CollabSyncValid = EvidenceReceiptWire_CollabSync;
+export type EvidenceWire_CollabSyncValid = EvidenceWire_CollabSync;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.CollabSync.
- * Use `create(EvidenceReceiptWire_CollabSyncSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.CollabSync.
+ * Use `create(EvidenceWire_CollabSyncSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_CollabSyncSchema: GenMessage<EvidenceReceiptWire_CollabSync, {validType: EvidenceReceiptWire_CollabSyncValid}> = /*@__PURE__*/
+export const EvidenceWire_CollabSyncSchema: GenMessage<EvidenceWire_CollabSync, {validType: EvidenceWire_CollabSyncValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 10);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.CollabRevert
+ * @generated from message rasm.contracts.ui.EvidenceWire.CollabRevert
  */
-export type EvidenceReceiptWire_CollabRevert = Message<"rasm.contracts.ui.EvidenceReceiptWire.CollabRevert"> & {
+export type EvidenceWire_CollabRevert = Message<"rasm.contracts.ui.EvidenceWire.CollabRevert"> & {
   /**
    * @generated from field: string doc_key = 1;
    */
@@ -911,19 +905,19 @@ export type EvidenceReceiptWire_CollabRevert = Message<"rasm.contracts.ui.Eviden
   inverseOps: number;
 };
 
-export type EvidenceReceiptWire_CollabRevertValid = EvidenceReceiptWire_CollabRevert;
+export type EvidenceWire_CollabRevertValid = EvidenceWire_CollabRevert;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.CollabRevert.
- * Use `create(EvidenceReceiptWire_CollabRevertSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.CollabRevert.
+ * Use `create(EvidenceWire_CollabRevertSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_CollabRevertSchema: GenMessage<EvidenceReceiptWire_CollabRevert, {validType: EvidenceReceiptWire_CollabRevertValid}> = /*@__PURE__*/
+export const EvidenceWire_CollabRevertSchema: GenMessage<EvidenceWire_CollabRevert, {validType: EvidenceWire_CollabRevertValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 11);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Media
+ * @generated from message rasm.contracts.ui.EvidenceWire.Media
  */
-export type EvidenceReceiptWire_Media = Message<"rasm.contracts.ui.EvidenceReceiptWire.Media"> & {
+export type EvidenceWire_Media = Message<"rasm.contracts.ui.EvidenceWire.Media"> & {
   /**
    * @generated from field: string key = 1;
    */
@@ -951,9 +945,9 @@ export type EvidenceReceiptWire_Media = Message<"rasm.contracts.ui.EvidenceRecei
 };
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Media
+ * @generated from message rasm.contracts.ui.EvidenceWire.Media
  */
-export type EvidenceReceiptWire_MediaValid = Message<"rasm.contracts.ui.EvidenceReceiptWire.Media"> & {
+export type EvidenceWire_MediaValid = Message<"rasm.contracts.ui.EvidenceWire.Media"> & {
   /**
    * @generated from field: string key = 1;
    */
@@ -981,16 +975,16 @@ export type EvidenceReceiptWire_MediaValid = Message<"rasm.contracts.ui.Evidence
 };
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Media.
- * Use `create(EvidenceReceiptWire_MediaSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Media.
+ * Use `create(EvidenceWire_MediaSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_MediaSchema: GenMessage<EvidenceReceiptWire_Media, {validType: EvidenceReceiptWire_MediaValid}> = /*@__PURE__*/
+export const EvidenceWire_MediaSchema: GenMessage<EvidenceWire_Media, {validType: EvidenceWire_MediaValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 12);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Quality
+ * @generated from message rasm.contracts.ui.EvidenceWire.Quality
  */
-export type EvidenceReceiptWire_Quality = Message<"rasm.contracts.ui.EvidenceReceiptWire.Quality"> & {
+export type EvidenceWire_Quality = Message<"rasm.contracts.ui.EvidenceWire.Quality"> & {
   /**
    * @generated from field: string tier = 1;
    */
@@ -1022,19 +1016,19 @@ export type EvidenceReceiptWire_Quality = Message<"rasm.contracts.ui.EvidenceRec
   refreshHz: number;
 };
 
-export type EvidenceReceiptWire_QualityValid = EvidenceReceiptWire_Quality;
+export type EvidenceWire_QualityValid = EvidenceWire_Quality;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Quality.
- * Use `create(EvidenceReceiptWire_QualitySchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Quality.
+ * Use `create(EvidenceWire_QualitySchema)` to create a new message.
  */
-export const EvidenceReceiptWire_QualitySchema: GenMessage<EvidenceReceiptWire_Quality, {validType: EvidenceReceiptWire_QualityValid}> = /*@__PURE__*/
+export const EvidenceWire_QualitySchema: GenMessage<EvidenceWire_Quality, {validType: EvidenceWire_QualityValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 13);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.GpuFrame
+ * @generated from message rasm.contracts.ui.EvidenceWire.GpuFrame
  */
-export type EvidenceReceiptWire_GpuFrame = Message<"rasm.contracts.ui.EvidenceReceiptWire.GpuFrame"> & {
+export type EvidenceWire_GpuFrame = Message<"rasm.contracts.ui.EvidenceWire.GpuFrame"> & {
   /**
    * @generated from field: uint64 frame_ordinal = 1;
    */
@@ -1056,19 +1050,19 @@ export type EvidenceReceiptWire_GpuFrame = Message<"rasm.contracts.ui.EvidenceRe
   measuredNanoseconds: bigint;
 };
 
-export type EvidenceReceiptWire_GpuFrameValid = EvidenceReceiptWire_GpuFrame;
+export type EvidenceWire_GpuFrameValid = EvidenceWire_GpuFrame;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.GpuFrame.
- * Use `create(EvidenceReceiptWire_GpuFrameSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.GpuFrame.
+ * Use `create(EvidenceWire_GpuFrameSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_GpuFrameSchema: GenMessage<EvidenceReceiptWire_GpuFrame, {validType: EvidenceReceiptWire_GpuFrameValid}> = /*@__PURE__*/
+export const EvidenceWire_GpuFrameSchema: GenMessage<EvidenceWire_GpuFrame, {validType: EvidenceWire_GpuFrameValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 14);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Layout
+ * @generated from message rasm.contracts.ui.EvidenceWire.Layout
  */
-export type EvidenceReceiptWire_Layout = Message<"rasm.contracts.ui.EvidenceReceiptWire.Layout"> & {
+export type EvidenceWire_Layout = Message<"rasm.contracts.ui.EvidenceWire.Layout"> & {
   /**
    * @generated from field: string panel = 1;
    */
@@ -1091,9 +1085,9 @@ export type EvidenceReceiptWire_Layout = Message<"rasm.contracts.ui.EvidenceRece
 };
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.Layout
+ * @generated from message rasm.contracts.ui.EvidenceWire.Layout
  */
-export type EvidenceReceiptWire_LayoutValid = Message<"rasm.contracts.ui.EvidenceReceiptWire.Layout"> & {
+export type EvidenceWire_LayoutValid = Message<"rasm.contracts.ui.EvidenceWire.Layout"> & {
   /**
    * @generated from field: string panel = 1;
    */
@@ -1116,16 +1110,16 @@ export type EvidenceReceiptWire_LayoutValid = Message<"rasm.contracts.ui.Evidenc
 };
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.Layout.
- * Use `create(EvidenceReceiptWire_LayoutSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.Layout.
+ * Use `create(EvidenceWire_LayoutSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_LayoutSchema: GenMessage<EvidenceReceiptWire_Layout, {validType: EvidenceReceiptWire_LayoutValid}> = /*@__PURE__*/
+export const EvidenceWire_LayoutSchema: GenMessage<EvidenceWire_Layout, {validType: EvidenceWire_LayoutValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 15);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.DispatcherLag
+ * @generated from message rasm.contracts.ui.EvidenceWire.DispatcherLag
  */
-export type EvidenceReceiptWire_DispatcherLag = Message<"rasm.contracts.ui.EvidenceReceiptWire.DispatcherLag"> & {
+export type EvidenceWire_DispatcherLag = Message<"rasm.contracts.ui.EvidenceWire.DispatcherLag"> & {
   /**
    * @generated from field: string boundary = 1;
    */
@@ -1138,9 +1132,9 @@ export type EvidenceReceiptWire_DispatcherLag = Message<"rasm.contracts.ui.Evide
 };
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.DispatcherLag
+ * @generated from message rasm.contracts.ui.EvidenceWire.DispatcherLag
  */
-export type EvidenceReceiptWire_DispatcherLagValid = Message<"rasm.contracts.ui.EvidenceReceiptWire.DispatcherLag"> & {
+export type EvidenceWire_DispatcherLagValid = Message<"rasm.contracts.ui.EvidenceWire.DispatcherLag"> & {
   /**
    * @generated from field: string boundary = 1;
    */
@@ -1153,16 +1147,16 @@ export type EvidenceReceiptWire_DispatcherLagValid = Message<"rasm.contracts.ui.
 };
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.DispatcherLag.
- * Use `create(EvidenceReceiptWire_DispatcherLagSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.DispatcherLag.
+ * Use `create(EvidenceWire_DispatcherLagSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_DispatcherLagSchema: GenMessage<EvidenceReceiptWire_DispatcherLag, {validType: EvidenceReceiptWire_DispatcherLagValid}> = /*@__PURE__*/
+export const EvidenceWire_DispatcherLagSchema: GenMessage<EvidenceWire_DispatcherLag, {validType: EvidenceWire_DispatcherLagValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 16);
 
 /**
- * @generated from message rasm.contracts.ui.EvidenceReceiptWire.PreCommit
+ * @generated from message rasm.contracts.ui.EvidenceWire.PreCommit
  */
-export type EvidenceReceiptWire_PreCommit = Message<"rasm.contracts.ui.EvidenceReceiptWire.PreCommit"> & {
+export type EvidenceWire_PreCommit = Message<"rasm.contracts.ui.EvidenceWire.PreCommit"> & {
   /**
    * @generated from field: string doc_key = 1;
    */
@@ -1189,13 +1183,13 @@ export type EvidenceReceiptWire_PreCommit = Message<"rasm.contracts.ui.EvidenceR
   message?: string | undefined;
 };
 
-export type EvidenceReceiptWire_PreCommitValid = EvidenceReceiptWire_PreCommit;
+export type EvidenceWire_PreCommitValid = EvidenceWire_PreCommit;
 
 /**
- * Describes the message rasm.contracts.ui.EvidenceReceiptWire.PreCommit.
- * Use `create(EvidenceReceiptWire_PreCommitSchema)` to create a new message.
+ * Describes the message rasm.contracts.ui.EvidenceWire.PreCommit.
+ * Use `create(EvidenceWire_PreCommitSchema)` to create a new message.
  */
-export const EvidenceReceiptWire_PreCommitSchema: GenMessage<EvidenceReceiptWire_PreCommit, {validType: EvidenceReceiptWire_PreCommitValid}> = /*@__PURE__*/
+export const EvidenceWire_PreCommitSchema: GenMessage<EvidenceWire_PreCommit, {validType: EvidenceWire_PreCommitValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_ui_evidence, 2, 17);
 
 /**
@@ -1242,9 +1236,6 @@ export const SkewBandWireSchema: GenMessage<SkewBandWire, {validType: SkewBandWi
   messageDesc(file_rasm_contracts_ui_evidence, 3);
 
 /**
- * The composition site: the cross-package receipt spine beside THIS package's closed receipt family, so the
- * payload is exhaustive at every arm and the producing package derives from the arm rather than from a key.
- *
  * @generated from message rasm.contracts.ui.EvidenceRowWire
  */
 export type EvidenceRowWire = Message<"rasm.contracts.ui.EvidenceRowWire"> & {
@@ -1259,25 +1250,22 @@ export type EvidenceRowWire = Message<"rasm.contracts.ui.EvidenceRowWire"> & {
   uncertaintyGroup: number;
 
   /**
-   * @generated from field: rasm.contracts.receipt.ReceiptHeaderWire header = 3;
-   */
-  header?: ReceiptHeaderWire | undefined;
-
-  /**
-   * @generated from field: rasm.contracts.ui.SkewBandWire band = 4;
+   * @generated from field: rasm.contracts.ui.SkewBandWire band = 3;
    */
   band?: SkewBandWire | undefined;
 
   /**
-   * @generated from field: rasm.contracts.ui.EvidenceReceiptWire receipt = 5;
+   * @generated from field: rasm.contracts.ui.EvidenceWire evidence = 4;
    */
-  receipt?: EvidenceReceiptWire | undefined;
+  evidence?: EvidenceWire | undefined;
+
+  /**
+   * @generated from field: rasm.contracts.clock.Hlc stamp = 5;
+   */
+  stamp?: Hlc | undefined;
 };
 
 /**
- * The composition site: the cross-package receipt spine beside THIS package's closed receipt family, so the
- * payload is exhaustive at every arm and the producing package derives from the arm rather than from a key.
- *
  * @generated from message rasm.contracts.ui.EvidenceRowWire
  */
 export type EvidenceRowWireValid = Message<"rasm.contracts.ui.EvidenceRowWire"> & {
@@ -1292,19 +1280,19 @@ export type EvidenceRowWireValid = Message<"rasm.contracts.ui.EvidenceRowWire"> 
   uncertaintyGroup: number;
 
   /**
-   * @generated from field: rasm.contracts.receipt.ReceiptHeaderWire header = 3;
-   */
-  header: ReceiptHeaderWireValid;
-
-  /**
-   * @generated from field: rasm.contracts.ui.SkewBandWire band = 4;
+   * @generated from field: rasm.contracts.ui.SkewBandWire band = 3;
    */
   band: SkewBandWireValid;
 
   /**
-   * @generated from field: rasm.contracts.ui.EvidenceReceiptWire receipt = 5;
+   * @generated from field: rasm.contracts.ui.EvidenceWire evidence = 4;
    */
-  receipt: EvidenceReceiptWireValid;
+  evidence: EvidenceWireValid;
+
+  /**
+   * @generated from field: rasm.contracts.clock.Hlc stamp = 5;
+   */
+  stamp: HlcValid;
 };
 
 /**

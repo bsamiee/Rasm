@@ -4,7 +4,7 @@
 
 Cross-section algebra is the `Rasm.Element` `Composition/material#SectionProperties` seam owner — `OfMillimetres` admits every column on this page's millimetre basis and `SectionForm` carries the shape witness the family, the tool catalogue, and every deformation law read.
 
-`TubeProgram.Apply` composes the frozen `ProcessEnvelope.Bender`, `ProcessEnvelope.Roll`, `ProcessBudget.Formed`, `Intersection.Apply`, `Development.Apply`, `UvIsland`, and `ContentKey.Of` wires, and settles each modality on the `Process/owner` `Receipt<TEvidence>` spine. Intersection provenance and atlas provenance remain intact through sectioned cope projection.
+`TubeProgram.Apply` composes the frozen `ProcessEnvelope.Bender`, `ProcessEnvelope.Roll`, `ProcessBudget.Formed`, `Intersection.Apply`, `Development.Apply`, `UvIsland`, and `ContentKey.Of` wires. Intersection provenance and atlas provenance remain intact through sectioned cope projection.
 
 ## [01]-[INDEX]
 
@@ -14,12 +14,12 @@ Cross-section algebra is the `Rasm.Element` `Composition/material#SectionPropert
 ## [02]-[TUBE_FORMING]
 
 - Owner: `TubeFormKind` owns discrete process physics; `BendFormat` owns command projection; `CopeEnd` owns analytic branch-end selection; `TubeSection` owns closed thin-wall mechanics ONTO the `Rasm.Element` section seam; `RollSection` and `RollAxis` own closed, open, solid, and plate roll mechanics; `TubeTool` owns tooling evidence; `TubeProgram` owns all operation dispatch and projection.
-- Cases: `TubeOp` carries `Form`, `Roll`, and `Cope`; `TubeResult` mirrors those modalities over `Receipt<TEvidence>` payloads; `TubeCommand` binds one canonical `TubeCoordinate` to a `BendFormat` projection row; `TubeFormKind` carries rotary-draw, compression, ram, push, stretch, and freeform behavior; `CopeEnd` selects the negative or positive analytic root; `MandrelKind` carries the tooling axis.
-- Entry: `TubeProgram.Apply(TubeOp, IClock)` is the one polymorphic entry for every modality; the clock rides it because a settled receipt is stamped where it settles.
+- Cases: `TubeOp` carries `Form`, `Roll`, and `Cope`; `TubeResult` mirrors those modalities through `BendProgram`, `RollSchedule`, and `CopePattern`; `TubeCommand` binds one canonical `TubeCoordinate` to a `BendFormat` projection row; `TubeFormKind` carries rotary-draw, compression, ram, push, stretch, and freeform behavior; `CopeEnd` selects the negative or positive analytic root; `MandrelKind` carries the tooling axis.
+- Entry: `TubeProgram.Apply(TubeOp)` is the one polymorphic entry for every modality.
 - Law: cross-section columns seat on the `Rasm.Element` seam owner and this page holds NO section record of its own — one discretized wall run derives every column, `OfMillimetres` admits them, and the interior reads evidence rather than re-gating it. `SectionForm` carries the vertex census, curved-edge count, radial compactness, outline perimeter, and the two BOUNDING extents `Major`/`Minor` — bounding, never the radii of gyration the same owner spells beside them.
 - Auto: centerlines normalize once, tooling resolves per bend, neutral-axis length consumes the forming budget, the folder's `ElasticLaw` inverts the CUBIC elastic-recovery law over the loaded radius for bend springback and a bracketed root recovers pass curvature — the only transcendental inversions on the page, and the cope station's quadratic never reaches them — mandrel rows supply their own interior wall support, weld-seam rotation propagates, roll passes generate command curvature with axis modulus and distortion gates, and sectioned cope lowers exact crossing keys through source vertices or source faces into developed islands.
-- Receipt: `Receipt<TubeEvidence>` carries the canonical coordinate beside every projected command, force, tooling position, deformation witness, terminal feed, nominal centerline, developed body, and cut length; `Receipt<RollEvidence>` carries input, commanded, and recovered radius, axis, distortion, and machine margin; `Receipt<CopeEvidence>` carries chart-coherent developed runs and defining-face crossing wedges. Plane, key, ancestry, and stamp seat on the carrier — a lane record re-spelling any of them is the deleted form, and ONE frame per lane serves both the key mint and the carrier's own preimage facade.
-- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon` and the `Composition/material` section seam, `NodaTime`, `MathNet.Numerics`, `UnitsNet` (`Length`, `Angle`, `Area`, `Ratio`, `ReciprocalLength`, `Force`, `Torque`), `RhinoCommon`, `Rasm.Meshing`, `Rasm.Parametric`, `Rasm.Processing`, and `ContentKey` compose the surface.
+- Result: `BendProgram` carries bend evidence and key; `RollSchedule` carries roll evidence and key; `CopePattern` carries developed curves, cope evidence, and key. Each lane's frame mints its key from the complete operation result.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, the `Rasm.Element` `CanonicalWriter` codec behind `FabricationCanon` and the `Composition/material` section seam, `MathNet.Numerics`, `UnitsNet` (`Length`, `Angle`, `Area`, `Ratio`, `ReciprocalLength`, `Force`, `Torque`), `RhinoCommon`, `Rasm.Meshing`, `Rasm.Parametric`, `Rasm.Processing`, and `ContentKey` compose the surface.
 - Growth: A discrete process is one `TubeFormKind` row, a command convention is one `BendFormat` row, a physical tool is one catalog row, an analytic branch end is one `CopeEnd` row, a roll target is data, and a new modality is one `TubeOp`/`TubeResult` case pair.
 - Boundary: Forming owns tube mechanics and projection; machine capacity, process material physics, exact intersection, development, planar loop admission, posting text, and content identity remain at their canonical owners.
 
@@ -28,7 +28,6 @@ Cross-section algebra is the `Rasm.Element` `Composition/material#SectionPropert
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
-using NodaTime;
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Projection;
@@ -485,6 +484,7 @@ public sealed record TubeEvidence(
     double NominalCenterlineMm,
     double DevelopedLengthMm,
     double CutLengthMm);
+public sealed record BendProgram(TubeEvidence Evidence, ContentKey Key);
 
 [SmartEnum<string>]
 public sealed partial class RollAxis {
@@ -628,6 +628,7 @@ public sealed record RollEvidence(
     double DevelopedLengthMm,
     double MaximumDistortion,
     double TorqueMarginNm);
+public sealed record RollSchedule(RollEvidence Evidence, ContentKey Key);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CopeSource {
@@ -648,7 +649,8 @@ public abstract partial record CopeSource {
 }
 
 public sealed record CopeProjection(int Crossing, ChartId Chart, Point2d Uv);
-public sealed record CopeEvidence(int Crossings, int Segments, Seq<CopeProjection> Projection, Option<DistortionReceipt> Distortion);
+public sealed record CopeEvidence(int Crossings, int Segments, Seq<CopeProjection> Projection, Option<Distortion> Distortion);
+public sealed record CopePattern(Seq<Loop> Curves, CopeEvidence Evidence, ContentKey Key);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TubeOp {
@@ -663,14 +665,14 @@ public abstract partial record TubeOp {
 public abstract partial record TubeResult {
     private TubeResult() { }
 
-    public sealed record Formed(Receipt<TubeEvidence> Program) : TubeResult;
-    public sealed record Rolled(Receipt<RollEvidence> Schedule) : TubeResult;
-    public sealed record Coped(Seq<Loop> Curves, Receipt<CopeEvidence> Receipt) : TubeResult;
+    public sealed record Formed(BendProgram Program) : TubeResult;
+    public sealed record Rolled(RollSchedule Schedule) : TubeResult;
+    public sealed record Coped(CopePattern Pattern) : TubeResult;
 
     public ContentKey Key => Map(
         formed: static value => value.Program.Key,
         rolled: static value => value.Schedule.Key,
-        coped: static value => value.Receipt.Key);
+        coped: static value => value.Pattern.Key);
 }
 
 ```
@@ -689,7 +691,6 @@ public abstract partial record TubeResult {
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
-using NodaTime;
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Projection;
@@ -711,24 +712,23 @@ namespace Rasm.Fabrication.Forming;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TubeProgram {
-    public static Fin<TubeResult> Apply(TubeOp operation, IClock clock) => operation is null || clock is null
+    public static Fin<TubeResult> Apply(TubeOp operation) => operation is null
         ? Fin.Fail<TubeResult>(new KernelFault.InvalidValue("tube", "tube:operation"))
         : operation.Switch(
-            state: clock,
-            form: static (at, value) => Form(value.Run, value.Kind, value.Machine, at).Map<TubeResult>(static receipt => new TubeResult.Formed(receipt)),
-            roll: static (at, value) => Roll(value.Run, value.Machine, at).Map<TubeResult>(static receipt => new TubeResult.Rolled(receipt)),
-            cope: static (at, value) => Cope(value.Source, at).Map(result => (TubeResult)new TubeResult.Coped(result.Curves, result.Receipt)));
+            form: static value => Form(value.Run, value.Kind, value.Machine).Map<TubeResult>(static result => new TubeResult.Formed(result)),
+            roll: static value => Roll(value.Run, value.Machine).Map<TubeResult>(static result => new TubeResult.Rolled(result)),
+            cope: static value => Cope(value.Source).Map<TubeResult>(static result => new TubeResult.Coped(result)));
 
-    private static Fin<Receipt<TubeEvidence>> Form(TubeRun run, TubeFormKind kind, ProcessEnvelope.Bender machine, IClock clock) =>
+    private static Fin<BendProgram> Form(TubeRun run, TubeFormKind kind, ProcessEnvelope.Bender machine) =>
         run is null || kind is null || machine is null
-            ? Fin.Fail<Receipt<TubeEvidence>>(new KernelFault.InvalidValue("tube", "tube:form"))
+            ? Fin.Fail<BendProgram>(new KernelFault.InvalidValue("tube", "tube:form"))
             : from points in Normalize(run.Centerline, run.Policy, run.Tolerance)
               from bends in toSeq(Enumerable.Range(1, Math.Max(0, points.Count - 2)))
                   .Traverse(index => BendOf(index, points, run, kind).ToValidation()).As().ToFin()
               let requiredDies = bends.Fold(Set<string>(), static (keys, bend) => keys.Add(bend.ToolKey)).Count
               from _machine in ValidMachine(machine, run.ClrMm, requiredDies)
-              from receipt in Project(points, bends, run, kind, clock)
-              select receipt;
+              from result in Project(points, bends, run, kind)
+              select result;
 
     private static Fin<Arr<Point3d>> Normalize(Arr<Point3d> source, TubePolicy policy, Context tolerance) =>
         toSeq(source.Skip(1)).FoldM<Fin, Seq<Point3d>>(
@@ -866,12 +866,11 @@ public static class TubeProgram {
     private static Fin<TubeCommand> CommandOf(BendFormat format, TubeCoordinate coordinate) =>
         TubeCommand.Validate(format, format.Project(coordinate), out TubeCommand command).Admitted(command);
 
-    private static Fin<Receipt<TubeEvidence>> Project(
+    private static Fin<BendProgram> Project(
         Arr<Point3d> points,
         Seq<TubeBend> bends,
         TubeRun run,
-        TubeFormKind kind,
-        IClock clock) {
+        TubeFormKind kind) {
         Seq<Point3d> path = toSeq(points);
         double nominal = path.Zip(path.Tail).Fold(0.0, static (sum, edge) => sum + edge.First.DistanceTo(edge.Second));
         double tangent = bends.Fold(0.0, static (sum, bend) => sum + bend.Coordinate.FeedMm);
@@ -882,7 +881,7 @@ public static class TubeProgram {
                 + run.TailAllowanceMm
                 + (bends.IsEmpty ? run.LeadAllowanceMm : 0.0);
         if (!double.IsFinite(terminal) || terminal < run.Policy.MinimumSegment.Millimeters)
-            return Fin.Fail<Receipt<TubeEvidence>>(new KernelFault.InvalidValue("tube", "tube:terminal-feed"));
+            return Fin.Fail<BendProgram>(new KernelFault.InvalidValue("tube", "tube:terminal-feed"));
         double cut = tangent + terminal + bends.Fold(0.0, static (sum, bend) => sum + bend.NeutralArcMm);
         TubeEvidence evidence = new(
             kind,
@@ -894,17 +893,12 @@ public static class TubeProgram {
             nominal,
             cut - run.LeadAllowanceMm - run.TailAllowanceMm,
             cut);
-        return Canonical(evidence).Map(key => new Receipt<TubeEvidence> {
-            Evidence = evidence,
-            Concern = FabConcern.Forming,
-            Key = key,
-            Stamped = clock.GetCurrentInstant(),
-        });
+        return Canonical(evidence).Map(key => new BendProgram(evidence, key));
     }
 
-    private static Fin<Receipt<RollEvidence>> Roll(RollRun run, ProcessEnvelope.Roll machine, IClock clock) =>
+    private static Fin<RollSchedule> Roll(RollRun run, ProcessEnvelope.Roll machine) =>
         run is null || machine is null
-            ? Fin.Fail<Receipt<RollEvidence>>(new KernelFault.InvalidValue("tube", "tube:roll"))
+            ? Fin.Fail<RollSchedule>(new KernelFault.InvalidValue("tube", "tube:roll"))
             : from _capacity in Seq(
                 machine.MaxWidth.Millimeters, machine.MinThickness.Millimeters, machine.MaxThickness.Millimeters, machine.Torque.NewtonMeters)
                         .ForAll(static value => double.IsFinite(value) && value > 0.0)
@@ -965,12 +959,7 @@ public static class TubeProgram {
                   maximumDistortion,
                   machine.Torque.NewtonMeters - peakTorque)
               from key in Canonical(evidence)
-              select new Receipt<RollEvidence> {
-                  Evidence = evidence,
-                  Concern = FabConcern.Forming,
-                  Key = key,
-                  Stamped = clock.GetCurrentInstant(),
-              };
+              select new RollSchedule(evidence, key);
 
     private static Fin<double> CommandCurvature(
         double outputCurvature,
@@ -992,24 +981,23 @@ public static class TubeProgram {
                 : Fin.Fail<double>(new KernelFault.InvalidValue("tube", "tube:roll-recovery-root"));
     }
 
-    private static Fin<(Seq<Loop> Curves, Receipt<CopeEvidence> Receipt)> Cope(CopeSource source, IClock clock) => source is null
-        ? Fin.Fail<(Seq<Loop>, Receipt<CopeEvidence>)>(new KernelFault.InvalidValue("tube", "tube:cope"))
+    private static Fin<CopePattern> Cope(CopeSource source) => source is null
+        ? Fin.Fail<CopePattern>(new KernelFault.InvalidValue("tube", "tube:cope"))
         : source.Switch(
-            state: clock,
-            analytic: static (at, value) => AnalyticCope(value, at),
-            sectioned: static (at, value) => SectionedCope(value, at));
+            analytic: static value => AnalyticCope(value),
+            sectioned: static value => SectionedCope(value));
 
-    private static Fin<(Seq<Loop> Curves, Receipt<CopeEvidence> Receipt)> AnalyticCope(CopeSource.Analytic source, IClock clock) {
+    private static Fin<CopePattern> AnalyticCope(CopeSource.Analytic source) {
         if (source.Branch is null || source.Main is null || source.End is null || source.Policy is null || source.Tolerance is null
             || !source.Branch.Family.AnalyticCope || !source.Main.Family.AnalyticCope
             || source.Intersection.Radians is <= 0.0 || source.Intersection.Radians >= Math.PI)
-            return Fin.Fail<(Seq<Loop>, Receipt<CopeEvidence>)>(new KernelFault.InvalidValue("tube", "tube:cope-analytic"));
+            return Fin.Fail<CopePattern>(new KernelFault.InvalidValue("tube", "tube:cope-analytic"));
         double branchRadius = (source.Branch.Form.Major.Millimetres() + source.Branch.WallMm) / 2.0;
         double mainRadius = (source.Main.Form.Major.Millimetres() + source.Main.WallMm) / 2.0;
         int samples = Math.Max(3, (int)Math.Ceiling(
             2.0 * Math.PI * branchRadius / source.Tolerance.For(ToleranceLane.Chord).Value));
         if (samples > source.Policy.MaximumCopeStations.Value)
-            return Fin.Fail<(Seq<Loop>, Receipt<CopeEvidence>)>(new KernelFault.InvalidValue("tube", "tube:cope-stations"));
+            return Fin.Fail<CopePattern>(new KernelFault.InvalidValue("tube", "tube:cope-stations"));
         Fin<Seq<Point3d>> solved = toSeq(Enumerable.Range(0, samples)).Traverse(index => {
             double theta = 2.0 * Math.PI * index / samples;
             double x = branchRadius * Math.Cos(theta);
@@ -1029,15 +1017,10 @@ public static class TubeProgram {
                from loop in Loop.Admit(points.ToArr(), closed: true, Arr<double>(), source.Tolerance)
                let evidence = new CopeEvidence(samples, samples, Seq<CopeProjection>(), None)
                from key in Canonical(Seq(loop), evidence, source.Tolerance)
-               select (Seq(loop), new Receipt<CopeEvidence> {
-                   Evidence = evidence,
-                   Concern = FabConcern.Forming,
-                   Key = key,
-                   Stamped = clock.GetCurrentInstant(),
-               });
+               select new CopePattern(Seq(loop), evidence, key);
     }
 
-    private static Fin<(Seq<Loop> Curves, Receipt<CopeEvidence> Receipt)> SectionedCope(CopeSource.Sectioned source, IClock clock) =>
+    private static Fin<CopePattern> SectionedCope(CopeSource.Sectioned source) =>
         from intersection in Intersection.Apply(new IntersectOp.MeshMesh(source.Part.Mesh, source.Tool, source.Intersection))
         from chains in intersection is IntersectResult.Chains crossed
             ? Fin.Succ(crossed)
@@ -1055,16 +1038,9 @@ public static class TubeProgram {
             chains.Lattice.Rows.Length,
             chains.Lattice.Segments.Length + chains.Lattice.Coplanar.Length,
             edges.Bind(static edge => Seq(edge.A, edge.B)),
-            Some(unrolled.Atlas.Receipt))
+            Some(unrolled.Atlas.Result))
         from key in Canonical(loops, evidence, source.Part.Mesh.Tolerance)
-        select (
-            loops,
-            new Receipt<CopeEvidence> {
-                Evidence = evidence,
-                Concern = FabConcern.Forming,
-                Key = key,
-                Stamped = clock.GetCurrentInstant(),
-            });
+        select new CopePattern(loops, evidence, key);
 
     private sealed record DevelopedEdge(int CrossingA, int CrossingB, CopeProjection A, CopeProjection B);
     private sealed record DevelopedRun(ChartId Chart, Seq<Point2d> Points);
@@ -1371,7 +1347,6 @@ public static class TubeProgram {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

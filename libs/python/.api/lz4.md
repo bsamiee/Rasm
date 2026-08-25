@@ -56,7 +56,6 @@
 [TOPOLOGY]:
 - `lz4.frame` is the self-describing, interoperable, streaming-capable default for artifact package compression; `lz4.block` is the raw-block fast path, `mode` selecting `default`, `fast`, or `high_compression`.
 - Block `dict` primes both encode and decode with a shared initial dictionary for dense small-payload families.
-- Each codec op records a typed receipt discriminating route, mode, compression level, sizing, and checksum evidence.
 - Imports stay at boundary scope; consumers compose the public `lz4.frame` and `lz4.block` modules alone.
 
 [STACKING]:

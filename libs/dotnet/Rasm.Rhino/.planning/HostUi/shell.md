@@ -29,7 +29,7 @@ Composition is downward: `Op`, `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`
 - Law: the posted state cell is the terminal probe, not a marker. The expiry step DECLINES when the body already left `Pending`, so `Refused` carries the state the body reached and a `Settled` read after a lapsed wait answers with the late result rather than discarding a completed crossing; `Committed` proves the body never started and is the only arm that refuses.
 - Law: `Session` threads its result THROUGH the demand. `DocumentSession.Demand` bounds its result on `IDetachedDocumentResult`, so the crossing rides a private `Crossed<T>` capsule carrying the body's own rail — the `Document/session#SESSION_RAIL` `DetachedContext` precedent — and no mutable slot is captured across the callback.
 - Law: kernel `Custody.Release` is the one all-attempted release fold. `HostThread.Release` is the marshal around it: it crosses to the command thread and delegates the complete release roster without owning another fold.
-- Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins under the mounting plugin's identity, the app root registers the checkpoint, measure, and tag names through `RegisterCheckpointNames`/`RegisterMeasureNames`/`RegisterTagNames` and the tokens resolve once at mount, and an empty seat is the zero-cost pass-through. The `rhino.marshal` instrument row on `Objects/authoring#PARTITION` projects this ledger under the `DurationInstrument` label `rasm.rhino.hostui.marshal.duration`.
+- Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins under the mounting plugin's identity, the app root registers the checkpoint, measure, and tag names through `RegisterCheckpointNames`/`RegisterMeasureNames`/`RegisterTagNames` and the tokens resolve once at mount, and an empty seat is the zero-cost pass-through. The `RhinoInstruments.MarshalDuration` row (`Document/events#TELEMETRY_TAP`) reads this ledger as `rasm.rhino.hostui.marshal.duration`.
 - Law: the seat cell is a MOUNT SEAT, not a composition root — its sole writer is `ShellMount.Marshal` through `Cell.Seat`, the same shape `Blocks/lifecycle#LIFECYCLE` holds for its vault (branch RULINGS `[02]`). `HostThread.Run` is the boundary's most-composed primitive and is reached from every sub-domain, so the ledger arrives at a seat rather than as a parameter; every entry a plug-in root reaches once — `NamedCallbacks`, `Progress.Use`, `Notices.Use` — takes its dependency as a VALUE instead.
 - Law: the gauged set is every crossing that can queue — `Execute` and `Guarded` when marshalled, `Posted` always, and `Session` whole (its `Demand` marshals inside the host) — while `Required` never crosses, its off-thread arm being a refusal rather than a queue.
 - Law: the lane is the kernel `DispatchLane` and the budget is its own. `Execute` and `Guarded` ride `Immediate` (one frame), `Posted` rides `Deferred` (six), and `Session` rides `Interactive` (four) — the exact multiples this seam carried before the roster existed, so the collapse loses no budget and seats no local pace. Breach is DERIVED off `GaugedSpan` and lands as a measure on the ledger; a second retained pulse beside it would be one fact in two places, and `UiThread.LastPulse` answers the Eto marshal, which is a different seam.
@@ -353,8 +353,8 @@ public static class MarshalLatency {
 
 - Owner: `StatusProgram` is the ordered status algebra, and `StatusOp` carries one admitted host write per case.
 - Cases: prompt, prompt message, optional message-pane content, distance, number, point pane, and viewport toast.
-- Entry: `StatusProgram.Apply` folds every case inside one document-scoped `HostWork<StatusReceipt>.Session` crossing that resolves the live `ModelUnit` regime once for the whole program; `PromptWatch.Observe` detaches host prompt facts.
-- Receipt: `StatusReceipt` carries one `ToastOutcome` per toast, so an invalid or rejected notice stays typed without cancelling independent notices.
+- Entry: `StatusProgram.Apply` folds every case inside one document-scoped `HostWork<Seq<ToastOutcome>>.Session` crossing that resolves the live `ModelUnit` regime once for the whole program; `PromptWatch.Observe` detaches host prompt facts.
+- Output: `StatusProgram.Apply` returns one `ToastOutcome` per toast, so an invalid or rejected notice stays typed without cancelling independent notices.
 - Law: `StatusProgram.Combine` preserves producer order; each additional status axis is one `StatusOp` case and one fold arm.
 - Law: a MEASURED case carries the regime its magnitude was resolved in — `StatusOp.Distance` takes the kernel `ModelUnit` the `Commands/acquisition#ACQUISITION` `Acquired.Distance` producer detaches — and the fold rescales through `ModelUnit.ScaleTo` before the host write, because the pane renders the DOCUMENT's unit label over whatever number it is handed and a regime-blind write relabels rather than converts. `Number` stays regime-free by construction: the pane's own contract is a dimensionless count.
 - Law: text admits BEFORE it localizes. `Op.AcceptText` screens the authored English and `HostText.Resolve` hands the admitted value to the host localizer, so a blank or whitespace prompt never reaches `Localization` and the resolved string is what the pane receives.
@@ -410,8 +410,6 @@ public abstract partial record StatusOp {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record StatusReceipt(Seq<ToastOutcome> Toasts);
-
 [Equatable]
 public sealed partial record PromptOption(int Index, string English, string Local);
 
@@ -424,45 +422,43 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
         new(Operations: Iterable<StatusProgram>.FromSpan(programs)
             .Fold(Seq<StatusOp>(), static (all, next) => all + next.Operations));
 
-    public Fin<StatusReceipt> Apply(DocumentSession session, Op? key = null) {
+    public Fin<Seq<ToastOutcome>> Apply(DocumentSession session, Op? key = null) {
         ArgumentNullException.ThrowIfNull(session);
         Op op = key.OrDefault();
         return HostThread.Run(
-            work: new HostWork<StatusReceipt>.Session(
+            work: new HostWork<Seq<ToastOutcome>>.Session(
                 Document: session,
                 Needs: [SessionNeed.Read],
                 Body: document =>
                     from regime in ModelUnit.Of(value: document.ModelUnits, key: op)
-                    from receipt in Operations.Fold(
-                        Fin.Succ(value: new StatusReceipt(Toasts: Seq<ToastOutcome>())),
-                        (state, next) => state.Bind(carried => Apply(next: next, receipt: carried, regime: regime, op: op)))
-                    select receipt),
+                    from toasts in Operations.Fold(
+                        Fin.Succ(value: Seq<ToastOutcome>()),
+                        (state, next) => state.Bind(carried => Apply(next: next, toasts: carried, regime: regime, op: op)))
+                    select toasts),
             key: op);
     }
 
-    private static Fin<StatusReceipt> Apply(StatusOp next, StatusReceipt receipt, ModelUnit regime, Op op) =>
+    private static Fin<Seq<ToastOutcome>> Apply(StatusOp next, Seq<ToastOutcome> toasts, ModelUnit regime, Op op) =>
         next.Switch(
-            (Receipt: receipt, Regime: regime, Op: op),
+            (Toasts: toasts, Regime: regime, Op: op),
             prompt: static (held, write) => Admitted(text: write.Text, op: held.Op).Map(prompt => {
                 _ = write.Default.Match(
                     Some: fallback => Op.Side(() => RhinoApp.SetCommandPrompt(
                         prompt: prompt, promptDefault: fallback.Resolve())),
                     None: () => Op.Side(() => RhinoApp.SetCommandPrompt(prompt: prompt)));
-                return held.Receipt;
+                return held.Toasts;
             }),
             promptMessage: static (held, write) => Admitted(text: write.Text, op: held.Op)
-                .Map(prompt => (Op.Side(() => RhinoApp.SetCommandPromptMessage(prompt: prompt)), held.Receipt).Item2),
+                .Map(prompt => (Op.Side(() => RhinoApp.SetCommandPromptMessage(prompt: prompt)), held.Toasts).Item2),
             pane: static (held, write) => write.Text.Match(
                 Some: text => Admitted(text: text, op: held.Op)
-                    .Map(message => (Op.Side(() => StatusBar.SetMessagePane(message: message)), held.Receipt).Item2),
-                None: () => Fin.Succ(value: (Op.Side(StatusBar.ClearMessagePane), held.Receipt).Item2)),
+                    .Map(message => (Op.Side(() => StatusBar.SetMessagePane(message: message)), held.Toasts).Item2),
+                None: () => Fin.Succ(value: (Op.Side(StatusBar.ClearMessagePane), held.Toasts).Item2)),
             distance: static (held, write) => write.Unit.ScaleTo(target: held.Regime, key: held.Op)
-                .Map(scale => (Op.Side(() => StatusBar.SetDistancePane(distance: write.Value * scale)), held.Receipt).Item2),
-            number: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetNumberPane(number: write.Value)), held.Receipt).Item2),
-            point: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetPointPane(point: write.Value)), held.Receipt).Item2),
-            toast: static (held, write) => Fin.Succ(value: held.Receipt with {
-                Toasts = held.Receipt.Toasts.Add(Shown(spec: write.Spec, op: held.Op)),
-            }));
+                .Map(scale => (Op.Side(() => StatusBar.SetDistancePane(distance: write.Value * scale)), held.Toasts).Item2),
+            number: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetNumberPane(number: write.Value)), held.Toasts).Item2),
+            point: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetPointPane(point: write.Value)), held.Toasts).Item2),
+            toast: static (held, write) => Fin.Succ(value: held.Toasts.Add(Shown(spec: write.Spec, op: held.Op))));
 
     private static Fin<string> Admitted(HostText text, Op op) => op.AcceptText(value: text.English).Map(_ => text.Resolve());
 
@@ -506,12 +502,12 @@ public static class PromptWatch {
 - Owner: `ProgressPolicy` admits the meter range, label, and projection features before any host call; `ProgressLease` owns the live meter.
 - Cases: `ProgressMove` closes absolute movement, relative movement, and label-only change; `MeterGrant` distinguishes an owned meter from a foreign meter.
 - Entry: `Progress.Use(DocumentSession, ProgressPolicy, FaultCell, Func<ProgressLease, Fin<T>>, Op?)` opens one document-scoped lease and brackets one callback; `ProgressLease.Advance` is the sole update operation.
-- Receipt: `ProgressReceipt` carries grant, position, effective label, normalized fraction, and the presence-projection fault for every attempted move.
-- Law: only `MeterGrant.Owned` writes or hides the host meter; `MeterGrant.Foreign` returns unchanged witnessed receipts.
-- Law: the lease IS the host end of the corpus governance band, so a paced fold takes `Fraction`/`Ticks` and `Cancel` off ONE value and no caller writes an `IProgress` shim of its own — `Modeling/solids#MODEL_GATE` `ModelRuntime`, `Modeling/projection#PACING` `ProjectionPacing`, and the kernel `ArrangementPolicy.Governed` seat are the three consumers, each already shaped for exactly these members. Every projection stays a view of `Advance`: a second position store beside the lease state forks the meter from its own receipt.
+- Output: `ProgressReading` carries grant, position, effective label, normalized fraction, and the presence-projection fault for every attempted move.
+- Law: only `MeterGrant.Owned` writes or hides the host meter; `MeterGrant.Foreign` returns the reading unchanged.
+- Law: the lease IS the host end of the corpus governance band, so a paced fold takes `Fraction`/`Ticks` and `Cancel` off ONE value and no caller writes an `IProgress` shim of its own — `Modeling/solids#MODEL_GATE` `ModelRuntime`, `Modeling/projection#PACING` `ProjectionPacing`, and the kernel `ArrangementPolicy.Governed` seat are the three consumers, each already shaped for exactly these members. Every projection stays a view of `Advance`: a second position store beside the lease state forks the meter from its own reading.
 - Law: a refusal an `IProgress.Report` cannot return PARKS on the lease's bounded ring — the `void` host contract constrains the seam shape and never licenses discarding the bounds refusal that rail raises, so a fold reporting past its declared range leaves attributable evidence rather than a meter that silently stops, and the ring's `Shed` reads as a number rather than as process memory.
 - Law: escape arming is a policy ROW, so a lease either publishes a live abort edge or publishes `CancellationToken.None`, and the abort rows disarm on BOTH grants because a foreign meter still armed a native callback this lease owns.
-- Law: OS presence is the kernel `Presence` gate and never a second taskbar writer. The lease holds AT MOST ONE `Lease<PresenceMount>`: the first projection applies it and every later step STEERS it in place (`PresenceMount.Steer`, `Prior` never re-captured), because a presence mount RESTORES the state it overwrote on release and a release-per-step would land the restored idle between frames. A refused apply lands as receipt evidence, never a failed advance, so position and receipt always mirror the committed host meter.
+- Law: OS presence is the kernel `Presence` gate and never a second taskbar writer. The lease holds AT MOST ONE `Lease<PresenceMount>`: the first projection applies it and every later step STEERS it in place (`PresenceMount.Steer`, `Prior` never re-captured), because a presence mount RESTORES the state it overwrote on release and a release-per-step would land the restored idle between frames. A refused apply lands on the reading's `PresenceFault`, never a failed advance, so position and reading always mirror the committed host meter.
 - Law: lifecycle is a case, never a flag — `LeaseState<(int Position, HostText Label)>` carries the live meter position and its label together, so a released lease has no position to read and a guard against a boolean flag has no spelling.
 - Law: the lease locks in ONE direction — every operation crosses `HostThread` first and takes the state lock inside the marshalled body, never the reverse; a release holding the lock across a blocking marshal inverts the order against a concurrent advance and deadlocks the host thread against its own caller, so the marshal is always outside and the lock always inside.
 - Exemption: `[ATOM_STATE]` — the state field rides `lock` rather than a `Cell` transition. Host writes run inside the guarded region and a compare-and-swap body re-runs on every contended retry, which would repeat `UpdateProgressMeter` against the host; the lock is the platform-forced form and is contained to this owner.
@@ -587,7 +583,7 @@ public sealed partial class ProgressPolicy {
             admitted);
 }
 
-public sealed record ProgressReceipt(
+public sealed record ProgressReading(
     MeterGrant Grant,
     int Position,
     HostText Label,
@@ -637,10 +633,10 @@ public sealed class ProgressLease : IDisposable {
 
     public CancellationToken Cancel => abort.Match(Some: static source => source.Token, None: static () => CancellationToken.None);
 
-    public Fin<ProgressReceipt> Advance(ProgressMove move, Op? key = null) {
+    public Fin<ProgressReading> Advance(ProgressMove move, Op? key = null) {
         Op held = key.OrDefault();
         return HostThread.Run(
-            work: new HostWork<ProgressReceipt>.Execute(Body: () => {
+            work: new HostWork<ProgressReading>.Execute(Body: () => {
                 lock (sync) {
                     return state.Switch(
                         (Self: this, Move: move, Op: held),
@@ -659,14 +655,14 @@ public sealed class ProgressLease : IDisposable {
                                     op: carried.Op),
                                 label: static (carried, step) => carried.Op.AcceptText(value: step.Text.English)
                                     .Map(_ => (Position: carried.Held.Position, Label: step.Text)))
-                            from receipt in ctx.Self.grant.Switch(
+                            from outcome in ctx.Self.grant.Switch(
                                 (Self: ctx.Self, Move: next, Op: ctx.Op),
                                 owned: static (carried, owner) => carried.Self.Drive(
                                     document: owner.Document, move: carried.Move, op: carried.Op),
-                                foreign: static (carried, _) => Fin.Succ(value: carried.Self.Receipt(
+                                foreign: static (carried, _) => Fin.Succ(value: carried.Self.Reading(
                                     position: carried.Move.Position, label: carried.Move.Label, fault: None)))
-                            select receipt,
-                        released: static (ctx, _) => Fin.Fail<ProgressReceipt>(error: ctx.Op.MissingContext()));
+                            select outcome,
+                        released: static (ctx, _) => Fin.Fail<ProgressReading>(error: ctx.Op.MissingContext()));
                 }
             }),
             key: held);
@@ -711,7 +707,7 @@ public sealed class ProgressLease : IDisposable {
             ? Fin.Succ(value: ((int)position, label))
             : Fin.Fail<(int, HostText)>(error: op.InvalidInput(axis: nameof(ProgressMove.Absolute.Position)));
 
-    private Fin<ProgressReceipt> Drive(DocKey document, (int Position, HostText Label) move, Op op) =>
+    private Fin<ProgressReading> Drive(DocKey document, (int Position, HostText Label) move, Op op) =>
         op.Catch(() => {
             StatusBar.UpdateProgressMeter(
                 docSerialNumber: document,
@@ -719,7 +715,7 @@ public sealed class ProgressLease : IDisposable {
                 position: move.Position,
                 absolute: true);
             state = new LeaseState<(int, HostText)>.Live(Held: move);
-            return Fin.Succ(value: Receipt(
+            return Fin.Succ(value: Reading(
                 position: move.Position,
                 label: move.Label,
                 fault: policy.Features.Contains(ProgressFeature.Presence)
@@ -756,7 +752,7 @@ public sealed class ProgressLease : IDisposable {
             max: 1.0)
         : 1.0);
 
-    private ProgressReceipt Receipt(int position, HostText label, Option<Error> fault) => new(
+    private ProgressReading Reading(int position, HostText label, Option<Error> fault) => new(
         Grant: grant,
         Position: position,
         Label: label,
@@ -1024,8 +1020,8 @@ public static class ShellTheme {
 - Law: platform capability stays behind `HostFacts` and enters through the two host locators by shape — `HostUtils.GetPlatformService<T>` resolves a typed service contract and `Rhino.UI.Runtime.PlatformServiceProvider` answers the fixed process facts it publishes directly — so a new capability read is one `HostProbe` case and one arm.
 - Law: engine presence is a probed host fact, never an assumption — `HostProbe.Scripting` answers the `ScriptEngineSnapshot` search-path and runtime-assembly census, and every `HostScripts` entry refuses typed when `PythonScript.Create()` answers null.
 - Law: entitlement is a capability probe, never a member reach — `CloudHostUtils` is pure property reads off the `ICloudHost` platform service (`DoNothingCloudHost` when no provider ships), so the probe answers headless with no UI and no server call.
-- Law: resolver extension is process-permanent. The host publishes no removal, so the receipt attributes every applied row to the extending plugin and an applied PREFIX is never rolled back — custody is the `SnapshotParticipant` permanence class, stated rather than hidden. The fold holds that prefix because a traverse abandons it: a combinator that aborts on the first refusal loses exactly the count this receipt exists to attribute.
-- Law: absence rides `Option` at the receipt, never a second case. `Fault.IsNone` IS the completed answer, so the intermediate state record and the two-case receipt that restated it have no spelling left.
+- Law: resolver extension is process-permanent. The host publishes no removal, so `ExtensionTally` attributes every applied row to the extending plugin and an applied PREFIX is never rolled back — custody is the `SnapshotParticipant` permanence class, stated rather than hidden. The fold holds that prefix because a traverse abandons it: a combinator that aborts on the first refusal loses exactly the count the tally exists to attribute.
+- Law: absence rides `Option` on the tally, never a second case. `Fault.IsNone` IS the completed answer, so the intermediate state record and the two-case union that restated it have no spelling left.
 - Packages: `Rasm/Domain/rails` (`Op`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`, `ICapability`); `Rasm.Rhino/Document/events` (`PluginKey`); `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`HostUtils.GetCurrentProcessInfo`/`OperatingSystemEdition`/`OperatingSystemProductName`/`OperatingSystemBuildNumber`/`OperatingSystemInstallationType`/`CurrentOSLanguage`/`GetSystemProcessorCount`/`RunningInDarkMode`/`RunningOnServer`/`IsPreRelease`/`RunningInMono`/`GetSystemReferenceAssemblies`/`GetAssemblySearchPaths`/`GetPrinterNames`/`GetPrinterDPI`/`GetPrinterFormNames`/`GetPrinterFormSize`/`GetCustomComputeEndpoints`/`LoadAssemblyFrom`/`LoadAssemblyFromStream`/`LoadAssemblyFromName`, `AssemblyResolver.AddSearchFolder`/`AddSearchFile`, `CloudHostUtils.IsEntitled`/`DenyReason`/`Signature`, `PythonScript.Create`/`SearchPaths`/`RuntimeAssemblies`), `api-rhino-ui.md` (`PlatformServiceProvider.ProcessArchitecture`).
 - Growth: a new capability read is one `HostProbe` case, one `HostFact` case, and one `Probe` arm; a new process trait is one `HostTrait` row the snapshot's own fold already fills.
 - Boundary: process facts include runtime architecture and system references; assembly paths admit through `Op.AcceptText` before any resolver mutation.
@@ -1124,7 +1120,7 @@ public abstract partial record AssemblyIntake {
     public sealed record FromName(AssemblyName Name) : AssemblyIntake;
 }
 
-public sealed record AssemblyExtensionReceipt(PluginKey Plugin, int Applied, Option<Error> Fault);
+public sealed record ExtensionTally(PluginKey Plugin, int Applied, Option<Error> Fault);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostFacts {
@@ -1190,12 +1186,12 @@ public static class HostFacts {
 }
 
 public static class HostAssemblies {
-    public static Fin<AssemblyExtensionReceipt> Extend(PluginKey plugin, Seq<AssemblySource> sources, Op? key = null) {
+    public static Fin<ExtensionTally> Extend(PluginKey plugin, Seq<AssemblySource> sources, Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in sources.TraverseM(source => op.Need(source).Bind(row => row.Admit(op))).As()
-               from receipt in HostThread.Run(
-                   work: new HostWork<AssemblyExtensionReceipt>.Execute(Body: () => Fin.Succ(value: admitted.Fold(
-                       new AssemblyExtensionReceipt(Plugin: plugin, Applied: 0, Fault: None),
+               from outcome in HostThread.Run(
+                   work: new HostWork<ExtensionTally>.Execute(Body: () => Fin.Succ(value: admitted.Fold(
+                       new ExtensionTally(Plugin: plugin, Applied: 0, Fault: None),
                        (held, source) => held.Fault.IsSome
                            ? held
                            : op.Catch(() => source.Switch(
@@ -1205,7 +1201,7 @@ public static class HostAssemblies {
                                    Succ: static _ => held with { Applied = held.Applied + 1 },
                                    Fail: fault => held with { Fault = Some(fault) })))),
                    key: op)
-               select receipt;
+               select outcome;
     }
 
     public static Fin<Assembly> Load(AssemblyIntake intake, Op? key = null) {
@@ -2082,8 +2078,8 @@ public static class NamedCallbacks {
 - Owner: `NoticeSpec` admits title, message, severity, captions, metadata, and assembly guards once; `Notices.Use` brackets one host notification behind a `NoticeLease` for the body's extent.
 - Owner: `RunOutcome` closes the completion vocabulary every long-running rail projects into, and `NoticeSpec.OfRun` is the one completion-notice row — severity derives from the outcome case, the metadata bag carries the run's own scale and duration facts, and `NoticeReply` is the three-button decision the consumer reads back.
 - Owner: `NoticeReply` and `NoticeSeverity` key the host button and severity vocabularies; `NoticeFact` closes reply and property-change evidence; `CallbackObserver<NoticeFact>` guards both notice callback families.
-- Entry: `Notices.Use` brackets a lease; `Notices.Announce` is the completion fire site — it takes an `Option<RunOutcome>`, so a rail whose receipt folds to `None` mid-run announces nothing and a settled rail announces once, and it folds the reply into `Option<NoticeReply>`.
-- Law: a long run reports through `RunOutcome`, never through its own receipt type — the render and capture rails each project their receipt into that neutral carrier at their own edge, so no `RenderReceipt`, `CaptureArtifact`, or host render type crosses into this page and the notice row grows one case, never one overload per rail.
+- Entry: `Notices.Use` brackets a lease; `Notices.Announce` is the completion fire site — it takes an `Option<RunOutcome>`, so a rail whose outcome folds to `None` mid-run announces nothing and a settled rail announces once, and it folds the reply into `Option<NoticeReply>`.
+- Law: a long run reports through `RunOutcome`, never through its own result type — the render and capture rails each project their result into that neutral carrier at their own edge, so no `RenderYield`, `CaptureArtifact`, or host render type crosses into this page and the notice row grows one case, never one overload per rail.
 - Law: `RunOutcome.Failed` carries the rail's own `Error`, so a refused run announces at `NoticeSeverity.Serious` with the fault text as its metadata row; `Debug` and `Critical` are caller-selected rows of the host's own five-value roster, reached through `NoticeSpec.Of` — the RAIL entry — rather than the generated throwing factory or the run projection.
 - Law: `Announce` is a PUBLISHED boundary entry with no in-corpus caller by design — the folder rules that a public entry's altitude is the `apps/<app>/` plugin-shell command body, so its zero-caller census proves altitude and not death; the render and capture rails project `RunOutcome` and state that projection IS their whole obligation.
 - Law: `NoticeLease` serializes callback delivery, host operations, and release through ONE gate whose lifecycle is a case; disposal detaches both callback families, withdraws, and retracts the centre membership through one failure-accumulating host-thread release.
@@ -2415,7 +2411,7 @@ public static class Notices {
 - Law: mount ORDER is declaration order and retirement is its exact inverse, run through `Custody.Release` so every retirement runs even when an earlier one refuses and the whole refusal set answers as `Error.Many`. A refused mount ROLLS BACK every seat already taken before it answers, so a partial capsule is unrepresentable.
 - Law: `Bind` has no spelling here. `MountRegistry.Bind` is the boundary's name-addressed resolve and a capsule member forwarding to it would put one name two hops from its owner; a consumer holding a point binds at the registry.
 - Law: the capsule owns the boundary's ONE `FaultCell` — the bounded isolated-fault sink the kernel `Presence` gate and the kernel `ThemeSeam` registration both take, so a per-consumer cell beside it would be three rings answering one question.
-- Receipt: `ReleaseFaults` publishes every retirement refusal the capsule retained; the leased capsule IS the transfer of ownership, and `PluginRoot` holds it for the process.
+- Output: `ReleaseFaults` publishes every retirement refusal the capsule retained; the leased capsule IS the transfer of ownership, and `PluginRoot` holds it for the process.
 - Packages: `Rasm/Domain/frame` (`PackageIdentity<TKey,THostFact>`), `Domain/rails` (`Op`, `Lease<T>`, `Ring<T>`, `Cell`), `Domain/hooks` (`FaultCell`); `Rasm/Interaction/dispatch` (`DispatchLane`, `StallPolicy`, `UiThread.Tune`), `Interaction/paint` (`ThemeGrid`, `ThemeProgram`, `ThemeVariant`, `ContrastRule`), `Interaction/platform` (`ThemeSeam`); `Rasm/Parametric/projections` (`MonotonicTimeline`, `PaceBand`); `Rasm.Rhino/Document/events` (`PluginKey`), kernel `Domain/rails` (`Custody`); `libs/dotnet/.api/api-telemetry-abstractions.md` (`ILatencyContextProvider`, `ILatencyContextTokenIssuer`).
 - Growth: a new process-lifetime registry is ONE `ShellMount` case and ONE arm; every consumer is untouched or broken at compile time.
 - Boundary: this capsule is the IN-package composition owner and holds no AppHost, hosting, or OpenTelemetry type; the `apps/<app>/` plugin shell is the one assembly referencing `Rasm.AppHost` beside `Rasm.Rhino`, and it binds `PluginRoot` for the lacing that follows.
@@ -2553,7 +2549,7 @@ public sealed class ShellCapsule : IDisposable {
                 .Map(rows => held.Seated with { Retire = held.Seated.Retire + rows }),
             resolver: static (held, row) => HostAssemblies
                 .Extend(plugin: held.Identity.Plugin, sources: row.Sources, key: held.Op)
-                .Bind(receipt => receipt.Fault.Match(
+                .Bind(outcome => outcome.Fault.Match(
                     Some: Fin.Fail<Seating>,
                     None: () => Fin.Succ(value: held.Seated))),
             endpoints: static (held, row) => row.Rows
@@ -2571,7 +2567,6 @@ public sealed class ShellCapsule : IDisposable {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

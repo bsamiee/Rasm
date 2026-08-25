@@ -24,7 +24,7 @@
 - ISO 129-1 line ends carry ONE lowering row at the regime floor — block name and tick size, the DIMTSZ-versus-block pick staying per consumer.
 - XML rails split on trust origin — untrusted packets admit through the ONE hardened `lxml` fold, self-generated fragments using the in-page builder.
 - Collections reaching a content-key preimage or an output byte stream order deterministically — hash-order iteration forks the key per hash seed.
-- Receipt facts MEASURE the delivered product — a re-probe of the muxed bytes, since an echoed request knob attests the input and never the artifact.
+- Measurements derive from the delivered output by re-probing the muxed bytes — an echoed request knob attests the input, never the artifact.
 - Batch admission accumulates every casualty through an associative fault monoid — first-failure abort hides the sibling casualties the refusal owes.
 - Producer heads split on ORIGIN — a typed-union normalizer raises through the folder conf, an untrusted admitter returning `Result[Self, Fault]`.
 - Fences spell ONE raise subject and ride the request infix on a slot or the crossing token — a per-op subject leaves the coordinates unenumerable.
@@ -37,12 +37,12 @@
 - Gate absence is a verdict — policy keys by `ArtifactKind` with a declared default row, so an unsupplied family or unlisted kind grades unmeasured.
 - Primaries are the PLANE's declared datum — the transfer tag names none, so a leg unable to state it refuses the plane over shipping `UNSPECIFIED`.
 - Bit depth follows the plane's REFERENT — display output stays the 8-bit `Frame`, a texture or radiance sample the deep `Plane`, split by ROW.
-- Durable-fact construction collapses at `core/receipt#RECEIPT` — a finer producer diff appends positional `Change` entries, never widening its case.
-- Retention class follows what the FACT attests — seals, credentials, and delivery records are REGULATORY, and every produced artifact OPERATIONAL.
+- Durable facts remain on their domain result or the runtime journal; finer producer detail appends positional `Change` entries.
+- Retention class follows what the fact attests: seals, credentials, and delivery records are REGULATORY.
 - `ArtifactWork.cost` is a MILLISECOND work-weight fixed by the `COMPUTE` series — a dimensionless rank exports a rescaled charge nothing raises on.
 - CPM contention and makespan read `lane.slots.total` as estimates — executing kernels receive `LaneGrant.width` and never inspect the allocator.
 - `Actor.USER` is earned by a NAMED party's act under a protocol — the ISO 19650 issue is that one leg, and the only one carrying real `subjects`.
-- Announced-payload width is the ANNOUNCEMENT's, never the receipt's — identity fields carry `ContentKey` renders, a tap projecting payloads whole.
+- Announced-payload width is the ANNOUNCEMENT's — identity fields carry `ContentKey` renders, a tap projecting payloads whole.
 - Announcement boundaries admit ISO 19650 confidentiality into the closed grade vocabulary; absent or unknown spelling refuses without downgrade.
 - Transmittal event `id` is the producer-minted issue UUIDv7 scope; pre-run aggregate and payload content keys remain separate identities.
 - Packed PCM times on the FRAME axis — every window, pick, and reversal reshapes to `(frames, channels)`, since a last-axis index rotates the lanes.

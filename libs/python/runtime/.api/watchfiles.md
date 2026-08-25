@@ -69,7 +69,7 @@
 [STACKING]:
 - `anyio`(`.api/anyio.md`): `awatch` runs each Rust poll on `anyio.to_thread.run_sync` inside an `anyio.create_task_group()` it cancels per batch (`tg.cancel_scope.cancel()`); the automation lane owns the enclosing cancel scope and stops iteration through an `anyio.Event` `stop_event`.
 - `apscheduler`(`.api/apscheduler.md`): the scheduler owner consumes the `set[FileChange]` stream as a trigger source over the one `AsyncIOScheduler` rather than re-polling.
-- runtime automation: change batches feed the receipt surface via `Change.raw_str()` + path slots, never ad hoc logging.
+- runtime automation: change batches feed the lane drain via `Change.raw_str()` + path slots, never ad hoc logging.
 
 [LOCAL_ADMISSION]:
 - one declared `watch_filter` (a `DefaultFilter`/`PythonFilter`/`BaseFilter` subclass, a raw `Callable`, or `None` to keep all) owns ignore rules; per-event path-string filtering in the consumer is deleted.

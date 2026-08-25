@@ -87,7 +87,7 @@
 - `numpy`(`.api/numpy.md`): `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that broadcast, reduce, and accumulate.
 - `scipy`(`.api/scipy.md`): a `cfunc` kernel's `.ctypes`/`.address` feeds `scipy.LowLevelCallable` into `scipy.integrate.quad`/`scipy.ndimage` with zero per-sample Python overhead.
 - `mpmath`(`.api/mpmath.md`): the accuracy oracle — run the `njit` fast path, then `mpmath.almosteq` against a high-`dps` reference to certify the speedup held precision.
-- within-lib: `inspect_types`/`inspect_asm`/`inspect_llvm`/`inspect_cfg`/`get_metadata` capture the lowered source, native assembly, LLVM IR, CFG, and compile metadata as the study receipt; `parallel_diagnostics()` reports loop fusion, allocation hoisting, and parallel-region decisions; `cfunc` yields `ctypes`/`address`/`native_name`, `vectorize` yields a `DUFunc`, and `recompile`/`disable_compile`/`enable_caching` drive dispatcher lifecycle.
+- within-lib: `inspect_types`/`inspect_asm`/`inspect_llvm`/`inspect_cfg`/`get_metadata` capture the lowered source, native assembly, LLVM IR, CFG, and compile metadata as `JitEvidence`; `parallel_diagnostics()` reports loop fusion, allocation hoisting, and parallel-region decisions; `cfunc` yields `ctypes`/`address`/`native_name`, `vectorize` yields a `DUFunc`, and `recompile`/`disable_compile`/`enable_caching` drive dispatcher lifecycle.
 - within-lib: a domain type enters nopython through `extending.as_numba_type`/`box`/`unbox`/`models`, materializing a native data model rather than a field copy into a numba-native shape.
 
 [LOCAL_ADMISSION]:
@@ -96,5 +96,5 @@
 [RAIL_LAW]:
 - Package: `numba`
 - Owns: offline LLVM-JIT acceleration of numeric-study kernels, ufunc/gufunc emission, and C-callback bridging
-- Accept: a study kernel compiled through `njit` with its compiled signature, lowered IR (`inspect_*`), and speedup class captured as a receipt
+- Accept: a study kernel compiled through `njit` with its compiled signature, lowered IR (`inspect_*`), and speedup class captured as `JitEvidence`
 - Reject: a hand-written C extension or a re-rolled JIT loop where `njit` plus `prange` lowers the same kernel

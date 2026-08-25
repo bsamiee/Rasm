@@ -2,12 +2,12 @@
 
 One simulation mesh-and-field interchange and weak-form assembly owner declares the FEM element axis: `ElementKind` and `FemForm` originate here — `solvers/field#FIELD` composes the `CTOR` element table downward, and `solvers/quadrature#QUADRATURE` consumes only the lowered `AssembledSystem`. `MeshField` is the frozen topology-and-field value object; `MeshExchange` discriminates the four transforms a discretized mesh admits — `generate` mints the mesh from boundary data through the gmsh kernel, `assemble` lowers a `FemForm` weak form to the sparse `(stiffness, load, dirichlet_dofs)` system through the scikit-fem `Basis`/`asm` fold, and `read`/`write` round-trip the meshio registry with physical groups intact. This owner holds element vocabulary, generation, assembly, and interchange only; the solve stays on `solvers/quadrature#QUADRATURE`, the transient integration on `solvers/differential#DIFFERENTIAL`, and the meshio `Mesh` is the one container.
 
-Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operation and whose payload shape, `.status` read, accessors, and observability row are all driven by one `_SLOTS` field-name table, as `solvers/field#FIELD` `FieldReceipt` and `solvers/receipt#RECEIPT` `SolverReceipt` drive theirs, each terminating in the shared `SolveStatus` the `solvers/receipt#RECEIPT` `status_of` floor adjudicates by public name. Content key threads `runtime/evidence/identity#IDENTITY` `ContentIdentity` under the `CANONICAL_POLICY` default and keys the `runtime/execution/lanes#LANE` reuse-fabric cache; receipt emission rides the hub `evidence_run` weave. `meshio` is pure-Python core and imports top-level; `read`/`write` block on arbitrary-size disk I/O and cross the thread band under `RELEASING` `_TRAIT` rows, while `assemble` and `generate` cross the process band under `HOSTILE` — `skfem.asm` evaluates the caller-supplied Python `FemForm` integrand thunks GIL-held and the gmsh kernel plus its current-model selector are process-global, so a thread arm serializes the loop against the first and races the second — every arm through `lane.offload`, isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, never a per-page literal or compute-minted limiter.
+Each operation folds into one `MeshCensus` whose `Literal` `tag` IS the operation and whose first payload slot retains the produced `MeshField`, `AssembledSystem`, or emitted `Path` beside its measured facts and shared `SolveStatus`. Content key threads `runtime/evidence/identity#IDENTITY` `ContentIdentity` under the `CANONICAL_POLICY` default and keys the `runtime/execution/lanes#LANE` reuse-fabric cache; each `MeshCensus` projects scalar `attributes` onto the hub `evidence_run` span. `meshio` is pure-Python core and imports top-level; `read`/`write` block on arbitrary-size disk I/O and cross the thread band under `RELEASING` `_TRAIT` rows, while `assemble` and `generate` cross the process band under `HOSTILE` — `skfem.asm` evaluates the caller-supplied Python `FemForm` integrand thunks GIL-held and the gmsh kernel plus its current-model selector are process-global, so a thread arm serializes the loop against the first and races the second — every arm through `lane.offload`, isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, never a per-page literal or compute-minted limiter.
 
 ## [01]-[INDEX]
 
 - [02]-[MESH_FIELD]: the FEM element axis owned here, the frozen mesh-and-field value object, the one public `CTOR` element table every route resolves through with its recursive wrapper build and recursive interpolation degree, and the `ContentIdentity` content key over its array buffers.
-- [03]-[EXCHANGE]: the `generate`/`assemble`/`read`/`write` operations on one `MeshExchange`, the gmsh generation kernel over its source and size-field axes, the lane-offloaded scikit-fem lowering, the meshio round-trip with physical-group transfer, and the `_SLOTS`-driven `MeshReceipt`.
+- [03]-[EXCHANGE]: the `generate`/`assemble`/`read`/`write` operations on one `MeshExchange`, the gmsh generation kernel over its source and size-field axes, the lane-offloaded scikit-fem lowering, the meshio round-trip with physical-group transfer, and the value-carrying `MeshCensus`.
 
 ## [02]-[MESH_FIELD]
 
@@ -20,17 +20,16 @@ Each operation folds into one `MeshReceipt` whose `Literal` `tag` IS the operati
 
 ## [03]-[EXCHANGE]
 
-- Owner: `MeshExchange` is the one `@tagged_union(frozen=True)` operation owner discriminating `generate`, `assemble`, `read`, and `write` rather than a free `MeshField.assemble` method beside a `read`/`write` static pair; the `@classmethod`-plus-`Self` factory law binds each subtype once, shared with `MeshReceipt`, `solvers/receipt#RECEIPT` `SolverReceipt`, and `solvers/field#FIELD` `FieldQuery`. meshio `Mesh` is the canonical container `read`/`write` project through and meshio owns the ~40-format registry — a hand-rolled format parser, a wrapper-rename of `read`/`write`, a flat `cell_data` dropping the block-parallel list, and a write-only promotion that never recovers on read are all rejected.
+- Owner: `MeshExchange` is the one `@tagged_union(frozen=True)` operation owner discriminating `generate`, `assemble`, `read`, and `write` rather than a free `MeshField.assemble` method beside a `read`/`write` static pair; each `MeshCensus` case retains that operation's canonical product and measured facts. meshio `Mesh` is the canonical container `read`/`write` project through and meshio owns the ~40-format registry — a hand-rolled format parser, a wrapper-rename of `read`/`write`, a flat `cell_data` dropping the block-parallel list, and a write-only promotion that never recovers on read are all rejected.
 - Cases: `generate` mints the mesh gmsh owns — `GmshSource` is the boundary-input axis (a bottom-up planar loop set, an OpenCASCADE primitive, an imported STEP/IGES/BREP or `.geo` model) and `SizeField` the density axis (a uniform target size, or the canonical `Threshold`-over-`Distance` graded refinement installed as the background mesh), so a new source is one case and a new density rule one case, never a second generation entry. The arm terminates in `gmsh.write` and mints its `MeshField` through the SAME `_read` fold every other inbound mesh crosses, so a generated and a read mesh carry identical group and element semantics by construction and no second extraction path, no second element vocabulary, and no gmsh element-type integer table forms beside `CTOR`. Boundary input arrives as data — coordinate arrays, entity tags, a file path — so this owner imports no geometry-branch kernel, exactly as the folder charter rules.
 - Law: the promote/recover round-trip reads a USER region alone — `_promotable` refuses a colon-namespaced column because that namespace is the writing format's own bookkeeping, MEASURED on a gmsh `.msh`: the blind integer sweep re-promotes `gmsh:physical` as `set-gmsh:physical-<tag>` beside the named groups meshio already recovered AND promotes `gmsh:geometrical`, an entity-id column naming no region at all, tripling the set roster and re-keying a mesh whose regions never changed. The named `cell_sets` meshio recovers stay authoritative; the gate is the format-agnostic colon discriminant, never a per-format skip list.
-- Entry: `MeshExchange.run(lane)` rides the hub weave as `evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch, facts=..., composition=...)`, which owns span, fault fence, and receipt harvest, so receipt egress is composed rather than a page-local `_emit`, and the caller's composition key partitions those facts by default-free threading. `dispatch` resolves the `_TRAIT` row through `lane.offload` — the interchange arms ride the `RELEASING` thread band because meshio blocks on disk, the assemble and generate arms ride the `HOSTILE` process band because `skfem.asm` drives the caller's Python form callbacks GIL-held (the closure-bearing `FemForm` thunks cross on the pool's cloudpickle wire) and the gmsh kernel plus its `model.setCurrent` selector are process-global state concurrent in-process callers corrupt — isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, so no arm stalls the loop. meshio `ReadError`/`WriteError`, the gmsh kernel faults its own `logger.getLastError` reports, and the skfem assembly exceptions convert exactly once at the weave's fence into the `BoundaryFault` rail through the `runtime/reliability/faults#FAULT` `CLASSIFY` fold, so a malformed input or unsupported cell type is a typed rail, never a raised exception in domain flow.
-- Receipt: `MeshReceipt` is the one `@tagged_union(frozen=True)` receipt whose `Literal` `tag` IS the operation. One `_SLOTS` row names each payload sequence — `key` leading, `status` trailing — and drives the structural shape, the `.status` read, every named accessor off `.facts` (never parallel `getattr(self, self.tag)[N]` properties), and the `.facts` `zip(..., strict=True)` projection, so the table and the case tuples cannot drift. No operation carries a solve, so every factory floors a well-formedness extent, not a convergence residual, through the shared public `status_of` floor; `assembled` records `load_norm` as evidence yet floors on `dof_count` and a finite load rather than mislabeling a valid large load, and `generated` floors on a non-empty node and cell count while recording the meshed dimension and realized group count as evidence. Weave harvests the resolved receipt; `contribute` carries no decorator.
-- Packages: `gmsh` (the process-global `initialize`/`finalize` bracket, `model.add`, the `geo` bottom-up `addPoint`/`addLine`/`addCurveLoop`/`addPlaneSurface` builders and the `occ` primitive/`importShapes` builders each under their own `synchronize`, `addPhysicalGroup(dim, tags, name=)` the sole region-naming route, the `mesh.field` `Distance`/`Threshold` pair under `setAsBackgroundMesh`, `mesh.setSize`/`generate`/`recombine`/`setOrder`, and `write` emitting the `.msh` meshio reads), `skfem` (`Basis`/`asm`, the `Mesh*1`/`Element*` constructors resolved by name through `CTOR` with `ElementVector`/`ElementComposite` wrapping their inner elements, `get_dofs(facets=...).flatten()` the DOF selector, `basis.N` the dof count), `meshio` (the ~40-format registry, the per-type-merged `cell_data_dict`/`cell_sets_dict` read views, the block-parallel write surface, the `cell_sets_to_data`/`cell_data_to_sets` promoter/inverter family, `ReadError`/`WriteError` boundary-folded), `numpy` (`linalg.norm` the load fold, `issubdtype` the integer-label gate), `math.isfinite`, `expression` (`tagged_union`/`Map` the table rail), hub (`evidence_run`), `solvers/receipt#RECEIPT` (`status_of` by public name), runtime (`railed` the `effect.result` builder, `Kernel`/`KernelTrait` the offload crossing, `ContentIdentity` under `CANONICAL_POLICY`, `Receipt`).
-- Growth: a new operation (a `Functional` energy-norm evaluation, an adaptive `refined` step) is one `MeshExchange` case, one `_SLOTS` row, and one `_TRAIT` row sharing the `CTOR` resolution and the status floor; a new element is one `CTOR` row, a wrapper or mixed element the same row naming its inner kinds, so an H(div), H(curl), plate, or DG family lands as rows with no builder edit; a new meshable cell shape is one `_DIM` row and, where the kernel reaches it only by recombination, one `_RECOMBINED` member; a new generation source is one `GmshSource` case and one `build` arm; a new density rule is one `SizeField` case and one `install` arm; a new OpenCASCADE primitive is one `GmshSolid` row carrying its own arity; a new assembled field is one slot on `AssembledSystem`; a new format is zero new surface because meshio owns the registry; a new termination class is one `SolveStatus` member; never a parallel mesh container, never a solve on this owner, never a per-operation factory and per-operation fact dict beside the `_SLOTS` projection.
+- Entry: `MeshExchange.run(lane)` rides the hub weave as `evidence_run(EvidenceScope.MESH, f"mesh.{self.tag}", dispatch, facts=..., composition=...)`, which owns span and fault fence, while the `MeshCensus` mint retains the operation's product and stamps only scalar `attributes` on that span; the caller's composition key partitions those facts by default-free threading. `dispatch` resolves the `_TRAIT` row through `lane.offload` — the interchange arms ride the `RELEASING` thread band because meshio blocks on disk, the assemble and generate arms ride the `HOSTILE` process band because `skfem.asm` drives the caller's Python form callbacks GIL-held (the closure-bearing `FemForm` thunks cross on the pool's cloudpickle wire) and the gmsh kernel plus its `model.setCurrent` selector are process-global state concurrent in-process callers corrupt — isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing, so no arm stalls the loop. meshio `ReadError`/`WriteError`, the gmsh kernel faults its own `logger.getLastError` reports, and the skfem assembly exceptions convert exactly once at the weave's fence into the `BoundaryFault` rail through the `runtime/reliability/faults#FAULT` `CLASSIFY` fold, so a malformed input or unsupported cell type is a typed rail, never a raised exception in domain flow.
+- Output: `MeshCensus` is the one `@tagged_union(frozen=True)` result whose `Literal` `tag` IS the operation. `generated` and `read` retain the `MeshField`, `assembled` retains the `AssembledSystem`, and `written` retains the emitted `Path`; measured counts, format, key, and terminal `SolveStatus` remain beside that value, while `.attributes` projects only their scalar observations. No operation carries a solve, so every factory floors a well-formedness extent, not a convergence residual, through the shared public `status_of` floor; `assembled` records `load_norm` as evidence yet floors on `dof_count` and a finite load rather than mislabeling a valid large load, and `generated` floors on a non-empty node and cell count while recording the meshed dimension and realized group count as evidence. Every factory closes through `_noted`, stamping `attributes` on the weave span.
+- Packages: `gmsh` (the process-global `initialize`/`finalize` bracket, `model.add`, the `geo` bottom-up `addPoint`/`addLine`/`addCurveLoop`/`addPlaneSurface` builders and the `occ` primitive/`importShapes` builders each under their own `synchronize`, `addPhysicalGroup(dim, tags, name=)` the sole region-naming route, the `mesh.field` `Distance`/`Threshold` pair under `setAsBackgroundMesh`, `mesh.setSize`/`generate`/`recombine`/`setOrder`, and `write` emitting the `.msh` meshio reads), `skfem` (`Basis`/`asm`, the `Mesh*1`/`Element*` constructors resolved by name through `CTOR` with `ElementVector`/`ElementComposite` wrapping their inner elements, `get_dofs(facets=...).flatten()` the DOF selector, `basis.N` the dof count), `meshio` (the ~40-format registry, the per-type-merged `cell_data_dict`/`cell_sets_dict` read views, the block-parallel write surface, the `cell_sets_to_data`/`cell_data_to_sets` promoter/inverter family, `ReadError`/`WriteError` boundary-folded), `numpy` (`linalg.norm` the load fold, `issubdtype` the integer-label gate), `math.isfinite`, `expression` (`tagged_union`/`Map` the table rail), hub (`evidence_run`), `solvers/solve#SOLVE` (`status_of` by public name), runtime (`railed` the `effect.result` builder, `Kernel`/`KernelTrait` the offload crossing, `ContentIdentity` under `CANONICAL_POLICY`).
+- Growth: a new operation (a `Functional` energy-norm evaluation, an adaptive `refined` step) is one `MeshExchange` case, one product-carrying `MeshCensus` case, and one `_TRAIT` row sharing the `CTOR` resolution and the status floor; a new element is one `CTOR` row, a wrapper or mixed element the same row naming its inner kinds, so an H(div), H(curl), plate, or DG family lands as rows with no builder edit; a new meshable cell shape is one `_DIM` row and, where the kernel reaches it only by recombination, one `_RECOMBINED` member; a new generation source is one `GmshSource` case and one `build` arm; a new density rule is one `SizeField` case and one `install` arm; a new OpenCASCADE primitive is one `GmshSolid` row carrying its own arity; a new assembled field is one slot on `AssembledSystem`; a new format is zero new surface because meshio owns the registry; a new termination class is one `SolveStatus` member; never a parallel mesh container and never a solve on this owner.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Iterable
 from math import isfinite
 from pathlib import Path
 from typing import Any, Final, Literal, Self, assert_never
@@ -43,12 +42,14 @@ from expression import Error, Nothing, Ok, Option, Result, Some, case, tag, tagg
 from expression.collections import Block, Map
 from msgspec import Struct
 
+from opentelemetry import trace
+
 from rasm.compute.graduation.handoff import ComputeLeg, EvidenceScope, StageTap, evidence_run
-from rasm.compute.solvers.receipt import SolveStatus, status_of
+from rasm.compute.solvers.solve import SolveStatus, status_of
 from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, railed, rostered
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 lazy import gmsh
@@ -142,13 +143,6 @@ CTOR: Final[Map[ElementKind, ElementRow]] = Map.of_seq([
 ])
 
 _TOL: Final[Map[MeshOp, float]] = Map.of_seq([("generated", 1e-6), ("assembled", 1e-6), ("read", 1e-6), ("written", 1e-6)])
-
-_SLOTS: Final[Map[MeshOp, tuple[str, ...]]] = Map.of_seq([
-    ("generated", ("key", "element", "dim", "point_count", "cell_count", "group_count", "status")),
-    ("assembled", ("key", "element", "dof_count", "dirichlet_count", "load_norm", "status")),
-    ("read", ("key", "element", "point_count", "cell_count", "status")),
-    ("written", ("key", "fmt", "byte_count", "status")),
-])
 
 _TRAIT: Final[Map[str, KernelTrait]] = Map.of_seq([
     ("generate", KernelTrait.HOSTILE),
@@ -299,62 +293,78 @@ class AssembledSystem(Struct, frozen=True):
 
 
 @tagged_union(frozen=True)
-class MeshReceipt:
+class MeshCensus:
     tag: MeshOp = tag()
-    generated: tuple[ContentKey, ElementKind, int, int, int, int, SolveStatus] = case()
-    assembled: tuple[ContentKey, ElementKind, int, int, float, SolveStatus] = case()
-    read: tuple[ContentKey, ElementKind, int, int, SolveStatus] = case()
-    written: tuple[ContentKey, str, int, SolveStatus] = case()
+    generated: tuple[MeshField, int, int, SolveStatus] = case()
+    assembled: tuple[AssembledSystem, float, SolveStatus] = case()
+    read: tuple[MeshField, SolveStatus] = case()
+    written: tuple[Path, ContentKey, str, int, SolveStatus] = case()
 
     @classmethod
-    def Generated(cls, key: ContentKey, element: ElementKind, dim: int, point_count: int, cell_count: int, group_count: int) -> Self:
-        extent = 0.0 if point_count and cell_count else float("inf")
-        return cls(generated=(key, element, dim, point_count, cell_count, group_count, status_of(None, extent, _TOL["generated"])))
+    def Generated(cls, field: MeshField, dim: int, group_count: int) -> Self:
+        extent = 0.0 if field.points.size and field.cells.size else float("inf")
+        return cls(generated=(field, dim, group_count, status_of(None, extent, _TOL["generated"])))
 
     @classmethod
-    def Assembled(cls, key: ContentKey, element: ElementKind, dof_count: int, dirichlet_count: int, load_norm: float) -> Self:
-        extent = 0.0 if dof_count and isfinite(load_norm) else float("inf")
-        return cls(assembled=(key, element, dof_count, dirichlet_count, load_norm, status_of(None, extent, _TOL["assembled"])))
+    def Assembled(cls, system: AssembledSystem, load_norm: float) -> Self:
+        extent = 0.0 if system.dof_count and isfinite(load_norm) else float("inf")
+        return cls(assembled=(system, load_norm, status_of(None, extent, _TOL["assembled"])))
 
     @classmethod
-    def Read(cls, key: ContentKey, element: ElementKind, point_count: int, cell_count: int) -> Self:
-        extent = 0.0 if point_count and cell_count else float("inf")
-        return cls(read=(key, element, point_count, cell_count, status_of(None, extent, _TOL["read"])))
+    def Read(cls, field: MeshField) -> Self:
+        extent = 0.0 if field.points.size and field.cells.size else float("inf")
+        return cls(read=(field, status_of(None, extent, _TOL["read"])))
 
     @classmethod
-    def Written(cls, key: ContentKey, fmt: str, byte_count: int) -> Self:
+    def Written(cls, path: Path, key: ContentKey, fmt: str, byte_count: int) -> Self:
         extent = 0.0 if byte_count else float("inf")
-        return cls(written=(key, fmt, byte_count, status_of(None, extent, _TOL["written"])))
+        return cls(written=(path, key, fmt, byte_count, status_of(None, extent, _TOL["written"])))
 
     @property
-    def facts(self) -> dict[str, object]:
+    def value(self) -> MeshField | AssembledSystem | Path:
         match self:
             case (
-                MeshReceipt(tag="generated", generated=payload)
-                | MeshReceipt(tag="assembled", assembled=payload)
-                | MeshReceipt(tag="read", read=payload)
-                | MeshReceipt(tag="written", written=payload)
+                MeshCensus(tag="generated", generated=(value, *_))
+                | MeshCensus(tag="assembled", assembled=(value, *_))
+                | MeshCensus(tag="read", read=(value, *_))
+                | MeshCensus(tag="written", written=(value, *_))
             ):
-                return dict(zip(_SLOTS[self.tag], payload, strict=True))
+                return value
             case _ as unreachable:
                 assert_never(unreachable)
 
     @property
     def content_key(self) -> ContentKey:
-        return self.facts["key"]
+        match self:
+            case MeshCensus(tag="generated", generated=(field, *_)) | MeshCensus(tag="read", read=(field, *_)):
+                return field.content_key
+            case MeshCensus(tag="assembled", assembled=(system, *_)):
+                return system.content_key
+            case MeshCensus(tag="written", written=(_, key, *_)):
+                return key
+            case _ as unreachable:
+                assert_never(unreachable)
 
     @property
     def element(self) -> ElementKind | None:
-        return self.facts.get("element")
+        match self:
+            case MeshCensus(tag="generated", generated=(field, *_)) | MeshCensus(tag="read", read=(field, *_)):
+                return field.element
+            case MeshCensus(tag="assembled", assembled=(system, *_)):
+                return system.element
+            case MeshCensus(tag="written"):
+                return None
+            case _ as unreachable:
+                assert_never(unreachable)
 
     @property
     def status(self) -> SolveStatus:
         match self:
             case (
-                MeshReceipt(tag="generated", generated=(*_, SolveStatus() as status))
-                | MeshReceipt(tag="assembled", assembled=(*_, SolveStatus() as status))
-                | MeshReceipt(tag="read", read=(*_, SolveStatus() as status))
-                | MeshReceipt(tag="written", written=(*_, SolveStatus() as status))
+                MeshCensus(tag="generated", generated=(*_, SolveStatus() as status))
+                | MeshCensus(tag="assembled", assembled=(*_, SolveStatus() as status))
+                | MeshCensus(tag="read", read=(*_, SolveStatus() as status))
+                | MeshCensus(tag="written", written=(*_, SolveStatus() as status))
             ):
                 return status
             case _ as unreachable:
@@ -364,20 +374,47 @@ class MeshReceipt:
     def converged(self) -> bool:
         return self.status is SolveStatus.SUCCESS
 
-    def contribute(self) -> Iterable[Receipt]:
-        subject = self.element.value if self.element is not None else self.tag
-        facts: dict[str, object] = {
-            "operation": self.tag, "converged": self.converged, **{name: value for name, value in self.facts.items() if name != "key"}
+    @property
+    def attributes(self) -> dict[str, str | bool | int | float]:
+        common: dict[str, str | bool | int | float] = {
+            "operation": self.tag,
+            "key": self.content_key.hex,
+            "converged": self.converged,
+            "status": self.status.value,
         }
-        return (
-            Receipt.of(
-                EvidenceScope.MESH.value,
-                ("emitted", subject, facts),
-                key=Some(self.content_key),
-                provenance=Some(Provenance(consumed=Block.empty(), produced=self.content_key)),
-                band=Block.empty() if self.converged else Block.singleton(self.status.value),
-            ),
-        )
+        match self:
+            case MeshCensus(tag="generated", generated=(field, dim, group_count, _)):
+                return {
+                    **common,
+                    "element": field.element.value,
+                    "dim": dim,
+                    "point_count": int(field.points.shape[0]),
+                    "cell_count": int(field.cells.shape[0]),
+                    "group_count": group_count,
+                }
+            case MeshCensus(tag="assembled", assembled=(system, load_norm, _)):
+                return {
+                    **common,
+                    "element": system.element.value,
+                    "dof_count": system.dof_count,
+                    "dirichlet_count": int(system.dirichlet_dofs.size),
+                    "load_norm": load_norm,
+                }
+            case MeshCensus(tag="read", read=(field, _)):
+                return {
+                    **common,
+                    "element": field.element.value,
+                    "point_count": int(field.points.shape[0]),
+                    "cell_count": int(field.cells.shape[0]),
+                }
+            case MeshCensus(tag="written", written=(path, _, fmt, byte_count, _)):
+                return {**common, "path": str(path), "fmt": fmt, "byte_count": byte_count}
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    def _noted(self) -> Self:
+        trace.get_current_span().set_attributes(self.attributes)
+        return self
 
 
 @tagged_union(frozen=True)
@@ -404,11 +441,13 @@ class MeshExchange:
     def Write(cls, field: MeshField, path: Path, file_format: str | None = None, /) -> Self:
         return cls(write=(field, path, file_format))
 
-    async def run(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[MeshReceipt]:
+    async def run(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[MeshCensus]:
         mark: Option[StageTap] = Some(StageTap.of(EvidenceScope.MESH, lane.pulses.tap)) if self.tag in _STAGED else Nothing
 
-        async def dispatch() -> RuntimeRail[MeshReceipt]:
-            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, mark)).bind(lambda rail: rail)
+        async def dispatch() -> RuntimeRail[MeshCensus]:
+            return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self, mark)).bind(lambda rail: rail).map(
+                lambda census: census._noted()
+            )
 
         return await evidence_run(
             EvidenceScope.MESH, f"mesh.{self.tag}", dispatch, facts={"op": self.tag}, composition=composition, stage=mark
@@ -419,25 +458,23 @@ class MeshExchange:
 
 
 @railed
-def _dispatch(exchange: MeshExchange, mark: Option[StageTap]) -> MeshReceipt:
+def _dispatch(exchange: MeshExchange, mark: Option[StageTap]) -> MeshCensus:
     match exchange:
         case MeshExchange(tag="generate", generate=(source, plan, path)):
             meshed: MeshField = yield from _generate(source, plan, path, mark)
             row = CTOR[plan.element]
             realized = len(meshed.cell_sets) + len(meshed.node_sets)
-            return MeshReceipt.Generated(
-                meshed.content_key, plan.element, _DIM[row.cell], int(meshed.points.shape[0]), int(meshed.cells.shape[0]), realized
-            )
+            return MeshCensus.Generated(meshed, _DIM[row.cell], realized)
         case MeshExchange(tag="assemble", assemble=(field, form)):
             system = _assemble(field, form)
             load_norm = float(np.linalg.norm(system.load))
-            return MeshReceipt.Assembled(system.content_key, system.element, system.dof_count, int(system.dirichlet_dofs.size), load_norm)
+            return MeshCensus.Assembled(system, load_norm)
         case MeshExchange(tag="read", read=(path, element, fmt)):
             field: MeshField = yield from _read(path, element, fmt)
-            return MeshReceipt.Read(field.content_key, element, int(field.points.shape[0]), int(field.cells.shape[0]))
+            return MeshCensus.Read(field)
         case MeshExchange(tag="write", write=(field, path, fmt)):
             written = _write(field, path, fmt)
-            return MeshReceipt.Written(field.content_key, written, int(path.stat().st_size))
+            return MeshCensus.Written(written, field.content_key, fmt or written.suffix.lstrip("."), int(written.stat().st_size))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -562,7 +599,7 @@ def _read(path: Path, element: ElementKind, fmt: str | None) -> RuntimeRail[Mesh
     )
 
 
-def _write(field: MeshField, path: Path, fmt: str | None) -> str:
+def _write(field: MeshField, path: Path, fmt: str | None) -> Path:
     cell_type = CTOR[field.element].cell
     mesh = meshio.Mesh(
         points=np.asarray(field.points),
@@ -576,7 +613,7 @@ def _write(field: MeshField, path: Path, fmt: str | None) -> str:
     mesh.cell_sets_to_data()
     mesh.point_sets_to_data()
     meshio.write(str(path), mesh, fmt)
-    return fmt or path.suffix.lstrip(".")
+    return path
 ```
 
 ## [04]-[RESEARCH]

@@ -23,7 +23,7 @@ One transfer rides the control connection at a time, so concurrency is a client 
 |  [01]   | `Client`                                                | client        | one control connection per instance      |
 |  [02]   | `AccessOptions`                                         | dial row      | the whole dial in one options row        |
 |  [03]   | `FileInfo` / `FileType`                                 | census fact   | per-entry type, size, mtime, permissions |
-|  [04]   | `FTPResponse` (`code`, `message`) / `FTPError` (`code`) | receipt/fault | server disposition; refusal stays usable |
+|  [04]   | `FTPResponse` (`code`, `message`) / `FTPError` (`code`) | response/fault | server disposition; refusal stays usable |
 |  [05]   | `ProgressInfo`                                          | progress fact | the `trackProgress` stream unit          |
 |  [06]   | `client.ftp` (`FTPContext`)                             | context       | log capture and wire tuning              |
 |  [07]   | `client.parseList` (`RawListParser` override)           | parser slot   | exotic listing formats as policy         |

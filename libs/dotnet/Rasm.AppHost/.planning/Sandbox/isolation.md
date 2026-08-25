@@ -2,7 +2,7 @@
 
 Capability-brokered plugin sandboxing for the runtime spine: two `Isolation` rows reach a vehicle here — `wasm` under a Wasmtime core-module instance with a WASI-Preview-1 granted-descriptor import table, `process` under an out-of-process child — and every other axis row refuses at admission with typed evidence naming the axis. Zero ambient authority is structural: a plugin reaches host capability only through a brokered grant handle, one `CostUnit`-keyed quota table caps every metered dimension, and one eviction cell drains a misbehaving plugin's vehicle and disposes it.
 
-Settled composition: `SupplyChainGate`/`AdmissionSubject`/`PluginArtifact` from Sandbox/admission#SUPPLY_CHAIN_GATE; `Isolation`, `ProfileAxis`, and `AxisEvidence` from Runtime/profiles#PROFILE_AXIS; `CapabilityDescriptor`/`GrantBroker`/`GrantScope`/`MeterVector`/`CostUnit`/`CostModel` and `CommandRuntime`/`CommandArguments`/`CommandReceipt` from Agent/capability#GRANT_BROKER and #COMMAND_ALGEBRA; `McpRuntime`/`McpDispatch`/`ToolResult` from Agent/mcp; `OutboundHop.CompanionSpawn`/`Discovery` and `CompanionPeer`/`PeerAdmission` from Wire/outbound and Wire/companion; `ClockPolicy`/`DeadlineClass` from Runtime/time; `CancelScope` from Runtime/lifecycle#CANCEL_SPINE; `ReceiptSinkPort`/`TelemetrySource`/`TenantContext` from Rasm/Domain/frame; `Transition`/`Cell`/`Fault`/`FaultBand`/`Op`/`IValidityEvidence` from Rasm/Domain/rails; `ReceiptKind` from Observability/instruments#RECEIPT_PROJECTION. Wasmtime owns the embedding, Thinktecture the vocabularies, LanguageExt the rails; this page mints no eighth port.
+Settled composition: `SupplyChainGate`/`AdmissionSubject`/`PluginArtifact` from Sandbox/admission#SUPPLY_CHAIN_GATE; `Isolation`, `ProfileAxis`, and `AxisEvidence` from Runtime/profiles#PROFILE_AXIS; `CapabilityDescriptor`/`GrantBroker`/`GrantScope`/`MeterVector`/`CostUnit`/`CostModel` and `CommandRuntime`/`CommandArguments`/`CommandResult` from Agent/capability#GRANT_BROKER and #COMMAND_ALGEBRA; `McpRuntime`/`McpDispatch` from Agent/mcp; `OutboundHop.CompanionSpawn`/`Discovery` and `CompanionPeer`/`PeerAdmission` from Wire/outbound and Wire/companion; `ClockPolicy`/`DeadlineClass` from Runtime/time; `CancelScope` from Runtime/lifecycle#CANCEL_SPINE; `Transition`/`Cell`/`Fault`/`FaultBand`/`Op` from Rasm/Domain/rails. Wasmtime owns the embedding, Thinktecture the vocabularies, LanguageExt the rails; this page mints no eighth port.
 
 ## [01]-[INDEX]
 
@@ -21,7 +21,7 @@ Settled composition: `SupplyChainGate`/`AdmissionSubject`/`PluginArtifact` from 
 - Law: the `process` row spawns its child through the provider's `OutboundHop.CompanionSpawn` closure and reaches it over `OutboundHop.LocalIpc`, reading the child's `PeerCredential` at accept through `PeerAdmission`, so the child holds no host handle and every host call crosses the brokered control hop; the row's `QuotaShape` seats the quota cell at load so limits arrive with the instance rather than bolted on after.
 - Law: a rejected admission carries EVERY accumulated fault — `Validation` accumulated them for exactly this, and the prior `.Head` read discarded all but one, so a plugin both forged and out-of-contract reported one cause and re-admitted after a partial fix.
 - Law: the capsule mint disposes its PARTIAL handles when instantiation refuses. Compile, store, and linker are minted before `Instantiate` and a throw between them left three native handles unreferenced with the load reported as a clean failure.
-- Receipt: the load transition logs through one `SpineLog` event and mints no receipt — a load either yields the `PluginInstance` or fails on the rail, and a receipt asserting `Loaded: true` beside a returned instance carries nothing the instance does not. Eviction evidence is `[04]`'s `SandboxReceipt`.
+- Output: `Load` yields the `PluginInstance` or fails on the rail.
 - Packages: Wasmtime, Thinktecture.Runtime.Extensions, Generator.Equals, LanguageExt.Core, NodaTime, Rasm (kernel `Cell`/`Transition`/`FaultBand`/`Op`), BCL inbox
 - Growth: a new linear-memory or OS-isolation backend settles as one `Isolation` value at the axis owner, one roster arm here, and one `VehicleProvider` case, never a parallel loader and never a sandbox-local axis; a new granted host capability is one `ImportRow` the scope fold already emits; a new fault is one `SandboxFault` case; zero new surface.
 - Boundary: seating the axis is not owning it — a sandbox-local isolation vocabulary collides its `process` row with the axis owner's and re-spells its `wasm` one, so admitting a narrower subset of a closed axis is a REFUSAL at this page's own entry and never a second roster; the sandbox is the only plugin-load owner, so a direct `Assembly.LoadFrom`, a plugin `AppDomain`, and an in-process plugin reference are the deleted forms and a plugin never shares the host's managed heap or ambient `IServiceProvider`; the WASM runtime is `Wasmtime` at core-module with WASI-Preview-1 and that is a SETTLED ceiling rather than a pending probe — the managed assembly exposes `Config.WithComponentModel(bool)`, which toggles the NATIVE engine's component support, and not one managed component type, so `Module`, `Linker`, and `Instance` are core-module only, WASI Preview 2 is unreachable from managed code, and `TrapCode.CannotEnterComponent`/`NoAsyncResult` merely surface Rust-core trap rows; the Preview-1 `WasiConfiguration` surface is therefore the axis's whole sandbox-capability vocabulary and no page waits on a wider one; a hand-rolled WASM host is the deleted form; isolation is orthogonal to the composition density law — the host composes its own modules in-process through `CompositionSurface` while a third-party plugin always crosses an isolation boundary, so the two load paths never merge; the wasm import table and the process control-hop verb set are both projections of the granted `CapabilityDescriptor` set, so a plugin's reachable surface is exactly its grant scope in both topologies; the process row reuses the `Discovery`/`CompanionPeer` spawn-attach mechanics verbatim and adds only the quota and grant columns.
@@ -135,7 +135,6 @@ public sealed record SandboxRuntime(
     Duration EpochPeriod,
     HashMap<Isolation, VehicleProvider> Vehicles,
     ClockPolicy Clocks,
-    ReceiptSinkPort Sink,
     CancelScope Spine,
     Option<Func<GrantScope, CapabilityDescriptor, CommandArguments, Fin<Unit>>> Policy = default) {
     public static Engine Preempting(int stackBytes) {
@@ -182,7 +181,7 @@ public static class SandboxRows {
         from admitted in SupplyChainGate.Admit(runtime.Gate, new AdmissionSubject.Plugin(artifact), runtime.Spine.Token)
         from _proven in admitted.Match(
             Succ: IO.pure,
-            Fail: faults => IO.fail<SupplyChainReceipt>(faults.Map(static fault => (Error)fault).Reduce(static (all, next) => all + next)))
+            Fail: faults => IO.fail<SupplyChainAdmission>(faults.Map(static fault => (Error)fault).Reduce(static (all, next) => all + next)))
         from provider in runtime.Vehicles.Find(row.Isolation)
             .ToFin(new SandboxFault.AxisUnsupported(new AxisEvidence(
                 ProfileAxis.Isolation, row.Isolation.Key, "no vehicle provider seated at this composition")))
@@ -246,17 +245,15 @@ public static class SandboxRows {
 
 ## [03]-[GRANT_HANDLE]
 
-- Owner: `CallerModality` `[SmartEnum<string>]` the operator/agent/plugin caller axis under the `ComparerAccessors.StringOrdinal` accessor, carrying its subject projection as a `[UseDelegateFromConstructor]` column; `Mediation` `[Union]` the per-call verdict; `GrantHandle` the brokered capability handle a plugin reaches host functionality through; `BrokeredCall` the per-call mediation evidence; `MediationRuntime` the mediation dependency capsule; `GrantHandleSurface` the one grant-and-charge mediation surface.
-- Cases: three caller modalities — operator (an interactive host call), agent (an in-process reasoning or MCP tool call), plugin (a sandboxed-plugin call over the grant handle) — each routing through one `Mediate` fold where modality is a discriminant on the record, never a parallel broker per caller; `Mediation` = `AdmittedCase(MeterVector Charged, ToolResult Result)` | `RefusedCase(SandboxFault Cause)`.
-- Entry: `Mediate(MediationRuntime runtime, CallerModality caller, GrantScope scope, string descriptorId, CommandArguments arguments, Func<string, CommandArguments, IO<ToolResult>> dispatch)` returns `IO<BrokeredCall>` — the one mediation fold the operator, agent, and plugin front doors share: it resolves the descriptor, runs the single `Scope.Covers` policy gate, debits the one `Budget` through `GrantBroker.Admit`, and dispatches through the supplied closure exactly as a command-algebra call; `Invoke(SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments, Op key)` returns `IO<ToolResult>` — the plugin front door that seats `CallerModality.Plugin` and the handle's scope-plus-dispatch closure onto `Mediate` under the quota window and CHARGES the admitted spend onto the plugin's own cell; `GrantHandleSurface.Bind(PluginInstance plugin, McpRuntime mcp)` mints the handle whose dispatch gates on the plugin's disposition cell.
-- Law: the charged vector and the permitted flag were a two-column invariant nothing enforced — every `Permitted: false` paired with `MeterVector.Zero` by convention alone. `Mediation` makes the pairing structural: the refused arm carries the fault WHOLE, `SandboxFault.Of` adopts a broker refusal without laundering it, and the `ToolResult` projects the bounded fault observation as a JSON node, so consent remains transient and a closed window remains terminal without a consumer parsing prose.
+- Owner: `CallerModality` `[SmartEnum<string>]` the operator/agent/plugin caller axis under the `ComparerAccessors.StringOrdinal` accessor; `GrantHandle` the brokered capability handle a plugin reaches host functionality through; `GrantHandleSurface` the one plugin-scope mediation surface.
+- Cases: three caller modalities — operator, agent, and plugin — carried on the command intent the canonical command result settles.
+- Entry: `Invoke(SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle, string descriptorId, CommandArguments arguments, Op key)` returns `IO<CommandResult>` — the plugin front door that checks the quota and standing scope, dispatches through the handle onto the command algebra, and charges the returned result onto the plugin's own quota cell; `GrantHandleSurface.Bind(PluginInstance plugin, McpRuntime mcp)` mints the handle whose dispatch gates on the plugin's disposition cell.
 - Law: the brokered spend is the plugin's OWN metered spend. `Invoke` charges the admitted `MeterVector` onto the plugin's quota cell, which is what makes `CostUnit.BytesEgress` and `CostUnit.Calls` reachable ceilings on a wasm plugin at all — the vehicle meter answers instructions, and every byte a guest sends leaves through a granted import this fold already prices.
-- Law: `Mediate` runs ONE `Scope.Covers` policy gate and ONE `GrantBroker.Admit` charge regardless of caller modality, so an operator, an agent, and a plugin call debit the same per-tenant `Budget` (or the `DistributedBudget` fenced store when bound) against one broker and the per-call charge is metered identically; the caller modality is a `BrokeredCall` discriminant on one evidence record, not a second admission path.
-- Law: the subject projection rides the modality ROW as a behaviour column — a plugin call names its correlation, an operator or agent call its tenant — so a fourth modality lands its projection with its key and no external `switch` re-derives what the row already carries.
-- Receipt: each mediated call mints a `CommandReceipt` through the command algebra carrying the surface keyed by caller modality (the plugin id for a plugin call), so operator, agent, and plugin calls land on one evidence stream and the `BrokeredCall` carries the modality and the verdict — never a parallel plugin log or a per-caller receipt.
+- Law: the command algebra remains the only broker debit; `Invoke` applies the plugin's standing scope before dispatch and charges its isolation quota from the returned `CommandResult.Charged`, so no wrapper re-runs admission or copies the result.
+- Output: each mediated call returns the `CommandResult` the command algebra produces.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new caller modality is one `CallerModality` row with its subject column, never a parallel broker; the brokered call rides the existing command algebra, so a new plugin capability is one `CapabilityDescriptor` row the grant scope names; zero new surface.
-- Boundary: the grant handle is the only authority a plugin holds — it carries the plugin's `GrantScope` and a dispatch closure bound to the command algebra, so a plugin cannot reach a host capability the scope does not name even by reflection, because the handle holds no object to reflect on; the no-ambient-authority law is enforced by construction rather than by audit — the host never passes a service provider, a configuration root, or a clock into a plugin, only the grant handle, so `CallerModality.Plugin` seats the handle's closure and merging the mediation in a way that hands a plugin a service provider is the deleted form; the operator and agent modalities carry the host-side `CommandRuntime` closure while the plugin modality carries only the handle, so one mediation fold serves three callers without leaking host references into the plugin path; a plugin requesting a capability outside its standing scope raises a `Consent.Elevated` request the operator approves, landing a wider transient scope on the handle through `GrantBroker.Open` — the one seeding entry, because a ceiling GRANTS an opening balance and an elevated scope seated without it draws against zero and refuses its first call — so a plugin's authority grows only through explicit consent; the handle's dispatch crosses the wasm boundary as serialized `CommandArguments`, so one mediation semantic serves both isolation rows; the `RuntimePolicy` verdict resolves against the branch `ONE_IDENTITY_STORE` principal and role rows and the per-call charge debits the branch `ONE_FENCED_LEASE_STORE` `Budget`, both consumed at the seam, so the unified admission point is the one gate identity, policy, and cost meet on (`Agent/capability#GRANT_BROKER` `DistributedBudget`).
+- Boundary: the grant handle is the only authority a plugin holds — it carries the plugin's `GrantScope` and a dispatch closure bound to the command algebra, so a plugin cannot reach a host capability the scope does not name even by reflection, because the handle holds no object to reflect on; the no-ambient-authority law is enforced by construction rather than by audit — the host never passes a service provider, a configuration root, or a clock into a plugin, only the grant handle; a plugin requesting a capability outside its standing scope raises a `Consent.Elevated` request the operator approves, landing a wider transient scope on the handle through `GrantBroker.Open` — the one seeding entry, because a ceiling GRANTS an opening balance and an elevated scope seated without it draws against zero and refuses its first call — so a plugin's authority grows only through explicit consent; the handle's dispatch crosses the wasm boundary as serialized `CommandArguments`, so one mediation semantic serves both isolation rows; the `RuntimePolicy` verdict resolves against the branch `ONE_IDENTITY_STORE` principal and role rows and the per-call charge debits the branch `ONE_FENCED_LEASE_STORE` `Budget`, both consumed at the seam, so the unified admission point is the one gate identity, policy, and cost meet on (`Agent/capability#GRANT_BROKER` `DistributedBudget`).
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -264,117 +261,82 @@ public static class SandboxRows {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CallerModality {
-    public static readonly CallerModality Operator = new("operator", subject: static arguments => arguments.Tenant.Entry);
-    public static readonly CallerModality Agent = new("agent", subject: static arguments => arguments.Tenant.Entry);
-    public static readonly CallerModality Plugin = new("plugin", subject: static arguments => arguments.Correlation.ToString());
-
-    [UseDelegateFromConstructor]
-    public partial string Subject(CommandArguments arguments);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Mediation {
-    private Mediation() { }
-    public sealed record AdmittedCase(MeterVector Charged, ToolResult Result) : Mediation;
-    public sealed record RefusedCase(SandboxFault Cause) : Mediation;
-    public MeterVector Charged => Switch(
-        admittedCase: static row => row.Charged,
-        refusedCase: static _ => MeterVector.Zero);
+    public static readonly CallerModality Operator = new("operator");
+    public static readonly CallerModality Agent = new("agent");
+    public static readonly CallerModality Plugin = new("plugin");
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GrantHandle(
     string PluginId,
     GrantScope Scope,
-    Func<string, CommandArguments, IO<ToolResult>> Dispatch) {
+    Func<string, CommandArguments, IO<CommandResult>> Dispatch) {
     public bool Permits(CapabilityDescriptor descriptor, Instant now) =>
         Scope.Covers(descriptor.Permission, now);
 }
 
-public readonly record struct BrokeredCall(
-    CallerModality Caller,
-    string Subject,
-    string Descriptor,
-    Mediation Outcome,
-    Instant At);
-
-public sealed record MediationRuntime(
-    CommandRuntime Command,
-    Option<Func<GrantScope, CapabilityDescriptor, CommandArguments, Fin<Unit>>> Policy,
-    ClockPolicy Clocks);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GrantHandleSurface {
-    public static IO<BrokeredCall> Mediate(
-        MediationRuntime runtime, CallerModality caller, GrantScope scope, string descriptorId,
-        CommandArguments arguments, Func<string, CommandArguments, IO<ToolResult>> dispatch) =>
-        (from descriptor in runtime.Command.Registry.Resolve(descriptorId)
-             .ToFin(new SandboxFault.LoadRejected($"unknown:{descriptorId}"))
-         from _policy in runtime.Policy.Match(Some: gate => gate(scope, descriptor, arguments), None: static () => Fin.Succ(unit))
-         from _scope in scope.Covers(descriptor.Permission, runtime.Clocks.Now)
-             ? Fin.Succ(unit)
-             : Fin.Fail<Unit>(new SandboxFault.NoAuthority(descriptorId))
-         from charged in runtime.Command.Broker.Admit(descriptor, arguments, DrawMode.Live)
-         select charged).Match(
-            Succ: charged =>
-                from result in dispatch(descriptorId, arguments)
-                select Call(caller, descriptorId, arguments, runtime.Clocks.Now, new Mediation.AdmittedCase(charged, result)),
-            Fail: fault => IO.pure(Call(caller, descriptorId, arguments, runtime.Clocks.Now,
-                new Mediation.RefusedCase(SandboxFault.Of(fault)))));
-
-    public static IO<ToolResult> Invoke(
+    public static IO<CommandResult> Invoke(
         SandboxRuntime runtime, PluginInstance plugin, GrantHandle handle,
         string descriptorId, CommandArguments arguments, Op key) =>
         from breach in plugin.Quota.Breach(runtime.Clocks, key).Match(Succ: IO.pure, Fail: IO.fail<Option<Breach>>)
         from result in breach.Match(
-            Some: hit => IO.pure(Refusal(descriptorId, arguments, new SandboxFault.QuotaExceeded(hit))),
-            None: () =>
-                from call in Mediate(new MediationRuntime(runtime.Command, runtime.Policy, runtime.Clocks),
-                    CallerModality.Plugin, handle.Scope, descriptorId, arguments, handle.Dispatch)
-                from _charged in IO.lift(() => plugin.Quota.Charge(call.Outcome.Charged))
-                select call.Outcome.Switch(
-                    admittedCase: static admitted => admitted.Result,
-                    refusedCase: refused => Refusal(descriptorId, arguments, refused.Cause)))
+            Some: hit => Refused(runtime, descriptorId, arguments, new SandboxFault.QuotaExceeded(hit)),
+            None: () => runtime.Command.Registry.Resolve(descriptorId).Match(
+                None: () => handle.Dispatch(descriptorId, arguments),
+                Some: descriptor => Admitted(runtime, handle, descriptor, arguments)))
+        from _charged in IO.lift(() => plugin.Quota.Charge(result.Charged))
         select result;
+
+    static IO<CommandResult> Admitted(
+        SandboxRuntime runtime, GrantHandle handle, CapabilityDescriptor descriptor, CommandArguments arguments) =>
+        (from _policy in runtime.Policy.Match(
+             Some: gate => gate(handle.Scope, descriptor, arguments),
+             None: static () => Fin.Succ(unit))
+         from _scope in handle.Permits(descriptor, runtime.Clocks.Now)
+             ? Fin.Succ(unit)
+             : Fin.Fail<Unit>(new SandboxFault.NoAuthority(descriptor.Id))
+         select unit).Match(
+            Succ: _ => handle.Dispatch(descriptor.Id, arguments),
+            Fail: fault => Refused(runtime, descriptor.Id, arguments, SandboxFault.Of(fault)));
 
     public static GrantHandle Bind(PluginInstance plugin, McpRuntime mcp) =>
         new(plugin.PluginId, plugin.Scope, (descriptorId, arguments) =>
             plugin.Disposition.Value.Switch(
                 state: (Id: plugin.PluginId, Mcp: mcp, Descriptor: descriptorId, Arguments: arguments),
                 active: static (bind, _) => McpDispatch.Call(bind.Mcp, bind.Descriptor, bind.Arguments),
-                killed: static (bind, row) => IO.pure(Refusal(bind.Descriptor, bind.Arguments,
-                    new SandboxFault.NoAuthority($"{bind.Id}: killed on {row.Cause.Detail}"))),
-                quarantined: static (bind, row) => IO.pure(Refusal(bind.Descriptor, bind.Arguments,
-                    new SandboxFault.Quarantined($"{bind.Id}: held for review on {row.Cause.Detail}"))),
+                killed: static (bind, row) => CommandAlgebra.Refuse(bind.Mcp.Command, bind.Descriptor,
+                    new CommandFault.GrantDenied(bind.Descriptor,
+                        new SandboxFault.NoAuthority($"{bind.Id}: killed on {row.Cause.Detail}")), bind.Arguments),
+                quarantined: static (bind, row) => CommandAlgebra.Refuse(bind.Mcp.Command, bind.Descriptor,
+                    new CommandFault.GrantDenied(bind.Descriptor,
+                        new SandboxFault.Quarantined($"{bind.Id}: held for review on {row.Cause.Detail}")), bind.Arguments),
                 released: static (bind, _) => McpDispatch.Call(bind.Mcp, bind.Descriptor, bind.Arguments)));
 
-    static BrokeredCall Call(CallerModality caller, string descriptorId, CommandArguments arguments, Instant at, Mediation outcome) =>
-        new(caller, caller.Subject(arguments), descriptorId, outcome, at);
-
-    static ToolResult Refusal(string descriptorId, CommandArguments arguments, SandboxFault fault) =>
-        new(descriptorId, [JsonSerializer.SerializeToNode(FaultWire.Observe(fault), SuiteContracts.Host)!],
-            IsError: true, arguments.Correlation);
+    static IO<CommandResult> Refused(
+        SandboxRuntime runtime, string descriptorId, CommandArguments arguments, SandboxFault fault) =>
+        CommandAlgebra.Refuse(runtime.Command, descriptorId,
+            new CommandFault.GrantDenied(descriptorId, fault), arguments);
 }
 ```
 
 ## [04]-[QUOTA_CONTROL]
 
-- Owner: `Breach` the measured overage carrier; `QuotaShape` the per-plugin ceiling table; `QuotaCell` the live-metering boundary capsule; `EvictionCause` `[Union]` the three eviction triggers; `Quarantine` `[Union]` the eviction disposition; `DrainProof` `[Union]` the per-vehicle drain evidence; `SandboxReceipt` the eviction receipt; `TrapDisposition` the trap-to-fault projection; `QuotaControl` the static enforcement surface.
-- Cases: `EvictionCause` = `BreachedCase(Breach)` | `RevokedCase(SupplyChainFault)` | `CommandedCase(string Operator)` — the three triggers the eviction rail has always claimed, now representable; `Quarantine` = `Active` | `Killed(EvictionCause)` | `Quarantined(EvictionCause, PluginArtifact Held)` | `Released(Instant)`; `DrainProof` = `TrappedCase(TrapCode)` | `IdleCase` | `CensusedCase(int Residual)`.
-- Entry: `Observed(PluginInstance plugin)` returns `MeterVector` — the measured spend read off the isolation vehicle itself, each arm reading the provider its own case carries; `Enforce(SandboxRuntime runtime, PluginInstance plugin, Op key)` returns `IO<Option<Breach>>` — the metered arm charging the observation and grading it against the ceiling table; `Evict(SandboxRuntime runtime, PluginInstance plugin, EvictionCause cause, Op key)` returns `IO<Option<SandboxReceipt>>` — the ONE seat-and-drain entry every trigger takes, minting a receipt on the transition that landed the eviction and none on a cell another cause already held; `Sweep(SandboxRuntime runtime, Seq<PluginInstance> live, Op key)` returns `IO<Seq<SandboxReceipt>>` — the `EpochPacer`-driven fold grading every live plugin and evicting the ones a breach caught; `Release(PluginInstance plugin, Instant at)` returns `Fin<Quarantine>` — the operator review arm reinstating a quarantined plugin and refusing every other disposition; `TrapDisposition.Seat(WasmCapsule capsule, TrapCode observed)` returns the drain-evidence code first-wins, and `TrapDisposition.Of(TrapCode code, WasmCapsule capsule, QuotaShape shape)` projects it onto the quota vocabulary.
+- Owner: `Breach` the measured overage carrier; `QuotaShape` the per-plugin ceiling table; `QuotaCell` the live-metering boundary capsule; `EvictionCause` `[Union]` the three eviction triggers; `Quarantine` `[Union]` the eviction disposition; `TrapDisposition` the trap-to-fault projection; `QuotaControl` the static enforcement surface.
+- Cases: `EvictionCause` = `BreachedCase(Breach)` | `RevokedCase(SupplyChainFault)` | `CommandedCase(string Operator)` — the three triggers the eviction rail has always claimed, now representable; `Quarantine` = `Active` | `Killed(EvictionCause)` | `Quarantined(EvictionCause, PluginArtifact Held)` | `Released(Instant)`.
+- Entry: `Observed(PluginInstance plugin)` returns `MeterVector` — the measured spend read off the isolation vehicle itself, each arm reading the provider its own case carries; `Enforce(SandboxRuntime runtime, PluginInstance plugin, Op key)` returns `IO<Option<Breach>>` — the metered arm charging the observation and grading it against the ceiling table; `Evict(SandboxRuntime runtime, PluginInstance plugin, EvictionCause cause, Op key)` returns `IO<Unit>` — the ONE seat-and-drain entry every trigger takes, draining only on the transition that landed the eviction; `Sweep(SandboxRuntime runtime, Seq<PluginInstance> live, Op key)` returns `IO<Unit>` — the `EpochPacer`-driven fold grading every live plugin and evicting the ones a breach caught; `Release(PluginInstance plugin, Instant at)` returns `Fin<Quarantine>` — the operator review arm reinstating a quarantined plugin and refusing every other disposition; `TrapDisposition.Seat(WasmCapsule capsule, TrapCode observed)` returns the drain-evidence code first-wins, and `TrapDisposition.Of(TrapCode code, WasmCapsule capsule, QuotaShape shape)` projects it onto the quota vocabulary.
 - Law: enforcement is TWO mechanisms with disjoint jurisdictions, and the split is what makes the wall guarantee real. `QuotaCell.Breach` is a CALL-ENTRY gate: it refuses the next brokered call and cannot touch a guest already inside a host-free loop. `Store.Fuel` meters INSTRUCTIONS, not wall time, so a guest spinning cheaply runs past its deadline with fuel to spare. Epoch interruption is the only preemption the embedding exposes and therefore the only mechanism that delivers the wall budget: the store's `SetEpochDeadline` arms it, `EpochPacer` advances the engine counter on the injected `TimeProvider`, and the guest traps with `TrapCode.Interrupt` the instant its budget elapses wherever it stands.
 - Law: the ceiling is a `CostUnit`-keyed TABLE, so `Breach` visits every declared dimension in the vocabulary's own ordinal order and a dimension added to a shape is graded the moment it lands. Four flat scalar columns graded two of themselves — a declared `bytes-egress` ceiling no arm tested, and a memory cap that never reached the fold at all.
 - Law: linear memory is the one ceiling the EMBEDDING enforces, so it rides its own column rather than the metered table: `Store.SetLimits` refuses the guest's allocation at the source, and a host-side grade of a dimension the guest can never exceed measures nothing. Every other ceiling is host-graded because the host is what observes it.
 - Law: the wall bound measures on the kernel `MonotonicTimeline`, never on `Instant` arithmetic — a semantic clock steps backwards under NTP correction and a quota reading it grants a plugin the correction as free budget; `QuotaCell` opens on a captured `MonotonicStamp` and grades elapsed against the row's own `DeadlineClass.Bound`.
 - Law: `Observed` reads the wasm spend as the `Store.Fuel` DELTA off the seeded value and the process spend off the provider's own child census, so both rows measure at their own vehicle and neither runs a parallel meter; `Enforce` CHARGES what it observes, because a fold that only reads leaves every resource arm of `Breach` evaluating a zero vector forever and the wall deadline the sole reachable verdict.
-- Law: the eviction verdict RIDES the transition, and `Evict` is its ONE seat. `Cell.Commit` computes the next disposition outside the cell and commits by snapshot, so the fold that landed the kill is the fold that drains the vehicle and mints the receipt, while a fold that lost the race reads `Ceded` and drains nothing — two triggers firing at once evicted twice and disposed a store the other arm still held; a quarantine seating over an already-killed plugin drains nothing, since the vehicle the first kill disposed is already gone.
-- Law: the drain evidence leaves its seat through `Cell.Take` at the eviction rather than being read and left seated, so the receipt carries the code once and a second read cannot republish a retired capsule's trap; a wasm guest idle when the eviction landed answers `Idle` rather than a defaulted `Interrupt` naming a preemption the engine never performed.
-- Law: `TrapCode` seats FIRST-WINS through `Cell.Seat`, retaining the earliest observed trap as drain evidence the receipt reads; `Swap(_ => Some(code))` overwrote it on every later trap, and the `.IfNone(code)` beside it was dead because a swap answering the post-state is always `Some`; the `Ceded` verdict is what tells this frame an earlier code holds, so the fault it raises and the receipt the kill mints read one code.
-- Law: `TrapCode.OutOfFuel` and `TrapCode.Interrupt` project onto the SAME `QuotaExceeded` fault under their breached unit, so a CPU trap and a wall trap read as one quota vocabulary rather than two embedding codes, while the RAW code rides the receipt — "which budget" is the fault's answer, "did the kill land" the code's, and collapsing the second into the first leaves an undrained kill indistinguishable from a guest that returned.
-- Receipt: `SandboxReceipt` — plugin id, granted scope hash, the wire-safe `EvictionCauseWire`, the arm's own `DrainProof` evidence, and the `Instant`; revocation lowers its live supply-chain fault once through `FaultWire.Observe`, while breach and operator cases retain their typed evidence; `Isolation` DERIVES off the drain-proof arm, so the receipt states its axis row without storing a second authority for it; the receipt fans under `ReceiptKind.Eviction`, and the kill rides the existing `DegradationCell` only where a plugin failure escalates a host capability, because a plugin kill is process-local evidence rather than a host degradation by itself.
-- Packages: Wasmtime, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Generator.Equals, Rasm (kernel `Cell`/`Transition`/`MonotonicTimeline`/`IValidityEvidence`), BCL inbox
+- Law: the eviction verdict RIDES the transition, and `Evict` is its ONE seat. `Cell.Commit` computes the next disposition outside the cell and commits by snapshot, so the fold that landed the kill is the fold that drains the vehicle, while a fold that lost the race reads `Ceded` and drains nothing — two triggers firing at once evicted twice and disposed a store the other arm still held; a quarantine seating over an already-killed plugin drains nothing, since the vehicle the first kill disposed is already gone.
+- Law: `TrapCode` seats FIRST-WINS through `Cell.Seat`, retaining the earliest observed trap until eviction consumes it; `Swap(_ => Some(code))` overwrote it on every later trap, and the `.IfNone(code)` beside it was dead because a swap answering the post-state is always `Some`; the `Ceded` verdict tells this frame an earlier code holds.
+- Law: `TrapCode.OutOfFuel` and `TrapCode.Interrupt` project onto the SAME `QuotaExceeded` fault under their breached unit, so a CPU trap and a wall trap read as one quota vocabulary rather than two embedding codes.
+- Packages: Wasmtime, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Generator.Equals, Rasm (kernel `Cell`/`Transition`/`MonotonicTimeline`), BCL inbox
 - Growth: one quota dimension is one `CostUnit` row the ceiling table already grades and one arm on `Observed`; one eviction trigger is one `EvictionCause` case; one disposition is one `Quarantine` case; one trap class is one `TrapDisposition` row; zero new surface.
-- Boundary: the quota cell is the only plugin-resource owner — an unbounded plugin, a best-effort timeout, and a parallel plugin watchdog are the deleted forms, and a wall guarantee resting on the call-entry gate alone is likewise deleted because that gate is unreachable from inside a spinning guest; the quota table's units are the same `CostUnit` rows the cost model meters, so a plugin's quota and a tenant's budget speak one resource vocabulary; the eviction rail is the consequence of a quota breach, a supply-chain revocation, or an operator command — all three mint an `EvictionCause`, all three enter through `Evict`, and all three write the ONE disposition cell, never three eviction paths and never a verdict a caller may apply differently; the process drain is proved by CENSUS and only by census — `WaitForExit` returns true the instant the direct child's handle closes, zero milliseconds over a still-live grandchild, and `ExitCode` is 137 on every SIGKILL path whether the tree drained or leaked, so handle facts report a clean kill over a leak; the forced edge is the whole-tree kill because a plain `Kill` signals one pid and leaves a spawned worker orphaned, the cooperative `ShutdownAsync` ahead of it buys a grace window and nothing else, and the tree walk being a snapshot makes a child spawning mid-kill the one escape, foreclosed by the grant-scoped spawn bound; a wasm guest is not preemptible by disposal — `Store.Dispose` releases a `SafeHandle` and a `SafeHandle` cannot release while a native call is in flight on that store, so `IncrementEpoch` past the armed deadline is the drain and disposal then reclaims the linear memory; quarantine holds the admitted artifact so a repeat offender's evidence survives its vehicle, `Release` is the single path back and refuses any disposition not under review — the operator reaches it through the `sandbox release` verb at `Runtime/modules#COMMAND_SURFACE` and nothing else does, so the reinstatement is an audited act rather than an ambient one — and the `Released` disposition it seats is exactly the arm the grant handle's disposition switch serves again, which is what closes the loop a disposition case with no producing arm or no reading arm would leave open; the wall ceiling is a `DeadlineClass` row read by projection and the epoch deadline derives from that same row, so the gate and the preemption cannot disagree.
+- Boundary: the quota cell is the only plugin-resource owner — an unbounded plugin, a best-effort timeout, and a parallel plugin watchdog are the deleted forms, and a wall guarantee resting on the call-entry gate alone is likewise deleted because that gate is unreachable from inside a spinning guest; the quota table's units are the same `CostUnit` rows the cost model meters, so a plugin's quota and a tenant's budget speak one resource vocabulary; the eviction rail is the consequence of a quota breach, a supply-chain revocation, or an operator command — all three mint an `EvictionCause`, all three enter through `Evict`, and all three write the ONE disposition cell, never three eviction paths and never a verdict a caller may apply differently; the process drain is proved by CENSUS and only by census — `WaitForExit` returns true the instant the direct child's handle closes, zero milliseconds over a still-live grandchild, and `ExitCode` is 137 on every SIGKILL path whether the tree drained or leaked, so handle facts report a clean kill over a leak; the forced edge is the whole-tree kill because a plain `Kill` signals one pid and leaves a spawned worker orphaned, the cooperative `ShutdownAsync` ahead of it buys a grace window and nothing else, and the tree walk being a snapshot makes a child spawning mid-kill the one escape, foreclosed by the grant-scoped spawn bound; a wasm guest is not preemptible by disposal — `Store.Dispose` releases a `SafeHandle` and a `SafeHandle` cannot release while a native call is in flight on that store, so `IncrementEpoch` past the armed deadline is the drain and disposal then reclaims the linear memory; quarantine holds the admitted artifact so a repeat offender's evidence survives its vehicle, `Release` is the single path back and refuses any disposition not under review — the operator reaches it through the `sandbox release` verb at `Runtime/modules#COMMAND_SURFACE` and nothing else does, so the reinstatement is an audited act rather than an ambient one — and the `Released` disposition it seats is exactly the arm the grant handle's disposition switch serves again, which closes the loop a disposition case with no producing arm or no reading arm leaves open; the wall ceiling is a `DeadlineClass` row read by projection and the epoch deadline derives from that same row, so the gate and the preemption cannot disagree.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -434,62 +396,12 @@ public abstract partial record EvictionCause {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonDerivedType(typeof(BreachedCase), typeDiscriminator: "breached")]
-[JsonDerivedType(typeof(RevokedCase), typeDiscriminator: "revoked")]
-[JsonDerivedType(typeof(CommandedCase), typeDiscriminator: "commanded")]
-public abstract partial record EvictionCauseWire {
-    private EvictionCauseWire() { }
-    public sealed record BreachedCase(Breach Breach) : EvictionCauseWire;
-    public sealed record RevokedCase(Rasm.Contracts.Fault.FaultObservation Fault) : EvictionCauseWire;
-    public sealed record CommandedCase(string Operator) : EvictionCauseWire;
-
-    public static EvictionCauseWire Of(EvictionCause cause) => cause.Switch(
-        breachedCase: static row => new BreachedCase(row.Breach),
-        revokedCase: static row => new RevokedCase(FaultWire.Observe(row.Cause)),
-        commandedCase: static row => new CommandedCase(row.Operator));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Quarantine {
     private Quarantine() { }
     public sealed record Active : Quarantine;
     public sealed record Killed(EvictionCause Cause) : Quarantine;
     public sealed record Quarantined(EvictionCause Cause, PluginArtifact Held) : Quarantine;
     public sealed record Released(Instant At) : Quarantine;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[JsonDerivedType(typeof(TrappedCase), typeDiscriminator: "trapped")]
-[JsonDerivedType(typeof(IdleCase), typeDiscriminator: "idle")]
-[JsonDerivedType(typeof(CensusedCase), typeDiscriminator: "censused")]
-public abstract partial record DrainProof {
-    private DrainProof() { }
-    public sealed record TrappedCase([property: JsonConverter(typeof(JsonStringEnumConverter<TrapCode>))] TrapCode Code) : DrainProof;
-    public sealed record IdleCase : DrainProof;
-    public sealed record CensusedCase(int Residual) : DrainProof;
-    public bool Drained => Switch(
-        trappedCase: static _ => true,
-        idleCase: static _ => true,
-        censusedCase: static row => row.Residual == 0);
-    public Isolation Isolation => Switch(
-        trappedCase: static _ => Isolation.Wasm,
-        idleCase: static _ => Isolation.Wasm,
-        censusedCase: static _ => Isolation.Process);
-}
-
-// --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct SandboxReceipt(
-    string PluginId,
-    string ScopeHash,
-    EvictionCauseWire Cause,
-    DrainProof Proof,
-    Instant At) : IValidityEvidence {
-    public Isolation Isolation => Proof.Isolation;
-
-    [JsonIgnore]
-    public bool IsValid => ValidityClaim.All(
-        !string.IsNullOrEmpty(PluginId),
-        !string.IsNullOrEmpty(ScopeHash)).Holds;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -518,22 +430,21 @@ public static class QuotaControl {
         from breach in plugin.Quota.Breach(runtime.Clocks, key).Match(Succ: IO.pure, Fail: IO.fail<Option<Breach>>)
         select breach;
 
-    public static IO<Option<SandboxReceipt>> Evict(SandboxRuntime runtime, PluginInstance plugin, EvictionCause cause, Op key) =>
+    public static IO<Unit> Evict(SandboxRuntime runtime, PluginInstance plugin, EvictionCause cause) =>
         Cell.Commit(plugin.Disposition, held => held is Quarantine.Active
             ? new Quarantine.Killed(cause)
             : new Quarantine.Quarantined(cause, plugin.Artifact)) is Transition<Quarantine>.Committed { State: Quarantine.Killed }
-            ? Drain(runtime, plugin, cause, key).Map(Some)
-            : IO.pure(Option<SandboxReceipt>.None);
+            ? Drain(runtime, plugin)
+            : IO.pure(unit);
 
-    public static IO<Seq<SandboxReceipt>> Sweep(SandboxRuntime runtime, Seq<PluginInstance> live, Op key) =>
+    public static IO<Unit> Sweep(SandboxRuntime runtime, Seq<PluginInstance> live, Op key) =>
         live.TraverseM(plugin =>
                 from breach in Enforce(runtime, plugin, key)
-                from receipt in breach.Match(
-                    Some: hit => Evict(runtime, plugin, new EvictionCause.BreachedCase(hit), key),
-                    None: static () => IO.pure(Option<SandboxReceipt>.None))
-                select receipt)
-            .As()
-            .Map(static rows => rows.Somes().ToSeq());
+                from _ in breach.Match(
+                    Some: hit => Evict(runtime, plugin, new EvictionCause.BreachedCase(hit)),
+                    None: static () => IO.pure(unit))
+                select unit)
+            .As();
 
     public static Fin<Quarantine> Release(PluginInstance plugin, Instant at) =>
         Cell.Commit(plugin.Disposition, held => held is Quarantine.Quarantined ? new Quarantine.Released(at) : held) switch {
@@ -541,29 +452,22 @@ public static class QuotaControl {
             var other => Fin.Fail<Quarantine>(new SandboxFault.Quarantined($"{plugin.PluginId}: {other.Current} is not under review")),
         };
 
-    static IO<SandboxReceipt> Drain(SandboxRuntime runtime, PluginInstance plugin, EvictionCause cause, Op key) =>
+    static IO<Unit> Drain(SandboxRuntime runtime, PluginInstance plugin) =>
         from _cancel in IO.lift(() => { plugin.Spine.Source.Cancel(); return unit; })
-        from proof in plugin.Vehicle.Switch(
+        from _ in plugin.Vehicle.Switch(
             state: runtime,
             wasmCase: static (host, wasm) => IO.lift(() => {
                 host.Engine.IncrementEpoch();
-                Transition<Option<TrapCode>> drained = Cell.Take(wasm.Capsule.Trapped);
+                Cell.Take(wasm.Capsule.Trapped);
                 wasm.Capsule.Dispose();
-                return drained.Current.Match(
-                    Some: static code => (DrainProof)new DrainProof.TrappedCase(code),
-                    None: static () => new DrainProof.IdleCase());
+                return unit;
             }),
             childCase: static (_, child) =>
                 from _drain in IO.liftAsync(async () => { await child.Peer.Control.ShutdownAsync(); return unit; })
                 from _forced in IO.lift(() => { child.Peer.Child.Iter(static spawned => spawned.Child.Kill(entireProcessTree: true)); return unit; })
-                from count in child.Provider.Residual(child.Peer)
-                select (DrainProof)new DrainProof.CensusedCase(count))
-        let receipt = new SandboxReceipt(
-            plugin.PluginId, plugin.Scope.ScopeHash, EvictionCauseWire.Of(cause), proof, runtime.Clocks.Now)
-        from _fanned in runtime.Sink.Send(
-            Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost, ReceiptKind.Eviction.Key,
-            JsonSerializer.SerializeToElement(receipt, SuiteContracts.Host))
-        select receipt;
+                from _residual in child.Provider.Residual(child.Peer)
+                select unit)
+        select unit;
 }
 ```
 

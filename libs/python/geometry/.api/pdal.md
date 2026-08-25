@@ -110,16 +110,16 @@ Output members are `libpdalpython.Pipeline` attributes undefined before `execute
 [TOPOLOGY]:
 - import: `import pdal` at boundary scope only; the `inject_pdal_drivers` side-effect binds the typed factories, so the import completes before any `Reader.las`/`Filter.range` reference.
 - construction: build the stage graph through the injected factories under `|` (`Reader.las(path) | Filter.range(limits="Z[0:100]") | Writer.las(out)`); `Filter` alone needs an explicit `type`, readers and writers infer it from `filename` — a path str or a FileSpec dict `{"path": str, ...}` for remote/authenticated sources — and `Pipeline(spec=...)` also admits a raw PDAL JSON string or a `Stage` sequence.
-- execution: `execute()` runs batch; `execute_streaming()`/`iterator()` are the streaming arms gated on `p.streamable`, a fold over `drivers.StreamableTypes`. Output members read once into the receipt.
+- execution: `execute()` runs batch; `execute_streaming()`/`iterator()` are the streaming arms gated on `p.streamable`, a fold over `drivers.StreamableTypes`. Output members are read from the settled pipeline.
 - output: `arrays` is the canonical structured-`numpy` egress; `get_meshio` seams XYZ + `triangle` cells from mesh A/B/C (after `filters.poisson`/`filters.delaunay`) into a `meshio.Mesh`, and `get_dataframe`/`get_geodataframe` the tabular seams — a null `Mesh`/frame surfaces as `None`.
 - offload: `Pipeline` pickles through its JSON state, so a multi-second solve hands to the runtime offload lane by JSON.
-- evidence: each run captures output point count, schema dimension names, SRS WKT2, and stage tags as a scan-pipeline receipt; the metadata JSON carries per-stage diagnostics.
+- evidence: the settled pipeline exposes output point count, schema dimension names, SRS WKT2, and stage tags; the metadata JSON carries per-stage diagnostics.
 
 [STACKING]:
 - `open3d`(`.api/open3d.md`): `p.arrays` XYZ feeds `geometry.PointCloud` (via `utility.Vector3dVector`) and `p.get_meshio` XYZ + A/B/C a `geometry.TriangleMesh` for `registration.registration_icp`.
 - `small-gicp`(`.api/small-gicp.md`): the `p.arrays` `Nx3` block is the raw-array `align(...)` input or feeds `preprocess_points` for multi-threaded GICP/VGICP refinement.
 - `trimesh`(`.api/trimesh.md`): `p.get_meshio` `meshio.Mesh` (or `p.meshes` A/B/C over `p.arrays` XYZ) rebuilds a `Trimesh` for CSG, repair, and export.
-- geometry scan owner: folds the driver factories into one `Pipeline`, reads `p.arrays`/`get_meshio` into the scan-pipeline receipt, and hands conditioned clouds to the registration siblings.
+- geometry scan owner: folds the driver factories into one `Pipeline`, reads `p.arrays`/`get_meshio` into the scan result, and hands conditioned clouds to the registration siblings.
 
 [LOCAL_ADMISSION]:
 - Construct stages through the injected `Reader`/`Filter`/`Writer.<driver>` factories under `|`; a raw `Filter(type=...)` where an injected factory exists, a per-format pipeline function family, hand-rolled point-cloud parsing, and a direct `libpdal` C++ call from Python are each rejected.

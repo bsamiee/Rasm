@@ -68,7 +68,7 @@ These surfaces expose the internal load pipeline for debugging: item parsing to 
 - geobox axis: the output GeoBox resolves from exactly one extent row — `geobox`, `like`, `geopolygon`, `bbox`, `lon`/`lat`, `x`/`y`, `intersects` — combined with `crs`/`resolution`/`anchor`; `output_geobox` exposes that resolution for debugging, but the canonical path is the `load` keyword set, never a pre-computed GeoBox bypassing `load`.
 - metadata axis: `parse_items` and `extract_collection_metadata` produce `ParsedItem`/`RasterCollectionMetadata` for inspection and custom config; the live path passes raw `pystac.Item` objects to `load` and parses internally, never staging the internal representation by hand.
 - session axis: `configure_rio` and `configure_s3_access` set GDAL/rasterio and S3 credentials once before materialization; `patch_url` (`Callable[[str], str]`) rewrites every parsed source href, and `with_properties` lifts named STAC item properties onto the cube as coordinates.
-- evidence: each load captures item count, resolved CRS, resolution, GeoBox shape, selected bands, groupby key, chunk plan, and dtype as a coverage receipt.
+- evidence: each load result retains item count, resolved CRS, resolution, GeoBox shape, selected bands, groupby key, chunk plan, and dtype.
 
 [STACKING]:
 - `pystac`(`.api/pystac.md`): `load(items, ...)` consumes a `pystac.Item` sequence or `ItemCollection` directly as the cube source — the parsed-item ground truth.

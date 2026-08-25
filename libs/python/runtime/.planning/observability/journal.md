@@ -2,7 +2,7 @@
 
 `Journal` owns the branch's durable evidence plane: one append-only stream of `AuditFact` and `MeterFact` rows draining through a bounded rail into whatever `Ledger` a composition binds, priced by exact-decimal rating and aged under one `Retain` vocabulary. Missing metric points read as dashboard gaps while a missing row is an evidence or billing defect, so appends suspend and retry without bound and every series projected beside them carries zero authority. Erasure destroys key material and never a row, so unreadable IS erased and the append-only plane survives whole.
 
-Receipt emission, redaction, and the `ScopeKey` axis arrive settled from `observability/receipts#RECEIPT`, the `MEASURES` census from `observability/metrics#METRIC`, the point registry and install record from `observability/hooks#HOOKS`, the rail and its fences from `reliability/faults#FAULT`, `Hlc` and `Tenant` from `evidence/clock#CLOCK`, `SecretBoundary` from `execution/admission#SETTINGS` as the one KEK reader the vault custody posture composes, and `ContentIdentity` from `evidence/identity#IDENTITY`. `Ledger` binds at the composition root that S0 never satisfies, stays async whole so no landing stalls the loop, and refuses unbound or structurally unmet with typed evidence.
+The scope-bound `logger`, `Redaction`, and the `ScopeKey` axis arrive settled from `observability/observe#OBSERVE`, the `MEASURES` census from `observability/metrics#METRIC`, the point registry and install record from `observability/hooks#HOOKS`, the rail and its fences from `reliability/faults#FAULT`, `Hlc` and `Tenant` from `evidence/clock#CLOCK`, `SecretBoundary` from `execution/admission#SETTINGS` as the one KEK reader the vault custody posture composes, and `ContentIdentity` from `evidence/identity#IDENTITY`. `Ledger` binds at the composition root that S0 never satisfies, stays async whole so no landing stalls the loop, and refuses unbound or structurally unmet with typed evidence.
 
 ## [01]-[INDEX]
 
@@ -85,7 +85,7 @@ from rasm.runtime.faults import (
 from rasm.runtime.hooks import HookId, HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import MEASURES, TENANT_BAGGAGE, Metrics
-from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, REDACTED, Receipt, Redaction, ScopeKey, Signals
+from rasm.runtime.observe import DEFAULT_SCOPE, REDACTED, REDACTION_KEY, Redaction, ScopeKey, logger
 
 lazy from cryptography.exceptions import InvalidTag, UnsupportedAlgorithm
 lazy from cryptography.hazmat.primitives.ciphers.aead import AESGCMSIV, AESSIV
@@ -368,7 +368,7 @@ class Bound(Struct, frozen=True):
     service: str
 
 
-class JournalReceipt(Struct, frozen=True):
+class JournalInstall(Struct, frozen=True):
     ledger: str
     service: str
     streams: tuple[Stream, ...]
@@ -457,14 +457,13 @@ def _censused() -> RuntimeRail[Block[Series]]:
 - Owner: every coordinate a ledger PREDICATES, GROUPS, or PARTITIONS on lifts into its own row column and only the fact body stays opaque — subject index, retention class, stamp window, and the `(resource, quantity)` metering pair alike — so `tallied` is a pushed-down group-by rather than a decode hop wearing that name, and `Aggregate.rolled` publishes the same algebra for an engine whose reader carries no grouped form. Withholding a column a port member needs turns that member into the full-window materialization the delegation exists to avoid.
 - Owner: `Landing.accepted` NAMES the rows the plane did not already hold and `duplicate` names the redeliveries the content key matched, both as keys, because the drain's line, its series, and its metered quantities fire off the accepted half ALONE — the append retry never exhausts, so a batch replayed after a lost acknowledgement costs one absorbed duplicate rather than a doubled charge and a doubled audit line, and a half reported as a bare tally names no row that filter can read. One fused count across both arms satisfies the completeness sum while claiming zero redelivery, and zero redelivery is indistinguishable from a wedged retry re-offering one window forever; `rasm.journal.deduped` carries that half off the drain, so an inflated `accepted` deletes the one signal proving at-least-once delivery is happening.
 - Cases: every port member awaits, because a ledger writes durably and the drain runs on the loop — a synchronous member stalls the scheduler for the whole batch, and the branch admits no on-loop blocking arm; the install proof refuses a member present yet not a coroutine function, which otherwise faults inside the retry indistinguishable from a dead ledger. `_chained` is the one async bind carrying a settled rail into an awaited continuation, `_resolved` composing it over the bound carrier, so an unbound scope refuses once and a custody-and-ledger chain short-circuits with no hand-repeated match.
-- Law: `install` proves the census and the port structurally, registers the point rows, and binds only then — a measure or a member missing refuses at the bind naming it, where an unchecked bind defers the failure into the unbounded retry and reads as a dead ledger forever. Re-entry returns the standing receipt, so a second composition-root pass never swaps a ledger out from under a live drain; point registration latches per scope, because ids are composition-unique and the registry ships no retirement.
+- Law: `install` proves the census and the port structurally, registers the point rows, and binds only then — a measure or a member missing refuses at the bind naming it, where an unchecked bind defers the failure into the unbounded retry and reads as a dead ledger forever. Re-entry returns the standing `JournalInstall`, so a second composition-root pass never swaps a ledger out from under a live drain; point registration latches per scope, because ids are composition-unique and the registry ships no retirement. `install` deposits that record on the `observability/hooks#HOOKS` install ledger, so a support bundle answers which durable plane a composition wrote to, under which vocabulary, and as which service, with no second custody surface.
 - Law: `closed` retires custody with the intake and MARKS the scope retired, so a composition that shuts down re-arms by installing again rather than adopting a closed stream every `record` then rails `resource` against, and the mark is what lets `record` separate a plane that died from one that never existed — `_pointed` cannot, latching past every retirement by design. Unlanded rows survive that retirement, since a shutdown owing them is exactly when a caller reads them.
 - Law: `record` resolves THREE intake states and never two — an armed scope sends, a scope whose custody `closed` RETIRED refuses with the `config` fault naming the port, and a scope no composition ever installed folds to `Ok(0)`. That third state is a deployment DECLARATION that this process journals nothing: its facts drop lawfully, so every producer binds the same rail into its verdict whatever the deployment armed, a refusal on an armed plane still surfaces, and an unarmed one costs one map read. The unarmed fold records no series either — a drop counter prices the hot path of a composition that asked for no plane, and the install census proving this owner's measures never ran on that scope. Collapsing the pair into one refusal fails every producer's verdict wherever evidence was never deployed; collapsing it the other way renders retired custody — a producer outliving its own plane, which is a real fault — as lawful silence.
-- Law: a producer records at the nearest ASYNC fold that OWNS the fact, and a synchronous `contribute` never records — recording suspends by law, so a sync projection can only shed exactly what the never-shed rail refuses to shed, and the derived series is already `contribute`'s own half. An owner whose whole surface is synchronous mints its awaitable leg over the band hop its callers hand-roll rather than moving the record onto the loop-blocking side. A producer's `action` spells `<domain>.<operation>` — the same `domain` segment its metric projection carries beside the operation its own dispatch names — so one verb greps against the series its evidence twin emitted and no central verb registry stands between them.
+- Law: a producer records at the nearest ASYNC fold that OWNS the fact, and no synchronous leg records — recording suspends by law, so a sync spelling can only shed exactly what the never-shed rail refuses to shed, while the metric projection of the same fact records synchronously at the producing site. An owner whose whole surface is synchronous mints its awaitable leg over the band hop its callers hand-roll rather than moving the record onto the loop-blocking side. A producer's `action` spells `<domain>.<operation>` — the same `domain` segment its metric projection carries beside the operation its own dispatch names — so one verb greps against the series its evidence twin emitted and no central verb registry stands between them.
 - Entry: `record` folds arity off the value so a lone fact and a batch of either stream take one entry, and stamps every fact it admits; an EMPTY offer is admitted arity rather than a refusal — a metering fan that priced nothing holds no row to charge, which is what a zero-quantity producer leg settles to — so it fires no gate, ticks no stamp, and answers the count it landed, while a RETIRED scope refuses it exactly as it refuses a full batch, since that fault names a producer outliving its plane and no batch width makes that lawful; `drained` is the composition-root coroutine a task group starts — `tg.start` blocks on its readiness signal, so no producer suspends into an intake nothing reads, and the root reads the terminal tally off the child handle — and `closed` is its lossless counterpart. Recording is async by law — the send suspends under back-pressure, and no synchronous spelling can suspend — so a sync producer re-enters the loop through the portal bridge exactly as every other foreign-thread crossing does. `drained` and `closed` refuse an unbound scope with a `config` fault naming the port; `record` splits that absence under the three-state law above.
 - Auto: the ledger lands the batch FIRST and its `Landing` must PARTITION the offered keys — disjoint halves whose union is the whole set — so a short write, an overlapping half, and a foreign key all retry rather than projecting; only an exact landing projects, only its ACCEPTED half does, and an observer never reads a fact the durable plane refused or already held. Retry attempts never exhaust and the decorrelated-jitter delay caps, so a dead ledger costs a bounded cadence a fleet never synchronizes on, while the bounded intake propagates pressure back through the suspended writer; the deferral counter reports the ledger and the drain's occupancy probe reports intake depth with suspended senders, so a full intake behind a healthy ledger is visible pressure too.
 - Auto: shutdown closes the intake and awaits the drain, never cancels it — `anyio` delivers every buffered fact after the last send end closes, so the partial window flushes, `drained` returns its tally, and nothing in flight sheds. Roots that must nevertheless bound the wait wrap the await in their own `CancelScope` and read `pending` after it trips: a tripped scope returns no value, so the drain's terminal deposits BOTH the batch it was retrying and the checkpoint-free sweep of whatever still sat in the buffer, and every fact either landed or is named. Deadline parameters here instead re-thread the cancellation a scope already owns and cap the steady-state retry the never-shed law forbids capping.
-- Receipt: `install` deposits its receipt on the `observability/hooks#HOOKS` install record, so a support bundle answers which durable plane a composition wrote to, under which vocabulary, and as which service, without this owner minting a second custody surface for the bundle to read.
 - Law: `_pending` ACCUMULATES and settles by key — `_owed` appends and `_settled` removes exactly the keys a landing covered, so a scope re-installed after `closed` still owes what its prior drain never landed. Replacing the slot hands the next session's first batch that debt to overwrite, and a blanket clear erases it on the first success, both shedding evidence on the one plane whose whole thesis is that nothing sheds.
 - Law: three fences hold a catch-all and each states why — a derived write runs a caller's render, record, and sink, an append calls a caller-supplied `Ledger` implementer, and both must never fault the plane owning the truth; every other fence names its provider set.
 - Growth: a new durable coordinate is one `FactRow` column reaching the ledger and the row projection; a new read shape is one `Scan` case with its ledger arm; a new drain posture is one flow or backoff constant; a new ledger family is one implementer of the port with zero edits here.
@@ -492,7 +491,7 @@ def _rowed(fact: Fact, service: str) -> FactRow:
 
 
 def _fenced(at: FaultRow[RuntimeLeg], run: Callable[[], object], scope: ScopeKey) -> None:
-    boundary(at, run, catch=Exception).swap().map(lambda fault: Signals.emit(Receipt.of(OWNER, fault), OPEN, scope=scope))
+    boundary(at, run, catch=Exception).swap().map(lambda fault: logger(scope).warning(at.subject, **fault.facts()))
 
 
 def _series(measures: Mapping[str, float], kind: str, scope: ScopeKey) -> None:
@@ -501,11 +500,8 @@ def _series(measures: Mapping[str, float], kind: str, scope: ScopeKey) -> None:
 
 def _projected(fact: Fact, scope: ScopeKey) -> None:
     _series(fact.measures, fact.kind, scope)
-    _fenced(
-        JOURNAL_DERIVED,
-        lambda: Signals.emit(Receipt.of(OWNER, ("emitted", fact.kind, to_builtins(fact, str_keys=True))), FACT_REDACTION, scope=scope),
-        scope,
-    )
+    line = logger(scope).bind(**{REDACTION_KEY: FACT_REDACTION})
+    _fenced(JOURNAL_DERIVED, lambda: line.info(fact.kind, stream=fact.stream, **to_builtins(fact, str_keys=True)), scope)
 
 
 async def _batched(receive: MemoryObjectReceiveStream[Fact]) -> AsyncIterator[Block[Fact]]:
@@ -587,7 +583,7 @@ class Journal:
     _intake: ClassVar[Map[ScopeKey, MemoryObjectSendStream[Fact]]] = Map.empty()
     _drain: ClassVar[Map[ScopeKey, MemoryObjectReceiveStream[Fact]]] = Map.empty()
     _pending: ClassVar[Map[ScopeKey, Block[FactRow]]] = Map.empty()
-    _receipts: ClassVar[Map[ScopeKey, JournalReceipt]] = Map.empty()
+    _installs: ClassVar[Map[ScopeKey, JournalInstall]] = Map.empty()
     _pointed: ClassVar[frozenset[ScopeKey]] = frozenset()
     _retired: ClassVar[frozenset[ScopeKey]] = frozenset()
     _stamp: ClassVar[Hlc] = UNSTAMPED
@@ -604,10 +600,10 @@ class Journal:
     @classmethod
     def install(
         cls, ledger: Ledger, custody: Custody, *, service: str = SCOPES[Scope.JOURNAL], scope: ScopeKey = DEFAULT_SCOPE
-    ) -> RuntimeRail[JournalReceipt]:
+    ) -> RuntimeRail[JournalInstall]:
         with cls._installing_lock(scope):
             with cls._gate:
-                standing = cls._receipts.try_find(scope)
+                standing = cls._installs.try_find(scope)
             match standing:
                 case Option(tag="some", some=prior):
                     return Ok(prior)
@@ -639,15 +635,15 @@ class Journal:
         return points
 
     @classmethod
-    def _bind(cls, ledger: Ledger, custody: Custody, service: str, scope: ScopeKey) -> JournalReceipt:
+    def _bind(cls, ledger: Ledger, custody: Custody, service: str, scope: ScopeKey) -> JournalInstall:
         send, receive = anyio.create_memory_object_stream[Fact](max_buffer_size=INTAKE)
-        receipt = JournalReceipt(ledger=type(ledger).__qualname__, service=service, streams=STREAMS, classes=tuple(Retain))
+        bound = JournalInstall(ledger=type(ledger).__qualname__, service=service, streams=STREAMS, classes=tuple(Retain))
         with cls._gate:
             cls._bound = cls._bound.add(scope, Bound(ledger=ledger, custody=custody, service=service))
             cls._intake, cls._drain = cls._intake.add(scope, send), cls._drain.add(scope, receive)
-            cls._receipts = cls._receipts.add(scope, receipt)
+            cls._installs = cls._installs.add(scope, bound)
             cls._retired = cls._retired - {scope}
-        return Hooks.installed(OWNER, receipt, scope=scope)
+        return Hooks.installed(OWNER, bound, scope=scope)
 
     @classmethod
     def bound(cls, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Bound]:
@@ -719,7 +715,7 @@ class Journal:
             held, taken = cls._intake.try_find(scope), cls._drain.try_find(scope)
             service = cls._bound.try_find(scope).map(lambda bound: bound.service)
             cls._intake, cls._drain = cls._intake.remove(scope), cls._drain.remove(scope)
-            cls._bound, cls._receipts = cls._bound.remove(scope), cls._receipts.remove(scope)
+            cls._bound, cls._installs = cls._bound.remove(scope), cls._installs.remove(scope)
             cls._retired = cls._retired | {scope}
         taken.bind(lambda receive: service.map(lambda name: cls._stranded(scope, receive, name)))
         return held.to_result_with(lambda: JOURNAL_UNBOUND.raised("close")).map(lambda send: send.close())
@@ -869,7 +865,7 @@ def rated(billed: Billed, rating: Rating) -> RuntimeRail[Map[Priced, Charge]]:
 ## [05]-[SHREDDER]
 
 - Owner: `SubjectKey` is the tenant-scoped custody identity, the ledger holds one wrapped data key per identity, and `sealed`/`opened`/`erased` compose the envelope algebra over it. Custody stores the WRAPPED form alone — raw data keys never cross the ledger seam — so a posture changes by swapping a `Custody` value and this page never learns which holder issued the wrap; the custody arms are async whole exactly as the ledger is, so a remote KMS arm binds as an ordinary instance rather than an on-loop stall, and both wrap under deterministic AAD-bound AES-SIV, so the KEK path carries no nonce custody to misuse. Two instances ship: `local` holds material a root already resolved, and `vault` reads the deployment's own credential ladder through the settings-admitted secret boundary on EVERY call, so a rotated KEK reaches the next wrap with no rebind and an unnamed one refuses instead of minting a substitute that would leave every prior envelope permanently unopenable.
-- Cases: `opened` is TOTAL over erasure — a destroyed or absent key folds to `Nothing`, which every reader renders through the receipts-owned redaction marker, because erasure is a lawful state and never an error to recover from. `InvalidTag` on LIVE key material stays a fault on the rail: tampering and erasure are different facts, and folding a tag failure to absence renders a corrupted payload as a lawfully erased one.
+- Cases: `opened` is TOTAL over erasure — a destroyed or absent key folds to `Nothing`, which every reader renders through the observe-owned redaction marker, because erasure is a lawful state and never an error to recover from. `InvalidTag` on LIVE key material stays a fault on the rail: tampering and erasure are different facts, and folding a tag failure to absence renders a corrupted payload as a lawfully erased one.
 - Entry: `sealed` claims atomically — a fresh mint inserts, a concurrent or replayed subject keeps the stored wrapped key and the loser seals under the winner by unwrapping the returned row, and a destroyed subject resurrects under a NEW key so every envelope written before the erasure stays unreadable forever. Claiming before sealing is load-bearing: two recorders racing one subject otherwise seal under two data keys, and destroying either leaves half that subject's evidence readable.
 - Entry: `exported` is the portability read — one `Scan.subject` over the same index every append wrote and every erasure keys on, so a data-subject request is an index scan rather than a stream crawl. Sealed fields inside a payload stay sealed: field shapes are application material, so the exporting consumer composes `opened`/`redacted` per field it knows, and an erased subject's fields render the marker rather than failing the export.
 - Auto: every envelope binds to its `SubjectKey` through the associated-data slot, so a ciphertext lifted onto another subject or another tenant fails its authentication tag rather than opening under a key that happens to be live. Every AEAD call crosses one native fence, so an unbuildable `cryptography` classifies `import_` on the rail wherever the process first touches it — a read-only replica that never seals included.

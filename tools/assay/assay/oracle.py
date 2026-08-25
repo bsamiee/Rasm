@@ -32,33 +32,9 @@ from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
-from assay.core.model import (
-    ApiResolution,
-    ApiSource,
-    ArtifactKind,
-    Base,
-    Check,
-    Claim,
-    Completed,
-    Fault,
-    Language,
-    Mode,
-    RailStatus,
-    receipt,
-    RESULT_CAP,
-    SourceKind,
-    Tool,
-    ToolArgs,
-)
+from assay.core.model import ApiResolution, ApiSource, ArtifactKind, Base, Check, Claim, Completed, Fault, Language, Mode, RailStatus, RESULT_CAP, SourceKind, Tool, ToolArgs
 from assay.core.routing import parse_csproj, Routed, Scope
-from assay.diagnostics import (
-    Capture,
-    CAPTURE_ENCODER,
-    CAPTURES,
-    node_text,
-    ts_language,
-    ts_query,
-)
+from assay.diagnostics import Capture, CAPTURE_ENCODER, CAPTURES, node_text, ts_language, ts_query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -119,7 +95,7 @@ class Oracle(Protocol):
         ...
 
     def member(self, scope: ArtifactScope, surface: Surface, symbol: str) -> Result[Completed, Fault]:
-        """Return the raw member-evidence receipt for one symbol."""
+        """Return the raw member evidence for one symbol."""
         ...
 
 
@@ -209,10 +185,7 @@ _MD_TABLES: dict[int, tuple[str, ...]] = {
 _MD_FAMILIES: dict[str, tuple[int, ...]] = {
     "TypeDefOrRef": (0x02, 0x01, 0x1B),
     "HasConstant": (0x04, 0x08, 0x17),
-    "HasCustomAttribute": (
-        *(0x06, 0x04, 0x01, 0x02, 0x08, 0x09, 0x0A, 0x00, 0x0E, 0x17, 0x14),
-        *(0x11, 0x1A, 0x1B, 0x20, 0x23, 0x26, 0x27, 0x28, 0x2A, 0x2C, 0x2B),
-    ),
+    "HasCustomAttribute": (*(0x06, 0x04, 0x01, 0x02, 0x08, 0x09, 0x0A, 0x00, 0x0E, 0x17, 0x14), *(0x11, 0x1A, 0x1B, 0x20, 0x23, 0x26, 0x27, 0x28, 0x2A, 0x2C, 0x2B)),
     "HasFieldMarshal": (0x04, 0x08),
     "HasDeclSecurity": (0x02, 0x06, 0x20),
     "MemberRefParent": (0x02, 0x01, 0x1A, 0x06, 0x1B),
@@ -249,19 +222,7 @@ _TS_DECL_QUERY: str = (
     " (namespace_export (identifier) @type)"
 )
 _TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript
-_DECL_NODES: frozenset[str] = frozenset((
-    "class_declaration",
-    "abstract_class_declaration",
-    "interface_declaration",
-    "type_alias_declaration",
-    "enum_declaration",
-    "internal_module",
-    "function_signature",
-    "method_signature",
-    "property_signature",
-    "public_field_definition",
-    "variable_declarator",
-))
+_DECL_NODES: frozenset[str] = frozenset(("class_declaration", "abstract_class_declaration", "interface_declaration", "type_alias_declaration", "enum_declaration", "internal_module", "function_signature", "method_signature", "property_signature", "public_field_definition", "variable_declarator"))
 _DECL_RANK: dict[str, int] = {
     "class_declaration": 0,
     "abstract_class_declaration": 0,
@@ -292,12 +253,7 @@ _TS_KIND: dict[str, str] = {
 }
 _EXPORT_SPEC: frozenset[str] = frozenset(("export_specifier",))
 _TYPE_CAP: str = "type"
-_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (
-    (_TYPE_CAP, inspect.isclass),
-    (_TYPE_CAP, inspect.isfunction),
-    (_TYPE_CAP, inspect.isbuiltin),
-    (_TYPE_CAP, lambda obj: isinstance(obj, TypeAliasType)),
-)
+_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = ((_TYPE_CAP, inspect.isclass), (_TYPE_CAP, inspect.isfunction), (_TYPE_CAP, inspect.isbuiltin), (_TYPE_CAP, lambda obj: isinstance(obj, TypeAliasType)))
 NAME_CAP: int = 320
 _SIG_CAP: int = 480
 _FULL_CAP: int = 2560
@@ -493,9 +449,7 @@ def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # ruff:ignore[
 
 
 def _fingerprint(paths: tuple[Path, ...]) -> str:
-    seed = "|".join(
-        f"{p}:{st.st_size}:{st.st_mtime_ns}:{_asm_digest(str(p), st.st_size, st.st_mtime_ns)}" for p in paths if p.is_file() for st in (p.stat(),)
-    )
+    seed = "|".join(f"{p}:{st.st_size}:{st.st_mtime_ns}:{_asm_digest(str(p), st.st_size, st.st_mtime_ns)}" for p in paths if p.is_file() for st in (p.stat(),))
     return hashlib.sha256(seed.encode()).hexdigest()[:16]
 
 
@@ -505,11 +459,7 @@ def rhino_app(settings: AssaySettings) -> Path | None:
     Returns:
         Bundle path, or ``None`` when no bundle is present.
     """
-    candidates = (
-        Path(str(settings.root)) / "rhino-app",
-        *((Path(settings.rhino_wip_app_path),) if settings.rhino_wip_app_path else ()),
-        *_installed_rhino_bundles(),
-    )
+    candidates = (Path(str(settings.root)) / "rhino-app", *((Path(settings.rhino_wip_app_path),) if settings.rhino_wip_app_path else ()), *_installed_rhino_bundles())
     return next((c for c in candidates if c.is_dir()), None)
 
 
@@ -528,9 +478,7 @@ def _host_source(settings: AssaySettings, key: str) -> Source | None:
             resources = (app / _RESOURCE_ROOT) if app is not None else None
             assemblies = (resources / asm_name,) if resources is not None and asm_name else ()
             xmls = (resources / xml_name,) if resources is not None and xml_name else ()
-            return Source(
-                key=key, kind=SourceKind.ASSEMBLY, assemblies=tuple(a for a in assemblies if a.is_file()), xmls=tuple(x for x in xmls if x.is_file())
-            )
+            return Source(key=key, kind=SourceKind.ASSEMBLY, assemblies=tuple(a for a in assemblies if a.is_file()), xmls=tuple(x for x in xmls if x.is_file()))
 
 
 def host_sources(settings: AssaySettings) -> tuple[Source, ...]:
@@ -549,9 +497,7 @@ def _packages_at(root_str: str, digest: str) -> dict[str, str]:
         root = ET.fromstring(Path(root_str).read_bytes())  # ruff:ignore[suspicious-xml-element-tree-usage]
     except OSError, ET.ParseError:
         return {}
-    return {
-        inc: ver for node in root.iterfind(".//PackageVersion") for inc, ver in ((node.get("Include", ""), node.get("Version", "")),) if inc and ver
-    }
+    return {inc: ver for node in root.iterfind(".//PackageVersion") for inc, ver in ((node.get("Include", ""), node.get("Version", "")),) if inc and ver}
 
 
 def packages(settings: AssaySettings) -> dict[str, str]:
@@ -621,13 +567,11 @@ def package_owner_index(settings: AssaySettings) -> dict[str, tuple[str, ...]]:
     return _package_owner_index_at(str(root), index_fingerprint)
 
 
-def nuget_source(
-    settings: AssaySettings, package: str, version: str, *, include_assets: bool = True, owners: tuple[str, ...] | None = None
-) -> Source:
+def nuget_source(settings: AssaySettings, package: str, version: str, *, include_assets: bool = True, owners: tuple[str, ...] | None = None) -> Source:
     """Build a NuGet source with its consumer-TFM-ranked assemblies.
 
     The ``ref``/``lib`` framework dir is chosen by ``tfm_rank`` against the workspace floor, so ``primary_assembly``
-    is the asset the build actually binds; the chosen TFM rides ``Source.tfm`` onto every receipt.
+    is the asset the build actually binds; the chosen TFM rides ``Source.tfm`` onto every result.
 
     Returns:
         Resolved NuGet source; an unrestored root folds to an assetless (EMPTY) source.
@@ -640,11 +584,7 @@ def nuget_source(
     ordered = (*primary, *(a for a in assemblies if a not in primary))
     xmls = tuple(a.with_suffix(".xml") for a in ordered if a.with_suffix(".xml").is_file())
     nuspec = next(iter(sorted(root.glob("*.nuspec"))), None) if root.is_dir() else None
-    assets = (
-        tuple(sorted(p for d in _ASSET_DIRS for base in (root / d,) if base.is_dir() for p in base.rglob("*") if p.is_file()))
-        if include_assets
-        else ()
-    )
+    assets = tuple(sorted(p for d in _ASSET_DIRS for base in (root / d,) if base.is_dir() for p in base.rglob("*") if p.is_file())) if include_assets else ()
     return Source(
         key=package,
         kind=SourceKind.NUGET,
@@ -678,14 +618,7 @@ def pydist_inventory_sources() -> tuple[ApiSource, ...]:
         Sorted per-distribution ApiSource rows without per-file asset expansion.
     """
     rows = (
-        ApiSource(
-            source_kind=SourceKind.PYDIST,
-            source_id=name,
-            version=dist.version or "",
-            package=name,
-            package_root=str(root) if root.is_dir() else "",
-            status=RailStatus.OK,
-        )
+        ApiSource(source_kind=SourceKind.PYDIST, source_id=name, version=dist.version or "", package=name, package_root=str(root) if root.is_dir() else "", status=RailStatus.OK)
         for dist in importlib.metadata.distributions()
         for name in (dist.metadata["Name"] or "",)
         if name
@@ -705,13 +638,7 @@ def _pydist_source(key: str) -> Source | None:
             assets: tuple[Path, ...] = ()
         case files:
             assets = tuple(Path(str(dist.locate_file(f))) for f in files)
-    return Source(
-        key=dist.metadata["Name"] or key,
-        kind=SourceKind.PYDIST,
-        version=dist.version or "",
-        package_root=root if root.is_dir() else None,
-        asset_paths=assets,
-    )
+    return Source(key=dist.metadata["Name"] or key, kind=SourceKind.PYDIST, version=dist.version or "", package_root=root if root.is_dir() else None, asset_paths=assets)
 
 
 def _pydist_modules(key: str) -> tuple[str, ...]:
@@ -802,20 +729,9 @@ _RESOLVE_LADDER: tuple[tuple[SourceKind, SourceResolver], ...] = (
     (SourceKind.TSDECL, lambda settings, key, _packages_map: tsdecl_source(settings, key)),
     (SourceKind.NUGET, _nuget_leg(fuzzy=True)),
 )
-_KEY_SCOPES: dict[str, frozenset[SourceKind]] = {
-    "host": frozenset((SourceKind.ASSEMBLY,)),
-    "nuget": frozenset((SourceKind.NUGET,)),
-    "py": frozenset((SourceKind.PYDIST,)),
-    "npm": frozenset((SourceKind.TSDECL,)),
-}
+_KEY_SCOPES: dict[str, frozenset[SourceKind]] = {"host": frozenset((SourceKind.ASSEMBLY,)), "nuget": frozenset((SourceKind.NUGET,)), "py": frozenset((SourceKind.PYDIST,)), "npm": frozenset((SourceKind.TSDECL,))}
 
-_FIDELITY: dict[SourceKind, Fidelity] = {
-    SourceKind.ASSEMBLY: Fidelity.DECOMPILED,
-    SourceKind.NUGET: Fidelity.DECOMPILED,
-    SourceKind.TOOL: Fidelity.DECOMPILED,
-    SourceKind.PYDIST: Fidelity.INTROSPECTED,
-    SourceKind.TSDECL: Fidelity.DECLARED,
-}
+_FIDELITY: dict[SourceKind, Fidelity] = {SourceKind.ASSEMBLY: Fidelity.DECOMPILED, SourceKind.NUGET: Fidelity.DECOMPILED, SourceKind.TOOL: Fidelity.DECOMPILED, SourceKind.PYDIST: Fidelity.INTROSPECTED, SourceKind.TSDECL: Fidelity.DECLARED}
 
 
 def fidelity_note(source: Source) -> str:
@@ -891,15 +807,7 @@ def _cli_streams(raw: bytes) -> tuple[bytes, bytes] | None:
     opt_size = int.from_bytes(raw[pe + 20 : pe + 22], "little")
     dirs = opt + (96 if int.from_bytes(raw[opt : opt + 2], "little") == 0x10B else 112)
     table = opt + opt_size
-    sections = tuple(
-        (
-            int.from_bytes(raw[base + 12 : base + 16], "little"),
-            int.from_bytes(raw[base + 8 : base + 12], "little"),
-            int.from_bytes(raw[base + 20 : base + 24], "little"),
-        )
-        for index in range(section_count)
-        for base in (table + 40 * index,)
-    )
+    sections = tuple((int.from_bytes(raw[base + 12 : base + 16], "little"), int.from_bytes(raw[base + 8 : base + 12], "little"), int.from_bytes(raw[base + 20 : base + 24], "little")) for index in range(section_count) for base in (table + 40 * index,))
 
     def off(rva: int) -> int | None:
         return next((pointer + (rva - address) for address, size, pointer in sections if address <= rva < address + size), None)
@@ -960,20 +868,13 @@ def _typedef_reflection(raw: bytes) -> tuple[str, ...]:
             string_width = _md_width("S", heap, counts)
             typedef_width = _md_width("I:02", heap, counts)
             own = tuple(
-                (
-                    _heap_str(strings, int.from_bytes(tables[at + 4 + string_width : at + 4 + 2 * string_width], "little")),
-                    _heap_str(strings, int.from_bytes(tables[at + 4 : at + 4 + string_width], "little")),
-                )
+                (_heap_str(strings, int.from_bytes(tables[at + 4 + string_width : at + 4 + 2 * string_width], "little")), _heap_str(strings, int.from_bytes(tables[at + 4 : at + 4 + string_width], "little")))
                 for row in range(counts.get(0x02, 0))
                 for at in (offsets.get(0x02, 0) + row * widths.get(0x02, 0),)
             )
             nested_base, nested_width = offsets.get(0x29, 0), widths.get(0x29, 0)
             enclosing = {
-                nested - 1: parent - 1
-                for row in range(counts.get(0x29, 0))
-                for at in (nested_base + row * nested_width,)
-                for nested in (int.from_bytes(tables[at : at + typedef_width], "little"),)
-                for parent in (int.from_bytes(tables[at + typedef_width : at + 2 * typedef_width], "little"),)
+                nested - 1: parent - 1 for row in range(counts.get(0x29, 0)) for at in (nested_base + row * nested_width,) for nested in (int.from_bytes(tables[at : at + typedef_width], "little"),) for parent in (int.from_bytes(tables[at + typedef_width : at + 2 * typedef_width], "little"),)
             }
 
             def full(index: int, seen: frozenset[int]) -> str:
@@ -1001,15 +902,7 @@ def reflection_map(assemblies: tuple[Path, ...]) -> dict[str, tuple[str, ...]]:
     Returns:
         Display name (dotted, arity-free) to reflection names (backtick arity, ``+`` nesting), sorted per key.
     """
-    names = tuple(
-        dict.fromkeys(
-            name
-            for path in assemblies
-            if path.is_file()
-            for st in (path.stat(),)
-            for name in _reflection_names_at(str(path), st.st_size, st.st_mtime_ns)
-        )
-    )
+    names = tuple(dict.fromkeys(name for path in assemblies if path.is_file() for st in (path.stat(),) for name in _reflection_names_at(str(path), st.st_size, st.st_mtime_ns)))
     rows = sorted((_ARITY.sub("", name).replace("+", "."), name) for name in names)
     return {display: tuple(name for _, name in group) for display, group in itertools.groupby(rows, key=operator.itemgetter(0))}
 
@@ -1048,15 +941,7 @@ def probe_ilspy(settings: AssaySettings, executor: Executor) -> tuple[str, int]:
 
 
 def _parse_cisde(text: str) -> tuple[str, ...]:
-    return tuple(
-        dict.fromkeys(
-            parts[1]
-            for line in text.splitlines()
-            if line.strip() and not line.startswith("# ")
-            for parts in (line.split(maxsplit=1),)
-            if len(parts) == 2 and parts[0] in _SURFACE_KINDS and not _NOISE.search(parts[1])
-        )
-    )
+    return tuple(dict.fromkeys(parts[1] for line in text.splitlines() if line.strip() and not line.startswith("# ") for parts in (line.split(maxsplit=1),) if len(parts) == 2 and parts[0] in _SURFACE_KINDS and not _NOISE.search(parts[1])))
 
 
 _ROSTER_PARSERS: tuple[tuple[re.Pattern[str], Callable[[str], tuple[str, ...]]], ...] = ((re.compile(r""), _parse_cisde),)
@@ -1093,9 +978,7 @@ def _classify(done: Completed) -> _Outcome:
             return _Outcome.FAULT
 
 
-def _attempt_spelling(
-    settings: AssaySettings, executor: Executor, tool: Tool, spelling: str, ordered: tuple[Path, ...], refs: tuple[str, ...]
-) -> tuple[_Outcome, Completed | None, tuple[str, ...], bool]:
+def _attempt_spelling(settings: AssaySettings, executor: Executor, tool: Tool, spelling: str, ordered: tuple[Path, ...], refs: tuple[str, ...]) -> tuple[_Outcome, Completed | None, tuple[str, ...], bool]:
     outcome: _Outcome = _Outcome.MISS
     faults: tuple[str, ...] = ()
     for assembly in ordered:
@@ -1128,21 +1011,17 @@ def _run_decompile(settings: AssaySettings, executor: Executor, symbol: str, sur
             return Error(Fault(("api", "decompile", symbol), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
         case Tool() as tool:
             swept = tuple((spelling, _attempt_spelling(settings, executor, tool, spelling, ordered, refs)) for spelling in selected)
-            hits = tuple(
-                (f"{spelling} (lv=CSharp7_3)" if downgraded else spelling, done)
-                for spelling, (outcome, done, _, downgraded) in swept
-                if outcome is _Outcome.HIT and done is not None
-            )
+            hits = tuple((f"{spelling} (lv=CSharp7_3)" if downgraded else spelling, done) for spelling, (outcome, done, _, downgraded) in swept if outcome is _Outcome.HIT and done is not None)
             match (hits, any(outcome is _Outcome.FAULT for _, (outcome, _, _, _) in swept)):
                 case ((), True):
                     detail = "\n".join(dict.fromkeys(line for _, (_, _, lines, _) in swept for line in lines))
                     return Error(Fault(("api", "decompile", symbol), status=RailStatus.FAULTED, message=detail[:1024]))
                 case ((), False):
                     note = f"no type definition for '{symbol}' (tried: {', '.join(selected)})"
-                    return Ok(receipt(("api", "decompile", symbol), 0, notes=(note,)))
+                    return Ok(Completed(("api", "decompile", symbol), 0, status=RailStatus.EMPTY, notes=(note,)))
                 case _:
                     body = hits[0][1].stdout if len(hits) == 1 else b"\n".join(f"// --- {sp} ---\n".encode() + done.stdout for sp, done in hits)
-                    return Ok(receipt(("api", "decompile", symbol), 0, stdout=body, notes=(f"decompiled: {', '.join(sp for sp, _ in hits)}",)))
+                    return Ok(Completed(("api", "decompile", symbol), 0, stdout=body, status=RailStatus.EMPTY, notes=(f"decompiled: {', '.join(sp for sp, _ in hits)}",)))
 
 
 # --- [SURFACE_CACHE]
@@ -1166,11 +1045,7 @@ def _cache_read(settings: AssaySettings, path: str, *, producer: str, content_fi
 def _cache_write(settings: AssaySettings, path: str, entry: CacheEntry) -> None:
     store = settings.store()
     store.write_bytes_path(msgspec.json.encode(entry), path, transaction=True)
-    stale = tuple(
-        sibling
-        for sibling in store.walk(*path.removeprefix(f"{store.root}/").split("/")[:-1])
-        if isinstance(sibling, str) and sibling != path and _FINGERPRINT_FILE.fullmatch(sibling.rsplit("/", 1)[-1]) is not None
-    )
+    stale = tuple(sibling for sibling in store.walk(*path.removeprefix(f"{store.root}/").split("/")[:-1]) if isinstance(sibling, str) and sibling != path and _FINGERPRINT_FILE.fullmatch(sibling.rsplit("/", 1)[-1]) is not None)
     for sibling in stale:
         try:
             store.remove_path(sibling)
@@ -1191,15 +1066,7 @@ def _roster(source: Source, cache: str, types: tuple[str, ...], raw: str) -> Sur
     namespace_of = {fqn: _namespace_of(fqn, type_set) for fqn in types}
     namespaces = tuple(sorted({ns for ns in namespace_of.values() if ns}))
     by_namespace = {ns: tuple(fqn for fqn in types if namespace_of[fqn] == ns) for ns in namespaces}
-    return Surface(
-        source=source,
-        types=types,
-        namespaces=namespaces,
-        by_namespace=by_namespace,
-        cache=cache,
-        raw=raw,
-        reflection=reflection_map(source.assemblies),
-    )
+    return Surface(source=source, types=types, namespaces=namespaces, by_namespace=by_namespace, cache=cache, raw=raw, reflection=reflection_map(source.assemblies))
 
 
 def _parse_inproc(source: Source, cache: str, payload: str) -> Surface:
@@ -1220,9 +1087,7 @@ def _cs_surface(settings: AssaySettings, source: Source, executor: Executor) -> 
             return _cs_list(settings, source, assemblies, cache, content_fingerprint, executor)
 
 
-def _cs_list(
-    settings: AssaySettings, source: Source, assemblies: tuple[Path, ...], cache: str, content_fingerprint: str, executor: Executor
-) -> Result[Surface, Fault]:
+def _cs_list(settings: AssaySettings, source: Source, assemblies: tuple[Path, ...], cache: str, content_fingerprint: str, executor: Executor) -> Result[Surface, Fault]:
     match _api_row(Language.DOTNET, Mode.QUERY):
         case None:
             return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
@@ -1235,9 +1100,7 @@ def _cs_list(
                     return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message=detail[:1024]))
                 case True:
                     listing = "\n".join(f"# {asm}\n{done.stdout.decode(errors='replace')}" for asm, done in attempts if done.stdout)
-                    _cache_write(
-                        settings, cache, CacheEntry(producer=_ILSPY_PRODUCER, version=version, fingerprint=content_fingerprint, payload=listing)
-                    )
+                    _cache_write(settings, cache, CacheEntry(producer=_ILSPY_PRODUCER, version=version, fingerprint=content_fingerprint, payload=listing))
                     return Ok(_roster(source, cache, _roster_parser(version)(listing), listing))
 
 
@@ -1289,22 +1152,8 @@ def _owned_by(obj: object, roots: frozenset[str], default: str) -> bool:
 def _module_members(module: object, prefix: str, *, roots: frozenset[str], depth: int = 1) -> tuple[Capture, ...]:
     name = getattr(module, "__name__", prefix)
     file = str(getattr(module, "__file__", "") or "")
-    own = tuple(
-        Capture(name=cap, text=clipped, file=file, line=0, truncated=cut)
-        for cap, predicate in _INSPECT_KINDS
-        for ident, obj in inspect.getmembers(module, predicate)
-        if not ident.startswith("_") and _owned_by(obj, roots, prefix)
-        for clipped, cut in (_clip(f"{name}.{ident}", NAME_CAP),)
-    )
-    submodules = (
-        tuple(
-            obj
-            for ident, obj in inspect.getmembers(module, inspect.ismodule)
-            if getattr(obj, "__name__", "").startswith(f"{name}.") and not ident.startswith("_")
-        )
-        if depth > 0
-        else ()
-    )
+    own = tuple(Capture(name=cap, text=clipped, file=file, line=0, truncated=cut) for cap, predicate in _INSPECT_KINDS for ident, obj in inspect.getmembers(module, predicate) if not ident.startswith("_") and _owned_by(obj, roots, prefix) for clipped, cut in (_clip(f"{name}.{ident}", NAME_CAP),))
+    submodules = tuple(obj for ident, obj in inspect.getmembers(module, inspect.ismodule) if getattr(obj, "__name__", "").startswith(f"{name}.") and not ident.startswith("_")) if depth > 0 else ()
     return (*own, *(cap for sub in submodules for cap in _module_members(sub, prefix, roots=roots, depth=depth - 1)))
 
 
@@ -1322,7 +1171,7 @@ def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
                 modules = tuple((name, _import(name)) for name in _pydist_modules(key))
                 roots = _owned_roots(key)
                 captures = tuple(cap for name, module in modules if module is not None for cap in _module_members(module, name, roots=roots))
-                return receipt(("py-api", "surface", key), 0, stdout=CAPTURE_ENCODER.encode(captures))
+                return Completed(("py-api", "surface", key), 0, stdout=CAPTURE_ENCODER.encode(captures), status=RailStatus.EMPTY)
             case _:
                 obj = _resolve_py_symbol(key, symbol)
                 match (obj, () if obj is not None else _owner_scan(key, symbol)):
@@ -1334,7 +1183,7 @@ def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
                         member = (Capture(name="owners", text="\n".join(f"{qual}.{symbol}" for qual, _ in owners), file="", line=0),)
                     case _:
                         member = _member_captures(obj, symbol)
-                return receipt(("py-api", "member", key, symbol), 0, stdout=CAPTURE_ENCODER.encode(member))
+                return Completed(("py-api", "member", key, symbol), 0, stdout=CAPTURE_ENCODER.encode(member), status=RailStatus.EMPTY)
 
     return run
 
@@ -1346,20 +1195,7 @@ def _inproc_thunk(source: Source, symbol: str) -> InprocThunk:
 def _resolve_py_symbol(key: str, symbol: str) -> object | None:
     roots = _pydist_modules(key)
     qualified = tuple(dict.fromkeys((symbol, *(f"{root}.{symbol}" for root in roots if not symbol.startswith(f"{root}.") and symbol != root))))
-    return next(
-        (
-            resolved
-            for qname in qualified
-            for parts in (tuple(qname.split(".")),)
-            for i in range(len(parts), 0, -1)
-            if parts[0] in roots
-            for module in (_import(".".join(parts[:i])),)
-            if module is not None
-            for resolved in (_walk_attrs(module, parts[i:]),)
-            if resolved is not None
-        ),
-        None,
-    )
+    return next((resolved for qname in qualified for parts in (tuple(qname.split(".")),) for i in range(len(parts), 0, -1) if parts[0] in roots for module in (_import(".".join(parts[:i])),) if module is not None for resolved in (_walk_attrs(module, parts[i:]),) if resolved is not None), None)
 
 
 def _walk_attrs(root: object, parts: tuple[str, ...]) -> object | None:
@@ -1375,25 +1211,8 @@ def _owner_scan(key: str, symbol: str) -> tuple[tuple[str, object], ...]:
     parts = tuple(symbol.split("."))
     roots = _owned_roots(key)
     imported = tuple(module for name in _pydist_modules(key) for module in (_import(name),) if module is not None)
-    modules = tuple(
-        dict.fromkeys((
-            *imported,
-            *(
-                obj
-                for module in imported
-                for ident, obj in inspect.getmembers(module, inspect.ismodule)
-                if not ident.startswith("_") and getattr(obj, "__name__", "").startswith(f"{getattr(module, '__name__', '')}.")
-            ),
-        ))
-    )
-    hits = {
-        id(resolved): (f"{getattr(module, '__name__', '')}.{ident}", resolved)
-        for module in modules
-        for ident, owner in inspect.getmembers(module, inspect.isclass)
-        if not ident.startswith("_") and _owned_by(owner, roots, "")
-        for resolved in (_walk_attrs(owner, parts),)
-        if resolved is not None
-    }
+    modules = tuple(dict.fromkeys((*imported, *(obj for module in imported for ident, obj in inspect.getmembers(module, inspect.ismodule) if not ident.startswith("_") and getattr(obj, "__name__", "").startswith(f"{getattr(module, '__name__', '')}.")))))
+    hits = {id(resolved): (f"{getattr(module, '__name__', '')}.{ident}", resolved) for module in modules for ident, owner in inspect.getmembers(module, inspect.isclass) if not ident.startswith("_") and _owned_by(owner, roots, "") for resolved in (_walk_attrs(owner, parts),) if resolved is not None}
     return tuple(hits.values())
 
 
@@ -1425,11 +1244,7 @@ def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
 def _live_surface(obj: object, symbol: str) -> str:
     if not (inspect.isclass(obj) or inspect.ismodule(obj)):
         return ""
-    rows = tuple(
-        f"{name}{_signature(member)}" if callable(member) else f"{name}: {type(member).__name__}"
-        for name, member in inspect.getmembers(obj)
-        if not name.startswith("_")
-    )
+    rows = tuple(f"{name}{_signature(member)}" if callable(member) else f"{name}: {type(member).__name__}" for name, member in inspect.getmembers(obj) if not name.startswith("_"))
     return "\n".join((f"{symbol}{_signature(obj)}:", *(f"    {row}" for row in rows))) if rows else ""
 
 
@@ -1471,7 +1286,7 @@ def _tsdecl_thunk(source: Source, symbol: str) -> InprocThunk:
             case _:
                 ranked = tuple((rank, caps) for path in source.asset_paths for rank, caps in (_ts_member_ranked(parser, path, symbol),) if caps)
                 captures = min(ranked, key=operator.itemgetter(0))[1] if ranked else ()
-        return receipt(("ts-api", "member" if symbol else "surface", source.key, symbol), 0, stdout=CAPTURE_ENCODER.encode(captures))
+        return Completed(("ts-api", "member" if symbol else "surface", source.key, symbol), 0, stdout=CAPTURE_ENCODER.encode(captures), status=RailStatus.EMPTY)
 
     return run
 
@@ -1520,18 +1335,7 @@ def _ts_member_ranked(parser: TSParser, path: Path, symbol: str) -> tuple[int, t
 
 
 def _span_capture(name: str, text: str, node: Node, path: Path, *, truncated: bool = False) -> Capture:
-    return Capture(
-        name=name,
-        text=text,
-        file=path.name,
-        line=node.start_point.row + 1,
-        column=node.start_point.column + 1,
-        end_line=node.end_point.row + 1,
-        end_column=node.end_point.column + 1,
-        start_byte=node.start_byte,
-        end_byte=node.end_byte,
-        truncated=truncated,
-    )
+    return Capture(name=name, text=text, file=path.name, line=node.start_point.row + 1, column=node.start_point.column + 1, end_line=node.end_point.row + 1, end_column=node.end_point.column + 1, start_byte=node.start_byte, end_byte=node.end_byte, truncated=truncated)
 
 
 def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
@@ -1543,19 +1347,11 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
     cursor.match_limit = RESULT_CAP
     nodes = tuple(node for group in cursor.captures(root).values() for node in group if _exported(node, is_dts=is_dts))
     saturated = cursor.did_exceed_match_limit or len(nodes) > RESULT_CAP
-    return tuple(
-        _span_capture(_TYPE_CAP, clipped, node, path, truncated=cut or saturated)
-        for node in nodes[:RESULT_CAP]
-        for clipped, cut in (_clip(node_text(node), NAME_CAP),)
-    )
+    return tuple(_span_capture(_TYPE_CAP, clipped, node, path, truncated=cut or saturated) for node in nodes[:RESULT_CAP] for clipped, cut in (_clip(node_text(node), NAME_CAP),))
 
 
 def _find_decl(scope: Node, target: str, *, is_dts: bool | None) -> Node | None:
-    matched: tuple[Node, ...] = tuple(
-        n
-        for n in _walk(scope, _DECL_NODES)
-        if (name := n.child_by_field_name("name")) is not None and node_text(name) == target and (is_dts is None or _exported(name, is_dts=is_dts))
-    )
+    matched: tuple[Node, ...] = tuple(n for n in _walk(scope, _DECL_NODES) if (name := n.child_by_field_name("name")) is not None and node_text(name) == target and (is_dts is None or _exported(name, is_dts=is_dts)))
     return min(matched, key=lambda n: _DECL_RANK.get(n.type, len(_DECL_RANK))) if matched else None
 
 
@@ -1610,17 +1406,7 @@ def xml_doc(source: Source, symbol: str) -> str:
         Stripped summary text clipped at the signature cap, or ``""`` when no member matches.
     """
     needle = _ARITY.sub("", symbol).casefold()
-    return next(
-        (
-            "".join(member.itertext()).strip()[:_SIG_CAP]
-            for path in source.xmls
-            if path.is_file()
-            for member in (_xml_members(path))
-            for name in (_ARITY.sub("", member.get("name", "").split(":", 1)[-1].split("(", 1)[0]).casefold(),)
-            if name == needle or name.endswith("." + needle)
-        ),
-        "",
-    )
+    return next(("".join(member.itertext()).strip()[:_SIG_CAP] for path in source.xmls if path.is_file() for member in (_xml_members(path)) for name in (_ARITY.sub("", member.get("name", "").split(":", 1)[-1].split("(", 1)[0]).casefold(),) if name == needle or name.endswith("." + needle)), "")
 
 
 def _xml_members(path: Path) -> tuple[ET.Element[str], ...]:
@@ -1676,7 +1462,7 @@ class _CsOracle(_Adapter):
         """Decompile one ranked type through the LIST row, resolving CLR reflection spellings from the surface.
 
         Returns:
-            The decompile receipt (soft miss on a typed not-found), or a fault when the tool itself fails.
+            The decompile result (soft miss on a typed not-found), or a fault when the tool itself fails.
         """
         _ = scope
         return _run_decompile(self.settings, self.executor, symbol, surface)
@@ -1718,7 +1504,7 @@ class _InprocOracle(_Adapter):
         """Extract one member's captures through the LIST-mode INPROC thunk.
 
         Returns:
-            Thunk receipt carrying signature/doc/full captures, or a fault when the row is absent.
+            Thunk result carrying signature/doc/full captures, or a fault when the row is absent.
         """
         _ = (scope, surface)
         return _inproc_check(self.settings, self.source, Mode.LIST, _inproc_thunk(self.source, symbol), self.executor)
@@ -1734,12 +1520,7 @@ class TsdeclOracle(_InprocOracle):
     """node_modules ``.d.ts`` declaration adapter (tree-sitter parse)."""
 
 
-_ADAPTERS: dict[SourceKind, type[_CsOracle | _InprocOracle]] = {
-    SourceKind.ASSEMBLY: HostBundleOracle,
-    SourceKind.NUGET: NugetOracle,
-    SourceKind.PYDIST: PydistOracle,
-    SourceKind.TSDECL: TsdeclOracle,
-}
+_ADAPTERS: dict[SourceKind, type[_CsOracle | _InprocOracle]] = {SourceKind.ASSEMBLY: HostBundleOracle, SourceKind.NUGET: NugetOracle, SourceKind.PYDIST: PydistOracle, SourceKind.TSDECL: TsdeclOracle}
 
 
 def oracle_for(settings: AssaySettings, executor: Executor, key: str) -> Result[Oracle, ApiResolution]:

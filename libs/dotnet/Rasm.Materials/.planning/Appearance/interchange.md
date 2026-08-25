@@ -13,7 +13,7 @@ This page owns the generated appearance egress and the MaterialX node-graph inte
 - Owner: the generated `Rasm.Contracts.Appearance` family — `Material`, `Set`, and their appearance payloads — is the appearance wire; `Rasm.Contracts.Artifact.ArtifactRef` owns stored payload identity and extent inside every `PlaneRef`. `AppearanceEgress` owns the presence-sensitive material, provenance, set, and IBL projections; `AppearanceWireMap` owns reader-free transcriptions; `WireVocabulary` and `LicenceVocabulary` own enum admission, while the app spine's neutral `WireAdmission` owns the descriptor verdict.
 - Entry: `public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key)` lowers a library row to the SEAM `AppearanceSummary` through the seam-owned `AppearanceSummary.Of` factory — the neutral PBR scalars with the `AppearanceKey` the factory mints (the kernel seed-zero `XxHash128` over the canonical PBR bytes, the ONE hasher) on the factory's own `Fin` rail, since it gates every channel to the unit range and takes the `Op` key rather than a tolerance. It is the CONTRACTED entry `Projection/component#COMPONENT_SUBGRAPH` `ComponentSubgraph.Capture` composes and the SAME factory `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` composes; the channel triple crosses as the landed Element `[ComplexValueObject]` `AppearanceVector.Create(...)`, whose accumulated slot gate names every offending channel at once.
 - Entry: `AppearanceEgress.Project` mints the full OpenPBR material; `Set` projects an admitted baked surface into the generated `Set.baked` arm; `AppearanceEgress.Ibl` projects the resolved dome into `Set.environment.ibl`. Each completed document crosses `WireAdmission.Admit` once after its product is final.
-- Packages: Rasm.Contracts (project — the generated `rasm.contracts.appearance` messages), Rasm.AppHost (project — neutral `WireAdmission` over the one descriptor-root evaluator), Google.Protobuf (`ByteString`/`RepeatedField<T>`/`WellKnownTypes.Duration.FromTimeSpan`), `Rasm` (`ArtifactContent` the SHA-256-plus-extent coordinate, `ContentHash.Wire`/`ContentHash.Admit` the sixteen-byte content-key projection and its inverse, `Op`), Riok.Mapperly (composed at rung 3 — ONE `[Mapper] static partial class` owning the whole appearance seam, every method `static partial`, per-TYPE `[UserMapping]` converters reached by `[MapProperty(Use = …)]`, the segment overload for nested generated paths, `[MapValue]` for the constant column, `[MapDerivedType]` refused with its reason stated, and `[assembly: MapperDefaults]` carrying the conversion posture; `PrivateAssets="all"`), Wacton.Unicolour, Rasm.Element (the SEAM `MaterialId`, `AppearanceVector`, `AppearanceSummary`, `ContentAddress`), `Rasm.Materials.Raster` (composed — `TextureSet`/`UdimSheet`/`TextureChannel`/`ChannelPack`/`ChannelPackPlane`/`EgressSlot`/`EgressVariant`/`TexturePyramid`/`PlaneFormat`/`PlaneTransfer`/`AlphaMode`/`MipPolicy`/`NormalConvention`/`LayerLaw`/`UdimTile`/`RasterFormat`/`BlockFormat`/`KtxPayload`/`PressReceipt`), `environment#ENVIRONMENT_LIGHT` (composed — `EnvironmentLight`/`EnvironmentBlobs`/`IblProducts`), `neural#MODEL_REGISTRY` (composed — `LicenseClass`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `Lazy<T>`).
+- Packages: Rasm.Contracts (project — the generated `rasm.contracts.appearance` messages), Rasm.AppHost (project — neutral `WireAdmission` over the one descriptor-root evaluator), Google.Protobuf (`ByteString`/`RepeatedField<T>`/`WellKnownTypes.Duration.FromTimeSpan`), `Rasm` (`ArtifactContent` the SHA-256-plus-extent coordinate, `ContentHash.Wire`/`ContentHash.Admit` the sixteen-byte content-key projection and its inverse, `Op`), Riok.Mapperly (composed at rung 3 — ONE `[Mapper] static partial class` owning the whole appearance seam, every method `static partial`, per-TYPE `[UserMapping]` converters reached by `[MapProperty(Use = …)]`, the segment overload for nested generated paths, `[MapValue]` for the constant column, `[MapDerivedType]` refused with its reason stated, and `[assembly: MapperDefaults]` carrying the conversion posture; `PrivateAssets="all"`), Wacton.Unicolour, Rasm.Element (the SEAM `MaterialId`, `AppearanceVector`, `AppearanceSummary`, `ContentAddress`), `Rasm.Materials.Raster` (composed — `TextureSet`/`UdimSheet`/`TextureChannel`/`ChannelPack`/`ChannelPackPlane`/`EgressSlot`/`EgressVariant`/`TexturePyramid`/`PlaneFormat`/`PlaneTransfer`/`AlphaMode`/`MipPolicy`/`NormalConvention`/`LayerLaw`/`UdimTile`/`RasterFormat`/`BlockFormat`/`KtxPayload`/`PressRun`), `environment#ENVIRONMENT_LIGHT` (composed — `EnvironmentLight`/`EnvironmentBlobs`/`IblProducts`), `neural#MODEL_REGISTRY` (composed — `LicenseClass`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `Lazy<T>`).
 - Growth: a new appearance document is one message plus one `AppearanceEgress` fold; a new OpenPBR parameter lands beside its `OpenPbrSurface` column and breaks the Mapperly completeness gate until mapped. A new capture result shape is one `CaptureAssessment` and protobuf assessment case. Generated peers move through `assay contracts generate`, never a hand-maintained mirror.
 - Law: the generated message IS the wire vocabulary and C# is the baked/material producer. The `appearance` sibling set — shared vocabulary, environment products, set document, and material model — is the frozen corpus shape; peers consume generated bindings and keep no mirror.
 - Law: every closed vocabulary crosses as its GENERATED ENUM through ONE `WireVocabulary` bridge per roster (`LicenceVocabulary` for the one frontier roster a Raster page cannot name) — derived by parsing each row's own key against the enum's `OriginalName` spelling, so no hand row table exists to drift — and the derivation is PROVED at type init: a `[SmartEnum]` row with no enum member, or an enum value of zero, throws before the first egress. `RasterFormat`→`Container` is the one PARTIAL bridge (a non-wire container such as `jpeg` has no enum row) and answers on the `Fin` rail at the egress that asks, never a total map with a fabricated arm.
@@ -24,9 +24,9 @@ This page owns the generated appearance egress and the MaterialX node-graph inte
 - Law: seam-owned `AppearanceSummary.Of` mints the `AppearanceKey` — the kernel seed-zero `XxHash128` over the canonical PBR bytes via the seam `ContentAddress`/`CanonicalWriter`, NOT a second hasher and NOT a non-zero seed — so the `Summary` lowering here and the `Rasm.Bim` `AppearanceProjection.Project` lowering compose the SAME factory and produce the SAME key for one surface.
 - Law: plane bytes never enter a document. Every `PlaneRef` carries its logical leaf and one required `ArtifactRef`; the canonical artifact owner carries address and extent together. `Set.key` identifies the complete document and never substitutes for payload identity.
 - Law: `Set` rides BEHIND the `AppearanceKey`, never inside it. `AppearanceSummary` takes its preimage from the frozen seven-value PBR vector, so the set key is a PAYLOAD column: one appearance key covers a material with and without a baked set — the set refines the same appearance rather than describing a different one.
-- Boundary: `Material`/`AppearanceSummary` is the ONE appearance wire — a per-consumer material DTO is the deleted form. `AppearanceSummary` crosses NEUTRAL (the `UInt128 AppearanceKey` plus scene-linear `BaseColorR`/`G`/`B`, `Metallic`, `Roughness`, `Opacity`, `Transmissive`), flat for a consumer reading without the lobe graph. The full `Material` is the payload BEHIND that key — the `MaterialId` `family.name` key, the `OpenPbr` vector, the optional `conductor` key, the `Provenance` receipt, the resolved `preview` colour, and the optional admitted `Emission`. Colour crosses as the scene-linear `Color` triple so a peer renders without re-deriving ACEScg; NAMED LOSS: the hex rendering beside the triple, which a peer renders at its own edge.
+- Boundary: `Material`/`AppearanceSummary` is the ONE appearance wire — a per-consumer material DTO is the deleted form. `AppearanceSummary` crosses NEUTRAL (the `UInt128 AppearanceKey` plus scene-linear `BaseColorR`/`G`/`B`, `Metallic`, `Roughness`, `Opacity`, `Transmissive`), flat for a consumer reading without the lobe graph. The full `Material` is the payload BEHIND that key — the `MaterialId` `family.name` key, the `OpenPbr` vector, the optional `conductor` key, the `Provenance`, the resolved `preview` colour, and the optional admitted `Emission`. Colour crosses as the scene-linear `Color` triple so a peer renders without re-deriving ACEScg; NAMED LOSS: the hex rendering beside the triple, which a peer renders at its own edge.
 - Boundary: conductor-ness derives structurally at `Project`. Capture sampling, assessment, chromaticity, card, ingest, and calibration cross only when their typed evidence exists; rank deficiency is `rank < parameter_count`, never `+Inf`, and an unobserved result never becomes a zero-filled message. `Card` carries card identity and licence; no model-body address crosses without an artifact extent and redemption consumer.
-- Boundary: `Set.press` carries `Press` WITHOUT a backend column because every receipt reaching the wire is CPU-minted — `AppearanceEgress.Set` proves `PressReceipt.Backend.ContentAuthoritative` before the document mints, so the accelerator lane is structurally absent from the wire rather than a column a reader trusts. `Press.graph_key` carries presence only for a shaded press; a graphless field or slab press leaves the optional column absent. `Set.ibl.luminance_cdf` likewise carries the stored guide only after a guided prefilter and stays absent after an unguided run.
+- Boundary: `Set.press` carries `Press` WITHOUT a backend column because every press run reaching the wire is CPU-minted — `AppearanceEgress.Set` proves `PressRun.Backend.ContentAuthoritative` before the document mints, so the accelerator lane is structurally absent from the wire rather than a column a reader trusts. `Press.graph_key` carries presence only for a shaded press; a graphless field or slab press leaves the optional column absent. `Set.ibl.luminance_cdf` likewise carries the stored guide only after a guided prefilter and stays absent after an unguided run.
 - Boundary: `Ibl` is the ONE environment document and it mirrors the resolved `EnvironmentLight` row — the frozen band-major `sh9`, the six product planes by `PlaneRef`, the roughness ladder, and the READ-TIME `intensity`/`rotation` pair a consumer applies and a producer never bakes. The model key rides `Set.source` (the generator of a synthesized dome, absent for an ingested HDRI); NAMED LOSS: the two Hosek-Wilkie asset digests and the authored intensity unit pair, which stay on the domain row and reach the analytics plane off that row rather than off the wire.
 
 ```csharp
@@ -133,24 +133,24 @@ public static class AppearanceEgress {
         return wire;
     }
 
-    public static Wire.Provenance Provenance(CaptureProvenance receipt) {
+    public static Wire.Provenance Provenance(CaptureProvenance provenance) {
         Wire.Provenance.Types.Capture capture = new() {
-            Device = receipt.Device,
-            Method = receipt.Method.Key,
-            Measured = receipt.Measured,
-            Calibrated = receipt.Calibrated,
+            Device = provenance.Device,
+            Method = provenance.Method.Key,
+            Measured = provenance.Measured,
+            Calibrated = provenance.Calibrated,
         };
-        receipt.CalibrationDeltaE.Iter(delta => capture.CalibrationDeltaE = delta);
-        receipt.WavelengthCount.Iter(count => capture.WavelengthCount = checked((uint)count));
-        receipt.AngularSamples.Iter(count => capture.AngularSamples = checked((uint)count));
+        provenance.CalibrationDeltaE.Iter(delta => capture.CalibrationDeltaE = delta);
+        provenance.WavelengthCount.Iter(count => capture.WavelengthCount = checked((uint)count));
+        provenance.AngularSamples.Iter(count => capture.AngularSamples = checked((uint)count));
         Wire.Provenance wire = new() { Capture = capture };
-        wire = receipt.Assessment.Map(assessment => Assessment(wire, assessment)).IfNone(wire);
-        receipt.Chromaticity.Iter(observed => wire.Chromaticity = Chromaticity(observed));
-        receipt.ModelCard.Iter(card => {
-            Wire.Provenance.Types.Card row = new() { ModelCard = card.Value, License = LicenceVocabulary.Wire(receipt.License.IfNone(LicenseClass.Blocked)) };
+        wire = provenance.Assessment.Map(assessment => Assessment(wire, assessment)).IfNone(wire);
+        provenance.Chromaticity.Iter(observed => wire.Chromaticity = Chromaticity(observed));
+        provenance.ModelCard.Iter(card => {
+            Wire.Provenance.Types.Card row = new() { ModelCard = card.Value, License = LicenceVocabulary.Wire(provenance.License.IfNone(LicenseClass.Blocked)) };
             wire.Card = row;
         });
-        receipt.Ingest.Iter(ingest => {
+        provenance.Ingest.Iter(ingest => {
             Wire.Provenance.Types.Ingest row = new() { Source = ingest.Source };
             ingest.LicenceDeclared.Iter(licence => row.Licence = licence);
             ingest.Reference.Iter(reference => row.Reference = reference);
@@ -201,14 +201,14 @@ public static class AppearanceEgress {
 
     public static Fin<Wire.Set> Set(
         TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs,
-        CaptureProvenance provenance, Option<PressReceipt> press, LicenseClass licence, Op key) =>
+        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence, Op key) =>
         Baked(set, summary, planes, packs, provenance, press, licence, key)
             .Bind(document => WireAdmission.Admit(document, WireBoundary.OutboundPayload, key));
 
     static Fin<Wire.Set> Baked(
         TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs,
-        CaptureProvenance provenance, Option<PressReceipt> press, LicenseClass licence, Op key) =>
-        from _ in guard(press.ForAll(static receipt => receipt.Backend.ContentAuthoritative),
+        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence, Op key) =>
+        from _ in guard(press.ForAll(static run => run.Backend.ContentAuthoritative),
                 new MaterialFault.Parameter(key, "<set-wire-gpu-minted>"))
         from __ in guard(licence.Grants, new MaterialFault.Parameter(key, $"<set-wire-licence-blocked:{licence.Key}>"))
         from ___ in guard(!planes.Exists(plane => set.Packs.Exists(pack => pack.Present.Contains(plane.Channel))),
@@ -244,15 +244,15 @@ public static class AppearanceEgress {
         return wire;
     }
 
-    static Wire.Set Fill(Wire.Set wire, Option<PressReceipt> press) {
-        press.Iter(receipt => wire.Baked.Press = AppearanceWireMap.ToWire(receipt));
+    static Wire.Set Fill(Wire.Set wire, Option<PressRun> press) {
+        press.Iter(run => wire.Baked.Press = AppearanceWireMap.ToWire(run));
         return wire;
     }
 
     public static Fin<Wire.Set> Set(
         UdimSheet sheet, AppearanceSummary summary,
         Seq<(UdimTile Tile, Seq<PlaneEgress> Planes, Seq<PackEgress> Packs)> storage,
-        CaptureProvenance provenance, Option<PressReceipt> press, LicenseClass licence, Op key) =>
+        CaptureProvenance provenance, Option<PressRun> press, LicenseClass licence, Op key) =>
         from _ in guard(storage.Count == sheet.Tiles.Count,
                 new MaterialFault.Parameter(key, "<set-wire-udim-storage-mismatch>"))
         from tiles in sheet.Tiles.Traverse(pair =>
@@ -427,23 +427,23 @@ public static partial class AppearanceWireMap {
         return wire;
     }
 
-    [MapProperty(nameof(PressReceipt.PlanKey), nameof(Wire.Press.PlanKey), Use = nameof(Key))]
-    [MapProperty(nameof(PressReceipt.ElapsedMs), nameof(Wire.Press.Elapsed), Use = nameof(Elapsed))]
-    [MapProperty(nameof(PressReceipt.Downgraded), nameof(Wire.Press.Downgraded), Use = nameof(Tally))]
-    [MapProperty(nameof(PressReceipt.Faulted), nameof(Wire.Press.FaultedTexels), Use = nameof(Summed))]
-    [MapperIgnoreSource(nameof(PressReceipt.Backend))]
-    [MapperIgnoreSource(nameof(PressReceipt.Planes))]
-    [MapperIgnoreSource(nameof(PressReceipt.Aging))]
-    [MapperIgnoreSource(nameof(PressReceipt.GraphKey))]
-    [MapperIgnoreSource(nameof(PressReceipt.GpuDeltaMax))]
+    [MapProperty(nameof(PressRun.PlanKey), nameof(Wire.Press.PlanKey), Use = nameof(Key))]
+    [MapProperty(nameof(PressRun.ElapsedMs), nameof(Wire.Press.Elapsed), Use = nameof(Elapsed))]
+    [MapProperty(nameof(PressRun.Downgraded), nameof(Wire.Press.Downgraded), Use = nameof(Tally))]
+    [MapProperty(nameof(PressRun.Faulted), nameof(Wire.Press.FaultedTexels), Use = nameof(Summed))]
+    [MapperIgnoreSource(nameof(PressRun.Backend))]
+    [MapperIgnoreSource(nameof(PressRun.Planes))]
+    [MapperIgnoreSource(nameof(PressRun.Aging))]
+    [MapperIgnoreSource(nameof(PressRun.GraphKey))]
+    [MapperIgnoreSource(nameof(PressRun.GpuDeltaMax))]
     [MapperIgnoreTarget(nameof(Wire.Press.GraphKey))]
     [MapperIgnoreTarget(nameof(Wire.Press.GpuDeltaMax))]
-    private static partial Wire.Press Press(PressReceipt receipt);
+    private static partial Wire.Press Press(PressRun run);
 
-    public static Wire.Press ToWire(PressReceipt receipt) {
-        Wire.Press wire = Press(receipt);
-        receipt.GraphKey.Iter(graph => wire.GraphKey = Key(graph));
-        receipt.GpuDeltaMax.Iter(delta => wire.GpuDeltaMax = delta);
+    public static Wire.Press ToWire(PressRun run) {
+        Wire.Press wire = Press(run);
+        run.GraphKey.Iter(graph => wire.GraphKey = Key(graph));
+        run.GpuDeltaMax.Iter(delta => wire.GpuDeltaMax = delta);
         return wire;
     }
 

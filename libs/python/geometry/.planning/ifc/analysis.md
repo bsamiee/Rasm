@@ -2,7 +2,7 @@
 
 IFC property, quantity, and relationship analysis and standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, `ifc5d.qto`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. The model's own map georeference decodes here beside them as the branch's ONE model CRS source, crossing as a `GeoreferenceFact` wire shape rather than an analysis row, because a coordinate frame carries no verdict to grade. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
 
-Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELECTOR`), so a malformed selector faults typed at the boundary, never a silent empty `filter_elements` match three arms deep, and the `SelectorMatch` it hands back carries the canonical `filter_string` every receipt keys its evidence on. `run` threads the graduation `evidence_run` weave under `EvidenceScope.IFC_ANALYSIS` and carries no head decorator — `@beartype(conf=FAULT_CONF)` on `_dispatch` is the one innermost seam this capsule fences, as its two peers hold. OCC clash trees are this owner's one transient-native boundary, riding the runtime-pinned `guarded_sync(RetryClass.OCC_NATIVE)` row, never a bare `stamina.retry` mint; the authored `.bcfzip` rides home as archive BYTES on the receipt and the durable write stays `python:data/spatial`'s. Evidence graduates under `GeometrySubject.BIM_COMPLIANCE`, the differentiated member the IDS/clash/BCF verdict class owns, distinct from the section-integral and lifecycle members their owners bind.
+Every selecting verb admits its query through `IfcSelector`; a malformed selector faults at the boundary, and `SelectorMatch` carries the canonical `filter_string`. `run` delegates observation through `evidence_run`. OCC clash trees stay behind the runtime-pinned retry row, BCF archive bytes remain on `AnalysisResult`, and durable writes stay with `python:data/spatial`.
 
 ## [01]-[INDEX]
 
@@ -10,20 +10,20 @@ Every selecting verb admits its query through `IfcSelector` (`ifc/selector#SELEC
 
 ## [02]-[ANALYSIS]
 
-- Owner: `IfcAnalysis` dispatches verbs through one rail-returning `_dispatch` fold; `AnalysisRow` is the one carrier whose case IS the shape — one algebra, never a per-verb row dialect; graduation subject rides the `ANALYSIS_SUBJECT` module constant, never a per-receipt `subject: str` field racing the discriminant.
+- Owner: `IfcAnalysis` dispatches verbs through one rail-returning `_dispatch` fold; `AnalysisRow` is the one carrier whose case IS the shape — one algebra, never a per-verb row dialect; graduation subject rides the `ANALYSIS_SUBJECT` module constant, never a per-result `subject: str` field racing the discriminant.
 - Entry: `run` takes the model, the kind, the free-form `query`, and the `composition` custody key. `query` meaning is kind-fixed through the `QUERY_SPLIT` table — pure selector, `a#b` side pair, or spec path/JSON table — read ONCE at the `_dispatch` head so every row governs the arm it keys, the four empty-delimiter rows included and the `BCF` row governing the BCF arm, where a hardcoded `CLASH` key leaves five of six rows unread. `IDS`'s spec path is admitted at PARSE and never reaches the grade as a path: `run` and `run_async` both take an `Option[IdsResolved]` a caller who resolved against a registry hands in, and an unresolved URI-bearing document refuses at the sync entry rather than grading. `CLASH`/`BCF` sides arrive pre-split and validate under one polymorphic batch parse aborting on the first malformed member, an empty query defaulting both sides to whole-model mode. `BCF` is the composition apex, re-running the clash leg and stacking overlaps into `bcf` topics with viewpoints AND the OCC-rendered `get_viewpoint_snapshot` image bound per topic, never a same-string round-trip.
 - Auto: IDS runs as three NAMED steps — `parse` mints the document beside its typed `pending` roster off bytes that reached no network, `resolve` is the one async leg expanding those URIs over a built `TransportResource` and minting `IdsResolved`, and `_validate` accepts that type alone — so a `Classification`/`Property`/`Material` facet carrying a bSDD `uri` and an unexpanded value can no longer grade a narrower applicable set than its author declared and report the narrower verdict clean. `ifctester` depends on `ifcopenshell` and `xmlschema` alone and ships no HTTP client, which is exactly why the expansion is this owner's step and not the package's. IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean. Space-program validation measures through the package that owns measurement: `ifc5d.qto.quantify` folds the shared `RuleSet` base-quantity table over the space set and the grade reads the `Qto_SpaceBaseQuantities.NetFloorArea` cell off the returned `ResultsDict`, so no local `get_psets(qtos_only=True)` key fold and no unit-scale square survive — the take-off already converts to the model's declared project units, the ONE regime the program table is read in. Two exclusions are distinct and both named: a space absent from the program table carries no program signal and is excluded from grading, while a space the take-off could not measure is a TYPED REFUSAL on its own `unquantified` axis, never a `0.0` area grading as total non-compliance.
-- Receipt: receipts carry the census, frames carry the rows. `contribute` emits one row per run — row count, subject count, archive extent where one exists, and the residual ledger — because a whole-model take-off is one fact key per element per quantity and a flattened row stream turns the runtime receipt into a hundred-thousand-key dict per run; `frame` projects those rows as ONE columnar `EvidenceFrame` through the graduation port, columns off the first row's `facts` keys exactly as the sibling lifecycle rollup does. `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction beside its unquantified count, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates` and `frame` derive their own `ContentKey` from the receipt's `spec` — kind plus the validated query projection — through the spine's `evidence_key`, so no caller mints a key for evidence it did not produce. `_distributed` records the `non-compliant` fraction as the `rasm.geometry.compliance.noncompliant` charter measure at the producing fold; the cluster-count and empty-fraction keys name no charter row and record nothing, a count or boolean gate earning no histogram.
-- Law: the BCF arm alone lands durable evidence on the `python:runtime/observability/journal#LEDGER` plane — one `OPERATIONAL` `AuditFact` keyed on the run's `spec`, its topic GUIDs the subject index — because that arm AUTHORS an archive the data seam persists while every other kind reads the model and produces a verdict nothing keeps. `run_async` is its seat, the awaitable twin this caller-floor owner mints over the band hop, since recording suspends and `_distributed` is a synchronous charter projection. No meter rides the leg: the archive crosses as receipt payload and the data seam charges the write it performs, so a byte count at both tiers bills one artifact twice.
-- Law: `GeoreferenceFact` decodes at this band as the branch's ONE model CRS source, a dataset's own file CRS staying a data-owned origin beside it that this fact never overrides. The decode sits BESIDE the dispatch rather than inside it: it produces no `AnalysisRow`, grades no ceiling, graduates nothing, and records no charter measure — `BIM_COMPLIANCE` is the verdict class the IDS/clash/BCF arms own and a coordinate frame is not a verdict — so an `AnalysisKind` row would seat it in an algebra with nothing to say about it. The decoded fact IS the evidence: it crosses one-way to `python:data/spatial`'s geospatial plane as the `[SHAPE]: GeoreferenceFact` seam, whose eight-field roster this producer DECLARES and the data-side decoder mirrors arm-for-arm, so a second decode anywhere in the estate is the deleted form. All eight fields are REQUIRED — an identity abscissa/ordinate pair, a unit scale, and a `None` north are the fabricated values a partial decode would publish as read facts, and typed absence already answers the ungeoreferenced model.
+- Output: `AnalysisResult` carries the kind-specific census and typed rows; `frame` projects those rows through `EvidenceFrame` using a specification-derived key. `_distributed` records the `non-compliant` fraction at the producing fold.
+- Law: the BCF arm alone lands durable evidence on the `python:runtime/observability/journal#LEDGER` plane — one `OPERATIONAL` `AuditFact` keyed on the run's `spec`, its topic GUIDs the subject index — because that arm AUTHORS an archive the data seam persists while every other kind reads the model and produces a verdict nothing keeps. `run_async` is its seat, the awaitable twin this caller-floor owner mints over the band hop, since recording suspends and `_distributed` is a synchronous charter projection. No meter rides the leg: the archive crosses as the result's `product` and the data seam charges the write it performs, so a byte count at both tiers bills one artifact twice.
+- Law: `GeoreferenceFact` decodes at this band as the branch's one model CRS source, while a dataset's own file CRS remains data-owned. The decode sits beside the dispatch: it produces no `AnalysisRow` or charter measure because a coordinate frame is not a compliance verdict. The fact crosses one-way to `python:data/spatial`, whose eight-field decoder mirrors this producer's roster arm-for-arm. Typed absence answers an ungeoreferenced model.
 - Packages: `ifcopenshell` (`util.element` the pset and quantity reads, `util.geolocation` the ONE georeference extraction seam whose `get_helmert_transformation_parameters` collapses `IfcMapConversion`, `IfcMapConversionScaled`, `IfcRigidOperation`, and the IFC2X3 ePSet fallback onto one nine-field transform, so no consumer branches on coordinate-operation subtype), `ifctester`, `ifcclash`, `bcf-client`, and `ifc5d` (`qto.quantify` the space base-quantity take-off, its `rules` key arriving as the sibling lifecycle owner's `RuleSet` vocabulary rather than a second transcription) per the fence imports; runtime transport (`TransportResource.acquire` the ONE registry acquisition, arriving BUILT so this page mints no client, no cache posture, and no egress policy) and runtime rails (`FaultRow`/`RAISES` the raise coordinates, `boundary` under a named `catch` set, `guarded_sync` bound to the clash row); `IfcSelector` is the only `filter_elements` caller.
 - Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key — the frame column set following from `facts` with no edit here, and a durable trail only where the verb WRITES something, as one `_evidence` arm; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; a new quantity axis on the space grade is one `SPACE_AREA` cell row; a newly decoded georeference axis is one `GeoreferenceFact` field landed at BOTH ends of the seam in the same pass, a producer-only field being a wire key the data decoder rejects; a newly resolvable registry axis is one `uri`-bearing facet the `parse` census already sees and one `RegistryTerms` shape the composition's endpoint answers, zero page edits; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
-- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the receipt stream where the frame is the columnar carrier; no second model CRS decode and no CRS guess anywhere, the georeference reading through `util.geolocation` alone and the map transform composing on the data side's `reproject` prelude, never here; no HTTP client, cache posture, or egress policy minted for the registry leg, the `TransportResource` arriving built from the composition exactly as the sibling lifecycle owner's lane does.
+- Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no ledger, custody, or retention window minted here, the plane arriving bound at the composition root and this owner declaring a `Retain` class alone; no durable store — topic rows and the archive bytes are the wire carry, the durable `.bcfzip`, IDS-report, and frame writes the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`; no hand-rolled quantity-key fold where `ifc5d.qto` owns measurement; no per-row fact map on the result where the frame is the columnar carrier; no second model CRS decode and no CRS guess anywhere, the georeference reading through `util.geolocation` alone and the map transform composing on the data side's `reproject` prelude, never here; no HTTP client, cache posture, or egress policy minted for the registry leg, the `TransportResource` arriving built from the composition exactly as the sibling lifecycle owner's lane does.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Iterable
 from enum import StrEnum
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Final, Literal, NotRequired, TypedDict, assert_never
@@ -46,10 +46,8 @@ lazy from ifctester.ids import open as open_ids
 lazy from ifctester.reporter import Json
 
 from rasm.geometry.graduation import (
-    EVIDENCE_DOMAIN,
     EvidenceFrame,
     EvidenceScope,
-    GeometryHandoff,
     GeometryLeg,
     GeometrySubject,
     charter_record,
@@ -73,7 +71,7 @@ from rasm.runtime.faults import (
     traversed,
 )
 from rasm.runtime.journal import Actor, Assigned, AuditFact, Fact, Journal, Party, Retain
-from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded_sync
 from rasm.runtime.roots import Acquired, TransportResource
 
@@ -192,22 +190,6 @@ class AnalysisResult(Struct, frozen=True, gc=False):
             case unreachable:
                 assert_never(unreachable)
 
-    def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of(
-            OWNER,
-            (
-                "emitted",
-                self.kind.value,
-                {"rows": len(self.rows), "subjects": len(self.subjects)}
-                | ({"product": len(self.product)} if self.product else {})
-                | ({"resolved": self.resolved} if self.resolved else {})
-                | self.evidence(),
-            ),
-        )
-
-    def graduates(self, ceiling: dict[str, float]) -> GeometryHandoff:
-        return GeometryHandoff.of(ANALYSIS_SUBJECT, evidence_key(ANALYSIS_SUBJECT, self.spec), self.evidence(), ceiling)
-
     def frame(self) -> "RuntimeRail[EvidenceFrame]":
         names = tuple(self.rows[0].facts) if self.rows else ()
         table: dict[str, list[object]] = {
@@ -299,7 +281,7 @@ def _evidence(result: AnalysisResult) -> "Block[Fact]":
         return Block.empty()
     return Block.singleton(
         AuditFact(
-            action=f"{EVIDENCE_DOMAIN}.{result.kind.value}",
+            action=f"geometry.{result.kind.value}",
             actor=Party(kind=Actor.SERVICE, key=OWNER),
             target=Party(kind="model", key=result.spec),
             retention=Retain.OPERATIONAL,

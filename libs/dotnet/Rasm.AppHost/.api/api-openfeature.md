@@ -143,7 +143,7 @@
 - One `InMemoryProvider` per domain registers at AppHost composition through `SetProviderAsync`, sourced from configuration-defined `Flag<T>` rows.
 - Sticky bucketing lives in the `Flag<T>` context evaluator, which reads the `EvaluationContext` targeting key and returns the variant, never re-implemented at a call site.
 - Callers evaluate through `Get<Type>DetailsAsync`, read `Reason` and `Variant` off the typed `FlagEvaluationDetails<T>`, and build targeting context once per request through `EvaluationContext.Builder().SetTargetingKey(...)`.
-- `ErrorType` and `Reason` map to features-rail receipts at the boundary; `FeatureProviderException` never crosses into domain logic.
+- `ErrorType` and `Reason` map to `FlagVerdict` at the boundary; `FeatureProviderException` never crosses into domain logic.
 
 [RAIL_LAW]:
 - Package: `OpenFeature`

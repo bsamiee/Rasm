@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_ARCHITECTURE]
 
-`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and the `graduation` spine mints the content-keyed evidence receipt every producer graduates through. Alignment travels through the `ComputeService`/`ArtifactService` contract and the content-keyed GLB tessellation rail, never a shared reference.
+`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and `graduation` owns their shared raise legs, observation scopes, metric charter, frames, progress points, and benchmark corpus. Alignment travels through the `ComputeService`/`ArtifactService` contract and the content-keyed GLB tessellation rail, never a shared reference.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -13,7 +13,7 @@ geometry/
 │   ├── deviation.py      # DeviationStage partition and DeformationSplit over the reference GLB read
 │   └── reconstruction.py # Reconstruction owner composing the sibling closure fold for its graded verdict
 ├── ifc/                  # IFC property, quantity, and relationship analysis, validation, and 5D/4D lifecycle
-│   ├── analysis.py       # Rule and quantity analysis onto one compliance receipt; IDS parse/resolve/evaluate split
+│   ├── analysis.py       # Rule and quantity analysis onto one compliance result; IDS parse/resolve/evaluate split
 │   ├── costing.py        # LifecycleRow union the fence seats; DiffAxis and the DropLaw fidelity ledger
 │   ├── selector.py       # lark EBNF grammar, the frozen SelectorQuery/Facet family, and the band-wide IfcFault floor
 │   ├── authoring.py      # AuthorCarry left-fold under @transactional/@stamped, hop-keyed footprint merge; apply_async twin
@@ -25,7 +25,7 @@ geometry/
 │   ├── repair.py         # MeshRepairOp, ManifoldTier, and the to_manifold build the graders compose
 │   ├── brep.py           # Generated CadService execution client and geometry evidence projection
 │   ├── spatial.py        # SpatialQuery/SpatialResult family and the one _dispatch body
-│   └── quality.py        # Conditioning ops and the metric receipt family; exactness carried as evidence
+│   └── quality.py        # Conditioning ops and the metric result family; exactness carried as evidence
 ├── graph/                # Non-manifold topology, AEC computational geometry, and network analytics
 │   ├── analytic.py       # Analytic-value reducer union, ranked board fold, and census projections
 │   ├── nonmanifold.py    # CellComplex construction, decomposition, adjacency, and the cached dual graph
@@ -66,19 +66,19 @@ flowchart TB
         Graduation[graduation]
     end
     Scan e1@-->|"[IMPORT]: QualityMetrics"| Mesh
-    Scan e2@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Mesh e3@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Ifc e4@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Graph e5@-->|"[IMPORT]: GeometryHandoff"| Graduation
-    Energy e6@-->|"[IMPORT]: GeometryHandoff"| Graduation
+    Scan e2@-->|"[IMPORT]: EvidenceScope"| Graduation
+    Mesh e3@-->|"[IMPORT]: EvidenceScope"| Graduation
+    Ifc e4@-->|"[IMPORT]: EvidenceScope"| Graduation
+    Graph e5@-->|"[IMPORT]: EvidenceScope"| Graduation
+    Energy e6@-->|"[IMPORT]: EvidenceScope"| Graduation
     Graduation f1@-->|"forbidden: upward import"| S2
 ```
 
-- S0 `graduation` — mints the evidence spine (`GeometrySubject`, `GeometryHandoff`, `ContentKey`) and the `GeometryLeg` roster, reaching no sibling.
-- S1→S0 producers import the spine and return receipts through its `evidence_run` weave as values, so the return leg adds no edge.
+- S0 `graduation` — owns `GeometrySubject`, `EvidenceScope`, `EvidenceFrame`, `GeometryLeg`, the charter, and benchmark corpus, reaching no sibling.
+- S1→S0 producers import shared types and delegate observation through `evidence_run`; their domain values return unchanged.
 - S1 `mesh` + `ifc` + `graph` + `energy` — producers over the spine alone; no import crosses them, each interior acyclic at one vocabulary owner.
-- S1 each graduating owner folds its evidence onto `GeometryHandoff`; engine and gate owners stream typed receipts without a subject.
-- S1 `mesh` interior: `cad` admits provider receipts and `ArtifactRef`, `brep` projects kernel receipts, and `repair` serves both graders.
+- S1 each owner returns its canonical domain result and keeps irreducible producer facts on that result.
+- S1 `mesh` interior: `cad` admits provider results and `ArtifactRef`, `brep` projects kernel results, and `repair` serves both graders.
 - S1 `ifc` interior: `selector` seats `IfcFault` for the analysis, costing, structural, and authoring legs, importing no band sibling itself.
 - S1 `graph/analytic` seats `AnalyticValue`/`ranked` for the nonmanifold and features producers.
 - S1 `energy/district` explodes onto `model`'s one assignment fold, minting no second energy model.
@@ -128,7 +128,7 @@ config:
 ---
 flowchart LR
     accTitle: Geometry Python sibling seams
-    accDescr: Geometry sub-domain owners exchanging graduation receipts, payloads, ports, and kernel crossings with the Python siblings.
+    accDescr: Geometry sub-domain owners exchanging results, payloads, ports, and kernel crossings with the Python siblings.
     subgraph geometry[GEOMETRY]
         Graduation[Graduation spine]
         Mesh[Mesh tessellation]
@@ -136,12 +136,10 @@ flowchart LR
         Scan[Scan ingest]
         Energy[Energy band]
     end
-    Compute([python:compute])
     Runtime{{python:runtime}}
     Data{{python:data}}
     Artifacts([python:artifacts])
     Cad([python:cad])
-    Graduation e1@-->|"[GRADUATION]: GeometryHandoff"| Compute
     Graduation e2@-->|"[BOUNDARY]: arrow_bytes"| Data
     Mesh e3@<-->|"[WIRE]: TessellateRequest"| Runtime
     Mesh e4@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
@@ -151,7 +149,7 @@ flowchart LR
     Data e8@-->|"[SHAPE]: PointRecordTable"| Scan
     Energy e9@-->|"[PORT]: RecipeInterface"| Runtime
     Energy e10@-->|"[BOUNDARY]: arrow_bytes"| Data
-    Graduation e11@-->|"[RECEIPT]: BenchmarkReceipt"| Runtime
+    Graduation e11@-->|"[RESULT]: Benchmark"| Runtime
     Runtime e12@-->|"[TRANSPORT]: ObjectStoreLane"| Mesh
     Mesh e13@-->|"[LEDGER]: FactJournal"| Data
     Graduation e14@-->|"[SHAPE]: Fact"| Runtime
@@ -181,7 +179,7 @@ Both `arrow_bytes` edges name the data-owned crossing: `EvidenceFrame` and the e
 
 `[LEDGER]` and `[SHAPE]: Fact` run one evidence spine in opposite directions: the servicer binds the data-tier `Ledger` implementer into the runtime port at composition, and every producing leg records back through that port's writer. Producing legs are awaitable by law, so a synchronous entrypoint reaches the plane through its own twin. `Resource.COMPUTE` charges once per crossing at the graduation weave's async close, and the IFC and mesh edges carry the mutation, storage, and request evidence their own folds own.
 
-`BenchmarkReceipt` carries the whole bench observability contract on one rail: the `Bench.run` measurement leg, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope. `Kernel` carries the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`; the lane conduit's pickled pulse tap rides it, so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain.
+Runtime `Benchmark` carries the measured window returned by `Bench.run`; `bench_terminal` adds the `JobRun.bounded` process-terminal envelope without re-shaping it. `Kernel` carries the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`; the lane conduit's pickled pulse tap rides it, so `GeometryPulse` beats reach the runtime `Hooks` registry through the parent-side drain.
 
 ## [04]-[INTERNAL]
 
@@ -197,13 +195,13 @@ config:
 ---
 flowchart LR
     accTitle: Geometry producer interior spine
-    accDescr: Which lane carries a producer body and how its evidence reaches the weave before the receipt crosses outward.
+    accDescr: Which lane carries a producer body and how its result returns through runtime observation.
     Intake([producer entry]) e1@--> Floor{floor gate}
     Floor e2@-->|"runtime lane: pure spine"| Fold[[owner fold]]
     Floor e3@-->|"worker lane: HOSTILE kernel"| Kernel[[compiled band]]
     Kernel e4@-->|"sealed evidence"| Fold
-    Fold e5@-->|"GeometryHandoff"| Weave[evidence_run weave]
-    Weave e6@-->|"GraduationReceipt"| Out([outward graduation])
+    Fold e5@-->|"domain result"| Weave[evidence_run]
+    Weave e6@-->|"RuntimeRail[T]"| Out([caller])
     Kernel f1@-.->|"fault: BoundaryFault"| Weave
 ```
 

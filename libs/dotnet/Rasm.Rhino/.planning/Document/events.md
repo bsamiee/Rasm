@@ -1,13 +1,13 @@
 # [RASM_RHINO_EVENTS]
 
-`DocumentStream` owns observation from raw host and filesystem callbacks: detached facts, nonblocking delivery, bounded loss evidence, retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains delivery and release outcomes under one identity — its journal is the kernel bounded ring, so a receipt storm sheds against a declared cap and every loss reads as a number. `RhinoPoint` names every detached stream as `rasm.rhino.<domain>.<point>` realizing the kernel `IHookRoster`, `MountRegistry` owns name-addressed discovery and first-mount-wins custody over the kernel `HookMounts` seat table, and `RhinoInstruments` declares the contributed rows. `LifecycleGate`, `Subscription`, and the idle pump live at `Document/lifetime.md`; release composes kernel `Custody`.
+`DocumentStream` owns observation from raw host and filesystem callbacks: detached facts, nonblocking delivery, bounded loss evidence, retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains delivery and release outcomes under one identity — its journal is the kernel bounded ring, so a fact storm sheds against a declared cap and every loss reads as a number. `RhinoPoint` names every detached stream as `rasm.rhino.<domain>.<point>` realizing the kernel `IHookRoster`, `MountRegistry` owns name-addressed discovery and first-mount-wins custody over the kernel `HookMounts` seat table, and `RhinoInstruments` declares the contributed rows. `LifecycleGate`, `Subscription`, and the idle pump live at `Document/lifetime.md`; release composes kernel `Custody`.
 
 ## [01]-[INDEX]
 
 - [02]-[FAMILY]: `EventFamily` binds host callbacks, cadence, and projection as data.
 - [03]-[PAYLOAD]: `EventPayload` and `DocEvent` carry detached callback evidence.
-- [04]-[DELIVERY]: `Delivery`, `StreamBodyKind`, `StreamSlot`, and `ReceiptPolicy` close bounded delivery and loss evidence over the kernel ring.
-- [05]-[STREAM_OWNER]: `DocumentStream`, `Watch`, and `CommitSink` own admission, attachment, delivery, the sealed-commit contributor registry consuming `OPLOG_ENTRY`, and release.
+- [04]-[DELIVERY]: `Delivery`, `StreamBodyKind`, `StreamSlot`, and `StreamPolicy` close bounded delivery and loss facts over the kernel ring.
+- [05]-[STREAM_OWNER]: `DocumentStream` and `Watch` own admission, attachment, delivery, and release.
 - [06]-[HOOK_REGISTRY]: `RhinoPoint` and `MountRegistry` close point addressing, host-truth modality over the kernel roster floor, mount custody, and multi-plugin arbitration over the kernel `HookMounts`.
 - [07]-[TELEMETRY_TAP]: `RhinoInstruments` declares the contributed instrument rows and the string-scoped port.
 
@@ -19,7 +19,7 @@
 - Law: a bracketed host pair is one family — `Transform` binds `BeforeTransformObjects` and `AfterTransformObjects` under one `CorrelationWindow` keyed on the host `TransformEventId` both sides publish, so the closing arm resolves the opening arm's `DocKey` and every scope that delivers a start delivers its matching end; the payload case, never the family, discriminates start from end.
 - Law: the correlation window rides an atom with snapshot-guarded steps and its verdict rides the transition — a contended retain answers `Contended` and the caller DELIVERS, because deduplication is an optimization and a correctness gate that dropped a fact under contention would trade a duplicate for a loss.
 - Law: table projections detach transition, index, and prior/current component evidence; later live resolution re-enters through document identity.
-- Law: callback projection faults and sink faults remain disjoint receipts, and no verdict is silently lost — a projection fault rides `reject` into the journal as `CallbackFault`, a delivery fault posts at the emission's own arm as `SinkFault`, and the handler's terminal discard reads a verdict the journal already holds, because a host event handler returns `void` and the journal row is the only record that can leave it.
+- Law: callback projection faults and sink faults remain disjoint journal rows, and no verdict is silently lost — a projection fault rides `reject` into the journal as `CallbackFault`, a delivery fault posts at the emission's own arm as `SinkFault`, and the handler's terminal discard reads a verdict the journal already holds, because a host event handler returns `void` and the journal row is the only record that can leave it.
 - Law: `Cadence.Admits` answers the rail — `PerFrame` refuses a non-dropping delivery with `DocumentFault.Cadence` naming the family, so an admission failure carries which family demanded frame cadence rather than a bare boolean a caller re-rails.
 - Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery; a new stream refusal is one `DocumentFault` case and one offset row inside the band's span.
 
@@ -289,7 +289,7 @@ public sealed partial class EventFamily {
     [UseDelegateFromConstructor]
     internal partial Fin<Subscription> Bind(
         EventScope scope,
-        ReceiptJournal journal,
+        StreamJournal journal,
         Func<Option<DocKey>, EventPayload, Fin<Unit>> deliver,
         Action<Error> reject);
 
@@ -298,7 +298,7 @@ public sealed partial class EventFamily {
             .ToFin(Fail: key.OrDefault().InvalidInput())
             .Map(active => toSeq(Items).Filter(family => family.Band == active));
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
         Func<object?, TArgs, EventScope, Option<(Option<DocKey> Key, EventPayload Payload)>> project) where TArgs : EventArgs =>
@@ -307,7 +307,7 @@ public sealed partial class EventFamily {
             unsubscribe: unsubscribe,
             project: (sender, args, scope) => Fin.Succ(value: project(arg1: sender, arg2: args, arg3: scope)));
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
         Func<object?, TArgs, EventScope, Fin<Option<(Option<DocKey> Key, EventPayload Payload)>>> project) where TArgs : EventArgs =>
@@ -327,13 +327,13 @@ public sealed partial class EventFamily {
             return Subscription.Attach(subscribe: subscribe, unsubscribe: unsubscribe, handler: handler);
         };
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Signal(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Signal(
         Action<EventHandler<DocumentEventArgs>> subscribe,
         Action<EventHandler<DocumentEventArgs>> unsubscribe) =>
         On(subscribe: subscribe, unsubscribe: unsubscribe, project: static (_, a, scope) =>
             Gate(serial: a.DocumentSerialNumber, scope: scope, payload: new EventPayload.Signal()));
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Table<TArgs>(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Table<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
         TableKind kind,
@@ -352,7 +352,7 @@ public sealed partial class EventFamily {
                     Previous: change.Carries.Admits(TransitionEvidence.Previous) ? previous(arg: args) : Option<ComponentState>.None,
                     Current: change.Carries.Admits(TransitionEvidence.Current) ? current(arg: args) : Option<ComponentState>.None))));
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Render(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Render(
         Action<EventHandler<RhinoDoc.RenderContentTableEventArgs>> subscribe,
         Action<EventHandler<RhinoDoc.RenderContentTableEventArgs>> unsubscribe,
         TableKind kind) =>
@@ -366,7 +366,7 @@ public sealed partial class EventFamily {
                         ? RenderAssignment.Of(assignment)
                         : Option<RenderAssignment>.None))));
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> ViewFact(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> ViewFact(
         Action<EventHandler<ViewEventArgs>> subscribe,
         Action<EventHandler<ViewEventArgs>> unsubscribe) =>
         On(subscribe: subscribe, unsubscribe: unsubscribe, project: static (_, a, scope) => Optional(a.View).Bind(view =>
@@ -375,7 +375,7 @@ public sealed partial class EventFamily {
                 MainViewportId: view.MainViewport.Id,
                 Kind: view is RhinoPageView ? ViewKind.Page : ViewKind.Model))));
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> DrawFact<TArgs>(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> DrawFact<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
         Func<TArgs, Option<(Guid Id, uint Serial)>>? subject = null) where TArgs : DrawEventArgs =>
@@ -386,7 +386,7 @@ public sealed partial class EventFamily {
                 ViewSerial: Optional(viewport.ParentView).Map(static view => view.RuntimeSerialNumber),
                 Object: subject is null ? Option<(Guid Id, uint Serial)>.None : subject(arg: a)))));
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> ProjectionFact(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> ProjectionFact(
         Action<EventHandler<DrawEventArgs>> subscribe,
         Action<EventHandler<DrawEventArgs>> unsubscribe,
         Func<EventFamily> family) =>
@@ -403,7 +403,7 @@ public sealed partial class EventFamily {
                 })))(scope, journal, deliver, reject);
         };
 
-    private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Bracketed<TOpen, TClose>(
+    private static Func<EventScope, StreamJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> Bracketed<TOpen, TClose>(
         Action<EventHandler<TOpen>> subscribeOpen,
         Action<EventHandler<TOpen>> unsubscribeOpen,
         Action<EventHandler<TClose>> subscribeClose,
@@ -428,7 +428,7 @@ public sealed partial class EventFamily {
                         .Bind(key => Gate(key: key, scope: watched, payload: close(arg: args))))(scope, journal, deliver, reject)));
         };
 
-    private static Unit Cleared(ReceiptJournal journal, Func<EventFamily> family, CorrelationMove move) =>
+    private static Unit Cleared(StreamJournal journal, Func<EventFamily> family, CorrelationMove move) =>
         move is CorrelationMove.Advanced advanced && advanced.Cleared > 0
             ? journal.Post(slot: StreamSlot.CorrelationReset, body: new StreamBody.Reset(Family: family(), Cleared: advanced.Cleared))
             : unit;
@@ -537,14 +537,13 @@ public sealed partial class EventFamily {
 
 ## [03]-[PAYLOAD]
 
-- Owner: `EventPayload` owns detached callback evidence, while `DocEvent` adds source identity and the optional document key; `TransitionEvidence` is the capability vocabulary a component transition carries; `CommitSink` owns the host's ONE contributor registry over sealed-commit facts.
+- Owner: `EventPayload` owns detached callback evidence, while `DocEvent` adds source identity and the optional document key; `TransitionEvidence` is the capability vocabulary a component transition carries.
 - Law: every reference-like host member projects inside its callback into stable identity, value, transition, or component evidence.
 - Law: an absent active document remains a typed transition; `TransformStarted` and `TransformEnded` both carry the host `TransformEventId`, so a consumer joins the bracket on that id without retaining either callback's arrays.
 - Law: name-keyed transition vocabularies admit host enums generically and fail unknown host values on the typed rail.
 - Law: a transition's evidence is a SET, not a bool pair — `Carries` names which of prior and current a transition publishes, the four corners are all real rows (`Added` carries current alone, `Deleted` prior alone, `Modified` both, `Sorted` neither), so the law is open and the projection reads set algebra rather than two parallel columns.
 - Law: component presence is a CASE, never a flag — `ComponentState.Present` and `Deleted` each carry the name column the host read for that state (`Name` against `DeletedName`), so the discriminant that chose the host member is the case a consumer matches; a view's kind is a `ViewKind` row for the same reason.
 - Law: `EventPayload.ObjectIds` defaults to no object contribution, and contributing cases override that projection; `DocEvent` delegates without an empty-arm dispatch ladder.
-- Law: `EventPayload.Sealed` carries one commit record's mutation roster as `SealedMutation` rows over the SAME `TableKind`/`ComponentTransition` vocabulary the `Component` case already spells, so a consumer folds both through one axis and the sealed case mints no parallel transition family.
 - Law: no intermediate envelope exists — the projection hands its key-and-payload pair straight to the delivery continuation and `DocEvent` is the ONE carrier adding origin; a second two-field record between them shadowed the kernel `EventEnvelope` inside a namespace whose prelude imports `Rasm.Domain` and carried nothing `DocEvent` does not.
 
 ```csharp
@@ -717,12 +716,7 @@ public abstract partial record EventPayload {
     }
     public sealed record Panel(Guid PanelId, PanelState State) : EventPayload;
     public sealed record Files(Seq<FileEdge> Edges, long Overflow) : EventPayload;
-    public sealed record Sealed(string Record, uint Serial, Seq<SealedMutation> Mutations) : EventPayload {
-        public override Seq<Guid> ObjectIds => Mutations.Map(static mutation => mutation.Id).Distinct();
-    }
 }
-
-public readonly record struct SealedMutation(TableKind Kind, Guid Id, ComponentTransition Transition);
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -730,26 +724,6 @@ public abstract partial record EventOrigin {
     private EventOrigin() { }
     public sealed record Host(EventFamily Family) : EventOrigin;
     public sealed record File(string WatchedPath) : EventOrigin;
-    public sealed record Commit(string Record) : EventOrigin;
-}
-
-public delegate Fin<Unit> CommitTap(DocKey Document, string Record, uint Serial, Seq<SealedMutation> Mutations);
-
-public static class CommitSink {
-    private static readonly Atom<Seq<CommitTap>> Taps = Atom(Seq<CommitTap>());
-
-    internal static void Add(CommitTap tap) => ignore(Taps.Swap(held => held.Add(value: tap)));
-    internal static void Remove(CommitTap tap) => ignore(Taps.Swap(held => held.Filter(row => !ReferenceEquals(objA: row, objB: tap))));
-
-    public static Func<TReceipt, Fin<TReceipt>> Sealing<TReceipt>(
-        DocKey document, string record, Func<TReceipt, (uint Serial, Seq<SealedMutation> Mutations)> read) =>
-        receipt => {
-            (uint serial, Seq<SealedMutation> mutations) = read(arg: receipt);
-            return Taps.Value
-                .Traverse(tap => tap(document, record, serial, mutations))
-                .As()
-                .Map(_ => receipt);
-        };
 }
 
 public readonly record struct DocEvent(EventOrigin Origin, Option<DocKey> Key, EventPayload Payload) {
@@ -779,16 +753,16 @@ public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<
 
 ## [04]-[DELIVERY]
 
-- Owner: `Delivery` owns direct, idle-deferred, and paced modalities; `StreamLane` resolves paced channel construction from the admitted `ReceiptPolicy`; `StreamBodyKind` is the body-kind capability vocabulary; `StreamSlot` is the watch's consequence vocabulary conforming `IFactSlot<StreamBody, StreamBodyKind>` with `StreamBody` its closed body family answering its own kind; `ReceiptJournal` is the kernel bounded ring over those facts.
+- Owner: `Delivery` owns direct, idle-deferred, and paced modalities; `StreamLane` resolves paced channel construction from the admitted `StreamPolicy`; `StreamBodyKind` is the body-kind capability vocabulary; `StreamSlot` is the watch's consequence vocabulary with `StreamBody` its closed body family; `StreamJournal` is the kernel bounded ring holding those rows for one watch.
 - Law: host callbacks never park — each paced lane either accepts immediately or emits loss evidence through the channel callback and write result.
 - Law: channel continuations never execute synchronously on a producing host callback.
 - Law: bounded lanes close every nonblocking full-buffer mode; `Coalesced` preserves the queued head and latest arrival by evicting the newest buffered predecessor.
 - Law: frame cadence admits only bounded dropping lanes; unbounded accumulation is rejected before attachment.
-- Law: the receipt family CONFORMS to the folder's KINDED fact-stream contract — `StreamSlot : IFactSlot<StreamBody, StreamBodyKind>` names the consequence and its `Bodies` set column the kinds it emits, so the eleven former receipt cases that each restated the watch identity become slot-plus-body pairs and the `Watch` column deletes, because the journal already IS one watch's. Nine opaque type-test predicates collapse into that column — the form the contract's own law names deleted — so admission prints through `Bodies.Wire` and greps by row.
+- Law: `StreamSlot.Bodies` names the body kinds each consequence admits, and `StreamJournal.Post` validates the pair before parking it. The journal already identifies one watch, so each row carries only its slot and body.
 - Law: one admission on this vocabulary is genuinely value-dependent and stays a clause rather than becoming a kind row — `FileOverflow` and `FileFault` emit the SAME `FileTrouble` body and split on whether its `Cause` carries the host error, a fact the case-keyed `Kind` fold cannot answer without holding a second authority over the value.
-- Law: the journal is the kernel `Ring<T>` — capacity, oldest-first eviction, and the shed counter are that owner's, so the hand overflow accounting, the synthesized overflow row, and the `JournalOverflow` case all delete; a reader reads `Shed` and `Lost` beside `Receipts` as numbers.
+- Law: the journal is the kernel `Ring<T>` — capacity, oldest-first eviction, and the shed counter are that owner's, so the hand overflow accounting, the synthesized overflow row, and the `JournalOverflow` case all delete; a reader reads `Shed` and `Lost` beside `Facts` as numbers, and the app root's `rasm.rhino.stream.loss` tap counts the same `PacedLoss` posts by lane and loss kind.
 - Law: a fault body carries the typed `Error`, never a rendered detail string — the four `string Detail` columns delete, because the `Error` in hand at every posting site survives classification, code reads, and the monoid where a message does not.
-- Law: `ReceiptPolicy` owns named operational and maximum rows; generated admission rejects nonpositive values, individual ceiling breaches, and aggregate overcommit.
+- Law: `StreamPolicy` owns named operational and maximum rows; generated admission rejects nonpositive values, individual ceiling breaches, and aggregate overcommit.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -819,10 +793,10 @@ public sealed partial class StreamLane {
     public bool Dropping { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Channel<DocEvent> Open(ReceiptPolicy policy, Action<StreamLoss, DocEvent> lost);
+    internal partial Channel<DocEvent> Open(StreamPolicy policy, Action<StreamLoss, DocEvent> lost);
 
-    private static Func<ReceiptPolicy, Action<StreamLoss, DocEvent>, Channel<DocEvent>> Bounded(
-        Func<ReceiptPolicy, int> capacity,
+    private static Func<StreamPolicy, Action<StreamLoss, DocEvent>, Channel<DocEvent>> Bounded(
+        Func<StreamPolicy, int> capacity,
         BoundedChannelFullMode mode,
         StreamLoss loss) =>
         (policy, lost) => Channel.CreateBounded<DocEvent>(
@@ -859,7 +833,7 @@ public sealed partial class StreamBodyKind : ICapability<StreamBodyKind> {
 }
 
 [SmartEnum<int>]
-public sealed partial class StreamSlot : IFactSlot<StreamBody, StreamBodyKind> {
+public sealed partial class StreamSlot {
     private static readonly CapabilitySet<StreamBodyKind> Overrun = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Shed);
     private static readonly CapabilitySet<StreamBodyKind> Discarded = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Dropped);
     private static readonly CapabilitySet<StreamBodyKind> Errored = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Faulted);
@@ -883,11 +857,10 @@ public sealed partial class StreamSlot : IFactSlot<StreamBody, StreamBodyKind> {
         Bodies.Admits(capability: body.Kind)
         && (this != FileFault || body is StreamBody.FileTrouble { Cause.IsSome: true });
 
-    bool IFactSlot<StreamBody>.Admits(StreamBody body) => Admits(body: body);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record StreamBody : IFactBody<StreamBodyKind> {
+public abstract partial record StreamBody {
     private StreamBody() { }
     public sealed record Shed(StreamLane Lane, StreamLoss Loss, EventOrigin Origin) : StreamBody;
     public sealed record Dropped(EventOrigin Origin) : StreamBody;
@@ -912,30 +885,30 @@ public readonly partial struct WatchKey {
 }
 
 [ComplexValueObject]
-public sealed partial class ReceiptPolicy {
-    private static readonly (int Lane, int Receipt, int Deferred, int File, int Correlation) OperationalValues = (
+public sealed partial class StreamPolicy {
+    private static readonly (int Lane, int Journal, int Deferred, int File, int Correlation) OperationalValues = (
         Lane: 256,
-        Receipt: 4_096,
+        Journal: 4_096,
         Deferred: 512,
         File: 512,
         Correlation: 2_048);
-    private static readonly (int Lane, int Receipt, int Deferred, int File, int Correlation, long Total) CapacityLimits = (
+    private static readonly (int Lane, int Journal, int Deferred, int File, int Correlation, long Total) CapacityLimits = (
         Lane: 4_096,
-        Receipt: 16_384,
+        Journal: 16_384,
         Deferred: 4_096,
         File: 4_096,
         Correlation: 8_192,
         Total: 24_576L);
 
     public int LaneCapacity { get; }
-    public int ReceiptCapacity { get; }
+    public int JournalCapacity { get; }
     public int DeferredCapacity { get; }
     public int FileCapacity { get; }
     public int CorrelationCapacity { get; }
 
-    public static ReceiptPolicy Operational { get; } = Create(
+    public static StreamPolicy Operational { get; } = Create(
         laneCapacity: OperationalValues.Lane,
-        receiptCapacity: OperationalValues.Receipt,
+        journalCapacity: OperationalValues.Journal,
         deferredCapacity: OperationalValues.Deferred,
         fileCapacity: OperationalValues.File,
         correlationCapacity: OperationalValues.Correlation);
@@ -944,13 +917,13 @@ public sealed partial class ReceiptPolicy {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref int laneCapacity,
-        ref int receiptCapacity,
+        ref int journalCapacity,
         ref int deferredCapacity,
         ref int fileCapacity,
         ref int correlationCapacity) {
         Seq<(int Value, int Maximum)> capacities = Seq(
             (Value: laneCapacity, Maximum: CapacityLimits.Lane),
-            (Value: receiptCapacity, Maximum: CapacityLimits.Receipt),
+            (Value: journalCapacity, Maximum: CapacityLimits.Journal),
             (Value: deferredCapacity, Maximum: CapacityLimits.Deferred),
             (Value: fileCapacity, Maximum: CapacityLimits.File),
             (Value: correlationCapacity, Maximum: CapacityLimits.Correlation));
@@ -961,44 +934,44 @@ public sealed partial class ReceiptPolicy {
             : new ValidationError(message: "Observation capacities exceed their positive per-capacity or aggregate bounds.");
     }
 
-    public static Fin<ReceiptPolicy> Of(
+    public static Fin<StreamPolicy> Of(
         int laneCapacity,
-        int receiptCapacity,
+        int journalCapacity,
         int deferredCapacity,
         int fileCapacity,
         int correlationCapacity,
         Op key) =>
-        key.AcceptValidated<ReceiptPolicy>(
+        key.AcceptValidated<StreamPolicy>(
             fault: Validate(
                 laneCapacity,
-                receiptCapacity,
+                journalCapacity,
                 deferredCapacity,
                 fileCapacity,
                 correlationCapacity,
-                out ReceiptPolicy? admitted),
+                out StreamPolicy? admitted),
             admitted: admitted);
 }
 
-internal sealed class ReceiptJournal {
-    private readonly Ring<Fact<StreamSlot, StreamBody>> ring;
+internal sealed class StreamJournal {
+    private readonly Ring<(StreamSlot Slot, StreamBody Body)> ring;
 
-    internal ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
+    internal StreamJournal(WatchKey watch, StreamPolicy policy) {
         Watch = watch;
         Policy = policy;
-        ring = new Ring<Fact<StreamSlot, StreamBody>>(cap: Rasm.Numerics.Dimension.Create(value: policy.ReceiptCapacity));
+        ring = new Ring<(StreamSlot Slot, StreamBody Body)>(cap: Rasm.Numerics.Dimension.Create(value: policy.JournalCapacity));
     }
 
     internal WatchKey Watch { get; }
-    internal ReceiptPolicy Policy { get; }
-    internal Seq<Fact<StreamSlot, StreamBody>> Receipts => ring.Parked;
+    internal StreamPolicy Policy { get; }
+    internal Seq<(StreamSlot Slot, StreamBody Body)> Facts => ring.Parked;
     internal long Shed => ring.Shed;
     internal long Lost => ring.Lost;
 
     internal Unit Post(StreamSlot slot, StreamBody body) => ignore(ring.Park(item: slot.Admits(body: body)
-        ? new Fact<StreamSlot, StreamBody>(Slot: slot, Body: body)
-        : new Fact<StreamSlot, StreamBody>(
+        ? (Slot: slot, Body: body)
+        : (
             Slot: StreamSlot.SinkFault,
-            Body: new StreamBody.Faulted(Origin: None, Cause: Op.Of(name: nameof(ReceiptJournal)).InvalidInput()))));
+            Body: new StreamBody.Faulted(Origin: None, Cause: Op.Of(name: nameof(StreamJournal)).InvalidInput()))));
 
     internal SubscriptionRelease Faults(SubscriptionRelease release) {
         _ = release is SubscriptionRelease.Faulted faulted
@@ -1012,13 +985,9 @@ internal sealed class ReceiptJournal {
 
 ## [05]-[STREAM_OWNER]
 
-- Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting; `CommitSink` owns the host's ONE contributor registry over sealed-commit facts and the `Sealing` projection `DocumentCommit.Sealed` composes.
+- Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting.
 - Law: every source, delivery, policy, and source-specific value admits before the first attachment; sequential attachment rolls back the accumulated prefix on failure.
-- Law: sealed-commit facts enter through `CommitSink.Sealing`, composed as the `Document/tables#TRANSACTION_RAIL` railed `project` continuation, so publication runs inside the undo bracket after the serial stamp and a tap refusing the change rolls the record back; a tap spelled beside `DocumentCommit.Sealed` publishes a record the seal then discards. `Observation.Commit` admits `Delivery.Inline` alone, because a deferred or paced arm returns success before any subscriber saw the fact and forfeits exactly that rollback.
-- Law: `CommitSink` is a NAMED consumer of the estate's `OPLOG_ENTRY` contract and never a producer of the message envelope carrying it — a contributor projects a sealed commit onto that contract at the durable owner, which mints the CloudEvents announcement through the one branch message envelope algebra, so this host publishes host facts and the durable owner publishes the fact's crossing. A message envelope minted here would announce from a process whose serials no peer replays.
-- Law: the contributor registry is PROCESS-STATIC by host law, not by convenience — RhinoCommon's document tables and undo stack are process singletons, so a per-composition registry inside one `Rhino.exe` gives two co-resident plugins a partial view each of one document's commits; the divergence from the per-composition registry law host-free packages obey is a decision this row states rather than an oversight.
-- Law: sealed facts cross in HOST vocabulary — `TableKind`, component identity, `ComponentTransition`, and the undo serial — carrying no operation identity, no clock, and no lane. This boundary references `Rasm` alone, holds no store origin slot and no observed frontier, and an identity minted here is a coordinate two hosts collide on; the store owning the origin mints it at the seam and maps these rows onto its own lanes. Serials stay host-local evidence, since no peer replays another host's undo stack.
-- Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, receipts each fault, and retains each failed owner for a later close attempt.
+- Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, journals each fault as `DetachFault`, and retains each failed owner for a later close attempt.
 - Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody with one settled result atomically; concurrent callers join that result.
 - Law: an empty subscription closes as `Released(0)`; `Open` denotes only unclaimed live custody.
 - Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation; the reentrancy guard answers a VERDICT — absence is a suppressed recursive delivery — and the emission posts its own suppression and sink-fault evidence, so the guard stays journal-free.
@@ -1042,26 +1011,22 @@ public abstract partial record Observation {
         EventScope Scope,
         Seq<EventFamily> Families,
         Delivery Delivery,
-        ReceiptPolicy Receipts) : Observation;
+        StreamPolicy Policy) : Observation;
     public sealed record File(
         string Path,
         TimeSpan Debounce,
         TimeProvider Clock,
         Delivery Delivery,
-        ReceiptPolicy Receipts) : Observation;
-    public sealed record Commit(
-        EventScope Scope,
-        Delivery Delivery,
-        ReceiptPolicy Receipts) : Observation;
+        StreamPolicy Policy) : Observation;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class Watch : IDisposable {
     private readonly Lock gate = new();
-    private readonly ReceiptJournal journal;
+    private readonly StreamJournal journal;
     private WatchClosure closure;
 
-    internal Watch(Subscription subscription, Emission emission, ReceiptJournal journal) {
+    internal Watch(Subscription subscription, Emission emission, StreamJournal journal) {
         this.journal = journal;
         closure = new WatchClosure.Ready(
             Subscription: subscription,
@@ -1071,7 +1036,7 @@ public sealed class Watch : IDisposable {
     }
 
     public WatchKey Key => journal.Watch;
-    public Seq<Fact<StreamSlot, StreamBody>> Receipts => journal.Receipts;
+    public Seq<(StreamSlot Slot, StreamBody Body)> Facts => journal.Facts;
     public long Shed => journal.Shed;
     public long Lost => journal.Lost;
     public Option<ChannelReader<DocEvent>> Reader { get; }
@@ -1140,7 +1105,7 @@ public sealed class Watch : IDisposable {
 internal sealed class Emission {
     private static readonly Op EmitKey = Op.Of(name: nameof(Emission));
     private readonly Delivery delivery;
-    private readonly ReceiptJournal journal;
+    private readonly StreamJournal journal;
     private readonly Reentrancy gate = new();
     private readonly Option<Channel<DocEvent>> channel;
     private readonly Option<IdlePump<EventOrigin>> idle;
@@ -1148,7 +1113,7 @@ internal sealed class Emission {
 
     private Emission(
         Delivery delivery,
-        ReceiptJournal journal,
+        StreamJournal journal,
         Option<Channel<DocEvent>> channel,
         Option<IdlePump<EventOrigin>> idle) {
         this.delivery = delivery;
@@ -1160,7 +1125,7 @@ internal sealed class Emission {
     internal Option<ChannelReader<DocEvent>> Reader => channel.Map(static value => value.Reader);
     private bool IsActive => active.Value;
 
-    internal static Fin<Emission> Open(Delivery delivery, ReceiptJournal journal, Op key) =>
+    internal static Fin<Emission> Open(Delivery delivery, StreamJournal journal, Op key) =>
         key.Need(delivery).Bind(mode => mode.Switch(
             (Journal: journal, Op: key),
             inline: static (state, arm) => state.Op.Need(arm.Sink)
@@ -1242,30 +1207,7 @@ public static class DocumentStream {
         return op.Need(request).Bind(active => active.Switch(
             op,
             host: static (key, observation) => ObserveHost(request: observation, key: key),
-            file: static (key, observation) => ObserveFile(request: observation, key: key),
-            commit: static (key, observation) => ObserveCommit(request: observation, key: key)));
-    }
-
-    private static Fin<Watch> ObserveCommit(Observation.Commit request, Op key) =>
-        from scope in key.Need(request.Scope)
-        from delivery in key.Need(request.Delivery)
-        from _ in guard(delivery is Delivery.Inline, key.Unsupported(inputType: typeof(Observation.Commit), outputType: typeof(Delivery))).ToFin()
-        from watch in Mount(
-            delivery: delivery,
-            policy: request.Receipts,
-            attach: (emission, _) => AttachCommit(scope: scope, emission: emission),
-            key: key)
-        select watch;
-
-    private static Fin<Subscription> AttachCommit(EventScope scope, Emission emission) {
-        CommitTap handler = (document, record, serial, mutations) =>
-            scope.Switch(document, document: static (key, arm) => arm.Key == key, anyDocument: static (_, _) => true)
-                ? emission.Emit(fact: new DocEvent(
-                    Origin: new EventOrigin.Commit(Record: record),
-                    Key: Some(document),
-                    Payload: new EventPayload.Sealed(Record: record, Serial: serial, Mutations: mutations)))
-                : Fin.Succ(value: unit);
-        return Subscription.Attach(subscribe: CommitSink.Add, unsubscribe: CommitSink.Remove, handler: handler);
+            file: static (key, observation) => ObserveFile(request: observation, key: key)));
     }
 
     private static Fin<Watch> ObserveHost(Observation.Host request, Op key) =>
@@ -1279,18 +1221,18 @@ public static class DocumentStream {
         from _ in families.TraverseM(family => family.Cadence.Admits(delivery: delivery, family: family, key: key)).As()
         from watch in Mount(
             delivery: delivery,
-            policy: request.Receipts,
+            policy: request.Policy,
             attach: (emission, journal) => Attach(scope: scope, families: families, emission: emission, journal: journal),
             key: key)
         select watch;
 
     private static Fin<Watch> Mount(
         Delivery delivery,
-        ReceiptPolicy policy,
-        Func<Emission, ReceiptJournal, Fin<Subscription>> attach,
+        StreamPolicy policy,
+        Func<Emission, StreamJournal, Fin<Subscription>> attach,
         Op key) =>
         from bounds in key.Need(policy)
-        let journal = new ReceiptJournal(
+        let journal = new StreamJournal(
             watch: WatchKey.Create(value: Sequence.Swap(static held => held + 1L)),
             policy: bounds)
         from emission in Emission.Open(delivery: delivery, journal: journal, key: key)
@@ -1307,7 +1249,7 @@ public static class DocumentStream {
         EventScope scope,
         Seq<EventFamily> families,
         Emission emission,
-        ReceiptJournal journal) =>
+        StreamJournal journal) =>
         Subscription.AttachAll(families.Map(family => (Func<Fin<Subscription>>)(() => family.Bind(
             scope: scope,
             journal: journal,
@@ -1323,7 +1265,7 @@ public static class DocumentStream {
         from _ in guard(request.Debounce > TimeSpan.Zero, key.InvalidInput())
         from watch in Mount(
             delivery: request.Delivery,
-            policy: request.Receipts,
+            policy: request.Policy,
             attach: (emission, journal) => AttachFile(
                 path: path, debounce: request.Debounce, clock: clock, emission: emission, journal: journal, key: key),
             key: key)
@@ -1334,7 +1276,7 @@ public static class DocumentStream {
         TimeSpan debounce,
         TimeProvider clock,
         Emission emission,
-        ReceiptJournal journal,
+        StreamJournal journal,
         Op key) => key.Catch(() => {
             string fullPath = System.IO.Path.GetFullPath(path: path);
             string directory = System.IO.Path.GetDirectoryName(path: fullPath) ?? string.Empty;
@@ -1476,7 +1418,7 @@ Surface point census — display, objects, host, and render streams; each owning
 
 | [INDEX] | [POINT]                         | [PAYLOAD]     | [MODALITY]      | [OWNER_ENTRY]                                            |
 | :-----: | :------------------------------ | :------------ | :-------------- | :------------------------------------------------------- |
-|  [01]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe, veto   | `DisplayHooks.Mount` over `Pointers.Configure`           |
+|  [01]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe, veto   | `DisplayHooks.Mount` grants `PointerLease`                |
 |  [02]   | `rasm.rhino.display.widget`     | `WidgetFact`  | observe         | `DisplayHooks.Mount` over `WidgetHost.Of`                |
 |  [03]   | `rasm.rhino.display.cull`       | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Cull`             |
 |  [04]   | `rasm.rhino.display.drawobject` | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Suppress`         |
@@ -1501,7 +1443,7 @@ Veto and replay truth — the exact host member each non-observe row cites:
 |  [05]   | `rasm.rhino.objects.regrow`     | `CustomObjectGrips.NewGeometry` refusal                                                |
 |  [06]   | `rasm.rhino.hostui.panel`       | `PanelHost.Facts` latest-per-seat replay ledger, one row per (plugin, panel, document) |
 
-Gumball completion evidence is receipt-pull — `GumballReceipt` returns from `Gumballs.Configure` and no detached stream exists — so gumball earns no point row, and the pointer point already carries gumball occupancy per fact.
+`GumballRig` returns transform evidence directly from move and completion, while the pointer point carries gumball occupancy per fact.
 
 Process-global custody census — collision class, arbitration, and seat cardinality per surface; `fan` seats one row per plugin, `single` seats one process-wide owner later callers ride or fault against, `host` defers cardinality to a host-native mechanism:
 
@@ -1703,12 +1645,12 @@ public static class DocumentHooks {
 ## [07]-[TELEMETRY_TAP]
 
 - Owner: `RhinoInstruments` — the boundary's contributed instrument rows in the kernel `InstrumentSpec` shape and the string-scoped `TelemetryContributorPort` mint under scope `Rasm.Rhino`.
-- Cases: stream-loss counts off the `StreamSlot.PacedLoss` journal evidence by lane and loss kind; delivered document facts by band off each mounted watch; host exception and cloud-log observations off the two `HostTap.Mount` points.
+- Cases: stream-loss counts off the `StreamSlot.PacedLoss` journal posts by lane and loss kind; delivered document facts by band off each mounted watch; object callback and egress faults by site and code off `ObjectsTelemetry`; host exception and cloud-log observations off the two `HostTap.Mount` points; pointer submissions and rejections off the `PointerLease` counters; panel changes off `PanelHost.Facts`; content pulses and stream failures off `ContentStream`; marshal-seam durations off `MarshalLatency`; the document census levels off `DocumentCensus`; bench durations and allocations off `BenchEvidence`.
 - Entry: `RhinoInstruments.Telemetry(string version)` — the one contributor port an app composition merges by scope, its semconv coordinate the kernel `TelemetryIdentity.SchemaUrl` const the mint stamps; the plugin root materializes the rows over its own per-ALC factory meter through `InstrumentSet.Of`, and one custody per composition holds — either the port rides an app fan or the root materializes locally, never both.
-- Auto: writes ride observe taps composed at the plugin root — the loss counter's WRITER is the paced lane's shed arm (the `lost` callback posting `StreamSlot.PacedLoss`, which the tap folds by lane and loss dimension), the delivery sink feeds the band counter, and the host-tap points feed the two observation counters — so no stream, projection, or mount fence carries a meter call and the shed evidence is measured, never inferred.
+- Auto: writes ride observe taps composed at the plugin root — the loss counter's WRITER is the paced lane's shed arm (the `lost` callback posting `StreamSlot.PacedLoss`, which the tap folds by lane and loss dimension), the delivery sink feeds the band counter, and the host-tap points feed the two observation counters — so no stream, projection, or mount fence carries a meter call and the shed evidence is measured, never inferred; every other row's writer is likewise the producing owner's own hook fact or pulled level, dimensioned by the row's declared slots, so a row names only a dimension its source already carries.
 - Packages: `Rasm` (kernel signal capsule — `InstrumentSpec`, `TelemetryContributorPort`, and the `Sensitivity` taxonomy roster this port stamps whole), BCL inbox (`System.Diagnostics.Metrics`).
 - Growth: one measured boundary concern is one `InstrumentSpec` factory call here and one observe-tap write at the plugin root.
-- Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; instrument execution over these declarations is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner. The kernel `Sensitivity.Values` roster rides the port's `Classifications` column whole, so every value `Objects/authoring.md`'s four attach attributes stamp is rostered at composition and a value present at the producer and absent at the root refuses at admission instead of erasing at egress.
+- Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; this roster is the boundary's ONE instrument declaration, instrument execution over it is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner. The kernel `Sensitivity.Values` roster rides the port's `Classifications` column whole, so every value `Objects/authoring.md`'s four attach attributes stamp is rostered at composition and a value present at the producer and absent at the root refuses at admission instead of erasing at egress.
 
 ```csharp
 // --- [TABLES] --------------------------------------------------------------------------
@@ -1716,22 +1658,83 @@ public static class RhinoInstruments {
     public const string Scope = "Rasm.Rhino";
     public const string StreamLoss = "rasm.rhino.stream.loss";
     public const string DocumentEvents = "rasm.rhino.document.events";
+    public const string CallbackFaults = "rasm.rhino.objects.callback.faults";
+    public const string EgressFaults = "rasm.rhino.objects.egress.faults";
     public const string HostExceptions = "rasm.rhino.host.exceptions";
     public const string HostLogs = "rasm.rhino.host.logs";
+    public const string PointerSubmitted = "rasm.rhino.display.pointer.submitted";
+    public const string PointerRejected = "rasm.rhino.display.pointer.rejected";
+    public const string PanelChanges = "rasm.rhino.hostui.panel.facts";
+    public const string MarshalDuration = "rasm.rhino.hostui.marshal.duration";
+    public const string ContentPulses = "rasm.rhino.render.content.facts";
+    public const string ContentFailures = "rasm.rhino.render.content.failures";
+    public const string CensusObjects = "rasm.rhino.document.census.objects";
+    public const string CensusSpaces = "rasm.rhino.document.census.spaces";
+    public const string CensusLayers = "rasm.rhino.document.census.layers";
+    public const string CensusPlacements = "rasm.rhino.document.census.placements";
+    public const string CensusArchive = "rasm.rhino.document.census.archive.size";
+    public const string BenchDuration = "rasm.rhino.bench.duration";
+    public const string BenchAllocated = "rasm.rhino.bench.allocated";
 
     public const string LaneSlot = "lane";
     public const string LossSlot = "loss";
     public const string BandSlot = "band";
+    public const string SiteSlot = "site";
+    public const string CodeSlot = "code";
+    public const string SourceSlot = "source";
+    public const string LevelSlot = "level";
+    public const string ClassSlot = "class";
+    public const string PluginSlot = "plugin";
+    public const string PanelSlot = "panel";
+    public const string ChangeSlot = "change";
+    public const string DocumentSlot = "document";
+    public const string PulseSlot = "pulse";
+    public const string WorkSlot = "work";
+    public const string OutcomeSlot = "outcome";
+    public const string KindSlot = "kind";
+    public const string SpaceSlot = "space";
+    public const string OperationSlot = "operation";
+    public const string ScaleSlot = "scale";
 
     public static readonly Seq<InstrumentSpec> Rows = Seq(
         InstrumentSpec.Create(StreamLoss, InstrumentKind.Count, MeasureForm.Whole, "{fact}",
             "paced-lane facts shed by lane and loss kind", Seq(LaneSlot, LossSlot), None, None, None),
         InstrumentSpec.Create(DocumentEvents, InstrumentKind.Count, MeasureForm.Whole, "{event}",
             "delivered document facts by band", Seq(BandSlot), None, None, None),
+        InstrumentSpec.Create(CallbackFaults, InstrumentKind.Count, MeasureForm.Whole, "{fault}",
+            "host-callback faults published by site and code", Seq(SiteSlot, CodeSlot), None, None, None),
+        InstrumentSpec.Create(EgressFaults, InstrumentKind.Count, MeasureForm.Whole, "{fault}",
+            "telemetry egress sink faults drained by code", Seq(CodeSlot), None, None, None),
         InstrumentSpec.Create(HostExceptions, InstrumentKind.Count, MeasureForm.Whole, "{exception}",
-            "host exception reports observed through the host tap", Seq<string>(), None, None, None),
+            "host exception reports observed through the host tap", Seq(SiteSlot, SourceSlot), None, None, None),
         InstrumentSpec.Create(HostLogs, InstrumentKind.Count, MeasureForm.Whole, "{message}",
-            "host cloud-log messages observed through the host tap", Seq<string>(), None, None, None));
+            "host cloud-log messages observed through the host tap", Seq(LevelSlot, ClassSlot), None, None, None),
+        InstrumentSpec.Create(PointerSubmitted, InstrumentKind.Count, MeasureForm.Whole, "{fact}",
+            "viewport pointer facts submitted to the lease channel", Seq<string>(), None, None, None),
+        InstrumentSpec.Create(PointerRejected, InstrumentKind.Count, MeasureForm.Whole, "{fact}",
+            "viewport pointer facts the lease channel refused", Seq<string>(), None, None, None),
+        InstrumentSpec.Create(PanelChanges, InstrumentKind.Count, MeasureForm.Whole, "{fact}",
+            "panel lifecycle facts by plugin, panel, change, and document", Seq(PluginSlot, PanelSlot, ChangeSlot, DocumentSlot), None, None, None),
+        InstrumentSpec.Create(MarshalDuration, InstrumentKind.Distribution, MeasureForm.Real, "s",
+            "command-thread marshal latency by work, lane, and outcome", Seq(WorkSlot, LaneSlot, OutcomeSlot), None, None, None),
+        InstrumentSpec.Create(ContentPulses, InstrumentKind.Count, MeasureForm.Whole, "{fact}",
+            "render-content stream facts by pulse and document", Seq(PulseSlot, DocumentSlot), None, None, None),
+        InstrumentSpec.Create(ContentFailures, InstrumentKind.Count, MeasureForm.Whole, "{fault}",
+            "render-content stream failures by pulse", Seq(PulseSlot), None, None, None),
+        InstrumentSpec.Create(CensusObjects, InstrumentKind.Level, MeasureForm.Whole, "{object}",
+            "document objects by kind", Seq(KindSlot, DocumentSlot), None, None, None),
+        InstrumentSpec.Create(CensusSpaces, InstrumentKind.Level, MeasureForm.Whole, "{object}",
+            "document objects by space", Seq(SpaceSlot, DocumentSlot), None, None, None),
+        InstrumentSpec.Create(CensusLayers, InstrumentKind.Level, MeasureForm.Whole, "{layer}",
+            "document layer count", Seq(DocumentSlot), None, None, None),
+        InstrumentSpec.Create(CensusPlacements, InstrumentKind.Level, MeasureForm.Whole, "{placement}",
+            "block placements in the document", Seq(DocumentSlot), None, None, None),
+        InstrumentSpec.Create(CensusArchive, InstrumentKind.Level, MeasureForm.Whole, "By",
+            "on-disk archive size of the document", Seq(DocumentSlot), None, None, None),
+        InstrumentSpec.Create(BenchDuration, InstrumentKind.Distribution, MeasureForm.Real, "s",
+            "modeling bench duration by operation and input scale", Seq(OperationSlot, ScaleSlot), None, None, None),
+        InstrumentSpec.Create(BenchAllocated, InstrumentKind.Distribution, MeasureForm.Whole, "By",
+            "modeling bench allocation by operation and input scale", Seq(OperationSlot, ScaleSlot), None, None, None));
 
     public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: Scope, Version: version, Instruments: Rows, Classifications: Sensitivity.Values);
@@ -1742,7 +1745,6 @@ public static class RhinoInstruments {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

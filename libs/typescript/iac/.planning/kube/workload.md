@@ -477,7 +477,3 @@ class Workload extends Tier {
 
 export { Workload }
 ```
-
-## [06]-[RESEARCH]
-
-(none)

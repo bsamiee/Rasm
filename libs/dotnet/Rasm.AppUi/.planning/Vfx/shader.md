@@ -471,17 +471,16 @@ public sealed partial class PatternRow {
 
 ## [05]-[TILE_CACHE]
 
-- Owner: `PictureTileKey` the cache coordinate; `TileSubject` its typed addressing half; `TileCell` the recorded tile beside its cost; `TileOutcome` the admission verdict; `PictureTileHit` the product beside its receipt; `PictureTileCache` the plane's instance over the folder's one budgeted cache.
+- Owner: `PictureTileKey` the cache coordinate; `TileSubject` its typed addressing half; `TileCell` the recorded tile beside its cost; `TileOutcome` the admission verdict; `PictureTileCache` the plane's instance over the folder's one budgeted cache.
 - Cases: `TileSubject` = Pattern | Program; `TileOutcome` = reuse | admit | refuse.
 - Law: retention is the folder's ONE `Theme/assets#ASSET_CACHE` `BudgetedCache` under `RetentionPosture.Bound`, and the generation rides the KEY. A tile recorded under an earlier theme generation is addressed by a key no live caller mints, so a stale cell can never be replayed; the posture's floor then makes it the FIRST thing pressure releases and makes a cell at the live generation unreleasable, which is the RULINGS device-cache law read straight off the owner's row data.
-- Law: every path SEALS. `Tile` answers a hit carrying the rail beside the receipt rather than a rail carrying a hit, so a refused admission emits the same evidence a reuse and an admit do — the shape that used to fail silently, leaving the effect plane's one refusal invisible to the fan.
-- Entry: `public static Fin<PictureTileCache> Of(long ceilingBytes, IClock clock)` — the mint composition binds; `public PictureTileHit Tile(PictureTileKey key, SKRect cull, Func<SKCanvas, Fin<Unit>> record)` — the one admission-and-read; `public long Cycle()` — the theme-generation edge composition binds beside `AssetCache.Cycle`.
+- Law: every path publishes through the AppUi effect point before returning its shader or refusal, so a refused admission is as visible as a reuse or admit.
+- Entry: `public static Fin<PictureTileCache> Of(long ceilingBytes)` — the mint composition binds; `public Fin<SKShader> Tile(PictureTileKey key, SKRect cull, Func<SKCanvas, Fin<Unit>> record, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail, Op key)` — the one admission-and-read; `public long Cycle()` — the theme-generation edge composition binds beside `AssetCache.Cycle`.
 - Auto: a hatch pattern, a checker backplate, and a recorded wash all replay from one sealed op list instead of re-running their layout per frame; a tile projects to a shader through `SKPicture.ToShader`, so the same record serves a fill without a second raster; the owner's own admission path carries the probe, the build-on-miss, the least-touched pressure release, and the CAS loser releasing its own mint, so this plane spells none of them.
-- Receipt: `PictureTileReceipt` — key, generation, recorded bytes, resident bytes, outcome row, released count, strain flag, `Instant`; it crosses through `Diagnostics/evidence` `EvidenceMap.ToEvidence` onto the `Effect` case under the `tile` plane literal, whose `Flag` slot carries the strain and whose whole-number measure carries the resident total without formatting it into text.
 - Packages: SkiaSharp, NodaTime, LanguageExt.Core, Rasm (`Custody`, `Dimension`, `Op`), Thinktecture.Runtime.Extensions
 - Growth: a new tiled surface is one `TileSubject` case or one row on a roster it already names; zero new surface.
 - Boundary: a tile is a device-INDEPENDENT op list, not pixels, so one record serves every scale and a scale change re-plays rather than re-records — which is exactly why the cost measure is the op-list byte count and not a pixel area. A record exceeding the whole ceiling refuses at admission as `TileOversize` rather than retiring the table to seat one cell, and a ceiling admitting no record at all refuses at the mint as `BudgetExhausted`. The cache is the ONLY owner that disposes a `TileCell`; a caller holding a tile shader never releases it and never holds it past its own draw.
-- Boundary: NAMED LOSS — under the owner's generation floor the ceiling DEGRADES rather than refusing. When every live cell belongs to the current generation, pressure frees nothing and the incoming record seats over the bound, where the retired hand cache refused the admission instead. That is the owner's declared law and this plane consumes it rather than re-deciding it: the overshoot lasts one generation, drains at the next `Cycle`, and the receipt's strain flag publishes it so a board reads the breach the refusal used to name. `SKPicture.ToShader` retains the picture, so the pair is one cell releasing in ownership order, and the recorder rides `Custody.Bracket` so a record fold that never reaches `EndRecording` still releases its own scope.
+- Boundary: NAMED LOSS — under the owner's generation floor the ceiling DEGRADES rather than refusing. When every live cell belongs to the current generation, pressure frees nothing and the incoming record seats over the bound, where the retired hand cache refused the admission instead. That is the owner's declared law and this plane consumes it rather than re-deciding it: the overshoot lasts one generation, drains at the next `Cycle`, and the effect fact's strain flag publishes it so a board reads the breach the refusal used to name. `SKPicture.ToShader` retains the picture, so the pair is one cell releasing in ownership order, and the recorder rides `Custody.Bracket` so a record fold that never reaches `EndRecording` still releases its own scope.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -516,12 +515,6 @@ public sealed record TileCell(SKPicture Picture, SKShader Shader, long Bytes) : 
     }
 }
 
-public readonly record struct PictureTileHit(Fin<SKShader> Product, PictureTileReceipt Receipt);
-
-public readonly record struct PictureTileReceipt(
-    PictureTileKey Key, long Generation, long RecordedBytes, long ResidentBytes,
-    TileOutcome Outcome, int Evicted, bool Strained, Instant At);
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PictureTileCache : IDisposable {
     static readonly Op Tiling = Op.Of(name: "appui.tile.cache");
@@ -529,19 +522,18 @@ public sealed class PictureTileCache : IDisposable {
     readonly record struct Stamped(PictureTileKey At, long Generation);
 
     readonly BudgetedCache<Stamped, TileCell> cells;
-    readonly IClock clock;
     readonly long ceiling;
 
-    PictureTileCache(BudgetedCache<Stamped, TileCell> cells, long ceiling, IClock clock) =>
-        (this.cells, this.ceiling, this.clock) = (cells, ceiling, clock);
+    PictureTileCache(BudgetedCache<Stamped, TileCell> cells, long ceiling) =>
+        (this.cells, this.ceiling) = (cells, ceiling);
 
-    public static Fin<PictureTileCache> Of(long ceilingBytes, IClock clock) =>
+    public static Fin<PictureTileCache> Of(long ceilingBytes) =>
         BudgetedCache<Stamped, TileCell>.Of(
                 ceilingBytes, RetentionPosture.Bound,
                 static cell => cell.Bytes, static cell => cell.Dispose(),
                 (at, cost) => new EffectFault.TileOversize(at.At, at.Generation, cost, ceilingBytes), Tiling)
             .MapFail(_ => (Error)new EffectFault.BudgetExhausted(ceilingBytes))
-            .Map(lane => new PictureTileCache(lane, ceilingBytes, clock));
+            .Map(lane => new PictureTileCache(lane, ceilingBytes));
 
     public long Generation => cells.Generation;
 
@@ -549,25 +541,31 @@ public sealed class PictureTileCache : IDisposable {
 
     public long Cycle() => cells.Retire(static (_, _) => false, advance: true).Generation;
 
-    public PictureTileHit Tile(PictureTileKey key, SKRect cull, Func<SKCanvas, Fin<Unit>> record) {
+    public Fin<SKShader> Tile(
+        PictureTileKey key,
+        SKRect cull,
+        Func<SKCanvas, Fin<Unit>> record,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Op op) {
         TileCell? minted = null;
         Fin<TileCell> held = cells.Take(
             new Stamped(key, cells.Generation),
             () => Record(cull, record).Map(cell => minted = cell));
         CacheSweep sweep = cells.Seal();
-        return new PictureTileHit(
-            held.Map(static cell => cell.Shader),
-            new PictureTileReceipt(
-                Key: key,
-                Generation: sweep.Generation,
-                RecordedBytes: held.Match(Succ: static cell => cell.Bytes, Fail: static _ => 0L),
-                ResidentBytes: sweep.Bytes,
-                Outcome: held.Match(
-                    Succ: cell => ReferenceEquals(cell, minted) ? TileOutcome.Admit : TileOutcome.Reuse,
-                    Fail: static _ => TileOutcome.Refuse),
-                Evicted: sweep.Released,
-                Strained: sweep.Bytes > ceiling,
-                At: clock.GetCurrentInstant()));
+        TileOutcome outcome = held.Match(
+            Succ: cell => ReferenceEquals(cell, minted) ? TileOutcome.Admit : TileOutcome.Reuse,
+            Fail: static _ => TileOutcome.Refuse);
+        return rail.Fire(
+            at: AppUiPoint.Effect,
+            fact: new AppUiFact.Effect(
+                Plane: "tile",
+                Key: key.Key,
+                Outcome: outcome.Key,
+                Flag: sweep.Bytes > ceiling,
+                Count: (uint)sweep.Released,
+                Measure: new EffectMeasure.Whole(sweep.Bytes)),
+            key: op,
+            body: _ => held.Map(static cell => cell.Shader));
     }
 
     // --- [OPERATIONS] ------------------------------------------------------------------
@@ -595,8 +593,8 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: AppUi Vfx shader plane from closed roster to sealed tile receipt
-    accDescr: The closed SkSL roster compiling into the process catalog, the uniform frame binding through one slot vocabulary, the pattern roster seeding the path-effect family, and the tile cache composing the folder's budgeted cache into an evidence receipt.
+    accTitle: AppUi Vfx shader plane from closed roster to observed tile cache
+    accDescr: The closed SkSL roster compiles into the process catalog, the uniform frame binds through one slot vocabulary, the pattern roster seeds the path-effect family, and the tile cache publishes outcomes through the AppUi effect point.
     EffectRow --> SlotRow
     EffectRow --> EffectProgram
     EffectProgram --> EffectCatalog
@@ -609,8 +607,8 @@ flowchart LR
     TileSubject --> PictureTileKey
     PictureTileKey --> PictureTileCache
     PictureTileCache --> BudgetedCache
-    PictureTileCache --> PictureTileReceipt
-    PictureTileReceipt --> EvidenceMap
+    PictureTileCache --> AppUiFact
+    AppUiFact --> HookRail
 ```
 
 ## [06]-[RESEARCH]

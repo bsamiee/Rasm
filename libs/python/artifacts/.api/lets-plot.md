@@ -149,7 +149,7 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 
 [ENTRYPOINT_SCOPE]: in-process export
 
-`to_svg`/`to_png`/`to_pdf`/`to_html`/`as_dict`/`props` are instance methods on the plot object, mirrored on `SupPlotsSpec`, and `visualization/chart/export#EXPORT` `LP_RENDER` keys the serializers; `ggsave` is the module factory for format-by-extension file export. lets-plot ships no `to_jpeg` — the JPEG lane rasterizes the lets-plot SVG through the `vl-convert-python` resvg core, and `as_dict` is the receipt evidence.
+`to_svg`/`to_png`/`to_pdf`/`to_html`/`as_dict`/`props` are instance methods on the plot object, mirrored on `SupPlotsSpec`, and `visualization/chart/export#EXPORT` `LP_RENDER` keys the serializers; `ggsave` is the module factory for format-by-extension file export. JPEG egress rasterizes `to_svg()` bytes through the `vl-convert-python` resvg core; `as_dict()` returns the resolved plot specification.
 
 | [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                                             |
 | :-----: | :-------------------------------------------------------------------------- | :------------------------------------------------------- |
@@ -157,7 +157,7 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 |  [02]   | `to_png(path, scale=None, w=None, h=None, unit=None, dpi=None) -> str`      | render to PNG via `pillow` (file-like `path` -> bytes)   |
 |  [03]   | `to_pdf(path, scale=None, w=None, h=None, unit=None, dpi=None) -> str`      | render to PDF via `pillow` (file-like `path` -> bytes)   |
 |  [04]   | `to_html(path=None, iframe=None) -> str`                                    | render to HTML (file-like `path` -> bytes/`None`)        |
-|  [05]   | `as_dict() -> dict`                                                         | recursively-resolved plot-spec dict (receipt evidence)   |
+|  [05]   | `as_dict() -> dict`                                                         | recursively resolved plot-spec dict                     |
 |  [06]   | `props()` / `has_layers()` / `duplicate() -> PlotSpec`                      | spec-property map / layer probe / deep copy              |
 |  [07]   | `ggsave(plot, filename, *, path=None, iframe=True, scale=None, ...) -> str` | canonical multi-format file export (format by extension) |
 
@@ -177,10 +177,9 @@ Each `lets_plot.bistro` constructor returns a fully-assembled `PlotSpec` or `Sup
 - `pillow`(`.api/pillow.md`): `to_png`/`to_pdf` drive it as the in-process raster backend over the rendered SVG; SVG and HTML need no raster hop.
 - `vl-convert-python`(`.api/vl-convert-python.md`): the JPEG lane rasterizes the lets-plot SVG through its resvg core, since lets-plot exposes no `to_jpeg`.
 - `anyio`(`.api/anyio.md`): the native render rides `to_thread` under one `CapacityLimiter`, GIL-releasing off the runtime event loop.
-- `msgspec`(`.api/msgspec.md`): each render captures geom/stat-layer kinds, the mapped channels (read from `PlotSpec.as_dict`), the registered manual-palette values, active theme/flavor, output format, and byte length as a `Struct` visuals receipt, projected onto `core/receipt#RECEIPT` `ArtifactReceipt.Chart(key, engine, dialect, scale, theme, byte_len)` — engine the matched `ChartSpec.tag` `"lets_plot"`, dialect the `ExportFormat` value, scale/theme the `RenderPolicy` knobs.
-- `structlog`(`.api/structlog.md`) + `opentelemetry`(`.api/opentelemetry-api.md`): the receipt emits under one `structlog` event inside one span.
+- `structlog`(`.api/structlog.md`) + `opentelemetry`(`.api/opentelemetry-api.md`): each render binds engine, format, scale, theme, and byte length to one event and span.
 - `expression`(`.api/expression.md`): an export failure — a bad `path`, a raster format without `pillow`, a `geom_livemap` non-HTML request — folds onto the `Result` rail rather than raising into the producer.
-- `graphic/color/derive#DERIVE` + `visualization/chart/spec#CHART`: `DERIVE` `ColorReceipt.coords` threads the `Palette` through `scale_color_manual`/`scale_fill_manual` (lazily imported by `visualization/chart/export#EXPORT`) and the shared `hex_ramp` RGB-to-hex projection on `CHART`.
+- `graphic/color/derive#DERIVE` + `visualization/chart/spec#CHART`: `DERIVE` `derived color coordinates` threads the `Palette` through `scale_color_manual`/`scale_fill_manual` (lazily imported by `visualization/chart/export#EXPORT`) and the shared `hex_ramp` RGB-to-hex projection on `CHART`.
 - within-lib: `visualization/chart/export#EXPORT` `LP_RENDER` maps `ExportFormat -> method-name` and keys the `to_*` serializers, and `ChartSpec.LetsPlot(plot, palette)` on `visualization/chart/spec#CHART` carries the raw `PlotSpec` to the worker lane, detected by `type(engine).__module__.startswith("lets_plot")`.
 
 [LOCAL_ADMISSION]:

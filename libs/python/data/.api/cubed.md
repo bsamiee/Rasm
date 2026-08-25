@@ -41,7 +41,7 @@
 
 [CALLBACK_TELEMETRY]:
 - `Callback` subclasses observe `on_compute_start`/`on_compute_end`, `on_operation_start`/`on_operation_end`, and `on_task_end(TaskEndEvent)`.
-- `TaskEndEvent` carries `name`, `num_tasks`, `result`, `task_create_tstamp`, `function_start_tstamp`, `function_end_tstamp`, `task_result_tstamp`, `peak_measured_mem_start`, `peak_measured_mem_end` — the per-operation timing and measured peak-memory receipt fields.
+- `TaskEndEvent` carries `name`, `num_tasks`, `result`, `task_create_tstamp`, `function_start_tstamp`, `function_end_tstamp`, `task_result_tstamp`, `peak_measured_mem_start`, and `peak_measured_mem_end` as native execution measurements.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -102,7 +102,7 @@ Array-API creation factories; every factory accepts `chunks=` and `spec=` to bin
 - `executor_name` selects the backend — `single-threaded` (synchronous default), `threads`/`processes` (local), `dask`/`lithops`/`modal`/`coiled`/`ray`/`spark` (distributed), `raise-if-computes` (guard) — and `executor_options` passes backend kwargs.
 - `Array` implements the Python Array API, so NumPy/CuPy/xarray interop crosses through `asarray` and `__array_namespace__`; intermediate and output arrays write Zarr under `Spec.work_dir`.
 - `rechunk(min_mem=)` realigns chunk boundaries without recomputing values; `map_overlap(depth=, boundary=)` is the haloed-block primitive for stencil kernels `map_blocks` alone cannot express.
-- Memory budget and `TaskEndEvent` peak-memory and timing fields form the chunked-compute receipt; `measure_reserved_mem` calibrates `reserved_mem` per executor before a budgeted run.
+- `Materialization` retains the memory budget beside `TaskEndEvent` peak-memory and timing measurements; `measure_reserved_mem` calibrates `reserved_mem` per executor before a budgeted run.
 
 [STACKING]:
 - `zarr`(`.api/zarr.md`): `from_zarr`/`to_zarr` and `Spec.intermediate_store` read and write Zarr stores.
@@ -115,7 +115,7 @@ Array-API creation factories; every factory accepts `chunks=` and `spec=` to bin
 
 [LOCAL_ADMISSION]:
 - Array operations compose as a lazy graph under one `Spec` naming `work_dir`, `allowed_mem`, and executor; `compute` fires once at the graph boundary.
-- Cubed execution materializes to a Zarr store or an Arrow/xarray frame, the one crossing shape; substrate selection reads off the emitted receipt at the consumer.
+- Cubed execution materializes to a Zarr store or an Arrow/xarray frame; `Materialization` returns the caller-required budget and measured run facts directly.
 
 [RAIL_LAW]:
 - Package: `cubed`

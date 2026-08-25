@@ -2,7 +2,7 @@
 
 Rasm.AppHost mints one self-describing operation catalog for the suite: every canonical op surface contributes a typed `CapabilityDescriptor` carrying effect class, idempotency, cost model, and permission shape, the registry folds those rows into a shape-discriminated discovery surface, a command algebra wraps any invocation in commit-or-rollback over one composition-bound dispatch seam, a scoped grant broker meters admission against an object-set x op-class x classification x ceiling x window algebra, and one codegen surface emits identical command shapes for C#, TypeScript, and Python.
 
-This page DECLARES the dispatch vocabulary the executing strata compose: `SubscriptionPolicy` the observer cadence a reporting op admits, `Spec` the whole dispatch posture, `CommandBody` the compiled op request, and `DispatchReceipt` the decoded execution evidence. The spine holds no downward reference — Compute admission adopts this `Spec` whole onto its `ComputeIntent` and resolves the three posture KEYS the record carries through its own generated `Validate`/`TryGet` onto its `Fin` rail, and the intent record itself never crosses up. `WorkLane`, the `CostModel` cousins, `TenantContext`, `DegradationLevel`, `ReceiptSinkPort`, `InstrumentSet`, and `DataClassification` arrive settled, and no eighth port is minted.
+This page declares the dispatch vocabulary the executing strata compose: `SubscriptionPolicy` the observer cadence a reporting op admits, `Spec` the whole dispatch posture, `CommandBody` the compiled op request, and `DispatchResult` the decoded execution result. The spine holds no downward reference — Compute admission adopts this `Spec` whole onto its `ComputeIntent` and resolves the three posture keys the record carries through its own generated `Validate`/`TryGet` onto its `Fin` rail, and the intent record itself never crosses up. `WorkLane`, the `CostModel` cousins, `TenantContext`, `DegradationLevel`, `InstrumentSet`, and `DataClassification` arrive settled.
 
 ## [01]-[INDEX]
 
@@ -15,14 +15,13 @@ This page DECLARES the dispatch vocabulary the executing strata compose: `Subscr
 
 ## [02]-[DESCRIPTOR_AXIS]
 
-- Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary carrying its dedup-key regime as a column; `KeyRegime` `[SmartEnum<string>]` the four-row dedup-key vocabulary that column reads; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `MeterVector` the per-unit metering algebra every cost, ceiling, and balance rides; `SubscriptionPolicy` the observer-cadence record the progress column carries; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `ArgumentContract` the native-metadata or published-schema union; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
+- Owner: `EffectClass` `[SmartEnum<string>]` the effect taxonomy; `Idempotency` `[SmartEnum<string>]` the repeat-safety vocabulary carrying its dedup-key regime; `KeyRegime` `[SmartEnum<string>]` the dedup-key vocabulary that column reads; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `MeterVector` the per-unit metering algebra every cost, ceiling, and balance rides; `SubscriptionPolicy` the observer-cadence record the progress column carries; `CostModel` the per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `ArgumentContract` the native-metadata or published-schema union; `CapabilityDescriptor` the self-describing op row.
 - Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent — each naming its `KeyRegime`; 4 key regimes — intrinsic (repeat-safe with no key), supplied (the caller's dedup key), minted (a host-minted once key), absent (no dedup key exists); each cost-unit row carries its metering key and UCUM code; 3 named cadence rows — immediate, interactive, wire — over the same three-threshold carrier a caller composes freely.
 - Entry: `CapabilityDescriptor.Of(string surface, string op, ArgumentContract arguments, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Option<SubscriptionPolicy> progress, Func<CommandArguments, Fin<CommandBody>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor's argument contract and the `CommandBody` it compiles to; `Describe(IServiceCollection services, Seq<string> surfaces, params ReadOnlySpan<CapabilityDescriptor> rows)` admits one complete descriptor snapshot across every surface it names through the `Contributors` fan-in registration, so a peer spanning four surface keys replaces all four in one call and a surface named with no row retires whole.
 - Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; every native row carries its source-generated `JsonTypeInfo` and every externally published row carries the SDK's exact `JsonSchema`, with `ArgumentContract.Schema` as the one projection MCP reads; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; the `Progress` field is the op's progress-report admission and `COMMAND_ALGEBRA` seats it verbatim on the `Spec` progress column, where the executing stratum's `ProgressCell.Mint` reads it as the only leaf-mint gate — a `None` row structurally has no cell for its producer to advance, so an op that reports declares its cadence once at its projection instead of at each dispatch; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; observability spend rows derive their instrument units from `CostUnit.Ucum`; the `rasm.apphost.capability.roster` census projects off the frozen catalog's own surface index at `#DISCOVERY_FOLD` `CapabilityRegistry.Mount`, so `Describe` stays a registration fold carrying no measurement rail outward and a mid-composition snapshot never publishes a partial count.
-- Receipt: `DescriptorReceipt` — descriptor id, effect key, idempotency key, estimated cost vector, permission scope hash, `Instant`.
 - Packages: Rasm (kernel `ContentHash.Of`/`Hex`, `CanonicalWriter`), Microsoft.Extensions.AI.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Microsoft.ML.Tokenizers, BCL inbox
 - Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, permission, and progress admission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row carrying its UCUM code, a new cost shape one `CostModel` field, a new metering operation one `MeterVector` member, a new dedup posture one `KeyRegime` row the `Idempotency` column reads; zero new surface.
-- Boundary: `MeterVector` is the one metering algebra — a cost, a scope ceiling, a remaining balance, and a charged receipt vector are four readings of the same per-unit shape, so its subtraction floors each unit at zero and its sufficiency probe answers the offending unit, and a hand-folded per-unit arithmetic at any call site is the deleted form that let one vector read as spend at one end of a seam and as balance at the other; the descriptor is the suite's only op-metadata owner — argument schema included — so a per-op attribute scatter, a hand-kept command list, a schema resolver, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `CommandBody`, so the registry stays metadata and the execution stays on the one composition-bound dispatch seam; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` and the transport edge's `HopIdempotency` stay two typed owners and their row sets are NOT disjoint — `Idempotent`, `Keyed`, and `SingleShot` are spelled on both, so a name comparison discriminates nothing; the discriminant is twofold and both halves are readable from the value: this roster carries a `KeyRegime` column and the hop roster carries none, because a dedup key is an op-level fact three protocol surfaces read off the key (`CapabilityMatch`, `DescriptorPin`, the SDK client) while hop dedup is process-local and leaves through no wire, and the two exclusive rows fall out of that same regime — `NonIdempotent` is op-only because `KeyRegime.Absent` has no hop meaning, `MethodDerived` hop-only because HTTP-method safety names no key at all; `SubscriptionPolicy` declares here because the descriptor's progress column is the one seat a surface answers its reporting posture at, while the `Due` delivery predicate over a mark pair belongs to the stratum that owns the mark and lands there as an extension member — the cadence is the declaration and the delivery decision is the consumer's, so neither side re-derives the other; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals; the progress column carries no default so every projection answers it and each `None` states its ground at the row, because a defaulted column declares a reporting posture no surface chose and a cadence re-derived at dispatch fabricates the policy the owning surface withheld.
+- Boundary: `MeterVector` is the one metering algebra — a cost, a scope ceiling, a remaining balance, and a charged result vector are four readings of the same per-unit shape, so its subtraction floors each unit at zero and its sufficiency probe answers the offending unit, and a hand-folded per-unit arithmetic at any call site is the deleted form that let one vector read as spend at one end of a seam and as balance at the other; the descriptor is the suite's only op-metadata owner — argument schema included — so a per-op attribute scatter, a hand-kept command list, a schema resolver, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `CommandBody`, so the registry stays metadata and the execution stays on the one composition-bound dispatch seam; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` and the transport edge's `HopIdempotency` stay two typed owners and their row sets are NOT disjoint — `Idempotent`, `Keyed`, and `SingleShot` are spelled on both, so a name comparison discriminates nothing; the discriminant is twofold and both halves are readable from the value: this roster carries a `KeyRegime` column and the hop roster carries none, because a dedup key is an op-level fact three protocol surfaces read off the key (`CapabilityMatch`, `DescriptorPin`, the SDK client) while hop dedup is process-local and leaves through no wire, and the two exclusive rows fall out of that same regime — `NonIdempotent` is op-only because `KeyRegime.Absent` has no hop meaning, `MethodDerived` hop-only because HTTP-method safety names no key at all; `SubscriptionPolicy` declares here because the descriptor's progress column is the one seat a surface answers its reporting posture at, while the `Due` delivery predicate over a mark pair belongs to the stratum that owns the mark and lands there as an extension member — the cadence is the declaration and the delivery decision is the consumer's, so neither side re-derives the other; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals; the progress column carries no default so every projection answers it and each `None` states its ground at the row, because a defaulted column declares a reporting posture no surface chose and a cadence re-derived at dispatch fabricates the policy the owning surface withheld.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -162,17 +161,7 @@ public sealed record CapabilityDescriptor(
     public static CapabilityDescriptor Of(string surface, string op, ArgumentContract arguments, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Option<SubscriptionPolicy> progress, Func<CommandArguments, Fin<CommandBody>> compile) =>
         new($"{surface}.{op}", surface, arguments, effect, idempotency, cost, permission, progress, compile);
 
-    public DescriptorReceipt Receipt(CommandArguments arguments, Instant at) =>
-        new(Id, Effect.Key, Idempotency.Key, Cost.Estimate(arguments), Permission.ScopeHash, at);
 }
-
-public readonly record struct DescriptorReceipt(
-    string Descriptor,
-    string Effect,
-    string Idempotency,
-    MeterVector Estimated,
-    string ScopeHash,
-    Instant At);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DescriptorSurface {
@@ -233,9 +222,9 @@ public static class ModelProjection {
 
 - Owner: `CapabilityRegistry` the frozen descriptor catalog with the alternate-lookup probe and the roster-census mount; `DiscoveryQuery` `[Union]` the shape-discriminated query family; `CapabilityMatch` the interior matched-descriptor projection.
 - Cases: `ById(string Id)`, `BySurface(string Surface)`, `ByEffect(EffectClass Effect)`, `Permitting(DegradationLevel Level)`, `ByIntent(string Intent)`, `All` — one polymorphic discovery entrypoint discriminates on the query value, never a `GetById`/`GetBySurface`/`List` proliferation; `ByIntent` is the semantic arm — the embedding-rank delegate `Agent/reasoning#SEMANTIC_DISCOVERY` binds at composition ranks descriptors by intent similarity, and an unbound index answers empty rather than faulting.
-- Entry: `Discover(DiscoveryQuery query)` returns `Seq<CapabilityMatch>` — the single discovery operation folds the query case over the frozen catalog; `Resolve(string id)` returns `Option<CapabilityDescriptor>` through the ordinal alternate-lookup; `Mount(InstrumentSet set)` returns `Fin<Unit>` — the composition's roster proof, folding the frozen surface index onto the keyed `rasm.apphost.capability.roster` family after `InstrumentFan.Mount` has already proved every contributed board pack against that same set, so this leg carries the one descriptor claim a port cannot: a registry fan-in the mount fold never sees.
+- Entry: `Discover(DiscoveryQuery query)` returns `Seq<CapabilityMatch>` — the single discovery operation folds the query case over the frozen catalog; `Resolve(string id)` returns `Option<CapabilityDescriptor>` through the ordinal alternate-lookup; `Mount(InstrumentSet set)` returns `Fin<Unit>` — the composition's roster proof, folding the frozen surface index onto the keyed `rasm.apphost.capability.roster` family and carrying the descriptor claim a contributor port cannot: a registry fan-in the mount fold never sees.
 - Auto: the registry freezes the descriptor fan-in into one `FrozenDictionary<string, CapabilityDescriptor>` at composition and a `Lookup<string, CapabilityDescriptor>` index by surface so a surface query reads one bucket; `Permitting` folds the level's retained capability set against each descriptor's `EffectClass` so a degraded host advertises only the ops it can still serve, deleting a parallel per-level command list, and an `Irreversible` row carries the extra floor its class earns — no rollback restores the prior state, so a host that has shed anything in the write path stops advertising it while ordinary writes still serve; the roster census IS that surface index counted, so `Mount` writes each surface's count in one traversal and the pulled-gate refusal — an unmounted or scalar-mounted family — aborts on the first offending surface while the descriptor set is still editable, one mis-mounted family being the whole defect and a per-surface repetition of it burying the fact under itself; every entry keys on its surface because the column is required and the descriptor id interpolates it, so this family declares a key it always carries and the kernel's untagged arm stays unreachable here by construction.
-- Receipt: `CapabilityMatch` — descriptor id, surface, argument contract, typed effect/idempotency, empty-argument estimate, full cost-unit roster, and scope hash; it is an in-process registry view, never the generated peer-discovery contract.
+- Output: `CapabilityMatch` carries the descriptor id, surface, argument contract, typed effect and idempotency, empty-argument estimate, cost-unit set, and scope hash; it is an in-process registry view.
 - Packages: Rasm (kernel `InstrumentSet`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one query case absorbs a new discovery axis; a new index is one frozen projection over the catalog, never a second registry; a new roster dimension is one column on the census projection the one `Mount` write carries; zero new surface.
 - Boundary: the registry is read-only after the composition freeze — a runtime descriptor mutation is the deleted form, mirroring the composition-root `MakeReadOnly` law; the census homes here rather than at the admission fold because the count is a projection of the frozen catalog and never an accumulated cell — a per-`Describe` push publishes a mid-composition partial, forks the truth across the native and federated snapshot sites, and manufactures a measurement rail a registration fold structurally cannot carry outward; `Permitting` reads `DegradationLevel.Retains` as settled vocabulary and maps each `EffectClass` to its gating `Faculty` (write maps to `StoreWrite`, external to `RemoteCompute`, read to `StoreRead`) so discovery and the runtime degradation rail share one capability semantic; the discovery surface is the projection the MCP `tools/list`, the SDK codegen, and the dashboard command palette all read, so a new consumer reads the same fold and never re-enumerates the descriptor fan-in.
@@ -323,14 +312,14 @@ public sealed class CapabilityRegistry {
 
 ## [04]-[COMMAND_ALGEBRA]
 
-- Owner: `CommandBody` the compiled op request; `Spec` the whole dispatch posture, carrying the executing stratum's allocation, cache, and substrate vocabularies as their smart-enum KEYS; `DispatchReceipt` the decoded execution evidence; `CommandTxn` `[Union]` the transaction disposition; `CommandFault` `[Union]` fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.HostCommand`); `CommandReceipt` the per-command evidence record; `CommandAlgebra` the static commit-or-rollback surface threading a descriptor invocation through the grant broker, the in-process lane governor, and onto the one bound dispatch seam.
-- Cases: transaction dispositions Committed | RolledBack | Compensated | Refused; `CommandFault` = NotFound | GrantDenied | CompileRejected | ExecutionFaulted | CompensationFailed | MacroIncomplete | Vetoed | LaneRefused — `LaneRefused` the in-process governor's own refusal carried whole, `MacroIncomplete` the transcript-to-macro completeness refusal `Agent/reasoning#REPLAYABLE_TRANSCRIPT` mints when a tool call's exact receipt never joined, `Vetoed` the admission refusal `Agent/runtime#DISPATCH_FRONT_DOOR` mints through `Refuse` for a command the hook rail declined ahead of the transaction.
-- Entry: `Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments)` returns `IO<CommandReceipt>` — the algebra resolves the descriptor, brokers the grant, compiles the `CommandBody`, derives the `Spec` from the resolved row, hands the pair to the bound dispatch, and commits or rolls back; `Refuse(CommandRuntime runtime, string descriptorId, CommandFault fault, CommandArguments arguments)` returns `IO<CommandReceipt>` — the one mint for a disposition decided ahead of the transaction, so an admission gate's refusal rides the same message envelope and the same fan a dispatched command's does; `Batch(CommandRuntime runtime, Seq<(string Id, CommandArguments Args)> commands)` runs an all-or-nothing intent group folding each command's compensation in reverse on the first failure, each unwind re-priced off the original argument payload.
-- Auto: a reversible-effect command captures no compensation and the rollback is the absence of commit; an `EffectClass.Irreversible` command requires a compensation descriptor declared on the runtime and rolls forward through it, never a phantom undo; the dispatch lands through the ONE `CommandRuntime.Dispatch` seam the composition root binds — the root holds each executing stratum's reference and this algebra holds none, so the transaction boundary is this owner's while substrate selection and execution stay the stratum's, and a second dispatcher, a stratum type on this page's rail, or a federated arm beside the seam are three spellings of one deleted form; the `Spec` this algebra builds is DERIVED from the resolved row and carries no literal: its progress admission crosses verbatim, so the forward command and its compensation both dispatch under the reporting posture their descriptors declared and `ProgressCell.Mint` refuses a cell to every op that declared none, and that same admission selects the `WorkLane` — a declared posture is the long-running witness, so a streaming op takes the throughput lane and a silent one the interactive lane — with the `DeadlineClass` following from the lane through the `Runtime/laneguard#LANE_GUARD` `LaneClass` rank binding, so no op names a lane, no seat names a deadline, and a whole-model fold can no longer ride an interactive lane on a transport hop's budget; `Run` captures one `MonotonicStamp` off `ClockPolicy.Line` before descriptor resolution and every refusal, commit, rollback, and compensation receipt derives its span from that stamp through the timeline rather than a wall subtraction; every dispatch crosses `Runtime/laneguard#LANE_GUARD` `LaneGuard.Run` on the lane the posture already resolved, so admission, bulkhead, breaker, allotment, and re-drive bracket the work and the governor's `LaneFault` family answers as a structured `CommandTxn.Refused` observation — a resource refusal the transaction records without compensating work that never started; every disposition lowers its terminal error through `FaultWire.Observe` and mints one wire-safe `CommandReceipt` fanned through `ReceiptSinkPort.Send` under `TelemetrySource.AppHost` and `ReceiptKind.Command`, so admission counts and per-unit grant spend project off one message envelope with no live `Error` or message surrogate inside it; a charge is a draw against DELIVERED work — every non-committed settlement (compile refusal, lane refusal, rollback, compensation) returns its drawn vector through `GrantBroker.Refund` before the mint, so `Charged` reads the settled draw and the spend gauge never counts work the tenant never received, while the `Batch` unwind's `Refund` stays the return for committed-then-unwound steps.
-- Receipt: `CommandReceipt` — descriptor id, transaction disposition, settled charge vector (zero on every refunded non-committed arm), `DispatchReceipt` of the dispatched body, elapsed `Duration`, correlation id, tenant.
-- Packages: Rasm (kernel `MonotonicTimeline`, `ReceiptSinkPort`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Owner: `CommandBody` the compiled op request; `Spec` the whole dispatch posture, carrying the executing stratum's allocation, cache, and substrate vocabularies as their smart-enum keys; `DispatchResult` the decoded execution result; `CommandTxn` `[Union]` the transaction disposition; `CommandFault` `[Union]` the fault family riding the kernel `[FaultCase]`/`Fault` floor; `CommandResult` the canonical command result; `CommandAlgebra` the static commit-or-rollback surface threading a descriptor invocation through the grant broker, the in-process lane governor, and onto the one bound dispatch seam.
+- Cases: transaction dispositions Committed | RolledBack | Compensated | Refused; `CommandFault` = NotFound | GrantDenied | CompileRejected | ExecutionFaulted | CompensationFailed | MacroIncomplete | Vetoed | LaneRefused — `LaneRefused` the in-process governor's own refusal carried whole, `MacroIncomplete` the transcript-to-macro completeness refusal `Agent/reasoning#REPLAYABLE_TRANSCRIPT` mints when a tool call's exact result never joined, `Vetoed` the admission refusal `Agent/runtime#DISPATCH_FRONT_DOOR` mints through `Refuse` for a command the hook rail declined ahead of the transaction.
+- Entry: `Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments)` returns `IO<CommandResult>` — the algebra resolves the descriptor, brokers the grant, compiles the `CommandBody`, derives the `Spec` from the resolved row, hands the pair to the bound dispatch, and returns the settled transaction; `Refuse(CommandRuntime runtime, string descriptorId, CommandFault fault, CommandArguments arguments)` returns the same result shape for a disposition decided ahead of execution; `Batch(CommandRuntime runtime, Seq<(string Id, CommandArguments Args)> commands)` runs an all-or-nothing intent group folding each command's compensation in reverse on the first failure.
+- Auto: a reversible-effect command captures no compensation and the rollback is the absence of commit; an `EffectClass.Irreversible` command requires a compensation descriptor declared on the runtime and rolls forward through it; the dispatch lands through the one `CommandRuntime.Dispatch` seam the composition root binds; `Spec` derives from the resolved descriptor and carries its progress admission unchanged; `Run` captures one `MonotonicStamp` before descriptor resolution and every disposition derives its elapsed span from that timeline; `LaneGuard.Run` brackets every dispatch and returns a resource refusal as `CommandTxn.Refused`; `CommandResult` carries the settled fields every caller consumes, while `Agent/runtime#DISPATCH_FRONT_DOOR` writes admission and spend instruments directly from that result; every non-committed settlement returns its drawn vector through `GrantBroker.Refund`, so `Charged` reads the delivered spend.
+- Output: `CommandResult` — descriptor id, transaction disposition, settled charge vector (zero on every refunded non-committed arm), `DispatchResult` of the dispatched body, elapsed `Duration`, correlation id, tenant.
+- Packages: Rasm (kernel `MonotonicTimeline`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one transaction disposition is one `CommandTxn` case breaking every consumer arm; one fault is one `CommandFault` case; a new compensation strategy is one column on the descriptor runtime, never a second algebra; zero new surface.
-- Boundary: the command algebra is the only commit-or-rollback owner for op invocation — a per-op transaction helper and a hand-rolled saga loop are the deleted forms; the `Batch` group is an intent transaction, not a database transaction — durable atomicity stays the Persistence execution strategy and the algebra composes the command group, so the two transaction concerns never merge; the dispatch seam is a BOUND DELEGATE, not an imported entrypoint — the executing stratum's intent record, its admission gate, and its selection receipt all stay behind it while this spine declares the request and PORT-decodes the `DispatchReceipt`, so the spine holds no downward CLR reference and one `Spec` re-spelled at a consumer is the second deleted form; the allocation, cache, and substrate columns cross as their smart-enum KEYS because those three vocabularies belong to the stratum that executes — a typed column inverts the strata direction for a roster the consumer already holds, so the consumer admits each key through its own generated `Validate`/`TryGet` onto its `Fin` rail and carries the resolved rows on its admitted intent, an unknown key refusing at the one gate that can name it; the default posture keys spell once as constants on this record and a key literal repeated at a `Posture` arm is the deleted form, because the executing roster can retire a row without breaking a literal spelled anywhere else; the grant brokerage at `GRANT_BROKER` runs before compile so a denied command never compiles a `CommandBody` and never charges cost; the compensation runs under the same `CancelScope` the forward command derived, so a drain-interrupted rollback escalates through the conductor rather than orphaning; `CommandTxn.Compensated` carries the compensation's own receipt so the evidence stream records the roll-forward, never a silent swallow.
+- Boundary: the command algebra is the only commit-or-rollback owner for op invocation — a per-op transaction helper and a hand-rolled saga loop are the deleted forms; the `Batch` group is an intent transaction, not a database transaction — durable atomicity stays the Persistence execution strategy and the algebra composes the command group, so the two transaction concerns never merge; the dispatch seam is a BOUND DELEGATE, not an imported entrypoint — the executing stratum's intent record, its admission gate, and its selection result all stay behind it while this spine declares the request and PORT-decodes the `DispatchResult`, so the spine holds no downward CLR reference and one `Spec` re-spelled at a consumer is the second deleted form; the allocation, cache, and substrate columns cross as their smart-enum KEYS because those three vocabularies belong to the stratum that executes — a typed column inverts the strata direction for a roster the consumer already holds, so the consumer admits each key through its own generated `Validate`/`TryGet` onto its `Fin` rail and carries the resolved rows on its admitted intent, an unknown key refusing at the one gate that can name it; the default posture keys spell once as constants on this record and a key literal repeated at a `Posture` arm is the deleted form, because the executing roster can retire a row without breaking a literal spelled anywhere else; the grant brokerage at `GRANT_BROKER` runs before compile so a denied command never compiles a `CommandBody` and never charges cost; the compensation runs under the same `CancelScope` the forward command derived, so a drain-interrupted rollback escalates through the conductor rather than orphaning; `CommandTxn.Compensated` carries the compensation's own result directly.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -353,15 +342,15 @@ public sealed record Spec(
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CommandTxn {
     private CommandTxn() { }
-    public sealed record Committed(DispatchReceipt Dispatch) : CommandTxn;
+    public sealed record Committed(DispatchResult Dispatch) : CommandTxn;
     public sealed record RolledBack(Rasm.Contracts.Fault.FaultObservation Reason) : CommandTxn;
     public sealed record Compensated(
         Rasm.Contracts.Fault.FaultObservation Reason,
-        DispatchReceipt Compensation) : CommandTxn;
+        DispatchResult Compensation) : CommandTxn;
     public sealed record Refused(Rasm.Contracts.Fault.FaultObservation Fault) : CommandTxn;
 
     public static CommandTxn Reverted(Error reason) => new RolledBack(FaultWire.Observe(reason));
-    public static CommandTxn Recovered(Error reason, DispatchReceipt compensation) =>
+    public static CommandTxn Recovered(Error reason, DispatchResult compensation) =>
         new Compensated(FaultWire.Observe(reason), compensation);
     public static CommandTxn Rejected(Error fault) => new Refused(FaultWire.Observe(fault));
 }
@@ -408,9 +397,9 @@ public abstract partial record CommandFault : Fault {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct DispatchReceipt(string Executor, string Selection, Duration Elapsed);
+public readonly record struct DispatchResult(string Executor, string Selection, Duration Elapsed);
 
-public sealed record CommandReceipt(
+public sealed record CommandResult(
     string Descriptor,
     CommandTxn Txn,
     MeterVector Charged,
@@ -418,50 +407,48 @@ public sealed record CommandReceipt(
     CorrelationId Correlation,
     TenantContext Tenant,
     Instant At,
-    Option<DispatchReceipt> Dispatch = default);
+    Option<DispatchResult> Dispatch = default);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record CommandRuntime(
     CapabilityRegistry Registry,
     GrantBroker Broker,
     LaneGuard.Runtime Lanes,
-    Func<CommandBody, Spec, CommandArguments, IO<Fin<DispatchReceipt>>> Dispatch,
+    Func<CommandBody, Spec, CommandArguments, IO<Fin<DispatchResult>>> Dispatch,
     Func<string, Option<string>> CompensationOf,
     ClockPolicy Clocks,
-    ReceiptSinkPort Sink,
-    JsonSerializerOptions Wire,
     CancelScope Spine);
 
 public static class CommandAlgebra {
-    public static IO<CommandReceipt> Refuse(CommandRuntime runtime, string descriptorId, CommandFault fault, CommandArguments arguments) =>
+    public static IO<CommandResult> Refuse(CommandRuntime runtime, string descriptorId, CommandFault fault, CommandArguments arguments) =>
         from mark in Marked(runtime)
-        from receipt in Mint(runtime, descriptorId, CommandTxn.Rejected(fault), MeterVector.Zero, None, arguments, mark)
-        select receipt;
+        from result in Mint(runtime, descriptorId, CommandTxn.Rejected(fault), MeterVector.Zero, None, arguments, mark)
+        select result;
 
-    public static IO<CommandReceipt> Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments) =>
+    public static IO<CommandResult> Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments) =>
         from mark in Marked(runtime)
-        from receipt in runtime.Registry.Resolve(descriptorId).Match(
+        from result in runtime.Registry.Resolve(descriptorId).Match(
             Some: descriptor => Brokered(runtime, descriptor, arguments, mark),
             None: () => Mint(runtime, descriptorId, CommandTxn.Rejected(new CommandFault.NotFound(descriptorId)), MeterVector.Zero, None, arguments, mark))
-        select receipt;
+        select result;
 
     static IO<MonotonicStamp> Marked(CommandRuntime runtime) =>
         runtime.Clocks.Line.Capture().Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>);
 
-    static IO<CommandReceipt> Brokered(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, MonotonicStamp mark) =>
+    static IO<CommandResult> Brokered(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, MonotonicStamp mark) =>
         runtime.Broker.Admit(descriptor, arguments, DrawMode.Live).Match(
             Succ: charged => Dispatch(runtime, descriptor, arguments, charged, mark),
             Fail: fault => Mint(runtime, descriptor.Id,
                 CommandTxn.Rejected(new CommandFault.GrantDenied(fault.Message, fault)),
                 MeterVector.Zero, None, arguments, mark));
 
-    static IO<CommandReceipt> Dispatch(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, MeterVector charged, MonotonicStamp mark) =>
+    static IO<CommandResult> Dispatch(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, MeterVector charged, MonotonicStamp mark) =>
         descriptor.Compile(arguments).Match(
             Succ: body => Posture(descriptor) switch {
                 var spec =>
                     from dispatched in Governed(runtime, spec, body, arguments)
                     from txn in dispatched.Match(
-                        Succ: receipt => IO.pure<CommandTxn>(new CommandTxn.Committed(receipt)),
+                        Succ: result => IO.pure<CommandTxn>(new CommandTxn.Committed(result)),
                         Fail: error => error is LaneFault refusal
                             ? IO.pure(CommandTxn.Rejected(new CommandFault.LaneRefused(refusal)))
                             : Compensate(runtime, descriptor, arguments, error))
@@ -478,10 +465,10 @@ public static class CommandAlgebra {
                     MeterVector.Zero, None, arguments, mark)
                 select minted);
 
-    static IO<Fin<DispatchReceipt>> Governed(CommandRuntime runtime, Spec spec, CommandBody body, CommandArguments arguments) =>
+    static IO<Fin<DispatchResult>> Governed(CommandRuntime runtime, Spec spec, CommandBody body, CommandArguments arguments) =>
         LaneGuard.Run(runtime.Lanes, spec.Lane, _ => runtime.Dispatch(body, spec, arguments))
             .Catch(static (Error error) => error is LaneFault,
-                   static (Error error) => IO.pure(Fin.Fail<DispatchReceipt>(error)));
+                   static (Error error) => IO.pure(Fin.Fail<DispatchResult>(error)));
 
     static IO<CommandTxn> Compensate(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, Error forward) =>
         descriptor.Effect.Reversible
@@ -490,44 +477,43 @@ public static class CommandAlgebra {
                 Some: compId => runtime.Registry.Resolve(compId).Match(
                     Some: comp => comp.Compile(arguments).Match(
                         Succ: body => runtime.Dispatch(body, Posture(comp), arguments).Map(done => done.Match(
-                            Succ: receipt => CommandTxn.Recovered(forward, receipt),
+                            Succ: result => CommandTxn.Recovered(forward, result),
                             Fail: error => CommandTxn.Rejected(new CommandFault.CompensationFailed(error.Message, error)))),
                         Fail: error => IO.pure(CommandTxn.Rejected(new CommandFault.CompensationFailed(error.Message, error)))),
                     None: () => IO.pure(CommandTxn.Rejected(new CommandFault.NotFound(compId)))),
                 None: () => IO.pure(CommandTxn.Rejected(new CommandFault.NotFound(descriptor.Id))));
 
-    public static IO<Seq<CommandReceipt>> Batch(CommandRuntime runtime, Seq<(string Id, CommandArguments Args)> commands) =>
-        commands.FoldM(Seq<(CommandReceipt Receipt, CommandArguments Args)>(), (acc, command) =>
-            Run(runtime, command.Id, command.Args).Bind(receipt =>
-                receipt.Txn is CommandTxn.Committed
-                    ? IO.pure(acc.Add((receipt, command.Args)))
-                    : Unwind(runtime, acc).Map(unwound => unwound.Add((receipt, command.Args)))))
-            .Map(static rows => rows.Map(static row => row.Receipt)).As();
+    public static IO<Seq<CommandResult>> Batch(CommandRuntime runtime, Seq<(string Id, CommandArguments Args)> commands) =>
+        commands.FoldM(Seq<(CommandResult Result, CommandArguments Args)>(), (acc, command) =>
+            Run(runtime, command.Id, command.Args).Bind(result =>
+                result.Txn is CommandTxn.Committed
+                    ? IO.pure(acc.Add((result, command.Args)))
+                    : Unwind(runtime, acc).Map(unwound => unwound.Add((result, command.Args)))))
+            .Map(static rows => rows.Map(static row => row.Result)).As();
 
-    static IO<Seq<(CommandReceipt Receipt, CommandArguments Args)>> Unwind(CommandRuntime runtime, Seq<(CommandReceipt Receipt, CommandArguments Args)> committed) =>
+    static IO<Seq<(CommandResult Result, CommandArguments Args)>> Unwind(CommandRuntime runtime, Seq<(CommandResult Result, CommandArguments Args)> committed) =>
         committed.Rev().TraverseM(step =>
-            runtime.CompensationOf(step.Receipt.Descriptor).Match(
+            runtime.CompensationOf(step.Result.Descriptor).Match(
                 Some: compId => Run(runtime, compId, step.Args).Map(done => (done, step.Args)),
-                None: () => IO.pure((step.Receipt, step.Args)))).As();
+                None: () => IO.pure((step.Result, step.Args)))).As();
 
     static Spec Posture(CapabilityDescriptor descriptor) =>
         (descriptor.Progress.IsSome ? WorkLane.Background : WorkLane.Interactive) switch {
             var lane => new(lane.Attempt, lane, Spec.PooledAllocation, Spec.BypassCache, Progress: descriptor.Progress),
         };
 
-    static Option<DispatchReceipt> Dispatched(CommandTxn txn) => txn switch {
+    static Option<DispatchResult> Dispatched(CommandTxn txn) => txn switch {
         CommandTxn.Committed c => Some(c.Dispatch),
         CommandTxn.Compensated c => Some(c.Compensation),
         _ => None,
     };
 
-    static IO<CommandReceipt> Mint(CommandRuntime runtime, string descriptor, CommandTxn txn, MeterVector charged, Option<DispatchReceipt> dispatch, CommandArguments arguments, MonotonicStamp mark) =>
+    static IO<CommandResult> Mint(CommandRuntime runtime, string descriptor, CommandTxn txn, MeterVector charged, Option<DispatchResult> dispatch, CommandArguments arguments, MonotonicStamp mark) =>
         from settled in Marked(runtime)
         from span in runtime.Clocks.Line.Elapsed(mark, settled).Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>)
-        let at = runtime.Clocks.Now
-        let receipt = new CommandReceipt(descriptor, txn, charged, Duration.FromTimeSpan(span), arguments.Correlation, arguments.Tenant, at, dispatch)
-        from _ in runtime.Sink.Send(arguments.Correlation, arguments.Tenant, TelemetrySource.AppHost, ReceiptKind.Command.Key, JsonSerializer.SerializeToElement(receipt, runtime.Wire))
-        select receipt;
+        select new CommandResult(
+            descriptor, txn, charged, Duration.FromTimeSpan(span),
+            arguments.Correlation, arguments.Tenant, runtime.Clocks.Now, dispatch);
 }
 ```
 
@@ -556,10 +542,10 @@ flowchart LR
 
 - Owner: `GrantScope` the object-set × op-class × classification × cost-ceiling × time-window scope record; `Consent` `[Union]` the holder's standing disposition, which IS the scope resolution; `DrawMode` `[SmartEnum<string>]` the two-row draw posture replacing a `dryRun` thread; `Flow` `[SmartEnum<string>]` the metering sign, carrying its balance fold, sufficiency gate, store arrow, and unmetered seed as delegate columns; `Budget` the per-tenant scope-and-balance cell; `DistributedBudget` the cross-process fenced-store seam the broker opens, debits, and credits a durable per-tenant balance through; `GrantFault` `[Union]` fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Grant`); `GrantBroker` the admission-and-metering surface over one `Move` fold.
 - Cases: consent dispositions Granted | Elevated | Denied | Expired; draw postures Live | Priced; metering signs Debit | Credit; `GrantFault` = OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired | Fenced | Contended.
-- Law: the metered vector is REMAINING BALANCE per unit on both rails and never cumulative spend — sufficiency is `remaining >= cost`, decided inside the store's atomic vector compare-and-decrement on the fenced rail and against the cell's own vector on the local one, so no ceiling crosses a debit and `CeilingExceeded` names the unit the draw overdraws; spend is the DERIVED reading `Ceiling - Remaining` and is stored nowhere, while `rasm.apphost.grant.spend.<unit>` keeps its producer per command off `CommandReceipt.Charged`; the ceiling's one write-side role is GRANTING a scope's opening balance at `Open`, which makes a scope's ceiling the complete roster of units its commands may meter — a unit the ceiling omits carries a zero balance and refuses on first draw, at the store exactly as here.
+- Law: the metered vector is REMAINING BALANCE per unit on both rails and never cumulative spend — sufficiency is `remaining >= cost`, decided inside the store's atomic vector compare-and-decrement on the fenced rail and against the cell's own vector on the local one, so no ceiling crosses a debit and `CeilingExceeded` names the unit the draw overdraws; spend is the DERIVED reading `Ceiling - Remaining` and is stored nowhere, while `rasm.apphost.grant.spend.<unit>` keeps its producer per command off `CommandResult.Charged`; the ceiling's one write-side role is GRANTING a scope's opening balance at `Open`, which makes a scope's ceiling the complete roster of units its commands may meter — a unit the ceiling omits carries a zero balance and refuses on first draw, at the store exactly as here.
 - Entry: `Open(GrantScope scope)` returns `Fin<MeterVector>` — the ONE seeding entry, taken by the surface that mints a `Granted` or `Elevated` disposition and by every window renewal: it credits the scope's ceiling onto the ledger through the one `Move` fold under `Flow.Credit`, whose `ON CONFLICT` establishes an absent unit row on the fenced rail and whose zero seed makes a fresh tenant's grant exactly one allowance; `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, DrawMode mode)` returns `Fin<MeterVector>` — the broker folds the holder's `Consent` to a `GrantScope` (a granted or elevated disposition yields its scope, a denied one the `ConsentRequired` refusal, an expired one the `WindowClosed` refusal, so the disposition family is the resolution rather than a vocabulary nothing reads), evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, and moves the price under `Flow.Debit` at the caller's posture; `Simulate(CapabilityRegistry registry, Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<MeterVector>)>` — the pre-flight resolves EACH step's own descriptor and runs the identical decision-and-pricing fold at `DrawMode.Priced` against the live balance without drawing on it, so a mixed plan prices every row against the row's own cost model; `Refund(TenantContext tenant, MeterVector charged)` returns `Fin<MeterVector>` — the compensating return, `Flow.Credit` over the same `Move` fold, resolving no consent and evaluating no ceiling because a scope that closed between the charge and the unwind must never strand the tenant's balance; `ConsentOf` is a composition-bound resolver, not a free column — the root binds it from `Agent/identity#POLICY_GATE` `Consent.Of(principal, roster)` so the one validated `Principal` this suite mints is what resolves a disposition, and a broker constructed without it is unspellable.
 - Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; `DrawMode.Priced` decides and prices but never moves the balance, so the pre-flight and the live charge share ONE body and differ by exactly one generated arm; sufficiency is ONE predicate over ONE vector, `MeterVector.Shortfall` reading the draw against the remaining balance and naming the first offending unit ordinally, so a command inside its call balance but over its bytes-egress balance is denied on bytes-egress; the SIGN is a `Flow` row rather than a member pair — balance fold, sufficiency gate, store arrow, and unmetered seed are four columns, so a charge, an opening grant, and a saga return are three callers of one `Move` and a third sign lands as one row; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live move rides `Flow.Arrow` under the coordination `BudgetDebit`/`BudgetCredit` one-field vector fenced compare-and-decrement (`WHERE token >= held AND balance_i >= debit_i ∀i`), so every unit's sufficiency executes INSIDE the one atomic store write and a tenant's allowance holds fleet-wide per unit because two nodes presenting fresh tokens cannot both overshoot any unit; the generation each fenced write presents is the `BudgetToken` tenant-scoped read, the one generation source the `Wire/outbox#DISPATCH_SWEEP` watermark advance also composes rather than minting a second; this host gates sufficiency outside the fenced write ONLY at `DrawMode.Priced`, which prices off the vector the last fenced write itself ANSWERED and falls back to the `BudgetLoad` read only for a tenant this process has not yet written, because a fresh read beside a write that already reported its balance separates neither staleness from concurrency — so the live gate is always the atomic store-side check and a stale-token debit fails `Fenced`; the ledger seat is one bounded `Cell.Commit` whose `Contended` verdict REFUSES rather than reporting a balance no write recorded; with no seam bound the process ledger IS the whole meter, its miss seeding from `Flow.Seed` — the resolved ceiling for a draw, zero for a credit — so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
-- Receipt: the broker's charge is the `CommandReceipt.Charged` vector the command algebra carries; the decision rides the consent transition's one `SpineLog` event inside the `FaultBand.SpineEvents` stride — no parallel grant receipt.
+- Output: the broker's charge is the `CommandResult.Charged` vector the command algebra carries; the decision rides the consent transition's one `SpineLog` event inside the `FaultBand.SpineEvents` stride — no parallel grant result.
 - Packages: Rasm (kernel `Cell.Commit`/`Transition`, `Dimension`), LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one consent disposition is one `Consent` case; one scope dimension is one `GrantScope` column beside one `PermissionShape` field the `Covers` fold reads; a new metered resource rides the `CostUnit` axis already and a new balance operation lands on `MeterVector` at `DESCRIPTOR_AXIS`; a new draw posture is one `DrawMode` row and a new metering sign one `Flow` row with its four columns, neither adding a member; cross-process metering is the one `DistributedBudget` seam whose `Credit` arrow carries the opening grant and the compensating return alike, never a second meter; zero new surface.
 - Boundary: the broker is the suite's only permission-and-cost owner — a per-op permission check, an ambient role flag, a second cost meter, and a quota service beside `GrantBroker` are the deleted forms; the broker owns permission, cost, consent, balance, and window as one fold, reading the descriptor's declared `PermissionShape` and never re-deriving the op's effect; the `GrantScope` keys by `TenantContext.TenantId` so a multi-tenant host meters each tenant's balance independently against one broker, never a per-tenant broker instance; the cross-process quota is a Persistence ripple, not an AppHost owner — the `DistributedBudget` seam opens, debits, and credits under the STORE-validated fence — the `BudgetToken` read presents the store-issued generation and the store's row-CAS predicate is the authoritative reject-lower — so two nodes racing a debit cannot double-spend, and the durable per-tenant `Budget` cell and the fenced ledger land under the `TenantId` RLS predicate as the branch `ONE_FENCED_LEASE_STORE` Persistence leg, consumed at the seam and landing in parallel; a refund CAN land a balance above the resolved scope's ceiling and that reading is legal, because the ceiling bounds what an `Open` grants and never what a balance may hold — the one case that produces it is a refund whose scope narrowed after the charge, and returning it whole is what keeps the meter from swallowing budget the tenant spent, while the narrowed scope still refuses every draw its `Covers` fold excludes and its next `Open` grants only the smaller allowance; the model-governance `Charge`, the plugin `GrantHandle` charge, and the operator call all debit against this one durable balance so a multi-node identity plane cannot let a tenant exceed its allowance N-fold, and the `Runtime/orchestration#STEP_EXECUTOR` saga unwind is `Refund`'s caller so every compensated step returns its own charged vector to the same ledger; `Consent.Elevated` is the consent-elevation path — a command the standing scope denies raises an elevation request the operator approves, landing a wider transient `GrantScope` with its own window and its own `Open`, never a standing privilege grant; the cost model integrates the live-metering identity-versus-quota seam at health-and-degradation, so an exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle.
@@ -742,10 +728,10 @@ public sealed record GrantBroker(
 - Auto: the pin addresses descriptor coordinates, policy, and cost-unit identity; runtime tool schemas never become a compatibility hash.
 - Auto: descriptor rows, cost-unit keys, and fields use ordinal or fixed order before the document is addressed.
 - Auto: `units` is the complete `CostModel.Units` roster, never the keys present in one estimate.
-- Receipt: `DescriptorPin` — the canonical document, its content address, and the pinned row count; `SdkArtifact` — target key, emitted source text, descriptor count, and the PIN's digest, because a digest computed over emitted source addresses the renderer rather than the contract and three targets then disagree on one catalog by construction.
+- Output: `DescriptorPin` — the canonical document, its content address, and the pinned row count; `SdkArtifact` — target key, emitted source text, descriptor count, and the PIN's digest, because a digest computed over emitted source addresses the renderer rather than the contract and three targets then disagree on one catalog by construction.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one target row absorbs a new language; a new call form is one renderer column on the row; a new pinned coordinate is one field on the canonical row the pin writes; zero new surface.
-- Boundary: generated contract packages own request and receipt wire shape; this renderer binds descriptor ids onto those generated types.
+- Boundary: generated contract packages own request and result wire shape; this renderer binds descriptor ids onto those generated types.
 - Boundary: peers grade the pin directly; generated source is a build artifact and never a descriptor owner.
 - Boundary: the `DescriptorPin` content address is compatibility evidence for the catalog alone — JSON Schema is MCP runtime metadata, never a hashed substitute for generated contract compatibility.
 
@@ -765,13 +751,13 @@ public sealed partial class SdkTarget {
     public partial string Render(CapabilityMatch descriptor);
 
     static string Csharp(CapabilityMatch d) =>
-        $"public IO<CommandReceipt> {Method(d)}(CommandArguments arguments) => CommandAlgebra.Run(runtime, \"{d.Descriptor}\", arguments);";
+        $"public IO<CommandResult> {Method(d)}(CommandArguments arguments) => CommandAlgebra.Run(runtime, \"{d.Descriptor}\", arguments);";
 
     static string Typescript(CapabilityMatch d) =>
-        $"{Method(d)}(args: CommandArguments): Promise<CommandReceipt> {{ return this.run(\"{d.Descriptor}\", args); }}";
+        $"{Method(d)}(args: CommandArguments): Promise<CommandResult> {{ return this.run(\"{d.Descriptor}\", args); }}";
 
     static string Python(CapabilityMatch d) =>
-        $"def {Method(d)}(self, args: CommandArguments) -> CommandReceipt: return self._run(\"{d.Descriptor}\", args)";
+        $"def {Method(d)}(self, args: CommandArguments) -> CommandResult: return self._run(\"{d.Descriptor}\", args)";
 
     static string Method(CapabilityMatch d) => d.Descriptor.Replace('.', '_');
 }
@@ -802,6 +788,7 @@ public sealed record DescriptorPin(string Document, string Digest, int Descripto
         }
         var document = bytes.ToArray();
         return new(Encoding.UTF8.GetString(document), ContentHash.Hex(ContentHash.Of(document)), rows.Count);
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -869,7 +856,6 @@ public static class CapabilityDiscovery {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

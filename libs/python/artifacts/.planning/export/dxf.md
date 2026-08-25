@@ -2,7 +2,6 @@
 
 `Dxf` owns the CAD-exchange editable hand-off — ONE owner over the closed `DxfOp` `tagged_union` — `New` authors a fresh document from a `DxfDocument` spec, `Read` ingests a conforming DXF, `Recover` salvages a damaged one, `Render` lowers a DXF figure into the composition/graphic plane over the in-process backend family, `Query` extracts an attribute/spatial sub-selection, `Transform` applies an affine, `Diagram` lowers a positioned `DiagramGlyph` sequence into regime-pen-layered native entities, `Bridge` crosses the DXF↔SVG↔GeoJSON↔glyph geometry wire — each arm a typed payload dispatched by one total `match` and folded ONCE into a `DxfComposed` evidence struct. `Dxf.of` is the ONE validated ingress, discriminating on input shape — a bare `DxfDocument` becomes `New`, a `DxfSource` becomes `Read`, a `DiagramLower` becomes `Diagram`, a `BridgeSpec` becomes `Bridge`, a `DxfOp` passes through — and refusing an empty ingestion source, a non-positive render/bridge scalar, degenerate spatial or bridge geometry, and an empty EQL selection into the closed `DxfFault` vocabulary before any worker runs. `ezdxf` (pure-Python, no interpreter gate) is the sole owner of the DXF R12→R2018 read/write/recover/render surface, so this owner re-implements no tag grammar, OCS/WCS transform, B-spline evaluator, or entity-to-SVG conversion.
 
-`RuntimeRail[ArtifactReceipt]` is the rail the `runtime/reliability/faults#FAULT` owner legislates: the fold crosses `self.lane.offload(Kernel.of(_composed, KernelTrait.RELEASING), self.op)`, provider raises become `BoundaryFault`, and `RegionFault` maps to the `dxf.region` boundary case before the receipt. `_key` mints `ContentKey` over the canonical op payload before the fold, so `receipt.slot == node.key`. `ezdxf` defers through module-scope `lazy` imports and stays thread-carried because `DxfComposed` and the rendering backends share the address space. `Render` lowers into composition PDF and region SVG consumers. `Bridge` crosses the region seam through `apply_region(RegionOp.Serialize(...))`. `New` composes `Standard.seed`. Every op emits one `ArtifactReceipt.Cad` through one `ArtifactWork` node.
 
 ## [01]-[INDEX]
 
@@ -14,9 +13,8 @@
 - Cases: `New` validates `DxfDocument.issue`, authors through `ezdxf.new`, composes optional `Standard.seed`, folds builders, and audits before egress. `Read` ingests conforming ASCII or binary DXF. `Recover` salvages damaged input and preserves auditor error/fix counts. `Render` selects SVG, PDF, PNG, EPS, PS, JSON, or GeoJSON backends. `Query` composes EQL and optional spatial selection through `Importer`. `Transform` applies `Matrix44` through `transform.inplace` or `transform.copies`. `Diagram` lowers each glyph to `DxfEntity` cases — silhouette rings and bulge arcs as lwpolylines, edges as width-carrying polylines or fit-point splines, each terminator ONE shared cap-block INSERT rotated onto its segment, areas as hatched snappable boundaries, fragments through the svgelements flatten — every label editable placement-aligned source text on the drawio-arm precedent, a dashed glyph riding its minted linetype row, mathematical typesetting staying the draw plane's `Formula` seam. `Bridge` crosses SVG through `apply_region(RegionOp.Serialize(...))`, GeoJSON through `GeoProxy`, and glyph outlines through `text2path`.
 - Auto: `_composed(op) -> Result[DxfComposed, RegionFault]` is the total fold the lane runs. `_build_entity` lowers each admitted `DxfEntity`; `_table_entry` lowers each `TableEntry`; `_evidence` reads shared CAD facts once, and each arm derives `DxfComposed` through `msgspec.structs.replace`. `_glyph_entities` folds the seven diagram marks into the same closed drawable vocabulary and `_diagram_document` re-enters `_authored`, so one construction fold serves authoring and diagram lowering with zero new ezdxf surface; the glyph plane is SVG y-down while DXF model space is y-up, so the lowering mirrors y and negates angles at that one seam. `Drawing` is pure Python and GC-safe. `_serialize` owns text, binary, and base64 egress; render backends own their native handles.
 - Output: `DxfComposed` carries serialized `data`, `kind`, `dxfversion`, `units`, `counts`, `layers`, `blocks`, `errors`, `fixes`, and `extent`. Auditor counts become non-zero only for salvaged input. `DxfUnits` mirrors `ezdxf.units.InsertUnits`, so `DxfUnits(doc.units)` is total over conforming foreign documents.
-- Receipt: `_emit` maps the fold's rail onto ONE `ArtifactReceipt.Cad` case through the receipt owner's named flat-scalar mint — the `dxfversion`, units, `artifact` format (from `composed.kind`), byte count, layer/block roster counts, `Auditor` error+fix counts, and the `Counter(dxftype)` census — threading the PRE-RUN key; a failed production rides the `BoundaryFault` rail the lane boundary minted, never a zero-byte placeholder and never a second synchronous entry re-running the fold. `_emit` then awaits `Journal.record` over `receipt.evidence()` — a delivered CAD exchange file is `OPERATIONAL` production evidence whose byte volume charges `STORAGE` and whose diff carries the whole declared ledger down to the `Auditor` error/fix pair, the entity census staying on the band where no audit row tracks its width; the seat is that awaitable fold, because recording suspends where `contribute` cannot.
 - Packages: `ezdxf` owns read/write/recover/audit, builders, ACIS decode/export, hatch and multileader construction, xrefs, paths, math, rendering, queries, selection, GeoJSON, text paths, and import. `matplotlib.figure.Figure` owns EPS/PS egress. `apply_region(RegionOp.Serialize(...))` frames SVG. `Standard.seed` authors ISO tables. `visualization/diagram/glyphset` supplies the mark vocabulary and its shared lowering derivations (`DiagramGlyph.mark`, `Port.seat`, `AreaMark.centroid`, `ER_CAPS`, `ENTITY_BAND`). `numpy` carries `(N,3)` vertices. `expression` and `msgspec` own unions, rails, wires, and evidence derivation. Runtime supplies `identity.ContentIdentity.key`, `lanes.LanePolicy`, `workers.Kernel`/`KernelTrait`, `faults.RuntimeRail`/`BoundaryFault`, and `journal.Journal` the durable writer.
-- Growth: a new DXF version is one `DxfVersion` member; a new drawable is one `DxfEntity` case plus one `_build_entity` arm (the `assert_never` tail breaking the fold at type-check) plus its `_ENTITY_FLOOR` row when it postdates R12; a new hatch fill is one `DxfFill` case; a new dimension kind is one `DimKind` member plus one `_DIM` row; a new symbol-table row is one `TableEntry` case plus one `_table_entry` arm; a new ingestion source is one `DxfSource` case; a new render backend or format is one `DxfBackend`+`DxfArtifact` member plus one `_rendered` arm; a new egress encoding (the `r12writer` streaming fast-writer) is one `DxfFormat` member plus one `_serialize` arm; a new spatial refinement is one `Spatial` case; a new render policy is one `DxfRenderPolicy` field; a new affine mode is one `TransformMode` member; a new bridge direction is one `BridgeSpec` case over the existing `ezdxf.addons` surface; a new query refinement (`groupby`, the `EntityQuery` set-algebra) is one `Selection` field; a new diagram mark lowering is one `_glyph_entities` arm plus its `_GLYPH_TEXT` default-size row; a new node silhouette is one `_SILHOUETTE` row the import-time coverage gate proves reachable; a new terminator lowering is one `_cap_block` arm; a new label placement is one `TextAlign` member; a new receipt scalar is one `Cad` slot; a new admission invariant is one `DxfFault` case plus one `_checked` guard.
+- Growth: a new DXF version is one `DxfVersion` member; a new drawable is one `DxfEntity` case plus one `_build_entity` arm (the `assert_never` tail breaking the fold at type-check) plus its `_ENTITY_FLOOR` row when it postdates R12; a new hatch fill is one `DxfFill` case; a new dimension kind is one `DimKind` member plus one `_DIM` row; a new symbol-table row is one `TableEntry` case plus one `_table_entry` arm; a new ingestion source is one `DxfSource` case; a new render backend or format is one `DxfBackend`+`DxfArtifact` member plus one `_rendered` arm; a new egress encoding (the `r12writer` streaming fast-writer) is one `DxfFormat` member plus one `_serialize` arm; a new spatial refinement is one `Spatial` case; a new render policy is one `DxfRenderPolicy` field; a new affine mode is one `TransformMode` member; a new bridge direction is one `BridgeSpec` case over the existing `ezdxf.addons` surface; a new query refinement (`groupby`, the `EntityQuery` set-algebra) is one `Selection` field; a new diagram mark lowering is one `_glyph_entities` arm plus its `_GLYPH_TEXT` default-size row; a new node silhouette is one `_SILHOUETTE` row the import-time coverage gate proves reachable; a new terminator lowering is one `_cap_block` arm; a new label placement is one `TextAlign` member; a new output scalar is one `Cad` slot; a new admission invariant is one `DxfFault` case plus one `_checked` guard.
 - Boundary: `ezdxf` owns tag construction, affine/B-spline/OCS math, ACIS SAT/SAB decoding, rendering, querying, salvage, and DXF↔GeoJSON conversion. `DxfAttribs` replaces per-entity setters; `doc.query`/`select` replace lookup-method families; `recover.readfile` owns damaged input. `Standard.seed` owns ISO symbol-table derivation. `visualization/diagram/layout#LAYOUT` owns diagram coordinates and routes, `visualization/diagram/draw#DRAW` owns the SVG/.drawio egress, and the glyph vocabulary is `visualization/diagram/glyphset#GLYPHSET`'s — the `Diagram` arm owns only the entity lowering and the y-mirror seam. `graphic/vector/region#REGION` frames SVG, composition owns PDF assembly, typography owns shaping, and the geospatial owner owns CRS semantics.
 
 ```python
@@ -40,14 +38,13 @@ from expression.collections import Block
 from msgspec import Struct
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.journal import Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, rostered
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.drawing.regime import LayerName
 from rasm.artifacts.drawing.standard import DimStyleFamily, DimVar, Standard
 from rasm.artifacts.graphic.vector.path import PathFault, scene
@@ -1682,34 +1679,20 @@ class Dxf(Struct, frozen=True):
                 assert_never(unreachable)
         return _checked(op).map(lambda valid: cls(op=valid, lane=lane))
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[DxfComposed]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"dxf-{self.op.tag}", _CANON.encode(self.op))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[DxfComposed]:
         crossed = await self.lane.offload(Kernel.of(_composed, KernelTrait.RELEASING), self.op)
-        settled = crossed.bind(
-            lambda inner: inner.map(
-                lambda composed: ArtifactReceipt.Cad(
-                    self._key,
-                    composed.dxfversion,
-                    composed.units,
-                    composed.kind.value,
-                    len(composed.data),
-                    composed.layers,
-                    composed.blocks,
-                    composed.errors,
-                    composed.fixes,
-                    composed.counts,
-                )
-            ).map_error(lambda fault: BoundaryFault(domain=(DXF_REGION.subject, fault)))
-        )
+        settled = crossed.bind(lambda inner: inner.map_error(lambda fault: BoundaryFault(domain=(DXF_REGION.subject, fault))))
         match settled:
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
+            case Result(tag="ok", ok=composed):
+                Metrics.record({BYTE_VOLUME: float(len(composed.data))}, domain=DOMAIN, kind="cad", scope=self.lane.scope)
+                return Ok(composed)
             case refused:
                 return Error(refused.error)
 

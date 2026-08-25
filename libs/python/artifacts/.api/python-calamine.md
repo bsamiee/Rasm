@@ -88,7 +88,6 @@ Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (
 
 [STACKING]:
 - `document/lens#LENS` (READ): the `LensProvider.CALAMINE` `XLSX_READ` recover arm — `from_object(BytesIO)` → `get_sheet_*` → `to_python` folds each row matrix into a `document/model#NODE` `TableNode` of `RunNode` cells, `merged_cell_ranges` into `TableNode.spans` and `start`/`end`/`height`/`width` into its bounds; `_gated_recover` re-resolves the `_ROUTES[XLSX_READ]` row and maps the `CalamineError` family to the read rail beside `pymupdf`/`pdfplumber`.
-- `core/receipt#RECEIPT`: each ingest contributes the `ArtifactReceipt.Introspection(key, nodes, text_len, images, hits)` case through the `ReceiptContributor` port, keyed by the `document/model` `node_digest` `xxhash` merkle through `ContentIdentity.of`.
 - `msoffcrypto-tool`: `PasswordError` routes the workbook through its decrypt, and the decrypted `BytesIO` re-enters `from_object` — calamine never decrypts.
 - `fastexcel`: disjoint on the shared Rust core — `fastexcel` owns the calamine-to-Arrow PyCapsule/`pyarrow.RecordBatch` columnar path for `libs/python/data`, this owner the `to_python` document-tree path for artifacts.
 - universal tier (`libs/python/.api`): `expression` `Result[Self, LensFault]`/`RuntimeRail` owns the admission fold and fault discriminant; the `runtime` `LanePolicy` bounds the `anyio` process band each worker decode runs in.
@@ -99,5 +98,4 @@ Every open returns `CalamineWorkbook` and carries the `load_tables=False` knob (
 [RAIL_LAW]:
 - Package: `python-calamine`
 - Owns: read-only ingest of the Excel/OpenDocument family via `from_object`/`from_path`/`from_filelike`/`load_workbook`, workbook and table introspection, sheet resolution, the `to_python`/`iter_rows` native-scalar projection with date-serial decode, sheet geometry and `merged_cell_ranges`, and the `CalamineError` fault family.
-- Accept: the `XLSX_READ` document-tree path — a row matrix folded into a `TableNode` of `RunNode` cells with `merged_cell_ranges` into `TableNode.spans`, sealed by content key into `ArtifactReceipt.Introspection`.
 - Reject: any authoring path (openpyxl/xlsxwriter own `.xlsx`, odfpy owns `.ods`); the Arrow columnar frame (`fastexcel`); per-cell formula evaluation; workbook decryption (route a `PasswordError` through `msoffcrypto-tool`).

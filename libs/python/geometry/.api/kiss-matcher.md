@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_KISS_MATCHER]
 
-`kiss_matcher` supplies the initialization-free global registration path for the scan-processing rail: `KISSMatcher` extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN and a GNC solver, and returns a `RegistrationSolution` rigid transform, exposing per-stage timing and inlier counts as the receipt. Package owner composes `estimate` (or `match` then `prune_and_solve`) into the global-registration mode seeding fine `small_gicp` refinement; it never re-implements keypoint extraction, graph-theoretic outlier rejection, or the GNC pose solver.
+`kiss_matcher` supplies the initialization-free global registration path for the scan-processing rail: `KISSMatcher` extracts Faster-PFH keypoints, matches correspondences, prunes outliers through ROBIN and a GNC solver, and returns a `RegistrationSolution` rigid transform while exposing per-stage timing and inlier counts. Package owner composes `estimate` (or `match` then `prune_and_solve`) into the global-registration mode seeding fine `small_gicp` refinement; it never re-implements keypoint extraction, graph-theoretic outlier rejection, or the GNC pose solver.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - owner: `geometry`
 - rail: scan-processing / global-registration
 - entry points: none (library only)
-- capability: initialization-free global rigid registration, Faster-PFH keypoint extraction, correspondence matching, ROBIN outlier pruning, graduated-non-convexity and Quatro pose solving, and per-stage timing with inlier receipts
+- capability: initialization-free global rigid registration, Faster-PFH keypoint extraction, correspondence matching, ROBIN outlier pruning, graduated-non-convexity and Quatro pose solving, and per-stage timing with inlier counts
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -80,10 +80,10 @@ Pipeline decomposes into a `match` keypoint stage and a `prune_and_solve`/`solve
 |  [03]   | `solve(src_matched, tgt_matched) -> RegistrationSolution`           | solve          | GNC solve on already-pruned matches        |
 |  [04]   | `reset_solver() -> None`                                            | lifecycle      | reset the solver state                     |
 
-[ENTRYPOINT_SCOPE]: stage keypoints, correspondences, and receipts
+[ENTRYPOINT_SCOPE]: stage keypoints, correspondences, diagnostics, and timings
 - rail: global-registration
 
-These accessors expose each intermediate stage as the registration receipt; keypoint and cloud accessors ([01]-[03]) return `tuple[list[NDArray], list[NDArray]]` source/target.
+These accessors expose each intermediate registration stage; keypoint and cloud accessors ([01]-[03]) return `tuple[list[NDArray], list[NDArray]]` source/target.
 
 | [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                              |
 | :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------- |
@@ -92,11 +92,11 @@ These accessors expose each intermediate stage as the registration receipt; keyp
 |  [03]   | `get_processed_input_clouds()`                           | clouds         | downsampled source/target clouds          |
 |  [04]   | `get_initial_correspondences() -> list[tuple[int, int]]` | correspondence | source/target index pairs before pruning  |
 |  [05]   | `get_final_correspondences() -> list[tuple[int, int]]`   | correspondence | inlier index pairs after pruning          |
-|  [06]   | `get_num_final_inliers() -> int`                         | receipt        | retained inlier count                     |
-|  [07]   | `get_num_rotation_inliers() -> int`                      | receipt        | rotation-consistent inlier count          |
-|  [08]   | `get_extraction_time()` / `get_matching_time()`          | receipt        | keypoint and matching stage timings       |
-|  [09]   | `get_rejection_time()` / `get_solver_time()`             | receipt        | pruning and solver stage timings          |
-|  [10]   | `get_processing_time()`                                  | receipt        | total registration wall time              |
+|  [06]   | `get_num_final_inliers() -> int`                         | diagnostic     | retained inlier count                     |
+|  [07]   | `get_num_rotation_inliers() -> int`                      | diagnostic     | rotation-consistent inlier count          |
+|  [08]   | `get_extraction_time()` / `get_matching_time()`          | timing         | keypoint and matching stage timings       |
+|  [09]   | `get_rejection_time()` / `get_solver_time()`             | timing         | pruning and solver stage timings          |
+|  [10]   | `get_processing_time()`                                  | timing         | total registration wall time              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -105,7 +105,7 @@ These accessors expose each intermediate stage as the registration receipt; keyp
 - point shape: `estimate`/`match`/`prune_and_solve` accept `float32` `(3, 1)` point sequences; `solve` and the array overloads accept `float64` `(3, n)` arrays, contiguous numpy buffers with dtype matching the overload.
 - pipeline axis: `estimate` is the single end-to-end entry; the `match` then `prune_and_solve`/`solve` decomposition reuses matched correspondences when downstream stages need the intermediate keypoints without re-extraction.
 - solver axis: `use_quatro` switches the GNC solver to Quatro for degenerate or planar scenes; `thr_linearity`, `robin_noise_bound`, and `solver_noise_bound` with their `_gain` scalings tune ROBIN pruning and GNC convergence.
-- evidence: each run captures `get_num_final_inliers`, `get_num_rotation_inliers`, the initial/final correspondence pairs, and the five stage timings (`extraction`/`matching`/`rejection`/`solver`/`processing`) as the receipt gating handoff and the fine-refinement decision.
+- evidence: the matcher exposes `get_num_final_inliers`, `get_num_rotation_inliers`, the initial/final correspondence pairs, and the five stage timings (`extraction`/`matching`/`rejection`/`solver`/`processing`) beside `RegistrationSolution` for the fine-refinement decision.
 - boundary: `kiss_matcher` owns coarse initialization-free global registration; surface reconstruction and coarse feature alignment route to `open3d`, and PLY/scan IO to `open3d`/`laspy` rather than this estimator.
 
 [STACKING]:

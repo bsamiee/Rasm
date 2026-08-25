@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_COMPAS_TNA]
 
-`compas_tna` owns thrust-network analysis for masonry-vault form-finding on the COMPAS spine: reciprocal form/force equilibrium and masonry envelope bounds over `compas` datastructures. `FormDiagram` extends `compas.datastructures.Mesh` and every diagram and envelope is a `compas.data.Data` subclass, so the algebra owner graduates evidence through one `compas.json_dumps` handle and offloads the `_numpy` solvers through `compas.rpc.Proxy`. Boundary relaxation delegates to `compas_fd.fd_numpy`; the reciprocal-diagram algebra, parallelisation, and vertical scale search live here alone.
+`compas_tna` owns thrust-network analysis for masonry-vault form-finding on the COMPAS spine: reciprocal form/force equilibrium and masonry envelope bounds over `compas` datastructures. `FormDiagram` extends `compas.datastructures.Mesh`, and diagrams and envelopes serialize through `compas.json_dumps`; the algebra owner offloads `_numpy` solvers through `compas.rpc.Proxy`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -129,7 +129,7 @@ Horizontal solvers carry `alpha, kmax=100` and return `tuple[FormDiagram, ForceD
 - `vertical_from_q` applies the force-density matrix at a fixed `scale`; `vertical_from_zmax` binary-searches `scale` (`xtol`/`rtol`) so the crown reaches `zmax`, internally driving a `LoadUpdater`.
 
 [STACKING]:
-- `compas`(`.api/compas.md`): diagrams and envelopes are `compas.data.Data`/`Mesh` subclasses graduating through `compas.json_dumps`, and the `_numpy` solvers cross the wire through `compas.rpc.Proxy.function("compas_tna.equilibrium.horizontal_numpy")` offloaded across the algebra owner's runtime THREAD band, returning `(form, force)` for the round-trip; `compas.md` owns the Proxy reconnect-or-spawn scope lifecycle and its `RetryClass.RPC` cold-start rail, and cold-start faults share one form-finding fault rail with `compas_dr`.
+- `compas`(`.api/compas.md`): diagrams and envelopes are `compas.data.Data`/`Mesh` subclasses serialized through `compas.json_dumps`; `_numpy` solvers cross through `compas.rpc.Proxy.function("compas_tna.equilibrium.horizontal_numpy")` and return `(form, force)` directly.
 - `graph/algebra.md` selects TNA through the `FormEngine` sub-enum on the one form-finding case, reads `vertices_attributes("xy"/"xyz")` for the numeric rails, and drives `LoadUpdater` for selfweight through one per-vertex loop.
 - `compas_fd.fd_numpy` takes the boundary-relaxation force-density solve that `relax_boundary_openings` delegates.
 

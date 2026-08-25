@@ -1,6 +1,6 @@
 # [RASM_FRAME]
 
-`Rasm.Domain` owns the causal frame every emitting stratum threads: the package-identity roster, the correlation and tenancy pair with their one text and one slot spelling, the session-GUC namespace, the trace-plane vocabulary, the stamped receipt envelope with its hybrid-logical mint, and the package-identity resolve both host boundaries reach. Emitting packages need no neutral `Guid` twin, because every coordinate this page seats is already in scope wherever a receipt is minted.
+`Rasm.Domain` owns the causal frame every emitting stratum threads: the package-identity roster, the correlation and tenancy pair with their one text and one slot spelling, the session-GUC namespace, the trace-plane vocabulary, the hybrid-logical stamp cell with the causal frame a published fact carries, and the package-identity resolve both host boundaries reach. Emitting packages need no neutral `Guid` twin, because every coordinate this page seats is already in scope wherever a fact is produced.
 
 Identity text federates rather than being re-rendered: the tenant reads `ContentHash.Hex` and admits through `ContentHash.Admit`, so the fixed-width thirty-two-lowercase-hex spelling is the one currency an ambient store, an RLS predicate, a durable partition column, an object-name prefix, and a meter tag all compare byte-identically. Hybrid stamps hold one half order, shared with the compute interchange identity, so a content key and a causal stamp seal one frame every peer re-derives.
 
@@ -8,7 +8,7 @@ Identity text federates rather than being re-rendered: the tenant reads `Content
 
 - [02]-[SOURCE]: `TelemetrySource`, `CorrelationId` — the minted package roster and the root correlation identity.
 - [03]-[TENANCY]: `TenantId`, `TenantMirror`, `TenantContext`, `SessionCoordinate` — the tenancy pair, its ambient stores, and the one `rasm.*` session namespace.
-- [04]-[RECEIPT_PORT]: `ReceiptEnvelope`, `ReceiptSinkPort` — the stamped evidence value and the one hybrid-logical mint behind it.
+- [04]-[STAMP]: `HlcStamp`, `CausalStamp`, `Hlc` — the hybrid-logical stamp, the causal frame a published fact carries, and the one cell that mints both.
 - [05]-[PACKAGE_IDENTITY]: `PackageIdentity<TKey,THostFact>` — the one plugin-identity resolve both host boundaries compose.
 
 ## [02]-[SOURCE]
@@ -70,7 +70,6 @@ public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormat
 - Law: `SessionCoordinate` is the C# transcription of the cross-branch `[SESSION_GUC]` law — the four coordinates every RLS predicate and session `set_config` read VERBATIM and byte-share with the TypeScript spine, since disagreeing `SET` and predicate spellings read zero rows fail-closed under FORCE RLS. `Tenant` composes `TenantSlot`, so the telemetry dimension and the session pin stay one vocabulary; `Maintenance` is `Plane`'s sole admitted value, and the maintenance-plane posture pins transaction-locally through a STATED arm, never a role accident.
 - Law: stamping is ALL-OR-NOTHING and the restore fold is ONE body both the failed stamp and disposal read — every row is attempted in reverse admission order even when one raises, so a single raising mirror never strands its siblings under the retiring tenant, and each restoration failure appends onto the error the fold carries in.
 - Law: disposal residue PARKS on the composition's evidence cell and never throws from `Dispose` — a typed rail a consumer seam cannot carry outward is parked, never `ignore`d and never re-raised out of a using-block exit (branch RULINGS `[02]`).
-- Receipt: none — the tenancy pair is its own evidence, and the stamped envelope is `[04]`'s.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Diagnostics`, `System.Threading`).
 - Growth: a new ambient store is one `TenantMirror` row supplied at composition, never a second stamping owner; a new session coordinate is one `SessionCoordinate` row.
 - Boundary: tenancy rides an `AsyncLocal` slot rather than a named process-wide registry, so two compositions in one process — an app root beside a plugin load-context capsule — each hold their own tenancy with no duplicate-name registration fault. Foreign-source rows, resource lacing, exporter wiring, and the OpenTelemetry baggage mirror stay at the app platform, which binds its registered mirror set behind one stamping surface so a kernel caller spells `Stamp()` bare.
@@ -144,55 +143,75 @@ public sealed record TenantContext(TenantId TenantId, string Slug) {
 }
 ```
 
-## [04]-[RECEIPT_PORT]
+## [04]-[STAMP]
 
-- Owner: `ReceiptEnvelope` the stamped evidence value carrying the one causal frame; `ReceiptSinkPort` the emit port carrying the one hybrid-logical mint.
-- Entry: `Send(correlation, tenant, package, kind, payload)` returns the `IO<ReceiptEnvelope>` whose value IS the emission evidence.
-- Auto: `Advance` is the one hybrid-logical mint — the logical half resets to zero on a physical advance and increments on a same-instant repeat; the counter is BOUNDED, so an exhausted one advances the physical component by the WIRE quantum and restarts rather than wrapping, because a wrap re-issues a stamp the stream already carried and every causal comparison after it reads reversed. The escape steps by the packed half's own resolution rather than by the clock's smallest representable step, since a step below the pack quantum re-issues the exact stamp it escaped. `SkewBound` derives at stamp time as the wall-clock lag the advance observed.
-- Law: the half order and its UNIT are FIXED and load-bearing — physical half first as the NodaTime `Instant` Unix-tick `long` at one tick per hundred nanoseconds, logical half second as the monotone `ulong`, both little-endian on the wire and byte-identical to the compute interchange identity, so a content key and a causal stamp seal one frame every peer re-derives and an off-by-one-half pack corrupts the whole causal order.
-- Receipt: `ReceiptEnvelope` is the receipt — correlation, tenant, and the two-half stamp threaded together.
-- Packages: NodaTime, LanguageExt.Core, BCL inbox (`System.Text.Json`).
-- Growth: a new stamped surface draws from the same cell; a new envelope column extends the record and every producer answers it.
-- Boundary: a clock, a hybrid-logical cell, and an emit delegate are constructor material this port never mints.
+- Owner: `HlcStamp` the hybrid-logical stamp — physical `Instant` and logical `ulong` halves, `Packed` the shared `UInt128` layout, `Sequence` the D20 spelling of the logical half; `Hlc` the one per-composition cell over an `IClock`; `CausalStamp` the causal frame a durable fact publishes under — creation-time `TraceCarrier`, ambient tenant, stamp, and the wall instant the mint read — with the five extension slot names it fills.
+- Entry: `Hlc.Stamp(wall, seen)` advances the cell on a send and folds a received peer stamp on a receive through one body; `CausalStamp.Now(clock)` captures the live span, `TenantContext.Current`, and a fresh stamp; `RasmEventEnvelope.Publish` (`event.md` `[04]`) is the one publish door that consumes it.
+- Auto: `Advance` is the one hybrid-logical mint — the greater of the held and the seen stamp is the floor, the logical half resets to zero on a physical advance and increments on a same-instant repeat; the counter is BOUNDED, so an exhausted one advances the physical half by the WIRE quantum and restarts rather than wrapping, because a wrap re-issues a stamp the stream already carried and every causal comparison after it reads reversed. The escape steps by the packed half's own resolution rather than by the clock's smallest representable step, since a step below the pack quantum re-issues the exact stamp it escaped.
+- Law: the half order and its UNIT are FIXED and load-bearing — physical half first as the NodaTime `Instant` Unix-tick `long` at one tick per hundred nanoseconds (I63 inside the `uint64` slot), logical half second as the monotone `ulong`, packed `physical_ticks << 64 | logical`, byte-identical to the compute interchange identity, so a content key and a causal stamp seal one frame every peer re-derives and an off-by-one-half pack corrupts the whole causal order.
+- Law: the stamp crosses on the event envelope alone — `time` carries the physical half, `sequence` the logical half, `recordedtime` the wall instant the mint read, `traceparent`/`tracestate`/`baggage` the creation-time carrier with `rasm.tenant` inside `baggage` — so a consumer orders on `(time, sequence)`, joins on `traceparent`, attributes on the baggage member, and measures skew from `recordedtime` against its own arrival; no header, kind, payload, or skew column exists beside those slots.
+- Law: a span-less publish admits the one `rasm.tenant` pair through the same W3C codec `TraceCarrier` owns, so tenancy never drops when no bracket is live and no page formats baggage by hand.
+- Packages: NodaTime, LanguageExt.Core, BCL inbox (`System.Diagnostics`, `System.Globalization`).
+- Growth: a new causal slot is one `CausalStamp` column and one `Slots` row, proven against the generated contract at `EventExtensionContract.Stamp`.
+- Boundary: the clock is constructor material; the cell mints no envelope and holds no announcement — the message envelope is `event.md`'s and the span is `telemetry.md`'s.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using System.Text.Json;
+using System.Diagnostics;
+using System.Globalization;
 using NodaTime;
 
 namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ReceiptEnvelope(
-    CorrelationId Correlation,
-    TenantContext Tenant,
-    TelemetrySource Package,
-    string Kind,
-    JsonElement Payload,
-    Instant Physical,
-    ulong Logical,
-    Duration SkewBound);
-
-// --- [SERVICES] ------------------------------------------------------------------------
-public sealed record ReceiptSinkPort(
-    IClock Clock,
-    Atom<(Instant Physical, ulong Logical)> Hlc,
-    Func<ReceiptEnvelope, IO<Unit>> Emit) {
+public readonly record struct HlcStamp(Instant Physical, ulong Logical) {
     private const long TickQuantum = 1L;
 
-    public static (Instant Physical, ulong Logical) Advance(
-        (Instant Physical, ulong Logical) last, Instant wall) =>
-        wall > last.Physical ? (wall, 0UL)
-        : last.Logical == ulong.MaxValue ? (last.Physical + Duration.FromTicks(TickQuantum), 0UL)
-        : (last.Physical, last.Logical + 1UL);
+    public static readonly HlcStamp Origin = new(Instant.FromUnixTimeTicks(0L), 0UL);
 
-    public IO<ReceiptEnvelope> Send(CorrelationId correlation, TenantContext tenant, TelemetrySource package, string kind, JsonElement payload) =>
-        IO.lift(() => Clock.GetCurrentInstant())
-            .Map(wall => (Wall: wall, Cell: Hlc.Swap(last => Advance(last, wall))))
-            .Map(state => new ReceiptEnvelope(
-                correlation, tenant, package, kind, payload,
-                state.Cell.Physical, state.Cell.Logical, state.Cell.Physical - state.Wall))
-            .Bind(envelope => Emit(envelope).Map(_ => envelope));
+    public UInt128 Packed => ((UInt128)(ulong)Physical.ToUnixTimeTicks() << 64) | Logical;
+
+    public string Sequence => Logical.ToString("D20", CultureInfo.InvariantCulture);
+
+    public static HlcStamp Advance(HlcStamp last, Instant wall, Option<HlcStamp> seen = default) {
+        HlcStamp top = seen.Filter(remote => remote.Packed > last.Packed).IfNone(last);
+        return wall > top.Physical ? new(wall, 0UL)
+            : top.Logical == ulong.MaxValue ? new(top.Physical + Duration.FromTicks(TickQuantum), 0UL)
+            : new(top.Physical, top.Logical + 1UL);
+    }
+}
+
+public sealed record CausalStamp(TraceCarrier Trace, TenantContext Tenant, HlcStamp Clock, Instant Recorded) {
+    public const string TraceparentSlot = "traceparent";
+    public const string TracestateSlot = "tracestate";
+    public const string BaggageSlot = "baggage";
+    public const string SequenceSlot = "sequence";
+    public const string RecordedtimeSlot = "recordedtime";
+
+    public static CausalStamp Now(Hlc clock) {
+        TenantContext tenant = TenantContext.Current;
+        Instant wall = clock.Wall;
+        TraceCarrier trace = Activity.Current is { } span
+            ? TraceCarrier.Of(span)
+            : TraceCarrier.Admit(null, null, tenant.Key.Map(entry => $"{TenantContext.TenantSlot}={entry}").Match<string?>(Some: static held => held, None: static () => null));
+        return new(Trace: trace, Tenant: tenant, Clock: clock.Stamp(wall), Recorded: wall);
+    }
+
+    public Seq<(string Slot, Option<object> Value)> Slots => Seq(
+        (TraceparentSlot, Optional(Trace.TraceParent).Map(static held => (object)held)),
+        (TracestateSlot, Optional(Trace.TraceState).Map(static held => (object)held)),
+        (BaggageSlot, Trace.Baggage.Map(static held => (object)held.Value)),
+        (SequenceSlot, Some((object)Clock.Sequence)),
+        (RecordedtimeSlot, Some((object)Recorded.ToDateTimeOffset())));
+}
+
+public sealed class Hlc(IClock clock) {
+    private readonly Atom<HlcStamp> cell = Atom(HlcStamp.Origin);
+
+    public Instant Wall => clock.GetCurrentInstant();
+
+    public HlcStamp Stamp(Instant wall, Option<HlcStamp> seen = default) =>
+        cell.Swap(last => HlcStamp.Advance(last, wall, seen));
 }
 ```
 
@@ -201,7 +220,7 @@ public sealed record ReceiptSinkPort(
 - Owner: `PackageIdentity<TKey,THostFact>` — the one plugin-identity resolve. `TKey` is the host's own typed key (`PluginKey` at the Rhino boundary, `HookScope` at the Grasshopper boundary), so a raw-string plugin parameter cannot enter and the key spaces stay each boundary's; `THostFact` is the host-package evidence the kernel cannot name, carried as an `Option` column rather than forcing a wrapper record at one boundary and not the other.
 - Entry: `Resolve(pluginRoot, plugin, host, key)` reads the load context and the assembly version off the plugin root, folds the optional host probe, and lands the identity on the rail; `ContentRoot(Assembly)` is the ONE spelling of the directory read both boundaries hand-wrote byte-identically.
 - Law: `PluginSlot` is the owner-declared dimension key beside `CorrelationId.Slot` and `TenantContext.TenantSlot` — a bare noun at an emitting seam forks the dimension vocabulary (branch RULINGS `[02]`).
-- Law: package self-identity homes at the kernel causal frame, so a distant emitter never hand-spells a string-typed scope for the receipt port.
+- Law: package self-identity homes at the kernel causal frame, so a distant emitter never hand-spells a string-typed scope for a meter, a span, or an event source.
 - Law: this owner resolves identity and mints no meter — the metered identity is `Domain/instrument`'s `TelemetryIdentity`, and merging them puts a semantic-convention pin on a value the host resolves at load time.
 - Packages: LanguageExt.Core, BCL inbox (`System.Reflection`, `System.Runtime.Loader`).
 - Growth: a new host boundary is one instantiation naming its key and its host-fact type; a new resolved column extends the record and both boundaries answer it.
@@ -241,7 +260,6 @@ public sealed record PackageIdentity<TKey, THostFact>(
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

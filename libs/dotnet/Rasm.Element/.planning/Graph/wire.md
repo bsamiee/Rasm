@@ -16,7 +16,7 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 - Law: `NodeWire` exists to make `Persistence/Version/merge#STRUCTURAL_DIFF` field-mask edits schema-aware. It does not make the enclosing graph, delta algebra, relationship algebra, headers, redaction policy, or event framing a cross-language contract.
 - Law: `WireCodec` is one `[Mapper]` partial family split by generated message family. `SeamConverters` is the public identity and semantic-value converter set composed by sibling packages; no protobuf-shaped DTO or alias is added.
 - Entry: `Encode(node, tolerance, key)` mints `content_address` under the caller's active graph tolerance and validates the generated result. `Decode(wire, key)` validates and re-admits every nested value, but does not claim address verification because tolerance belongs to the graph context at the persistence caller.
-- Receipt: the caller retains producer-carried `content_address` as the held-node OCC base. It never derives that value from ProtoJSON or treats `NodeWire` as a manifest actor.
+- Output: the caller retains producer-carried `content_address` as the held-node OCC base. It never derives that value from ProtoJSON or treats `NodeWire` as a manifest actor.
 - Packages: Celly.Protovalidate validates corpus rules; Google.Protobuf owns generated messages and descriptors; Rasm owns `ContentHash.Wire`/`Admit`; Mapperly owns field transcription; Thinktecture owns total union dispatch; LanguageExt owns `Fin` and presence; NodaTime.Serialization.Protobuf owns temporal projections.
 - Growth: a new seated `Node` case lands one corpus arm and one total mapping. A graph-local feature stays native unless a real manifest actor requires it; code generation never justifies widening the public contract surface.
 
@@ -280,7 +280,6 @@ public static class ElementWire {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

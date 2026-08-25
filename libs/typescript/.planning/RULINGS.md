@@ -23,8 +23,9 @@
 - Untyped failure grades `defect` at `Fault.Class` — `terminal` recovery, `restart` re-offer, system-blamed, refused by every `Fault.Budget` gate.
 - `Effect.tryPromise`/`Effect.try` replace `Effect.promise`/`Effect.sync`, and `Effect.async` guards the synchronous throw beside its callback.
 - Foreign and `unknown` error channels fold onto the typed rail at the seam that widened them, never past the shielded gate downstream.
-- `Tap` owns names, modalities, handlers, and DELIVERY; registrars own rosters and policy rows — a second engine forks veto order and breach count.
-- Signal concepts two folders spell own where the surface sits — a second `Tap` registrar double-accounts the buffer and forks each panel's budget.
+- `Effect` channels carry operation truth — `Effect.exit` reifies settlement only as state, `Effect.onExit` observes it once at the terminal seam.
+- `Evidence.Outcome` carries command lifecycle as CloudEvent data and `Transition.Macro` state-machine transitions; OTel projects both at the seam.
+- `Tap` owns in-process extension observation; registrars own point rosters and policy rows, while durable facts remain with their domain owners.
 - Tenancy baggage decodes ONLY through `Identity.Tenant.FromScope` under `Convention.rasm.tenant` — a second parse forks the dimension's alphabet.
 - `CookieSpec` owns the one CSRF echo header the serve gate reads and the browser dial stamps — a literal at either end forks the pair fail-closed.
 - Deploy-to-process keys derive from `StackOutputs` and `Setting` as ONE typed catalog — a hand-matched pair forks where a rename breaks the build.

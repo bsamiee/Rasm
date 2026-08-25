@@ -29,7 +29,6 @@ from assay.rails.contracts import (
     CloudEventDefinition,
     ContentDigestFacts,
     CORPUS,
-    CorpusOracleReceipt,
     DomainAuthority,
     ExpectedAsset,
     ExpectedFacts,
@@ -246,19 +245,13 @@ def _asset(root: Path, asset: Asset, /) -> bytes:
 def _decode(message: str, definition: ProtoDefinition | CloudEventDefinition, raw: bytes, /) -> Message[str]:
     descriptor = _REGISTRY.message(message)
     assert descriptor is not None, f"generated Python bindings do not contain {message}"
-    return (
-        descriptor.type.from_json(raw, ignore_unknown_fields=False, registry=_REGISTRY)
-        if isinstance(definition, ProtoDefinition) and definition.framing == "proto-json"
-        else descriptor.type.from_binary(raw, ignore_unknown_fields=False)
-    )
+    return descriptor.type.from_json(raw, ignore_unknown_fields=False, registry=_REGISTRY) if isinstance(definition, ProtoDefinition) and definition.framing == "proto-json" else descriptor.type.from_binary(raw, ignore_unknown_fields=False)
 
 
 def _roundtrip(case: Case, specimen: SpecimenAsset, raw: bytes, /) -> None:
     definition = case.definition
     assert isinstance(definition, (ProtoDefinition, CloudEventDefinition)), f"{case.id}: semantic roundtrip requires Protobuf"
-    assert not (isinstance(definition, ProtoDefinition) and definition.framing == "canonical-frame"), (
-        f"{case.id}: canonical-frame requires its law decoder, not a protobuf semantic roundtrip"
-    )
+    assert not (isinstance(definition, ProtoDefinition) and definition.framing == "canonical-frame"), f"{case.id}: canonical-frame requires its law decoder, not a protobuf semantic roundtrip"
     decoded = _decode(definition.message, definition, raw)
     canonical_json = decoded.to_json(registry=_REGISTRY, use_proto_field_name=True)
     json_cycle = type(decoded).from_json(canonical_json, ignore_unknown_fields=False, registry=_REGISTRY)
@@ -316,18 +309,11 @@ def _publisher(case: Case, vector: ProofVector, root: Path, /) -> None:
         path = PurePosixPath(specimen.path)
         assert path == source or path.is_relative_to(source), f"{case.id}: {specimen.path} is outside publisher source {source}"
         _asset(root, specimen)
-    generated = tuple(
-        root_name
-        for actor in _actors(case)
-        if _python(actor) and actor.binding == "generated" and isinstance(actor, MessageActor)
-        for root_name in actor.roots
-    )
+    generated = tuple(root_name for actor in _actors(case) if _python(actor) and actor.binding == "generated" and isinstance(actor, MessageActor) for root_name in actor.roots)
     for root_name in generated:
         descriptor = _REGISTRY.message(root_name)
         assert descriptor is not None, f"{case.id}: generated Python bindings do not contain {root_name}"
-        assert definition.source.endswith(descriptor.file.name), (
-            f"{case.id}: publisher source {definition.source} does not own generated root {root_name} from {descriptor.file.name}"
-        )
+        assert definition.source.endswith(descriptor.file.name), f"{case.id}: publisher source {definition.source} does not own generated root {root_name} from {descriptor.file.name}"
 
 
 def _vector(case: Case, vector: ProofVector, root: Path, /) -> bool:
@@ -340,9 +326,7 @@ def _vector(case: Case, vector: ProofVector, root: Path, /) -> bool:
                 _roundtrip(case, specimen, _asset(root, specimen))
             return True
         case "semantic-conformance":
-            assert vector.expected is not None and vector.expected.facts_format == "hdf5-facts", (
-                f"{case.id}: Python has no local semantic-conformance route outside the Assay corpus oracle"
-            )
+            assert vector.expected is not None and vector.expected.facts_format == "hdf5-facts", f"{case.id}: Python has no local semantic-conformance route outside the Assay corpus oracle"
             return False
         case "value-parity":
             assert vector.expected is not None, f"{case.id}: value parity requires typed expected facts"
@@ -387,35 +371,25 @@ def _empty_oracles() -> OracleProof:
     return OracleProof(semantic_conformance=0, semantic_roundtrip=0, value_parity=0, external_digest=0, publisher_digest=0)
 
 
-def _assay(root: Path, image: Path, subject: str, case: Case, /) -> CorpusOracleReceipt:
-    match prove_case(root, subject, case, image=image):
-        case Result(tag="ok", ok=receipt):
-            pass
-        case Result(error=reason):
-            raise AssertionError(reason)
-    readiness = case.readiness
-    assert isinstance(readiness, VerifiedReadiness)
-    assert receipt.subject == subject and receipt.oracle == readiness.oracle, f"{subject}: Assay returned a receipt for another case or oracle"
-    assert receipt.vectors == len(readiness.vectors), f"{subject}: Assay vector census differs from the manifest"
-    assert receipt.specimens == sum(len(vector.specimens) for vector in readiness.vectors), (
-        f"{subject}: Assay specimen census differs from the manifest"
-    )
-    assert not receipt.findings, "; ".join(f"{subject} {finding.rule}: {finding.detail}" for finding in receipt.findings)
-    return receipt
-
-
 def _verified(proof: CorpusProof, root: Path, image: Path, subject: str, case: Case, /) -> CorpusProof:
     readiness = case.readiness
     assert isinstance(readiness, VerifiedReadiness)
+    match prove_case(root, subject, case, image=image):
+        case Result(tag="ok", ok=findings):
+            pass
+        case Result(error=reason):
+            raise AssertionError(reason)
+    assert not findings, "; ".join(f"{subject} {finding.rule}: {finding.detail}" for finding in findings)
+    vectors = len(readiness.vectors)
+    specimens = sum(len(vector.specimens) for vector in readiness.vectors)
     python_bindings = _actor_bindings(case)
-    receipt = _assay(root, image, subject, case)
     python_vectors = sum(_vector(case, vector, root) for vector in readiness.vectors)
     return msgspec.structs.replace(
         proof,
-        assay_corpus_oracles=_count(proof.assay_corpus_oracles, receipt.oracle, receipt.vectors),
+        assay_corpus_oracles=_count(proof.assay_corpus_oracles, readiness.oracle, vectors),
         python_oracles=_count(proof.python_oracles, readiness.oracle, python_vectors),
         python_bindings=proof.python_bindings + python_bindings,
-        registered_specimens=proof.registered_specimens + receipt.specimens,
+        registered_specimens=proof.registered_specimens + specimens,
         registered_expected=proof.registered_expected + sum(vector.expected is not None for vector in readiness.vectors),
     )
 
@@ -434,14 +408,7 @@ def assert_corpus(root: Path) -> CorpusProof:
             pass
         case Result(error=fault):
             raise AssertionError(fault.message)
-    proof = CorpusProof(
-        assay_corpus_oracles=_empty_oracles(),
-        python_oracles=_empty_oracles(),
-        python_bindings=0,
-        blocked_cases=0,
-        registered_specimens=0,
-        registered_expected=0,
-    )
+    proof = CorpusProof(assay_corpus_oracles=_empty_oracles(), python_oracles=_empty_oracles(), python_bindings=0, blocked_cases=0, registered_specimens=0, registered_expected=0)
     with NamedTemporaryFile(prefix="rasm-contracts-", suffix=".binpb") as image:
         image.write(_IMAGE)
         image.flush()

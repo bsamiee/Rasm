@@ -1,23 +1,23 @@
 # [APPUI_INSPECTOR_EDITING]
 
-Typed property inspection and value editing for product state: one `InspectorPolicy`-driven PropertyGrid admission capsule whose seven package event edges enter through ONE `GridEdge` admission, fourteen ranked `EditorFactory` rows under descriptor-driven presentation, the `EditFault`/`EditReceipt` commit rail on the kernel fault floor with the preview-versus-commit law and the N-target fan, and the options composite rebuilding an immutable record from its mutable draft. Conflict resolution and code editing are sibling owners (`Editing/conflict.md`, `Editing/codepane.md`).
+Typed property inspection and value editing for product state: one `InspectorPolicy`-driven PropertyGrid admission capsule whose seven package event edges enter through ONE `GridEdge` admission, fourteen ranked `EditorFactory` rows under descriptor-driven presentation, the `EditFault` rail on the kernel fault floor with the preview-versus-commit law and the N-target fan, and the options composite rebuilding an immutable record from its mutable draft. Conflict resolution and code editing are sibling owners (`Editing/conflict.md`, `Editing/codepane.md`).
 
 ## [01]-[INDEX]
 
-- [02]-[INSPECTOR_SURFACE]: PropertyGrid admission policy, the one grid-edge admission, chrome seams, focus receipts, the commit veto and seal pair, the mixed-value and N-target fold.
+- [02]-[INSPECTOR_SURFACE]: PropertyGrid admission policy, the one grid-edge admission, chrome seams, focus facts, the commit veto and settlement pair, the mixed-value and N-target fold.
 - [03]-[EDITOR_FACTORIES]: Fourteen ranked editor rows with descriptor-driven presentation and the whole factory contract.
-- [04]-[COMMIT_VALIDATION]: Typed admission rail on the `Fault` floor, preview-commit law, edit receipts.
+- [04]-[COMMIT_VALIDATION]: Typed admission rail on the `Fault` floor and the preview-commit law.
 - [05]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
 
 ## [02]-[INSPECTOR_SURFACE]
 
 - Owner: `GridEdge` the one foreign-event admission union; `InspectorPolicy` policy record with `CategoryPosture` its category axis and `InspectorChrome` its seam family; `CellState` the four-row cell vocabulary; `MergedCell` the multi-target read; `MergeFacts` the header notice; `PostureSource` the display-posture reader seat; `InspectorSurface` static boundary capsule.
 - Cases: `CellState` = settled | edited | invalid | mixed, each carrying the pseudo-class the control theme selects on — `Mixed` produced by the merged read, `Invalid` by the veto arm's refusal, `Edited` by the commit seal, so every row has its producing arm; `CategoryPosture` = Hidden | Collapsed | Expanded — the retired visible/expanded bool pair spelled an expanded-while-hidden corner no grid renders.
-- Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object draft, IClock clock, CorrelationId correlation, Action<EditReceipt> sink, Action<Error> fault, Option<Func<GridEdge, Unit>> tap = default)` — `IDisposable` detacher composed LIFO; `tap` is a second consumer of the SAME admitted edge stream (the options persist arm rides it), so one admission serves every observer and a second subscription re-narrowing the args is unspellable; `GridEdge.Admit(RoutedEventArgs)` the one narrow; `MergedCell.Read(PropertyCellContext)` the one multi-target value read; `InspectorSurface.ApplyAll(PropertyCellContext, object?)` the one N-target commit.
+- Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object draft, HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail, Action<Error> fault, Option<Func<GridEdge, Unit>> tap = default)` — `IDisposable` detacher composed LIFO; `tap` is a second consumer of the SAME admitted edge stream (the options persist arm rides it), so one admission serves every observer and a second subscription re-narrowing the args is unspellable; `GridEdge.Admit(RoutedEventArgs)` the one narrow; `MergedCell.Read(PropertyCellContext)` the one multi-target value read; `InspectorSurface.ApplyAll(PropertyCellContext, object?)` the one N-target commit.
 - Law: `RoutedCommandExecutingEventArgs` EXTENDS the executed args, so `Admit` tests the derived shape FIRST — a base-typed probe accepts the veto edge, never reaches `Canceled`, and every refused admission commits anyway.
 - Law: the bound instance is a MUTABLE draft, never the immutable record it commits — `PropertyDescriptorBuilder(draft).GetProperties()` synthesizes descriptors over one live instance and every editor write lands `PropertyDescriptor.SetValue(draft, value)` in place, so an `init`-only record carries no write channel and `[05]` rebuilds the record at commit.
 - Law: a multi-object selection binds the same builder over an `IEnumerable`, merging only descriptors `AllowMerge` admits into `MultiObjectPropertyDescriptor` rows; the merged `GetValue` returns NULL when descriptors disagree — the same answer a uniformly null value gives — so mixed detection reads `GetValues(targets)` and folds distinctness; `SetValue`/`SetValues` hard-cast the component to `object[]` whose length equals the descriptor count, refused before the call rather than at an index throw inside the package.
-- Receipt: `EditReceipt` under `ReceiptKind.Focus` on the focus edge and `ReceiptKind.Edit` on the commit pair; a merged cell seals `EditOutcome.Fanned` carrying the target count, distinct from the single cell's `Committed`, so one user action never increments two identically-named cells at the evidence fan; when the draft is a multi-target array and the chrome's top slot is unfilled, `Mount` seats `MergeFacts` there so a shorter row list names its dropped remainder.
+- Result: the focus edge fires `AppUiFact.Focus` and the commit pair fires `AppUiFact.Edit`; a merged cell carries the target count in `EditOutcome.Fanned`, distinct from the single cell's `Committed`; when the draft is a multi-target array and the chrome's top slot is unfilled, `Mount` seats `MergeFacts` there so a shorter row list names its dropped remainder.
 - Packages: bodong.Avalonia.PropertyGrid, bodong.PropertyModels, System.Reactive, NodaTime, LanguageExt.Core
 - Growth: one policy value on `InspectorPolicy`, one seam on `InspectorChrome`, one cell state row WITH its producing arm, one grid edge as one `GridEdge` case the total `Switch` breaks loudly on.
 - Boundary: `Mount` is the page's PropertyGrid boundary capsule; every grid event enters as `RoutedEventArgs` and narrows through the ONE `GridEdge.Admit`, so a mismatch mints one `UnmatchedShape` at one site. `CommandExecuting` is the veto edge and `CommandExecuted` the commit seal: `SetPropertyValue` mints one `GenericCancelableCommand` per changed cell and raises executing, executes, then raises executed inside one synchronous frame; the veto arm cancels through `Canceled`, drives `CellState.Invalid` onto the live editor, and seals `Rejected`; the executed arm seals `Committed`/`Fanned`, drives `CellState.Edited`, and a gate refusing there names a command that ran past the veto edge on the fault rail, never a second rejection. `InspectorChrome`'s three seams exist because a style cannot reach the pixel: the grid pins `Background`/`Margin`/`Padding`/`HeaderTemplate` on its code-built category `Expander` at `BindingPriority.LocalValue`, so the card rides a `ControlTheme` replacing the one unpinned `Template` (header bound through `Header`, own painted surface, presenter named off `PART_ContentPresenter` because the Expander force-writes that part's left margin on every `TemplateApplied`); `CustomNameBlock` is MANDATORY because the shipped row label resolves its foreground once in a static constructor and holds it through every variant change; the operation column takes a whole replacement or the two-stage default-operation edges. The three content slots stay the package's own three `StyledProperty` members — a shell `ChromeSlot` keyed map would map seven shell slots onto three grid properties with four unreachable. Per-row styling rides `[ControlClasses]` unioned onto the materialized editor; `CellState` writes its pseudo-class there, so mixed and invalid presentations are theme rows.
@@ -191,8 +191,9 @@ public sealed record InspectorPolicy(
 
 public static partial class InspectorSurface {
     public static IDisposable Mount(
-        PropertyGrid grid, InspectorPolicy policy, object draft, IClock clock, CorrelationId correlation,
-        Action<EditReceipt> sink, Action<Error> fault, Option<Func<GridEdge, Unit>> tap = default) {
+        PropertyGrid grid, InspectorPolicy policy, object draft,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Action<Error> fault, Option<Func<GridEdge, Unit>> tap = default) {
         grid.DataContext = draft;
         grid.IsReadOnly = policy.ReadOnly;
         grid.LayoutStyle = policy.LayoutStyle;
@@ -211,7 +212,7 @@ public static partial class InspectorSurface {
             Setters = { new Setter(StyledElement.ThemeProperty, InspectorChrome.CategoryTheme()) },
         });
         Func<GridEdge, Unit> route = edge => {
-            Routed(edge, policy, clock, correlation, sink, fault);
+            Routed(edge, policy, rail, fault);
             tap.Iter(observer => observer(edge));
             return unit;
         };
@@ -237,12 +238,15 @@ public static partial class InspectorSurface {
     }
 
     static Unit Routed(
-        GridEdge edge, InspectorPolicy policy, IClock clock, CorrelationId correlation,
-        Action<EditReceipt> sink, Action<Error> fault) => edge.Switch(
+        GridEdge edge, InspectorPolicy policy,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Action<Error> fault) => edge.Switch(
         admitting: shape => { policy.Admit(shape.Args); return unit; },
         focused: shape => {
-            sink(new EditReceipt(ReceiptKind.Focus, policy.Surface, policy.Target(shape.Args.Context.Property),
-                string.Empty, new EditOutcome.Observed(), clock.GetCurrentInstant(), correlation));
+            ignore(rail.Fire(
+                AppUiPoint.Focus,
+                new AppUiFact.Focus(policy.Target(shape.Args.Context.Property), Focused: true),
+                Op.Of(name: "appui.inspector.focus")).IfFail(error => fun(() => fault(error))()));
             return unit;
         },
         vetoing: shape => policy.Gate(shape.Args).Match(
@@ -250,13 +254,15 @@ public static partial class InspectorSurface {
             Fail: refusal => {
                 shape.Args.Canceled = true;
                 Optional(shape.Args.Context?.CellEdit).Iter(cell => ignore(CellState.Invalid.Apply(cell)));
-                sink(Sealed(policy, shape.Args, string.Empty, new EditOutcome.Rejected(refusal), clock, correlation));
+                ignore(Fire(policy, shape.Args, string.Empty, new EditOutcome.Rejected(refusal), rail)
+                    .IfFail(error => fun(() => fault(error))()));
                 return unit;
             }),
         committed: shape => policy.Gate(shape.Args).Match(
             Succ: editor => {
                 Optional(shape.Args.Context?.CellEdit).Iter(cell => ignore(CellState.Edited.Apply(cell)));
-                sink(Sealed(policy, shape.Args, editor, Outcome(shape.Args, editor), clock, correlation));
+                ignore(Fire(policy, shape.Args, editor, Outcome(shape.Args, editor), rail)
+                    .IfFail(error => fun(() => fault(error))()));
                 return unit;
             },
             Fail: refusal => {
@@ -270,8 +276,13 @@ public static partial class InspectorSurface {
         },
         columnStaging: shape => { policy.Chrome.DefaultOperation(shape.Args); return unit; });
 
-    private static EditReceipt Sealed(InspectorPolicy policy, RoutedCommandExecutedEventArgs args, string editor, EditOutcome outcome, IClock clock, CorrelationId correlation) =>
-        new(ReceiptKind.Edit, policy.Surface, policy.Target(args.Property), editor, outcome, clock.GetCurrentInstant(), correlation);
+    private static Fin<Unit> Fire(
+        InspectorPolicy policy, RoutedCommandExecutedEventArgs args, string editor, EditOutcome outcome,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) =>
+        rail.Fire(
+            AppUiPoint.Edit,
+            new AppUiFact.Edit(AppUiPoint.Edit.Key, policy.Surface, policy.Target(args.Property), editor, outcome.GetType().Name),
+            Op.Of(name: "appui.inspector.edit"));
 
     private static EditOutcome Outcome(RoutedCommandExecutedEventArgs args, string editor) =>
         (args.Property, args.Target) switch {
@@ -500,10 +511,10 @@ public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFa
 
 ## [04]-[COMMIT_VALIDATION]
 
-- Owner: `EditFault` the direct generated `[Union]` with one `[FaultCase]` leaf per inspector failure; `EditOutcome` `[Union]`; `ReceiptKind` the receipt-kind rows; `EditReceipt` record; `EditGate` static admission surface.
-- Cases: `EditFault` = Parse | Invariant | UnmatchedShape | StoreRejected | HostRejected | ResolutionAbsent; `EditOutcome` = Observed | Committed | Fanned | Persisted | Reverted | Redone | Rejected | HostRouted; `ReceiptKind` = focus | edit | options | conflict.
+- Owner: `EditFault` the direct generated `[Union]` with one `[FaultCase]` leaf per inspector failure; `EditOutcome` `[Union]`; `EditGate` static admission surface.
+- Cases: `EditFault` = Parse | Invariant | UnmatchedShape | StoreRejected | HostRejected | ResolutionAbsent; `EditOutcome` = Observed | Committed | Fanned | Persisted | Reverted | Redone | Rejected | HostRouted.
 - Entry: `EditGate.Gate(descriptor, adapter, admit)` — the applicative `Validation<Error, _>` combine reports independent row and value refusals together; `Admit<TOwner, TRaw, TError>(target, raw)` the generated-factory bridge; `AdmitQuantity(target, shape, text, culture)` the culture-bearing quantity parse; `Resolve(descriptor, adapter)` the row election.
-- Receipt: `EditReceipt` — kind row, surface, target, editor row key, outcome, `Instant`, `CorrelationId`; the `Diagnostics/evidence.md` `EvidenceMap` projects it (member names `Kind`/`Surface`/`Target`/`Editor`/`Outcome` are that seam's contract).
+- Result: committed edits fire `AppUiFact.Edit` through the canonical AppUi hook rail after the gate settles.
 - Packages: Thinktecture.Runtime.Extensions, UnitsNet, NodaTime, LanguageExt.Core
 - Growth: one case is one `[FaultCase]` leaf; zero new surface.
 - Boundary: preview interactions (`PreviewColorChanged`, `PreviewValueChanged`, transient editor state) mutate nothing durable and emit nothing — `ColorChanged` and `RealValueChanged` are the two pickers' commit edges; `InspectorPolicy.Gate` is the composition-bound closure invoking `EditGate` at the veto edge, because a generic self-constrained factory contract cannot bind at an `EventHandler<RoutedEventArgs>` seam and the owner type is known only where the section composes. `Admit` is the page's spelling of the kernel lifter law (`Rasm/Domain/validation.md` `[04]-[FACTORY_BRIDGE]`): the kernel's typed receivers span its own raw shapes under `ValidationError`, and the error-typed, descriptor-erased grid seam — `TOwner` closing only at composition, `TRaw` `allows ref struct` — is the caller-spelled-`Validate` case that law reserves, so the bridge composes `IObjectFactory.Validate` once here and per-call-site error translation stays deleted; the kernel fixes `Validate` under invariant culture, so the CULTURE-SENSITIVE parse lives at the editor's presentation and only `AdmitQuantity` carries an explicit culture (`Quantity.TryParse`; unit lists present through `Quantity.Infos`). `ValidateProperty` text renders through the screen validation rail's own `FieldErrors` slot stream (`Shell/screens#VALIDATION_UX`) — a second validation rail is deleted; a refused admission drives `CellState.Invalid` onto the live editor; host-mutating edits route through the abstract document-transaction port, undo-scoped, `HostRouted` carrying that hop's correlation.
@@ -559,26 +570,6 @@ public abstract partial record EditOutcome {
     public sealed record HostRouted(CorrelationId Transaction) : EditOutcome;
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ReceiptKind {
-    public static readonly ReceiptKind Focus = new("focus");
-    public static readonly ReceiptKind Edit = new("edit");
-    public static readonly ReceiptKind Options = new("options");
-    public static readonly ReceiptKind Conflict = new("conflict");
-}
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-public sealed record EditReceipt(
-    ReceiptKind Kind,
-    string Surface,
-    string Target,
-    string Editor,
-    EditOutcome Outcome,
-    Instant At,
-    CorrelationId Correlation);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class EditGate {
@@ -615,12 +606,12 @@ public static class EditGate {
 
 - Owner: `OptionsInspector<TDraft, TValue>` binding record; `InspectorSurface` extension `Attach`/`Banner`.
 - Cases: banner keys per `ReloadOutcome` case — options-applied, options-unchanged, options-restart-required, options-rejected; restart-required is the frozen-row path rendered as a typed outcome, never a toast.
-- Entry: `Attach<TDraft, TValue>(grid, binding, policy, clock, correlation, sink, banner, fault)` — `IDisposable` composing the mount, the persist tap, and the receipt subscription; the persist arm rides `Mount`'s admitted edge stream as its `tap`, so ONE admission serves both consumers and a second event subscription is unspellable.
+- Entry: `Attach<TDraft, TValue>(grid, binding, policy, rail, banner, fault)` — `IDisposable` composing the mount, the persist tap, and the outcome subscription; the persist arm rides `Mount`'s admitted edge stream as its `tap`, so ONE admission serves both consumers and a second event subscription is unspellable.
 - Auto: the generated `ReloadOutcome` `Switch` is the whole banner fold.
-- Receipt: `EditReceipt` under `ReceiptKind.Options` per durable write, its outcome `Persisted` or `Rejected` — distinct from the property cell's `Committed`, so one user edit crosses the evidence fan once; `ReloadReceipt` consumed from the options monitor stream.
+- Result: each durable write fires `AppUiFact.Edit` with `Persisted` or `Rejected`; the options monitor supplies `ReloadOutcome` directly.
 - Packages: bodong.Avalonia.PropertyGrid, bodong.PropertyModels, System.Reactive, NodaTime, LanguageExt.Core
 - Growth: one options section row binds with one `OptionsInspector` record; zero new surface — a settings-dialog framework is deleted by this composite.
-- Boundary: the draft-versus-record split is structural — `TDraft` is the mutable notifying partial the grid mutates in place, `Commit` rebuilds the immutable `TValue`, and `Persist` writes that rebuilt record, so persisting the draft reference hands the store an instance the next keystroke rewrites (folder `RULINGS` `[02]`). Options monitoring re-validates, its `ReloadReceipt` stream closes the loop, subscription failure enters the same `EditFault` rail; cross-process propagation remains the op-log cursor consequence, and the grid never touches configuration directly.
+- Boundary: the draft-versus-record split is structural — `TDraft` is the mutable notifying partial the grid mutates in place, `Commit` rebuilds the immutable `TValue`, and `Persist` writes that rebuilt record, so persisting the draft reference hands the store an instance the next keystroke rewrites (folder `RULINGS` `[02]`). Options monitoring re-validates and publishes `ReloadOutcome`; subscription failure enters the same `EditFault` rail; cross-process propagation remains the op-log cursor consequence, and the grid never touches configuration directly.
 
 ```csharp
 public sealed record OptionsInspector<TDraft, TValue>(
@@ -629,7 +620,7 @@ public sealed record OptionsInspector<TDraft, TValue>(
     TDraft Draft,
     Func<TDraft, TValue> Commit,
     Func<TValue, Fin<Unit>> Persist,
-    IObservable<ReloadReceipt> Receipts)
+    IObservable<ReloadOutcome> Outcomes)
     where TDraft : PropertyModels.ComponentModel.MiniReactiveObject
     where TValue : class;
 
@@ -646,25 +637,27 @@ public static partial class InspectorSurface {
         rejected: static row => RejectedBanner);
 
     public static IDisposable Attach<TDraft, TValue>(
-        PropertyGrid grid, OptionsInspector<TDraft, TValue> binding, InspectorPolicy policy, IClock clock,
-        CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner, Action<Error> fault)
+        PropertyGrid grid, OptionsInspector<TDraft, TValue> binding, InspectorPolicy policy,
+        HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
+        Action<string> banner, Action<Error> fault)
         where TDraft : PropertyModels.ComponentModel.MiniReactiveObject where TValue : class {
         Func<GridEdge, Unit> persist = edge => {
             if (edge is GridEdge.Committed) {
                 binding.Persist(binding.Commit(binding.Draft)).Match(
-                    Succ: _ => sink(new EditReceipt(
-                        ReceiptKind.Options, policy.Surface, binding.Section, binding.Reload.Key,
-                        new EditOutcome.Persisted(binding.Section), clock.GetCurrentInstant(), correlation)),
-                    Fail: error => sink(new EditReceipt(
-                        ReceiptKind.Options, policy.Surface, binding.Section, binding.Reload.Key,
-                        new EditOutcome.Rejected(error),
-                        clock.GetCurrentInstant(), correlation)));
+                    Succ: _ => ignore(rail.Fire(
+                        AppUiPoint.Edit,
+                        new AppUiFact.Edit("options", policy.Surface, binding.Section, binding.Reload.Key, nameof(EditOutcome.Persisted)),
+                        Op.Of(name: "appui.inspector.options")).IfFail(error => fun(() => fault(error))())),
+                    Fail: error => ignore(rail.Fire(
+                        AppUiPoint.Edit,
+                        new AppUiFact.Edit("options", policy.Surface, binding.Section, binding.Reload.Key, nameof(EditOutcome.Rejected)),
+                        Op.Of(name: "appui.inspector.options")).IfFail(cause => fun(() => fault(cause))())));
             }
             return unit;
         };
-        IDisposable mount = Mount(grid, policy, binding.Draft, clock, correlation, sink, fault, Some(persist));
-        IDisposable reload = binding.Receipts.Subscribe(
-            receipt => banner(Banner(receipt.Outcome)),
+        IDisposable mount = Mount(grid, policy, binding.Draft, rail, fault, Some(persist));
+        IDisposable reload = binding.Outcomes.Subscribe(
+            outcome => banner(Banner(outcome)),
             raw => fault(Error.New(raw.Message, raw)));
         return new CompositeDisposable(mount, reload);
     }
@@ -680,17 +673,12 @@ config:
     padding: 25
 ---
 flowchart LR
-    accTitle: Inspector edit and reload receipts
-    accDescr: Grid events admit through one edge union into the gate and seal pair, options persistence taps the same admitted stream, and reload receipts fold to typed banners.
+    accTitle: Inspector edits and option reloads
+    accDescr: Grid events admit through one edge union into the gate and settlement pair, options persistence taps the same admitted stream, and reload outcomes fold to typed banners.
     PropertyGrid --> GridEdge
     GridEdge --> EditGate
-    EditGate --> EditReceipt
+    EditGate --> AppUiFact
     GridEdge -->|tap| OptionsInspector
-    OptionsInspector --> ReloadReceipt
-    ReloadReceipt --> ReloadOutcome
+    OptionsInspector --> ReloadOutcome
     ReloadOutcome --> Banner
 ```
-
-## [06]-[RESEARCH]
-
-(none)

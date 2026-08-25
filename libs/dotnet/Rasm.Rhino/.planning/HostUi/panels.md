@@ -1,13 +1,13 @@
 # [RASM_RHINO_HOSTUI_PANELS]
 
-`PanelHost` owns Rhino panel registration, placement, per-document instances, visibility, icon, lifecycle evidence, and dock-bar facts through one typed request family. `Rui` owns toolbar-file mutation and census through one command fold, `PanelSections` realizes collapsible host sections from capability sets, and `HostControl` closes the consumable `Rhino.UI.Controls` widget library as instances of the kernel control family. Every control tree is grown by `ControlForge` and owned by an `ElementReceipt`, every icon origin is the kernel asset family, every colour crosses as `PerceptualColor`, and every entry enters the Rhino command thread through `HostThread.Run` and answers a detached receipt.
+`PanelHost` owns Rhino panel registration, placement, per-document instances, visibility, icon, lifecycle evidence, and dock-bar facts through one typed request family. `Rui` owns toolbar-file mutation and census through one command fold, `PanelSections` realizes collapsible host sections from capability sets, and `HostControl` closes the consumable `Rhino.UI.Controls` widget library as instances of the kernel control family. Every control tree is grown by `ControlForge` and owned by an `ElementMount`, every icon origin is the kernel asset family, every colour crosses as `PerceptualColor`, and every entry enters the Rhino command thread through `HostThread.Run` and answers a detached result.
 
 ## [01]-[INDEX]
 
 - [02]-[PANEL_MODEL]: `PanelKey`, `PanelChange`, `PanelSeat`, `PanelFact`, `PanelAudience`, `MountState`, and `HostPanel` close identity, lifecycle, content, one-shot release, and scoped callback delivery.
 - [03]-[PANEL_HOST]: `PanelIntent<TPanel>`, `PanelMount<TPanel>`, and `PanelBadge` own registration, placement, query, close, instance, icon, and dock-bar modalities over one registry state.
 - [04]-[PANEL_OBSERVATION]: `PanelObserve` folds audience-scoped owned observation and the host-wide projection into one subscription entry mounted through the typed hook binding.
-- [05]-[RUI]: `RuiCommand` folds toolbar-file state changes and `RuiReceipt` carries the census snapshot with any applied-prefix fault.
+- [05]-[RUI]: `RuiCommand` folds toolbar-file state changes and `RuiOutcome` carries the census snapshot with any applied-prefix fault.
 - [06]-[MENU_LINKS]: `MenuDelta` carries menu update state as cases over one registered host callback.
 - [07]-[SECTIONS]: `PanelSectionSpec`, `PanelSectionSignal`, the two capability rosters, and `PanelSectionMount` realize ordered collapsible sections with lifecycle routing and complete content lifetime.
 - [08]-[HOST_CONTROLS]: `HostControl`, the three `RhinoLayout` vocabularies, `ThemePalette`, and `UiServices` close the Rhino widget library, theme read, and platform-service seams.
@@ -16,16 +16,16 @@
 
 - Owner: `PanelKey` admits the panel type's declared identity; `PanelChange` closes the lifecycle evidence; `PanelSeat` is the instance identity; `PanelAudience` scopes fact delivery; `PanelFact` is the stamped evidence row; `MountState` is the one-shot release vocabulary both mounting owners on this page step; `HostPanel` is the abstract implement seam over the foreign panel bases.
 - Cases: `PanelChange` is shown, hidden, unclassified, panel-closing, or document-closing — five states with no boolean payload. `MountState` is live or released, and the transition between them is the latch.
-- Entry: `HostPanel` realizes its control tree once in its constructor, retains the leased receipt, and routes every host callback through `PanelHost.Stamp`.
+- Entry: `HostPanel` realizes its control tree once in its constructor, retains the leased `ElementMount`, and routes every host callback through `PanelHost.Stamp`.
 - Auto: identity is read from the DECLARED attribute and never the runtime type identity, because the runtime synthesizes a fallback for an unattributed type — so an empty-identity gate cannot tell a declared panel key from a build-derived one and the attribute read is the whole admission.
-- Law: the instance identity is the triple, not the panel key. A per-document panel holds one live instance per open document and two plug-ins seat their own panels inside one process, so every fact, ledger row, and receipt keys on plug-in, panel, and optional document with a system panel seated under the absent document.
+- Law: the instance identity is the triple, not the panel key. A per-document panel holds one live instance per open document and two plug-ins seat their own panels inside one process, so every fact, ledger row, and mount keys on plug-in, panel, and optional document with a system panel seated under the absent document.
 - Law: the host-wide projection names NO plug-in, because the host reports visibility for panels this boundary never registered; an unowned fact seats nowhere and reaches a registry-scoped observer alone.
 - Law: the one-shot release is a guarded TRANSITION over a closed state, not an interlocked exchange. A raw latch beside this folder's own cell custody is a second mechanism answering the question the transition already answers, and its verdict is what tells a second releaser it never won. NAMED LOSS: none — the exchange and the state answer the same fact, and only the state can be read.
 - Law: an identity refusal, a lifecycle-hook throw, and a lifecycle-hook failure all PARK on the panel's bounded ring — durable typed evidence that never re-enters the host callback and never grows without a ceiling.
 - Law: `Admits` is a PREDICATE and answers a bool. It asks whether an audience covers an owner, which every sibling `Admit` on this page does not: those admit a value and can refuse, this one filters a fan and has nothing to recover from. A rail here would be a failure no caller could act on.
-- Receipt: `PanelFact` carries owning plug-in, panel, optional document, change, and the monotonic ordinal the registry stamped, and projects its own seat.
-- Boundary: `Construction` retains the leased receipt so realization failure and control-tree lifetime stay typed even where the host requires a constructed panel instance.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panel`, `IPanel`, `ShowPanelReason`, `Panels.IsShowing`/`IsHiding`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Label`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Realize`, `ElementReceipt`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `PluginKey`).
+- Output: `PanelFact` carries owning plug-in, panel, optional document, change, and the monotonic ordinal the registry stamped, and projects its own seat.
+- Boundary: `Construction` retains the leased `ElementMount` so realization failure and control-tree lifetime stay typed even where the host requires a constructed panel instance.
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panel`, `IPanel`, `ShowPanelReason`, `Panels.IsShowing`/`IsHiding`, `EtoExtensions.UseRhinoStyle`); `libs/dotnet/Rasm.Rhino/.api/api-eto-forms.md` (`Control`, `Label`); LanguageExt.Core (`Fin`, `Option`, `Atom`, `Seq`); Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Realize`, `ElementMount`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>`); `Rasm/Numerics` (`Dimension`); `Rasm.Rhino/Document` (`DocKey`, `PluginKey`).
 - Growth: a new lifecycle evidence is one `PanelChange` case; a new identity axis is one column on the seat, breaking every ledger read loudly.
 
 ```csharp
@@ -149,15 +149,15 @@ public abstract class HostPanel : Panel, IPanel {
         Construction = ControlForge.Realize(spec: content, runtime: runtime, key: op);
         Control? rejected = null;
         Content = Construction.Match<Control>(
-            Succ: receipt => {
-                EtoExtensions.UseRhinoStyle(receipt.Resource.Host);
-                return receipt.Resource.Host;
+            Succ: outcome => {
+                EtoExtensions.UseRhinoStyle(outcome.Resource.Host);
+                return outcome.Resource.Host;
             },
             Fail: fault => rejected = new Label { Text = fault.Message });
         fallback = Optional(rejected);
     }
 
-    public Fin<Lease<ElementReceipt>> Construction { get; }
+    public Fin<Lease<ElementMount>> Construction { get; }
 
     public Seq<Error> Faults => faults.Parked;
 
@@ -188,7 +188,7 @@ public abstract class HostPanel : Panel, IPanel {
         is Transition<MountState>.Committed
         ? HostThread.Release(
                 releases: Construction.Match(
-                        Succ: receipt => Seq<Func<Fin<Unit>>>(() => receipt.Use(seated => seated.Release(), op)),
+                        Succ: outcome => Seq<Func<Fin<Unit>>>(() => outcome.Use(seated => seated.Release(), op)),
                         Fail: static _ => Seq<Func<Fin<Unit>>>())
                     + fallback.Match(
                         Some: control => Seq<Func<Fin<Unit>>>(() => op.Catch(() => Fin.Succ(value: Op.Side(control.Dispose)))),
@@ -219,13 +219,13 @@ public abstract class HostPanel : Panel, IPanel {
 - Cases: registration, placement, presence, document close, scoped instances, icon replacement, and dock-bar usage — session-scoped and serial-scoped instance reads are one case because the instance scope already discriminates them.
 - Entry: `PanelHost.Run<TPanel>` dispatches one request under one command-thread crossing; `PanelHost.Use<TPanel,T>` is the ONE live-instance surface, running its body inside the session frame that resolved the instances so no panel crosses out of the boundary.
 - Auto: the registry is ONE state — the seat-keyed fact ledger, the watcher fan, and the two monotone ordinals move together under one commit, so a stamp mints its ordinal from the state it lands in rather than from a process-wide counter beside it.
-- Auto: the three settle-only receipts fold to one case carrying the verb, so a reader takes the verb off a column rather than off a case name and a fourth settlement is one row.
+- Auto: the three settle-only outcomes fold to one case carrying the verb, so a reader takes the verb off a column rather than off a case name and a fourth settlement is one row.
 - Law: the icon is a kernel `AssetOrigin` and the host publishes exactly TWO seams for it — a resource named by assembly and path, and a live icon object. `Resource` takes the resource-backed registration with no materialization and no disposal at all; `File` mints an icon under a lease; every other origin case names a byte source the host panel registry has no member for and refuses TYPED by name.
 - Law: a rebadge from a resource anchor refuses when the anchor names an assembly other than the panel type's own, because the host's rebadge member takes the resource path ALONE and resolves it against that type — a silently mismatched anchor would replace the icon with nothing.
 - Law: `Register` proves the host plug-in identity IS the declared key, so a panel registered under one plug-in never stamps another plug-in's seat.
 - Law: a generated row cannot be absent, so the placement admission gates the identities it carries and nothing else — a null check over a smart-enum column is a guard at use where construction already closed the corner.
 - Law: visibility is resolved by ONE row read over the two host probes, so the selected-and-visible corner pair is a row lookup rather than a truth table restated at the call site.
-- Receipt: `PanelMount<TPanel>` — a settlement with its verb, a presence, a found seat with its live count, or a dock-bar usage row.
+- Output: `PanelMount<TPanel>` — a settlement with its verb, a presence, a found seat with its live count, or a dock-bar usage row.
 - Boundary: an icon minted from a path is disposed after the synchronous host call; a resource anchor mints nothing, and a borrowed native icon stays the caller's.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Panels.RegisterPanel` both overloads, `OpenPanel`, `OpenPanelAsSibling`, `FloatPanel`, `ClosePanel`, `IsPanelVisible`, `PanelDockBars`, `GetOpenPanelIds`, `DockBarIdInUse`, `ChangePanelIcon` both overloads, `GetPanels<T>`, `PanelType`, `FloatPanelMode`); `libs/dotnet/.api/api-system-drawing-common.md` (the icon the registry takes); LanguageExt.Core (`Fin`, `Option`, `HashMap`, `Seq`, `Atom`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`); `Rasm/Interaction` (`AssetOrigin`, `AssetAnchor`, `FileLocation`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Lease<T>`); `Rasm.Rhino/Document` (`DocumentSession`, `SessionNeed`, `DocKey`, `PluginKey`, `Subscription`).
 - Growth: a new registry operation is one `PanelIntent` case, one arm, and one `PanelMount` shape only if no existing shape carries it; a new settlement is one `PanelVerb` row.
@@ -404,7 +404,7 @@ public static class PanelHost {
                from __ in plugin.Admit(op)
                from ___ in request.Admit(plugin: plugin, op: op)
                from panel in PanelKey.Of(panelType: typeof(TPanel), key: op)
-               from receipt in request.Switch(
+               from outcome in request.Switch(
                    (Plugin: plugin, Panel: panel, Op: op),
                    register: static (held, work) => Badged<TPanel>(
                        origin: work.Icon,
@@ -452,7 +452,7 @@ public static class PanelHost {
                                .Map<PanelMount<TPanel>>(use => new PanelMount<TPanel>.DockBar(
                                    Id: work.DockBar, Use: use)))),
                        key: held.Op))
-               select receipt;
+               select outcome;
     }
 
     public static Fin<T> Use<TPanel, T>(
@@ -580,8 +580,8 @@ public static class PanelHost {
 - Law: multi-plug-in coexistence is one law — a point seat is first-mount-wins, every subscriber is keyed by the plug-in its mount declared, and teardown returns the seat, so a second plug-in mounting the same point faults typed instead of forking discovery or crossing fact streams.
 - Law: the point's replay modality is the seat-keyed latest fact a binder reads before its first delivery, and the per-plug-in projection reads one panel's rows per document.
 - Boundary: each delivery crosses the guarded observer; delivery and rejection faults accumulate without starving sibling observers.
-- Receipt: `Subscription` — the symmetric detach both cases answer.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (panel visibility semantics); LanguageExt.Core (`Fin`, `Option`, `Seq`); `Rasm/Domain` (`Op`, `HookBinding`); `Rasm.Rhino/Document` (`MountRegistry`, `RhinoPoint`, `DocumentStream`, `Observation`, `EventScope`, `EventFamily`, `EventPayload`, `Delivery`, `ReceiptPolicy`, `Subscription`, `PluginKey`).
+- Output: `Subscription` — the symmetric detach both cases answer.
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (panel visibility semantics); LanguageExt.Core (`Fin`, `Option`, `Seq`); `Rasm/Domain` (`Op`, `HookBinding`); `Rasm.Rhino/Document` (`MountRegistry`, `RhinoPoint`, `DocumentStream`, `Observation`, `EventScope`, `EventFamily`, `EventPayload`, `Delivery`, `StreamPolicy`, `Subscription`, `PluginKey`).
 - Growth: a new observation source is one `PanelObserve` case with one arm.
 
 ```csharp
@@ -603,11 +603,11 @@ public static class PanelObservation {
     public static Fin<Subscription> Observe(
         PanelObserve scope,
         CallbackObserver<PanelFact> observer,
-        ReceiptPolicy receipts,
+        StreamPolicy policy,
         Op? key = null) {
         Op op = key.OrDefault();
-        return op.Accept<object>(scope, observer, receipts).Bind(_ => scope.Admit(op)).Bind(_ => scope.Switch(
-            (Observer: observer, Receipts: receipts, Op: op),
+        return op.Accept<object>(scope, observer, policy).Bind(_ => scope.Admit(op)).Bind(_ => scope.Switch(
+            (Observer: observer, Policy: policy, Op: op),
             owned: static (held, row) => Fin.Succ(value: PanelHost.Watch(audience: row.Audience, observer: held.Observer)),
             hosted: static (held, _) => DocumentStream.Observe(new Observation.Host(
                     Scope: new EventScope.AnyDocument(),
@@ -625,7 +625,7 @@ public static class PanelObservation {
                                 op: held.Op))
                             : Fin.Fail<PanelFact>(error: held.Op.InvalidResult()),
                         op: held.Op))),
-                    Receipts: held.Receipts))
+                    Policy: held.Policy))
                 .Map(watch => Subscription.Of(detach: watch.Dispose))));
     }
 }
@@ -647,7 +647,7 @@ public static class PanelHooks {
 
 ## [05]-[RUI]
 
-- Owner: `RuiCommand` closes file, group, sidebar, and sizing modalities; `RuiFileRef` closes identifier, path, and named lookup; `RuiSnapshot` is the census; `RuiReceipt` carries the snapshot with applied-prefix evidence; `RuiMap` is the host-to-record projection.
+- Owner: `RuiCommand` closes file, group, sidebar, and sizing modalities; `RuiFileRef` closes identifier, path, and named lookup; `RuiSnapshot` is the census; `RuiOutcome` carries the snapshot with applied-prefix evidence; `RuiMap` is the host-to-record projection.
 - Entry: `Rui.Run` admits the whole batch, then applies it under one command crossing and answers the post-operation snapshot.
 - Auto: the census reads each file ONCE and nests its own groups and toolbars, so the file identity every flat row repeated is containment and the two count columns are the rosters' own lengths.
 - Auto: the batch fold halts on the first refusal and the applied count IS the fold's state, so no parallel record carries a fault sentinel beside a count the traversal already holds.
@@ -656,7 +656,7 @@ public static class PanelHooks {
 - Law: group state is a capability SET over a named vocabulary, so a visible-and-docked group is one value rather than two bools nothing relates.
 - Law: the file lookup scans the LIVE host collection and memoizes nothing. The batch this lookup serves mutates that collection — opening, closing, and saving files — so a frozen index is stale by construction at exactly the site that would read it.
 - Law: a sizing command carries a NONEMPTY map, so the fold cannot be reached with nothing to apply.
-- Receipt: `RuiReceipt` — the full post-operation snapshot with the applied count, and the fault beside it when the batch stopped early.
+- Output: `RuiOutcome` — the full post-operation snapshot with the applied count, and the fault beside it when the batch stopped early.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-runtime.md` (`RhinoApp.ToolbarFiles`, `ToolbarFileCollection.SidebarIsVisible`/`MruSidebarIsVisible`/`FindByPath`/`FindByName`, `ToolbarFile`, `Toolbar.BitmapSize`/`TabSize`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Traverse`, `foldWhile`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`); `Rasm/Domain` (`Op`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`).
 - Growth: a new toolbar command is one `RuiCommand` case with one apply arm; a new census column is one field on its own fact; a new sidebar or bar is one row both sides read.
 
@@ -821,27 +821,27 @@ public sealed record RuiSnapshot(
     HashMap<RuiBar, DrawingSize> Bars);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RuiReceipt {
-    private RuiReceipt() { }
-    public sealed record Completed(RuiSnapshot Snapshot, Rasm.Numerics.Dimension Applied) : RuiReceipt;
-    public sealed record Partial(RuiSnapshot Snapshot, Rasm.Numerics.Dimension Applied, Error Fault) : RuiReceipt;
+public abstract partial record RuiOutcome {
+    private RuiOutcome() { }
+    public sealed record Completed(RuiSnapshot Snapshot, Rasm.Numerics.Dimension Applied) : RuiOutcome;
+    public sealed record Partial(RuiSnapshot Snapshot, Rasm.Numerics.Dimension Applied, Error Fault) : RuiOutcome;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Rui {
-    public static Fin<RuiReceipt> Run(Seq<RuiCommand> commands, Op? key = null) {
+    public static Fin<RuiOutcome> Run(Seq<RuiCommand> commands, Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in commands
                    .Traverse(command => op.Need(command).Bind(value => value.Admit(op)).ToValidation())
                    .As()
                    .ToFin()
-               from receipt in HostThread.Run(
-                   work: new HostWork<RuiReceipt>.Execute(Body: () => Applied(commands: admitted.Strict(), op: op)),
+               from outcome in HostThread.Run(
+                   work: new HostWork<RuiOutcome>.Execute(Body: () => Applied(commands: admitted.Strict(), op: op)),
                    key: op)
-               select receipt;
+               select outcome;
     }
 
-    private static Fin<RuiReceipt> Applied(Seq<RuiCommand> commands, Op op) {
+    private static Fin<RuiOutcome> Applied(Seq<RuiCommand> commands, Op op) {
         (int Applied, Option<Error> Fault) seed = (Applied: 0, Fault: None);
         var state = foldWhile(
             (held, command) => Apply(command: command, op: op).Match(
@@ -850,10 +850,10 @@ public static class Rui {
             static step => step.State.Fault.IsNone,
             seed,
             commands);
-        return Census(op: op).Map(snapshot => state.Fault.Match<RuiReceipt>(
-            Some: fault => new RuiReceipt.Partial(
+        return Census(op: op).Map(snapshot => state.Fault.Match<RuiOutcome>(
+            Some: fault => new RuiOutcome.Partial(
                 Snapshot: snapshot, Applied: Rasm.Numerics.Dimension.Create(value: state.Applied), Fault: fault),
-            None: () => new RuiReceipt.Completed(
+            None: () => new RuiOutcome.Completed(
                 Snapshot: snapshot, Applied: Rasm.Numerics.Dimension.Create(value: state.Applied))));
     }
 
@@ -926,7 +926,7 @@ public static class Rui {
 - Law: callback state is RECOMPUTED from the address on every raise; no mutable menu state escapes the host invocation.
 - Law: registration mutates a process-wide handler table and mints no host leaf, so it MARSHALS like every sibling entry on this page — the required-frame crossing is reserved for the entries whose host leaves must originate in the caller's own frame.
 - Boundary: a rejected registration is the operation's typed failure; delivery uses the shared guarded observer and runs on whatever thread the host raises the update on.
-- Receipt: `Fin<Unit>` — the host publishes nothing beyond acceptance, and a fabricated receipt would assert one.
+- Output: `Fin<Unit>` — the host publishes nothing beyond acceptance, and a fabricated outcome would assert one.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`RuiUpdateUi.RegisterMenuItem`, `RuiUpdateUi.Enabled`/`Checked`/`RadioChecked`/`Text`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
 - Growth: a new menu axis is one `MenuDelta` case with one apply arm.
 
@@ -999,17 +999,17 @@ public static class MenuLinks {
 
 ## [07]-[SECTIONS]
 
-- Owner: `PanelSectionSpec` carries caption, body, height, command-option caption, a capability set, and one optional lifecycle hook; `PanelSectionFeature` and `PanelSectionHolderFeature` close per-section and holder capability; `PanelSectionSignal` closes attach, detach, holder-visibility, and refresh evidence; `PanelSectionLeaf` is the host section; `PanelSectionMount` owns the holder and every grown receipt.
-- Entry: `PanelSections.Mount` opens ONE crossing, grows every body inside it, preserves declaration order, and answers a mount owning the holder, every receipt, and the accumulated hook faults.
+- Owner: `PanelSectionSpec` carries caption, body, height, command-option caption, a capability set, and one optional lifecycle hook; `PanelSectionFeature` and `PanelSectionHolderFeature` close per-section and holder capability; `PanelSectionSignal` closes attach, detach, holder-visibility, and refresh evidence; `PanelSectionLeaf` is the host section; `PanelSectionMount` owns the holder and every grown `ElementMount`.
+- Entry: `PanelSections.Mount` opens ONE crossing, grows every body inside it, preserves declaration order, and answers a mount owning the holder, every `ElementMount`, and the accumulated hook faults.
 - Auto: bodies grow through the DISPATCH-FREE core rather than the affinity-gated entry, because this owner already holds the crossing — a per-body gate would re-marshal inside a frame that is already the marshal.
-- Auto: a mid-fold refusal releases the receipts it already grew in reverse order, so a partial realize leaks no host control and the hand cleanup tower has no site.
+- Auto: a mid-fold refusal releases the mounts it already grew in reverse order, so a partial realize leaks no host control and the hand cleanup tower has no site.
 - Law: every leaf lifecycle override chains its host base FIRST, then routes its signal; a hook fault parks on the mount's bounded ring and never re-enters the holder.
 - Law: the full-height law is a MOUNT law, not a section law. Every capability corner on one section is legal — a hidden section can still be collapsible and initially expanded — while at most one section in a holder can claim the full height, so the corner gate is open and the roster gate is at the fold that sees all of them.
 - Law: an empty section sequence refuses BEFORE any host leaf mints, because a holder with no sections is a control the caller then has to discover is inert.
 - Law: the refresh flags stay a host word. The host publishes no named flag vocabulary for its view update, so a roster here would be an authored guess at a set the host owns; the case carries the word and names it as the host's.
 - Law: release is a guarded TRANSITION over the same state the panel base steps, so both one-shot owners on this page answer the same vocabulary and neither carries a latch of its own.
-- Receipt: `PanelSectionMount` — the holder control, the accumulated hook and teardown faults, and the reverse-order drain.
-- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`EtoCollapsibleSection3`, `ICollapsibleSectionHolder2`, `EtoCollapsibleSectionHolder2`, `LocalizeStringPair`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Grow`, `ElementReceipt`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`).
+- Output: `PanelSectionMount` — the holder control, the accumulated hook and teardown faults, and the reverse-order drain.
+- Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`EtoCollapsibleSection3`, `ICollapsibleSectionHolder2`, `EtoCollapsibleSectionHolder2`, `LocalizeStringPair`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`); `Rasm/Interaction` (`ControlSpec`, `ControlForge.Grow`, `ElementMount`, `ElementRuntime`, `UiFault`); `Rasm/Domain` (`Op`, `Cell`, `Transition`, `Ring<Error>`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`Dimension`).
 - Growth: a new lifecycle signal is one `PanelSectionSignal` case with one override; a new section capability is one row on its roster.
 
 ```csharp
@@ -1123,12 +1123,12 @@ internal sealed class PanelSectionLeaf : EtoCollapsibleSection3 {
 }
 
 public sealed class PanelSectionMount : IDisposable {
-    private readonly Seq<ElementReceipt> contents;
+    private readonly Seq<ElementMount> contents;
     private readonly Ring<Error> faults;
     private readonly Atom<MountState> state = Atom<MountState>(new MountState.Live());
     private readonly Op op;
 
-    internal PanelSectionMount(Control host, Seq<ElementReceipt> contents, Ring<Error> faults, Op op) =>
+    internal PanelSectionMount(Control host, Seq<ElementMount> contents, Ring<Error> faults, Op op) =>
         (Host, this.contents, this.faults, this.op) = (host, contents, faults, op);
 
     public Control Host { get; }
@@ -1142,7 +1142,7 @@ public sealed class PanelSectionMount : IDisposable {
         is Transition<MountState>.Committed
         ? HostThread.Release(
                 releases: contents.Rev()
-                    .Map(receipt => (Func<Fin<Unit>>)(() => receipt.Release()))
+                    .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
                     .Add(() => op.Catch(() => Fin.Succ(value: Op.Side(Host.Dispose)))),
                 key: op)
             .IfFail(failure => ignore(faults.Park(item: failure)))
@@ -1181,20 +1181,20 @@ public static class PanelSections {
         ElementRuntime runtime,
         Op op) =>
         sections
-            .Fold(Fin.Succ(Seq<ElementReceipt>()), (held, section) => held.Bind(grown => ControlForge
+            .Fold(Fin.Succ(Seq<ElementMount>()), (held, section) => held.Bind(grown => ControlForge
                 .Grow(spec: section.Body, runtime: runtime, key: op)
                 .Match(
-                    Succ: receipt => Fin.Succ(grown.Add(receipt)),
+                    Succ: outcome => Fin.Succ(grown.Add(outcome)),
                     Fail: fault => HostThread.Release(
-                        releases: grown.Rev().Map(receipt => (Func<Fin<Unit>>)(() => receipt.Release())),
+                        releases: grown.Rev().Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release())),
                         key: op).Match(
-                            Succ: _ => Fin.Fail<Seq<ElementReceipt>>(error: fault),
-                            Fail: cleanup => Fin.Fail<Seq<ElementReceipt>>(error: fault + cleanup)))))
+                            Succ: _ => Fin.Fail<Seq<ElementMount>>(error: fault),
+                            Fail: cleanup => Fin.Fail<Seq<ElementMount>>(error: fault + cleanup)))))
             .Bind(contents => Held(sections: sections, contents: contents.Strict(), features: features, op: op));
 
     private static Fin<PanelSectionMount> Held(
         Seq<PanelSectionSpec> sections,
-        Seq<ElementReceipt> contents,
+        Seq<ElementMount> contents,
         CapabilitySet<PanelSectionHolderFeature> features,
         Op op) {
         EtoCollapsibleSectionHolder2? holder = null;
@@ -1218,7 +1218,7 @@ public static class PanelSections {
             return Fin.Succ(value: new PanelSectionMount(host: owned, contents: contents, faults: faults, op: op));
         }).MapFail(fault => HostThread.Release(
             releases: contents.Rev()
-                .Map(receipt => (Func<Fin<Unit>>)(() => receipt.Release()))
+                .Map(outcome => (Func<Fin<Unit>>)(() => outcome.Release()))
                 .Add(() => op.Catch(() => Fin.Succ(value: Op.SideWhen(holder is not null, () => holder!.Dispose())))),
             key: op).Match(
                 Succ: _ => fault,
@@ -1230,8 +1230,8 @@ public static class PanelSections {
 ## [08]-[HOST_CONTROLS]
 
 - Owner: `HostControl` closes the consumable `Rhino.UI.Controls` widget library as exact-payload cases; `HostCommandRow` is the one command-bearing button row; `RhinoPad`, `RhinoSpace`, and `RhinoWidth` key the three host layout vocabularies; `UnitPulse`, `UnitSpan`, and `UnitFormat` carry the unit-aware entry; `ThemePalette` detaches and feeds host theme swatches; `UiServices` is the platform-service seam.
-- Entry: `HostControl.ToSpec` admits every nested payload and answers a kernel `ControlSpec.Custom`, so realization, receipts, styling, and teardown stay the control owner's.
-- Auto: a mint answers the kernel MINT carrier, so the buttons a row builds inside itself and the children a grid holds are child mints the receipt drains in reverse order — the two hand cleanup towers that once drained them are gone with their own failure paths.
+- Entry: `HostControl.ToSpec` admits every nested payload and answers a kernel `ControlSpec.Custom`, so realization, mounts, styling, and teardown stay the control owner's.
+- Auto: a mint answers the kernel MINT carrier, so the buttons a row builds inside itself and the children a grid holds are child mints the mount drains in reverse order — the two hand cleanup towers that once drained them are gone with their own failure paths.
 - Auto: `GridWrap` is the family's one nested case and its children are `HostControl` rows minted through the same dispatch, so the wrapping grid composes the family it belongs to rather than a parallel container surface.
 - Law: the padding, spacing, and width vocabularies are ROWS the host publishes and every widget that takes one reads its row — a pixel literal or a raw host flag never reaches a call site, and a roster nothing reads would be decorative.
 - Law: the command row carries BOTH tooltips and its second one selects the host overload: a row with one tip mints the plain image button and a row with two mints the dual-tooltip one, which is a widget the library publishes and this family had no shape for.
@@ -1241,7 +1241,7 @@ public static class PanelSections {
 - Law: the theme feed's role map is the positive ALLOW-LIST — every declared role must resolve to a zone swatch, and an unresolved role fails the feed with the missing paths as typed evidence rather than seating a partial grid.
 - Law: `ThemePalette.Detach` and `UiServices.Resolve` cross the command thread like every other entry on this page, and `Feed` inherits the crossing through `Detach` rather than opening a second one.
 - Boundary: the parent-coupled host slider and the document-bound linetype grid stay behind their own document-scoped owners; the host dialog bases ride the shell presenter, and native pointer handles never cross this family.
-- Receipt: `ControlMint` per case and `ThemeChange` per feed — both settled values the kernel owners already publish.
+- Output: `ControlMint` per case and `ThemeChange` per feed — both settled values the kernel owners already publish.
 - Packages: `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui-controls.md` (`NumericUpDownWithUnitParsing`, `RichTextAreaWithAlternateText`, `ImageButton`, `ImageToolTipButton`, `AddRemoveButton`, `RhinoButtonRow`, `ControlGridLayout`, `Divider`, `LabelSeparator`, `StaticAlignedLabel`, `DisplayAndPrintColorPicker`, `ViewportControl`, `RhinoLayout` padding/spacing/width/label factories, `NumericUpDownWithUnitParsingUpdateMode`, `DistanceDisplayMode`, `GridWrapMode`, `DisplayAndPrintColorPickerMode`); `libs/dotnet/Rasm.Rhino/.api/api-rhino-ui.md` (`Theme.ThemeZone`, `RhinoUiServiceLocator`, `PlatformServiceProvider`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); `Rasm/Interaction` (`ControlSpec`, `ControlMint`, `ElementSpec`, `ElementRuntime`, `EditTrait`, `IntentTable.Verb`, `IntentKey`, `PaintColor`, `ThemeSeam`, `ThemeShift`, `ThemeVariant`, `PaletteRole`, `ThemeChange`, `UiFault`); `Rasm/Domain` (`Op`, `Lease<T>`, `ICapability`, `CapabilitySet`, `CapabilityLaw`); `Rasm/Numerics` (`PerceptualColor`, `Dimension`, `PositiveMagnitude`).
 - Growth: a new Rhino widget is one `HostControl` case and one mint arm; a new layout row is one entry on its own vocabulary; a new update mode is one `UnitPulse` row the mask fold already reads.
 
@@ -1606,7 +1606,6 @@ public static class UiServices {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

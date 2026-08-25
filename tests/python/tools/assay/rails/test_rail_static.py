@@ -10,19 +10,7 @@ import msgspec
 import pytest
 
 from assay.composition.registry import REGISTRY
-from assay.core.model import (
-    Check,
-    Claim,
-    Fault,
-    Input,
-    Language,
-    Mode,
-    RailStatus,
-    receipt,
-    Runner,
-    StaticRun,
-    Tool,
-)
+from assay.core.model import Check, Claim, Completed, Fault, Input, Language, Mode, RailStatus, Runner, StaticRun, Tool
 from assay.core.routing import Routed, Scope, TargetFiles
 from assay.diagnostics import sarif_status
 import assay.rails.static as static_rail
@@ -36,7 +24,6 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from assay.core.model import Completed
     from tests.python.tools.assay.kit import AssayHarness, VerbRunner
 
 
@@ -48,15 +35,15 @@ COVERS: tuple[object, ...] = (StaticParams, run, sarif_status)
 
 
 def _ok_static_fan(checks: tuple[Check, ...], **_kw: object) -> tuple[Result[Completed, Fault], ...]:
-    return tuple(Ok(receipt((check.tool.name,), 0, status=RailStatus.OK)) for check in checks)
+    return tuple(Ok(Completed((check.tool.name,), 0, status=RailStatus.OK)) for check in checks)
 
 
 def _compiling_probe(check: Check, **_kw: object) -> Result[Completed, Fault]:
-    return Ok(receipt((check.tool.name,), 0, status=RailStatus.OK))
+    return Ok(Completed((check.tool.name,), 0, status=RailStatus.OK))
 
 
 def _failing_probe(check: Check, **_kw: object) -> Result[Completed, Fault]:
-    return Ok(receipt((check.tool.name,), 1, status=RailStatus.FAILED))
+    return Ok(Completed((check.tool.name,), 1, status=RailStatus.FAILED))
 
 
 def _recording_fan(calls: list[tuple[Mode, ...]]) -> Callable[..., tuple[Result[Completed, Fault], ...]]:
@@ -137,16 +124,11 @@ def test_python_fix_lane_runs_fix_before_diagnostics(monkeypatch: pytest.MonkeyP
     assert write_index < check_index
 
 
-_LANE_ROWS: tuple[tuple[str, bool, tuple[str, ...]], ...] = (
-    ("diagnose", False, ("diagnostic", "restore", "build")),
-    ("fix", True, ("fix", "diagnostic", "restore", "build")),
-)
+_LANE_ROWS: tuple[tuple[str, bool, tuple[str, ...]], ...] = (("diagnose", False, ("diagnostic", "restore", "build")), ("fix", True, ("fix", "diagnostic", "restore", "build")))
 
 
 @pytest.mark.parametrize("fix, phases", [row[1:] for row in _LANE_ROWS], ids=[row[0] for row in _LANE_ROWS])
-def test_dotnet_project_lane_runs_ordered_lane(
-    monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness, *, fix: bool, phases: tuple[str, ...]
-) -> None:
+def test_dotnet_project_lane_runs_ordered_lane(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness, *, fix: bool, phases: tuple[str, ...]) -> None:
     """A C# project target diagnoses, restores, and builds; ``--fix`` prepends the probe-gated fix phase."""
     assay_root.write("src/App/App.csproj", "<Project />")
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
@@ -192,10 +174,7 @@ def test_unsupported_file_target_is_skipped_not_faulted(assay_root: AssayHarness
 
 def test_only_one_target_axis_admitted(assay_root: AssayHarness) -> None:
     """The value-driven parse rejects combining --all with --project or folder/file targets."""
-    fault = assert_error_status(
-        run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(all=True, project="src/App/App.csproj"), SeamExecutor()),
-        RailStatus.UNSUPPORTED,
-    )
+    fault = assert_error_status(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(all=True, project="src/App/App.csproj"), SeamExecutor()), RailStatus.UNSUPPORTED)
     assert "choose only one" in fault.message
 
 
@@ -224,20 +203,10 @@ def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
 _PLACEMENT_ROWS: tuple[tuple[str, Routed, Callable[[tuple[tuple[str, str, str], ...]], bool]], ...] = (
     (
         "changed-files-bind-project-plus-include",
-        Routed(
-            Language.DOTNET,
-            Scope.CHANGED,
-            files=("src/App/a.cs",),
-            projects=("src/App/App.csproj",),
-            groups=(("src/App/App.csproj", ("src/App/a.cs",)),),
-        ),
+        Routed(Language.DOTNET, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",), groups=(("src/App/App.csproj", ("src/App/a.cs",)),)),
         lambda planned: any("dotnet format" in argv and "src/App/App.csproj --include src/App/a.cs" in argv for _, _, argv in planned),
     ),
-    (
-        "direct-project-binds-project-not-empty-include",
-        Routed(Language.DOTNET, Scope.CHANGED, projects=("src/App/App.csproj",)),
-        lambda planned: any(argv.endswith("src/App/App.csproj") for _, name, argv in planned if name == "dotnet-format"),
-    ),
+    ("direct-project-binds-project-not-empty-include", Routed(Language.DOTNET, Scope.CHANGED, projects=("src/App/App.csproj",)), lambda planned: any(argv.endswith("src/App/App.csproj") for _, name, argv in planned if name == "dotnet-format")),
 )
 
 
@@ -255,9 +224,7 @@ def test_glob_route_survives_on_its_trigger_not_its_scope(*, routed: Routed, emp
 
 
 @pytest.mark.parametrize("routed, admitted", [row[1:] for row in _PLACEMENT_ROWS], ids=[row[0] for row in _PLACEMENT_ROWS])
-def test_dotnet_format_placement_matrix(
-    assay_root: AssayHarness, routed: Routed, admitted: Callable[[tuple[tuple[str, str, str], ...]], bool]
-) -> None:
+def test_dotnet_format_placement_matrix(assay_root: AssayHarness, routed: Routed, admitted: Callable[[tuple[tuple[str, str, str], ...]], bool]) -> None:
     """C# format rows bind to the owner project (plus ``--include`` file tails when files route), never Workspace.slnx."""
     phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
@@ -286,9 +253,7 @@ def test_dotnet_build_checks_use_distinct_sarif_dirs(assay_root: AssayHarness) -
     assert len(sarif_dirs) == 2
     assert len(set(sarif_dirs)) == 2
     assert all(path.startswith(f"{scope.sarif_dir}/") for path in sarif_dirs)
-    assert all(f"-p:CspSarifDir={path}" not in check.tool.command for path in sarif_dirs for _, checks in phases for check in checks), (
-        "the SARIF drop dir is a typed splice value, never a command-surgery token"
-    )
+    assert all(f"-p:CspSarifDir={path}" not in check.tool.command for path in sarif_dirs for _, checks in phases for check in checks), "the SARIF drop dir is a typed splice value, never a command-surgery token"
 
 
 # --- [BUILD_PHASE_LAWS]
@@ -306,12 +271,7 @@ def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeyp
         return (Error(Fault(("restore",), RailStatus.FAILED, "restore failed")),)
 
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
-    result = static_rail._build_fan(
-        ((static_rail.Phase.RESTORE, (restore,)), (static_rail.Phase.BUILD, (compile_check,))),
-        routed,
-        assay_root.settings,
-        SeamExecutor(fan_fn=fake_fan),
-    )
+    result = static_rail._build_fan(((static_rail.Phase.RESTORE, (restore,)), (static_rail.Phase.BUILD, (compile_check,))), routed, assay_root.settings, SeamExecutor(fan_fn=fake_fan))
     assert calls == [(Mode.RESTORE,)]
     skipped = assert_ok(result[1])
     assert skipped.status is RailStatus.SKIP
@@ -322,29 +282,19 @@ def test_build_fan_restores_before_build_and_skips_after_restore_failure(monkeyp
 
 
 def _dotnet_closure_phases() -> static_rail.PhaseChecks:
-    fmt_write = Check(
-        Tool("dotnet-format", Runner.DOTNET, ("format", "--severity", "error"), Input.INCLUDE, Language.DOTNET, Claim.STATIC, mode=Mode.WRITE)
-    )
+    fmt_write = Check(Tool("dotnet-format", Runner.DOTNET, ("format", "--severity", "error"), Input.INCLUDE, Language.DOTNET, Claim.STATIC, mode=Mode.WRITE))
     fmt_check = Check(Tool("dotnet-format", Runner.DOTNET, ("format", "--verify-no-changes"), Input.INCLUDE, Language.DOTNET, Claim.STATIC))
     restore = Check(Tool("dotnet-restore", Runner.DOTNET, ("restore",), Input.PROJECT, Language.DOTNET, Claim.STATIC, mode=Mode.RESTORE))
-    build = Check(
-        Tool("dotnet-build", Runner.DOTNET, ("build", "--no-restore"), Input.PROJECT, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD),
-        tail=("src/App/App.csproj",),
-    )
-    return (
-        (static_rail.Phase.FIX, (fmt_write,)),
-        (static_rail.Phase.DIAGNOSTIC, (fmt_check,)),
-        (static_rail.Phase.RESTORE, (restore,)),
-        (static_rail.Phase.BUILD, (build,)),
-    )
+    build = Check(Tool("dotnet-build", Runner.DOTNET, ("build", "--no-restore"), Input.PROJECT, Language.DOTNET, Claim.STATIC, mode=Mode.BUILD), tail=("src/App/App.csproj",))
+    return ((static_rail.Phase.FIX, (fmt_write,)), (static_rail.Phase.DIAGNOSTIC, (fmt_check,)), (static_rail.Phase.RESTORE, (restore,)), (static_rail.Phase.BUILD, (build,)))
 
 
 @pytest.mark.parametrize("compiles", [True, False], ids=["compiling", "non-compiling"])
 def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness, *, compiles: bool) -> None:
-    """A non-compiling probe gates both dotnet-format rows into disclosed SKIP receipts; a compiling probe leaves the full lane intact.
+    """A non-compiling probe gates both dotnet-format rows into disclosed SKIP outcomes; a compiling probe leaves the full lane intact.
 
     The closure restore and build run either way — compiles (probe) and blocked (restore->build) stay distinct, and a
-    gated format family never vanishes silently from the receipt stream.
+    gated format family never vanishes silently from the outcome stream.
     """
     routed = Routed(Language.DOTNET, Scope.CHANGED, files=("src/App/a.cs",), projects=("src/App/App.csproj",))
     ran: list[str] = []
@@ -355,9 +305,7 @@ def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assa
 
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
     executor = SeamExecutor(run_fn=_compiling_probe if compiles else _failing_probe, fan_fn=recording_fan)
-    rows = static_rail._dispatch(
-        routed, phases=_dotnet_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor
-    )
+    rows = static_rail._dispatch(routed, phases=_dotnet_closure_phases(), settings=assay_root.settings, scope=assay_root.scope(Claim.STATIC), executor=executor)
     assert ran.count("dotnet-format") == (2 if compiles else 0)
     assert {"dotnet-restore", "dotnet-build"} <= set(ran)
     gated = tuple(done for row in rows for done in (assert_ok(row),) if done.status is RailStatus.SKIP)
@@ -369,8 +317,8 @@ def test_format_gate_follows_compile_probe(monkeypatch: pytest.MonkeyPatch, assa
 # --- [SARIF_STATUS_LAWS]
 
 
-def _build_receipt(project: str, status: RailStatus) -> Completed:
-    return receipt(("dotnet", "build", "--no-restore", project), 0 if status is not RailStatus.FAILED else 1, status=status)
+def _build_outcome(project: str, status: RailStatus) -> Completed:
+    return Completed(("dotnet", "build", "--no-restore", project), 0 if status is not RailStatus.FAILED else 1, status=status)
 
 
 def test_sarif_status_distinguishes_incremental_from_clean(tmp_path: Path) -> None:
@@ -381,23 +329,11 @@ def test_sarif_status_distinguishes_incremental_from_clean(tmp_path: Path) -> No
     """
     sarif_dir = tmp_path / "sarif"
     sarif_dir.mkdir()
-    (sarif_dir / "App.sarif").write_bytes(
-        msgspec.json.encode({"version": "2.1.0", "runs": [{"results": [{"ruleId": "CSP0101", "message": {"text": "x"}}] * 2}]})
-    )
-    outcomes = (
-        _build_receipt("src/App/App.csproj", RailStatus.OK),
-        _build_receipt("src/Lib/Lib.csproj", RailStatus.EMPTY),
-        _build_receipt("src/Skip/Skip.csproj", RailStatus.SKIP),
-        _build_receipt("src/Bad/Bad.csproj", RailStatus.FAILED),
-    )
-    assert sarif_status(outcomes, str(sarif_dir)) == (
-        ("App", "produced:2"),
-        ("Lib", "absent:incremental"),
-        ("Skip", "absent:no-build"),
-        ("Bad", "absent:build-failed"),
-    )
-    assert sarif_status((receipt(("ruff", "check"), 0, status=RailStatus.OK),), str(sarif_dir)) == ()
-    assert sarif_status((_build_receipt("Workspace.slnx", RailStatus.OK),), str(sarif_dir)) == (("Workspace", "produced:2"),)
+    (sarif_dir / "App.sarif").write_bytes(msgspec.json.encode({"version": "2.1.0", "runs": [{"results": [{"ruleId": "CSP0101", "message": {"text": "x"}}] * 2}]}))
+    outcomes = (_build_outcome("src/App/App.csproj", RailStatus.OK), _build_outcome("src/Lib/Lib.csproj", RailStatus.EMPTY), _build_outcome("src/Skip/Skip.csproj", RailStatus.SKIP), _build_outcome("src/Bad/Bad.csproj", RailStatus.FAILED))
+    assert sarif_status(outcomes, str(sarif_dir)) == (("App", "produced:2"), ("Lib", "absent:incremental"), ("Skip", "absent:no-build"), ("Bad", "absent:build-failed"))
+    assert sarif_status((Completed(("ruff", "check"), 0, status=RailStatus.OK),), str(sarif_dir)) == ()
+    assert sarif_status((_build_outcome("Workspace.slnx", RailStatus.OK),), str(sarif_dir)) == (("Workspace", "produced:2"),)
 
 
 # --- [BACKPRESSURE_LAWS]
@@ -408,16 +344,8 @@ def test_backpressure_note_threads_structured_pressure() -> None:
 
     Every field rides the typed resource rows resource_projection folded; nothing is re-parsed out of note text.
     """
-    resources = (
-        ("concurrency.original", 8.0),
-        ("concurrency.reduced", 4.0),
-        ("dotnet.foreign", 12.0),
-        ("dotnet.slot_wait_ms.max", 1500.0),
-        ("memory.percent", 91.0),
-    )
-    assert static_rail._backpressure_note(resources) == (
-        "concurrency.backpressure: reduced 8->4 (mem=91% foreign_dotnet=12); dotnet.slot max_wait=1500ms",
-    )
+    resources = (("concurrency.original", 8.0), ("concurrency.reduced", 4.0), ("dotnet.foreign", 12.0), ("dotnet.slot_wait_ms.max", 1500.0), ("memory.percent", 91.0))
+    assert static_rail._backpressure_note(resources) == ("concurrency.backpressure: reduced 8->4 (mem=91% foreign_dotnet=12); dotnet.slot max_wait=1500ms",)
     quiet = (("concurrency.original", 8.0), ("concurrency.reduced", 8.0), ("dotnet.foreign", 0.0), ("memory.percent", 40.0))
     assert static_rail._backpressure_note(quiet) == ()
     waited = (("concurrency.original", 8.0), ("concurrency.reduced", 8.0), ("dotnet.slot_wait_ms.max", 1500.0), ("memory.percent", 40.0))

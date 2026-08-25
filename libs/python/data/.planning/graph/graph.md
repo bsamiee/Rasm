@@ -6,7 +6,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 
 ## [01]-[INDEX]
 
-- [02]-[GRAPH]: the `GraphPayload` owner — one rustworkx kernel over `_as_rx`-coerced sources, family-folded algorithm intent, typed result receipts, content-keyed egress.
+- [02]-[GRAPH]: the `GraphPayload` owner — one rustworkx kernel over `_as_rx`-coerced sources, family-folded algorithm intent, typed results, content-keyed egress.
 - [03]-[TOPOLOGY]: `organization_graph` recursive-forest fold — ordered entities and nested members folded onto one kernel after one bounded admission.
 
 ## [02]-[GRAPH]
@@ -15,7 +15,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 - Cases: payload splits follow real provider arity — `all_pairs_distance` carries the `null_value` its `distance_matrix` substrate declares while `floyd_warshall` carries only its `WeightSelector` (`floyd_warshall_numpy` takes `weight_fn`, no null-value parameter); the connectivity polarity is recovered from `kind.directed`, never a caller flag; every weighted member carries a `WeightSelector` slot defaulting `WEIGHT_IDENTITY`, so a non-float edge payload is weightable by one policy value.
 - Entry: `analyze` absorbs a lone `GraphAlgorithm` or a `Block` over one `match` at the head — the arity is the value's shape, the `Disposition` selects the batch output shape through the `@overload` ladder and is inert for a lone algorithm, so the input shape and the disposition together carry the output type. A non-node-keyed result case carries no per-node row, so `frame` names the case as non-node-keyed rather than minting a degenerate frame; `write` routes the `_EGRESS` codec directly on the source backend, never through the analysis-coercion path.
 - Auto: the bare-name rustworkx members dispatch on graph subtype, so the owner never names the `graph_*`/`digraph_*` typed forms; the dense matrices stay `npt.NDArray[np.float64]` so they fold straight into the tensor carriers.
-- Receipt: the content key derives once at admission from the canonical node-link wire and the receipt reuses it — an unchanged graph keys byte-stable, an added edge re-admits to a new key; the algorithm receipt is typed rail evidence, never product graph-database state. `contribute` projects node/edge counts onto the runtime `Metrics.record` arm under `domain="graph"` keyed by algorithm, and `_one` opens the kernel span — the no-scrape analysis engine's whole observability surface, the runtime fence marking the span on a failed leg.
+- Law: the content key derives once at admission from the canonical node-link wire — an unchanged graph keys byte-stable, and an added edge re-admits to a new key. `_one` opens the kernel span and records the algorithm, backend, and node count at the producer that measures them; the runtime fence marks a failed leg.
 - Packages: `pyarrow` and the GPL `igraph` each bind one module-scope `lazy import`, so the codec-only graph path never loads Arrow and a run that never reaches the community split never links the igraph C core. Dereference is confined to the folds that already need the binding — `_frame` and `_arrow_raises` for Arrow, `_ig_from` and the two catch resolvers for the C core — and each catch resolves at the CALL for exactly that reason: a module-scope `Final[Catch]` naming a provider's exception class links that provider at import, on every run, which is the confinement the `lazy` bind exists to hold.
 - Growth: a new algorithm is one `GraphAlgorithm` case plus one `_run_rx` arm; a new community algorithm one `IG_COMMUNITY` row; a new centrality metric one `RX_CENTRALITY` row; a new egress one `GraphFormat` row plus one `_EGRESS` codec row; a new layout one `LayoutKind` row. A networkx `@_dispatchable` accelerator lands as one `backend=`/`nx.config.backend_priority` policy on the codec lane when such a backend enters the manifest roster, never a second analysis kernel — a phantom accelerator axis claimed but unwired is the rejected form. Deferred rustworkx residue is the named set — VF2 isomorphism (`vf2_mapping`/`is_isomorphic`), the `rustworkx.generators` builders, the DOT/Matrix-Market IO codecs, group centrality, edge coloring — each one case plus one arm when a consumer names it.
 - Boundary: the graph plane produces the node-keyed enrichment frame; the relational join belongs to the tabular plane, never a graph-database node table re-minted here. `NodeId` is never widened to `Hashable` to admit a networkx analysis kernel — conversion keeps it the rx `int`. No product collaboration store, no bridge lifecycle, no compute numeric trio.
@@ -23,7 +23,6 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 ```python
 import sys
 import tempfile
-from collections.abc import Iterable
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, assert_never, overload
@@ -56,8 +55,6 @@ from rasm.runtime.faults import (
     traversed,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
 from rasm.contracts.rasm.contracts.organization.organization_pb import Entity, Organization
 
 if TYPE_CHECKING:
@@ -266,35 +263,6 @@ class GraphResult:
         return boundary(GRAPH_FRAME, lambda: _frame(self), catch=_arrow_raises()).bind(lambda railed: railed)
 
 
-class GraphReceipt(Struct, frozen=True, gc=False):
-    backend: GraphBackend
-    kind: GraphKind
-    node_count: int
-    edge_count: int
-    algorithm: str
-    result: str
-    content_key: ContentKey
-
-    def contribute(self) -> Iterable[Receipt]:
-        Metrics.record(
-            {"rasm.graph.nodes": float(self.node_count), "rasm.graph.edges": float(self.edge_count)}, domain="graph", kind=self.algorithm
-        )
-        yield Receipt.of(
-            "graph",
-            (
-                "emitted",
-                self.backend,
-                {
-                    "kind": f"directed={self.kind.directed},multi={self.kind.multigraph}",
-                    "nodes": self.node_count,
-                    "edges": self.edge_count,
-                    "algorithm": self.algorithm,
-                    "result": self.result,
-                },
-            ),
-        )
-
-
 class GraphPayload(Struct, frozen=True, gc=False):
     graph: Any
     backend: GraphBackend
@@ -338,18 +306,6 @@ class GraphPayload(Struct, frozen=True, gc=False):
 
     def write(self, fmt: GraphFormat) -> "RuntimeRail[bytes]":
         return boundary(GRAPH_EGRESS, lambda: _EGRESS[self.backend][fmt](self.graph), catch=_egress_raises(self.backend))
-
-    def receipt(self, algo: "GraphAlgorithm", result: GraphResult) -> GraphReceipt:
-        return GraphReceipt(
-            backend=self.backend,
-            kind=self.kind,
-            node_count=self.node_count,
-            edge_count=self.edge_count,
-            algorithm=algo.tag,
-            result=result.tag,
-            content_key=self.content_key,
-        )
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -637,7 +593,7 @@ config:
 ---
 flowchart TD
     accTitle: Graph payload flow
-    accDescr: Source admission into the payload, coercion onto the rustworkx kernel, the community delegation, result frames joining the tabular plane, and the receipt.
+    accDescr: Source admission into the payload, coercion onto the rustworkx kernel, the community delegation, and result frames joining the tabular plane.
     src["rx.PyGraph·PyDiGraph / nx.Graph·DiGraph / igraph.Graph"] -->|_shape recovers backend·kind·counts·wire| payload["GraphPayload"]
     payload -->|ContentIdentity.of over node-link wire| key["RuntimeRail[ContentKey]"]
     payload -->|analyze lone: _one boundary fence| coerce["_as_rx: rx identity · nx networkx_converter · ig to_networkx+converter"]
@@ -649,9 +605,7 @@ flowchart TD
     payload -->|write over GraphFormat: codec/egress lane| egress["_EGRESS[backend][fmt]: node_link·graphml·edge_list bytes"]
     result -->|frame: node-keyed cases| node_frame["RuntimeRail[pa.Table] node·value/color/component/rank/depth/x·y"]
     node_frame -->|columnar#SCAN pa.Table.join keys=node left outer| enrich["node-attribute enrichment"]
-    result -->|receipt| receipt["GraphReceipt"]
-    key --> receipt
-    receipt -->|contribute| sink["runtime ReceiptContributor"]
+    payload --> key
 ```
 
 ## [03]-[TOPOLOGY]

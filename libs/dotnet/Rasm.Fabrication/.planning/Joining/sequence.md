@@ -11,8 +11,8 @@ Precedence is a partial order, never a serial rank: `JointPrecedence` folds `Ass
 ## [01]-[INDEX]
 
 - [02]-[SEQUENCE_REQUEST]: admission, traversal vocabulary, dimensional policy, the generated candidate space, and the provider-free motion timing.
-- [03]-[DISTORTION_FIELD]: the distortion source family, the stiffness assembly over the kernel sparse owners, and the displacement receipt every fixturing consumer reads.
-- [04]-[SCHEDULE_FOLD]: precedence levels, segment derivation and subdivision, the thermal-resource fold, candidate ranking, and receipt projection.
+- [03]-[DISTORTION_FIELD]: the distortion source family, the stiffness assembly over the kernel sparse owners, and the displacement result every fixturing consumer reads.
+- [04]-[SCHEDULE_FOLD]: precedence levels, segment derivation and subdivision, the thermal-resource fold, candidate ranking, and result projection.
 
 ## [02]-[SEQUENCE_REQUEST]
 
@@ -502,11 +502,11 @@ public sealed partial class SequenceRequest {
 
 - Owner: `DistortionSource` closes the load-source family; `DisplacementRow` and `DistortionField` own the per-member field this page PRODUCES; `DistortionKernel` owns the one factored stiffness a candidate sweep reuses; `DistortionEvidence` owns the residual field summary every candidate ranks on.
 - Cases: `DistortionSource.Thermal` carries the pass ordinal and its inherent shrinkage, `.Preload` the clamp index and its force, `.Release` the assembly step whose unclamping relaxes it — three sources loading ONE stiffness through one solve, so a member the schedule never welds still moves under the clamp that grips it.
-- Law: `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume THIS receipt and no second field. A member row names the source that DOMINATES its own load — compared in the operator's own units, never by a per-case reading that would rank newtons against millimetres — so a consumer separating thermal shrinkage from clamp spring-back reads the discriminant rather than re-running the assembly with one family suppressed, and a member moving only through its restraints answers None rather than naming a stage that never ran.
+- Law: `Fixturing/assembly` tolerance chains and `Fixturing/setups` datum-transfer budgets consume THIS result and no second field. A member row names the source that DOMINATES its own load — compared in the operator's own units, never by a per-case reading that would rank newtons against millimetres — so a consumer separating thermal shrinkage from clamp spring-back reads the discriminant rather than re-running the assembly with one family suppressed, and a member moving only through its restraints answers None rather than naming a stage that never ran.
 - Law: the stiffness assembles through the kernel sparse owners — `SparseMatrix.FromTriplets` sums duplicate triplets into one SPD operator and `CholeskySparse.Of` factors it once per request, so every candidate pays one solve against a cached symbolic analysis and no raw CSparse type crosses this page.
-- Auto: the residual witness rides the kernel's own `SolveReceipt`, so the field summary reports the solver's measured residual and factor fill rather than a re-derived figure.
-- Output: `DistortionField` carries one row per assembly member — the three linear displacement components as one `Vector3d` and the dominating source — beside the `DistortionEvidence` summary holding the sweep, camber, twist, and angular extremes, the residual, and the factor fill. It takes no `*Receipt` name: it addresses no content key, names no producing plane, and carries no stamp, because scheduling clocks are DURATIONS from a zero this page never anchors to an instant, and a stamp here forges an evaluation moment nothing measured.
-- Packages: `Rasm.Numerics` supplies `SparseMatrix.FromTriplets`, `CholeskySparse.Of`/`SolveDetailed`, `SolveReceipt`, and `Dimension.Create`; `Rasm.Domain` supplies `Op`.
+- Auto: the residual witness rides the kernel's own `LinearSolution`, so the field summary reports the solver's measured residual and factor fill rather than a re-derived figure.
+- Output: `DistortionField` carries one row per assembly member — the three linear displacement components as one `Vector3d` and the dominating source — beside the `DistortionEvidence` summary holding the sweep, camber, twist, and angular extremes, the residual, and the factor fill. It takes no `*Result` name: it addresses no content key, names no producing plane, and carries no stamp, because scheduling clocks are DURATIONS from a zero this page never anchors to an instant, and a stamp here forges an evaluation moment nothing measured.
+- Packages: `Rasm.Numerics` supplies `SparseMatrix.FromTriplets`, `CholeskySparse.Of`/`SolveDetailed`, `LinearSolution`, and `Dimension.Create`; `Rasm.Domain` supplies `Op`.
 - Boundary: the kernel holds the factor and the member index alone; the graph, the load vector, and every intermediate array stay inside the fold.
 
 ```csharp
@@ -544,7 +544,7 @@ internal sealed record DistortionKernel(
 
 ## [04]-[SCHEDULE_FOLD]
 
-- Owner: `Sequence` derives joint precedence levels, segment rows, candidate schedules, the displacement receipt, and the selected schedule through one ordered algebra; `WeldSegment` and `ScheduledWork` carry the pre- and post-clock shapes.
+- Owner: `Sequence` derives joint precedence levels, segment rows, candidate schedules, the displacement result, and the selected schedule through one ordered algebra; `WeldSegment` and `ScheduledWork` carry the pre- and post-clock shapes.
 - Law: precedence LEVEL is the critical distance over the joint projection of `AssemblyPlan.Precedence`. One synthetic source edges every root, `DagShortestPathAlgorithm` under `DistanceRelaxers.CriticalDistance` measures the longest path to each joint, and the depths shift down one — so joints sharing a level carry no precedence path between them and stay interleavable. A cyclic census refuses carrying the strongly-connected component MEMBERS the detecting walk labelled, never a vertex-and-edge count a caller cannot act on.
 - Law: `Seeds` walks the arrangement itself, so joints at one level alternate under the traversal arm. `JointAction.Stage` decides placement — an OPENING action precedes a joint's first deposit, a GATING action stages against the side `Backgouge.BeforeSide` names, and a CLOSING action follows its last deposit — so preheat opens the joint it heats and post-weld heat treatment occupies the clock after the joint closes.
 - Law: each event advances one immutable `ScheduleState`. Work on other joints credits thickness- and position-scaled cooling, reheat occupies the clock, and BOTH arc arms heat through `ThermalLaw.Heated` against their own delivered energy — a deposit that hard-sets the peak makes every interpass reading fiction. Cooling reads the temperature actually held, so a joint already below the ceiling waits no time at all.
@@ -1126,7 +1126,7 @@ public static class Sequence {
         DistortionKernel kernel,
         Seq<(int Slot, double Load, DistortionSource Source)> loads,
         double[] vector,
-        SolveReceipt solved) {
+        LinearSolution solved) {
         Map<int, (double Load, DistortionSource Source)> dominating = loads.Fold(
             Map<int, (double Load, DistortionSource Source)>(),
             static (held, row) => held.AddOrUpdate(
@@ -1208,7 +1208,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

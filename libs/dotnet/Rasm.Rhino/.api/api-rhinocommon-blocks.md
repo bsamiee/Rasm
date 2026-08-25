@@ -141,7 +141,7 @@
 
 [LOCAL_ADMISSION]:
 - a definition enters through `Add` or `ModifyGeometry` after each geometry source is paired with exactly one `ObjectAttributes`, so the independent host enumerables derive from that paired row sequence and retain equal cardinality; a placement enters through `AddInstanceObject`, and an explode returns detached piece records keyed to the instance id.
-- live `InstanceDefinition`, `InstanceObject`, and `TextObject` values stay inside the document grant; downstream code receives definition references, detached field values, projected receipts, or explicitly owned geometry and bitmap leases.
+- live `InstanceDefinition`, `InstanceObject`, and `TextObject` values stay inside the document grant; downstream code receives definition references, detached field values, detached facts, or explicitly owned geometry and bitmap leases.
 
 [RAIL_LAW]:
 - Package: `RhinoCommon` block surface

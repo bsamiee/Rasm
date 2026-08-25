@@ -28,12 +28,11 @@
 - Per-signal `AddOtlpExporter` is the one OTLP form and `UseOtlpExporter` is declined — its builder options are `internal`, pinned policy unsettable.
 - Host-boundary egress attaches `DataClassification` at the producer — only it sees a payload's user content, `IRedactorProvider` runs at the root.
 - `SpringShape` is the branch's sole spring algebra — a shell or host names retention and epsilon as VALUES, never an inversion of its own.
-- Package self-identity homes at the kernel signal capsule — the `ReceiptSinkPort` scope seam is string-typed, so a distant emitter hand-spells it.
-- Host beat evidence composes the kernel `MonotonicBeat` — cadence-only columns extend the receipt, and a flat host beat re-mints temporal identity.
+- Host beat evidence composes the kernel `MonotonicBeat` — cadence is a column on that result, and a flat host beat re-mints temporal identity.
 - Kernel measures leave as bare `double` and `Rasm.Element` `MeasureValue` is the dimensioned carrier — unit identity federates at `BaseDimensions`.
 - `FaultBand` row names never shadow a kernel TYPE in consumer scope — `LaneGuard`/`StoreStat` prefix, a row name being free where a wire key is not.
 - No declaration takes the simple name of an ADMITTED PACKAGE type its folder references — `FieldPack`, never `FieldCodec`, beside `Google.Protobuf`.
-- Host-boundary gesture and pick receipts stay PLURAL — a viewport pick and a canvas pick share no consumer, so one owner forces a cross-host edge.
+- Host-boundary gesture and pick results stay PLURAL — a viewport pick and a canvas pick share no consumer, so one owner forces a cross-host edge.
 - `Option<T>` crosses to a host `T?` slot through `Op.ToHostSlot`/`ToHostNullable` ALONE — the one place `null` is a legal spelling on this branch.
 - Value records holding a sequence, array, or map member declare `[Equatable]` with explicit member equality, or hold `Seq`/`Arr` over an array.
 - Boundary declarations whose simple name matches a kernel owner RENAME at the boundary — one assembly resolves bare names and the kernel keeps it.
@@ -53,7 +52,7 @@
 - Tenancy crosses as the kernel pair under ONE text — `TenantId.Text` renders through `ContentHash.Hex`, so a raw `Guid` forks alphabets.
 - Dimension keys are owner-declared consts — `CorrelationId.Slot` and `TenantContext.TenantSlot` spell the causal frame; a bare noun forks.
 - `Sli.Partition` binds ONE counter partitioned on the outcome dimension its arm stamps — a good-half twin doubles the series and strands its floor.
-- Package receipt unions carry one kind vocabulary — the `[JsonDerivedType]` roster projected once at type init, a case-to-literal dispatch twins it.
+- Package result unions carry one kind vocabulary — the `[JsonDerivedType]` roster projected once at type init, a case-to-literal dispatch twins it.
 - Typed rails a consumer seam cannot carry outward park on the composing app's evidence cell — a `void` delegate licenses no discard.
 - Measurement polarity enforces at one gate — `InstrumentSet.Write` is the pushed entry, `Level` and `Bind` the pulled pair, each refusing the other.
 - Span custody is the kernel `SpanBand`'s and a library tier owns none — a folder-local `ActivitySource` re-mints the app's lacing and leaks a scope.
@@ -89,7 +88,7 @@
 - Corpus proto descriptors keep ONE spelling — an owner page carries the header-only fence alone; the roster is gate-emitted and a hand mirror forks.
 - `params` entrypoints mint their own `Op` at the entry — an optional `Op? key = null` ahead of the spread forecloses every positional call.
 - Host-enum reads resolve a `[SmartEnum]` row through `Op.Row` — it folds `Enum.IsDefined` and the ordinal once, so a call-site cast forks admission.
-- `Rasm.Bim`'s graph set renames `ElementQuery` and `Rasm.Persistence`'s keyed receipt renames `KeySelection`, both over the seam `Selection<TKey>`.
+- `Rasm.Bim`'s graph set renames `ElementQuery` and `Rasm.Persistence`'s keyed selection `KeySelection`, both over the seam `Selection<TKey>`.
 - `Rasm.Element` `Predicate<ElementLeaf>` is the ONE class-selection closure — `NodeClassSelector` admits through `All(ByKind, ByClassification)`.
 - `Rasm.Element` owns `SectionProperties`, the measure-columned cross-section algebra — `Rasm.Fabrication` `Forming/tube`'s mm-basis record renames.
 - `Rasm.Element` `EvidenceRun` owns the solver-run audit and retires the name `Provenance` branch-wide — a sourcing or capture record renames.
@@ -108,7 +107,6 @@
 - `Validation<Error,T>` accumulates package faults — a `TFault` rail compiles until `Fail` demands a `Monoid` whose `Empty` means success.
 - `KernelInstrument` owns every `rasm.fault.*` key — an emitter prefixing its own estate segment forks one axis into a per-package pair.
 - `Rasm.AppHost` `CommandIntent` is the ONE command identity every UI row crosses through `Run` — a second in a referencing package is a strata twin.
-- AppHost's `CommandReceipt` and `CommandFault` name suite transaction facts — a referencing package's own evidence and refusal take their own names.
 - Factories short-circuiting to one argument hand back that instance — a custody fold probes `ReferenceEquals` per arm before releasing.
 - `Rasm.Element` `RepresentationSlot` is the ONE representation roster — a peer composes it and seats its own admission column.
 - `Rasm.Materials` `DeclarationUnit` rosters declaration contracts and `Rasm.Compute` `DeclaredUnit` openEPD REST keys — neither set holds the other.

@@ -137,7 +137,7 @@
 
 [LOCAL_ADMISSION]:
 - MessagePack is a codec inside declared profiles, never public folder vocabulary; contract keys, union tags, resolver composition, compression, and security are profile data.
-- Only a type carrying `[MessagePackObject]` or `[MessagePack.Union]` enters a row — negotiation tests the attribute before admission, so a seam graph without it routes to its own codec; stored binary payloads carry receipt projection for codec, schema, compression, and redaction class.
+- Only a type carrying `[MessagePackObject]` or `[MessagePack.Union]` enters a row — negotiation tests the attribute before admission, so a seam graph without it routes to its own codec; stored binary payloads carry codec, schema, compression, and redaction class in their own metadata.
 - JSON projection is diagnostic output and never owns a payload — the human-readable JSON peers are the folder JSON rails, and `ConvertToJson`/`SerializeToJson` stay diagnostic bridges.
 - This is the neuecc `MessagePack-CSharp` engine; the PolyType-based `Nerdbank.MessagePack` is a different package — its attributes, resolvers, and formatters never mix with this one's.
 - `UnitsNet` quantities and `Wacton.Unicolour` colors serialize as member values through the standard resolver or a small `IMessagePackFormatter<T>`, never a re-minted quantity or color codec the standard chain already covers.

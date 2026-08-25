@@ -9,7 +9,7 @@ Terminal evidence is likewise measured, never stamped: a direct factorization on
 ## [01]-[INDEX]
 
 - [02]-[SOLVE_ROUTES]: linear, transient, nonlinear, modal, and buckling bodies over one request carrier and one bounded fixpoint.
-- [03]-[SOLVE_RECOVERY]: the recovery ladder, its re-attempt schedule, and the recovery receipt.
+- [03]-[SOLVE_RECOVERY]: the recovery ladder, its re-attempt schedule, and the recovery result.
 - [04]-[SOLVE_ARCHIVE]: the route-borne archive capability and its three container sessions.
 - [05]-[COUPLED_FIELDS]: field-transfer pairing, staggering, and Aitken relaxation over a field set.
 
@@ -18,11 +18,11 @@ Terminal evidence is likewise measured, never stamped: a direct factorization on
 - Owner: `RouteRequest` the one request carrier every body takes; `MarchRequest` the transient carrier the integrator row's own body reads; `Step<TState>` the continue-or-settle carrier; `Fixpoint` the ONE bounded fold; `ResidualEvaluation` the per-evaluation internal force, trial ledger, trial multipliers, and consistent tangent; `DofSplit`/`Reduced` the condensation carriers; `SolveRoutes` the bodies.
 - Entry: every body is `static Fin<SolveResult> <Route>(RouteRequest request, <Case> row)`, reached from the one `SolveLane.Solve` `Switch` and from nowhere else. `Traced` is the `Tensor/quadrature#TRAJECTORY_DRIVER` consumer: the semi-discrete first-order system integrates on `Trajectory.Trace` over a `FieldCarrier` module, and the driver's `TrajectoryTerminal` and `ConvergenceClaim` land as the result's `Convergence` verdict and its `QuadratureEvidence`.
 - Auto: the transient route reads its integrator ROW's own march body, so the three-deep ternary over form, implicitness, and mass singularity becomes one form test and one row delegate; the modal routes are separate cases, so the buckling-versus-condensed ternary and the condensation `Option` match both delete with the union that carries the payload.
-- Receipt: the result's `Convergence` verdict, iteration count, and measured residual land on `Solver/contract`'s `Solve` receipt; the condensed route adds its `CondensationEvidence`.
+- Result: the result's `Convergence` verdict, iteration count, and measured residual land on `Solver/contract`'s `Solve` result; the condensed route adds its `CondensationEvidence`.
 - Packages: MathNet.Numerics, CSparse, System.Numerics.Tensors, CommunityToolkit.HighPerformance, LanguageExt.Core (`Fin`/`Option`/`IO.Bracket`/`Schedule`), NodaTime, Thinktecture.Runtime.Extensions
 - Growth: a new route is one `SolveRoute` case, one dispatch arm, and one body here; a new time scheme is one `TimeIntegrator` row carrying its march body; zero new surface.
 - Boundary: static condensation is the modal lane's ONE sparse lowering and it composes owners rather than minting an eigensolver — the condensed block factors through `FactorKind.Spd`, the transformation columns ride `FactoredOp.Solve` under its own true-residual witness, the block sweeps ride the held `SparseTensorOps.Spmv` in both directions so no transposed storage materializes, and the retained pencil terminates on `Admission.Definite`, `DenseOps.Decompose`, and `SpectralOps.Decompose`. Kernel `Numerics/matrix` generalized-eigen rivals none of that: it densifies both operands at full order and factors the WHOLE inertia operator, so it neither scales at building order nor admits a singular lumped mass.
-- Boundary: every dense terminal is ceilinged and every ceiling refuses by name with its measured quantity — `LanePolicy.MaxDenseDofs` over the whole-operator modal and buckling routes (the modal refusal naming the condensed route that does serve the model) and `CondensationPolicy.MaxTransformBytes` over the `retained × condensed` transformation the reduction cannot stream. An allocation the machine answers with an out-of-memory leaves a receipt that explains nothing.
+- Boundary: every dense terminal is ceilinged and every ceiling refuses by name with its measured quantity — `LanePolicy.MaxDenseDofs` over the whole-operator modal and buckling routes (the modal refusal naming the condensed route that does serve the model) and `CondensationPolicy.MaxTransformBytes` over the `retained × condensed` transformation the reduction cannot stream. An allocation the machine answers with an out-of-memory leaves a result that explains nothing.
 - Boundary: implicit schemes add stiffness and damping to the effective operator, so an inertia-free row still carries a solvable diagonal; the explicit scheme DIVIDES by inertia, so the same row is unmarchable and a guard would freeze it at zero and publish that as motion. A frame's rotational rows are exactly those rows, so the explicit integrator refuses the model by naming the row.
 - Boundary: contact is nonlinear-only. Its ids name the base dof of a translational triple, the gap projects onto the constraint normal, and ONE `ContactEnforcement.Enforce` per residual evaluation returns the force, the gap-space stiffness, and the advanced multipliers. Both derivative legs project through `∂g/∂u = ±w·n`: the force scatters over the triple and the stiffness scatters as `h·n⊗n` over the pair's four blocks through a re-ingest, because the elastic sparsity holds no slot for a coupling no element makes.
 - Boundary: material history is path-dependent across steps and NOT across probes. Residual evaluations evolve TRIAL rows from the committed ledger, line-search probes and rejected iterations never advance history, and only a converged load or arc step commits its trial ledger and contact multipliers.
@@ -52,8 +52,8 @@ public sealed record RouteRequest(
     public int Dofs => System.Rhs.Length;
     public Instant At => Clock.GetCurrentInstant();
 
-    public SolveResult Settled(ReadOnlyMemory<double> field, int iterations, int newtonSteps, Convergence verdict) =>
-        new(Problem, Policy.Method, Route, field, None, None, None, Dofs, iterations, newtonSteps, verdict, At);
+    public SolveResult Settled(ReadOnlyMemory<double> field, int iterations, int newtonSteps, double residual, Convergence verdict) =>
+        new(Problem, Policy.Method, Route, field, None, None, None, Dofs, iterations, newtonSteps, residual, verdict, At);
 
     public Fin<double[]> Solve(SparseCompressedRowMatrixStorage<double> operatorCsr, double[] rhs, FactorKind kind) =>
         Session.Match(
@@ -88,10 +88,10 @@ public static class Fixpoint {
 }
 
 public static class SolveRoutes {
-    static Convergence Terminal(SparseCompressedRowMatrixStorage<double> csr, double[] rhs, double[] field, double tolerance) {
+    static (double Residual, Convergence Verdict) Terminal(SparseCompressedRowMatrixStorage<double> csr, double[] rhs, double[] field, double tolerance) {
         double[] applied = new SparseMatrix(csr).Multiply(Vector<double>.Build.DenseOfArray(field)).AsArray();
         double residual = TensorPrimitives.Norm<double>(Difference(rhs, applied)) / Math.Max(1.0, TensorPrimitives.Norm<double>(rhs));
-        return residual <= tolerance ? new Convergence.Converged(residual) : new Convergence.Stalled();
+        return (residual, residual <= tolerance ? new Convergence.Converged(residual) : new Convergence.Stalled());
     }
 
     static double[] Difference(double[] forcing, double[] applied) {
@@ -103,13 +103,15 @@ public static class SolveRoutes {
     public static Fin<SolveResult> Direct(RouteRequest request) =>
         request.Solve(request.System.Operator, request.System.Rhs,
                 request.Policy.Method.Kind == FactorizationKind.Cholesky ? FactorKind.Spd : FactorKind.Lu)
-            .Map(field => request.Settled(field.AsMemory(), 1, 1,
-                Terminal(request.System.Operator, request.System.Rhs, field, request.Policy.Tolerance.Value)));
+            .Map(field => {
+                var terminal = Terminal(request.System.Operator, request.System.Rhs, field, request.Policy.Tolerance.Value);
+                return request.Settled(field.AsMemory(), 1, 1, terminal.Residual, terminal.Verdict);
+            });
 
     public static Fin<SolveResult> Iterative(RouteRequest request) =>
         request.Policy.Method.Krylov.ToFin(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Unsupported(ComputeCapability.IterativeSolver)))
             .Bind(krylov => SparseOps.SolveIterative(request.System.Operator, krylov, request.System.Rhs, request.Policy.Iteration(request.Clock)))
-            .Map(run => request.Settled(run.Field.ToArray().AsMemory(), 0, 1,
+            .Map(run => request.Settled(run.Field.ToArray().AsMemory(), run.Steps, 1, run.Residual,
                 run.Terminal is SolveTerminal.Admitted ? new Convergence.Converged(run.Residual) : new Convergence.Stalled()));
 
     public static Fin<SolveResult> March(RouteRequest request, SolveRoute.Transient grid) =>
@@ -135,8 +137,10 @@ public static class SolveRoutes {
                 return request.Solve(effectiveCsr, forcing, FactorKind.Lu)
                     .Bind(field => history.Step(step, field).Map(_ => Step.Advance((Field: field, Forcing: forcing))));
             }))
-            .Map(run => request.Settled(run.State.Field.AsMemory(), run.Steps, 1,
-                Terminal(effectiveCsr, run.State.Forcing, run.State.Field, request.Policy.Tolerance.Value)));
+            .Map(run => {
+                var terminal = Terminal(effectiveCsr, run.State.Forcing, run.State.Field, request.Policy.Tolerance.Value);
+                return request.Settled(run.State.Field.AsMemory(), run.Steps, 1, terminal.Residual, terminal.Verdict);
+            });
     }
 
     public static Fin<SolveResult> Newmark(MarchRequest march) {
@@ -162,8 +166,10 @@ public static class SolveRoutes {
                 request.Solve(effectiveCsr, NewmarkForce(request.System.Rhs, march.Lumped, tangent, state, damping, coefficients), FactorKind.Lu)
                     .Map(next => Correct(next, state, coefficients))
                     .Bind(corrected => history.Step(step, corrected.U, corrected.V, corrected.A).Map(_ => Step.Advance(corrected)))))
-            .Map(run => request.Settled(run.State.U.AsMemory(), run.Steps, 1,
-                Equilibrium(request.System.Rhs, tangent, march.Lumped, damping, run.State, request.Policy.Tolerance.Value)));
+            .Map(run => {
+                var terminal = Equilibrium(request.System.Rhs, tangent, march.Lumped, damping, run.State, request.Policy.Tolerance.Value);
+                return request.Settled(run.State.U.AsMemory(), run.Steps, 1, terminal.Residual, terminal.Verdict);
+            });
     }
 
     readonly record struct NewmarkCoefficients(double A0, double A1, double A2, double A3, double A4, double A5, double A6, double A7) {
@@ -202,7 +208,7 @@ public static class SolveRoutes {
         return (next, velocity, accel);
     }
 
-    static Convergence Equilibrium(
+    static (double Residual, Convergence Verdict) Equilibrium(
         double[] forcing, SparseMatrix stiffness, double[] mass, RayleighPair damping,
         (double[] U, double[] V, double[] A) state, double tolerance) {
         double[] elastic = stiffness.Multiply(Vector<double>.Build.DenseOfArray(state.U)).AsArray();
@@ -212,7 +218,7 @@ public static class SolveRoutes {
             residual[i] = forcing[i] - mass[i] * state.A[i] - damping.Mass * mass[i] * state.V[i] - damping.Stiffness * viscous[i] - elastic[i];
         }
         double norm = TensorPrimitives.Norm<double>(residual) / Math.Max(1.0, TensorPrimitives.Norm<double>(forcing));
-        return norm <= tolerance ? new Convergence.Converged(norm) : new Convergence.Stalled();
+        return (norm, norm <= tolerance ? new Convergence.Converged(norm) : new Convergence.Stalled());
     }
 
     public static Fin<SolveResult> CentralDifference(MarchRequest march) {
@@ -252,9 +258,9 @@ public static class SolveRoutes {
                     velocity[i] = (run.State.Curr[i] - run.State.Prior[i]) / (2.0 * dt);
                     acceleration[i] = (run.State.Curr[i] - 2.0 * run.State.Prev[i] + run.State.Prior[i]) / dt2;
                 }
-                return request.Settled(run.State.Curr.AsMemory(), run.Steps, 1,
-                    Equilibrium(request.System.Rhs, tangent, march.Lumped, damping,
-                        (run.State.Prev, velocity, acceleration), request.Policy.Tolerance.Value));
+                var terminal = Equilibrium(request.System.Rhs, tangent, march.Lumped, damping,
+                    (run.State.Prev, velocity, acceleration), request.Policy.Tolerance.Value);
+                return request.Settled(run.State.Curr.AsMemory(), run.Steps, 1, terminal.Residual, terminal.Verdict);
             });
     }
 
@@ -307,7 +313,7 @@ public static class SolveRoutes {
             ? Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Keys(row.Integrator.Kind.Key, run.Terminal.Key))))
             : run.Terminal == TrajectoryTerminal.NonFinite
                 ? Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(run.Steps))))
-                : Fin.Succ(request.Settled([.. run.Final.Values], run.Steps, 1, Verdict(run, row)) with {
+                : Fin.Succ(request.Settled([.. run.Final.Values], run.Steps, 1, run.LastError.IfNone(0.0), Verdict(run, row)) with {
                     Evidence = Some(new QuadratureEvidence(
                         Value: run.Achieved, Error: run.LastError, L1Norm: None, Ratio: None,
                         Skipped: run.Rejects, Claim: claim)),
@@ -349,8 +355,8 @@ public static class SolveRoutes {
                                 return Step.Advance((updated, state.Committed, state.Multipliers));
                             }));
             }))
-            .Bind(run => run.Verdict is Convergence.Converged
-                ? Fin.Succ(request.Settled(run.State.Field.AsMemory(), run.Steps, run.Steps, run.Verdict))
+            .Bind(run => run.Verdict is Convergence.Converged converged
+                ? Fin.Succ(request.Settled(run.State.Field.AsMemory(), run.Steps, run.Steps, converged.Residual, run.Verdict))
                 : Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Converged, new ContractEvidence.Count(run.Steps, row.NewtonIterations.Value)))));
     }
 
@@ -387,8 +393,8 @@ public static class SolveRoutes {
             row.Path.Steps,
             (outer, arcStep) => solve(request.System.Rhs).Bind(loadDirection =>
                 Corrected(request, row, tangent, solve, outer, loadDirection, arcStep)))
-            .Bind(run => run.Verdict is Convergence.Converged
-                ? Fin.Succ(request.Settled(run.State.Field.AsMemory(), run.State.Iterations, run.State.Iterations, run.Verdict))
+            .Bind(run => run.Verdict is Convergence.Converged converged
+                ? Fin.Succ(request.Settled(run.State.Field.AsMemory(), run.State.Iterations, run.State.Iterations, converged.Residual, run.Verdict))
                 : Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Converged, new ContractEvidence.Count(run.Steps, row.Path.Steps.Value)))));
     }
 
@@ -598,7 +604,7 @@ public static class SolveRoutes {
                     Some: dof => Fin.Fail<SolveResult>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Index(dof, mass.Length)))),
                     None: () => DenseOps.Decompose(MassNormalized(Matrix<double>.Build.OfStorage(request.System.Operator), mass), FactorizationKind.Evd)
                         .Bind(factorization => EigenPairs(factorization, row.Pairs.Value, mass))
-                        .Bind(pairs => Sealed(request, request.Settled(pairs.Vectors, 1, 1, new Convergence.Converged(0.0)) with {
+                        .Bind(pairs => Sealed(request, request.Settled(pairs.Vectors, 1, 1, 0.0, new Convergence.Converged(0.0)) with {
                             EigenValues = Some(pairs.Values),
                             Participation = Some(Participated(pairs.Vectors, mass, request.Problem.Dof, pairs.Count)),
                             TotalMass = Some(ExcitableMass(mass, request.Problem.Dof)),
@@ -626,7 +632,7 @@ public static class SolveRoutes {
         RouteRequest request, DofSplit split, double[] mass, Reduced reduced,
         (Matrix<double> Modes, ReadOnlyMemory<double> Values, double Defect) spectrum) {
         ReadOnlyMemory<double> modes = Recovered(reduced, split, mass.Length, spectrum.Modes, spectrum.Values.Length);
-        return request.Settled(modes, 1, 1, new Convergence.Converged(spectrum.Defect)) with {
+        return request.Settled(modes, 1, 1, spectrum.Defect, new Convergence.Converged(spectrum.Defect)) with {
             EigenValues = Some(spectrum.Values),
             Participation = Some(Participated(modes, mass, request.Problem.Dof, spectrum.Values.Length)),
             TotalMass = Some(ExcitableMass(mass, request.Problem.Dof)),
@@ -794,7 +800,7 @@ public static class SolveRoutes {
                 })
                 .Bind(reduction => DenseOps.Decompose(reduction.Reduced, FactorizationKind.Evd)
                     .Bind(factorization => BucklingPairs(factorization, row.Pairs.Value, reduction.Linv.Transpose()))
-                    .Map(pairs => request.Settled(pairs.Vectors, 1, 1, new Convergence.Converged(0.0)) with {
+                    .Map(pairs => request.Settled(pairs.Vectors, 1, 1, 0.0, new Convergence.Converged(0.0)) with {
                         EigenValues = Some(pairs.Values),
                     })));
 
@@ -896,11 +902,10 @@ public static class SolveRoutes {
 
 ## [03]-[SOLVE_RECOVERY]
 
-- Owner: `RecoveryAction` `[SmartEnum<string>]` carries each rung's own repair as a delegate column, so the ladder is data and the fold has no per-action arm; `RecoveryPolicy` the ladder and its growth factors; `RecoveryReceipt` the ordered trail.
+- Owner: `RecoveryAction` `[SmartEnum<string>]` carries each rung's own repair as a delegate column, so the ladder is data and the fold has no per-action arm; `RecoveryPolicy` the ladder and its growth factors.
 - Cases: `RecoveryAction` refine-mesh · relax · reorder-dofs · switch-method · restart.
-- Entry: `public static (Fin<SolveResult> Result, RecoveryReceipt Trace) SolveAdaptive(…, RecoveryPolicy recovery, …)` — walks the ladder on a refusal and stops at the first attempt that settles.
+- Entry: `public static Fin<SolveResult> SolveAdaptive(…, RecoveryPolicy recovery, …)` — walks the ladder on a refusal and returns the first attempt that settles.
 - Auto: each rung's attempt calls the archive sink factory afresh, so every rung that runs an archiving route emits its OWN create-only containers and never appends into a prior rung's artifact; each attempt also re-anchors its wall budget, so a relax rung retries against a fresh window rather than an expired one.
-- Boundary: a failed rung's residual is ABSENT, not a sentinel. The trail carries `Option<double>`, so a reader distinguishes "this rung ran and left this residual" from "this rung could not run at all" — a `double.PositiveInfinity` in that slot reads as a measured divergence.
 - Boundary: the `RebuildsOperator` column had no reader and the recovery fold re-derived the same fact per arm; the rung's own repair delegate now carries it, so the fact exists once and nothing re-derives it.
 
 ```csharp
@@ -932,28 +937,22 @@ public sealed record RecoveryPolicy(
         IterationGrowth: PositiveMagnitude.Create(2.0), Fallback: SolveMethod.MlkBiCgStab);
 }
 
-public sealed record RecoveryReceipt(string Physics, Seq<(string Action, Option<double> Residual)> Steps, bool Recovered, Instant At);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class SolveRecovery {
-    public static (Fin<SolveResult> Result, RecoveryReceipt Trace) SolveAdaptive(
+    public static Fin<SolveResult> SolveAdaptive(
         SolveProblem problem, DiscreteMesh mesh, LanePolicy policy, SolveRoute route, RecoveryPolicy recovery,
         IClock clock, Option<SolveArchive> archive = default, Option<SolveSession> session = default) {
-        (Fin<SolveResult> Result, RecoveryAttempt Attempt, Seq<(string Action, Option<double> Residual)> Steps) final =
+        (Fin<SolveResult> Result, RecoveryAttempt Attempt) final =
             recovery.Ladder.Fold(
                 (Result: SolveLane.Solve(problem, mesh, policy, route, clock, archive, session),
-                 Attempt: new RecoveryAttempt(problem, mesh, policy, route),
-                 Steps: Seq<(string, Option<double>)>()),
+                 Attempt: new RecoveryAttempt(problem, mesh, policy, route)),
                 (state, action) => state.Result.IsSucc
                     ? state
                     : action.Repair(state.Attempt, recovery, clock).Match(
-                        Succ: next => {
-                            Fin<SolveResult> attempt = SolveLane.Solve(next.Problem, next.Mesh, next.Policy, next.Route, clock, archive, session);
-                            return (attempt, next, state.Steps.Add((action.Key, attempt.Map(static r => r.Residual).ToOption())));
-                        },
-                        Fail: fault => (Fin.Fail<SolveResult>(fault), state.Attempt, state.Steps.Add((action.Key, None)))));
-        return (final.Result, new RecoveryReceipt(problem.Physics.Key, final.Steps, final.Result.IsSucc, clock.GetCurrentInstant()));
+                        Succ: next => (SolveLane.Solve(next.Problem, next.Mesh, next.Policy, next.Route, clock, archive, session), next),
+                        Fail: fault => (Fin.Fail<SolveResult>(fault), state.Attempt))));
+        return final.Result;
     }
 
     internal static Fin<RecoveryAttempt> RefineMesh(RecoveryAttempt attempt, RecoveryPolicy recovery, IClock clock) =>
@@ -1235,11 +1234,6 @@ public static class CoupledLane {
                 : SolveRound(coupling, meshes, policy, route, Seq<SolveResult>(), clock)
                     .Map(fields => new CoupledResult(fields, 1, new Convergence.Converged(0.0), Seq<double>(), clock.GetCurrentInstant()));
 
-    public static ComputeReceipt.Coupling Receipt(CoupledProblem coupling, CoupledResult result, CorrelationId correlation, Duration elapsed) =>
-        new(coupling.Policy.Scheme.Key, coupling.Fields.Count, coupling.Transfers.Count, result.Rounds, result.CouplingResidual, result.Converged) {
-            Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
-        };
-
     static Fin<CoupledResult> Iterate(
         CoupledProblem coupling, Seq<DiscreteMesh> meshes, LanePolicy policy, SolveRoute route, IClock clock) =>
         SolveRound(coupling, meshes, policy, route, Seq<SolveResult>(), clock).Bind(seed =>
@@ -1305,7 +1299,3 @@ public static class CoupledLane {
             });
 }
 ```
-
-## [06]-[RESEARCH]
-
-(none)

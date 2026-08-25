@@ -15,7 +15,7 @@ import type { Message, UnknownEnum } from "@bufbuild/protobuf";
  * Describes the file rasm/contracts/binding/writeback.proto.
  */
 export const file_rasm_contracts_binding_writeback: GenFile = /*@__PURE__*/
-  fileDesc("CiZyYXNtL2NvbnRyYWN0cy9iaW5kaW5nL3dyaXRlYmFjay5wcm90bxIWcmFzbS5jb250cmFjdHMuYmluZGluZyLBAQoQQ29lcmNlZFZhbHVlV2lyZRIbCgpiaW5kaW5nX2lkGAEgASgJQge6SARyAhABEhoKCWNhbm9uaWNhbBgCIAEoAUIHukgEEgJAARIfCg5jYW5vbmljYWxfdW5pdBgDIAEoCUIHukgEcgIQARIcCgtzb3VyY2VfdW5pdBgEIAEoCUIHukgEcgIQARI1Cglzb3VyY2VfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQga6SAPIAQEi3wUKDVdyaXRlQmFja1dpcmUSSgoMYWNrbm93bGVkZ2VkGAEgASgLMjIucmFzbS5jb250cmFjdHMuYmluZGluZy5Xcml0ZUJhY2tXaXJlLkFja25vd2xlZGdlZEgAEkIKCHJlamVjdGVkGAIgASgLMi4ucmFzbS5jb250cmFjdHMuYmluZGluZy5Xcml0ZUJhY2tXaXJlLlJlamVjdGVkSAASRwoLcm9sbGVkX2JhY2sYAyABKAsyMC5yYXNtLmNvbnRyYWN0cy5iaW5kaW5nLldyaXRlQmFja1dpcmUuUm9sbGVkQmFja0gAEkwKDWluZGV0ZXJtaW5hdGUYBCABKAsyMy5yYXNtLmNvbnRyYWN0cy5iaW5kaW5nLldyaXRlQmFja1dpcmUuSW5kZXRlcm1pbmF0ZUgAGksKDEFja25vd2xlZGdlZBI7CgRlY2hvGAEgASgOMiEucmFzbS5jb250cmFjdHMuYmluZGluZy5FY2hvQ2xhc3NCCrpIB4IBBBABIAAaSQoIUmVqZWN0ZWQSPQoFZmF1bHQYASABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uQga6SAPIAQEaawoKUm9sbGVkQmFjaxI/CgdhdHRlbXB0GAEgASgLMiYucmFzbS5jb250cmFjdHMuZmF1bHQuRmF1bHRPYnNlcnZhdGlvbkIGukgDyAEBEhwKC3ByaW9yX3ZhbHVlGAIgASgBQge6SAQSAkABGpIBCg1JbmRldGVybWluYXRlEj8KB2F0dGVtcHQYASABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uQga6SAPIAQESQAoIcm9sbGJhY2sYAiABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uQga6SAPIAQFCDQoEa2luZBIFukgCCAEiwwMKEFdyaXRlUmVjZWlwdFdpcmUSGwoKYmluZGluZ19pZBgBIAEoCUIHukgEcgIQARIaCgljYW5vbmljYWwYAiABKAFCB7pIBBICQAESQgoLZGlzcG9zaXRpb24YAyABKAsyJS5yYXNtLmNvbnRyYWN0cy5iaW5kaW5nLldyaXRlQmFja1dpcmVCBrpIA8gBARI3CgdlbGFwc2VkGAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQgu6SAjIAQGqAQIyABIcCgtjb3JyZWxhdGlvbhgFIAEoDEIHukgEegJoEBIeCghyZW5kZXJlZBgGIAEoAUIHukgEEgJAAUgAiAEBEiMKDXJlbmRlcmVkX3VuaXQYByABKAlCB7pIBHICEAFIAYgBATp3ukh0GnIKFndyaXRlX3JlY2VpcHQucmVuZGVyZWQSKXJlbmRlcmVkIGFuZCByZW5kZXJlZF91bml0IGNyb3NzIHRvZ2V0aGVyGi1oYXModGhpcy5yZW5kZXJlZCkgPT0gaGFzKHRoaXMucmVuZGVyZWRfdW5pdClCCwoJX3JlbmRlcmVkQhAKDl9yZW5kZXJlZF91bml0KoYBCglFY2hvQ2xhc3MSGgoWRUNIT19DTEFTU19VTlNQRUNJRklFRBAAEhUKEUVDSE9fQ0xBU1NfQUJTRU5UEAESFgoSRUNIT19DTEFTU19TVEFNUEVEEAISFgoSRUNIT19DTEFTU19UT0tFTkVEEAMSFgoSRUNIT19DTEFTU19TTE9UVEVEEARCGaoCFlJhc20uQ29udHJhY3RzLkJpbmRpbmdiBnByb3RvMw", [file_buf_validate_validate, file_google_protobuf_duration, file_google_protobuf_timestamp, file_rasm_contracts_fault_fault]);
+  fileDesc("CiZyYXNtL2NvbnRyYWN0cy9iaW5kaW5nL3dyaXRlYmFjay5wcm90bxIWcmFzbS5jb250cmFjdHMuYmluZGluZyLBAQoQQ29lcmNlZFZhbHVlV2lyZRIbCgpiaW5kaW5nX2lkGAEgASgJQge6SARyAhABEhoKCWNhbm9uaWNhbBgCIAEoAUIHukgEEgJAARIfCg5jYW5vbmljYWxfdW5pdBgDIAEoCUIHukgEcgIQARIcCgtzb3VyY2VfdW5pdBgEIAEoCUIHukgEcgIQARI1Cglzb3VyY2VfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQga6SAPIAQEi3wUKDVdyaXRlQmFja1dpcmUSSgoMYWNrbm93bGVkZ2VkGAEgASgLMjIucmFzbS5jb250cmFjdHMuYmluZGluZy5Xcml0ZUJhY2tXaXJlLkFja25vd2xlZGdlZEgAEkIKCHJlamVjdGVkGAIgASgLMi4ucmFzbS5jb250cmFjdHMuYmluZGluZy5Xcml0ZUJhY2tXaXJlLlJlamVjdGVkSAASRwoLcm9sbGVkX2JhY2sYAyABKAsyMC5yYXNtLmNvbnRyYWN0cy5iaW5kaW5nLldyaXRlQmFja1dpcmUuUm9sbGVkQmFja0gAEkwKDWluZGV0ZXJtaW5hdGUYBCABKAsyMy5yYXNtLmNvbnRyYWN0cy5iaW5kaW5nLldyaXRlQmFja1dpcmUuSW5kZXRlcm1pbmF0ZUgAGksKDEFja25vd2xlZGdlZBI7CgRlY2hvGAEgASgOMiEucmFzbS5jb250cmFjdHMuYmluZGluZy5FY2hvQ2xhc3NCCrpIB4IBBBABIAAaSQoIUmVqZWN0ZWQSPQoFZmF1bHQYASABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uQga6SAPIAQEaawoKUm9sbGVkQmFjaxI/CgdhdHRlbXB0GAEgASgLMiYucmFzbS5jb250cmFjdHMuZmF1bHQuRmF1bHRPYnNlcnZhdGlvbkIGukgDyAEBEhwKC3ByaW9yX3ZhbHVlGAIgASgBQge6SAQSAkABGpIBCg1JbmRldGVybWluYXRlEj8KB2F0dGVtcHQYASABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uQga6SAPIAQESQAoIcm9sbGJhY2sYAiABKAsyJi5yYXNtLmNvbnRyYWN0cy5mYXVsdC5GYXVsdE9ic2VydmF0aW9uQga6SAPIAQFCDQoEa2luZBIFukgCCAEipQMKEFdyaXRlT3V0Y29tZVdpcmUSGwoKYmluZGluZ19pZBgBIAEoCUIHukgEcgIQARIaCgljYW5vbmljYWwYAiABKAFCB7pIBBICQAESQgoLZGlzcG9zaXRpb24YAyABKAsyJS5yYXNtLmNvbnRyYWN0cy5iaW5kaW5nLldyaXRlQmFja1dpcmVCBrpIA8gBARI3CgdlbGFwc2VkGAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQgu6SAjIAQGqAQIyABIeCghyZW5kZXJlZBgFIAEoAUIHukgEEgJAAUgAiAEBEiMKDXJlbmRlcmVkX3VuaXQYBiABKAlCB7pIBHICEAFIAYgBATp3ukh0GnIKFndyaXRlX291dGNvbWUucmVuZGVyZWQSKXJlbmRlcmVkIGFuZCByZW5kZXJlZF91bml0IGNyb3NzIHRvZ2V0aGVyGi1oYXModGhpcy5yZW5kZXJlZCkgPT0gaGFzKHRoaXMucmVuZGVyZWRfdW5pdClCCwoJX3JlbmRlcmVkQhAKDl9yZW5kZXJlZF91bml0KoYBCglFY2hvQ2xhc3MSGgoWRUNIT19DTEFTU19VTlNQRUNJRklFRBAAEhUKEUVDSE9fQ0xBU1NfQUJTRU5UEAESFgoSRUNIT19DTEFTU19TVEFNUEVEEAISFgoSRUNIT19DTEFTU19UT0tFTkVEEAMSFgoSRUNIT19DTEFTU19TTE9UVEVEEARCGaoCFlJhc20uQ29udHJhY3RzLkJpbmRpbmdiBnByb3RvMw", [file_buf_validate_validate, file_google_protobuf_duration, file_google_protobuf_timestamp, file_rasm_contracts_fault_fault]);
 
 /**
  * `canonical_unit` is the estate measure value's own open unit spelling and `source_unit` the foreign host tag's,
@@ -286,9 +286,9 @@ export const WriteBackWire_IndeterminateSchema: GenMessage<WriteBackWire_Indeter
   messageDesc(file_rasm_contracts_binding_writeback, 1, 3);
 
 /**
- * @generated from message rasm.contracts.binding.WriteReceiptWire
+ * @generated from message rasm.contracts.binding.WriteOutcomeWire
  */
-export type WriteReceiptWire = Message<"rasm.contracts.binding.WriteReceiptWire"> & {
+export type WriteOutcomeWire = Message<"rasm.contracts.binding.WriteOutcomeWire"> & {
   /**
    * @generated from field: string binding_id = 1;
    */
@@ -310,27 +310,22 @@ export type WriteReceiptWire = Message<"rasm.contracts.binding.WriteReceiptWire"
   elapsed?: Duration | undefined;
 
   /**
-   * @generated from field: bytes correlation = 5;
-   */
-  correlation: Uint8Array;
-
-  /**
-   * @generated from field: optional double rendered = 6;
+   * @generated from field: optional double rendered = 5;
    */
   rendered?: number | undefined;
 
   /**
    * `rendered_unit` is the unit the host echoed back in its own spelling, so it stays open like the source it echoes.
    *
-   * @generated from field: optional string rendered_unit = 7;
+   * @generated from field: optional string rendered_unit = 6;
    */
   renderedUnit?: string | undefined;
 };
 
 /**
- * @generated from message rasm.contracts.binding.WriteReceiptWire
+ * @generated from message rasm.contracts.binding.WriteOutcomeWire
  */
-export type WriteReceiptWireValid = Message<"rasm.contracts.binding.WriteReceiptWire"> & {
+export type WriteOutcomeWireValid = Message<"rasm.contracts.binding.WriteOutcomeWire"> & {
   /**
    * @generated from field: string binding_id = 1;
    */
@@ -352,28 +347,23 @@ export type WriteReceiptWireValid = Message<"rasm.contracts.binding.WriteReceipt
   elapsed: Duration;
 
   /**
-   * @generated from field: bytes correlation = 5;
-   */
-  correlation: Uint8Array;
-
-  /**
-   * @generated from field: optional double rendered = 6;
+   * @generated from field: optional double rendered = 5;
    */
   rendered?: number | undefined;
 
   /**
    * `rendered_unit` is the unit the host echoed back in its own spelling, so it stays open like the source it echoes.
    *
-   * @generated from field: optional string rendered_unit = 7;
+   * @generated from field: optional string rendered_unit = 6;
    */
   renderedUnit?: string | undefined;
 };
 
 /**
- * Describes the message rasm.contracts.binding.WriteReceiptWire.
- * Use `create(WriteReceiptWireSchema)` to create a new message.
+ * Describes the message rasm.contracts.binding.WriteOutcomeWire.
+ * Use `create(WriteOutcomeWireSchema)` to create a new message.
  */
-export const WriteReceiptWireSchema: GenMessage<WriteReceiptWire, {validType: WriteReceiptWireValid}> = /*@__PURE__*/
+export const WriteOutcomeWireSchema: GenMessage<WriteOutcomeWire, {validType: WriteOutcomeWireValid}> = /*@__PURE__*/
   messageDesc(file_rasm_contracts_binding_writeback, 2);
 
 /**

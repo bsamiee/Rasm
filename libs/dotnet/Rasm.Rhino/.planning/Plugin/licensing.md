@@ -10,7 +10,7 @@ Every capability word rides the kernel `CapabilitySet<T>`: the host's `LicenseCa
 
 - [02]-[VOCABULARY]: `ProductKey`, `LicenseGrant`, `LicenseBuild`, `LicenseKind`, `LicensePosture`, and `LicenseNode` close every entitlement axis as keyed rows.
 - [03]-[EVIDENCE]: `LicenseEvidence`, `CloudZooLease`, `LicenseState`, `LeaseEvidence`, `LeaseMap`, and `OwnerEvidence` detach the four host license payloads.
-- [04]-[ACQUISITION]: `ILicenseProgram`, `LicenseReply`, `Entitle`, `EntitlementAsk`, `EntitlementReceipt`, and the `RasmPlugIn` entitlement arm own plug-in-side acquisition.
+- [04]-[ACQUISITION]: `ILicenseProgram`, `LicenseReply`, `Entitle`, `EntitlementAsk`, `EntitleOutcome`, and the `RasmPlugIn` entitlement arm own plug-in-side acquisition.
 - [05]-[RAIL]: `LicenseVerb`, `SessionVerb`, `LicenseAccount`, `LicenseAsk`, `LicenseVerdict`, and `Licenses.Ask` own the `LicenseUtils` census, checkout family, and CloudZoo session.
 - [06]-[FACTS]: `LicenseFact` and `LicensePulse.Observe` detach the host license-state change.
 - [07]-[SURFACE_LEDGER]: owner-to-ingress-to-state-to-egress roster across the two entries, the program floor, and the evidence carriers.
@@ -228,7 +228,7 @@ internal static partial class LeaseMap {
 ## [04]-[ACQUISITION]
 
 - Owner: `ILicenseProgram` is the plug-in's acquisition declaration behind an instance-interface floor — key validation answering a `LicenseReply`, and lease change answering an optional badge raster. The implementation is FOREIGN code, so the floor is the type and the null guard the delegate pair needed has no spelling left (`surfaces-and-dispatch.md [OPEN_FLOOR_DISPATCH]`, folder-wide with `document#PROGRAM`'s `IParticipant`).
-- Owner: `Entitle` closes the plug-in-side acquisition family; `EntitlementReceipt` carries its outcomes and `Held` names the `EntitlementAsk` row it answers, so a caller holding a receipt knows which of the three acquisitions succeeded (folder RULINGS `[02]`).
+- Owner: `Entitle` closes the plug-in-side acquisition family; `EntitleOutcome` carries its outcomes and `Held` names the `EntitlementAsk` row it answers, so a caller holding the outcome knows which of the three acquisitions succeeded (folder RULINGS `[02]`).
 - Law: `RasmPlugIn` continues as a partial class here because the host declares its entitlement members `protected`; the arm is co-located with the derivation the language forces it onto, never lifted to a free-standing service that could not reach them. That co-location also gives every arm `lifecycle#ADAPTER`'s `Record` sink, so a refusal raised inside a host `out`-delegate reaches the bounded refusal ring instead of dying at the seam.
 - Law: the validate callback is total by construction — a refused rail, a faulted program, or a malformed reply all settle on `ErrorHideMessage` with an empty payload, because the host reads the `out` slot unconditionally and a null there faults inside native code.
 - Law: `ByBuild` is the capability-free overload the host supplies — it passes `NoCapabilities` and a null mask internally — so a request naming both a build and a grant set uses `ByCapability` and the two never merge.
@@ -275,12 +275,12 @@ public abstract partial record Entitle {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record EntitlementReceipt {
-    private EntitlementReceipt() { }
-    public sealed record Held(EntitlementAsk Asked) : EntitlementReceipt;
-    public sealed record Released : EntitlementReceipt;
-    public sealed record Declared(CapabilitySet<LicenseGrant> Grants) : EntitlementReceipt;
-    public sealed record Registered(OwnerEvidence Evidence) : EntitlementReceipt;
+public abstract partial record EntitleOutcome {
+    private EntitleOutcome() { }
+    public sealed record Held(EntitlementAsk Asked) : EntitleOutcome;
+    public sealed record Released : EntitleOutcome;
+    public sealed record Declared(CapabilitySet<LicenseGrant> Grants) : EntitleOutcome;
+    public sealed record Registered(OwnerEvidence Evidence) : EntitleOutcome;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -290,7 +290,7 @@ public interface ILicenseProgram {
 }
 
 public abstract partial class RasmPlugIn {
-    public Fin<EntitlementReceipt> Entitlement(Entitle ask, Op? key = null) {
+    public Fin<EntitleOutcome> Entitlement(Entitle ask, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(ask).Bind(request => request.Switch(
             op,
@@ -299,39 +299,39 @@ public abstract partial class RasmPlugIn {
                     textMask: Op.ToHostSlot(row.TextMask)!,
                     validateProductKeyDelegate: Validator(program, held),
                     leaseChanged: LeaseWatcher(program, held))
-                ? Fin.Succ<EntitlementReceipt>(value: new EntitlementReceipt.Held(Asked: EntitlementAsk.Capability))
-                : Fin.Fail<EntitlementReceipt>(error: new PluginFault.Dismissed(
+                ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Capability))
+                : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
                     Key: held, Member: nameof(GetLicense))))),
             byBuild: (held, row) => held.Need(row.Program).Bind(program => held.Catch(() => GetLicense(
                     productBuildType: row.Build.Key,
                     validateProductKeyDelegate: Validator(program, held),
                     leaseChangedDelegate: LeaseWatcher(program, held))
-                ? Fin.Succ<EntitlementReceipt>(value: new EntitlementReceipt.Held(Asked: EntitlementAsk.Build))
-                : Fin.Fail<EntitlementReceipt>(error: new PluginFault.Dismissed(
+                ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Build))
+                : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
                     Key: held, Member: nameof(GetLicense))))),
             byPrompt: (held, row) => held.Need(row.Program).Bind(program => UiThread.Run(
-                new UiDispatch<EntitlementReceipt>.Blocking(() => held.Catch(() => AskUserForLicense(
+                new UiDispatch<EntitleOutcome>.Blocking(() => held.Catch(() => AskUserForLicense(
                         productBuildType: row.Build.Key,
                         standAlone: row.Node,
                         textMask: Op.ToHostSlot(row.TextMask)!,
                         parentWindow: Op.ToHostSlot(row.Parent),
                         validateProductKeyDelegate: Validator(program, held),
                         onLeaseChangedDelegate: LeaseWatcher(program, held))
-                    ? Fin.Succ<EntitlementReceipt>(value: new EntitlementReceipt.Held(Asked: EntitlementAsk.Prompt))
-                    : Fin.Fail<EntitlementReceipt>(error: new PluginFault.Dismissed(
+                    ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Held(Asked: EntitlementAsk.Prompt))
+                    : Fin.Fail<EntitleOutcome>(error: new PluginFault.Dismissed(
                         Key: held, Member: nameof(AskUserForLicense))))),
                 DispatchLane.Modal,
                 held)),
             release: (held, _) => held.Catch(() => ReturnLicense()
-                ? Fin.Succ<EntitlementReceipt>(value: new EntitlementReceipt.Released())
-                : Fin.Fail<EntitlementReceipt>(error: new PluginFault.HostRefused(
-                    Key: held, Member: nameof(ReturnLicense), Detail: nameof(EntitlementReceipt.Released)))),
+                ? Fin.Succ<EntitleOutcome>(value: new EntitleOutcome.Released())
+                : Fin.Fail<EntitleOutcome>(error: new PluginFault.HostRefused(
+                    Key: held, Member: nameof(ReturnLicense), Detail: nameof(EntitleOutcome.Released)))),
             declare: (held, row) => row.License.Admit(held)
                 .Bind(_ => held.Catch(() => SetLicenseCapabilities(
                     textMask: Op.ToHostSlot(row.TextMask)!,
                     capabilities: (LicenseCapabilities)row.Grants.Mask(bit: LicenseGrant.Bit),
                     licenseId: row.License.ToValue())))
-                .Map<EntitlementReceipt>(_ => new EntitlementReceipt.Declared(Grants: row.Grants)),
+                .Map<EntitleOutcome>(_ => new EntitleOutcome.Declared(Grants: row.Grants)),
             owner: (held, _) => held.Catch(() => Op.Probe(() => {
                     bool answered = GetLicenseOwner(
                         registeredOwner: out string owner, registeredOrganization: out string organization);
@@ -340,7 +340,7 @@ public abstract partial class RasmPlugIn {
                 })
                 .ToFin(Fail: new PluginFault.HostRefused(
                     Key: held, Member: nameof(GetLicenseOwner), Detail: nameof(OwnerEvidence)))
-                .Map<EntitlementReceipt>(static evidence => new EntitlementReceipt.Registered(Evidence: evidence)))));
+                .Map<EntitleOutcome>(static evidence => new EntitleOutcome.Registered(Evidence: evidence)))));
     }
 
     private ValidateProductKeyDelegate Validator(ILicenseProgram program, Op op) =>
@@ -399,7 +399,7 @@ public abstract partial class RasmPlugIn {
 - Law: the account read is a CASE SPLIT, not a flag beside a name — a signed-out session has no user name, and `LicenseAccount` makes the pair that could disagree unrepresentable.
 - Law: the Zoo and CloudZoo hops are NETWORK-backed and their refusals ride `PluginFault.Unreachable`, whose `Retriability` is `Transient`; an app root composing `Redrive.Run(RedrivePolicy, …)` over these entries re-drives exactly the transient class and nothing else, and no retry owner is minted here (kernel `Domain/rails#[05]-[REDRIVE]`).
 - Law: `GetOneLicenseStatus` answers null for an unlicensed product, so absence rides `Option<LicenseState>` and is not a fault.
-- Boundary: `ShowBuyLicenseUi` and `ShowLicenseValidationUi` are INTERACTIVE and cross the kernel dispatch on the modal lane; the buy dialog returns nothing, so its receipt names the product it offered and carries no outcome the host does not publish.
+- Boundary: `ShowBuyLicenseUi` and `ShowLicenseValidationUi` are INTERACTIVE and cross the kernel dispatch on the modal lane; the buy dialog returns nothing, so its answer names the product it offered and carries no outcome the host does not publish.
 - Boundary: `LoginToCloudZoo` opens the host's own account flow; the account case answers the resulting identity as detached text off `RhinoApp`.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.AcceptText`, `Op.Text`, `Retriability`, `RedrivePolicy`), `Domain/validation` (`Op.Row`), `Interaction/dispatch` (`UiThread.Run`, `UiDispatch<T>.Blocking`, `DispatchLane.Modal`); `Document/events` (`PluginKey.Maybe`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `LicenseUtils.GetLicenseStatus`, `GetOneLicenseStatus`, `CheckOutLicense`, `CheckInLicense`, `ReturnLicense`, `ConvertLicense`, `DeleteLicense`, `IsCheckOutEnabled`, `LoginToCloudZoo`, `LogoutOfCloudZoo`, `ShowBuyLicenseUi`, `ShowLicenseValidationUi`), RhinoCommon runtime (`api-rhinocommon-runtime.md` — `RhinoApp.UserIsLoggedIn`, `RhinoApp.LoggedInUserName`).
 
@@ -556,7 +556,7 @@ public static class LicensePulse {
 | [INDEX] | [OWNER]           | [INGRESS]                       | [STATE]                             | [EGRESS]                              |
 | :-----: | :---------------- | :------------------------------ | :---------------------------------- | :------------------------------------ |
 |  [01]   | `Licenses`        | `Ask(LicenseAsk)`               | none — the Zoo owns the entitlement | `LicenseVerdict` per request row      |
-|  [02]   | `RasmPlugIn`      | `Entitlement(Entitle)`          | the adapter's refusal ring          | `EntitlementReceipt` naming its ask   |
+|  [02]   | `RasmPlugIn`      | `Entitlement(Entitle)`          | the adapter's refusal ring          | `EntitleOutcome` naming its ask   |
 |  [03]   | `ILicenseProgram` | foreign plug-in implementation  | program-owned                       | `LicenseReply` · badge `AssetRaster`  |
 |  [04]   | `LicenseEvidence` | `Detach(LicenseData)` · `Mint`  | generated admission                 | both directions of one correspondence |
 |  [05]   | `LeaseMap`        | `LicenseLease` callback wrapper | none — a generated projection       | `LeaseEvidence`                       |
@@ -567,7 +567,6 @@ public static class LicensePulse {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

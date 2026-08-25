@@ -1,7 +1,7 @@
 """Remote execution transport for Assay checks over SSH.
 
 Pooled asyncssh connections, lane-scoped working-tree push, remote exec with drained streams, artifact
-pull by offload strategy, host-scoped run-dir pruning, and the remote receipt fold.
+pull by offload strategy, host-scoped run-dir pruning, and remote outcome assembly.
 """
 
 import contextlib
@@ -15,35 +15,13 @@ from typing import TYPE_CHECKING
 
 import anyio
 from anyio import to_thread
-import msgspec
 import structlog
 lazy import asyncssh
 
-from assay.composition.settings import (
-    PullStrategy,
-    resolve_tilde,
-    run_id_host_token,
-    Ssh,
-)
+from assay.composition.settings import PullStrategy, resolve_tilde, run_id_host_token, Ssh
 from assay.composition.store import ArtifactScope, size_from_info
-from assay.core.govern import (
-    Captured,
-    captured_outputs,
-    drain_pair,
-    line_count,
-    recv_ssh,
-    stream_artifacts,
-)
-from assay.core.model import (
-    Artifact,
-    ArtifactKind,
-    Completed,
-    DOTNET_CONFIG_ANCHORS,
-    ExecReceipt,
-    RailStatus,
-    receipt,
-    Runner,
-)
+from assay.core.govern import Captured, captured_outputs, drain_pair, line_count, recv_ssh, stream_artifacts
+from assay.core.model import Artifact, ArtifactKind, Completed, DOTNET_CONFIG_ANCHORS, RailStatus, RemoteExecution, Runner
 from assay.core.routing import discover_async, parse_csproj
 
 if TYPE_CHECKING:
@@ -174,18 +152,17 @@ async def _resolve_remote_plan(plan: ExecPlan, target: Ssh, conn: asyncssh.SSHCl
 
 
 async def run_remote(plan: ExecPlan, target: Ssh) -> Completed:
-    """Run one composed plan on the Ssh target: probe, push, exec, pull, and fold the remote receipt.
+    """Run one composed plan on the Ssh target: probe, push, exec, pull, and assemble its outcome.
 
     Returns:
-        Completed receipt carrying the remote exit, streams, transfer notes, and ExecReceipt facts.
+        Completed result carrying the remote exit, streams, transfer notes, and remote-execution facts.
     """
     async with _ssh_connection(target) as conn:
         plan = await _resolve_remote_plan(plan, target, conn)
         resolved = plan.settings.exec_target if isinstance(plan.settings.exec_target, Ssh) else target
         match await _probe_toolchain(conn, plan.argv, path=plan.env.get("PATH", "")):
             case (str() as missing, str() as detail):
-                miss = receipt(plan.argv, RailStatus.UNSUPPORTED.exit_code, status=RailStatus.UNSUPPORTED, stderr=detail.encode()[:1024])
-                return _fold_receipt(miss, resolved, exit_status=None, signal="", notes=(f"remote.toolchain.missing tool={missing}",))
+                return Completed(argv=plan.argv, returncode=RailStatus.UNSUPPORTED.exit_code, stderr=detail.encode()[:1024], status=RailStatus.UNSUPPORTED, remote=RemoteExecution(target=resolved.url, host=resolved.host, notes=(f"remote.toolchain.missing tool={missing}",)))
             case _:
                 pass
         async with _remote_transfer(conn, plan) as transfer:
@@ -195,23 +172,22 @@ async def run_remote(plan: ExecPlan, target: Ssh) -> Completed:
 
 
 def _remote_done(plan: ExecPlan, target: Ssh, transfer: _Transfer, outcome: _Outcome, pulled: _Pulled) -> Completed:
-    """Fold the remote exec outcome, transfer counts, and pull artifacts into one local ``Completed`` with an ``ExecReceipt``.
+    """Fold the remote exec outcome, transfer counts, and pull artifacts into one ``Completed`` value.
 
     Returns:
-        The completed receipt carrying the resolved exit code, signal/transfer notes, pulled artifacts, and exec facts.
+        The completed result carrying the resolved exit code, signal/transfer notes, pulled artifacts, and remote facts.
     """
     code, signal_notes = ssh_outcome(outcome.exit_status, outcome.signal)
     notes = (*transfer.notes, *pulled.notes)
-    done = receipt(
-        plan.argv,
-        code,
+    return Completed(
+        argv=plan.argv,
+        returncode=code,
         stdout=outcome.streams.get("out", Captured()).read(plan.local_store()),
         stderr=outcome.streams.get("err", Captured()).preview,
+        status=RailStatus.from_returncode(code),
         notes=(*signal_notes, *outcome.notes, *notes),
         artifacts=pulled.artifacts,
-    )
-    return _fold_receipt(
-        done, target, exit_status=outcome.exit_status, signal=_signal_name(outcome.signal), notes=notes, pushed=transfer.pushed, pulled=pulled.count
+        remote=RemoteExecution(target=target.url, host=target.host, exit_status=outcome.exit_status, signal=_signal_name(outcome.signal), pushed=transfer.pushed, pulled=pulled.count, notes=notes),
     )
 
 
@@ -239,7 +215,7 @@ async def _remote_transfer(conn: asyncssh.SSHClientConnection, plan: ExecPlan) -
 
     The repo working tree is pushed up front so the remote tool sees it at ``<workroot>/<run_id>``; the pull leg
     runs after the body downloads the tool-written scope tree. Push and pull each own a shield + budget so a large
-    transfer degrades to a receipt note rather than reclassifying a completed run as TIMEOUT; the ``yield`` stays
+    transfer degrades to an outcome note rather than reclassifying a completed run as TIMEOUT; the ``yield`` stays
     outside the push shield so the bracketed remote exec remains cancellable by the check deadline.
 
     Yields:
@@ -339,28 +315,18 @@ def _dotnet_manifest(plan: ExecPlan, universe: tuple[str, ...]) -> tuple[str, ..
     projects = frozenset(p for p in universe if p.endswith(".csproj"))
     closure = _project_closure(seeds, projects, local_root)
     dirs = tuple(f"{rel.rpartition('/')[0]}/" if "/" in rel else "" for rel in closure)
-    return tuple(
-        rel for rel in universe if rel in DOTNET_CONFIG_ANCHORS or any(prefix and rel.startswith(prefix) for prefix in dirs) or rel in closure
-    )
+    return tuple(rel for rel in universe if rel in DOTNET_CONFIG_ANCHORS or any(prefix and rel.startswith(prefix) for prefix in dirs) or rel in closure)
 
 
 def _dotnet_seeds(plan: ExecPlan) -> frozenset[str]:
     local_root = str(plan.settings.local_root)
-    return frozenset(
-        rel
-        for token in plan.argv
-        if token.endswith(".csproj")
-        for rel in (token[len(local_root) + 1 :] if token.startswith(f"{local_root}/") else token,)
-        if rel and not rel.startswith("/")
-    )
+    return frozenset(rel for token in plan.argv if token.endswith(".csproj") for rel in (token[len(local_root) + 1 :] if token.startswith(f"{local_root}/") else token,) if rel and not rel.startswith("/"))
 
 
 def _project_closure(seeds: frozenset[str], projects: frozenset[str], local_root: Path) -> frozenset[str]:
     graph = {rel: _csproj_refs(rel, local_root) & projects for rel in projects}
     seeded = seeds & projects
-    return reduce(
-        lambda current, _: current | frozenset(ref for member in current for ref in graph.get(member, frozenset())), range(len(graph)), seeded
-    )
+    return reduce(lambda current, _: current | frozenset(ref for member in current for ref in graph.get(member, frozenset())), range(len(graph)), seeded)
 
 
 def _csproj_refs(rel: str, local_root: Path) -> frozenset[str]:
@@ -462,19 +428,6 @@ async def _probe_toolchain(conn: asyncssh.SSHClientConnection, argv: tuple[str, 
             return None
 
 
-def _fold_receipt(
-    done: Completed, target: Ssh, *, exit_status: int | None, signal: str, notes: tuple[str, ...] = (), pushed: int = 0, pulled: int = 0
-) -> Completed:
-    """Project the remote-execution facts onto the receipt's dedicated ``exec`` carrier.
-
-    Returns:
-        The receipt with an ``ExecReceipt`` stamping the target URL, host, exit status, signal, and transfer counts.
-    """
-    return msgspec.structs.replace(
-        done, exec=ExecReceipt(target=target.url, host=target.host, exit_status=exit_status, signal=signal, pushed=pushed, pulled=pulled, notes=notes)
-    )
-
-
 def _scope_relative(scope: ArtifactScope) -> tuple[str, ...]:
     tail = scope.path[len(scope.store.root) + 1 :] if scope.path.startswith(f"{scope.store.root}/") else scope.path
     return tuple(part for part in tail.split("/") if part)
@@ -496,17 +449,7 @@ async def _sftp_pull_scope(conn: asyncssh.SSHClientConnection, plan: ExecPlan, s
 
 
 def _landed_scope_artifacts(landing: ArtifactStore, local_dir: Path, rel: tuple[str, ...], tool: str) -> tuple[Artifact, ...]:
-    return tuple(
-        Artifact(
-            id=f"{tool}-scope-{file.name}",
-            kind=ArtifactKind.SCOPE,
-            path=landing.path(*rel, *file.relative_to(local_dir).parts),
-            bytes=file.stat().st_size,
-            lines=line_count(file.read_bytes()),
-        )
-        for file in sorted(local_dir.rglob("*"))
-        if file.is_file()
-    )
+    return tuple(Artifact(id=f"{tool}-scope-{file.name}", kind=ArtifactKind.SCOPE, path=landing.path(*rel, *file.relative_to(local_dir).parts), bytes=file.stat().st_size, lines=line_count(file.read_bytes())) for file in sorted(local_dir.rglob("*")) if file.is_file())
 
 
 def _shared_read_scope(plan: ExecPlan, scope: ArtifactScope) -> tuple[Artifact, ...] | None:
@@ -526,11 +469,7 @@ def _shared_read_scope(plan: ExecPlan, scope: ArtifactScope) -> tuple[Artifact, 
     store = plan.settings.store(protocol=offload.backend.protocol, root=offload.backend.root)
     tool = plan.check.tool.name
     rows = tuple(row for row in store.walk(*rel, recursive=True, detail=True) if isinstance(row, tuple) and isinstance(row[1], dict))
-    artifacts = tuple(
-        Artifact(id=f"{tool}-scope-{path.rsplit('/', 1)[-1]}", kind=ArtifactKind.SCOPE, path=path, bytes=size_from_info(info))
-        for path, info in rows
-        if info.get("type", "file") != "directory"
-    )
+    artifacts = tuple(Artifact(id=f"{tool}-scope-{path.rsplit('/', 1)[-1]}", kind=ArtifactKind.SCOPE, path=path, bytes=size_from_info(info)) for path, info in rows if info.get("type", "file") != "directory")
     return artifacts or None
 
 
@@ -560,13 +499,7 @@ async def _connect(target: Ssh) -> AsyncIterator[asyncssh.SSHClientConnection]:
 
 
 async def _connect_once(target: Ssh) -> asyncssh.SSHClientConnection:
-    return await asyncssh.connect(
-        **{**target.connect_kwargs, **_insecure_host_key(target.connect_kwargs.get("known_hosts"))},
-        connect_timeout=_SSH_CONNECT_TIMEOUT,
-        login_timeout=_SSH_CONNECT_TIMEOUT,
-        keepalive_interval=_SSH_KEEPALIVE_INTERVAL_S,
-        keepalive_count_max=_SSH_KEEPALIVE_COUNT_MAX,
-    )
+    return await asyncssh.connect(**{**target.connect_kwargs, **_insecure_host_key(target.connect_kwargs.get("known_hosts"))}, connect_timeout=_SSH_CONNECT_TIMEOUT, login_timeout=_SSH_CONNECT_TIMEOUT, keepalive_interval=_SSH_KEEPALIVE_INTERVAL_S, keepalive_count_max=_SSH_KEEPALIVE_COUNT_MAX)
 
 
 def _insecure_host_key(known_hosts: object) -> Mapping[str, None]:
@@ -598,7 +531,7 @@ def _signal_name(exit_signal: object | None) -> str:
 
 
 def ssh_outcome(status: int | None, signal: object | None) -> tuple[int, tuple[str, ...]]:
-    """Resolve a remote exit status and optional signal into a numeric code plus receipt notes.
+    """Resolve a remote exit status and optional signal into a numeric code plus signal notes.
 
     Returns:
         The integer exit code (or synthetic 255 for a signalled kill) and any signal-name notes.

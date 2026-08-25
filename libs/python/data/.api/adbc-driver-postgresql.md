@@ -72,7 +72,7 @@
 [LOCAL_ADMISSION]:
 - import `adbc_driver_postgresql` (and `.dbapi`) at boundary scope only; the manifest import policy bans module-level import.
 - catalog, schema, table, and column discovery route through the manager's `adbc_get_objects` at the requested `depth`, with `adbc_get_table_schema` and `adbc_get_statistics` returning Arrow — never a hand-written `information_schema`/`pg_catalog` query.
-- each connection captures a partition receipt: resolved URI (credentials redacted), applied option keys, ingest mode and row count, and Arrow schema.
+- each connection exposes partition metadata: resolved URI with credentials redacted, applied option keys, ingest mode and row count, and Arrow schema.
 - `adbc_driver_postgresql` owns libpq transport, `COPY` ingest, option application, and streamed Arrow result delivery, emitting Arrow record batches to the data partition owner; result materialization and dataframe conversion route to `pyarrow`/`polars`, and credential identity minting stays with the runtime owner.
 
 [RAIL_LAW]:

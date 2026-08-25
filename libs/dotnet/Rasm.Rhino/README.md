@@ -1,6 +1,6 @@
 # [RASM_RHINO]
 
-`Rasm.Rhino` is the single host boundary over RhinoCommon, Rhino UI, Eto, and the macOS native surface: every host concern folds through one owner behind thread-affinity and capability gates, every native resource retains only across its leased extent, and every outcome carries a typed receipt.
+`Rasm.Rhino` is the single host boundary over RhinoCommon, Rhino UI, Eto, and the macOS native surface: every host concern folds through one owner behind thread-affinity and capability gates, every native resource retains only across its leased extent, and every outcome is a typed result.
 
 Host capability composes parameterized, so an app root never reaches RhinoCommon's raw surface; Rhino-native drafting, sheets, and file IO stay rich rather than thinned toward a host-neutral floor, and measurement declares here while executing at app-root altitude.
 
@@ -12,7 +12,6 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [03]-[TABLES](.planning/Document/tables.md): `Tables.Commit` executes a shaped table transaction through the undo bracket and redraw compensation.
 - [04]-[EVENTS](.planning/Document/events.md): `DocumentStream.Observe` binds events into detached facts under scoped attach and symmetric release.
 - [05]-[LAYERS](.planning/Document/layers.md): `Layers.Commit` folds the managed layer domain and lowers the kernel drafting standards onto it.
-- [06]-[FACTS](.planning/Document/facts.md): `FactStream` accumulates commit-scoped consequences under an undo stamp behind the readable kind gate.
 - [07]-[COMMIT](.planning/Document/commit.md): `DocumentCommit.Sealed` frames every host mutation over `UndoBracket` custody and redraw compensation.
 - [08]-[LIFETIME](.planning/Document/lifetime.md): `LifecycleGate` and `Subscription` own Rhino lifecycle admission and host-thread release.
 
@@ -21,7 +20,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [10]-[SETTINGS](.planning/Persistence/settings.md): `SettingStore.Commit` carries the settings tree through pure reads, typed writes, and guards.
 - [11]-[APPSETTINGS](.planning/Persistence/appsettings.md): `AppSettings.Commit` drives every application preference family through typed state.
 - [12]-[USERDATA](.planning/Persistence/userdata.md): `ArchiveIo` frames attached custody; `TypedUserData` seals the participation template.
-- [13]-[USERTEXT](.planning/Persistence/usertext.md): `UserTexts.Commit` owns document and per-object user strings with prior-value receipts.
+- [13]-[USERTEXT](.planning/Persistence/usertext.md): `UserTexts.Commit` writes document and object strings; `UserTexts.Read` detaches them.
 - [14]-[PRESETS](.planning/Persistence/presets.md): `Presets.Commit` runs cplane, position, and layer-state presets under one mask vocabulary.
 - [15]-[SNAPSHOTS](.planning/Persistence/snapshots.md): `Snapshots.Commit` scripts snapshot state; `SnapshotParticipant` adapts the plugin seam.
 
@@ -35,7 +34,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 
 [COMMANDS]:
 - [22]-[COMMAND](.planning/Commands/command.md): `CommandFlow<TState>.Drive` owns the bounded immutable command algebra behind the host lifecycle.
-- [23]-[ACQUISITION](.planning/Commands/acquisition.md): `Acquisition.Get` owns each getter modality, native getter lifetime, and typed receipt.
+- [23]-[ACQUISITION](.planning/Commands/acquisition.md): `Acquisition.Get` owns each getter modality, native getter lifetime, and typed outcome.
 - [24]-[OPTIONS](.planning/Commands/options.md): `OptionSet.Bind` makes command-line options data, leasing native carriers under scoped release.
 - [25]-[SELECTION](.planning/Commands/selection.md): `Picks` owns picked-reference capture, the `PartIndex` component owner, and kernel re-entry.
 
@@ -43,7 +42,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [26]-[MODEL](.planning/Blocks/model.md): `Definitions.Lens` resolves the Document-owned `ResourceRef` into one whole-state projection.
 - [27]-[GRAPH](.planning/Blocks/graph.md): `BlockGraph.Ask` folds live and archived definitions into one transient topology and its closure evidence.
 - [28]-[LIFECYCLE](.planning/Blocks/lifecycle.md): `BlockLifecycle` composes ingress, preview vault, deferred refresh, eviction, and native disposal.
-- [29]-[OPERATIONS](.planning/Blocks/operations.md): `Blocks.Commit` runs read and transaction rails through plan grants and additive receipts.
+- [29]-[OPERATIONS](.planning/Blocks/operations.md): `Blocks.Commit` runs read and transaction rails through plan grants.
 
 [MODELING]:
 - [30]-[SOLIDS](.planning/Modeling/solids.md): `Solids.Build` runs Brep booleans, fillets, offsets, pipes, and joins on the `ModelGate` spine.
@@ -53,7 +52,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [34]-[MESHING](.planning/Modeling/meshing.md): `HostMeshes.Build` drives parameter-carried meshing and every host mesh edit.
 - [35]-[SUBD](.planning/Modeling/subd.md): `SubDs.Build` owns SubD creation, crease authoring, value-semantic editing, and brep conversion.
 - [36]-[DEFORM](.planning/Modeling/deform.md): `Deforms.Build` dispatches the space-morph family and the unroll, squish, and unwrap flatteners.
-- [37]-[PROJECTION](.planning/Modeling/projection.md): `Projections.Build` classifies Make2D hidden-line drawings on the `ModelGate` spine.
+- [37]-[PROJECTION](.planning/Modeling/projection.md): `Projections.Build` captures Make2D hidden-line geometry on the `ModelGate` spine.
 
 [ANNOTATION]:
 - [38]-[STYLE](.planning/Annotation/style.md): `StyleField` owns the drafting schema; its patch fold authors, amends, and override-mints styles.
@@ -80,7 +79,7 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [53]-[CONTENT](.planning/Render/content.md): `ContentRef` addresses the RDK content graph behind the kind axis, change bracket, and snapshot.
 - [54]-[KINDS](.planning/Render/kinds.md): `MaterialBridge` borrows baked material and PBR projections per window; mint verbs yield leased content.
 - [55]-[FIELDS](.planning/Render/fields.md): `ContentValue` owns every typed content parameter through polymorphic write, recover, and box dispatch.
-- [56]-[REGISTRY](.planning/Render/registry.md): `Registry` runs the content rail through factory vocabulary, receipts, and events.
+- [56]-[REGISTRY](.planning/Render/registry.md): `Registry` runs content factories, transactions, and events.
 - [57]-[SETTINGS](.planning/Render/settings.md): `Settings.Run` applies total render state across the document, archive, and free-floating duality.
 - [58]-[MAPPING](.planning/Render/mapping.md): `MappingSpec` mints texture mappings; the `Mappings` rail binds and recovers them per object channel.
 
@@ -89,8 +88,8 @@ Host capability composes parameterized, so an app root never reaches RhinoCommon
 - [60]-[OPTIONS](.planning/Exchange/options.md): `FormatDial` closes every per-format option surface, refusing seat and axis demands at one door.
 - [61]-[ARCHIVE](.planning/Exchange/archive.md): `Archives.Apply` runs archive programs over one owned lease with exact-byte identity evidence.
 - [62]-[OPERATIONS](.planning/Exchange/operations.md): `Exchanges.Run` owns document-bound programs, convert alone admitting headless concurrency.
-- [63]-[SHEETS](.planning/Exchange/sheets.md): `Sheets.Commit` unifies page and detail selection, arrangement, and undo/redraw settlement in one op.
-- [64]-[PUBLISH](.planning/Exchange/publish.md): `Publishing.Run` lands captured or blank pages as content-keyed artifacts or typed printer evidence.
+- [63]-[SHEETS](.planning/Exchange/sheets.md): `Sheets.Commit` unifies page and detail selection, preflight, arrangement, and mutation.
+- [64]-[PUBLISH](.planning/Exchange/publish.md): `Publishing.Run` lands captured or blank pages through the selected output policy.
 
 [HOSTUI]:
 - [65]-[SHELL](.planning/HostUi/shell.md): `HostThread` owns command-thread affinity; `ShellCapsule` seats every process-lifetime registry.

@@ -8,7 +8,7 @@ PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency pri
 - [03]-[PRIMITIVE_TABLE]: concurrency/queue primitives with their upholds AND denies columns.
 - [04]-[EXTENSION_MATRIX]: ruled extension rows, derived grant union, demands, image projection.
 - [05]-[DRIVER_ROWS]: `PgClient` Layer mints, listener bus, jsonb fragment.
-- [06]-[PROFILE_HARVEST]: one engine-profile receipt family beside the spine's statements and EXPLAIN arms.
+- [06]-[PROFILE_HARVEST]: one engine-profile family beside the spine's statements and EXPLAIN arms.
 
 ## [02]-[SPINE_ROWS]
 
@@ -17,7 +17,7 @@ PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency pri
 - Entry: `journal/append.md` composes `uuidv7()` defaults and `RETURNING` evidence per these laws and ships the `partition` spine without the stream unique; ensure authors read `temporal` for range-exclusive constraints; `lane/tenant.md` predicates the `rls` row's policy family; `lane/capability.md` seeds the pg granted set from `Pg.core`.
 - Growth: a new engine capability is one tuple key — the grant union, the sqlite mirror row, and every gate inherit it; a capability subsumed by a newer engine form deletes its extension row and lands here.
 - Law: `uuidv7` is the identity-mint row — timestamp-ordered, index-local, keyset-paginatable; the extension that duplicated it is pruned from the matrix, and a surrogate key column defaults `uuidv7()` on the pg spine while the sqlite lanes mint in-app through the degradation row.
-- Law: `returningOldNew` is the single-statement evidence form — `RETURNING old.*, new.*` on INSERT/UPDATE/DELETE/MERGE discriminates insert-versus-update and yields before/after evidence without a second scan or a trigger; receipt-bearing writes splice it instead of re-reading.
+- Law: `returningOldNew` is the single-statement evidence form — `RETURNING old.*, new.*` on INSERT/UPDATE/DELETE/MERGE discriminates insert-versus-update and yields before/after evidence without a second scan or a trigger; writes answering before/after rows splice it instead of re-reading.
 - Law: `virtualGenerated` is the compute-on-read default — a derived column costs no write amplification; `STORED` is the explicit opt-in an ensure states only where read-path cost dominates.
 - Law: `temporal` is constraint-level range integrity — `WITHOUT OVERLAPS` keys and `PERIOD` foreign keys move validity-window enforcement into the engine; an application-level overlap check beside an available temporal constraint is the named defect. Scalar-keyed temporal constraints index through GiST, so an ensure pairing a scalar tenant or entity column with a validity range gates on `gistScalar` and the contrib row granting it — omitting that gate authors DDL a stock build refuses at constraint creation.
 - Law: `skipScan` widens every multicolumn index — a missing leading-column predicate no longer forces a second index; index ensures are authored against the widest query family, not per-predicate.
@@ -43,7 +43,7 @@ declare namespace Pg {
 - Law: two-phase commit earns no row — `PREPARE TRANSACTION` needs a nonzero `max_prepared_transactions` no stock image sets, and an orphaned prepared transaction pins the xmin horizon until an operator resolves it by hand; `journal/append.md`'s transactional outbox exists BECAUSE of that refusal, so cross-store atomicity commits once locally and relays after, never a distributed vote.
 - Law: `skipLocked` claims exactly-one-live-transaction, never delivery — a crashed claimant releases silently, so every drain pairs it with a visibility or attempts column for redelivery; global ordering under concurrency is refused by construction and priority is an `ORDER BY` term, never an assumption.
 - Law: `channel` is a transactional wake pulse, never a queue — delivery fires only on COMMIT, deduped per channel/payload per transaction, absent listeners hear nothing, and the async queue is bounded in-memory; every listener re-polls on reconnect and the pulse only collapses poll latency.
-- Law: `conflictClaim` — `INSERT … ON CONFLICT DO UPDATE … RETURNING` with an explicit insert/update marker — is atomic first-writer discrimination without reading transaction internals; what it refuses is replay truth across statements, so the ledger row, never the claim, carries the stored receipt.
+- Law: `conflictClaim` — `INSERT … ON CONFLICT DO UPDATE … RETURNING` with an explicit insert/update marker — is atomic first-writer discrimination without reading transaction internals; what it refuses is replay truth across statements, so the ledger row, never the claim, carries the stored append.
 - Law: `advisory` locks die with their session or transaction — application-defined mutual exclusion without row DDL, refusing persistence; a lock protecting state across restarts is a schema row, never an advisory claim.
 - Law: `copy` is the maximal-throughput bulk lane under WAL and refuses per-row error routing — batch atomicity is all-or-nothing, so a partial-tolerant ingest splits its batch above the statement.
 - Law: `partition` (declarative partitioning with replication) refuses automated lifecycle — premake and retention drop are the `pg_partman` extension row's, and `journal/retain.md` gates on that grant.
@@ -70,7 +70,7 @@ const _primitives = {
   },
   conflictClaim: {
     upholds: "atomic first-writer discrimination via an explicit insert/update marker",
-    denies: "replay truth across statements — the ledger row carries the receipt",
+    denies: "replay truth across statements — the ledger row carries the stored append",
   },
   merge: {
     upholds: "multi-action conditional upsert with old/new evidence",
@@ -217,18 +217,18 @@ const _fromPool = (
 
 ## [06]-[PROFILE_HARVEST]
 
-- Owner: the ONE engine-profile receipt family — `Pg.Profile`, the schema-owned per-query evidence shape — with spine harvest arms and assembled `Pg` export: `_CUMULATIVE`/`_COUNTER` publish the statement-column roster every fold reads, `_statements` decodes snapshots, `_delta` folds window receipts by the view's whole identity key, and `_explain` folds JSON plans into loop-corrected operator rows beside plan-wide counters.
+- Owner: the ONE engine-profile family — `Pg.Profile`, the schema-owned per-query evidence shape — with spine harvest arms and assembled `Pg` export: `_CUMULATIVE`/`_COUNTER` publish the statement-column roster every fold reads, `_statements` decodes snapshots, `_delta` folds window profiles by the view's whole identity key, and `_explain` folds JSON plans into loop-corrected operator rows beside plan-wide counters.
 - Packages: `@effect/sql` (`SqlSchema`, `Statement` — the profiled statement arrives as a composed `Fragment` value, never a string; `sql.csv` and `sql.literal` splice the page's own sealed rosters); `effect` (`Schema`, `Array`, `DateTime`, `HashMap`, `Option`, `Record`).
-- Entry: `lane/sqlite.md` and `lane/olap.md` harvest each admitted profile engine into this same class through their own arms; the maintenance composition that owns the harvest cadence projects each receipt's `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine`, and the receipt stays the truth the instrument lossily projects.
-- Receipt: `Pg.Profile` — `{ engine, statement, wallMillis, rows, operators, counters, window }` — operator timing and cardinality are `Option`-carried because engines expose asymmetric depth, `counters` is the open engine-specific evidence record, and `window` is `Option`-carried because only cumulative-source arms (statements) carry one; an absent counter is omission, never a zero forgery.
+- Entry: `lane/sqlite.md` and `lane/olap.md` harvest each admitted profile engine into this same class through their own arms; the maintenance composition that owns the harvest cadence projects each profile's `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine`, and the profile stays the truth the instrument lossily projects.
+- Output: `Pg.Profile` — `{ engine, statement, wallMillis, rows, operators, counters, window }` — operator timing and cardinality are `Option`-carried because engines expose asymmetric depth, `counters` is the open engine-specific evidence record, and `window` is `Option`-carried because only cumulative-source arms (statements) carry one; an absent counter is omission, never a zero forgery.
 - Growth: a new engine arm is one `_PROFILE_ENGINES` key with its owning harvest fence; a new evidence axis is a `counters` entry; a statements column is ONE `_CUMULATIVE` entry carrying its `_COUNTER` name, and the SELECT list, reset guard, baseline, and emitted counters all move with it.
-- Law: `pg_stat_statements` is cumulative shared state — receipts are `_delta` window deltas, never raw counters; any backwards counter marks a reset and makes the later snapshot the whole delta, so no receipt turns negative. Calls-floor gating applies to the WINDOW delta, never the snapshot — snapshots retain the full row set for prior-state matching, so a query crossing the floor mid-window reports only its window increment, never its cumulative history baselined as new.
+- Law: `pg_stat_statements` is cumulative shared state — profiles are `_delta` window deltas, never raw counters; any backwards counter marks a reset and makes the later snapshot the whole delta, so no profile turns negative. Calls-floor gating applies to the WINDOW delta, never the snapshot — snapshots retain the full row set for prior-state matching, so a query crossing the floor mid-window reports only its window increment, never its cumulative history baselined as new.
 - Law: identity is the view's WHOLE key — one normalized query reports a separate row per role, per database, and per nesting level, so a fold keyed on `queryid` alone matches several closed rows against one prior row and emits each one's cumulative history as this window's delta; `_statKey` makes the match total and nested rows stay distinguishable from their top-level callers.
 - Law: cumulative columns alone enter the fold — `min`, `max`, `mean`, and `stddev` exec-time columns are refused because subtraction recovers no windowed extremum from a pair of cumulative reads, and reading one as a counter reports the whole history's peak as this window's; the EXPLAIN arm answers the per-statement tail question those columns cannot.
 - Law: `EXPLAIN` EXECUTES the statement under `ANALYZE` — the arm scopes to explicit diagnosis calls, never ambient reads, and the profiled statement is a `Fragment` spliced whole, so parameter binding survives and no probe re-derives SQL by string assembly; `_EXPLAIN` names the option set as one sealed roster, so widening the evidence a plan carries is one entry rather than a second hand-spelled statement.
 - Law: plan arithmetic is PER-LOOP — `Actual Total Time` and `Actual Rows` are averages over `Actual Loops`, so operator rows multiply through and a nested loop's inner side reports its real share instead of a fraction; plan-wide counters carry the worst cardinality misestimate in the tree beside the spill and read-block tallies `BUFFERS` prices, because a bad shape traced to statistics and a bad shape traced to indexing take different repairs.
 - Law: both PostgreSQL engines run BOTH arms and each stamps the caller's engine — the embedded pin ships `pg_stat_statements` in its own contrib set, so the statements arm gates on the `statements` GRANT the capability probe publishes rather than on an engine name; an engine literal inside the fold refuses evidence the deployment demonstrably carries.
-- Law: both arms take their engine AT THE CALL — `_delta` reads an engine argument and `_explain` carries no dialect default — so no receipt stamps an engine it merely assumed; this branch declares zero construction sites for either, a recorded negative rather than an unrepaired caller, because the maintenance composition owning the harvest cadence lands outside it and supplies the engine from the scope that already selected the profile; minting a default here to fill that absence stamps `pg` onto every PGLite receipt the first composition produces.
+- Law: both arms take their engine AT THE CALL — `_delta` reads an engine argument and `_explain` carries no dialect default — so no profile stamps an engine it merely assumed; this branch declares zero construction sites for either, a recorded negative rather than an unrepaired caller, because the maintenance composition owning the harvest cadence lands outside it and supplies the engine from the scope that already selected the profile; minting a default here to fill that absence stamps `pg` onto every PGLite profile the first composition produces.
 - Law: the statements row rides `_rows` as a core-layer contrib carrying `preload` — `lane/capability.md`'s batched catalog probe inherits it with zero probe edits, the `statements` grant gates both arms fail-closed, and the flag-bearing core row reaches the image projection so the deploy derivation configures `shared_preload_libraries`.
 
 ```typescript
@@ -490,7 +490,6 @@ export { Pg }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

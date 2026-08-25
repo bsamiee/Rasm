@@ -23,7 +23,7 @@ The beat composes the kernel timeline rather than re-minting temporal identity: 
 - Law: the fault sink is the branch's `FaultCell` and never a raw `Action<Error>`. A `void` delegate licenses a silent discard and grows nothing a consumer can bound; the cell is a bounded ring whose parks, sheds, and declined parks all read as numbers, and it is the ARGUMENT `FaultRail.Isolate` demands — which is what makes the stated composition spellable and spelled at `Publish`.
 - Law: an observer raise never fails the tick that fed it — publication runs through `FaultRail.Isolate` on this clock's own cell, exactly as the dispatch observers do, because a beat observer that can fail the clock turns instrumentation into a liveness dependency.
 - Law: the missed count is MEASURED from the beat ordinal, never assumed. `MonotonicBeat.Ordinal` counts CADENCE PERIODS (`Parametric/projections` `[05]`), so a host that coalesces ticks under load leaves a gap in the ordinal and the gap IS the miss count — a wall-clock interval divided at the consumer is the deleted form.
-- Receipt: `PulseBeat` per tick, `Failures` as the cell's bounded parked refusals beside `Shed`; neither is a return value, so a caller that only wants the beat pays nothing for the history.
+- Output: `PulseBeat` per tick, `Failures` as the cell's bounded parked refusals beside `Shed`; neither is a return value, so a caller that only wants the beat pays nothing for the history.
 - Packages: Eto.Forms for the timer surface; LanguageExt.Core for the rails and the lease; `Parametric/projections` for `MonotonicTimeline`, `BeatSeed`, and `MonotonicBeat`; `Domain/hooks` for `FaultCell`, `IsolatedFault`, and `HookId`.
 - Growth: a new lifecycle verb is one member; a new posture is one row carrying its own settle arm, and no consumer edits.
 - Boundary: the platform timer's construction, its disposal, and its run-loop mode are the boundary's — `CADisplayLink` lifecycle, `UITimer` disposal, and idle-callback registration never enter this owner, and this owner never holds a live host timer past its lease.
@@ -125,7 +125,7 @@ public sealed class UiClock : IDisposable {
 - Law: temporal identity is the kernel `MonotonicBeat`'s and this value extends it with cadence-only columns — a flat host beat carrying its own timestamp re-mints the identity the branch already federates (branch RULINGS `[02]`).
 - Law: drift is SIGNED. A tick that fired early reads negative and a tick that fired late reads positive, so a host running fast is distinguishable from a host running slow; an absolute drift collapses the two directions a pace correction has to tell apart.
 - Law: the beat is an ordinary value with no host reference, so a tap that outlives the clock reads a settled fact rather than a dangling timer.
-- Receipt: the beat IS the receipt of one tick; the clock keeps no history beyond its failures.
+- Law: the beat IS the evidence of one tick; the clock keeps no history beyond its failures.
 - Growth: a new measured coordinate is one column the mint derives.
 - Boundary: a host presentation clock's target timestamp is NOT a monotonic counter and never enters this value — a display link's predicted present time stays at the boundary that reads it.
 
@@ -157,7 +157,6 @@ public readonly record struct PulseBeat(MonotonicBeat Evidence, TimeSpan Interva
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

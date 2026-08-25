@@ -22,7 +22,7 @@
 |  [04]   | `DocumentProperties`                                                    | metadata         | via `setDocumentProperties`                 |
 |  [05]   | `TextOptionsLight` / `TextOptions`                                      | text policy      | per-`text` layout options                   |
 |  [06]   | `ImageOptions` / `ImageProperties` / `ImageCompression` / `ImageFormat` | image            | `addImage`; format/compression policy       |
-|  [07]   | `Font` / `PageInfo`                                                     | receipt          | font + page-object evidence                 |
+|  [07]   | `Font` / `PageInfo`                                                     | object info      | font + page-object evidence                 |
 |  [08]   | `TableConfig` / `CellConfig` / `TableRowData`                           | table policy     | `table`/`cell` structured-data layout       |
 |  [09]   | `AcroFormField`                                                         | form field       | PDF-form fields via `addField`              |
 |  [10]   | `Annotation` / `TextWithLinkOptions`                                    | annotation       | `createAnnotation` + `textWithLink` targets |

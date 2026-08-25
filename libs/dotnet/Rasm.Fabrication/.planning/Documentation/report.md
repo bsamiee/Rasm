@@ -4,7 +4,7 @@ As-built quality truth enters once through `QualityRecord.Admit(QualitySource)` 
 
 Every column writer here frames over the `Rasm.Element` `CanonicalWriter` composing `FabricationCanon`, never a serializer's output: a quantity enters as its family token and base-unit magnitude, so renaming a display unit cannot invalidate a signature, and every collection carries its count while every optional column carries its presence bit.
 
-`NdtMethod` and `InspectionFamily` arrive settled from `Joining/procedure`, so the performed grain and the demand grain meet at one owner; `Receipt<ChainEvidence>` arrives settled from `Spec/tolerance`, so a characteristic governed by a stackup carries that owner's whole evaluation rather than a projection of it.
+`NdtMethod` and `InspectionFamily` arrive settled from `Joining/procedure`, so the performed grain and the demand grain meet at one owner; `ChainEvidence` arrives settled from `Spec/tolerance`, so a characteristic governed by a stackup carries that owner's whole evaluation rather than a projection of it.
 
 ## [01]-[INDEX]
 
@@ -273,18 +273,18 @@ public sealed partial class CorrectionKind {
 - Owner: `CertType.En10204_2_1`, `En10204_2_2`, `En10204_3_1`, and `En10204_3_2` carry exact `EN 10204` result and representative shapes; `Requirements` derives role-only or named-representative quorum from the selected case.
 - Owner: `QualityDeclaration` carries conformity scope, PPAP level and parts, coating system and film thickness, heat-treatment cycle, or special-process procedure and operator.
 - Law: a SHORT sample emits ONE `Missing` observation PER MISSING UNIT. A single observation for a plan that drew five of twenty units states the same evidence gap as one that drew nineteen, and every census, severity, and acceptance read off it inherits that flattening.
-- Law: a characteristic row carries the settled `Receipt<ChainEvidence>` WHOLE where a chain governs its closure, so a failed characteristic names the feature variation dominating it and corrective action routes to a term rather than to the assembly. Conformance reads the carrier's `Verified`, the ranked terms and both worst-case extremes read its `Evidence`, and the preimage frames through `ChainEvidence.Frame` — this page ranks, bounds, and re-keys nothing of its own.
-- Law: `ProcessEvidence.Unfulfilled` diffs `ProcedureReceipt.Inspections` against the performed `WeldInspectionRow` set through `InspectionRequirement.Satisfies(NdtMethod)` — the ONE grain seam `Joining/procedure` owns — so a documentation-plane reconciliation never re-derives the family-to-method correspondence under a second vocabulary.
+- Law: a characteristic row carries `ChainEvidence` whole where a chain governs its closure, so a failed characteristic names the feature variation dominating it and corrective action routes to a term rather than to the assembly. Conformance reads `Conforming`, the ranked terms and both worst-case extremes read the same result, and the preimage frames through `ChainEvidence.Frame` — this page ranks, bounds, and re-keys nothing of its own.
+- Law: `ProcessEvidence.Unfulfilled` diffs `ProcedureAssessment.Inspections` against the performed `WeldInspectionRow` set through `InspectionRequirement.Satisfies(NdtMethod)` — the ONE grain seam `Joining/procedure` owns — so a documentation-plane reconciliation never re-derives the family-to-method correspondence under a second vocabulary.
 - Law: `CalibrationRow` carries the interval `Period` and the `Impacted` record keys measured inside it, so an out-of-tolerance as-found reading is `Complete` only once its downstream impact is enumerated.
 - Law: `QualityObservation.Outcome` projects every evidence atom to one `EvidenceOutcome`; `EvidenceCensus.Of` folds rows into one bucket map and `Count` reads it BY ROW, so the partition is structural, `Severity` carries the worst outcome seen, and a new outcome needs no census column.
 - Law: `RecordRefusal` rows name operation rejections on `Op.InvalidResult(detail:)`; generated owners keep ephemeral `ValidationError` diagnostics until `Admitted` crosses to the kernel rail.
 - Law: `QualityEvidence` owns the record rail and every column writer this plane's preimages chain. `Refusal` answers on the fabrication band under its own locus, `Refused`/`Gate` on the record op under its own detail, and `Fraction` is CLOSED on [0, 1] — the strictly-positive demand composes `static value => ValidityClaim.Positive(value).Holds` rather than riding a mode flag on the predicate.
 - Entry: `public static Fin<QualityRecord> QualityRecord.Admit(QualitySource source)` is the only record-creation entrypoint; `Documentation/passport` `QualityReport.Seal` is the only path out.
 - Exemption: the `extension(CanonicalWriter sink)` bodies are the byte kernel; every other body on this cluster is expression-shaped.
-- Receipt: `CharacteristicRow`, `ChemistryRow`, `MechanicalRow`, `WeldInspectionRow`, and `CalibrationRow` carry quantity, `CoverageInterval` uncertainty, method, equipment, personnel, procedure, acceptance, examiner grade, locus, coverage, environment, traceability, and lifecycle evidence. `Measurement.StandardUncertainty` and `ToleranceRatio` derive from the declared coverage factor.
-- Packages: owner atoms (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `MaterialSpec`), `Joining/procedure` (`ProcedureReceipt`, `InspectionRequirement`, `InspectionFamily`, `NdtMethod`), `Spec/capability` (`CapabilityReport`), `Spec/tolerance` (`Receipt<ChainEvidence>`, `ChainEvidence.Frame`, `CharacteristicId`), `Rasm.Analysis` (`ResidualSample`), `UnitsNet`, `NodaTime`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Result: `CharacteristicRow`, `ChemistryRow`, `MechanicalRow`, `WeldInspectionRow`, and `CalibrationRow` carry quantity, `CoverageInterval` uncertainty, method, equipment, personnel, procedure, acceptance, examiner grade, locus, coverage, environment, traceability, and lifecycle evidence. `Measurement.StandardUncertainty` and `ToleranceRatio` derive from the declared coverage factor.
+- Packages: owner atoms (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `MaterialSpec`), `Joining/procedure` (`ProcedureAssessment`, `InspectionRequirement`, `InspectionFamily`, `NdtMethod`), `Spec/capability` (`CapabilityReport`), `Spec/tolerance` (`ChainEvidence`, `ChainEvidence.Frame`, `CharacteristicId`), `Rasm.Analysis` (`ResidualSample`), `UnitsNet`, `NodaTime`, Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a source is one `QualitySource` case; a record is one `QualityRecord` case; an observation is one `QualityObservation` case; a declaration is one `QualityDeclaration` case.
-- Boundary: `ProcedureReceipt`, `InspectionRequirement`, and qualification rows enter through `ProcessEvidence`; `MaterialSpec` carries mill-certificate grade identity; `CapabilityReport` remains inspection evidence; `Documentation/passport` composes `QualityEvidence` and authors only the passport column.
+- Boundary: `ProcedureAssessment`, `InspectionRequirement`, and qualification rows enter through `ProcessEvidence`; `MaterialSpec` carries mill-certificate grade identity; `CapabilityReport` remains inspection evidence; `Documentation/passport` composes `QualityEvidence` and authors only the passport column.
 
 ```csharp
 // --- [ADMISSION] -----------------------------------------------------------------------
@@ -495,13 +495,13 @@ public sealed partial class CharacteristicRow {
     public Measurement Measurement { get; }
     public Disposition Verdict { get; }
 
-    public Option<Receipt<ChainEvidence>> Stackup { get; }
+    public Option<ChainEvidence> Stackup { get; }
 
     internal static Fin<CharacteristicRow> Admit(
         CharacteristicSubject subject,
         Measurement measurement,
         Disposition verdict,
-        Option<Receipt<ChainEvidence>> stackup) =>
+        Option<ChainEvidence> stackup) =>
         Validate(subject, measurement, verdict, stackup, out CharacteristicRow admitted).Admitted(admitted);
 
     [BoundaryAdapter]
@@ -510,10 +510,10 @@ public sealed partial class CharacteristicRow {
         ref CharacteristicSubject subject,
         ref Measurement measurement,
         ref Disposition verdict,
-        ref Option<Receipt<ChainEvidence>> stackup) {
+        ref Option<ChainEvidence> stackup) {
         if (!subject.Class.Quantified
             || (subject.Class.RequiresLocus && measurement.Context.Locus.IsNone)
-            || stackup.Exists(static row => row.Evidence.Contributions.IsEmpty))
+            || stackup.Exists(static row => row.Contributions.IsEmpty))
             validationError = QualityEvidence.Validation("characteristic-row");
     }
 }
@@ -1011,7 +1011,7 @@ public sealed partial class MaterialCertificate {
 public sealed partial class ProcessEvidence {
     public EvidenceRef.Report Report { get; }
     public EvidenceRef.Product Product { get; }
-    public ProcedureReceipt Procedure { get; }
+    public ProcedureAssessment Procedure { get; }
     public Seq<WeldInspectionRow> Inspections { get; }
     public EvidenceSet Execution { get; }
     public EvidenceContext Context { get; }
@@ -1032,7 +1032,7 @@ public sealed partial class ProcessEvidence {
         ref ValidationError? validationError,
         ref EvidenceRef.Report report,
         ref EvidenceRef.Product product,
-        ref ProcedureReceipt procedure,
+        ref ProcedureAssessment procedure,
         ref Seq<WeldInspectionRow> inspections,
         ref EvidenceSet execution,
         ref EvidenceContext context,
@@ -1249,7 +1249,7 @@ public sealed partial class SampledLot {
     public Map<int, CharacteristicSubject> Subjects { get; }
     public Map<int, Disposition> Mrb { get; }
 
-    public Map<int, Receipt<ChainEvidence>> Chains { get; }
+    public Map<int, ChainEvidence> Chains { get; }
 
     public EvidenceContext Context { get; }
     public CoverageInterval Coverage { get; }
@@ -1267,7 +1267,7 @@ public sealed partial class SampledLot {
         ref int lotSize,
         ref Map<int, CharacteristicSubject> subjects,
         ref Map<int, Disposition> mrb,
-        ref Map<int, Receipt<ChainEvidence>> chains,
+        ref Map<int, ChainEvidence> chains,
         ref EvidenceContext context,
         ref CoverageInterval coverage,
         ref DecisionRule decisionRule,
@@ -1381,7 +1381,7 @@ public static class QualityEvidence {
             .Discriminant(row.Subject.Class)
             .Reading(row.Measurement)
             .Discriminant(row.Verdict)
-            .Maybe(row.Stackup, static (inner, stackup) => stackup.CanonicalBytes(inner, ChainEvidence.Frame));
+            .Maybe(row.Stackup, static (inner, stackup) => ChainEvidence.Frame(stackup, inner));
 
         internal CanonicalWriter Chemistry(ChemistryRow row) => sink
             .String(row.Element.ToValue())
@@ -1472,10 +1472,10 @@ public static class QualityEvidence {
             .Maybe(feature.ToleranceMm, static (row, value) => row.Double(value))
             .Double(feature.UncertaintyMm).Discriminant(feature.Method);
 
-        internal CanonicalWriter Procedure(ProcedureReceipt receipt) => sink
-            .String(receipt.WpsId.ToValue()).Ordinal(receipt.Revision).String(receipt.PqrId.ToValue())
-            .Discriminant(receipt.Process).Bool(receipt.Qualified).Moment(receipt.At)
-            .Rows(receipt.Inspections, static (row, demand) => row
+        internal CanonicalWriter Procedure(ProcedureAssessment result) => sink
+            .String(result.WpsId.ToValue()).Ordinal(result.Revision).String(result.PqrId.ToValue())
+            .Discriminant(result.Process).Bool(result.Qualified).Moment(result.At)
+            .Rows(result.Inspections, static (row, demand) => row
                 .Ordinal(demand.Joint).Discriminant(demand.Family).Discriminant(demand.Sampling)
                 .Amount(demand.Coverage).String(demand.Acceptance));
 
@@ -1618,7 +1618,7 @@ flowchart LR
     accDescr: One quality source admits into a typed record, every atom projects to one evidence outcome that folds into a bucket census, the record plane hands its columns and attestation demands to the passport seal, and realization bags fold separately into shop schedule deliverables.
     Source["QualitySource — inspection, residuals, procedure, material, nonconformance, calibration, declaration"] --> Admit["QualityRecord.Admit"]
     Admit --> Records["QualityRecord — closed as-built family"]
-    Chain["Spec/tolerance — Receipt&lt;ChainEvidence&gt;"] --> Admit
+    Chain["Spec/tolerance — ChainEvidence"] --> Admit
     Records --> Observations["QualityObservation.Outcome — one EvidenceOutcome per atom"]
     Observations --> Census["EvidenceCensus.Of — one bucket fold"]
     Records --> Demands["QualityRecord.Requirements — attestation demands"]
@@ -1633,7 +1633,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

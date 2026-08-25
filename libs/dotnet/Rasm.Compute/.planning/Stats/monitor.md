@@ -1,27 +1,27 @@
 # [COMPUTE_MONITOR]
 
-Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is the closed stateful-capsule family — EWMA control limits, a kernel `QuantileSketch` marker sketch, and a bounded `Stats/estimator#ESTIMATOR_LANE` `ResidualWindow` carrying one fitted detector — advanced per sample by `MonitorLane`, every verdict a typed fact the receipt rail folds. Batch changepoint detectors stay `Stats/estimator#ESTIMATOR_LANE` rows (`TemporalSpec` Cusum · BayesianOnline · CorrelatedResidual over `EstimatorModel.Detector`); the detector capsule calls its admitted `FittedModel.Predict` entry and never re-derives a recursion.
+Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is the closed stateful-capsule family — EWMA control limits, a kernel `QuantileSketch` marker sketch, and a bounded `Stats/estimator#ESTIMATOR_LANE` `ResidualWindow` carrying one fitted detector — advanced per sample by `MonitorLane`. Batch changepoint detectors stay `Stats/estimator#ESTIMATOR_LANE` rows (`TemporalSpec` Cusum · BayesianOnline · CorrelatedResidual over `EstimatorModel.Detector`); the detector capsule calls its admitted `FittedModel.Predict` entry and never re-derives a recursion.
 
-`MonitorChannel` rows extract scalar streams from the identical `Seq<ComputeReceipt>` fact stream the `Runtime/receipts#FOLD_PROJECTIONS` views fold, so operational drift detection consumes the standing telemetry with zero new emit path, and a breach lands the `Runtime/receipts#RECEIPT_UNION` `Drift` case the `ComputeInstrumentFan` projects onto `rasm.compute.monitor.breaches`. `MonitorLane.AsDetector` projects a seeded capsule onto the `Solver/clash#CLASH_AND_TWIN` injected-detector slot, so the twin loop gains control-chart discipline through the seam it already holds. `ComputeReceipt`, `CorrelationId`, `AllocationClass`, NodaTime `IClock` (a breach verdict stamps one semantic `Instant` and no control chart reads elapsed, so neither kernel `MonotonicTimeline` nor the app-stratum `ClockPolicy` enters this lane), MathNet `Normal.InvCDF`, and `ComparerAccessors.StringOrdinal` arrive settled. Page is HOST-LOCAL.
+`MonitorLane.Observe` advances a caller-supplied scalar stream through one stateful monitor and returns the settled capsule with its typed verdicts. `MonitorLane.AsDetector` projects a seeded detector capsule onto the `Solver/clash#CLASH_AND_TWIN` injected-detector slot.
 
 ## [01]-[INDEX]
 
-- [02]-[MONITOR_LANE]: stateful monitor capsules — EWMA control limits, kernel quantile sketch, composed estimator detector; the admitted policy scalars; receipt-channel extraction rows; the drift verdict, its receipt mint, and the twin detector projection.
+- [02]-[MONITOR_LANE]: stateful monitor capsules — EWMA control limits, kernel quantile sketch, composed estimator detector; the admitted policy scalars; typed verdicts and the twin detector projection.
 
 ## [02]-[MONITOR_LANE]
 
-- Owner: `MonitorKey`, `Smoothing`, `FalseAlarm`, `Warmup`, and `Threshold` are the admitted policy scalars whose bands are unrepresentable-invalid rather than gate conditions; `StreamMonitor` `[Union]` is the stateful capsule family whose cases carry their own advance state; `MonitorStatistic` `[SmartEnum<string>]` closes the verdict-label vocabulary the receipt's `Statistic` column carries; `MonitorVerdict` is the per-sample verdict carrier minting the `Drift` receipt case; `MonitorObservation` carries one channel walk's settled capsule, verdicts, and minted receipts together; `MonitorChannel` `[SmartEnum<string>]` the receipt-to-scalar extraction rows; `MonitorLane` the advance fold, stream observation, and the twin-detector projection.
-- Cases: `StreamMonitor` ewma (λ-smoothed level against time-varying control limits over an admitted kernel `Stat<Scalar>` baseline) · quantile (kernel `QuantileSketch` tracking one probability against a policy bound) · detector (bounded `ResidualWindow` carrying one fitted `Stats/estimator` detector); `MonitorStatistic` ewma-level · p2-quantile · detector-score · sample-rejected; `MonitorChannel` solve-residual · factor-residual · remote-seconds · backpressure-depth.
-- Entry: `StreamMonitor.OfEwma(string monitorId, double lambda, double falseAlarm, int warmup)`, `OfQuantile(string monitorId, double probability, double limit)`, and `OfDetector(string monitorId, int capacity, FittedModel detector)` — each an ACCUMULATING admission over its independent columns, so a caller passing three malformed knobs learns all three and the mint exits once through `.ToFin()`; `MonitorLane.Advance(StreamMonitor monitor, double sample, IClock clock)` — one sample in, the advanced capsule and its `MonitorVerdict` out through the generated total `Switch`; `MonitorLane.Observe(StreamMonitor monitor, MonitorChannel channel, Seq<ComputeReceipt> facts, CorrelationId correlation, IClock clock)` — extracts the channel, folds `Advance` across it, and mints the `Drift` receipt per verdict under the caller's correlation, so the receipt chain has a producer at its own entry; `MonitorLane.AsDetector(StreamMonitor.Detector seed, IClock clock)` — the stateful `Func<Matrix<double>, Fin<Prediction>>` projection the clash twin injects, admitting the detector capsule and exactly one evidence column before indexing.
+- Owner: `MonitorKey`, `Smoothing`, `FalseAlarm`, `Warmup`, and `Threshold` are the admitted policy scalars whose bands are unrepresentable-invalid rather than gate conditions; `StreamMonitor` `[Union]` is the stateful capsule family whose cases carry their own advance state; `MonitorStatistic` `[SmartEnum<string>]` closes the verdict-label vocabulary; `MonitorVerdict` is the per-sample verdict carrier; `MonitorObservation` carries the settled capsule and verdicts; `MonitorLane` owns the advance fold, stream observation, and twin-detector projection.
+- Cases: `StreamMonitor` ewma (λ-smoothed level against time-varying control limits over an admitted kernel `Stat<Scalar>` baseline) · quantile (kernel `QuantileSketch` tracking one probability against a policy bound) · detector (bounded `ResidualWindow` carrying one fitted `Stats/estimator` detector); `MonitorStatistic` ewma-level · p2-quantile · detector-score · sample-rejected.
+- Entry: `StreamMonitor.OfEwma(string monitorId, double lambda, double falseAlarm, int warmup)`, `OfQuantile(string monitorId, double probability, double limit)`, and `OfDetector(string monitorId, int capacity, FittedModel detector)` accumulate independent admission faults; `MonitorLane.Advance(StreamMonitor monitor, double sample, IClock clock)` advances one sample; `MonitorLane.Observe(StreamMonitor monitor, Seq<double> samples, IClock clock)` returns the settled capsule and verdicts; `MonitorLane.AsDetector(StreamMonitor.Detector seed, IClock clock)` projects the stateful detector consumed by the twin loop.
 - Auto: sample admission is ONE kernel screen at the lane boundary — `Scalar.From` composes `ValidityClaim.Finite`, which rejects the host `RhinoMath.UnsetValue` sentinel a bare `double.IsFinite` admits as an ordinary value — so every arm inherits it and a refused sample lands a `sample-rejected` verdict rather than failing the batch, exactly the `Rejected`-column posture the kernel moment fold declares. The EWMA arm advances the kernel `Stat<Scalar>` moment summary one admitted sample at a time through its warmup, then smooths `level = λ·x + (1−λ)·level` and derives the time-varying limit `L·σ·√(λ/(2−λ)·(1−(1−λ)^{2t}))` so early samples meet tighter bands and the asymptote is the textbook control limit; the control multiplier `L = Φ⁻¹(1 − α/2)` derives inside `FalseAlarm`'s own admission through `Normal.InvCDF`, so a sub-representable rate whose quantile argument rounds to 1 and lands `+∞` is a rate no caller can construct; the quantile arm advances the kernel `QuantileSketch` and reads `Estimate()`; the detector arm pushes into its `ResidualWindow` and delegates scoring to the injected detector, reading the LAST row's score and change flag exactly as the twin does.
-- Receipt: `Drift` — monitor id, statistic key, optional policy limit, level, breach flag, and window count, minted by `MonitorVerdict.Receipt` under the caller's correlation and folded by `Observe`; a verdict over an unestimated baseline carries `None` because a limit no estimate backs is not a boundary — detector arms because their fitted model owns classification without exposing a scalar, warmup and rejected arms because no baseline yet bounds them. `Runtime/receipts#RECEIPT_UNION` counts breaches onto `rasm.compute.monitor.breaches`, and `ReceiptFolds.Breaches` is the operational view, so monitor evidence rides the standing stream.
-- Packages: MathNet.Numerics (`Normal.InvCDF` static quantile), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project — `Scalar`/`Stat<Scalar>` the one admitted moment summary and its sentinel screen, `QuantileSketch` the one P² marker walk, `Evidence<T>` the three-state probe receipt), BCL inbox
-- Growth: a new online statistic is one `StreamMonitor` case whose arm the `Advance` `Switch` demands at compile time, plus one `MonitorStatistic` row; a new operational stream is one `MonitorChannel` row with its extractor column — and a new `ComputeReceipt` case carrying a scalar column owes a row here, which is the coupling this roster states; a new false-alarm posture is one `OfEwma` rate value at composition; zero new surface — an `EwmaMonitor`/`QuantileTracker`/`DriftDetector` sibling family, a second receipt-scanning loop beside `MonitorChannel`, or a monitor-local CUSUM recursion re-deriving the estimator rows is the rejected form.
+- Result: `MonitorVerdict` carries monitor id, statistic key, optional policy limit, level, breach flag, window count, and semantic instant; `MonitorObservation` returns the settled capsule beside its verdict sequence.
+- Packages: MathNet.Numerics (`Normal.InvCDF` static quantile), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project — `Scalar`/`Stat<Scalar>` the one admitted moment summary and its sentinel screen, `QuantileSketch` the one P² marker walk, `Evidence<T>` the three-state probe result), BCL inbox
+- Growth: a new online statistic is one `StreamMonitor` case and one `MonitorStatistic` row; callers select the scalar stream before entry, so monitor growth never couples to an unrelated result family.
 - Boundary: capsules are immutable — `Advance` returns the next capsule and the caller owns placement (an `Atom<StreamMonitor>` at a session boundary, a threaded fold in a batch view) per the cell-and-thread law. The quantile arm carries the kernel `QuantileSketch` whole: `Rasm/Domain/stats#ORDER_STATISTICS` already holds the `[InlineArray(5)]` marker pair, the insertion-sorted seeding, the desired-position table, and the parabolic-with-linear-fallback adjustment, and its Boundary NAMES this lane as the composer, so a second Jain–Chlamtac body here is the re-implementation that owner exists to forbid. NAMED LOSS on the collapse: this page's own `Probability`/`Count` columns and its verdict-side rounding retire into `QuantileSketch.Fraction`/`Count`/`Estimate()`, which reads the exact order statistic below five samples where the deleted body indexed a rounded fraction into a partially-seeded row.
 - Boundary: changepoint state, thresholds, and anomaly classification for the detector arm live on its fitted `Stats/estimator` model, while the monitor holds only the bounded `ResidualWindow`. That window is the estimator's own carrier, not a local ring: `Solver/clash#CLASH_AND_TWIN` `TwinWindow` folds the identical `(Count >= Capacity ? Tail : Held).Add(v)` law under the identical capacity floor, and one owner beside `EstimatorModel.Detector` is what stops `AsDetector` injected into `DigitalTwin.Score` from windowing the same evidence twice.
 - Boundary: `AsDetector` emits one score and one change flag per evidence row over a shared `Atom` cell that installs the advanced capsule BESIDE the verdicts that transition emitted — the CAS function stays pure and re-runs whole on a losing exchange, where a lock around a mutable local publishes a torn advance the second caller reads as its own. The kernel `Rasm/Domain/rails#TRANSITION` `Cell` shapes do NOT serve here and the discriminant is the answer's shape: every `Cell` member returns a `Transition<TState>` over STATE alone, while this transition's answer is the verdict SEQUENCE the accepted step produced, which therefore rides IN the installed value — `DECISION_UNDERIVABLE_FROM_STATE` satisfied by construction. `Walk` failure installs the unchanged capsule carrying the fault, so a refused sample never advances state.
-- Boundary: extraction reads the same `Seq<ComputeReceipt>` the dashboards fold — a monitor that taps `ReceiptSurface.Emit` directly or mints a second fact stream is the deleted form; warmup samples score `Breach: false` because a limit over an unestimated baseline is noise, and the verdict still lands so cadence stays observable. `SolveResidual` and `FactorResidual` are two streams, never one: the first is the physics equilibrium residual a `Solve` fact reports against its convergence target, the second the linear-algebra residual a `Factorization` fact measures against its `ResidualCap`, and a drift in one carries no information about the other.
-- Boundary: this lane's sketch serves LIVE receipt streams alone. Exact small-sample batch quantiles are the kernel `Rasm/Domain/stats#ORDER_STATISTICS` `Distribution.Of` fold over a bounded materialized sample, and the branch three-form quantile law binds both — an operational sketch crossing into a bounded-sample reading grades a value no run produced. The three forms are the CARRIER split the ruling protects; the marker walk itself is one body at one owner.
+- Boundary: warmup samples score `Breach: false` because no estimated baseline bounds them; solver and factorization residuals remain separate caller-selected streams.
+- Boundary: this lane's sketch serves live scalar streams alone. Exact small-sample batch quantiles are the kernel `Rasm/Domain/stats#ORDER_STATISTICS` `Distribution.Of` fold over a bounded materialized sample, and the branch three-form quantile law binds both — an operational sketch crossing into a bounded-sample reading grades a value no run produced. The marker walk remains one body at one owner.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -129,32 +129,9 @@ public abstract partial record StreamMonitor {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record MonitorVerdict(MonitorKey Monitor, MonitorStatistic Statistic, double Level, Option<double> Limit, bool Breach, int Window, Instant At) {
-    public ComputeReceipt.Drift Receipt(CorrelationId correlation) =>
-        new(Monitor.Value, Statistic.Key, Level, Limit, Breach, Window) {
-            Scope = new ReceiptScope.Process(correlation, AllocationClass.SpanStack),
-        };
-}
+public sealed record MonitorVerdict(MonitorKey Monitor, MonitorStatistic Statistic, double Level, Option<double> Limit, bool Breach, int Window, Instant At);
 
-public sealed record MonitorObservation(StreamMonitor Settled, Seq<MonitorVerdict> Verdicts, Seq<ComputeReceipt.Drift> Drift);
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class MonitorChannel {
-    public static readonly MonitorChannel SolveResidual = new("solve-residual",
-        read: static fact => fact is ComputeReceipt.Solve solve ? Some(solve.Residual) : None);
-    public static readonly MonitorChannel FactorResidual = new("factor-residual",
-        read: static fact => fact is ComputeReceipt.Factorization factor ? Optional(factor.TrueResidual) : None);
-    public static readonly MonitorChannel RemoteSeconds = new("remote-seconds",
-        read: static fact => fact is ComputeReceipt.RemoteCall call ? call.Elapsed.Map(static elapsed => elapsed.TotalSeconds) : None);
-    public static readonly MonitorChannel BackpressureDepth = new("backpressure-depth",
-        read: static fact => fact is ComputeReceipt.Backpressure pressure ? Some((double)pressure.QueueDepth) : None);
-
-    [UseDelegateFromConstructor] private partial Option<double> Read(ComputeReceipt fact);
-
-    public Seq<double> Extract(Seq<ComputeReceipt> facts) => facts.Choose(Read);
-}
+public sealed record MonitorObservation(StreamMonitor Settled, Seq<MonitorVerdict> Verdicts);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -169,10 +146,8 @@ public static class MonitorLane {
             Fail: _ => Fin.Succ((monitor, new MonitorVerdict(
                 monitor.Key, MonitorStatistic.SampleRejected, sample, None, Breach: false, Windowed(0L), clock.GetCurrentInstant()))));
 
-    public static Fin<MonitorObservation> Observe(
-        StreamMonitor monitor, MonitorChannel channel, Seq<ComputeReceipt> facts, CorrelationId correlation, IClock clock) =>
-        Walk(monitor, channel.Extract(facts), clock).Map(walked => new MonitorObservation(
-            walked.Settled, walked.Verdicts, walked.Verdicts.Map(verdict => verdict.Receipt(correlation))));
+    public static Fin<MonitorObservation> Observe(StreamMonitor monitor, Seq<double> samples, IClock clock) =>
+        Walk(monitor, samples, clock).Map(static walked => new MonitorObservation(walked.Settled, walked.Verdicts));
 
     public static Func<Matrix<double>, Fin<Prediction>> AsDetector(StreamMonitor.Detector seed, IClock clock) {
         Atom<(StreamMonitor.Detector Held, Fin<Seq<MonitorVerdict>> Emitted)> cell =
@@ -247,11 +222,3 @@ public static class MonitorLane {
                     estimate > held.Limit.Value, Windowed(advanced.Count), at))));
 }
 ```
-
-## [03]-[RESEARCH]
-
-<!-- source-only: research row template:
-[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
--->
-
-(none)

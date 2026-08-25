@@ -69,7 +69,7 @@ public abstract partial record PluginPhase {
 public abstract partial record PhaseAnswer {
     private PhaseAnswer() { }
     public sealed record Observed : PhaseAnswer;
-    public sealed record Mounted(PageMountReceipt Receipt) : PhaseAnswer;
+    public sealed record Mounted(MountedPages Pages) : PhaseAnswer;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -136,7 +136,7 @@ public sealed class CommandRegistrar {
 - Law: `Refusal` admits only a refusing `LoadVerdict`; a program declaring `Loaded` as its failure code is unrepresentable rather than silently loading on a fault.
 - Law: admission accumulates — every column reports its own absence through `ValidityClaim.All` under `[ValidationError]`, and `Key` is admitted rather than skipped, so a leaf learns WHICH column it left out instead of reading one incomplete-program sentence.
 - Law: `[IgnoreMember]` rides the delegate column — equality and `ToString` over a captured closure compare references and render a compiler-generated type name, which is neither the program's identity nor a diagnostic.
-- Boundary: the phase hook answers a `PhaseAnswer`, so page custody is `HostUi/pages#MOUNT`'s and the adapter only retains the receipt for release.
+- Boundary: the phase hook answers a `PhaseAnswer`, so page custody is `HostUi/pages#MOUNT`'s and the adapter only retains the `MountedPages` for release.
 - Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`, `[BoundaryAdapter]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`, `ValidityClaim`); `Persistence/settings` (`SettingKey`); `HostUi/shell` (`ShellMount`); `Plugin/census` (`PluginAct`); `Plugin/document` (`IParticipant`).
 
 ```csharp
@@ -219,7 +219,7 @@ public sealed partial class PluginProgram {
 
 ## [04]-[LOAD_ROOT]
 
-- Owner: `PluginRoot` is what one load resolved — the S14 package identity, the session's ONE `MonotonicTimeline`, the telemetry contributor port, the seated shell capsule, the plug-in settings node, and the receipts of every registry prerequisite the load committed.
+- Owner: `PluginRoot` is what one load resolved — the S14 package identity, the session's ONE `MonotonicTimeline`, the telemetry contributor port, the seated shell capsule, the plug-in settings node, and the `PluginOutcome` of every registry prerequisite the load committed.
 - Entry: `RasmPlugIn.Root` publishes it once the load settled; the `apps/<app>/` plugin shell reads it and binds the AppHost lacing that only that assembly may reference.
 - Law: `PackageIdentity<PluginKey, HostSnapshot>.Resolve` runs HERE because `GetType().Assembly` is the plug-in root assembly and nothing else inside `libs/` holds it; `ShellIdentity` and a second identity resolve are the deleted forms.
 - Law: the boundary's ONE `MonotonicTimeline` mints in this fold and is threaded from `PluginRoot` forever after — a gate minting its own timeline forks the causal order, and the provider comes off `PluginBoot.Clock` so a test root supplies a fake without a second seam (folder RULINGS `[02]`).
@@ -228,7 +228,7 @@ public sealed partial class PluginProgram {
 - Boundary: telemetry is DECLARED here and OPENED at the app root — this page mints the contributor port off the resolved version and holds no meter, provider, or `PluginTelemetryHost`, per `HostUi/shell#TELEMETRY_ROOT`.
 - Boundary: `ShellCapsule.Open` is the one process-lifetime seat table and `ShellMount` its one case roster (`HostUi/shell#COMPOSITION_CAPSULE`); the block vault rides `ShellMount.Vault` (`Blocks/lifecycle`) and the render engines ride `ShellMount.Engines` (`Display/render`), so neither owner waits for an `apps/` shell to reach it.
 - Law: render-content serializer seating is a DECLARED `ShellMount.Hooks` row, never a call beside the fold — the row's `(PluginKey, Op?) -> Fin<IDisposable>` body runs `Registry.Run(RegistryCommand.RegisterSerializer(...))` per `SerializerProgram` column (`Render/registry#FACTORY_REGISTRY`), and its release drains the serializer ring's `Parked`/`Shed`/`Lost` tallies into the load report before the adapter unregisters — a serializer registered outside this row leaks its failure evidence at ALC unload.
-- Packages: LanguageExt.Core (`Fin`, `Seq`, `Traverse`); kernel `Domain/frame` (`PackageIdentity<TKey,THostFact>.Resolve`), `Domain/rails` (`Op`, `Lease<T>`), `Parametric/projections` (`MonotonicTimeline.Of`); `Document/events` (`RhinoInstruments.Telemetry`, `PluginKey`); `HostUi/shell` (`ShellCapsule.Open`, `ShellMount`, `HostFacts.Process`, `HostSnapshot`); `Persistence/settings` (`SettingPath`); `Plugin/census` (`PluginRegistry.Commit`, `PluginReceipt`); `Plugin/document` (`PluginSettings.Commit`, `SettingsBridge.Root`, `SettingsLoad`).
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `Traverse`); kernel `Domain/frame` (`PackageIdentity<TKey,THostFact>.Resolve`), `Domain/rails` (`Op`, `Lease<T>`), `Parametric/projections` (`MonotonicTimeline.Of`); `Document/events` (`RhinoInstruments.Telemetry`, `PluginKey`); `HostUi/shell` (`ShellCapsule.Open`, `ShellMount`, `HostFacts.Process`, `HostSnapshot`); `Persistence/settings` (`SettingPath`); `Plugin/census` (`PluginRegistry.Commit`, `PluginOutcome`); `Plugin/document` (`PluginSettings.Commit`, `SettingsBridge.Root`, `SettingsLoad`).
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------
@@ -238,7 +238,7 @@ public sealed record PluginRoot(
     TelemetryContributorPort Telemetry,
     Lease<ShellCapsule> Capsule,
     SettingPath Settings,
-    Seq<PluginReceipt> Registry);
+    Seq<PluginOutcome> Registry);
 ```
 
 ## [05]-[ADAPTER]
@@ -248,11 +248,11 @@ public sealed record PluginRoot(
 - Law: every override chains its base member FIRST, then routes; `CreateCommands`'s base implementation already seats every publicly exported command type, so the phase carries only the dynamic remainder.
 - Law: two routers, each named by its DESTINATION owner — `Route` reaches the program's own hook for every moment the program answers, and `Cross` reaches `document#CROSSING`, which owns the archive crossing and is not the program's to answer. A third router keyed on which column an override happened to read is the deleted form.
 - Law: a hook fault parks on the refusal ring and settles at the host's own return shape — `void` swallows, `bool` answers false, `OnLoad` answers the declared refusal code and writes `errorMessage`; no fault crosses back into the host loader.
-- Law: page receipts accumulate on the adapter and release in reverse at shutdown, because `PageMountReceipt` holds live registration custody that outlives the callback that made it; the drain is `Cell.Take`, so the roster a release sweeps is the roster that transition removed and a concurrent mount cannot vanish between a read and a clear.
-- Law: the reverse sweep runs every disposer through kernel `Custody.Release`, because a receipt that refuses release must not strand the receipts behind it.
+- Law: page mounts accumulate on the adapter and release in reverse at shutdown, because `MountedPages` holds live registration custody that outlives the callback that made it; the drain is `Cell.Take`, so the roster a release sweeps is the roster that transition removed and a concurrent mount cannot vanish between a read and a clear.
+- Law: the reverse sweep runs every disposer through kernel `Custody.Release`, because a mount that refuses release must not strand the mounts behind it.
 - Boundary: the obsolete `ObjectPropertiesPages(List<ObjectPropertiesPage>)` overload stays unoverridden — `PageBasket` seats `ObjectPropertiesPageCollection` alone, and the host marks the list form obsolete in favour of it.
 - Boundary: `GetPlugInObject` falls back to the base answer when the program publishes no capability or the published instance refuses; both reasons park distinctly on the ring, and the host's `object` return carries neither, which is the host's shape and not a collapse this page chose.
-- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Cell.Take`, `Cell.Seat`, `Transition`, `Lease<T>.Use`, `Custody.Release`), `Domain/hooks` (`Ring<T>`); `HostUi/pages` (`PageBasket`, `PageMountReceipt`); `Document/session` (`DocKey.Of`); `Plugin/document` (`Participation.Cross`, `ParticipationAsk`, `ParticipationAnswer`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:81` — `OnLoad`, `OnShutdown`, `ResetMessageBoxes`; `:60` — `Id`, `Version`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
+- Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Cell.Take`, `Cell.Seat`, `Transition`, `Lease<T>.Use`, `Custody.Release`), `Domain/hooks` (`Ring<T>`); `HostUi/pages` (`PageBasket`, `MountedPages`); `Document/session` (`DocKey.Of`); `Plugin/document` (`Participation.Cross`, `ParticipationAsk`, `ParticipationAnswer`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:81` — `OnLoad`, `OnShutdown`, `ResetMessageBoxes`; `:60` — `Id`, `Version`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
 
 ```csharp
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -260,7 +260,7 @@ public abstract partial class RasmPlugIn : PlugIn {
     private readonly Ring<Error> refusals = new(cap: PluginFaults.Retention);
     private readonly Atom<Option<LoadEvidence>> load = Atom(Option<LoadEvidence>.None);
     private readonly Atom<Option<PluginRoot>> root = Atom(Option<PluginRoot>.None);
-    private readonly Atom<Seq<PageMountReceipt>> mounts = Atom(Seq<PageMountReceipt>());
+    private readonly Atom<Seq<MountedPages>> mounts = Atom(Seq<MountedPages>());
 
     protected abstract PluginProgram Program { get; }
 
@@ -420,7 +420,7 @@ public abstract partial class RasmPlugIn : PlugIn {
     private Fin<Unit> Retain(PhaseAnswer answer) => answer.Switch(
         state: mounts,
         observed: static (_, _) => Fin.Succ(value: unit),
-        mounted: static (cell, row) => Fin.Succ(value: ignore(cell.Swap(held => held.Add(value: row.Receipt)))));
+        mounted: static (cell, row) => Fin.Succ(value: ignore(cell.Swap(held => held.Add(value: row.Outcome)))));
 
     private Fin<ParticipationAnswer> Cross(Func<PluginProgram, ParticipationAsk> ask, Op op) => Record(outcome:
         from program in Held(op)
@@ -432,12 +432,12 @@ public abstract partial class RasmPlugIn : PlugIn {
             state: op,
             committed: static (_, row) => Fin.Succ(value: row.State),
             ceded: static (_, row) => Fin.Succ(value: row.State),
-            refused: static (_, row) => Fin.Fail<Seq<PageMountReceipt>>(error: row.Cause),
-            contended: static (key, _) => Fin.Fail<Seq<PageMountReceipt>>(
+            refused: static (_, row) => Fin.Fail<Seq<MountedPages>>(error: row.Cause),
+            contended: static (key, _) => Fin.Fail<Seq<MountedPages>>(
                 error: new PluginFault.HostRefused(Key: key, Member: nameof(Release), Detail: nameof(Cell.Take))))
         from settled in Custody.Release(
             releases: held.Rev()
-                .Map(receipt => (Func<Fin<Unit>>)(() => op.Catch(() => receipt.Release(key: op))))
+                .Map(mounted => (Func<Fin<Unit>>)(() => op.Catch(() => mounted.Release(key: op))))
                 + root.Value.Map(row => (Func<Fin<Unit>>)(() =>
                     row.Capsule.Use(static _ => Fin.Succ(value: unit), op))).ToSeq(),
             key: op)
@@ -521,7 +521,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

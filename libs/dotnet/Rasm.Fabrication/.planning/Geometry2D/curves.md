@@ -14,7 +14,7 @@
 - Entry: `CurveAlgebra.Apply(CurveOp)` is the sole public operation, and every case carries its own `Op?` key — the kernel entry's own provenance shape, taken verbatim at the boundary it crosses.
 - Law: `Narrowed` is the ONE kernel-union narrowing gate. Narrowing asks one question — is the returned case the requested one — so a generated total `Switch` whose every other arm returns the same refusal spells that question once per case; the type test spells it once per CALL, and a kernel union gaining a case grows this page by nothing.
 - Auto: closed sample admission normalizes one closure vertex before appending exactly one closing sample. Outline admission composes `ArcProjection.Lower`; chord admission composes `ArcProjection.Recover`. Lowering measures each chord's midpoint deviation and optionally recovers residual biarcs under the same requested error.
-- Receipt: `CurveAdmissionReceipt` retains sample cardinality or the complete arc bridge evidence. `CurveLoweringReceipt` discriminates chord-only and recovered-arc evidence without an optional recovery field.
+- Result: `CurveAdmission` retains sample cardinality or the complete arc bridge evidence. `CurveOutput` discriminates chord-only and recovered-arc evidence without an optional recovery field.
 - Packages: `Rasm.Parametric` supplies the complete `ParametricOp` and `ParametricResult` algebras, `Nurbs.Of`, `NurbsWire.CurveThrough`, and `Parametric.Apply`; `ArcAlgebra.Densify` supplies both exact-to-chord and chord-to-arc projection; `LanguageExt` supplies validation, traversal, immutable collections, and typed rails; `Thinktecture` generates every closed request, result, and value owner.
 - Growth: a new kernel operation remains a `ParametricOp` case on its owning surface; a manufacturing-only modality adds one `CurveOp` and one `CurveTrace` case; a lowering form adds one generated case and one total dispatch arm without a new entrypoint or parallel carrier.
 - Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
@@ -88,27 +88,27 @@ public abstract partial record CurveOp {
 
 // --- [EVIDENCE] ------------------------------------------------------------------------
 [Union]
-public abstract partial record CurveAdmissionReceipt {
-    public sealed record Samples(int Input, int FitSamples, SampleClosure Closure) : CurveAdmissionReceipt;
-    public sealed record Outline(DensifyEvidence Evidence) : CurveAdmissionReceipt;
-    public sealed record Chords(RecoverEvidence Evidence) : CurveAdmissionReceipt;
+public abstract partial record CurveAdmission {
+    public sealed record Samples(int Input, int FitSamples, SampleClosure Closure) : CurveAdmission;
+    public sealed record Outline(DensifyEvidence Evidence) : CurveAdmission;
+    public sealed record Chords(RecoverEvidence Evidence) : CurveAdmission;
 }
 
 [Union]
-public abstract partial record CurveLoweringReceipt {
+public abstract partial record CurveOutput {
     public sealed record Chords(
         ParametricResult.Division Division,
-        double MaximumMidpointDeviation) : CurveLoweringReceipt;
+        double MaximumMidpointDeviation) : CurveOutput;
     public sealed record Recovered(
         ParametricResult.Division Division,
         double MaximumMidpointDeviation,
-        RecoverEvidence Recovery) : CurveLoweringReceipt;
+        RecoverEvidence Recovery) : CurveOutput;
 }
 
 [Union]
 public abstract partial record CurveTrace {
-    public sealed record Fitted(NurbsForm.Curve Curve, CurveAdmissionReceipt Receipt) : CurveTrace;
-    public sealed record Lowered(Loop Loop, CurveLoweringReceipt Receipt) : CurveTrace;
+    public sealed record Fitted(NurbsForm.Curve Curve, CurveAdmission Admission) : CurveTrace;
+    public sealed record Lowered(Loop Loop, CurveOutput Output) : CurveTrace;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -125,35 +125,35 @@ public static class CurveAlgebra {
                 request.Closure,
                 request.Fit,
                 key,
-                new CurveAdmissionReceipt.Samples(
+                new CurveAdmission.Samples(
                     request.Points.Count,
                     samples.Count,
                     request.Closure))
             select fitted,
         outline: request =>
             from trace in ArcAlgebra.Densify(new ArcProjection.Lower(request.Profile, request.ChordError))
-            from receipt in trace.Lowering(
+            from result in trace.Lowering(
                 new KernelFault.InvalidValue("curves", "curve-admit:outline"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
-                closure.Samples(receipt.Result.Vertices, request.Profile.Tolerance),
+                closure.Samples(result.Output.Vertices, request.Profile.Tolerance),
                 closure,
                 request.Fit,
                 key,
-                new CurveAdmissionReceipt.Outline(receipt))
+                new CurveAdmission.Outline(result))
             select fitted,
         chords: request =>
             from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
                 request.Profile, request.FitError, request.ProbeFloor))
-            from receipt in trace.Recovery(
+            from result in trace.Recovery(
                 new KernelFault.InvalidValue("curves", "curve-admit:chords"))
             let closure = SampleClosure.From(request.Profile.Closed)
             from fitted in Fit(
-                closure.Samples(receipt.Result.Vertices, request.Profile.Tolerance),
+                closure.Samples(result.Output.Vertices, request.Profile.Tolerance),
                 closure,
                 request.Fit,
                 key,
-                new CurveAdmissionReceipt.Chords(receipt))
+                new CurveAdmission.Chords(result))
             select fitted);
 
     private static Fin<CurveTrace> Fit(
@@ -161,7 +161,7 @@ public static class CurveAlgebra {
         SampleClosure closure,
         FitPolicy policy,
         Op? key,
-        CurveAdmissionReceipt receipt) =>
+        CurveAdmission result) =>
         points.Count < policy.Degree + 1
             ? Fin.Fail<CurveTrace>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:samples"))
             : Nurbs.Of(new NurbsWire.CurveThrough(points, policy), key)
@@ -169,27 +169,27 @@ public static class CurveAlgebra {
                 .Bind(curve => closure.IsClosed && !curve.IsClosed
                     ? Fin.Fail<NurbsForm.Curve>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-admit:closure"))
                     : Fin.Succ(curve))
-                .Map<CurveTrace>(curve => new CurveTrace.Fitted(curve, receipt));
+                .Map<CurveTrace>(curve => new CurveTrace.Fitted(curve, result));
 
     private static Fin<CurveTrace> Lower(CurveOp.Lower request) => request.Lowering.Switch(
         chords: lowering => Divide(request, lowering.Rule)
             .Map<CurveTrace>(row => new CurveTrace.Lowered(
                 row.Chords,
-                new CurveLoweringReceipt.Chords(row.Division, row.MaximumMidpointDeviation))),
+                new CurveOutput.Chords(row.Division, row.MaximumMidpointDeviation))),
         recovered: lowering =>
             from row in Divide(request, lowering.Rule)
             from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
                 row.Chords,
                 lowering.Error,
                 lowering.ProbeFloor))
-            from receipt in trace.Recovery(
+            from result in trace.Recovery(
                 new KernelFault.InvalidValue("curves", "curve-lower:recover"))
             select (CurveTrace)new CurveTrace.Lowered(
-                receipt.Result,
-                new CurveLoweringReceipt.Recovered(
+                result.Output,
+                new CurveOutput.Recovered(
                     row.Division,
                     row.MaximumMidpointDeviation,
-                    receipt)));
+                    result)));
 
     private static Fin<(
         ParametricResult.Division Division,
@@ -236,7 +236,6 @@ public static class CurveAlgebra {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -310,7 +310,7 @@ const _sighted = (
 - Law: the list semantics are structural — the thread container reads `role="feed"`, each comment `role="article"` with `aria-posinset`/`aria-setsize` from the LOGICAL comment count (clamped rendering never changes the announced size), and keyboard traversal is the feed pattern's.
 - Law: the clamp is a policy row — `{ max, show: "oldest" | "both" | "newest" }` selects which window survives and the collapsed remainder renders as one show-more affordance carrying its count; `both` keeps the head and tail so context and recency both survive.
 - Law: the unread divider PINS — its index is the minimum of the first-unread position across arrivals, so new comments landing while the divider shows never push it down; a divider that tracks the live unread edge re-reads as "nothing new" mid-scroll.
-- Law: mark-as-read is an observation, never a scroll math — one `IntersectionObserver` on the terminal marker element commits the read receipt when it enters the viewport, acquired and released as one bracket so an unmounted thread observes nothing.
+- Law: mark-as-read is an observation, never a scroll math — one `IntersectionObserver` on the terminal marker element commits mark-as-read when it enters the viewport, acquired and released as one bracket so an unmounted thread observes nothing.
 - Law: the composer is a closed three-mode family — `Start` (new thread, carries the anchor), `Reply` (existing thread), `Amend` (existing comment) — and mode is the value, never boolean props; the mention draft flips the editor's combobox aria (`role`, `aria-expanded`, `aria-activedescendant`) only while a draft is open, and the resolve affordance renders in the FIRST comment's action bar, never as thread chrome.
 - Boundary: where threads persist, how they sync, and who may resolve are the app's; the rich-text composer body is content's editor at its smallest roster; toast-versus-inline arrival policy is the app's fold over `Primitive.notify`.
 - Growth: a new anchor surface is one registry lane (threads follow for free); a new clamp policy is one `show` member; a new composer capability is one mode arm every consumer breaks on loudly.
@@ -438,7 +438,6 @@ export { Anchor, AnchorFault, Face }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -68,7 +68,7 @@
 - `Store/provisioning#EMBEDDED_FLOOR`: keys the floor with `raw.sqlite3_key` over the DEK `Element/identity#KMS_CUSTODY` unwraps, rotates through `raw.sqlite3_rekey` after a fresh mint, and dials the scheme and KDF cost with the pragma rows inside the one open ritual.
 
 [LOCAL_ADMISSION]:
-- Keying material is a `ReadOnlySpan<byte>` from the KMS tier; a compatibility passphrase lives inside one ephemeral open request and reaches no durable configuration, pooled connection string, receipt, log, or store metadata.
+- Keying material is a `ReadOnlySpan<byte>` from the KMS tier; a compatibility passphrase lives inside one ephemeral open request and reaches no durable configuration, pooled connection string, log, or store metadata.
 - Encrypted-floor mounts bind this bundle over the plain one, chosen by the `Store/provisioning` row that owns the offline store.
 
 [RAIL_LAW]:

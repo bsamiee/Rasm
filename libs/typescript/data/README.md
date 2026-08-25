@@ -13,8 +13,8 @@
 - [06]-[TENANT](.planning/lane/tenant.md): Tenant isolation cases keyed off the app key, enforced before any statement runs.
 
 [JOURNAL]:
-- [07]-[APPEND](.planning/journal/append.md): Journal, outbox, and idempotency settling atomically — a replay returns its stored receipt.
-- [08]-[EVOLVE](.planning/journal/evolve.md): One shape change re-mints the log whole under a custody receipt; snapshots as discardable projections.
+- [07]-[APPEND](.planning/journal/append.md): Journal, outbox, and idempotency settling atomically — a replay returns its stored append.
+- [08]-[EVOLVE](.planning/journal/evolve.md): One shape change re-mints the log whole under a custody row; snapshots as discardable projections.
 - [09]-[FACT](.planning/journal/fact.md): Audit evidence and usage metering as one polymorphic fact family on one buffered rail.
 - [10]-[GENERATION](.planning/journal/generation.md): Floor mint — payload coordinate, generation identity, custody ledger, transaction guard.
 - [11]-[RETAIN](.planning/journal/retain.md): Lawful aging — the log never rewrites; windows expire ledgers, shredding folds reads to redaction.

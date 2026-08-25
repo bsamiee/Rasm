@@ -227,4 +227,4 @@ async def published(sink: ArtifactSink, artifacts: ArtifactTransfer, /) -> CadRa
 
 ## [05]-[RESEARCH]
 
-- [ARTIFACT_REMOTE]-[OPEN]: earns a peer `ConnectError` its own `faults#ROWS` row lifting the peer's stated recovery; verify at `transport.md` `[FAULT_DETAIL]`.
+(none)

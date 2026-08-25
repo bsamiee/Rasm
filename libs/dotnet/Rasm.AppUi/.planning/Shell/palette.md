@@ -14,12 +14,12 @@ The command palette and the shortcut editor are presentation over the frozen dec
 - Owner: `PaletteKind` — the closed provider vocabulary carrying each kind's label key, activation verb, scope prefix, and scope label; `PaletteScope` — the parsed narrowing over that vocabulary; `PaletteQuery` — the parsed request both the narrowing and every provider read; `PaletteHit` — the presentation-complete ranked row; `PaletteStatus` and `PaletteSlice` — the per-provider progress carrier; `PaletteProvider` — the streaming row family; `PaletteFeed` — the merged change-set and the per-kind status map; `PaletteFederation` — the federation fold, the deck-derived command provider, the contextual-action filter, and the one activation.
 - Cases: `PaletteKind` = command · document · element · route · issue; `PaletteScope` = All | Only(PaletteKind); `PaletteStatus` = Pending | Streaming | Settled | Refused.
 - Law: scope narrows the federation BEFORE any provider opens, so a scoped query costs exactly the legs it names; rank ascends and the merge keeps the LOWEST-ranked row per key, so a hit two providers found collapses to its better answer rather than to whichever leg emitted last.
-- Entry: `public static PaletteFeed Federate(Seq<PaletteProvider> providers, IObservable<PaletteQuery> queries, IScheduler scheduler)` — one live merged rank fold over every admitted provider row, the command provider deriving from the frozen deck through `Provider`; `public IO<DeckReceipt> Activate(PaletteHit hit, CommandDeck deck, CancellationToken cancel = default)` — the one activation every kind takes, ending at `CommandExecution.Raise`.
+- Entry: `public static PaletteFeed Federate(Seq<PaletteProvider> providers, IObservable<PaletteQuery> queries, IScheduler scheduler)` — one live merged rank fold over every admitted provider row, the command provider deriving from the frozen deck through `Provider`; `public IO<DeckOutcome> Activate(PaletteHit hit, CommandDeck deck, CancellationToken cancel = default)` — the one activation every kind takes, ending at `CommandExecution.Raise`.
 - Auto: each provider leg re-opens on every admitted query through `Switch`, so a superseded query's subscription tears down rather than racing its successor; a leg's slice sequence lowers through `EditDiff` into a keyed change-set, so a narrower answer REMOVES the rows it dropped; the legs merge through `MergeChangeSets` under the rank comparer, so cross-provider key collisions resolve on rank rather than on arrival; host-mutating rows bind `Execute` through the abstract `DocumentEdit.Commit` surface-host port the app root binds, so `DocumentTransaction` undo scope and redraw batching stay host-owned.
-- Receipt: remote, palette, and replay invocations seal the same `DeckReceipt` family as interactive execution — one evidence stream for every caller modality.
+- Outcome: remote, palette, replay, and interactive invocations return the same `DeckOutcome` family.
 - Packages: DynamicData, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new searchable domain is one `PaletteKind` row (its prefix, label, and activation verb ride the row) plus one `PaletteProvider` bound at composition — `Document/search#RANKED_WINDOW`'s `SearchPlane.Provider` is the landed exemplar; zero new surface.
-- Boundary: the palette is the one federated query surface — every provider contributes typed `PaletteHit` rows into one merged rank fold, an element provider consumes element-selection receipt rows under the scope-qualified split (queries enter as receipts, never an AppUi query engine), and a provider-local result vocabulary beside `PaletteHit` is the rejected form; a provider that must run a query DRIVES it inside its own `Open`, so a leg cannot answer a window its query never filled; PROGRESS is a column of the slice rather than a second stream, because two streams would let a settled status arrive beside a stale row set; `ToObservableChangeSet` is the rejected lowering — it upserts every emitted item and removes NONE; activation is ONE fold over the kind row — a command hit invokes its own key and every other kind invokes its kind's reveal verb with the hit key as a `Single` payload, so a hit whose kind names an unbound reveal verb refuses on the same `UnknownIntent` rail a bad deep link does; label normalization is the frozen index owner's (`CommandExecution.Search` folds the query once), so equivalent queries differing only by case return identical keys and rank order; the merge comparer stays a hand `IComparer<PaletteHit>` with its refusal named — `MergeChangeSets` and the realized window demand an `IComparer`, a seam the kernel `Ranked.Top` bounded-K fold does not serve.
+- Boundary: the palette is the one federated query surface — every provider contributes typed `PaletteHit` rows into one merged rank fold, an element provider consumes element-selection outcomes under the scope-qualified split, and a provider-local result vocabulary beside `PaletteHit` is the rejected form; a provider that must run a query DRIVES it inside its own `Open`, so a leg cannot answer a window its query never filled; PROGRESS is a column of the slice rather than a second stream, because two streams would let a settled status arrive beside a stale row set; `ToObservableChangeSet` is the rejected lowering — it upserts every emitted item and removes NONE; activation is ONE fold over the kind row — a command hit invokes its own key and every other kind invokes its kind's reveal verb with the hit key as a `Single` payload, so a hit whose kind names an unbound reveal verb refuses on the same `UnknownIntent` rail a bad deep link does; label normalization is the frozen index owner's (`CommandExecution.Search` folds the query once), so equivalent queries differing only by case return identical keys and rank order; the merge comparer stays a hand `IComparer<PaletteHit>` with its refusal named — `MergeChangeSets` and the realized window demand an `IComparer`, a seam the kernel `Ranked.Top` bounded-K fold does not serve.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -154,7 +154,7 @@ public static class PaletteFederation {
     }
 
     extension(PaletteHit hit) {
-        public IO<DeckReceipt> Activate(CommandDeck deck, CancellationToken cancel = default) =>
+        public IO<DeckOutcome> Activate(CommandDeck deck, CancellationToken cancel = default) =>
             deck.Raise(hit.Kind.Intent(hit), hit.Kind.Payload(hit), cancel);
     }
 
@@ -210,7 +210,7 @@ public abstract partial record PaletteFrame {
 public abstract partial record PaletteStep {
     private PaletteStep() { }
     public sealed record Pushed(PaletteFrame Frame) : PaletteStep;
-    public sealed record Ran(DeckReceipt Receipt) : PaletteStep;
+    public sealed record Ran(DeckOutcome Outcome) : PaletteStep;
 }
 
 public sealed record PaletteGroup(string Key, Seq<PaletteHit> Rows) {
@@ -315,7 +315,7 @@ public static class PaletteAdvance {
         internal IO<Fin<PaletteStep>> Advance(CommandRow row, PaletteHit subject, CommandPayload payload) =>
             row.Arguments.Match(
                 Some: schema => IO.pure(session.Push(new PaletteFrame.Arguments(subject, row.Key, schema, FormState.Empty))),
-                None: () => session.Deck.Raise(row.Key, payload).Map(static receipt => Fin.Succ((PaletteStep)new PaletteStep.Ran(receipt))));
+                None: () => session.Deck.Raise(row.Key, payload).Map(static outcome => Fin.Succ((PaletteStep)new PaletteStep.Ran(outcome))));
 
         public IO<Fin<PaletteStep>> Drill(PaletteHit hit) =>
             IO.pure(session.Push(new PaletteFrame.Actions(hit)));
@@ -330,7 +330,7 @@ public static class PaletteAdvance {
                 .Bind(row => row.Compose(frame.State))
                 .Match(
                     Succ: payload => session.Deck.Raise(frame.IntentKey, payload)
-                        .Map(static receipt => Fin.Succ((PaletteStep)new PaletteStep.Ran(receipt))),
+                        .Map(static outcome => Fin.Succ((PaletteStep)new PaletteStep.Ran(outcome))),
                     Fail: fault => IO.pure(Fin.Fail<PaletteStep>(fault)));
 
         public ControlIntent Fields(PaletteFrame.Arguments frame) =>
@@ -577,7 +577,7 @@ config:
 ---
 flowchart LR
     accTitle: Query scoping, provider federation, and the one invocation spine
-    accDescr: A raw palette query parsed into a scope and terms, the scope narrowing which provider legs open, each leg lowering its slices into a keyed change-set merged under the rank comparer, the surface frames drilling from results into actions into an argument form, and every path ending on the one deck raise that seals a command receipt.
+    accDescr: A raw palette query parsed into a scope and terms, the scope narrowing which provider legs open, each leg lowering its slices into a keyed change-set merged under the rank comparer, the surface frames drilling from results into actions into an argument form, and every path ending on the one deck raise that returns a command outcome.
     RawQuery --> PaletteQuery
     PaletteQuery -->|scope narrows| PaletteProvider
     PaletteProvider --> PaletteSlice
@@ -593,8 +593,9 @@ flowchart LR
     CommandRow --> DeckRaise
     CommandPayload --> DeckRaise
     CommandInvocationWire --> DeckRaise
-    DeckRaise --> DeckReceipt
-    DeckReceipt --> ReceiptSinkPort
+    DeckRaise --> DeckOutcome
+    DeckOutcome --> AppUiFactCommand["AppUiFact.Command"]
+    AppUiFactCommand --> HookRail
     ShortcutEditor -->|Assign| Claimants["CommandDeck.Claimants"]
     Claimants --> BindingOverlay
     BindingOverlay -->|folded ahead of freeze| CommandDeck

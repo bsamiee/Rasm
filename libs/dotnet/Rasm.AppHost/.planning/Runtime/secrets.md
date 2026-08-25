@@ -10,19 +10,17 @@
 
 ## [02]-[SECRET_LEASE]
 
-- Owner: `SecretLease` the live credential row extending `ConfigSource.SecretsStore`; `RotationBand` the admitted cadence pair; `SecretRuntime` the boundary capsule; `LeaseTransition` `[Union]` lifecycle vocabulary; `SecretFault` `[Union]` fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Secret`); `SecretReceipt` the redacted rotation evidence; `SecretLeaseOps` the acquire-rotate-zeroize fold.
-- Cases: `LeaseTransition` = Acquired | Renewed | Refused | Zeroized; `SecretFault` = AcquireRejected | RenewMissed | RotationUnbanded.
+- Owner: `SecretLease` the live credential row extending `ConfigSource.SecretsStore`; `RotationBand` the admitted cadence pair; `SecretRuntime` the boundary capsule; `SecretFault` `[Union]` fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Secret`); `SecretLeaseOps` the acquire-rotate-zeroize fold.
+- Cases: `SecretFault` = AcquireRejected | RenewMissed | RotationUnbanded.
 - Entry: `Acquire(SecretRuntime runtime, string keyId)` returns `IO<Fin<Atom<SecretLease>>>` — the store read seats the LIVE lease cell and registers that cell's renewal occurrence on `SecretRuntime.Schedule` in one bind, so a returned cell is always a rotating cell; `Rotate(SecretRuntime runtime, Atom<SecretLease> cell)` returns `IO<Unit>` — the renewal occurrence's `Work` binding, committing the re-pull through kernel `Cell.Commit`; `Renew(SecretRuntime runtime, SecretLease lease)` returns `IO<Fin<SecretLease>>`, re-pulling inside the live window with no disposal of its own — the retiring buffer wipes at `Rotate`'s commit site once the replacement is seated; `Zeroize(SecretRuntime runtime, SecretLease lease)` returns `IO<Unit>`, the drain-forced terminal.
 - Auto: `RotationBand.Of` reads the credential's lifetime row AND that row's own `Escalation` skew off the `Runtime/time#DEADLINE_TAXONOMY` roster, so the renewal period is `Life - Skew` and derives — a cadence equal to the lifetime fires the re-pull exactly at expiry, which is the shape under which every occurrence read `RenewMissed` and the lease silently died under prose promising rotation ahead of expiry; a lifetime row declaring no skew refuses at composition as `RotationUnbanded` rather than seating a rotation that cannot succeed. `Acquire` registers one `ScheduleEntry` on the bound `Runtime/time#SCHEDULE_PORT` delegate carrying the entry's own `RedrivePolicy` and a `LeasePolicy` whose `CrashStaleness` outlives the renewal window, so one occurrence row drives every credential with no per-secret timer. Rotation commits ride kernel `Cell.Commit`, so a lost CAS reports `Contended` instead of publishing as success, and the renewal verdict rides the SWAPPED value: a refused re-pull commits the prior lease carrying its `Refusal`, which `Observability/health#HEALTH_FOLD` reads on its `ContributorTag.Store`-tagged row and `DegradationPolicy.Derive` maps to `DegradationLevel.ReadOnly` — a level nothing produced while the refusal lived only in a discarded fan. Zeroization registers as one `Runtime/lifecycle#DRAIN_CONDUCTOR` `DrainBand.Stores` participant row under the drain-forced token, so a hung renewal never strands a live secret; the credential bytes carry `DataClassification.Secret` so `Observability/telemetry#REDACTION_TAXONOMY` erases them at every egress.
-- Receipt: `SecretReceipt` carries the transition key, lease window, kernel content digest, redacted credential id, and an optional canonical ProtoJSON fault element — never secret bytes or a raw key id; every transition fans through `ReceiptSinkPort.Send` under `ReceiptKind.Secret`, partitioned by tenant.
 - Packages: Rasm.Contracts, Google.Protobuf, Rasm (kernel `CanonicalWriter`/`ContentHash`, `Cell`/`Transition`), Microsoft.Extensions.Configuration.UserSecrets, Microsoft.Extensions.Compliance.Redaction, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one lifecycle transition is one `LeaseTransition` case; one refusal is one `SecretFault` case; a new credential class is one `DeadlineClass` lifetime row with its skew escalation, admitted through the same `RotationBand.Of`; a new credential source is one `SecretsSource` provider value on the existing `ConfigLayer`, never a second lease owner; zero new surface.
-- Boundary: the lease is the only credential-lifecycle owner: failed re-pulls keep the current lease live and degrade through health; rented material zeroizes through `CryptographicOperations.ZeroMemory` only after `Cell.Commit` seats its replacement or the drain terminal retires it; content identity uses kernel `ContentHash`. Every fault detail and every receipt column uses the redacted id — the redaction seam covers the log and receipt path alone and never the wire, where `CREDENTIAL_PEM` crosses the key id intact because a verifier SELECTS on it — and an optional refusal passes through `FaultWire.Observe` with `WireJson.Element` once, so the STJ receipt holds canonical ProtoJSON without reflecting a generated message; a reader re-enters through `WireJson.Read`. Mutable material and rotation stay the lease's, while `CredentialPublic` owns public-material admission. That frozen secrets-store mount remains the sole provider read. `LeaseTransition.Released` stays deleted because release without wipe is unlawful. KMS unwrap and PDF signing consume lease-scoped handles without a second long-lived key cache or credential lifecycle.
+- Growth: one refusal is one `SecretFault` case; a new credential class is one `DeadlineClass` lifetime row with its skew escalation, admitted through the same `RotationBand.Of`; a new credential source is one `SecretsSource` provider value on the existing `ConfigLayer`, never a second lease owner; zero new surface.
+- Boundary: the lease is the only credential-lifecycle owner: failed re-pulls keep the current lease live and degrade through health; rented material zeroizes through `CryptographicOperations.ZeroMemory` only after `Cell.Commit` seats its replacement or the drain terminal retires it; content identity uses kernel `ContentHash`. Every fault detail uses the redacted id while `CREDENTIAL_PEM` crosses the key id intact because a verifier SELECTS on it. Mutable material and rotation stay the lease's, while `CredentialPublic` owns public-material admission. That frozen secrets-store mount remains the sole provider read. Release without wipe is unlawful. KMS unwrap and PDF signing consume lease-scoped handles without a second long-lived key cache or credential lifecycle.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Security.Cryptography;
-using System.Text.Json;
 using LanguageExt;
 using Microsoft.Extensions.Compliance.Redaction;
 using NodaTime;
@@ -31,23 +29,6 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Runtime;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LeaseTransition {
-    private LeaseTransition() { }
-
-    public sealed record Acquired(Interval Window) : LeaseTransition;
-    public sealed record Renewed(Interval Window) : LeaseTransition;
-    public sealed record Refused(Instant At) : LeaseTransition;
-    public sealed record Zeroized(Instant At) : LeaseTransition;
-
-    public string Key => Map(
-        acquired: nameof(Acquired),
-        renewed: nameof(Renewed),
-        refused: nameof(Refused),
-        zeroized: nameof(Zeroized));
-}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -84,14 +65,6 @@ public readonly record struct RotationBand(DeadlineClass Life, DeadlineClass Ske
     public Interval Window(Instant from) => new(start: from, end: from + Life.Allotted);
 }
 
-public sealed record SecretReceipt(
-    string RedactedId,
-    string Transition,
-    Interval Window,
-    string ContentDigest,
-    Option<JsonElement> Refusal,
-    Instant At);
-
 public sealed record SecretRuntime(
     Func<string, Fin<byte[]>> Read,
     Func<ScheduleEntry, IO<Unit>> Schedule,
@@ -99,10 +72,7 @@ public sealed record SecretRuntime(
     LeasePolicy Lease,
     RotationBand Rotation,
     RedrivePolicy Redrive,
-    ClockPolicy Clocks,
-    ReceiptSinkPort Sink,
-    TenantContext Tenant,
-    CorrelationId Correlation) {
+    ClockPolicy Clocks) {
     public string Redacted(string keyId) {
         Span<char> sink = stackalloc char[Redactor.GetRedactedLength(keyId)];
         int written = Redactor.Redact(keyId, sink);
@@ -140,8 +110,8 @@ public static class SecretLeaseOps {
             Lease: Some(runtime.Lease),
             Redrive: runtime.Redrive,
             Work: () => Rotate(runtime, cell!));
-        return Emit(runtime, new SecretLease(keyId, material, window, None, renewal), new LeaseTransition.Acquired(window))
-            .Map(seated => cell = Atom(seated));
+        cell = Atom(new SecretLease(keyId, material, window, None, renewal));
+        return IO.pure(cell!);
     }
 
     public static IO<Unit> Rotate(SecretRuntime runtime, Atom<SecretLease> cell) =>
@@ -153,16 +123,11 @@ public static class SecretLeaseOps {
                     committed: row => outcome.Match(
                             Succ: _ => IO.lift(() => { CryptographicOperations.ZeroMemory(prior.Material); return unit; }),
                             Fail: static _ => IO.pure(unit))
-                        .Bind(_ => Emit(runtime, row.State, outcome.Match(
-                            Succ: static renewed => (LeaseTransition)new LeaseTransition.Renewed(renewed.Window),
-                            Fail: _ => new LeaseTransition.Refused(runtime.Clocks.Now)))),
+                        .Map(_ => row.State),
                     ceded: static row => IO.pure(row.State),
                     refused: static row => IO.pure(row.State),
-                    contended: row => Emit(
-                        runtime,
-                        row.State with { Refusal = Some((Error)new SecretFault.RenewMissed(
-                            runtime.Redacted(row.State.KeyId), $"rotation lost {row.Attempts.Value} commit rounds")) },
-                        new LeaseTransition.Refused(runtime.Clocks.Now)))
+                    contended: row => IO.pure(row.State with { Refusal = Some((Error)new SecretFault.RenewMissed(
+                        runtime.Redacted(row.State.KeyId), $"rotation lost {row.Attempts.Value} commit rounds")) }))
                 .Map(static _ => unit)));
 
     public static IO<Fin<SecretLease>> Renew(SecretRuntime runtime, SecretLease lease) =>
@@ -172,22 +137,7 @@ public static class SecretLeaseOps {
                 .Map(material => lease with { Material = material, Window = runtime.Rotation.Window(now), Refusal = None }));
 
     public static IO<Unit> Zeroize(SecretRuntime runtime, SecretLease lease) =>
-        Emit(runtime, lease, new LeaseTransition.Zeroized(runtime.Clocks.Now))
-            .Map(retired => { CryptographicOperations.ZeroMemory(retired.Material); return unit; });
-
-    static IO<SecretLease> Emit(SecretRuntime runtime, SecretLease lease, LeaseTransition transition) =>
-        runtime.Sink.Send(
-                runtime.Correlation, runtime.Tenant, TelemetrySource.AppHost, ReceiptKind.Secret.Key,
-                JsonSerializer.SerializeToElement(
-                    new SecretReceipt(
-                        RedactedId: runtime.Redacted(lease.KeyId),
-                        Transition: transition.Key,
-                        Window: lease.Window,
-                        ContentDigest: lease.Digest,
-                        Refusal: lease.Refusal.Map(error => WireJson.Element(FaultWire.Observe(error))),
-                        At: runtime.Clocks.Now),
-                    SuiteContracts.Host))
-            .Map(_ => lease);
+        IO.lift(() => { CryptographicOperations.ZeroMemory(lease.Material); return unit; });
 }
 ```
 
@@ -197,10 +147,10 @@ public static class SecretLeaseOps {
 - Cases: `CredentialMaterial` = Chain | Spki, one arm per generated oneof member and no third; `PemFault` = CertRejected | ChainEmpty | SpkiRejected.
 - Entry: `Chain(Seq<ReadOnlyMemory<byte>> certificates)` returns `Fin<CredentialMaterial>` — every element parses through `X509CertificateLoader.LoadCertificate` and copies out inside that proving scope; `Spki(ReadOnlyMemory<byte> key)` returns `Fin<CredentialMaterial>` — the body parses through `PublicKey.CreateFromSubjectPublicKeyInfo` and refuses a trailing tail; `Carrier(CredentialMaterial material, string keyId)` returns generated `Credential.CredentialPublicWire` with the intact key id and exactly one oneof arm.
 - Auto: raw DER is the canonical crossing and RFC-7468 armor is DELETED — armor is a text framing whose label is a self-declared string, so the private-key arm it forced a runtime filter to police has no case to inhabit once the oneof carries only public arms; the same ASN.1 parse each consumer's own import runs is the admission gate here, so a PKCS#8 body handed to the public arm refuses at the producer rather than at a verifier that has lost the cause; `Der` copies its octets because `X509Certificate2.RawDataMemory` is a view the certificate's handle bounds, and `ImmutableArray<byte>` storage discharges `UnsafeWrap`'s outlive obligation so the chain crosses with no second copy.
-- Receipt: rotation rides `SECRET_LEASE`'s `SecretReceipt`, so the material axis adds no parallel receipt; generated `CredentialPublicWire` is the producer capability surface.
+- Auto: generated `CredentialPublicWire` is the producer capability surface.
 - Packages: Rasm.Contracts, Google.Protobuf, System.Security.Cryptography, Generator.Equals, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one material encoding is one `CredentialMaterial` arm landing beside its generated oneof member; one refusal is one `PemFault` case; a new credential class rides the existing two arms already; zero new surface.
-- Boundary: the material axis is the suite's only credential-material wire owner — the lease holds the live `byte[]` and zeroizes it while `CredentialPublic` owns public-material admission, so the two never merge; `X509CertificateLoader` owns certificate admission and `PublicKey.CreateFromSubjectPublicKeyInfo` bare-key admission, and hand-rolled ASN.1, a base64 wrap, and a third-party codec are the deleted forms. Key ids cross INTACT because a verifier SELECTS on them, matching a JWS `kid`, while `SecretRuntime.Redacted` serves the log and receipt seam alone and its output selects nothing. Private-key arms are structurally absent rather than filtered, so `CarriesSecret`, the public-half filter, and the `DataClassification.Secret` block stamp are deleted with the vocabulary that needed them; what the collapse loses is the self-describing label, and what replaces it is the SPKI and X.509 format parse, which refuses a private body by encoding rather than by trusting its own declaration.
+- Boundary: the material axis is the suite's only credential-material wire owner — the lease holds the live `byte[]` and zeroizes it while `CredentialPublic` owns public-material admission, so the two never merge; `X509CertificateLoader` owns certificate admission and `PublicKey.CreateFromSubjectPublicKeyInfo` bare-key admission, and hand-rolled ASN.1, a base64 wrap, and a third-party codec are the deleted forms. Key ids cross INTACT because a verifier SELECTS on them, matching a JWS `kid`, while `SecretRuntime.Redacted` serves logging alone and its output selects nothing. Private-key arms are structurally absent rather than filtered, so `CarriesSecret`, the public-half filter, and the `DataClassification.Secret` block stamp are deleted with the vocabulary that needed them; what the collapse loses is the self-describing label, and what replaces it is the SPKI and X.509 format parse, which refuses a private body by encoding rather than by trusting its own declaration.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------

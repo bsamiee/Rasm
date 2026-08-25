@@ -1,6 +1,6 @@
 # [RASM_NUMERICS_TRANSFORM]
 
-`Rasm.Numerics` owns the transform band beside the solve kernel: the taper roster a spectral caller windows with, the capability-typed interpolant every one-dimensional fit mints into, and the spectral plane — one arena union over the four MathNet buffer layouts, one transform entry, one receipt, and BOTH routes of the one convolution correspondence, the pointwise spectral product and the sample-domain tap fold. It is `Numerics/matrix`'s own surface split at the transform seam: zero edges into the solve core, its own consumer population (`Rasm.Materials` raster planes, `Rasm.Fabrication` implicit lattices, `Rasm.Compute` signal spectra), and one `partial` half of `MatrixKernel` so the one-funnel ruling binds the TYPE and no consumer reaches a raw MathNet transform member on either side of the file cut.
+`Rasm.Numerics` owns the transform band beside the solve kernel: the taper roster a spectral caller windows with, the capability-typed interpolant every one-dimensional fit mints into, and the spectral plane — one arena union over the four MathNet buffer layouts, one transform entry, one `Spectrum`, and BOTH routes of the one convolution correspondence, the pointwise spectral product and the sample-domain tap fold. It is `Numerics/matrix`'s own surface split at the transform seam: zero edges into the solve core, its own consumer population (`Rasm.Materials` raster planes, `Rasm.Fabrication` implicit lattices, `Rasm.Compute` signal spectra), and one `partial` half of `MatrixKernel` so the one-funnel ruling binds the TYPE and no consumer reaches a raw MathNet transform member on either side of the file cut.
 
 Rebuilds compose the `Rasm.Domain` rails as the validity floor and `Numerics/atoms` as the addressing floor: `CellLattice` is the ONE linearization a lattice-backed plane addresses through, `Dimension`/`PositiveMagnitude`/`UnitInterval`/`SignedAxis` carry every extent, rate, fraction, and axis, `EpsilonPolicy` anchors the two floors this band reads, and `Op` keys every entry under the `[BoundaryAdapter]` optional-key spelling. MathNet's managed provider is the pinned realization — the multidim entrypoints are unservable by construction and the separable row-column fold IS the platform-total N-dimensional transform.
 
@@ -8,7 +8,7 @@ Rebuilds compose the `Rasm.Domain` rails as the validity floor and `Numerics/ato
 
 - [02]-[WINDOW]: taper roster with framing and shape as columns, the one taper sample entry.
 - [03]-[INTERPOLATE]: capability-typed interpolant, per-scheme typed factories, and the two coefficient and transformed mints.
-- [04]-[SPECTRAL]: scaling and sense rows, tap series, border, and window, the arena union, its receipt, and the `MatrixKernel` transform half.
+- [04]-[SPECTRAL]: scaling and sense rows, tap series, border, and window, the arena union, its `Spectrum`, and the `MatrixKernel` transform half.
 
 ## [02]-[WINDOW]
 
@@ -223,13 +223,13 @@ public static class Interpolant {
 
 ## [04]-[SPECTRAL]
 
-- Owner: `SpectralArena` is the ONE transform carrier — four cases, each holding the buffer layout its MathNet entrypoint owns and exactly the extent its arm consumes; `SpectralReceipt` the evidence a transform leaves; `SpectralScaling` the declared convention row governing both transform owners at once and `SpectralSense` the direction row carrying the four entrypoint pairs as columns; `TapSeries` the admitted sample-domain convolution kernel, `TapBorder` its closed out-of-extent vocabulary answering an `Option<int>` so an absent tap is a carrier and not a sentinel, and `TapWindow` the staged-window geometry a banded caller admits through its own gated `Of`; the `MatrixKernel` `partial` half on this page is the one path to every transform, power, axis, modulation, and tap-fold body.
-- Entry: `arena.Transform(sense, scaling, key)` is the one transform entry and the arena case its discriminant, so no per-carrier entrypoint family and no mode flag exist; `receipt.Power`/`Axis`/`Modulate` read and re-mint off the receipt; `series.Convolve(source, folded, window, border, key)` folds one strided axis in the sample domain and `lattice.Convolve(values, axes, border, key)` is its separable lattice form on the ADDRESSING owner, the lattice being the discriminant — one series per axis, never a static twin wearing the instance member's name.
+- Owner: `SpectralArena` is the ONE transform carrier — four cases, each holding the buffer layout its MathNet entrypoint owns and exactly the extent its arm consumes; `Spectrum` the evidence a transform leaves; `SpectralScaling` the declared convention row governing both transform owners at once and `SpectralSense` the direction row carrying the four entrypoint pairs as columns; `TapSeries` the admitted sample-domain convolution kernel, `TapBorder` its closed out-of-extent vocabulary answering an `Option<int>` so an absent tap is a carrier and not a sentinel, and `TapWindow` the staged-window geometry a banded caller admits through its own gated `Of`; the `MatrixKernel` `partial` half on this page is the one path to every transform, power, axis, modulation, and tap-fold body.
+- Entry: `arena.Transform(sense, scaling, key)` is the one transform entry and the arena case its discriminant, so no per-carrier entrypoint family and no mode flag exist; `spectrum.Power`/`Axis`/`Modulate` read and re-mint off the spectrum; `series.Convolve(source, folded, window, border, key)` folds one strided axis in the sample domain and `lattice.Convolve(values, axes, border, key)` is its separable lattice form on the ADDRESSING owner, the lattice being the discriminant — one series per axis, never a static twin wearing the instance member's name.
 - Auto: rank 2 and rank 3 ARE the row-column fold over the managed-complete 1D pair (Radix-2 at a power of two, Bluestein otherwise), and symmetric scaling composes per axis (`1/sqrt(w) · 1/sqrt(h) = 1/sqrt(w·h)`), so the folded transform carries the convention the 1D row declares and `RoundTripFactor` reads the cell count once; the tap fold divides every output by its RESOLVED-weight sum, so partition of unity holds at every border by construction — no caller pre-normalizes a table, a series and its scalar multiple fold identically, a `Zero`-dropped tap leaves the divisor rather than darkening the rim, and a rim record whose resolved sum cancels refuses typed rather than certifying a fabricated zero sample; the lattice tap fold is the SAME per-axis line fold the rank-2/3 transform takes, walking the lattice's own linearization strides; `Power` reads ONE pair fold across the interleaved and packed layouts — byte-identical `(re, im)` runs a `MemoryMarshal.Cast` unifies — beside the vectorized multiply-then-multiply-add pair on the split spans, the reason the split case exists, and never a square root it only squares back; `Axis` reads ONE `SpectralArena.Metric(ordinal)` fold — bin count and sampling rate per case, the lattice arm reading `CellLattice.Extent`/`Spacing` — so a spectrum reads its own axis instead of a caller-passed rate that can disagree with the grid, and an out-of-rank ordinal states absence once rather than at four call sites. Every multi-column admission on the page ACCUMULATES through `Admit.Claims`, each clause naming its axis.
 - Law: `SpectralScaling` publishes both convention columns so a package binding MathNet's transform entrypoints directly reads the declared row instead of re-spelling a second `FourierOptions` vocabulary; `Rasm.Compute` `Stats/signal` composes it and its eight raw `FourierOptions` sites are the deleted form.
 - Packages: MathNet.Numerics (`Fourier` interleaved, split, and packed pairs, `FrequencyScale`, `Hartley.NaiveForward`/`NaiveInverse`, `FourierOptions`/`HartleyOptions`), System.Numerics.Tensors (`TensorPrimitives.Multiply`/`MultiplyAdd`/`Sum`/`IsFiniteAll`), CommunityToolkit.HighPerformance (`MemoryOwner<T>.Allocate` — the lattice staging pair, the squaring buffer, and the Hartley reflection copy; the separable line stays an exact-extent array because the package entrypoint transforms its whole length), `Numerics/atoms` (`CellLattice` with its per-axis `Extent`/`Stride`/`Spacing`, `Dimension`, `PositiveMagnitude`, `SignedAxis`, `EpsilonPolicy`), Rasm.Domain (`Op`, `Admit.Claims`, `Admit.FiniteComplexSpan`, `ValidityClaim`), LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL (`System.Numerics.Complex`, `MemoryMarshal.Cast`).
 - Growth: a border law is one `TapBorder` row every tap fold reads with no kernel edit; a scaling convention is one `SpectralScaling` row governing both owners at once; a buffer layout is one `SpectralArena` case whose arms break every fold at compile time.
-- Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the managed-provider pin makes them unservable by construction. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and the receipt names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` — so this band owns BOTH routes of the one convolution correspondence itself: the pointwise spectral product between the transform legs (`SpectralReceipt.Modulate`) and the sample-domain tap fold (`TapSeries.Convolve`); a consumer composes one of the two and spells no fold of its own, while its tap GENERATION stays the consumer's domain policy. Zero-sum series are DIFFERENCE stencils and refuse at the mint: `Numerics/calculus#NABLA` owns those, so the two owners partition on the tap sum rather than overlapping. `CellLattice` is the addressing carrier for a lattice-backed plane and owns the per-axis `Extent`/`Stride`/`Spacing` read every separable walk takes, so the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law. Named statement-kernel exemption covers the separable axis gather-scatter and the tap-fold record walk — measured strided-line hot paths.
+- Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the managed-provider pin makes them unservable by construction. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and `Spectrum` names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` — so this band owns BOTH routes of the one convolution correspondence itself: the pointwise spectral product between the transform legs (`Spectrum.Modulate`) and the sample-domain tap fold (`TapSeries.Convolve`); a consumer composes one of the two and spells no fold of its own, while its tap GENERATION stays the consumer's domain policy. Zero-sum series are DIFFERENCE stencils and refuse at the mint: `Numerics/calculus#NABLA` owns those, so the two owners partition on the tap sum rather than overlapping. `CellLattice` is the addressing carrier for a lattice-backed plane and owns the per-axis `Extent`/`Stride`/`Spacing` read every separable walk takes, so the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law. Named statement-kernel exemption covers the separable axis gather-scatter and the tap-fold record walk — measured strided-line hot paths.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -353,7 +353,7 @@ public abstract partial record SpectralArena : IValidityEvidence {
     public sealed record RealValued(Arr<double> Samples, PositiveMagnitude Rate) : SpectralArena;
 
     [BoundaryAdapter]
-    public Fin<SpectralReceipt> Transform(SpectralSense sense, SpectralScaling scaling, Op? key = null) =>
+    public Fin<Spectrum> Transform(SpectralSense sense, SpectralScaling scaling, Op? key = null) =>
         MatrixKernel.SpectralTransform(arena: this, sense: sense, scaling: scaling, key: key.OrDefault());
     public bool IsValid => ValidityClaim.All(Switch(
         interleaved: static a => a.Values.Length == a.Lattice.CellCount && Admit.FiniteComplexSpan(a.Values.AsSpan()),
@@ -378,7 +378,7 @@ public abstract partial record SpectralArena : IValidityEvidence {
     internal static int PackedLength(int samples) => int.IsEvenInteger(samples) ? samples + 2 : samples + 1;
 }
 
-public readonly record struct SpectralReceipt(SpectralArena Arena, SpectralSense Sense, SpectralScaling Scaling, double Energy) : IValidityEvidence {
+public readonly record struct Spectrum(SpectralArena Arena, SpectralSense Sense, SpectralScaling Scaling, double Energy) : IValidityEvidence {
     public int Rank => Arena.Rank;
     public long Cells => Arena.Cells;
     public double RoundTripFactor => Scaling.RoundTrip(cells: Cells);
@@ -389,17 +389,17 @@ public readonly record struct SpectralReceipt(SpectralArena Arena, SpectralSense
         Cells >= 1L && Rank >= 1);
     [BoundaryAdapter] public Fin<Arr<double>> Power(Op? key = null) => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
     [BoundaryAdapter] public Fin<Arr<double>> Axis(SignedAxis axis, Op? key = null) => MatrixKernel.SpectralAxis(arena: Arena, axis: axis, key: key.OrDefault());
-    [BoundaryAdapter] public Fin<SpectralReceipt> Modulate(ReadOnlySpan<Complex> symbol, Op? key = null) =>
-        MatrixKernel.SpectralModulate(receipt: this, symbol: symbol, key: key.OrDefault());
+    [BoundaryAdapter] public Fin<Spectrum> Modulate(ReadOnlySpan<Complex> symbol, Op? key = null) =>
+        MatrixKernel.SpectralModulate(spectrum: this, symbol: symbol, key: key.OrDefault());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class MatrixKernel {
     // --- [SPECTRAL] --------------------------------------------------------------------
-    internal static Fin<SpectralReceipt> SpectralTransform(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
+    internal static Fin<Spectrum> SpectralTransform(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
         arena is null || sense is null || scaling is null || !arena.IsValid
-            ? Fin.Fail<SpectralReceipt>(key.InvalidInput())
-            : key.Catch(() => SpectralReceiptOf(arena: Transformed(arena: arena, sense: sense, scaling: scaling), sense: sense, scaling: scaling, key: key));
+            ? Fin.Fail<Spectrum>(key.InvalidInput())
+            : key.Catch(() => SpectrumOf(arena: Transformed(arena: arena, sense: sense, scaling: scaling), sense: sense, scaling: scaling, key: key));
     private static SpectralArena Transformed(SpectralArena arena, SpectralSense sense, SpectralScaling scaling) =>
         arena.Switch(
             state: (Sense: sense, Scaling: scaling),
@@ -429,10 +429,10 @@ internal static partial class MatrixKernel {
         }
         return arena;
     }
-    private static Fin<SpectralReceipt> SpectralReceiptOf(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
+    private static Fin<Spectrum> SpectrumOf(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
         SpectralPower(arena: arena, key: key).Bind(power => {
-            SpectralReceipt receipt = new(Arena: arena, Sense: sense, Scaling: scaling, Energy: TensorPrimitives.Sum<double>(power.AsSpan()));
-            return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<SpectralReceipt>(key.InvalidResult());
+            Spectrum spectrum = new(Arena: arena, Sense: sense, Scaling: scaling, Energy: TensorPrimitives.Sum<double>(power.AsSpan()));
+            return spectrum.IsValid ? Fin.Succ(spectrum) : Fin.Fail<Spectrum>(key.InvalidResult());
         });
     internal static Fin<Arr<double>> SpectralPower(SpectralArena arena, Op key) =>
         arena is null || !arena.IsValid
@@ -480,13 +480,13 @@ internal static partial class MatrixKernel {
                 return TensorPrimitives.IsFiniteAll<double>(bins.AsSpan()) ? Fin.Succ(bins) : Fin.Fail<Arr<double>>(key.InvalidResult());
             });
 
-    internal static Fin<SpectralReceipt> SpectralModulate(SpectralReceipt receipt, ReadOnlySpan<Complex> symbol, Op key) =>
-        receipt.Arena is SpectralArena.Interleaved plane && plane.Values.Length == symbol.Length && Admit.FiniteComplexSpan(symbol)
-            ? Modulated(plane: plane, symbol: symbol, receipt: receipt, key: key)
-            : Fin.Fail<SpectralReceipt>(key.InvalidInput());
-    private static Fin<SpectralReceipt> Modulated(SpectralArena.Interleaved plane, ReadOnlySpan<Complex> symbol, SpectralReceipt receipt, Op key) {
+    internal static Fin<Spectrum> SpectralModulate(Spectrum spectrum, ReadOnlySpan<Complex> symbol, Op key) =>
+        spectrum.Arena is SpectralArena.Interleaved plane && plane.Values.Length == symbol.Length && Admit.FiniteComplexSpan(symbol)
+            ? Modulated(plane: plane, symbol: symbol, spectrum: spectrum, key: key)
+            : Fin.Fail<Spectrum>(key.InvalidInput());
+    private static Fin<Spectrum> Modulated(SpectralArena.Interleaved plane, ReadOnlySpan<Complex> symbol, Spectrum spectrum, Op key) {
         TensorPrimitives.Multiply<Complex>(plane.Values, symbol, plane.Values);
-        return SpectralReceiptOf(arena: plane, sense: receipt.Sense, scaling: receipt.Scaling, key: key);
+        return SpectrumOf(arena: plane, sense: spectrum.Sense, scaling: spectrum.Scaling, key: key);
     }
 
     // --- [TAP_FOLD] --------------------------------------------------------------------
@@ -561,7 +561,6 @@ internal static partial class MatrixKernel {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

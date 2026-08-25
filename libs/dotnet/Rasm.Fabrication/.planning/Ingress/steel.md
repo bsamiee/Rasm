@@ -7,7 +7,7 @@
 ## [01]-[INDEX]
 
 - [02]-[STEEL_EXCHANGE]: `SteelSource` path, text, and byte ingress preserving received bytes, the `SteelProfileCode`/`SteelFace`/`SteelBlockKind`/`SteelParseKind` DSTV vocabularies carrying face admissibility, contour correspondence, topology sign, and exception-type classification, the admitted `SteelHeader`/`SteelPart` owners, and `DstvMap` the one provider transcription.
-- [03]-[STEEL_LIFECYCLE]: `SteelImport.Read` admitting one `SteelPart` over `SteelHeader` and `SteelFeature` into a `Receipt<SteelImportEvidence>` — the settled carrier `Process/owner` owns, so the key, band, and stamp are its columns and this page declares its own evidence alone — header-before-feature admission over stable bytes, and deferred `Eff` parse effects accumulating independent feature faults on `Validation`.
+- [03]-[STEEL_LIFECYCLE]: `SteelImport.Read` admitting one `ImportedSteel` over `SteelHeader` and `SteelFeature` — header-before-feature admission over stable bytes, and deferred `Eff` parse effects accumulating independent feature faults on `Validation`.
 - [04]-[PROJECTION_EGRESS]: `SteelView` selecting part, boundary, preparation, feature, placement, topology, or identity egress through one generated behavior row, and `SteelProjection` carrying each result shape.
 
 ## [02]-[STEEL_EXCHANGE]
@@ -17,7 +17,7 @@
 - Law: the header admits from ONE `SteelHeaderRow` argument. Twenty-four positional arguments at a call site make a transposed pair — a flange width where a flange thickness belongs — invisible to the compiler and to every reader; the row names each column once at the mapper that lifts it.
 - Law: `DstvMap` is the ONE table. `Posting/dialect` `Nc1Canonical.Header` is its exact inverse and composes it through `[IncludeMappingConfiguration]`, so the header correspondence is stated once and a round trip becomes a build fact rather than two rosters that drift.
 - Auto: generated owners validate policy, header, and aggregate values; `SteelBlockKind` supplies statement identity, contour correspondence, and topology sign; `SteelParseKind` classifies a `ParseException` by inheritance depth so declaration order is free; `SteelProfileCode.Admits` gates each located element's face before any geometry is built.
-- Receipt: `SteelPart.Topology` preserves outer, hole, parent, depth, area, and bounds evidence; `SteelPart.Placed` resolves each face-local feature into part coordinates with contour bulges beside transformed vertices; `SteelPart.Preparations` publishes the per-edge groove demand the skewed contour points state, keyed on the boundary ordinal a run's profile column shares.
+- Result: `SteelPart.Topology` preserves outer, hole, parent, depth, area, and bounds evidence; `SteelPart.Placed` resolves each face-local feature into part coordinates with contour bulges beside transformed vertices; `SteelPart.Preparations` publishes the per-edge groove demand the skewed contour points state, keyed on the boundary ordinal a run's profile column shares.
 - Packages: `DSTV.Net` owns asynchronous parsing; `Riok.Mapperly` owns field transcription; `Thinktecture.Runtime.Extensions` owns cases and policy rows; `LanguageExt.Core` owns effects, accumulation, and immutable carriers; `UnitsNet` owns physical values; `Loop` composes `CavalierContours` for arc measures; `PolygonAlgebra` composes `Clipper2` for hierarchy and fill.
 - Growth: a readable block lands as one `SteelFeature` case, one `SteelBlockKind` row, and one Mapperly declaration; a parser fault lands as one `SteelParseKind` row; a profile or face convention lands as one `SteelProfileCode` or `SteelFace` row; a new source or view lands as one generated case or row.
 - Boundary: `DstvBend` remains a typed `KA` rejection until its complete payload is publicly readable; face frames derive wholly from the admitted header so a convention correction is one row; an unlisted DSTV code refuses through the vocabulary's own generated `TryGet` lifted to `Option`, on the rail at the line that read it. The documented `ParseException` hierarchy and BCL file availability lower to caused fabrication cases; every other throw retains the exact exceptional `Error`. `ToSvg()` remains outside fabrication projection.
@@ -34,7 +34,6 @@ using DSTV.Net.Exceptions;
 using DSTV.Net.Implementations;
 using LanguageExt;
 using LanguageExt.Common;
-using NodaTime;
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Fabrication.Geometry2D;
@@ -418,7 +417,7 @@ public sealed partial class SteelPart {
         Validate(header, features, topology, out SteelPart part).Admitted(part);
 }
 
-public sealed record SteelImportEvidence(SteelPart Part, int SourceBytes);
+public sealed record ImportedSteel(SteelPart Part, ContentKey Key);
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
@@ -507,12 +506,12 @@ public static class SteelImport {
     private const int FirstFeatureLine = HeaderLine + 1;
     private static readonly Op ReadOp = Op.Of();
 
-    public static Eff<Receipt<SteelImportEvidence>> Read(
-        SteelSource source, SteelContourPolicy policy, IClock clock) =>
+    public static Eff<ImportedSteel> Read(
+        SteelSource source, SteelContourPolicy policy) =>
         from bytes in Payload(source)
         from parsed in Parse(bytes)
-        from receipt in Admit(parsed, bytes, policy, clock).ToEff()
-        select receipt;
+        from result in Admit(parsed, bytes, policy).ToEff()
+        select result;
 
     private static Eff<byte[]> Payload(SteelSource source) =>
         source.Switch(
@@ -535,19 +534,14 @@ public static class SteelImport {
                 Some: parsed => Fault(SteelParseKind.Classify(parsed).Key, parsed.LineNumber ?? HeaderLine, error),
                 None: () => error));
 
-    private static Fin<Receipt<SteelImportEvidence>> Admit(
-        IDstv document, byte[] bytes, SteelContourPolicy policy, IClock clock) =>
+    private static Fin<ImportedSteel> Admit(
+        IDstv document, byte[] bytes, SteelContourPolicy policy) =>
         from source in Optional(document.Header).ToFin(Fault(SteelBlockKind.St.Key, HeaderLine, "steel-header:missing"))
         from header in Header(source, policy.Drawings)
         from features in Features(document.Elements, header, policy).ToFin()
         from topology in TopologyOf(features)
         from part in SteelPart.Admit(header, features, topology)
-        select new Receipt<SteelImportEvidence> {
-            Evidence = new SteelImportEvidence(part, bytes.Length),
-            Concern = FabConcern.Ingress,
-            Key = ContentKey.Of(EgressKind.Nc1, bytes),
-            Stamped = clock.GetCurrentInstant(),
-        };
+        select new ImportedSteel(part, ContentKey.Of(EgressKind.Nc1, bytes));
 
     private static Fin<SteelHeader> Header(IDstvHeader source, NamingStandard drawings) =>
         Op.Of(name: "steel:header").Catch(() => Fin.Succ(DstvMap.Header(source)))
@@ -723,7 +717,7 @@ public static class SteelImport {
 
 - Owner: `SteelView` is the closed egress row carrying its own projection delegate, and `SteelProjection` carries each row's result shape.
 - Cases: part · boundaries · preparations · features · placements · topology · identity.
-- Entry: `SteelView.<row>.Project(Receipt<SteelImportEvidence>)` — the row IS the dispatch, so no request family and no total `Switch` restate the egress roster.
+- Entry: `SteelView.<row>.Project(ImportedSteel)` — the row IS the dispatch, so no request family and no total `Switch` restate the egress roster.
 - Growth: a new egress is one `SteelView` row carrying its delegate and one `SteelProjection` case.
 - Boundary: projection returns settled evidence alone and opens no writer; NC1 emission is `Posting/dialect` work over the same `DstvMap` table this page owns.
 
@@ -745,22 +739,22 @@ public abstract partial record SteelProjection {
 [SmartEnum<string>]
 public sealed partial class SteelView {
     public static readonly SteelView Part = new("part",
-        static receipt => new SteelProjection.Part(receipt.Evidence.Part));
+        static result => new SteelProjection.Part(result.Part));
     public static readonly SteelView Boundaries = new("boundaries",
-        static receipt => new SteelProjection.Boundaries(receipt.Evidence.Part.Loops));
+        static result => new SteelProjection.Boundaries(result.Part.Loops));
     public static readonly SteelView Preparations = new("preparations",
-        static receipt => new SteelProjection.Preparations(receipt.Evidence.Part.Preparations));
+        static result => new SteelProjection.Preparations(result.Part.Preparations));
     public static readonly SteelView Features = new("features",
-        static receipt => new SteelProjection.Features(receipt.Evidence.Part.Features));
+        static result => new SteelProjection.Features(result.Part.Features));
     public static readonly SteelView Placements = new("placements",
-        static receipt => new SteelProjection.Placements(receipt.Evidence.Part.Placed));
+        static result => new SteelProjection.Placements(result.Part.Placed));
     public static readonly SteelView Topology = new("topology",
-        static receipt => new SteelProjection.Topology(receipt.Evidence.Part.Topology));
+        static result => new SteelProjection.Topology(result.Part.Topology));
     public static readonly SteelView Identity = new("identity",
-        static receipt => new SteelProjection.Identity(receipt.Key));
+        static result => new SteelProjection.Identity(result.Key));
 
     [UseDelegateFromConstructor]
-    public partial SteelProjection Project(Receipt<SteelImportEvidence> receipt);
+    public partial SteelProjection Project(ImportedSteel result);
 }
 ```
 
@@ -768,7 +762,6 @@ public sealed partial class SteelView {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

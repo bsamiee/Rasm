@@ -116,7 +116,7 @@ Timeouts are duration strings; `AUTH_TYPE` gates which credential rows apply.
 - `USE_HIGH_PRECISION` lands `NUMBER`/`NUMERIC` as Arrow `Decimal128` rather than `Float64`; the impact and quantity planes take it so carbon and quantity sums never drift on a float round-trip.
 - production refuses `SSL_SKIP_VERIFY` and `OCSP_FAIL_OPEN_MODE`; a declared trusted-environment profile is the sole bypass admission, and connection evidence records the admitted key.
 - `DISABLE_TELEMETRY` suppresses Snowflake in-band client telemetry.
-- each connection captures the resolved account, warehouse/role/database/schema, auth type, applied option keys, result-chunk count, per-chunk batch count, and Arrow schema as a partition receipt.
+- each connection exposes the resolved account, warehouse/role/database/schema, auth type, applied option keys, result-chunk count, per-chunk batch count, and Arrow schema as partition metadata.
 
 [RAIL_LAW]:
 - Package: `adbc-driver-snowflake`

@@ -271,6 +271,4 @@ def curve(value: Curve3, /) -> CadRail[TopoDS_Wire]:
 
 ## [05]-[RESEARCH]
 
-- [GP_MEMBERS]-[OPEN]: does the catalogue carry rows for `gp_Pnt.X`/`Y`/`Z`, `gp_Ax2.Location`/`XDirection`/`YDirection`, and `gp_Trsf.SetDisplacement`/`SetScale`/`Multiplied`; census the installed `OCP.gp` rail.
-- [TRSF_ORDER]-[OPEN]: does `gp_Trsf.Multiplied` apply its receiver after its argument, so `scale.Multiplied(rigid)` displaces then scales; probe a two-frame case against a hand-composed matrix.
-- [BUILDER_MEMBERS]-[OPEN]: does the catalogue carry `TColgp_HArray1OfPnt.SetValue` and `BRepBuilderAPI_MakeWire.Error`; census the installed `OCP` rail and land the rows.
+(none)

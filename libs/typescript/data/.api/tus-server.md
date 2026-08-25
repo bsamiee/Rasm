@@ -22,7 +22,7 @@
 |  [03]   | `.allowedOrigins` / `.allowedHeaders` / `.exposedHeaders`    | cors           | origin roster or predicate widening the CORS headers    |
 |  [04]   | `.maxSize` (`number \| (req, uploadId) => number`)           | bound          | admission ceiling — per-request fn reads caller quota   |
 |  [05]   | `.namingFunction` / `.generateUrl` / `.getFileIdFromRequest` | identity       | id mint, `Location` derivation, id extraction           |
-|  [06]   | `.onUploadCreate` / `.onUploadFinish`                        | hook           | admission seam; the finalize fold and receipt reply     |
+|  [06]   | `.onUploadCreate` / `.onUploadFinish`                        | hook           | admission seam; the finalize fold and the landed reply  |
 |  [07]   | `.onIncomingRequest(req, uploadId)`                          | hook           | per-request gate — the auth handoff                     |
 |  [08]   | `.onResponseError`                                           | error map      | the reply pair every fault path passes through          |
 |  [09]   | `.locker` / `MemoryLocker` / `Locker`                        | lock           | exclusive PATCH access; `MemoryLocker` default          |

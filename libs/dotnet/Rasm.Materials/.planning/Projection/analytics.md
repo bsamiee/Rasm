@@ -4,7 +4,7 @@ MATERIALS declares its analytics datasets as WIRE and projects catalogue, appear
 
 Settled composition: the declaration vocabulary is `Rasm.Element/Graph/table#DATASET_ROSTER`'s — `TableType` carries the physical tokens with their `Admits` predicate, `TableColumn` one named typed column, `TableSpine` the temporal category fused to the clock column it implies — so this folder declares `materials.<source>` rows over that vocabulary and mints none of its own.
 
-Component, Properties, Appearance, and observability owners supply already-admitted rows and receipts, and `ProjectionContext` carries the projection instant, operation key, and tenancy every stream stamps. Every dataset is EVENT-TIME, so the Series, Fleet, and Lake residences provision one declaration. Every row stream is a parameterized pure fold reaching no ambient registry.
+Component, Properties, Appearance, and observability owners supply already-admitted rows and run records, and `ProjectionContext` carries the projection instant, operation key, and tenancy every stream stamps. Every dataset is EVENT-TIME, so the Series, Fleet, and Lake residences provision one declaration. Every row stream is a parameterized pure fold reaching no ambient registry.
 
 ## [01]-[INDEX]
 
@@ -165,12 +165,12 @@ public sealed partial class MaterialsDataset {
 
 ## [03]-[ROW_PROJECTION]
 
-- Owner: `AnalyticsProjection` — the typed row records and the total folds from registered rows and typed receipts onto flat row streams; `PropertyColumn` — the selector table one scalar or dimensioned property occupies per row. Generated `Set.product`, `EnvironmentSet.product`, and `PlaneRef` are the only product, environment, and stored-level discriminants.
+- Owner: `AnalyticsProjection` — the typed row records and the total folds from registered rows and typed results onto flat row streams; `PropertyColumn` — the selector table one scalar or dimensioned property occupies per row. Generated `Set.product`, `EnvironmentSet.product`, and `PlaneRef` are the only product, environment, and stored-level discriminants.
 - Entry: `Components` folds catalogue rows; `Properties` folds per-material property rows through the admitted `PropertyColumn` table; `Sustainability` folds one row per lifecycle stage; `Library` traverses material keys through an injected admitted appearance lookup; `Capacity` chooses capacity facts off the observability stream; `Textures` exhaustively unwraps each generated `Set` surface arm and emits every `PlaneRef` level; `TextureSets` reads the same surface at set grain beside its caller-supplied tile evidence; `Environments` exhaustively unwraps `EnvironmentSet` and emits every generated environment product, including every specular level. Every fold stamps `frame.At`.
 - Auto: a dimensioned selector reads its SI accessor off the quantity the `Published` carrier holds, so the magnitude and the UCUM unit it is stated in derive from one owner and no fold re-scales; folds are total over their registered inputs — an unregistered library key aborts the library fold typed rather than emitting a partial dataset.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, UnitsNet, BCL inbox.
 - Growth: a new scalar or dimensioned property is one `PropertyColumn` row carrying its unit and its selector; a new generated environment oneof arm breaks the exhaustive fold until its level projection lands; a new dataset fold is one row record and one member beside its declaration.
-- Boundary: ingress is parameterized — every fold takes its registered input and its frame as arguments and reads no ambient registry; egress is a row `Seq` the custodian batches through its own generic record-batch fold, so buffer custody, batch sizing, and dataset writes never enter this page. Folds read the already-projected WIRE wherever one exists, so a warehouse column and the document a consumer decoded agree byte for byte; evidence no wire carries — a `TileReceipt`, a blob's stored length — enters as a SECOND ARGUMENT rather than as a re-derivation or a widened wire, and a row whose measured column has no producer is not emitted, because the alternative is a zero the measure sums.
+- Boundary: ingress is parameterized — every fold takes its registered input and its frame as arguments and reads no ambient registry; egress is a row `Seq` the custodian batches through its own generic record-batch fold, so buffer custody, batch sizing, and dataset writes never enter this page. Folds read the already-projected WIRE wherever one exists, so a warehouse column and the document a consumer decoded agree byte for byte; evidence no wire carries — a `TileRun`, a blob's stored length — enters as a SECOND ARGUMENT rather than as a re-derivation or a widened wire, and a row whose measured column has no producer is not emitted, because the alternative is a zero the measure sums.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -349,7 +349,7 @@ public static class AnalyticsProjection {
     public static Seq<CapacityCheckRow> Capacity(Seq<MaterialsFact> facts, ProjectionContext frame) =>
         facts.Choose(fact => fact as MaterialsFact.CapacityCheck).Map(check =>
             new CapacityCheckRow(
-                check.Key.Value, check.Receipt.Kind, check.Verdict.Governing.Key,
+                check.Key.Value, check.Lift.Kind, check.Verdict.Governing.Key,
                 check.Verdict.Adequate,
                 check.Verdict.Ratio,
                 check.Verdict is Utilisation.RequiresMemberCheck deferred
@@ -358,7 +358,7 @@ public static class AnalyticsProjection {
                 check.Elapsed.TotalSeconds, frame.At));
 
     public static Fin<Seq<TextureSetAnalyticsRow>> TextureSets(
-        Seq<(Wire.Set Set, Option<TileReceipt> Tile)> sets, ProjectionContext frame, Op key) =>
+        Seq<(Wire.Set Set, Option<TileRun> Tile)> sets, ProjectionContext frame, Op key) =>
         sets.Traverse(entry => Surface(entry.Set, key).Map(surface => surface.Map(value => {
             Option<TileScore> score = Scored(entry.Tile);
             Option<Wire.Press> press = value.Baked.Bind(static baked => Optional(baked.Press));
@@ -366,18 +366,18 @@ public static class AnalyticsProjection {
                 Set: Hex(value.Set.Key), Appearance: value.Baked.Map(static baked => Hex(baked.AppearanceKey)),
                 Material: Optional(value.Surface.MaterialId).Filter(static material => material.Length > 0),
                 Channels: value.Surface.Planes.Count, Packs: value.Surface.Packs.Count, Tiled: value.Surface.Tiled,
-                TileStrategy: entry.Tile.Map(static receipt => receipt.Strategy.Key),
+                TileStrategy: entry.Tile.Map(static run => run.Strategy.Key),
                 TileScore: score.Map(static measured => measured.Value),
                 TileSeamRatio: score.Map(static measured => measured.SeamRatio),
                 TileLatticeLeak: score.Map(static measured => measured.LatticeLeak),
-                Texels: press.Map(static receipt => checked((long)receipt.Texels)),
-                ElapsedSeconds: press.Map(static receipt => receipt.Elapsed.ToNodaDuration().TotalSeconds),
-                Downgraded: press.Map(static receipt => checked((long)receipt.Downgraded)),
-                FaultedTexels: press.Map(static receipt => checked((long)receipt.FaultedTexels)),
+                Texels: press.Map(static wire => checked((long)wire.Texels)),
+                ElapsedSeconds: press.Map(static wire => wire.Elapsed.ToNodaDuration().TotalSeconds),
+                Downgraded: press.Map(static wire => checked((long)wire.Downgraded)),
+                FaultedTexels: press.Map(static wire => checked((long)wire.FaultedTexels)),
                 Observed: frame.At);
         }))).As().Map(static rows => rows.Choose(static row => row));
 
-    static Option<TileScore> Scored(Option<TileReceipt> tile) => tile.Bind(static receipt => receipt.Score.Value());
+    static Option<TileScore> Scored(Option<TileRun> tile) => tile.Bind(static run => run.Score.Value());
 
     public static Fin<Seq<EnvironmentProductRow>> Environments(
         Seq<Wire.Set> sets, ProjectionContext frame, Op key) =>

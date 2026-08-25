@@ -33,13 +33,12 @@ from assay.core.model import (
     Diagnostic,
     Envelope,
     envelope as wrap_envelope,
-    ExecReceipt,
     Fault,
     Match,
     PackageRun,
     ProvisionRun,
     RailStatus,
-    receipt,
+    RemoteExecution,
     Report,
     RunDelta,
     RunSnapshot,
@@ -52,18 +51,7 @@ from assay.core.model import (
 from assay.diagnostics import fold
 from assay.rails import package as package_rail
 from tests.python._testkit.runtime import REPO_ROOT
-from tests.python._testkit.seams import (
-    Async as _Async,
-    autospec_proc,
-    Factory as _Factory,
-    FanOut as _FanOut,
-    install_module_attr,
-    NdjsonOracle,
-    psutil_module_double,
-    SeamProbe,
-    Sync,
-    TmpRoot,
-)
+from tests.python._testkit.seams import Async as _Async, autospec_proc, Factory as _Factory, FanOut as _FanOut, install_module_attr, NdjsonOracle, psutil_module_double, SeamProbe, Sync, TmpRoot
 from tests.python._testkit.strategies import resolve
 
 if TYPE_CHECKING:
@@ -80,9 +68,7 @@ if TYPE_CHECKING:
 class VerbRunner(Protocol):
     """Synchronous CLI fixture that returns decoded wire output plus raw channels."""
 
-    def __call__(
-        self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None, executor: SeamExecutor | None = None
-    ) -> CliResult: ...
+    def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None, executor: SeamExecutor | None = None) -> CliResult: ...
 
 
 class CpuSampler(Protocol):
@@ -106,7 +92,7 @@ WIRE_ENCODER = msgspec.json.Encoder(order="deterministic")
 
 rail_status_st: st.SearchStrategy[RailStatus] = resolve(RailStatus)
 completed_st: st.SearchStrategy[Completed] = resolve(Completed)
-exec_receipt_st: st.SearchStrategy[ExecReceipt] = resolve(ExecReceipt)
+remote_execution_st: st.SearchStrategy[RemoteExecution] = resolve(RemoteExecution)
 fault_st: st.SearchStrategy[Fault] = resolve(Fault)
 counts_st: st.SearchStrategy[Counts] = resolve(Counts)
 artifact_st: st.SearchStrategy[Artifact] = resolve(Artifact)
@@ -221,11 +207,7 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
 
     @override
     def install(  # ty: ignore[invalid-method-override]
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        owner: object,
-        member: str,
-        payload: Result[object, Fault] | Envelope | tuple[Result[Completed, Fault], ...],
+        self, monkeypatch: pytest.MonkeyPatch, owner: object, member: str, payload: Result[object, Fault] | Envelope | tuple[Result[Completed, Fault], ...]
     ) -> None:
         """Install the canned seam shape selected by the production member contract."""
         match member:
@@ -261,20 +243,7 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
 
     @staticmethod
     def ok(argv: tuple[str, ...] = ("rasm-bridge", "check"), status: RailStatus = RailStatus.OK) -> Result[Completed, Fault]:
-        return Ok(receipt(argv, 0, status=status))
-
-    @staticmethod
-    def receipt(
-        argv: tuple[str, ...], rc: int = 0, *, status: RailStatus | None = None, stdout: bytes = b"", stderr: bytes = b""
-    ) -> Result[Completed, Fault]:
-        """Build an ``Ok(Completed)`` outcome that still drives verb output parsing.
-
-        ``status`` defaults from ``rc``; ``stdout`` carries realistic payloads such as canned build output.
-
-        Returns:
-            Ok-wrapped completed receipt for the canned argv.
-        """
-        return Ok(receipt(argv, rc, status=status, stdout=stdout, stderr=stderr))
+        return Ok(Completed(argv, 0, status=status))
 
     @staticmethod
     def error(argv: tuple[str, ...], message: str, *, status: RailStatus = RailStatus.FAULTED) -> Result[Completed, Fault]:
@@ -329,11 +298,7 @@ def _yak_manifest() -> tuple[Path, str, str, str]:
         for path in sorted((REPO_ROOT / root_name).rglob("*.csproj"))
         if (found := slugged.search(text := path.read_text(encoding="utf-8"))) is not None
     )
-    tfm = tuple(
-        found
-        for name in ("Directory.Build.props", "Directory.Build.targets")
-        if (found := re.search(r"<TargetFramework(?:\s[^>]*)?>([^<]+)</TargetFramework>", (REPO_ROOT / name).read_text(encoding="utf-8"))) is not None
-    )
+    tfm = tuple(found for name in ("Directory.Build.props", "Directory.Build.targets") if (found := re.search(r"<TargetFramework(?:\s[^>]*)?>([^<]+)</TargetFramework>", (REPO_ROOT / name).read_text(encoding="utf-8"))) is not None)
     match (matches, tfm):
         case ((project, slug, assembly),), (framework,):
             return project, slug, assembly.group(1) if assembly is not None else slug, framework.group(1)
@@ -408,17 +373,7 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _proc(
-    *,
-    pid: int = 12345,
-    rss: int = 4096,
-    fds: int = 8,
-    cpu: float = 0.0,
-    running: bool = True,
-    status: str = _psutil.STATUS_RUNNING,
-    create_time: float = 1_700_000_000.0,
-    raise_no_such: bool = False,
-) -> MagicMock:
+def _proc(*, pid: int = 12345, rss: int = 4096, fds: int = 8, cpu: float = 0.0, running: bool = True, status: str = _psutil.STATUS_RUNNING, create_time: float = 1_700_000_000.0, raise_no_such: bool = False) -> MagicMock:
     """Build a process double with status and liveness controls.
 
     ``raise_no_such`` marks the double as a dead-process sentinel for the module factory.
@@ -426,19 +381,7 @@ def _proc(
     Returns:
         Autospec ``psutil.Process`` double with the configured fields and methods.
     """
-    return autospec_proc(
-        _psutil.Process,
-        fields={"pid": pid},
-        methods={
-            "memory_info": SimpleNamespace(rss=rss),
-            "num_fds": fds,
-            "cpu_percent": cpu,
-            "is_running": running,
-            "status": status,
-            "create_time": create_time,
-        },
-        dead=raise_no_such,
-    )
+    return autospec_proc(_psutil.Process, fields={"pid": pid}, methods={"memory_info": SimpleNamespace(rss=rss), "num_fds": fds, "cpu_percent": cpu, "is_running": running, "status": status, "create_time": create_time}, dead=raise_no_such)
 
 
 def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 4) -> MagicMock:
@@ -449,17 +392,7 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
     Returns:
         Module double exposing the canned ``Process`` dispatch and psutil error classes.
     """
-    return psutil_module_double(
-        _psutil,
-        procs,
-        not_found=lambda pid: _psutil.NoSuchProcess(int(pid) if isinstance(pid, int) else 0),
-        extra={
-            "Error": _psutil.Error,
-            "NoSuchProcess": _psutil.NoSuchProcess,
-            "AccessDenied": _psutil.AccessDenied,
-            "cpu_count": MagicMock(return_value=cpu_count),
-        },
-    )
+    return psutil_module_double(_psutil, procs, not_found=lambda pid: _psutil.NoSuchProcess(int(pid) if isinstance(pid, int) else 0), extra={"Error": _psutil.Error, "NoSuchProcess": _psutil.NoSuchProcess, "AccessDenied": _psutil.AccessDenied, "cpu_count": MagicMock(return_value=cpu_count)})
 
 
 def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock:
@@ -505,7 +438,7 @@ def make_history_envelope(run_id: str, *, claim: Claim = Claim.STATIC, status: R
     Returns:
         Envelope stamped with ``run_id`` for history-tree fixtures.
     """
-    report = fold(claim, "check", (receipt(("tool",), 0, status=status),))
+    report = fold(claim, "check", (Completed(("tool",), 0, status=status),))
     return msgspec.structs.replace(wrap_envelope(report, claim=claim, verb="check"), run_id=run_id)
 
 

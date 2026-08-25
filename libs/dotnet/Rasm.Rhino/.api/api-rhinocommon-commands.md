@@ -244,7 +244,7 @@ This catalog owns the interactive command boundary: the `Rhino.Commands.Command`
 - `Rhino.Input.Custom.GetPoint.TryGetBasePoint(out Point3d basePoint) -> bool` — reads the seeded base point.
 - `Rhino.Input.Custom.GetPoint.OsnapEventType -> OsnapModes` — reports the snap kind the dynamic events carry.
 - `Rhino.Input.Custom.GetNumber.SetLowerLimit(double lowerLimit, bool strictlyGreaterThan) -> void` / `SetUpperLimit(double upperLimit, bool strictlyLessThan) -> void`; `GetInteger` carries the same pair over `int` — numeric window gates.
-- `Rhino.RhinoApp.WriteLine(string message) -> void` — writes the command-line transcript the interaction receipts compose.
+- `Rhino.RhinoApp.WriteLine(string message) -> void` — writes the command-line transcript the status program composes.
 
 [TRANSFORM_ACQUISITION]:
 - `Rhino.Input.Custom.GetTransform.CalculateTransform(RhinoViewport viewport, Point3d point) -> Transform` — resolves the transform from the current pick.

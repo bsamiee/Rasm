@@ -1,6 +1,6 @@
 # [RUNTIME_AGENT]
 
-The agent altitude, ruled and sealed: an agent session's interaction state is a `Transition` machine from the core state page — a closed phase spine driven by a transition table, booted as the in-process serializable actor with snapshot-grade durability — and its conversational memory is the persisted `Chat` substrate the intelligence package ships, handed to the model page's gate AS its carrier, so neither state nor history is hand-assembled anywhere. The turn is one fold: recall the session through the persistence Tag's restore-or-create, compact when the meter demands, weave app-passed retrieval into the measured prompt, screen once at the gate, then iterate chat-carried gated generation under a bounded step budget until a toolless reply, a held call, or the ceiling settles it — persistence needs no closing write because a persisted chat stores prompt and response on every generation. The `Act`/`Turn`/`AgentFault` schema triple is declared once as tagged requests and serves three surfaces without re-declaration — the cluster entity's message protocol (a durable multi-process session is `work/entity#ACTOR_MINT` applied to the same triple, single-writer turn order arriving as an entity fact), the agents-as-tools row (`Tool.fromTaggedRequest` lifts `Act` so an agent is callable by another agent's toolkit), and the serving plane's proxied drive. Held-tool approval is evidence, not ceremony: the gate's held partition emits unresolved calls, the emitted tool-call parts persist inside the chat history itself — the substrate is the evidence store — the machine holds the `awaiting` phase, and release demands a complete id-correlated, structurally equal disposition of every held call before the actor resumes. The phase vocabulary has ONE anchor: the `_PHASES` tuple feeds the `Turn.phase` literal and closes the machine's node roster through its guard, so the receipt and the statechart cannot drift. The module is `runtime/src/ai/agent.ts`.
+The agent altitude, ruled and sealed: an agent session's interaction state is a `Transition` machine from the core state page — a closed phase spine driven by a transition table, booted as the in-process serializable actor with snapshot-grade durability — and its conversational memory is the persisted `Chat` substrate the intelligence package ships, handed to the model page's gate AS its carrier, so neither state nor history is hand-assembled anywhere. The turn is one fold: recall the session through the persistence Tag's restore-or-create, compact when the meter demands, weave app-passed retrieval into the measured prompt, screen once at the gate, then iterate chat-carried gated generation under a bounded step budget until a toolless reply, a held call, or the ceiling settles it — persistence needs no closing write because a persisted chat stores prompt and response on every generation. The `Act`/`Turn`/`AgentFault` schema triple is declared once as tagged requests and serves three surfaces without re-declaration — the cluster entity's message protocol (a durable multi-process session is `work/entity#ACTOR_MINT` applied to the same triple, single-writer turn order arriving as an entity fact), the agents-as-tools row (`Tool.fromTaggedRequest` lifts `Act` so an agent is callable by another agent's toolkit), and the serving plane's proxied drive. Held-tool approval is evidence, not ceremony: the gate's held partition emits unresolved calls, the emitted tool-call parts persist inside the chat history itself — the substrate is the evidence store — the machine holds the `awaiting` phase, and release demands a complete id-correlated, structurally equal disposition of every held call before the actor resumes. The phase vocabulary has ONE anchor: the `_PHASES` tuple feeds the `Turn.phase` literal and closes the machine's node roster through its guard, so the `Turn` and the statechart cannot drift. The module is `runtime/src/ai/agent.ts`.
 
 ## [01]-[INDEX]
 
@@ -392,7 +392,7 @@ const _release = <R>(spec: Agent.ReleaseSpec<R>): Effect.Effect<Agent.Release, A
     unique(spec.held) &&
     unique(spec.verdicts) &&
     Array.every(spec.verdicts, (verdict) => _matched(spec.held, verdict))
-  const receipt: Agent.Release = {
+  const release: Agent.Release = {
     approved: Array.map(Array.filter(spec.verdicts, (verdict) => verdict.approve), ({ id, tool, params }) => ({ id, tool, params })),
     declined: Array.map(Array.filter(spec.verdicts, (verdict) => !verdict.approve), ({ id, tool, params }) => ({ id, tool, params })),
   }
@@ -403,7 +403,7 @@ const _release = <R>(spec: Agent.ReleaseSpec<R>): Effect.Effect<Agent.Release, A
         { concurrency: 1, discard: true },
       ).pipe(
         Effect.zipRight(Effect.mapError(spec.actor.feed("release"), _spent)),
-        Effect.as(receipt),
+        Effect.as(release),
       )
     : Effect.fail(new AgentFault({ case: { reason: "tool", detail: "the disposition is incomplete or differs from held evidence" } }))
 }
@@ -429,7 +429,6 @@ export { Act, Agent, AgentFault, Session, Turn }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -14,15 +14,15 @@ Faults route the existing `Model/faults#FAULT_BAND` `BimFault` arms — band 260
 
 ## [01]-[INDEX]
 
-- [02]-[ENERGY_EXCHANGE]: `EnergyExchange.Apply` over `EnergyOp` `[Union]`, the `EnergyDoc`/`EnergyArtifact` carriers, `EnergyScope`, `EnergyReceipt`.
+- [02]-[ENERGY_EXCHANGE]: `EnergyExchange.Apply` over `EnergyOp` `[Union]`, the `EnergyDoc`/`EnergyArtifact` carriers, `EnergyScope`, `EnergyCensus`.
 
 ## [02]-[ENERGY_EXCHANGE]
 
-- Owner: `EnergyExchange` the one exchange entry; `EnergyOp` the closed request `[Union]` (`Raise`/`Lower`/`Translate`); `EnergyOutcome` the two-case result (`Raised` graph+delta+footprint blobs, `Emitted` the content-keyed artifact); `EnergyDoc` the foreign-document carrier keyed on pure byte content; `EnergyArtifact` the emitted document carrying the optional seam graph pedigree; `EnergyScope`/`EnergyLeg`/`EnergyReceipt` the request and evidence vocabulary; `EnergyReason`/`EnergyNote` the degrade vocabulary all three legs note into that receipt; `ArtifactKey` the object-plane address value object the events message envelope and the results join both read.
+- Owner: `EnergyExchange` the one exchange entry; `EnergyOp` the closed request `[Union]` (`Raise`/`Lower`/`Translate`); `EnergyOutcome` the two-case result (`Raised` graph+delta+footprint blobs, `Emitted` the content-keyed artifact); `EnergyDoc` the foreign-document carrier keyed on pure byte content; `EnergyArtifact` the emitted document carrying the optional seam graph pedigree; `EnergyScope`/`EnergyLeg` the request vocabulary; `EnergyCensus` the per-leg counts, keys, and degrade rows every outcome carries; `EnergyReason`/`EnergyNote` the degrade vocabulary all three legs note into that census; `ArtifactKey` the object-plane address value object the events message envelope and the results join both read.
 - Entry: `EnergyExchange.Apply(EnergyOp op)` → `Fin<EnergyOutcome>` over the generated total `Switch`. Raise composes the `Projection/semantic#GRAPH_LEGALITY` `IfcLegality` constraint under `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `ProjectionAssembly.Assemble` because it mints `Classification("ifc", code)`/`PredefinedType` values — the legality arms gate an out-of-roster class or token exactly as an IFC ingest. Each typed `BimFault` lifts BARE onto the `Fin<T>` rail: band 2600 owns the generated `Code`, no `.ToError()` hop.
 - Auto: identity is dual-keyed on the tessellation-bridge pattern — `EnergyDoc.SourceKey` and `EnergyArtifact.ContentKey` are ONE derivation, so the raise/lower round trip keys identically and the reuse join holds. `EnergyArtifact.Graph` is `Some` exactly on graph-lowered artifacts, so the Persistence artifact index joins a derived model back to its source graph without a parse. `ArtifactKey` shares the `Exchange/tessellation#TESSELLATION_BRIDGE` `:glb` `key:kind` address grammar — one object-plane address space.
-- Receipt: `EnergyReceipt` carries counts, keys, and typed degrade rows only, never payload bytes. Every leg notes an `EnergyNote` — a lowered model's `Validate()` DataAnnotations results, the OpenStudio translator `warnings()`/`errors()` tally, each degraded construction, unmatched segment, or unmapped face — and `Warnings` derives as the tally OF those rows, so a receipt states which evidence a document lost rather than how many times. Raise gates DataAnnotations inside `FromJson`, so its rows are degrade rows alone; a native diagnostic vector no managed read enumerates lands ONE row carrying its own count, which is why `EnergyNote.Tally` is a column.
-- Events: an `Emitted` outcome fires the `Model/observability#HOOK_RAIL` `rasm.bim.energy.emitted` point with `BimFact.Emitted` — the `ArtifactKey` value, the `EnergyLeg` key, the format key, and the warnings tally off the `EnergyReceipt` — at the one `EnergyReceipt` edge; the CloudEvents announcement is `Exchange/events#EVENT_PROJECTION`'s observe subscription over that point, subject the artifact's content-key head, and a message envelope minted at this rail is the deleted form.
+- Output: `EnergyCensus` carries counts, keys, and typed degrade rows only, never payload bytes. Every leg notes an `EnergyNote` — a lowered model's `Validate()` DataAnnotations results, the OpenStudio translator `warnings()`/`errors()` tally, each degraded construction, unmatched segment, or unmapped face — and `Warnings` derives as the tally OF those rows, so the census states which evidence a document lost rather than how many times. Raise gates DataAnnotations inside `FromJson`, so its rows are degrade rows alone; a native diagnostic vector no managed read enumerates lands ONE row carrying its own count, which is why `EnergyNote.Tally` is a column.
+- Events: an `Emitted` outcome fires the `Model/observability#HOOK_RAIL` `rasm.bim.energy.emitted` point with `BimFact.Emitted` — the `ArtifactKey` value, the `EnergyLeg` key, the format key, and the warnings tally off the `EnergyCensus` — at the one `EnergyOutcome` edge; the CloudEvents announcement is `Exchange/events#EVENT_PROJECTION`'s observe subscription over that point, subject the artifact's content-key head, and a message envelope minted at this rail is the deleted form.
 - Packages: HoneybeeSchema, DragonflySchema, NREL.OpenStudio.macOS-arm64, GeometryGymIFC_Core (roster vocabulary via `IfcClass`), Rasm.Element, Rasm, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions
 - Growth: a new energy-model form (an ISO 52016 XML, a FloorspaceJS floorplan) is one `Exchange/format#FORMAT_AXIS` `InterchangeFormat` row on the `energy-model` codec with one `Energy/projector` arm row or one `Energy/derive` matrix row, never a per-form `HbjsonImporter`/`OsmExporter` class; a new lower target is one `EnergyDerive` arm row; a new scope modality (a storey filter, a zone filter) is one `EnergyScope` case. Graph→OSM/gbXML/IDF egress is a SETTLED negative, never a growth arm: the OpenStudio binding's reverse-translator roster holds gbXML/IDF/SDD and no HBJSON reader, HBJSON→OSM is the python peer's `honeybee-openstudio` wire leg, and an in-process graph→OSM build is Compute's simulation-scoped `BuildModel` — so the request faults `Refused/BimReason.Capability`, never a silent partial, and the canonical egress is the two-hop composition `Lower` HBJSON → peer wire → `Translate` fan-out to gbXML/IDF.
 - Boundary: five energy rows (`hbjson`/`dfjson`/`osm`/`gbxml`/`idf`) live on the ONE `Exchange/format#FORMAT_AXIS` `InterchangeFormat` table under an `energy-model` `InterchangeCodec` row, every capability column naming this folder's realizing arm — raise = `CanImport`, the hbjson/dfjson lower = `CanExport`, the osm/gbxml/idf emit rides the `Translate` matrix over an admitted OSM-family source, so those rows hold `CanExport=false` against the graph. `Rasm.Compute` project references in either direction are the named strata defect: Compute simulates what the projector raises and the derive lowers what any projector landed, so the two align on the seam graph alone. `SimulationParameter`, run periods, conditioning policy, and weather are SIMULATION context never authored here — a lowered model is the semantic building envelope and library, its run context Compute's locally or the python recipe plane's over the wire.
@@ -137,7 +137,7 @@ public sealed record EnergyArtifact(
         new(format, bytes, EnergyDoc.KeyOf(format, bytes), graph, at);
 }
 
-public sealed record EnergyReceipt(
+public sealed record EnergyCensus(
     EnergyLeg Leg, InterchangeFormat Form, Option<InterchangeFormat> Target,
     int Spaces, int Surfaces, int Openings, int Constructions, Seq<EnergyNote> Notes,
     UInt128 Key, Instant At) {
@@ -148,8 +148,8 @@ public sealed record EnergyReceipt(
 public abstract partial record EnergyOutcome {
     private EnergyOutcome() { }
 
-    public sealed record Raised(ElementGraph Graph, GraphDelta Delta, Seq<(UInt128 Key, FootprintPolygon Ring)> Footprints, EnergyReceipt Receipt) : EnergyOutcome;
-    public sealed record Emitted(EnergyArtifact Artifact, EnergyReceipt Receipt) : EnergyOutcome;
+    public sealed record Raised(ElementGraph Graph, GraphDelta Delta, Seq<(UInt128 Key, FootprintPolygon Ring)> Footprints, EnergyCensus Census) : EnergyOutcome;
+    public sealed record Emitted(EnergyArtifact Artifact, EnergyCensus Census) : EnergyOutcome;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -169,7 +169,7 @@ public static class EnergyExchange {
                     ProjectionSuite.Of(Seq<IElementProjection>(projector), Seq(ConstraintRegistration.Of(new IfcLegality()))),
                     r.Seed, r.Ctx)
                 .Map(result => (EnergyOutcome)new EnergyOutcome.Raised(
-                    result.Graph, result.Delta, projector.Footprints, projector.Receipt(r.Ctx.At)))),
+                    result.Graph, result.Delta, projector.Footprints, projector.Census(r.Ctx.At)))),
         lower: static l => EnergyDerive.Lower(l.Graph, l.Target, l.Scope, l.Geometry, l.At, l.Key)
             .Map(static emitted => (EnergyOutcome)emitted),
         translate: static t => EnergyTranslate.Run(t.Source, t.Target, t.At, t.Key, t.Lane)

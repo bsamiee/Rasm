@@ -91,15 +91,15 @@
 [STACKING]:
 - `numpy`(`.api/numpy.md`): sample matrices and `Y` cross as plain `ndarray`; a vectorized `model(X) -> Y` closes over the full sample matrix.
 - `scipy`(`.api/scipy.md`): `problem['dists']` resolves per-variable input distributions through `scipy.stats`; non-uniform inputs are declared in the dict, never pre-transformed by the caller.
-- `arviz`(`.api/arviz.md`): a posterior-summary model output lands its indices and their `*_conf` bounds beside the `arviz` diagnostics under one study receipt keyed by `problem`/`N`/`seed`.
-- within-lib: `ResultDict.to_df()`/`ProblemSpec.to_df()` lower indices to a `pandas.DataFrame` for the receipt; `evaluate_parallel`/`evaluate_distributed` fan an expensive `model(X)` over `multiprocess`/cluster workers, owning the fan-out rather than a hand-built pool.
+- `arviz`(`.api/arviz.md`): a posterior-summary model output lands its indices and their `*_conf` bounds beside the `arviz` diagnostics under one `StudyRun` keyed by `problem`/`N`/`seed`.
+- within-lib: `ResultDict.to_df()`/`ProblemSpec.to_df()` lower run indices to a `pandas.DataFrame`; `evaluate_parallel`/`evaluate_distributed` fan an expensive `model(X)` over `multiprocess`/cluster workers, owning the fan-out rather than a hand-built pool.
 
 [LOCAL_ADMISSION]:
-- `ProblemSpec` drives every new pipeline; module-level `<method>.sample`/`.analyze` serve one-shot scripting only. Every study receipt captures `problem`, `N`, `num_resamples`, `conf_level`, `seed`, and the `ResultDict`.
+- `ProblemSpec` drives every new pipeline; module-level `<method>.sample`/`.analyze` serve one-shot scripting only. Every `StudyRun` retains the sampled design, response vector, seed, and `ResultDict` indices.
 - `scale_samples` transforms bounds only for unit-hypercube samplers (LHS); the Sobol sampler auto-scales when `problem` carries bounds.
 
 [RAIL_LAW]:
 - Package: `SALib`
 - Owns: global sensitivity analysis — sampling design and index computation over serial, parallel, and distributed model evaluation with DataFrame/plot/heatmap export
-- Accept: `ProblemSpec` `.sample`→`.evaluate`→`.analyze` pipelines with structured receipts; module-level `<method>.sample`/`.analyze` for direct use; `seed` for reproduction; `problem['dists']` for non-uniform inputs; `evaluate_parallel`/`evaluate_distributed` for expensive models
+- Accept: `ProblemSpec` `.sample`→`.evaluate`→`.analyze` pipelines; module-level `<method>.sample`/`.analyze` for direct use; `seed` for reproduction; `problem['dists']` for non-uniform inputs; `evaluate_parallel`/`evaluate_distributed` for expensive models
 - Reject: a hand-rolled Sobol/Morris/FAST index estimator where the admitted analyzer owns the method; `print_to_console=True` in production compute paths; a caller pre-transforming input distributions `problem['dists']` declares; a hand-built worker pool where `evaluate_parallel` owns the fan-out

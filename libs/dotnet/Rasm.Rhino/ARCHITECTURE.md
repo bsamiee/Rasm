@@ -9,10 +9,9 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 ├── Document/           # Host-document substrate under every host surface
 │   ├── Session.cs      # Capability-scoped document-session demand, unit-regime adjustment, worksession custody
 │   ├── Geometry.cs     # GeometryHandle retained custody: deep-copy mutation commits, in-quarantine failed disposals
-│   ├── Tables.cs       # TableKind/TableTarget vocabulary; mutation programs return consequence evidence on the Amend rail
+│   ├── Tables.cs       # TableKind/TableTarget vocabulary and sealed mutation programs
 │   ├── Events.cs       # Event observation, the transactional DocumentStream, and the hook-point registry
 │   ├── Layers.cs       # Managed layer tree with persistent visibility variants; the drafting-standards lowering seat
-│   ├── Facts.cs        # IFactSlot readable kind gate and the fact accumulation the sealing commit stamps
 │   ├── Commit.cs       # One host-mutation commit envelope; every folder commit rail enters here and none seals its own
 │   └── Lifetime.cs     # Package-wide lifetime primitives: claims capsule, symmetric subscription rollback, failure-release fold
 ├── Persistence/        # Typed serialization, settings custody, attached data, user text, saved-state presets
@@ -20,7 +19,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Settings.cs     # Settings custody scopes, typed value rail, guards, and the change ledger
 │   ├── AppSettings.cs  # AppSettingsFamily rows with capture, default, apply, and reset delegates; AppState snapshots
 │   ├── UserData.cs     # ArchiveIo spine, TypedUserData template, roster census, custody transfer
-│   ├── UserText.cs     # TextOperation closing document, attribute, geometry, detached, and wildcard text as one concern
+│   ├── UserText.cs     # TextMutationBatch writes and TextQuery detached reads
 │   ├── Presets.cs      # Sub-domain admission-refusal family mint; the construction-plane vocabulary presets and viewport share
 │   └── Snapshots.cs    # Scripted snapshot ops and the SnapShotsClient participant
 ├── Objects/            # Live document-object domain over the table rail
@@ -32,17 +31,17 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   └── Authoring.cs    # Custom-object, grip, and render-mesh programs; ObjectsTelemetry egress, host taps, classification, instrument rows
 ├── Commands/           # Native command lifecycle, input acquisition, and picked-reference projection
 │   ├── Command.cs      # CommandFlow<TState>.Drive bounded interpretation; RasmCommand<TSelf,TState> the one host entry
-│   ├── Acquisition.cs  # Parameterized input-acquisition matrix and its receipt
+│   ├── Acquisition.cs  # Parameterized input-acquisition matrix and its outcome
 │   ├── Options.cs      # OptionSet.Bind getter-window vocabulary; OptionLease native custody through deterministic release
 │   └── Selection.cs    # Picks projection with terminal ObjRef windows; owned references dispose, borrowed never
 ├── Blocks/             # Instance-definition domain over the kernel
 │   ├── Model.cs        # Live block address, LinkState carrier, closed mutation and preview policy values
 │   ├── Graph.cs        # Definition-graph topology, queries, and archive closure
 │   ├── Lifecycle.cs    # Preview bitmap custody, versioned grants, document-scoped invalidation, deterministic disposal
-│   └── Operations.cs   # Block operation and query rail, geometry intake, and receipts
+│   └── Operations.cs   # Block operation and query rail with geometry intake
 ├── Modeling/           # Host-fidelity native construction compute over the custody seam
 │   ├── Solids.cs       # SolidOp family and the Extrusion lifecycle through Solids.Build over leased ModelGate borrows
-│   ├── Lofting.cs      # LoftOp admission through the spine's ModelClaim fold; rails, profiles, constraints, ruling evidence
+│   ├── Lofting.cs      # LoftOp admission through the spine's ModelClaim fold; rails, profiles, constraints, developable products
 │   ├── Surfaces.cs     # FreeformOp union through HostSurfaces.Build: network fits, rail revolves, grid interpolation
 │   ├── Curves.cs       # CurveOp union through one build entry; pulls, projections, booleans, blend construction cases
 │   ├── Meshing.cs      # HostMeshes.Build admitted creation and egress; MeshOp.QuadRemesh the sole mesh-to-SubD seam
@@ -285,7 +284,7 @@ Fence law is census, never roster: one edge per kernel owner, consuming sub-doma
 
 Every host mutation walks one path: no sub-domain opens the document directly, the one carve being the worksession attach/detach rail, compensating through its declared per-verb inverse since Rhino's undo stack does not record it.
 
-Document-session demand gates capability, `DocumentCommit.Sealed` frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket.
+Document-session demand gates capability, `DocumentCommit.Sealed` frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed result with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket.
 
 ```mermaid
 ---
@@ -304,8 +303,8 @@ flowchart LR
     Bracket e4@--> Executor[[Sub-domain op]]
     Executor e5@--> Commit[[DocumentCommit.Sealed]]
     Commit e6@--> Redraw[Redraw compensation]
-    Redraw e7@--> Ledger[(Typed receipt)]
-    Ledger e8@--> Settle([Settle])
+    Redraw e7@--> Result[(Typed result)]
+    Result e8@--> Settle([Settle])
     Ready f1@-.->|"demand denied"| Fault[/Fault rail/]
     Session f2@-.->|"demand fault"| Fault
     Executor f3@-.->|"op fault"| Fault

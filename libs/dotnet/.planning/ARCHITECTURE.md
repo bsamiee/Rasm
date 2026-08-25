@@ -33,7 +33,7 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S1 host plane — `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm`, sit outside the host-neutral graph, and enter at the host app root.
 - S1 host law — bake stays at the host boundary, no host-neutral package references it, and the two boundaries never reference each other.
 - S2 domain — `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Materials` reference `{Rasm, Rasm.Element}`.
-- S2 spine — `Rasm.Materials` adds `Rasm.AppHost` for its stamped benchmark receipt and neutral generated-message admission.
+- S2 spine — `Rasm.Materials` adds `Rasm.AppHost` for its measured benchmark result and neutral generated-message admission.
 - S2 stores — `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record.
 - S2 recovery — `Rasm.Persistence` adds `Rasm.AppHost` for the settled `RecoveryObjective` alone.
 - S2 wire — `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Persistence` add `Rasm.Contracts` for the families their pages bind.
@@ -107,7 +107,6 @@ flowchart TB
     AppUi e24@-->|"[IMPORT]: EnvironmentLight"| Materials
     AppUi e25@-->|"[IMPORT]: TextureSet"| Materials
     AppUi e26@-->|"[IMPORT]: HiddenLineResult"| Fabrication
-    AppUi e27@-->|"[IMPORT]: DuckProfileReceipt"| Persistence
     Element e28@-->|"[IMPORT]: NodeWire support closure"| Contracts
     AppHost e29@-->|"[IMPORT]: ControlService + FaultDetail"| Contracts
     Compute e30@-->|"[IMPORT]: ComputeService"| Contracts
@@ -117,7 +116,7 @@ flowchart TB
     Bim e34@-->|"[IMPORT]: BcfTopicWire"| Contracts
     Fabrication e35@-->|"[IMPORT]: FeatureControl"| Contracts
     Persistence e36@-->|"[IMPORT]: EntityEditWire"| Contracts
-    AppUi e37@-->|"[IMPORT]: EvidenceReceiptWire"| Contracts
+    AppUi e37@-->|"[IMPORT]: Ui.EvidenceWire"| Contracts
     Rasm f1@-->|"forbidden: upward import"| S4
 ```
 
@@ -205,7 +204,6 @@ flowchart LR
     Bim e5@<-->|"[WIRE]: bcf BcfTopicWire"| TsUi
     Materials e6@-->|"[WIRE]: appearance.Material + Set"| TsCore
     AppUi e7@-->|"[WIRE]: ui command + control + layout + evidence; render residency + view"| TsUi
-    AppHost e8@-->|"[WIRE]: receipt ReceiptHeaderWire"| TsCore
     AppHost e9@-->|"[WIRE]: outbox + binding"| TsUi
     Persistence e10@<-->|"[CONTRACT]: parity.Backend"| TsData
     AppHost e11@-->|"[TRANSPORT]: OtelExport"| TsRuntime
@@ -238,7 +236,7 @@ flowchart LR
     Bim e2@-->|"SemanticProjector.Project"| Graph
     Graph e3@-->|"SemanticProjector.Emit"| Bim
     Bim e4@<-->|"DatabaseIfc"| Ifc
-    Graph e5@-->|"baked receipts"| Compute
+    Graph e5@-->|"baked results"| Compute
     Graph e6@-->|"content keys"| Persistence
 ```
 
@@ -248,7 +246,7 @@ Materials carries IFC names only as neutral `IfcBinding` row data; Bim never re-
 
 Signal crosses the strata on one plane: a signal concept two strata both spell homes at the OTel-free kernel capsule, every stratum composes it as instances with per-folder fact unions as the one per-folder signal type, and telemetry leaves the branch opaque on the `[TRANSPORT]` seam.
 
-Receipts outlive the series they project: every stratum seals its evidence through the kernel receipt port, and the analytics residence is derived, rebuilding from the receipt stream, so it answers history while the metered series answers health.
+Canonical operation results remain the truth: AppHost projects their measured facts into telemetry at the instrumentation seam, and Persistence lands only the durable domain data it owns.
 
 ```mermaid
 ---
@@ -260,23 +258,19 @@ config:
 ---
 flowchart LR
     accTitle: .NET branch signal plane spine
-    accDescr: How composed signal instances emit into AppHost governance and seal receipts, and where the laced series and receipt stream each leave.
+    accDescr: How canonical operation results project into AppHost governance and where telemetry leaves or lands.
     Capsule[Rasm · signal capsule]
     KernelRail[Rasm · SignalRail]
     Folders[folder fact unions · composed instances]
-    Receipts[(Rasm · receipt envelope stream)]
     Governance[Rasm.AppHost · SignalGovernance]
     Residence[(Rasm.Persistence · analytics residence)]
     Egress([OtelExport transport])
     Capsule e1@-->|"compose: SignalFact instance"| KernelRail
     Capsule e2@-->|"compose: fact-union instance"| Folders
-    KernelRail e3@-->|"emit: signal facts"| Governance
-    Folders e4@-->|"emit: signal facts"| Governance
-    KernelRail e5@-->|"seal: ReceiptSinkPort"| Receipts
-    Folders e6@-->|"seal: ReceiptSinkPort"| Receipts
-    Receipts e7@-->|"project: InstrumentFan"| Governance
-    Receipts e8@-->|"land: derived plane"| Residence
-    Governance e9@-->|"lace: OTel + HLC + baggage"| Egress
+    KernelRail e3@-->|"project: result facts"| Governance
+    Folders e4@-->|"project: result facts"| Governance
+    Governance e5@-->|"land: analytics plane"| Residence
+    Governance e6@-->|"lace: OTel + HLC + baggage"| Egress
 ```
 
 Exact per-stage wiring lives on the owning implementation pages.

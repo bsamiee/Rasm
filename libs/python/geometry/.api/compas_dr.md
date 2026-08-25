@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_API_COMPAS_DR]
 
-`compas_dr` owns dynamic-relaxation form-finding for axial-force networks on the COMPAS spine: pure-Python and numpy/scipy relaxation solvers, geometric constraint projection by registered geometry type, and tributary-area selfweight loads. Its `InputData` and `Constraint` carriers extend `compas.data.Data`, graduating through the shared `json_dumps`/`json_loads` handle, and `InputData.from_mesh` consumes a `compas.datastructures.Mesh`. Its numpy band offloads through `compas.rpc.Proxy`, and the relaxation loop, RK integrator, and constraint-projection algebra never re-implement here.
+`compas_dr` owns dynamic-relaxation form-finding for axial-force networks on the COMPAS spine. `InputData` and `Constraint` extend `compas.data.Data` and serialize through `json_dumps`/`json_loads`; `InputData.from_mesh` consumes `compas.datastructures.Mesh`. Its numpy band offloads through `compas.rpc.Proxy`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -108,7 +108,7 @@ Base `project`/`update`/`compute_*`/`update_location_at_param` raise `NotImpleme
 - `SelfweightCalculator` binds once against the mesh (caching the face matrix), then recomputes selfweight from the current `xyz` each iteration so gravity tracks geometry change.
 
 [STACKING]:
-- `compas`(`.api/compas.md`): `InputData` and every `Constraint` extend `compas.data.Data`, graduating through `compas.json_dumps`/`json_loads`, and `InputData.from_mesh` consumes a `compas.datastructures.Mesh`; the numpy solvers offload out of process through `compas.rpc.Proxy.function("compas_dr.solvers.dr_numpy")` across the runtime THREAD band under `RetryClass.RPC`, the eager reconnect-or-spawn Proxy lifecycle owned by `compas.md`.
+- `compas`(`.api/compas.md`): `InputData` and every `Constraint` extend `compas.data.Data`, serialize through `compas.json_dumps`/`json_loads`, and consume `Mesh` through `InputData.from_mesh`; numpy solvers offload through `compas.rpc.Proxy.function("compas_dr.solvers.dr_numpy")`.
 - `compas_tna`(`.api/compas_tna.md`): the two COMPAS solver companions share the one form-finding fault rail (`RetryClass.RPC`) and ride the same `compas` `Mesh`/`json_*` spine, selected apart by the algebra owner's `FormEngine` sub-enum.
 - `graph/algebra#ALGEBRA`: selects this solver on the one form-finding case, threads the `solver_proxy` async-resource scope so a fan of solves shares one reconnected worker, and decodes constraint geometry through `json_loads` so `Constraint(decoded_geometry)` dispatches on the real decoded type.
 

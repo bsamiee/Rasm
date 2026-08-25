@@ -5,11 +5,11 @@ Draw persistent entities and their relations. Template law bakes in the schema d
 ```mermaid
 erDiagram
     accTitle: Artifact index schema
-    accDescr: Runs issued by an owner yielding receipts and faults, consuming content-keyed artifacts through an identifying junction, bound to an externally owned tool registry, with non-identifying relations dashed.
+    accDescr: Runs issued by an owner yielding outcomes and faults, consuming content-keyed artifacts through an identifying junction, bound to an externally owned tool registry, with non-identifying relations dashed.
     OWNER ||..o{ RUN : issues
-    RUN ||..|{ RECEIPT : yields
+    RUN ||..|{ OUTCOME : yields
     RUN }o..|| REGISTRY : binds
-    RECEIPT ||..o{ FAULT : records
+    OUTCOME ||..o{ FAULT : records
     RUN ||--o{ RUN_ARTIFACT : consumes
     ARTIFACT ||--o{ RUN_ARTIFACT : feeds
     OWNER {
@@ -22,7 +22,7 @@ erDiagram
         uuid registry_id FK
         string state
     }
-    RECEIPT {
+    OUTCOME {
         uuid id PK
         uuid run_id FK
         int code
@@ -33,7 +33,7 @@ erDiagram
     }
     FAULT {
         uuid id PK
-        uuid receipt_id FK
+        uuid outcome_id FK
         string reason
     }
     ARTIFACT {

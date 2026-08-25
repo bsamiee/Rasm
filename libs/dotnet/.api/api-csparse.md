@@ -171,7 +171,7 @@
 - `SparseCholesky.Update` and `Downdate` move the standing factor by a rank-1 term, so one added or removed constraint costs no refactor.
 - `SparseQR` transposes internally below `m = n`: at `m ≥ n` it returns the least-squares minimizer, below it the minimum-norm solution of the underdetermined system.
 - `PermuteRows(int[])` mutates the receiver where `PermuteColumns(int[])` returns a new matrix.
-- `NonZerosCount` is the fill receipt: `L` for Cholesky and LDL', `L + U − n` for LU, `Q + R − m` for QR.
+- `NonZerosCount` is the fill metric: `L` for Cholesky and LDL', `L + U − n` for LU, `Q + R − m` for QR.
 - `DulmageMendelsohn.Generate`'s second parameter is a maximum-matching randomization SEED — `0` natural order, `-1` reverse, any other value random — never a dimension, and a nonzero value moves the block boundaries between two runs of one operator. It answers `null` when the matching or either breadth-first sweep fails, so the return is nullable.
 - `StructuralRank` is the library's own `rr[3]` and the deficiency is `min(m, n) − StructuralRank`; a hand-derived deficiency over coarse-block arithmetic reimplements it wrongly.
 - `CoarseRowDecomposition` and `CoarseColumnDecomposition` are `int[5]` boundary arrays over the 3-by-3 block structure of `A(p, q)`: rows split `[rr[0], rr[1])` under-determined, `[rr[1], rr[2])` square well-determined, `[rr[2], rr[3])` over-determined, `[rr[3], rr[4] = m)` unmatched; columns split `[cc[0], cc[1])` unmatched, `[cc[1], cc[2])` under-determined, `[cc[2], cc[3])` square, `[cc[3], cc[4] = n)` over-determined.
@@ -179,11 +179,11 @@
 - `ParallelMultiply` falls back to serial for small problems or one processor, and `ParallelOptions.MaxDegreeOfParallelism` caps the fan.
 
 [STACKING]:
-- `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): CSR storage, dense factorization, and Krylov iteration are the peer lanes; matrix density and factor reuse select among the three, and all exit on one solve receipt.
+- `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): CSR storage, dense factorization, and Krylov iteration are the peer lanes; matrix density and factor reuse select among the three, and all exit on one solve result.
 - `LanguageExt.Core`(`.api/api-languageext.md`): every throwing `Create` and `Solve` enters `Op.Catch`, preserving the foreign exceptional `Error` until a documented provider refusal maps to an owning fault.
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds over the same `Span<double>` GEMV and `Solve` write, so residual, axpy, and norm passes vectorize on the solve buffers with no copy.
 - `QuikGraph`(`.api/api-quikgraph.md`): pattern-graph work stays on `SymbolicColumnStorage` — `DulmageMendelsohn` and `StronglyConnectedComponents` decompose the CSC directly, so a matrix never round-trips through a vertex-and-edge container.
-- `MatrixKernel` threads the whole lane: a scatter accumulates shared parameters into `CoordinateStorage<double>`, `OfIndexed` finalizes once, the standing factorization is held behind `ISolver<double>` so LU, LDL', and Cholesky swap by problem class, and `NonZerosCount` lands in the emitted receipt.
+- `MatrixKernel` threads the whole lane: a scatter accumulates shared parameters into `CoordinateStorage<double>`, `OfIndexed` finalizes once, the standing factorization is held behind `ISolver<double>` so LU, LDL', and Cholesky swap by problem class, and `NonZerosCount` lands in the solve result.
 - `Rasm.Compute`: `Tensor/factor` `SparseOps.ToCsc`/`SparseOps.Diagonal` are the canonical `CoordinateStorage<double>` -> `CompressedColumnStorage<double>` finalization owners every assembled operator reaches a factorization through, never page-local `Converter` calls; the owned frame `ShapeFamily.Frame`/`Beam2Euler`/`Beam2Timoshenko` kernels assemble reduced global stiffness through `CoordinateStorage<double>.At` at `Solver/assembly#OPERATOR_ASSEMBLY` and factor behind the `Solver/contract` `SolveLane`, continuum and frame problems sharing one `ISparseFactorization<double>` seam; `.mtx` exchange rides `MatrixMarketReader`/`MatrixMarketWriter` with large reads routed through `Microsoft.IO.RecyclableMemoryStream`.
 
 [LOCAL_ADMISSION]:

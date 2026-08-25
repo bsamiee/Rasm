@@ -12,10 +12,10 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Identity.cs        # CanonicalWriter, XXH ContentHash, SHA-256 ArtifactContent, and deterministic derivation
 │   ├── Validation.cs      # OpAcceptance.ValidityOf single validity oracle; CapabilitySet<TCapability> the one capability column
 │   ├── Normalization.cs   # Erased-geometry conversion owner: Lease<GeometryBase> admission and the typed coercion lattice
-│   ├── Evaluation.cs      # ClosestHit receipts over Rhino.Geometry values alone; document or view reach is the boundary violation
+│   ├── Evaluation.cs      # ClosestHit over Rhino.Geometry values alone; document or view reach is the boundary violation
 │   ├── Stats.cs           # One Welford four-moment recurrence and one order-statistic reader serve every measured carrier
 │   ├── Hooks.cs           # HookRail capsule generic over each folder's <Package>Point roster; veto, observe, replay, and release law
-│   ├── Frame.cs           # TelemetrySource, CorrelationId, TenantContext, ReceiptEnvelope with its HLC mint, session-GUC namespace
+│   ├── Frame.cs           # TelemetrySource, CorrelationId, TenantContext, the Hlc stamp cell and CausalStamp, session-GUC namespace
 │   ├── Instrument.cs      # Declaration rows bind meters at mount; the backend-free tally answers a doctor verb with no exporter or store
 │   ├── Objective.cs       # Sli family, burn rows, AlertSeverity ladder, PanelSpec, BoardPack, and BenchClaim as policy data
 │   ├── Telemetry.cs       # FaultObservation, SignalFact, SpanBand, OpCost, and TelemetryContributorPort; wire-neutral evidence, no messages
@@ -24,7 +24,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   ├── Predicates.cs      # Sign total over explicit and constructed points; defining-point carriage rounds once at the emission seam
 │   ├── Faults.cs          # GeometryFault [Union] with compact generated FaultCase identities on the LanguageExt rail
 │   ├── Atoms.cs           # Guard Bands, PerceptualColor, AtomProjection rows with the identity fallthrough, primitive vector types
-│   ├── Matrix.cs          # MatrixKernel partial with transform; receipts carry route, stop, residual — no raw Matrix<double> crosses
+│   ├── Matrix.cs          # MatrixKernel partial with transform; solutions carry route, stop, residual — no raw Matrix<double> crosses
 │   ├── Transform.cs       # WindowTaper roster, Interpolant<TCap>, SpectralArena over the four MathNet layouts, both convolution routes
 │   ├── Integrate.cs       # Step is pure with no in-kernel reject loop; dense output localizes events on the solution curve
 │   ├── Spectral.cs        # Mesh-free DEC carrier layer and eigen filter surface; Meshing/dec owns the mesh-bound assembly above it
@@ -61,7 +61,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
 │   └── Reconstruct.cs     # Each ReconstructionPolicy case builds a fields scalar field; native callbacks convert through Op.Catch
 ├── Processing/            # Algorithm pipelines over the floors
 │   ├── Repair.cs          # Total over its input class: non-manifold and odd-Euler meshes heal rather than fail; mints no content hash
-│   ├── Receipts.cs        # ManifoldStatus, per-op RebuildReceipt, HealSession, RebuildLog; interior types crossing to the naming fold
+│   ├── Session.cs         # ManifoldStatus, per-op HealStep, HealSession, RebuildLog; interior types crossing to the naming fold
 │   ├── Decimate.cs        # Exact Orient3D gate refuses flipped faces by construction; reversible vertex-split stream, Hausdorff budget
 │   ├── Remesh.cs          # One projected-convexity exact flip gate over a single MeshEdit arena; first-principles rewrite, no host echo
 │   ├── Flatten.cs         # Pinned solves eliminate boundary rows so the interior factors SPD; penalty forms are the refused class
@@ -90,7 +90,7 @@ Rasm/                      # Kernel below the .NET app strata: exact-arithmetic 
     ├── Dispatch.cs        # Crossing modality is the union case; every crossing gauges its lane's declared budget and never swallows a Fin
     ├── Clock.cs           # One leased clock over a host timer; the failure-posture row decides whether a failing tick halts or runs on
     ├── Transfer.cs        # Payload slots are a closed family with total one-shot release; drag is a CASE, a write to a host-carried bundle
-    ├── Binding.cs         # Fusion legality is one closed source-flow-timing table; rigs answer a leased receipt owning refresh and unbind
+    ├── Binding.cs         # Fusion legality is one closed source-flow-timing table; rigs answer a leased link owning refresh and unbind
     ├── Control.cs         # Leaf cases carry exactly their host widget's payload; modality lives in role rows, never sibling cases
     ├── Chrome.cs          # One verb ROW claims identity, gesture, availability, and every occurrence; the chromes project one row set
     ├── Paint.cs           # One ordered mark run bounds, hit-tests, and replays onto live and printed surfaces without re-description
@@ -200,20 +200,20 @@ flowchart LR
     Bim([Rasm.Bim])
     Materials([Rasm.Materials])
     Domain e1@<-->|"[CONTENT_KEY]: XxHash128"| Element
-    Domain e2@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand"| Element
+    Domain e2@-->|"[PORT]: InstrumentSpec + SpanBand"| Element
     Domain e3@-->|"[CONTENT_KEY]: ContentHash"| Persistence
     Domain e4@-->|"[CONTENT_KEY]: ContentHash"| Compute
-    Domain e5@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + SpanBand + Slo"| Compute
+    Domain e5@-->|"[PORT]: InstrumentSpec + SpanBand + Slo"| Compute
     Domain e6@-->|"[CONTENT_KEY]: ContentHash"| AppHost
     Domain e7@-->|"[SHAPE]: TelemetrySink + InstrumentSpec + AlertSeverity"| AppHost
     Domain e8@-->|"[WIRE]: BenchClaim"| AppHost
-    Domain e9@-->|"[PORT]: ReceiptSinkPort + TenantContext"| AppHost
+    Domain e9@-->|"[PORT]: Hlc + TenantContext"| AppHost
     Domain e10@-->|"[CONTENT_KEY]: ContentHash"| AppUi
-    Domain e11@-->|"[PORT]: ReceiptSinkPort + InstrumentSpec + Slo"| AppUi
+    Domain e11@-->|"[PORT]: InstrumentSpec + Slo"| AppUi
     Domain e12@-->|"[SHAPE]: BenchClaim"| Bim
-    Domain e13@-->|"[PORT]: ReceiptSinkPort"| Bim
+    Domain e13@-->|"[EVENT]: RasmEventEnvelope"| Bim
     Domain e14@-->|"[SHAPE]: BenchClaim"| Materials
-    Domain e15@-->|"[PORT]: ReceiptSinkPort"| Materials
+    Domain e15@-->|"[EVENT]: RasmEventEnvelope"| Materials
     Numerics e16@<-->|"[SHAPE]: DiscreteCalculus"| Compute
     Numerics e17@-->|"[SHAPE]: Predicate + SunPosition + FieldIntegrator + IntegrationDomain"| Compute
     Numerics e18@-->|"[SHAPE]: CellLattice"| Element
@@ -274,7 +274,7 @@ flowchart LR
     Processing e6@-->|"[WIRE]: VectorIntent"| Fabrication
     Processing e7@-->|"[PROJECTION]: ChartAtlas"| Fabrication
     Solving e8@-->|"[SHAPE]: ObjectiveSense"| Fabrication
-    Solving e9@-->|"[WIRE]: FitReceipt"| Fabrication
+    Solving e9@-->|"[WIRE]: Fitted"| Fabrication
     Drawing e10@-->|"[PROJECTION]: DrawingProjection"| Fabrication
     Fabrication e11@-->|"[WIRE]: ToolpathPath"| Drawing
 ```
@@ -333,14 +333,14 @@ One crossing law rules the interior: identity mints once and everything downstre
 - `Drawing` encodes geometry once — one payload, `EncodedGeometry` to the sandbox host, wrapped as `EncodedTensor` for compute residency.
 - `PackSchema` columnar identity, `ContentHash`-derived, rides that same wire as the one schema authority storage adapters read.
 - Signal exits once: `Domain/Telemetry` owns the branch's OTel-free signal capsule, and every stratum composes it downward as instances.
-- Causal frame names the receipt seam for every emitting stratum without an upward reference.
+- Causal frame stamps every stratum's published facts with no upward reference — `Hlc` mints, `RasmEventEnvelope.Publish` announces.
 - `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it.
 - Every descriptor plane compiles one burn discipline and re-declares no panel row.
 
 ## [05]-[BOUNDARIES]
 
 - `TelemetrySink` is the kernel's first-consumer arm the AppHost fan admits by name — `rasm.kernel` meter, `rasm.rasm.<domain>` sources.
-- Causal-frame vocabulary seats here: `TelemetrySource` `CorrelationId` `TenantId`/`TenantContext` `ReceiptEnvelope` `ReceiptSinkPort`.
+- Causal-frame vocabulary seats here: `TelemetrySource` `CorrelationId` `TenantId`/`TenantContext` `HlcStamp`/`Hlc` `CausalStamp`.
 - OTel baggage store, foreign-source rows, and resource lacing register at the app platform as composition rows.
 - Objectives are policy, not signal: the indicator family, burn table, routing severity, panel vocabulary, and `BoardPack` carrier seat here.
 - Packs travel downward on `TelemetryContributorPort` beside the rows they name; the mounting root is the proving surface.

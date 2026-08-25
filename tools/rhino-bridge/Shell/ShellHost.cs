@@ -128,19 +128,19 @@ public sealed class ShellHost : IDisposable {
         public Task<Handshake> HelloAsync(Handshake supervisor, CancellationToken ct) =>
             Task.FromResult(result: host.Hello(connection: this, supervisor: supervisor));
 
-        public Task<CargoReceipt> LoadCargoAsync(CargoManifest manifest, CancellationToken ct) =>
+        public Task<LoadedCargo> LoadCargoAsync(CargoManifest manifest, CancellationToken ct) =>
             host.LoadCargoAsync(connection: this, manifest: manifest, ct: ct);
 
-        public Task<ScenarioReceipt[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
+        public Task<ScenarioOutcome[]> RunAsync(ScenarioSelection selection, CancellationToken ct) =>
             host.RunAsync(connection: this, selection: selection, ct: ct);
 
-        public Task<UnloadReceipt> UnloadCargoAsync(CancellationToken ct) =>
+        public Task<UnloadOutcome> UnloadCargoAsync(CancellationToken ct) =>
             host.UnloadCargoAsync(connection: this, ct: ct);
 
         public Task<long> PingAsync(CancellationToken ct) =>
             Task.FromResult(result: Environment.TickCount64);
 
-        public Task<QuitPrepareReceipt> PrepareQuitAsync(CancellationToken ct) =>
+        public Task<QuitScrub> PrepareQuitAsync(CancellationToken ct) =>
             host.PrepareQuitAsync(connection: this, ct: ct);
     }
 
@@ -154,8 +154,8 @@ public sealed class ShellHost : IDisposable {
             ContractGeneration: Handshake.Generation,
             SenderVersion: ShellVersion,
             Capabilities: [
-                new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Receipt: RpcAssemblyVersion),
-                new CapabilityEntry(Key: "alc.default.resolving", Outcome: PhaseStatus.Ok, Receipt: DefaultResolveReceipt()),
+                new CapabilityEntry(Key: "rpc.streamjsonrpc", Outcome: PhaseStatus.Ok, Detail: RpcAssemblyVersion),
+                new CapabilityEntry(Key: "alc.default.resolving", Outcome: PhaseStatus.Ok, Detail: DefaultResolves()),
                 shellContent,
                 McpListener(),
                 McpPlatform(),
@@ -164,20 +164,20 @@ public sealed class ShellHost : IDisposable {
             Endpoint: endpoint);
     }
 
-    private async Task<CargoReceipt> LoadCargoAsync(Connection connection, CargoManifest manifest, CancellationToken ct) {
+    private async Task<LoadedCargo> LoadCargoAsync(Connection connection, CargoManifest manifest, CancellationToken ct) {
         ArgumentNullException.ThrowIfNull(argument: manifest);
         Admit(connection: connection);
         activeManifest = manifest;
         return await pump.OnUiThreadAsync(job: () => {
             PreloadHostPlugins(plugins: manifest.HostPlugins);
-            CargoReceipt receipt = gate.Swap(manifest: manifest, running: RunningFingerprint(), publish: Publish);
-            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.count", value: receipt.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
-            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: receipt.Scenarios.Select(selector: static scenario => scenario.Name))));
-            return receipt;
+            LoadedCargo loaded = gate.Swap(manifest: manifest, running: RunningFingerprint(), publish: Publish);
+            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.count", value: loaded.Scenarios.Length.ToString(provider: CultureInfo.InvariantCulture)));
+            Publish(evt: BridgeEvent.Fact(key: "scenario.discovered.names", value: string.Join(separator: ',', values: loaded.Scenarios.Select(selector: static scenario => scenario.Name))));
+            return loaded;
         }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
     }
 
-    private async Task<ScenarioReceipt[]> RunAsync(Connection connection, ScenarioSelection selection, CancellationToken ct) {
+    private async Task<ScenarioOutcome[]> RunAsync(Connection connection, ScenarioSelection selection, CancellationToken ct) {
         ArgumentNullException.ThrowIfNull(argument: selection);
         Admit(connection: connection);
         IBridgeCargo cargo = gate.Current ?? throw new LocalRpcException(message: "no cargo loaded: LoadCargoAsync precedes RunAsync") { ErrorCode = FaultErrorCode };
@@ -188,30 +188,30 @@ public sealed class ShellHost : IDisposable {
         if (selected.Length == 0) {
             BridgeFault fault = new BridgeFault.CapabilityAbsent(
                 Capability: "scenario.selection",
-                ProbeReceipt: $"selection matched zero scenarios; discovered={string.Join(separator: ',', values: discovered.Select(selector: static scenario => scenario.Name))}");
+                Detail: $"selection matched zero scenarios; discovered={string.Join(separator: ',', values: discovered.Select(selector: static scenario => scenario.Name))}");
             throw new LocalRpcException(message: fault.Prescription) {
                 ErrorCode = FaultErrorCode,
                 ErrorData = JsonSerializer.SerializeToElement(value: fault, jsonTypeInfo: BridgeJsonContext.Default.BridgeFault),
             };
         }
-        ScenarioReceipt[] receipts = new ScenarioReceipt[selected.Length];
+        ScenarioOutcome[] outcomes = new ScenarioOutcome[selected.Length];
         for (int index = 0; index < selected.Length; index++) {
             ScenarioEntry entry = selected[index];
-            receipts[index] = await pump.OnUiThreadAsync(job: () => cargo.Run(scenario: entry, publish: Publish), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+            outcomes[index] = await pump.OnUiThreadAsync(job: () => cargo.Run(scenario: entry, publish: Publish), ct: ct).ConfigureAwait(continueOnCapturedContext: false);
         }
-        return receipts;
+        return outcomes;
     }
 
-    private async Task<UnloadReceipt> UnloadCargoAsync(Connection connection, CancellationToken ct) {
+    private async Task<UnloadOutcome> UnloadCargoAsync(Connection connection, CancellationToken ct) {
         Admit(connection: connection);
-        UnloadReceipt receipt = await pump.OnUiThreadAsync(job: gate.Unload, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
+        UnloadOutcome unloaded = await pump.OnUiThreadAsync(job: gate.Unload, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
         ReleaseOwner(connection: connection);
-        return receipt;
+        return unloaded;
     }
 
-    private async Task<QuitPrepareReceipt> PrepareQuitAsync(Connection connection, CancellationToken ct) {
+    private async Task<QuitScrub> PrepareQuitAsync(Connection connection, CancellationToken ct) {
         Admit(connection: connection);
-        (QuitPrepareReceipt receipt, Gh2ScrubOutcome gh2) = await pump.OnUiThreadAsync(job: static () => {
+        (QuitScrub quit, Gh2ScrubOutcome gh2) = await pump.OnUiThreadAsync(job: static () => {
             RhinoDoc[] open = RhinoDoc.OpenDocuments();
             int markedClean = open.Count(predicate: static doc => doc.Modified);
             Array.ForEach(array: open, action: static doc => doc.Modified = false);
@@ -219,16 +219,16 @@ public sealed class ShellHost : IDisposable {
             RhinoDoc[] residual = RhinoDoc.OpenDocuments();
             int residualDirty = residual.Count(predicate: static doc => doc.Modified);
             string[] savedPaths = [.. residual.Where(predicate: static doc => doc.Modified && doc.Path is { Length: > 0 }).Select(selector: static doc => doc.Path)];
-            return (new QuitPrepareReceipt(Documents: open.Length, MarkedClean: markedClean, ResidualDirty: residualDirty, Gh2: scrub.Summary, SavedPaths: savedPaths), scrub);
+            return (new QuitScrub(Documents: open.Length, MarkedClean: markedClean, ResidualDirty: residualDirty, Gh2: scrub.Summary, SavedPaths: savedPaths), scrub);
         }, ct: ct).ConfigureAwait(continueOnCapturedContext: false);
         Publish(evt: BridgeEvent.Fact(
             key: "quit.prepared",
             value: string.Create(provider: CultureInfo.InvariantCulture,
-                $"{(receipt.Scrubbed ? "rhino-docs-marked-clean" : "rhino-docs-residual-dirty")}; documents={receipt.Documents};markedClean={receipt.MarkedClean};residualDirty={receipt.ResidualDirty}; gh2={receipt.Gh2}")));
+                $"{(quit.Scrubbed ? "rhino-docs-marked-clean" : "rhino-docs-residual-dirty")}; documents={quit.Documents};markedClean={quit.MarkedClean};residualDirty={quit.ResidualDirty}; gh2={quit.Gh2}")));
         if (gh2 is Gh2ScrubOutcome.Failed) {
-            Publish(evt: BridgeEvent.Fact(key: "quit.scrub.gh2-reflective-failed", value: receipt.Gh2));
+            Publish(evt: BridgeEvent.Fact(key: "quit.scrub.gh2-reflective-failed", value: quit.Gh2));
         }
-        return receipt;
+        return quit;
     }
 
     // --- [ADMISSION]
@@ -303,7 +303,7 @@ public sealed class ShellHost : IDisposable {
         return null;
     }
 
-    private string DefaultResolveReceipt() {
+    private string DefaultResolves() {
         string[] names = [.. defaultResolves.Distinct(comparer: StringComparer.Ordinal).Order(comparer: StringComparer.Ordinal)];
         return string.Create(provider: CultureInfo.InvariantCulture, $"{names.Length}:{string.Join(separator: ',', value: names)}");
     }
@@ -311,11 +311,11 @@ public sealed class ShellHost : IDisposable {
     private static CapabilityEntry McpListener() =>
         Environment.GetEnvironmentVariable(variable: "RHINO_MCP_AUTOSTART_PORT") switch {
             "0" => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-                Receipt: "autostart suppressed by RHINO_MCP_AUTOSTART_PORT=0; bridge did not start a listener"),
+                Detail: "autostart suppressed by RHINO_MCP_AUTOSTART_PORT=0; bridge did not start a listener"),
             { Length: > 0 } port => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-                Receipt: $"listener autostart gate unavailable; bridge owns no autostart for RHINO_MCP_AUTOSTART_PORT={port}"),
+                Detail: $"listener autostart gate unavailable; bridge owns no autostart for RHINO_MCP_AUTOSTART_PORT={port}"),
             _ => new CapabilityEntry(Key: "mcp.listener", Outcome: PhaseStatus.Unsupported,
-                Receipt: "listener autostart gate unavailable; bridge did not start a listener"),
+                Detail: "listener autostart gate unavailable; bridge did not start a listener"),
         };
 
     private static CapabilityEntry McpPlatform() {
@@ -325,8 +325,8 @@ public sealed class ShellHost : IDisposable {
             .Select(selector: static name => $"{name.Name}:{name.Version}")
             .Order(comparer: StringComparer.Ordinal)];
         return loaded.Length == 0
-            ? new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Unsupported, Receipt: "McNeel Rhino-MCP-Platform not loaded")
-            : new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Ok, Receipt: string.Join(separator: ',', value: loaded));
+            ? new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Unsupported, Detail: "McNeel Rhino-MCP-Platform not loaded")
+            : new CapabilityEntry(Key: "mcp.platform.version", Outcome: PhaseStatus.Ok, Detail: string.Join(separator: ',', value: loaded));
     }
 
     private static bool IsMcneelRhinoMcp(Assembly assembly) =>
@@ -342,10 +342,10 @@ public sealed class ShellHost : IDisposable {
         try {
             return File.Exists(path: path)
                 ? new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Ok,
-                    Receipt: Convert.ToHexStringLower(inArray: SHA256.HashData(source: File.ReadAllBytes(path: path))))
-                : new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Receipt: $"missing:{path}");
+                    Detail: Convert.ToHexStringLower(inArray: SHA256.HashData(source: File.ReadAllBytes(path: path))))
+                : new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Detail: $"missing:{path}");
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) {
-            return new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Receipt: $"{error.GetType().Name}: {error.Message}");
+            return new CapabilityEntry(Key: Handshake.ShellContentCapability, Outcome: PhaseStatus.Failed, Detail: $"{error.GetType().Name}: {error.Message}");
         }
     }
 
@@ -419,7 +419,7 @@ public sealed class ShellHost : IDisposable {
 
     private static int ClientPidOf(CapabilityEntry[] capabilities) =>
         capabilities.FirstOrDefault(predicate: static entry => string.Equals(a: entry.Key, b: "client.pid", comparisonType: StringComparison.Ordinal))
-            is { Receipt: { Length: > 0 } receipt } && int.TryParse(s: receipt, provider: CultureInfo.InvariantCulture, result: out int pid) ? pid : 0;
+            is { Detail: { Length: > 0 } text } && int.TryParse(s: text, provider: CultureInfo.InvariantCulture, result: out int pid) ? pid : 0;
 
     // --- [TRANSPORT]
 

@@ -134,7 +134,6 @@ message Provenance {
   Ingest ingest = 5;
 }
 
-// The optional CPU-minted press receipt of a baked set.
 message Press {
   bytes plan_key = 1 [(buf.validate.field).bytes.len = 16];
   optional bytes graph_key = 2 [(buf.validate.field).bytes.len = 16];

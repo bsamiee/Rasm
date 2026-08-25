@@ -133,7 +133,7 @@
 - Payload owners thread `create_using=` to select directedness and multiplicity; one entry discriminates on graph kind instead of branching per subtype.
 - Node and edge attributes live in per-element dicts; `nodes`, `edges`, `adj`, and `degree` return live views over the graph, never copies.
 - Directed classes add `successors`/`predecessors` and `in_edges`/`out_edges`; multi-edge classes key parallel edges through `new_edge_key`.
-- Every `@nx._dispatchable` algorithm carries `*, backend=None, **backend_kwargs`; `backend=` selects an installed entry-point engine without changing the call site, and the receipt records the backend rather than forking parallel call sites per backend.
+- Every `@nx._dispatchable` algorithm carries `*, backend=None, **backend_kwargs`; `backend=` selects an installed entry-point engine without changing the call site.
 - `shortest_path` discriminates `method=` and source/target presence to return one path, a per-target dict, or the all-pairs dict from a single entry; `floyd_warshall` is the dense all-pairs form.
 
 [STACKING]:
@@ -143,11 +143,11 @@
 
 [LOCAL_ADMISSION]:
 - `nx.config` (a `NetworkXConfig`) owns process-global dispatch policy — `backend_priority`, `backends`, `cache_converted_graphs`, `fallback_to_nx`, `warnings_to_ignore`; the graph rail sets it once at boundary scope and threads `backend=` only to override the global priority for one call.
-- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the domain rail translates the raised exception at the boundary into the Result rail, and the receipt captures the algorithm name with the typed failure.
+- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the domain rail translates the raised exception at the boundary into the `Result` rail.
 - Community algorithms namespace under `nx.community`: `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition, returning `list[set]`/`list[frozenset]`/a nested-tuple iterator.
 
 [RAIL_LAW]:
 - Package: `networkx`
 - Owns: graph payload classes, conversion bridges, file-format and JSON codecs, algorithm families, the `nx.community` detection namespace, and the `nx.config` backend-dispatch layer
-- Accept: graph-kind discrimination via `create_using` and `node_link_graph(directed=, multigraph=)`; tabular/array/dict/sparse bridges; file and JSON codecs; algorithm receipts on the typed exception base; backend selection via `backend=` / `nx.config.backend_priority`
+- Accept: graph-kind discrimination via `create_using` and `node_link_graph(directed=, multigraph=)`; tabular/array/dict/sparse bridges; file and JSON codecs; typed algorithm failures on the `NetworkXException` base; backend selection via `backend=` / `nx.config.backend_priority`
 - Reject: wrapper-renames, per-graph-kind parallel entrypoints, per-backend forked call sites, weaker local reimplementation of supplied algorithms, and product graph-database or route-discovery state

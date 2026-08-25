@@ -1,19 +1,19 @@
 # [RASM_GRASSHOPPER_DOCUMENT_GRAPH]
 
-`GraphScope` is the graph query-and-wire operator of the GH2 document boundary — ONE scope owner with two gates: `Ask` settles every read intent over the host's own `ObjectList` and `Connectivity` surfaces, and `Mutate` settles every wire and membership mutation over `Grasshopper2.Parameters.Connections`, `ObjectList`, and the `SplitWire` wireless split, each mutation sealed into the undo ledger as one act and gauged on `Document/document.md`'s shared gate spine.
+`GraphScope` is the graph query-and-wire operator of the GH2 document boundary — ONE scope owner with two gates: `Ask` returns every read intent over the host's own `ObjectList` and `Connectivity` surfaces, and `Mutate` returns every wire and membership mutation over `Grasshopper2.Parameters.Connections`, `ObjectList`, and the `SplitWire` wireless split, with each undo-bearing mutation sealed as one act on `Document/document.md`'s shared gate spine.
 
-Traversal is host-absorbed: reachability walks, cycle detection, bounded path enumeration, and causal ordering are the host's `Connectivity.FindImmediate*`/`FindAll*`/`FindConnections`/`SubsetTopology`/`IsLinear`/`SortCausally`/`WithoutRelays`, and spatial resolution is `ObjectList.SearchUpstream`/`SearchDownstream`/`FindNear`/`FindByInlet`/`FindByOutlet`/`FindByInletOrOutlet`, each reached through typed rows, never re-implemented beside them. Read intent is a `GraphProbe` union settled into one `GraphAnswer` union; mutation intent is a `GraphMutation` union whose sealed arms pair the host verb with its `ActionList` record; direction, reach span, roster facet, wire-end role, and bulk-transfer kind are `[SmartEnum<int>]` row families so a new modality is a row, never a sibling method. Membership on the multi-axis knobs rides `CapabilitySet` vocabularies — relay elision on its own `RelayAxis` rows, the window survey on the KERNEL's `PickAxis` rows directly — so no positional bool triple survives at any host call.
+Traversal is host-absorbed: reachability walks, cycle detection, bounded path enumeration, and causal ordering are the host's `Connectivity.FindImmediate*`/`FindAll*`/`FindConnections`/`SubsetTopology`/`IsLinear`/`SortCausally`/`WithoutRelays`, and spatial resolution is `ObjectList.SearchUpstream`/`SearchDownstream`/`FindNear`/`FindByInlet`/`FindByOutlet`/`FindByInletOrOutlet`, each reached through typed rows, never re-implemented beside them. Read intent is a `GraphProbe` union returning one `GraphAnswer` union; mutation intent is a `GraphMutation` union whose sealed arms pair the host verb with its `ActionList` record; direction, reach span, roster facet, wire-end role, and bulk-transfer kind are `[SmartEnum<int>]` row families so a new modality is a row, never a sibling method. Membership on the multi-axis knobs rides `CapabilitySet` vocabularies — relay elision on its own `RelayAxis` rows, the window survey on the KERNEL's `PickAxis` rows directly — so no positional bool triple survives at any host call.
 
 ## [01]-[INDEX]
 
 - [02]-[QUERY]: `FlowSide` + `GraphReach` + `GraphRoster` + `NearKind` + `GripSearch` + `RelayAxis` + `GripHit` + `LinearVerdict` + `GraphProbe` + `GraphAnswer` — the read-intent union, the direction/reach/roster/search row families, and the one `Ask` gate.
-- [03]-[MUTATION]: `WireEndRole` + `WireFreight` + `GraphMutation` — the wire/membership mutation union and the one `Mutate` gate onto the folder's `DocumentGate.Run` spine and `GateReceipt`.
+- [03]-[MUTATION]: `WireEndRole` + `WireFreight` + `GraphMutation` — the wire/membership mutation union and the one `Mutate` gate onto the folder's `DocumentGate.Run` spine.
 
 ## [02]-[QUERY]
 
 - Owner: `GraphProbe` `[Union]` — the one read-intent vocabulary. `ObjectCase(Guid)`/`ParameterCase(Guid)` resolve identity through `ObjectList.Find`/`FindParameter` into `Option`-carrying answers; `FlowCase(IParameter, FlowSide)` runs the transitive object sweep through `SearchUpstream`/`SearchDownstream` selected by the direction row; `ReachCase(ConnectiveObject, GraphReach)` runs the four `Connectivity` neighbourhood reads through one 4-row family (`ImmediateInputs`/`ImmediateOutputs`/`AllInputs`/`AllOutputs`); `EdgeCase(ConnectiveObject, ConnectiveObject)` enumerates every causal path between the pair through `FindConnections`; `TopologyCase(Seq<IDocumentObject>)` measures the subset's topology class through `SubsetTopology`; `LinearCase(Seq<ConnectiveObject>)` answers chain detection through `IsLinear` as a `LinearVerdict` — the union carries the head/tail witnesses ONLY on the chain case, so a tangled verdict with endpoints is unrepresentable; `CausalCase(Seq<ConnectiveObject>)` orders through `SortCausally`; `RelayFreeCase(CapabilitySet<RelayAxis>)` projects the relay-elided view through `WithoutRelays`, each admitted axis naming the relay arity it removes and the EMPTY set being the un-elided `ObjectList.Connectivity` snapshot itself; `NearCase(PointF, int, float, NearKind)` runs the host's relevance-sorted spatial search through `FindNear<T>`, the kind row closing the type parameter; `GripCase(PointF, GripSearch)` resolves the closest inlet, outlet, or exposed grip through the three `FindBy*` finders into one `GripHit` carrier; `RosterCase(GraphRoster)` sweeps the membership projections — `Forwards`, `Backwards`, `ActiveObjects`, `ExpiredObjects`, `Groups`, `AllWires`, `SelectedWires`, the document-level pin roster, the supported-pin id set, and the `AttributeBounds`/`PivotBounds` pair of graph bounding envelopes — through one 11-row family.
 - Owner: `GripHit` — ONE grip-probe carrier: its resolved pin beside its in-range sides as `CapabilitySet<PinSide>` (`Components/ports.md`'s side vocabulary), so the occlusion-split finders and the exposure finder settle ONE shape — side-specific finders mint singleton sets, and the exposure finder folds the host's two range booleans into membership. `LinearVerdict` `[Union]` — `ChainCase(Head, Tail)` carries the endpoint witnesses, `TangledCase` carries nothing. `GraphAnswer` `[Union]` closes the result space: `ObjectCase`/`ParameterCase` (`Option` payloads), `ObjectsCase`/`NodesCase`/`GroupsCase`/`WiresCase`/`GlobalPinsCase`/`IdentitiesCase` (`Seq` payloads), `BoundsCase` (a `RectangleF` envelope), `WebCase` (the `WithoutRelays` view), `TopologyCase` (a `GraphTopology` verdict), `PathsCase` (route sequences), `LinearCase(LinearVerdict)`, `GripCase(Option<GripHit>)`.
-- Entry: `GraphScope.Ask(GraphProbe probe, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GraphAnswer>` — the one read gate; identity lookup, neighbourhood reach, spatial search, topology, and roster sweeps are cases, never sibling methods; reads settle answers, not receipts, so the gate rides `DocumentGate.Resolve`'s marshal without a gauge.
+- Entry: `GraphScope.Ask(GraphProbe probe, Option<HostDocument> graph = default, Op? key = null)` → `Fin<GraphAnswer>` — the one read gate; identity lookup, neighbourhood reach, spatial search, topology, and roster sweeps are cases, never sibling methods; reads return direct answers, so the gate rides `DocumentGate.Resolve`'s marshal without a gauge.
 - Law: traversal is host-absorbed — a reachability walk, cycle probe, path enumeration, causal sort, or nearest-object scan written locally beside `Connectivity` and `ObjectList` is the re-derivation defect this page kills; the kernel contributes no graph algorithm here because the host owns its own graph, and kernel graph owners serve host-neutral geometry, not the live document.
 - Law: the spatial and grip finders live on `ObjectList`, never on `Connectivity` — `Connectivity` is the immutable connection snapshot and carries no coordinate, so a pick, hover, or drop probe reaches the object list directly and `ObjectList.Connectivity` is where the two meet.
 - Law: the grip family splits on OCCLUSION, not on side alone — `FindByInlet`/`FindByOutlet` answer the closest grip even where another object covers it (the drag-target read), while `FindByInletOrOutlet` refuses an occluded grip and reports which side fell within range (the hover read); a `null` from any of the three is absence, projected at the finder into the one `Option<GripHit>` carrier.
@@ -206,18 +206,17 @@ public static partial class GraphScope {
 
 ## [03]-[MUTATION]
 
-- Owner: `GraphMutation` `[Union]` `[GenerateUnionOps]` — the one wire-and-membership mutation vocabulary. `LinkCase(IParameter, IParameter)`/`UnlinkCase(IParameter, IParameter)` add and remove one wire through `Connections.Connect`/`Disconnect`; `PruneCase(IParameter, FlowSide, Seq<Guid>)` clears one side but a kept set through the direction row's `DisconnectAll*Except` column — an empty kept set is the full-side clear, so the bare disconnect-all verbs are the empty shape of one case; `RewireCase(WireEndRole, IParameter, IParameter, IParameter)` re-points a wire endpoint through `ReplaceSource`/`ReplaceTarget` selected by the end-role row; `SwapCase(IParameter, IParameter, IParameter, IParameter)` exchanges the sources feeding two targets through `SwapSources`; `BypassCase(IParameter, IParameter, IParameter)` cuts an intermediate through `CutOutMiddleMan`; `TransferCase(WireFreight, IParameter, IParameter)` hauls a whole wire set through `CopyAllInputs`/`MigrateAllOutputs` as freight rows; `SplitCase(IParameter, IParameter, string, PointF)` splits a wire into its wireless `Shout`/`Listen` pair through `DocumentMethods.SplitWire`, the pair's identities riding the receipt as `Document/document.md`'s `WirelessPair`; `RemapCase(Option<HashMap<Guid, Guid>>)` discriminates on payload shape — `None` remints every id through `ChangeAllIds` and answers the host's own correspondence, `Some` applies the explicit map through `ApplyIdMap`; `PinCase(IPin)`/`RepairCase(PinRepair)` own document-pin membership and repair, the repair arm surfacing the host's per-pin report as `PinRepairRow` rows; `ExpireCase` expires the whole membership through `ExpireAll`; `WindowCase(WindowSelection, SelectionMode, CapabilitySet<PickAxis>)` applies rectangle selection through `WindowSelect` over the KERNEL pick vocabulary — the same `Foreground`/`Background`/`Wires` axes the canvas pick gate reads, so no folder-local survey triple exists.
-- Entry: `GraphScope.Mutate(VerbNoun label, GraphMutation op, MonotonicTimeline clock, Option<HostDocument> graph = default, Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Op? key = null)` → `Fin<GateReceipt<Seq<UiEvent<GhFact>>>>` — the one mutation gate on the shared `DocumentGate.Run` spine at `GateLane.Mutate`; the clock is the session's injected timeline, REQUIRED, never minted per call.
+- Owner: `GraphMutation` `[Union]` `[GenerateUnionOps]` — the one wire-and-membership mutation vocabulary. `LinkCase(IParameter, IParameter)`/`UnlinkCase(IParameter, IParameter)` add and remove one wire through `Connections.Connect`/`Disconnect`; `PruneCase(IParameter, FlowSide, Seq<Guid>)` clears one side but a kept set through the direction row's `DisconnectAll*Except` column — an empty kept set is the full-side clear, so the bare disconnect-all verbs are the empty shape of one case; `RewireCase(WireEndRole, IParameter, IParameter, IParameter)` re-points a wire endpoint through `ReplaceSource`/`ReplaceTarget` selected by the end-role row; `SwapCase(IParameter, IParameter, IParameter, IParameter)` exchanges the sources feeding two targets through `SwapSources`; `BypassCase(IParameter, IParameter, IParameter)` cuts an intermediate through `CutOutMiddleMan`; `TransferCase(WireFreight, IParameter, IParameter)` hauls a whole wire set through `CopyAllInputs`/`MigrateAllOutputs` as freight rows; `SplitCase(IParameter, IParameter, string, PointF)` splits a wire into its wireless `Shout`/`Listen` pair through `DocumentMethods.SplitWire`, returning `WirelessPair`; `RemapCase(Option<HashMap<Guid, Guid>>)` discriminates on payload shape — `None` remints every id through `ChangeAllIds` and answers the host's own correspondence, `Some` applies the explicit map through `ApplyIdMap`; `PinCase(IPin)`/`RepairCase(PinRepair)` own document-pin membership and repair, the repair arm surfacing the host's per-pin report as `PinRepairRow` rows; `ExpireCase` expires the whole membership through `ExpireAll`; `WindowCase(WindowSelection, SelectionMode, CapabilitySet<PickAxis>)` applies rectangle selection through `WindowSelect` over the KERNEL pick vocabulary — the same `Foreground`/`Background`/`Wires` axes the canvas pick gate reads, so no folder-local survey triple exists.
+- Entry: `GraphScope.Mutate(VerbNoun label, GraphMutation op, Option<HostDocument> graph = default, Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Op? key = null)` → `Fin<GateOutcome>` — the one mutation gate on the shared `DocumentGate.Run` spine.
 - Law: the `document.mutate` veto fires HERE exactly as at `Document/document.md`'s `Transact` — the two undo-sealed gates share the fire-site row, a `Fail` verdict refuses with nothing mutated, and an absent rail dispatches ungoverned.
-- Law: mutation and undo are one act — every `ActionList`-bearing arm mints one list, runs its host verb, and seals through `Document/history.md`'s `HistoryLedger.Seal` under the caller's `VerbNoun`, which the receipt carries as `Seal: Some(label)`; `WindowCase`, `RemapCase`, `PinCase`, `RepairCase`, and `ExpireCase` are the host's own unsealed membership verbs and settle with `Seal: None`.
-- Law: the outcome is CAUSAL here too — the gate brackets its verbs with `DocumentScope.Observed`'s window (the SAME window `Transact` opens, composed, never re-minted), so wire and membership deltas land on the receipt's `Deltas` as ordered kernel envelopes.
+- Law: mutation and undo are one act — every `ActionList`-bearing arm mints one list, runs its host verb, and seals through `Document/history.md`'s `HistoryLedger.Seal` under the caller's `VerbNoun`; `WindowCase`, `RemapCase`, `PinCase`, `RepairCase`, and `ExpireCase` are the host's own unsealed membership verbs.
 - Law: wire mutation writes through `Grasshopper2.Parameters.Connections`, and reads never mutate: a probe from `[02]` inside a mutation arm is composition, never a second traversal implementation.
-- Law: every arm reports what the host answered — the wireless pair, the id correspondence `ChangeAllIds` returns, the admitted flag `AddGlobalPin` returns, and the `(method, pin, cushion)` rows `RepairPins` returns each land as the arm's `GateOutcome`; a void side effect over a value-returning host verb publishes a settled receipt no producer measured.
-- Law: `WindowSelect`'s `SelectionResult` stays inside the arm — it is the host's mutable pick accumulator, not a value, and the selection delta a consumer needs already arrives on the receipt's `Deltas` via the `graph.selection` row, so the arm settles with `SettledCase` rather than leaking a live accumulator through the answer.
+- Law: every arm reports what the host answered — the wireless pair, the id correspondence `ChangeAllIds` returns, the admitted flag `AddGlobalPin` returns, and the `(method, pin, cushion)` rows `RepairPins` returns each land as the arm's `GateOutcome`.
+- Law: `WindowSelect`'s `SelectionResult` stays inside the arm — it is the host's mutable pick accumulator, not a value, so the arm returns `SettledCase` rather than leaking a live accumulator through the answer.
 - Law: cross-document adoption has no seam here — `ObjectList.Transfer` is the host's own private internal move, so a foreign object enters the live graph through the clipboard round-trip (`Document/document.md`'s `PasteCase`) or `MigrateObjects`, and a case naming an uncallable member is the deleted form.
 - Law: the two replace verbs disagree on parameter order — `ReplaceSource(oldSource, newSource, target)` against `ReplaceTarget(source, oldTarget, newTarget)` — so the `WireEndRole` rows bind by NAME and the anchor/retired/replacement vocabulary is the one order every call site spells.
-- Boundary: `Shout`/`Listen` as canvas objects — their attributes, painting, and interaction — are `Canvas/*` and `Components/objects.md` territory; this page owns only their minting at the split seam. Relay elision on reads is `[02]`'s `RelayFreeCase`; the settlement carriers (`GateReceipt`, `GateOutcome`, `WirelessPair`, `PinRepairRow`) are `Document/document.md`'s.
-- Packages: Grasshopper2 (`Connections`, `ObjectList.ChangeAllIds`/`ApplyIdMap`/`AddGlobalPin`/`RepairPins`/`ExpireAll`/`WindowSelect`, `DocumentMethods.SplitWire`, `Shout`, `Listen`, `PinRepair`, `WindowSelection`, `SelectionMode`), Eto (`PointF`), `Rasm.Interaction` (`PickAxis`), `Rasm.Parametric` (`MonotonicTimeline`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/document.md` (`DocumentGate`, `GateLane`, `GateReceipt`, `GateOutcome`, `WirelessPair`, `PinRepairRow`), `Document/history.md` (`HistoryLedger.Seal`), LanguageExt.Core, `Rasm.Domain`.
+- Boundary: `Shout`/`Listen` as canvas objects — their attributes, painting, and interaction — are `Canvas/*` and `Components/objects.md` territory; this page owns only their minting at the split seam. Relay elision on reads is `[02]`'s `RelayFreeCase`; `GateOutcome`, `WirelessPair`, and `PinRepairRow` are `Document/document.md`'s.
+- Packages: Grasshopper2 (`Connections`, `ObjectList.ChangeAllIds`/`ApplyIdMap`/`AddGlobalPin`/`RepairPins`/`ExpireAll`/`WindowSelect`, `DocumentMethods.SplitWire`, `Shout`, `Listen`, `PinRepair`, `WindowSelection`, `SelectionMode`), Eto (`PointF`), `Rasm.Interaction` (`PickAxis`), `Shell/hooks.md` (`GrasshopperPoint`, `HookSignal`, `HookScope`), `Document/document.md` (`DocumentGate`, `GateOutcome`, `WirelessPair`, `PinRepairRow`), `Document/history.md` (`HistoryLedger.Seal`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new wire verb is one `GraphMutation` case; a new bulk-transfer kind is one `WireFreight` row; a new endpoint role is one `WireEndRole` row; a new survey axis is one kernel `PickAxis` row — the gate never widens.
 
 ```csharp
@@ -232,7 +231,6 @@ using Grasshopper2.Undo;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
-using Rasm.Parametric;
 using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
@@ -275,65 +273,62 @@ public abstract partial record GraphMutation {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class GraphScope {
-    public static Fin<GateReceipt<Seq<UiEvent<GhFact>>>> Mutate(
+    public static Fin<GateOutcome> Mutate(
         VerbNoun label,
         GraphMutation op,
-        MonotonicTimeline clock,
         Option<HostDocument> graph = default,
         Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default,
         Op? key = null) {
         Op active = key.OrDefault();
         return Optional(op).ToFin(active.InvalidInput())
             .Bind(valid => DocumentGate.Run(
-                lane: GateLane.Mutate, clock: clock, graph: graph, key: active,
+                graph: graph, key: active,
                 body: document => Vetoed(rail: rail, op: valid.SelfOp, document: document, key: active)
-                    .Bind(_ => DocumentScope.Observed(
-                        document: document, clock: clock, key: active, verb: () => valid.Switch(
+                    .Bind(_ => valid.Switch(
                 state: (Key: active, Graph: document, Label: label),
-                linkCase: static (frame, c) => Sealed(frame, c.SelfOp, actions =>
+                linkCase: static (frame, c) => Sealed(frame, actions =>
                     new GateOutcome.ChangedCase(Changed: Connections.Connect(c.Source, c.Target, actions))),
-                unlinkCase: static (frame, c) => Sealed(frame, c.SelfOp, actions =>
+                unlinkCase: static (frame, c) => Sealed(frame, actions =>
                     new GateOutcome.ChangedCase(Changed: Connections.Disconnect(c.Source, c.Target, actions))),
-                pruneCase: static (frame, c) => Sealed(frame, c.SelfOp, actions =>
+                pruneCase: static (frame, c) => Sealed(frame, actions =>
                     new GateOutcome.CountCase(Touched: c.Side.Prune(pin: c.Pin, kept: [.. c.Kept], actions: actions))),
-                rewireCase: static (frame, c) => Sealed(frame, c.SelfOp, actions =>
+                rewireCase: static (frame, c) => Sealed(frame, actions =>
                     new GateOutcome.ChangedCase(Changed: c.Role.Replace(anchor: c.Anchor, retired: c.Retired, replacement: c.Replacement, actions: actions))),
-                swapCase: static (frame, c) => Sealed(frame, c.SelfOp, actions =>
+                swapCase: static (frame, c) => Sealed(frame, actions =>
                     new GateOutcome.ChangedCase(Changed: Connections.SwapSources(
                         sourceA: c.SourceA, sourceB: c.SourceB, targetA: c.TargetA, targetB: c.TargetB, undo: actions))),
-                bypassCase: static (frame, c) => Sealed(frame, c.SelfOp, actions =>
+                bypassCase: static (frame, c) => Sealed(frame, actions =>
                     new GateOutcome.ChangedCase(Changed: Connections.CutOutMiddleMan(c.Source, c.Middle, c.Target, actions))),
-                transferCase: static (frame, c) => Sealed(frame, c.SelfOp, actions =>
+                transferCase: static (frame, c) => Sealed(frame, actions =>
                     new GateOutcome.CountCase(Touched: c.Freight.Haul(from: c.From, to: c.To, actions: actions))),
                 splitCase: static (frame, c) => frame.Key.Catch(body: () => {
                     ActionList actions = new();
                     bool split = frame.Graph.Methods.SplitWire(c.Source, c.Target, c.Name, c.At, out Shout shout, out Listen listen, actions);
                     return guard(split, (Error)frame.Key.InvalidResult()).ToFin()
                         .Bind(_ => HistoryLedger.Seal(ledger: frame.Graph.Undo, actions: actions, label: frame.Label, key: frame.Key))
-                        .Map(_ => (Verb: c.SelfOp, Seal: Some(frame.Label),
-                                   Outcome: (GateOutcome)new GateOutcome.WirelessCase(
-                                       Pair: new WirelessPair(Shout: shout.InstanceId, Listen: listen.InstanceId))));
+                        .Map(_ => (GateOutcome)new GateOutcome.WirelessCase(
+                            Pair: new WirelessPair(Shout: shout.InstanceId, Listen: listen.InstanceId)));
                 }),
-                remapCase: static (frame, c) => Free(frame.Key, c.SelfOp, () => c.Map.Match(
+                remapCase: static (frame, c) => Free(frame.Key, () => c.Map.Match(
                     Some: map => (Op.Side(action: () => frame.Graph.Objects.ApplyIdMap(
                                       map.AsIterable().ToDictionary(static row => row.Key, static row => row.Value))),
                                   (GateOutcome)new GateOutcome.SettledCase()).Item2,
                     None: () => new GateOutcome.RemapCase(Correspondence: toHashMap(
                         frame.Graph.Objects.ChangeAllIds().Select(static row => (row.Key, row.Value)))))),
-                pinCase: static (frame, c) => Free(frame.Key, c.SelfOp,
+                pinCase: static (frame, c) => Free(frame.Key,
                     () => new GateOutcome.ChangedCase(Changed: frame.Graph.Objects.AddGlobalPin(c.Pin))),
-                repairCase: static (frame, c) => Free(frame.Key, c.SelfOp,
+                repairCase: static (frame, c) => Free(frame.Key,
                     () => new GateOutcome.RepairCase(Rows: toSeq(frame.Graph.Objects.RepairPins(c.Repair))
                         .Map(static row => new PinRepairRow(Method: row.method, Pin: row.pin, Cushion: row.cushion)))),
-                expireCase: static (frame, c) => Free(frame.Key, c.SelfOp,
+                expireCase: static (frame, c) => Free(frame.Key,
                     () => (Op.Side(action: () => frame.Graph.Objects.ExpireAll()), (GateOutcome)new GateOutcome.SettledCase()).Item2),
-                windowCase: static (frame, c) => Free(frame.Key, c.SelfOp,
+                windowCase: static (frame, c) => Free(frame.Key,
                     () => (Op.Side(action: () => frame.Graph.Objects.WindowSelect(
                         c.Frame,
                         c.Mode,
                         c.Survey.Admits(PickAxis.Foreground),
                         c.Survey.Admits(PickAxis.Background),
-                        c.Survey.Admits(PickAxis.Wires))), (GateOutcome)new GateOutcome.SettledCase()).Item2))))));
+                        c.Survey.Admits(PickAxis.Wires))), (GateOutcome)new GateOutcome.SettledCase()).Item2))));
     }
 
     private static Fin<Unit> Vetoed(
@@ -346,16 +341,16 @@ public static partial class GraphScope {
                 .Map(static _ => unit),
             None: () => Fin.Succ(unit));
 
-    private static Fin<(Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Free(Op key, Op verb, Func<GateOutcome> settle) =>
-        key.Catch(body: () => Fin.Succ((Verb: verb, Seal: Option<VerbNoun>.None, Outcome: settle())));
+    private static Fin<GateOutcome> Free(Op key, Func<GateOutcome> settle) =>
+        key.Catch(body: () => Fin.Succ(settle()));
 
-    private static Fin<(Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Sealed(
-        (Op Key, HostDocument Graph, VerbNoun Label) frame, Op verb, Func<ActionList, GateOutcome> act) =>
+    private static Fin<GateOutcome> Sealed(
+        (Op Key, HostDocument Graph, VerbNoun Label) frame, Func<ActionList, GateOutcome> act) =>
         frame.Key.Catch(body: () => {
             ActionList actions = new();
             GateOutcome outcome = act(arg: actions);
             return HistoryLedger.Seal(ledger: frame.Graph.Undo, actions: actions, label: frame.Label, key: frame.Key)
-                .Map(_ => (Verb: verb, Seal: Some(frame.Label), Outcome: outcome));
+                .Map(_ => outcome);
         });
 }
 ```
@@ -371,15 +366,14 @@ public static partial class GraphScope {
 |  [05]   | relay elision       | `RelayAxis`                   | `CapabilitySet` membership                              |    3    |
 |  [06]   | read intent         | `GraphProbe` + `GraphAnswer`  | `Ask → Fin<GraphAnswer>`                                | 12 + 14 |
 |  [07]   | wire end role       | `WireEndRole` + `WireFreight` | `Replace`/`Haul` (internal)                             |  2 + 2  |
-|  [08]   | mutation intent     | `GraphMutation`               | `Mutate → Fin<GateReceipt<Seq<UiEvent<GhFact>>>>` spine |   13    |
+|  [08]   | mutation intent     | `GraphMutation`               | `Mutate → Fin<GateOutcome>`                           |   13    |
 
-`DocumentGate.Run`/`Resolve`, `DocumentScope.Observed`, `GateReceipt`, `GateOutcome`, `WirelessPair`, `PinRepairRow`, `HistoryLedger.Seal`, kernel `PickAxis`, `Components/ports.md`'s `PinSide`, `Op`, and `ValidityClaim` are composed upstream owners; local graph algorithms, folder-local survey/elision flag enums, per-call clock mints, and stored stamp pairs have no home here.
+`DocumentGate.Run`/`Resolve`, `GateOutcome`, `WirelessPair`, `PinRepairRow`, `HistoryLedger.Seal`, kernel `PickAxis`, `Components/ports.md`'s `PinSide`, `Op`, and `ValidityClaim` are composed upstream owners; local graph algorithms and folder-local survey/elision flag enums have no home here.
 
 ## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

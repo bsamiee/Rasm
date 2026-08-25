@@ -13,7 +13,6 @@
 - Entry: construct the case at the raising site and lift it bare onto `Fin` or `Validation<Error, T>`.
 - Auto: `[FaultCase]` generates the codes 2600 and 2601 from the family band.
 - Law: scope and reason drive routing; `Detail` is evidence only. Independent failures accumulate through `Error.Many`.
-- Receipt: the typed fault itself.
 - Packages: Rasm kernel fault substrate, LanguageExt.Core, and Thinktecture.Runtime.Extensions.
 - Growth: add a scope, reason, or boundary row only when the axis is closed; do not add token rosters, category mirrors, factories, or aggregate cases.
 - Boundary: geometry and structural failures retain their own families; native and codec errors remain the exact `Cause`.

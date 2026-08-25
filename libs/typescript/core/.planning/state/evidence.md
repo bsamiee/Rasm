@@ -1,18 +1,18 @@
 # [CORE_EVIDENCE]
 
-`Evidence` owns decoded receipts, admitted progress state, and tenant-partitioned availability lattices.
+`Evidence` owns the command lifecycle outcome, admitted progress state, and tenant-partitioned availability lattices.
 
 ## [01]-[INDEX]
 
-- [02]-[RECEIPT_FAMILY]: the closed outcome union and its lifecycle rank vocabulary; `Receipt`.
-- [03]-[ENVELOPE_OWNER]: the decoded envelope, its orders, the LWW instance, the fold plan; `ReceiptEnvelope`.
-- [04]-[PROGRESS_FOLD]: the tally reading, the state product, read-time verdicts, the roll-up; `Tally`, `Progress`.
-- [05]-[AVAILABILITY_LATTICE]: enum-keyed level rows, verdict family, the `CommandAvailability` crossing, worst-wins merge, the gate read; `Availability`.
+- [02]-[OUTCOME]: closed command lifecycle union and its settlement read; `Outcome`.
+- [03]-[PROGRESS_FOLD]: tally reading, state product, read-time verdicts, roll-up; `Tally`, `Progress`.
+- [04]-[AVAILABILITY_LATTICE]: enum-keyed level rows, verdict family, the `CommandAvailability` crossing, worst-wins merge, the gate read; `Availability`.
 
-## [02]-[RECEIPT_FAMILY]
+## [02]-[OUTCOME]
 
-[RECEIPT_FAMILY]:
-- Growth: a new receipt kind is one tagged case, one `_RANKS` row, and zero envelope edits.
+- Law: a command's outcome crosses runtimes as CloudEvent `data` — correlation, tenant, content key, and stamp ride the attributes `interchange/carrier#EVENT_ENVELOPE` mints and reads, so no column here repeats one.
+- Law: `Accepted` is the one unsettled case and `settled` reads the lifecycle row, so no consumer enumerates the terminal arms.
+- Growth: a new lifecycle case is one tagged case and one `_LIFECYCLE` row.
 
 ```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
@@ -20,129 +20,50 @@ import { create, enumToJson, isMessage, type MessageShape, type UnknownEnum } fr
 import { EmptySchema, timestampFromMs, timestampMs, TimestampSchema } from "@bufbuild/protobuf/wkt"
 import * as availability from "@rasm\/contracts/rasm/contracts/availability/availability_pb"
 import * as control from "@rasm\/contracts/rasm/contracts/compute/control_pb"
-import { Array, Data, DateTime, Duration, Either, Equal, Equivalence, HashMap, HashSet, Match, Number, Option, Order, ParseResult, pipe, Record, Schema, type SchemaAST } from "effect"
+import { Array, Data, DateTime, Duration, Effect, Either, Equal, Equivalence, HashMap, HashSet, Match, Number, Option, Order, ParseResult, pipe, Record, Schema, type SchemaAST } from "effect"
 import { Wire } from "../interchange/codec.ts"
 import { Clock } from "../value/clock.ts"
 import { Digest } from "../value/contentKey.ts"
 import { Fault } from "../value/fault.ts"
 import { Identity } from "../value/identity.ts"
 import { Shape } from "../value/schema.ts"
-import { Causal } from "./causal.ts"
 import { Fold } from "./fold.ts"
 import { Merge } from "./merge.ts"
 
-const _Accepted = Schema.TaggedStruct("Accepted", {
-})
-
-const _Applied = Schema.TaggedStruct("Applied", {
-  touched: Schema.HashSet(Digest.Key.content),
-})
-
-const _EvidenceValue = Schema.Union(Schema.String, Schema.Number.pipe(Schema.finite()), Schema.Boolean)
-const _Evidence = Schema.HashMap({ key: Schema.NonEmptyString, value: _EvidenceValue })
-
+const _Accepted = Schema.TaggedStruct("Accepted", {})
+const _Applied = Schema.TaggedStruct("Applied", { touched: Schema.HashSet(Digest.Key.content) })
 const _Refused = Schema.TaggedStruct("Refused", {
   fault: Fault.Class.schema,
-  evidence: _Evidence,
+  evidence: Schema.HashMap({
+    key: Schema.NonEmptyString,
+    value: Schema.Union(Schema.String, Schema.Number.pipe(Schema.finite()), Schema.Boolean),
+  }),
 })
+const _Superseded = Schema.TaggedStruct("Superseded", { by: Digest.Key.content })
 
-const _Superseded = Schema.TaggedStruct("Superseded", {
-  by: Digest.Key.content,
-})
-
-const _Receipt: Schema.Union<[typeof _Accepted, typeof _Applied, typeof _Refused, typeof _Superseded]> = Schema.Union(
+const _Outcome: Schema.Union<[typeof _Accepted, typeof _Applied, typeof _Refused, typeof _Superseded]> = Schema.Union(
   _Accepted,
   _Applied,
   _Refused,
   _Superseded,
 )
-type _Receipt = Schema.Schema.Type<typeof _Receipt>
+type _Outcome = Schema.Schema.Type<typeof _Outcome>
+type _OutcomeKind = _Outcome["_tag"]
 
-const _RANKS = {
-  Accepted: { rank: 0, terminal: false },
-  Applied: { rank: 1, terminal: true },
-  Refused: { rank: 1, terminal: true },
-  Superseded: { rank: 2, terminal: true },
-} as const satisfies Record<_Receipt["_tag"], { readonly rank: number; readonly terminal: boolean }>
+const _LIFECYCLE = {
+  Accepted: { terminal: false },
+  Applied: { terminal: true },
+  Refused: { terminal: true },
+  Superseded: { terminal: true },
+} as const satisfies Record<_OutcomeKind, { readonly terminal: boolean }>
 
-type _ReceiptKey = readonly [Identity.Tenant.Scope, Digest.Key<"content">]
-
-const _basisCell = (basis: Option.Option<Causal.Vector>): Fold.Cell =>
-  Option.match(basis, {
-    onNone: () => Fold.cell(["basis:none"]),
-    onSome: (vector) => Fold.cell([
-      "basis:some",
-      ...Array.sort(
-        Array.map(HashMap.toEntries(vector.clocks), ([replica, count]) => Fold.cell([replica, count])),
-        Order.string,
-      ),
-    ]),
-  })
-
-const _receiptCell = (receipt: _Receipt): Fold.Cell => Match.valueTags(receipt, {
-  Accepted: () => Fold.cell(["Accepted"]),
-  Applied: ({ touched }) => Fold.cell(["Applied", ...Array.sort(Array.fromIterable(touched), Order.string)]),
-  Refused: ({ evidence, fault }) => Fold.cell([
-    "Refused",
-    fault,
-    String(Fault.Class.retryable(fault)),
-    ...Array.sort(Array.map(HashMap.toEntries(evidence), ([key, value]) =>
-      Fold.cell([key, typeof value, typeof value === "boolean" ? String(value) : value])), Order.string),
-  ]),
-  Superseded: ({ by }) => Fold.cell(["Superseded", by]),
-})
-```
-
-## [03]-[ENVELOPE_OWNER]
-
-[ENVELOPE_OWNER]:
-
-```typescript
-class _ReceiptEnvelope extends Schema.Class<_ReceiptEnvelope>("Evidence.ReceiptEnvelope")({
-  command: Digest.Key.content,
-  subject: Schema.optionalWith(Digest.Key.content, { as: "Option" }),
-  stamp: Clock.Hlc,
-  tenant: Identity.Tenant,
-  basis: Schema.optionalWith(Causal.Vector, { as: "Option" }),
-  receipt: _Receipt,
-}) {
-  static readonly alike: Equivalence.Equivalence<_ReceiptEnvelope> = Schema.equivalence(_ReceiptEnvelope)
-  static readonly byStamp: Order.Order<_ReceiptEnvelope> = Order.mapInput(
-    Clock.Hlc.Order,
-    (envelope: _ReceiptEnvelope) => envelope.stamp,
-  )
-  static readonly byLifecycle: Order.Order<_ReceiptEnvelope> = Order.combineAll([
-    Order.mapInput(Order.number, (envelope: _ReceiptEnvelope) => _RANKS[envelope.receipt._tag].rank),
-    _ReceiptEnvelope.byStamp,
-    Order.mapInput(Order.string, (envelope: _ReceiptEnvelope) => envelope.receipt._tag),
-    Order.mapInput(Order.string, (envelope: _ReceiptEnvelope) => Fold.cell([
-      envelope.tenant.scope,
-      envelope.command,
-      Option.getOrElse(envelope.subject, () => "subject:none"),
-      _basisCell(envelope.basis),
-      _receiptCell(envelope.receipt),
-    ])),
-  ])
-  static readonly latest: Merge.Instance<_ReceiptEnvelope> = Merge.max(_ReceiptEnvelope.byLifecycle)
-  static readonly plan: Fold.Plan<_ReceiptEnvelope, _ReceiptKey, _ReceiptEnvelope> = {
-    name: "state/receipt",
-    key: (envelope) => Data.tuple(envelope.tenant.scope, envelope.command),
-    cell: ([tenant, command]) => Fold.cell([tenant, command]),
-    keyAlike: Equal.equivalence(),
-    lift: (envelope) => envelope,
-    merge: _ReceiptEnvelope.latest,
-    identity: Option.none(),
-  }
-  get settled(): boolean {
-    return _RANKS[this.receipt._tag].terminal
-  }
-  get outcome(): Option.Option<_Receipt> {
-    return this.settled ? Option.some(this.receipt) : Option.none()
-  }
+const _OutcomeOwner: { readonly schema: typeof _Outcome; readonly settled: (outcome: _Outcome) => boolean } = {
+  schema: _Outcome,
+  settled: (outcome) => _LIFECYCLE[outcome._tag].terminal,
 }
 ```
 
-## [04]-[PROGRESS_FOLD]
+## [03]-[PROGRESS_FOLD]
 
 [PROGRESS_FOLD]:
 - Law: `Tally` counts DONE units against a total for one operation in a parent tree, so it shares no axis with the producer phase frame `dotnet:Rasm.Compute/Runtime/progress#PROGRESS_CELL` streams — that frame carries a phase vocabulary and a fraction, crosses as `ProgressUpdate`, and mirrors as `ProgressUpdateWire`. Two disjoint field sets under one spelling is what the separate names foreclose.
@@ -309,7 +230,7 @@ const _Progress: Progress.Shape = {
 }
 ```
 
-## [05]-[AVAILABILITY_LATTICE]
+## [04]-[AVAILABILITY_LATTICE]
 
 [AVAILABILITY_LATTICE]:
 
@@ -530,21 +451,17 @@ type _AvailabilityVerdict = Availability.Verdict
 type _AvailabilityState = Availability.State
 
 const Evidence = {
-  Receipt: _Receipt,
-  ReceiptEnvelope: _ReceiptEnvelope,
+  Outcome: _OutcomeOwner,
   Tally: _Tally,
   Progress: _Progress,
   Availability: _Availability,
 } as const
 
 namespace Evidence {
-  export type Receipt = _Receipt
-  export namespace Receipt {
-    export type Kind = keyof typeof _RANKS
-    export type Rank = (typeof _RANKS)[Kind]
+  export type Outcome = _Outcome
+  export namespace Outcome {
+    export type Kind = _OutcomeKind
   }
-  export type ReceiptEnvelope = _ReceiptEnvelope
-  export type ReceiptKey = _ReceiptKey
   export type Tally = _Tally
   export namespace Progress {
     export type Key = _ProgressKey
@@ -572,7 +489,6 @@ export { Evidence }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -32,14 +32,14 @@ Rasm.Grasshopper/       # Refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 │   ├── Layers.cs       # CoreAnimation graph custody; every layer write rides the transaction fence, Display-P3 colour
 │   └── Native.cs       # MacGate platform admission precondition; managed-to-AppKit extraction, input monitors
 └── Shell/              # Session spine, UI event algebra, editor shell, chrome intent, vector icons
-    ├── Chrome.cs       # Apply(ChromeIntent, Op?) settlement against Toolbar.Bar and InputPanel hosts; leased traverse
-    ├── Editor.cs       # Editor shell — chrome-pane slots, toggles, state receipt, Rhino getter
+    ├── Chrome.cs       # Apply(ChromeIntent, Op?) outcome against Toolbar.Bar and InputPanel hosts; leased traverse
+    ├── Editor.cs       # Editor shell — chrome-pane slots, toggles, state projection, Rhino getter
     ├── Events.cs       # UI fact/event evidence, anchor/source rows, transactional subscription, bounded drain
     ├── Hooks.cs        # Scoped veto/observe/replay hook rail with subscriber-fault isolation and taps
     ├── Icons.cs        # Vector-icon owner — host origins, a pose machine, filter chain, and catalog
-    ├── Journal.cs      # Analytics egress folding UiEvent<GhFact> envelopes and GhEvidence receipts into bounded partitions
-    ├── Session.cs      # Live-scope acquisition, apply/run gates, and gauged repaint receipts
-    └── Telemetry.cs    # Injected IMeterFactory minting one meter; the GhEvidence union and its total projection fold
+    ├── Journal.cs      # Analytics egress folding UiEvent<GhFact> envelopes into bounded partitions
+    ├── Session.cs      # Live-scope acquisition, apply/run gates, and gauged command acknowledgement
+    └── Telemetry.cs    # Injected IMeterFactory minting one meter; producer-site instrument writes
 ```
 
 ## [02]-[STRATA]
@@ -48,12 +48,12 @@ Strata order the sub-domains; the UI-thread floor is the kernel's `UiThread` mar
 
 - S0 `Eto` + `Shell` — session, event, identity, telemetry, hook, and journal owners share same-stratum reach over the kernel floor.
 - S0 `Eto` residue — the platform-timer lease and pace producer alone; the kernel boundary laws assign every other Eto concern to the kernel.
-- S0 exemption — `GhTelemetry` consumes inert `GhEvidence` from every stratum under the model-only exemption.
+- S0 telemetry — `GhInstruments` declares the meter rows and every producing site writes through its owning member.
 - S0 evidence — `PlatformRoot.Faults` enters the Shell floor whole and `SessionJournal` reads it, so no emitter mints its own custody.
 - S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other.
 - S1 `Document` — the transaction spine: every graph mutation seals through the one gate, and no S1 sibling reads it.
 - S1 `Platform` — the composition and native-gate half; `MacGate` is the one AppKit touch, so no upper owner names an AppKit member.
-- S1 exemption — `PaintProof` (`Platform/Capture`) reads `PaintReceipt` and `JournalExport` as inert evidence under the model-only exemption.
+- S1 exemption — `PaintProof` (`Platform/Capture`) reads `PaintPass` and `JournalExport` as inert evidence under the model-only exemption.
 - S2 `Canvas` — live host-surface owners seat at plugin load off the composition mount roster, so no canvas owner self-mounts.
 - S2 reach — canvas owners compose session scope, the kernel marshal, undo seal, and the display-link drive.
 
@@ -100,7 +100,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts. `Interaction` crosses on the same rails: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, `ControlSpec` seats every chrome pane, and `AssetOrigin` names every icon. Command receipts seal home-side from an injected timeline, so no contract flows back down.
+Timing owners admit the kernel's `MonotonicTimeline`; colour owners admit `PerceptualColor`. `Interaction` crosses on the same rails: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, `ControlSpec` seats every chrome pane, and `AssetOrigin` names every icon. Host operations return their canonical values, and instrument writes project at the producing site.
 
 Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically; kernel-end edges fold it per owner, boundary, and kind, so a member moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row. `Op` is the rail key every fence takes and rides no seam edge; `InstrumentSpec` rides `[PORT]` because `GhInstruments` DECLARES rows the app root mounts, while every other member crosses as a bound value.
 
@@ -159,7 +159,7 @@ flowchart LR
 
 ## [04]-[INTERNAL]
 
-UI-thread interior composes around two floors, the `Eto/Runtime` dispatch surface and the `Shell/Session` scope gate, that every canvas, motion, event, and native owner marshals through; per-owner wiring lives on the owning implementation pages. Component authoring carries no UI-thread dependency; document gates marshal once through the session floor per settlement.
+UI-thread interior composes around two floors, the `Eto/Runtime` dispatch surface and the `Shell/Session` scope gate, that every canvas, motion, event, and native owner marshals through; per-owner wiring lives on the owning implementation pages. Component authoring carries no UI-thread dependency; document gates marshal once through the session floor per command.
 
 ```mermaid
 ---
@@ -190,16 +190,16 @@ flowchart LR
     Runtime e2@-->|"[BOUNDARY]: UiDispatch"| Native
     Runtime e3@-->|"[PORT]: UiClock"| Motion
     Runtime e4@-->|"[SHAPE]: PulseBeat"| Events
-    Runtime e5@-->|"[RECEIPT]: DispatchPulse"| Telemetry
+    Runtime e5@-->|"[PROJECTION]: GhInstruments.Marshalled"| Telemetry
     Session e6@-->|"[BOUNDARY]: GhSession"| Interaction
     Session e7@-->|"[BOUNDARY]: GhSession"| Paint
-    Session e8@-->|"[RECEIPT]: SessionReceipt"| Telemetry
+    Session e8@-->|"[PROJECTION]: GhInstruments.Settled"| Telemetry
     Canvas e9@-->|"[SHAPE]: CanvasOp"| Interaction
     Canvas e10@-->|"[SHAPE]: PickHit"| Wires
     Wires e11@-->|"[SHAPE]: GhPlan"| Paint
-    Paint e12@-->|"[RECEIPT]: PaintReceipt"| Telemetry
-    Paint e13@-->|"[RECEIPT]: PaintReceipt"| Capture
-    Motion e14@-->|"[RECEIPT]: FrameWindow"| Telemetry
+    Paint e12@-->|"[PROJECTION]: GhInstruments.Painted"| Telemetry
+    Paint e13@-->|"[SHAPE]: PaintPass"| Capture
+    Motion e14@-->|"[PROJECTION]: GhInstruments.Windowed"| Telemetry
     Composition e15@-->|"[EVENT]: MotionDrive.Step"| Motion
     Native e16@-->|"[SHAPE]: MacAnchor"| Composition
     Native e17@-->|"[BOUNDARY]: MacGate"| Capture

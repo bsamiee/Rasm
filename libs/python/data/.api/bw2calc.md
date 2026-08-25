@@ -69,10 +69,10 @@
 - `olca-ipc`(`.api/olca-ipc.md`): remote peer running the equivalent solve on an openLCA server; `bw2calc` stays the in-process engine when the background lives in Brightway.
 - `premise`(`.api/premise.md`): emits prospective `bw2data` databases the identical `LCA`/`MultiLCA` surface solves for future-scenario impacts.
 - `numpy`(`.api/numpy.md`): matrices are `scipy` sparse and vectors `numpy`; read `supply_array`/`characterized_inventory` as arrays into the numerics rail, densifying only inside `DenseLCA`.
-- `pydantic`(`.api/pydantic.md`): `MethodConfig` is a `pydantic` v2 `BaseModel`; validate the LCIA tree and `model_dump()` it into the calculation receipt.
+- `pydantic`(`.api/pydantic.md`): `MethodConfig` is a `pydantic` v2 `BaseModel`; validate the LCIA tree and pass its `model_dump()` directly to the calculation.
 - `anyio`(`.api/anyio.md`): `lci()`/`lcia()` are CPU-bound synchronous `scipy`; run them under `anyio.to_thread.run_sync`, or a process pool for a Monte Carlo fan-out.
 - `structlog`(`.api/structlog.md`) / `opentelemetry`(`.api/opentelemetry-api.md`): `log_config` wires the logger; emit `score`/`method`/functional-unit as a structured event and span the solve.
-- `msgspec`(`.api/msgspec.md`): fold `(functional_unit, method, score, n_iterations)` into a `msgspec.Struct` receipt as the typed egress shape.
+- `msgspec`(`.api/msgspec.md`): encode a declared solver result when the native arrays must cross a typed wire.
 - data folder: obtain `data_objs` through the `bw2data` bridge, run the staged `lci`->`lcia` pipeline once, then reuse the factorization across alternatives via `redo_lci`/`switch_*` with the solver subclass matched to matrix shape.
 
 [LOCAL_ADMISSION]:

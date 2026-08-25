@@ -231,7 +231,7 @@
 - `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-geometry.md`: `TextureMapping` factories consume `Plane`/`Interval`/`Sphere`/`Cylinder`/`Mesh` and recovery returns them; the geometry catalog owns those carriers, this catalog owns the mapping.
 
 [LOCAL_ADMISSION]:
-- Content enters through `Create`, `FromId`, `FromXml`, `LoadFromFile`, or `<kind>.From*`; a live `RenderContent` stays inside the document grant, and downstream code receives a content reference, a detached field value, a projected receipt, or an owned bitmap/`Material` lease.
+- Content enters through `Create`, `FromId`, `FromXml`, `LoadFromFile`, or `<kind>.From*`; a live `RenderContent` stays inside the document grant, and downstream code receives a content reference, a detached field value, a detached fact, or an owned bitmap/`Material` lease.
 - `FieldDictionary` is the sole parameter owner; the render-hash rail is `RenderHashExclude` over bounded flags; a re-derived hash or a stringly parameter map beside the field dictionary is rejected.
 - `RenderMaterialTable`/`RenderEnvironmentTable`/`RenderTextureTable` are the three document content owners over `IRenderContentTable<T>`; a per-kind bespoke table method family beside the shared contract is the collapsed form.
 

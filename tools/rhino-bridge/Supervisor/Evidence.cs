@@ -72,14 +72,14 @@ internal static class Evidence {
         }
     }
 
-    internal static void EnsureReportFiles(string reportDir, Seq<ScenarioReceipt> receipts) {
+    internal static void EnsureReportFiles(string reportDir, Seq<ScenarioOutcome> outcomes) {
         string references = Path.Combine(path1: reportDir, path2: ReportLayout.ReferencesDirectory);
         _ = Directory.CreateDirectory(path: references);
-        foreach (ScenarioReceipt receipt in receipts) {
-            string scenario = SafeScenario(name: receipt.Scenario);
+        foreach (ScenarioOutcome outcome in outcomes) {
+            string scenario = SafeScenario(name: outcome.Scenario);
             WriteJson(
                 path: Path.Combine(path1: references, path2: $"{scenario}.reference-result.json"),
-                value: receipt.ReferenceResults ?? [],
+                value: outcome.ReferenceResults ?? [],
                 jsonTypeInfo: BridgeJsonContext.Default.ReferenceEvidenceResultArray);
         }
     }
@@ -146,7 +146,7 @@ internal static class Evidence {
     }
 
     internal static ReferenceEvidenceResult[] ReferenceResults(
-        EvidenceMode mode, ReferenceRoot[] roots, Seq<ScenarioReceipt> receipts, Seq<BridgeEvent> evidence, string reportDir) {
+        EvidenceMode mode, ReferenceRoot[] roots, Seq<ScenarioOutcome> outcomes, Seq<BridgeEvent> evidence, string reportDir) {
         ArgumentNullException.ThrowIfNull(argument: mode);
         ReferenceActual[] actuals = [.. evidence.Choose(selector: static evt =>
             evt is BridgeEvent.FactCase fact && EvidenceRole.Reference.OwnsFactKey(key: fact.Key)
@@ -160,9 +160,9 @@ internal static class Evidence {
             : actuals.Select(selector: row => MatchReference(roots: roots, actual: row, promoted: promoted));
         IEnumerable<ReferenceEvidenceResult> missing = mode == EvidenceMode.Author
             ? []
-            : receipts.Filter(f: static row => row.Status == PhaseStatus.Ok)
-                .Filter(f: receipt => !covered.Contains(item: receipt.Scenario))
-                .Map(f: receipt => MissingReference(roots: roots, receipt: receipt, promoted: promoted));
+            : outcomes.Filter(f: static row => row.Status == PhaseStatus.Ok)
+                .Filter(f: outcome => !covered.Contains(item: outcome.Scenario))
+                .Map(f: outcome => MissingReference(roots: roots, outcome: outcome, promoted: promoted));
         return [.. observed.Concat(second: missing).OrderBy(keySelector: static row => row.Scenario, comparer: StringComparer.Ordinal)
             .ThenBy(keySelector: static row => row.Name.Key, comparer: StringComparer.Ordinal)];
 
@@ -175,13 +175,13 @@ internal static class Evidence {
             });
         }
 
-        static ReferenceEvidenceResult MissingReference(ReferenceRoot[] roots, ScenarioReceipt receipt, bool promoted) =>
+        static ReferenceEvidenceResult MissingReference(ReferenceRoot[] roots, ScenarioOutcome outcome, bool promoted) =>
             new(Name: new EvidenceName(Key: "scenario.reference"), Class: EvidenceClass.CertifiedReference,
                 Admission: promoted ? ReferenceAdmission.Missing : ReferenceAdmission.Unpromoted, Matched: false,
-                ReferencePath: ReferencePath(roots: roots, scenario: receipt.Scenario),
+                ReferencePath: ReferencePath(roots: roots, scenario: outcome.Scenario),
                 Detail: promoted ? "reference.missing:no reference facts emitted" : "reference.unpromoted:no reviewed corpus under the reference root; run --evidence author, review, promote",
                 Tolerance: ExactTolerance()) {
-                Scenario = receipt.Scenario,
+                Scenario = outcome.Scenario,
             };
     }
 

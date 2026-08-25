@@ -28,9 +28,6 @@ message FaultRecovery {
   }
 }
 
-// The compact in-process observation a host receipt carries beside its outcome: the recovery verdict, the bounded
-// cause chain (outermost first), whether that chain was cut, and the producing family's identity where one exists.
-// A foreign error crosses with neither `domain` nor `case`.
 message FaultObservation {
   option (buf.validate.message).cel = {
     id: "fault_observation.identity"

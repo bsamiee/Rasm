@@ -1,27 +1,27 @@
 # [RUNTIME_REPORT]
 
-Document egress as one folded `Report.Spec` family: the format discriminant selects CSV, XLSX, or PDF while each column owns its value projection, and every render answers one single-subscription `Report.Artifact` with a chunked body and a settled receipt that drain fills. One closed modality roster — CSV, XLSX, PDF, ZIP — anchors the spec discriminant, the fault's arm column, the archive plan's entry column, and the off-thread request kind, and one row table beside it owns per-modality placement and compression. Mutation-heavy Promise and synchronous engines remain inside one `Effect` boundary and one `ReportFault` family. Unbounded CSV and streaming-XLSX modes flow end to end; rich XLSX and PDF declare row ceilings before materializing the engine model, with oversized PDF routed to the render worker. `Report.gathered` is the only bytes-in-memory consumer fold and requires a ceiling. Pinned instants, fixed compression, and stable column order make equal renders byte-stable so the data object plane mints identical content identity at landing; runtime never mints that identity. The module is node-lane egress on `./server` as `runtime/src/work/report.ts`.
+Document egress as one folded `Report.Spec` family: the format discriminant selects CSV, XLSX, or PDF while each column owns its value projection, and every render answers one single-subscription `Report.Artifact` with a chunked body and a `Rendered` settlement the drain fills. One closed modality roster — CSV, XLSX, PDF, ZIP — anchors the spec discriminant, the fault's arm column, the archive plan's entry column, and the off-thread request kind, and one row table beside it owns per-modality placement and compression. Mutation-heavy Promise and synchronous engines remain inside one `Effect` boundary and one `ReportFault` family. Unbounded CSV and streaming-XLSX modes flow end to end; rich XLSX and PDF declare row ceilings before materializing the engine model, with oversized PDF routed to the render worker. `Report.gathered` is the only bytes-in-memory consumer fold and requires a ceiling. Pinned instants, fixed compression, and stable column order make equal renders byte-stable so the data object plane mints identical content identity at landing; runtime never mints that identity. The module is node-lane egress on `./server` as `runtime/src/work/report.ts`.
 
 ## [01]-[INDEX]
 
-- [02]-[SPEC_FOLD]: the modality roster and its row table, the report spec, the one render dispatch, the settled receipt, byte identity; `Report`.
+- [02]-[SPEC_FOLD]: the modality roster and its row table, the report spec, the one render dispatch, the `Rendered` settlement, byte identity; `Report`.
 - [03]-[XLSX_ARM]: the streaming workbook writer, the name-capable amend-load reader, the full style/rule/validation vocabularies; `Report`.
 - [04]-[PDF_ARM]: measured paging, native tables, metadata/encryption, furniture registration; `Report`.
 - [05]-[CSV_ARM]: serializer with formula defense, the node streaming duplex, decoded ingress; `Report`.
-- [06]-[BUNDLE]: the archive container — streaming egress, progress receipt, guarded ingress; `Report`.
+- [06]-[BUNDLE]: the archive container — streaming egress, progress report, guarded ingress; `Report`.
 
 ## [02]-[SPEC_FOLD]
 
 [SPEC_FOLD]:
-- Owner: `Report.Spec` — a format-discriminated family over one base. Every base `columns` row owns header, key, width, and value projection, so column order and row projection cannot drift; the `Xlsx` arm carries one payload-timing discriminant whose `Rich` case alone owns validation, brand, footer, and row ceiling, while style, keyed cell policy, rules, protection, and title remain valid for both modes; the `Pdf` arm carries furniture, protection, and its materialization ceiling; and the `Csv` arm carries `UnparseConfig`. `Report.Artifact.body` is single-subscription by `Ref.getAndSet`, and its receipt settles on success, failure, or interrupted drain.
+- Owner: `Report.Spec` — a format-discriminated family over one base. Every base `columns` row owns header, key, width, and value projection, so column order and row projection cannot drift; the `Xlsx` arm carries one payload-timing discriminant whose `Rich` case alone owns validation, brand, footer, and row ceiling, while style, keyed cell policy, rules, protection, and title remain valid for both modes; the `Pdf` arm carries furniture, protection, and its materialization ceiling; and the `Csv` arm carries `UnparseConfig`. `Report.Artifact.body` is single-subscription by `Ref.getAndSet`, and its `settled` resolves on success, failure, or interrupted drain.
 - Law: rows arrive decoded — the caller's Schema owns row typing and the render fold receives typed values; no arm re-validates, and the CSV arm's refusal of engine-side typing is this law's engine-level echo.
 - Law: materialization is a consumer fold under a stated ceiling — `Report.gathered(artifact, ceiling)` is the ONE bytes-in-memory form, faulting `ceiling`-reasoned (`exhausted` class) the moment the running total passes the bound, so an unbounded body structurally cannot buffer whole; a consumer calling it attests its bound (a mail attachment cap, a bundle entry cap) at the call.
 - Law: bytes are identity material minted where they land — reproducibility (pinned instants, fixed compression, stable column order) is a correctness requirement because the data wave's artifact-index put mints the content key over the landed bytes and dedupes equal renders; runtime never mints content identity, a defaulted creation date in any arm is the named defect, and a replay under an equal spec regenerates byte-identical output.
 - Law: a render is a durable step — the relay and the job families run `Report.render` inside `Step.run(name, "bulk", …)`, so deadline geometry, replay memoization, and evidence arrive from the flow mint and this page owns none of them.
 - Law: placement is a modality row, never a caller knob — the row states the threshold, the unit it measures, and the `proc/worker` request kind together, so an arm with no `offload` column cannot reach the pool and the two thresholds that stood as a module constant and a bundle field are one column. A `pdf` fold whose bounded projected cell set passes that threshold routes through the `Render` request: the data-only plan (columns, furniture, projected cells) encodes to bytes, crosses zero-copy, and the produced bytes cross back; a protected document renders in-process regardless, because a sealed password never crosses the thread seam — the one exemption to worker routing, never to the row ceiling.
-- Receipt: `Report.Rendered` — `entity#SETTLED_RECEIPT`'s spine carrying this producer's own `{ rows, bytes, format }` evidence — settles through the sealed body's `Deferred` when the last chunk flows, the evidence the meter fact and the artifact index consume; a receipt read before the body drains simply waits. The partition reads `empty` on a zero-row render and `whole` otherwise, provenance names the spec, and the content key stays absent because runtime mints no content identity.
+- Output: `Report.Rendered` — `entity#SETTLED`'s spine carrying this producer's own `{ rows, bytes, format }` evidence — settles through the sealed body's `Deferred` when the last chunk flows, the evidence the meter fact and the artifact index consume; a `settled` read before the body drains simply waits. The partition reads `empty` on a zero-row render and `whole` otherwise, provenance names the spec, and the content key stays absent because runtime mints no content identity.
 - Growth: a new format is one arm behind the same dispatch; a new visual concern is a spec field every arm interprets or ignores by declaration.
-- Packages: `effect` (`Effect`, `Stream`, `Duration`, `Deferred`, `Ref`, `Clock`, `DateTime`); `../proc/worker.ts` (`Bench`, `Render` — the off-thread crossing); `./entity.ts` (`Settled` — the receipt spine).
+- Packages: `effect` (`Effect`, `Stream`, `Duration`, `Deferred`, `Ref`, `Clock`, `DateTime`); `../proc/worker.ts` (`Bench`, `Render` — the off-thread crossing); `./entity.ts` (`Settled` — the settlement spine).
 
 ```typescript
 import * as ExcelJS from "exceljs"
@@ -178,7 +178,7 @@ declare namespace Report {
   type Artifact<R> = {
     readonly format: Format
     readonly body: Stream.Stream<Uint8Array, ReportFault, R>
-    readonly receipt: Effect.Effect<Rendered, ReportFault>
+    readonly settled: Effect.Effect<Rendered, ReportFault>
   }
   type Sheet = {
     readonly ordinal: number
@@ -278,7 +278,7 @@ const _sealed = <R>(
     const opened = yield* Clock.currentTimeMillis
     return {
       format,
-      receipt: Deferred.await(settled),
+      settled: Deferred.await(settled),
       body: Stream.unwrap(
         Effect.map(Ref.getAndSet(openedOnce, true), (replayed) =>
           replayed
@@ -801,7 +801,6 @@ export { Report, ReportFault }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

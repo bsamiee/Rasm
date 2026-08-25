@@ -14,7 +14,7 @@ Operating surface is the `.planning/` design corpus with its per-tier index docs
 
 Every planning target clears the lib-grade foundation bar, never app scaffolding:
 - Each library internalizes heavy logic, boilerplate, host quirks, native lifetimes, and failure handling, so apps compose it, never re-derive.
-- New functionality lands as a row, case, column, policy, or receipt inside the owning fence before a new surface appears.
+- New functionality lands as a row, case, column, or policy inside the owning fence before a new surface appears.
 - Every surface is higher-order capability built FROM the admitted packages.
 - Single entrypoints and unified rails absorb complexity internally, never by limiting tooling or hiding capability.
 - Every fence holds to the route-owned code doctrine (`docs/stacks/<lang>/`) as the entry bar, graded there and never restated here.
@@ -27,7 +27,7 @@ DISCOVERY grounds every downstream stage as read-only reconnaissance, its one co
 
 CRITIQUE and RED-TEAM hold writer authority over their assigned planning territory. Each derives its verdict from current disk before prior claims; earlier reports provide navigation and refutation targets, never authority. Scope rows bound first look, while live concurrent ownership alone defers an otherwise in-scope repair.
 
-Unreachable facts stay `[RESEARCH]` rows. Review returns an applied-fix receipt carrying each finding's exact disposition. Clean verdicts require the full named attack to find no violation, so writer authority never forces churn.
+Unreachable facts stay `[RESEARCH]` rows. Review returns each finding's exact applied-fix disposition. Clean verdicts require the full named attack to find no violation, so writer authority never forces churn.
 
 CRITIQUE agents WRITE every proven repair in place; their reads and notes serve a predicate-positive doctrinal-conformance and capability-completeness audit. They enumerate the substrate and folder `.api/` tiers in full, stack every applicable capability into its strongest owning fence, and require every applicable doctrine and promised capability to hold.
 
@@ -66,7 +66,7 @@ Every agent, the main agent included and every critique or red-team role alike, 
 - Naivety is a defect on three orthogonal axes, all intolerable — COVERAGE, APPROACH, and AUTHORITY.
 - COVERAGE naivety — a thin slice of the concept: three obvious fields where the domain carries fifteen, a two-case family for a twenty-case domain.
 - APPROACH naivety — hardcoded enumerated instances where a parameterized algorithmic owner generates the space.
-- AUTHORITY naivety — a selected profile, provider mechanism, historical receipt, observed state, or external package treated as the semantic owner.
+- AUTHORITY naivety — a selected profile, provider mechanism, historical record, observed state, or external package treated as the semantic owner.
 - Claims land proved on a live rail: installed-tree reflection, throwaway harness apps, provisioned-host probes, whichever rail reaches the fact.
 - Blockers and research rows chase to full realization on the whole tool estate; a residual survives only on an observable no rail fires.
 - Items formulated in isolation of their folder's ground-up code-doctrine integration are corrected or removed.

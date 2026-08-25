@@ -2,7 +2,7 @@
 
 `execute` folds every `ExecuteRequest.operation` arm through one row table into one spine, then returns the measured and sealed body as `BrepEvidence`. This owner composes source resolution from `exchange/step#CODEC` `sourced` and builder admission from `brep/placement#ADMISSION` `built` — each read at its owner, one hop, never re-exported — and owns no geometry of its own.
 
-Refusals ride `CadRail` on `BREP_INPUT`, `BREP_KERNEL`, and `BREP_OUTPUT` from `faults#ROWS`. Spatial lowering arrives from `brep/placement#PLACEMENT`, analytic bodies from `brep/solid#PRIMITIVES`, generative bodies from `brep/solid#GENERATIVE`, set algebra from `brep/boolean#BOOLEAN`, edge features from `brep/feature#FEATURE`, correspondence from `brep/provenance#CORRESPONDENCE`, measurement from `metrology/properties#RECEIPT`, and the codec pair from `exchange/step#CODEC`.
+Refusals ride `CadRail` on `BREP_INPUT`, `BREP_KERNEL`, and `BREP_OUTPUT` from `faults#ROWS`. Spatial lowering arrives from `brep/placement#PLACEMENT`, analytic bodies from `brep/solid#PRIMITIVES`, generative bodies from `brep/solid#GENERATIVE`, set algebra from `brep/boolean#BOOLEAN`, edge features from `brep/feature#FEATURE`, correspondence from `brep/provenance#CORRESPONDENCE`, measurement from `metrology/properties#MEASURE`, and the codec pair from `exchange/step#CODEC`.
 
 ## [01]-[INDEX]
 
@@ -22,7 +22,7 @@ Refusals ride `CadRail` on `BREP_INPUT`, `BREP_KERNEL`, and `BREP_OUTPUT` from `
 - Law: heterogeneous compound assembly is deleted, not carried — no `ExecuteRequest.operation` field asks for it, and every arm collapses to one body before the seal.
 - Law: many-part results fold through `brep/solid#FOLD`, whose fuse merges abutting regions into one manifold body where compound assembly leaves coincident faces and a false census.
 - Boundary: source topology arrives as the file owns it; reader precision, forced maximums, `ShapeFix_ShapeTolerance`, and `BRepLib.SameParameter_s` stay outside.
-- Boundary: healing earns its own typed admission contract and receipt, and never aliases tessellation deflection or IFC precision.
+- Boundary: healing earns its own typed admission contract and answers `Healing`, and never aliases tessellation deflection or IFC precision.
 
 ```python
 from collections.abc import Callable
@@ -50,7 +50,7 @@ from rasm.contracts.rasm.contracts.cad.operations_pb import (
     ThickOp,
     TransformOp,
 )
-from rasm.contracts.rasm.contracts.cad.types_pb import BrepKernelReceipt, SealedStep, StepProtocol
+from rasm.contracts.rasm.contracts.cad.types_pb import BrepMeasure, Correspondence, SealedStep, StepProtocol
 
 from rasm.cad.brep.boolean import BOOLEANS, boolean
 from rasm.cad.brep.feature import featured
@@ -59,7 +59,7 @@ from rasm.cad.brep.provenance import Outcome
 from rasm.cad.brep.solid import PRIMITIVE, extruded, lofted, primitive, revolved, swept, thickened
 from rasm.cad.exchange.step import sealed, sourced
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadRail
-from rasm.cad.metrology.properties import UNMEASURED, receipt
+from rasm.cad.metrology.properties import UNMEASURED, measured
 ```
 
 ## [03]-[ARMS]
@@ -152,11 +152,11 @@ _ARMS: Final[frozendict[str, Arm]] = frozendict({
 - Owner: `execute` — one spine over the elected row: run the arm, measure the body, seal it, pair the evidence.
 - Law: an unmapped field refuses at `BREP_KERNEL` because a table lagging the wire is a provider defect, while a payload of the wrong class refuses at `BREP_INPUT` inside the row that expected it.
 - Law: measurement precedes sealing, so an unmeasurable body never reaches the caller-owned output path and no partial artifact is published.
-- Law: `receipt` and `sealed` both return `CadRail`, so the seal's exception-to-exception restamp is gone and each refusal keeps its own producing leg.
+- Law: `measured` and `sealed` both return `CadRail`, so the seal's exception-to-exception restamp is gone and each refusal keeps its own producing leg.
 - Law: correspondence rides the outcome rather than a mutable accumulator threaded across arms, so an arm mapping no sub-shape carries an empty correspondence instead of a null.
 - Law: closure is `UNMEASURED` on every B-rep call because this leg runs no mesher, which is what keeps `watertight` and `volume_delta_m3` jointly absent on the wire.
-- Output: `BrepEvidence` pairs the generated receipt with the written body's protocol.
-- Boundary: `service/lane` marshals the evidence to bytes and an ordinal, so neither half crosses the process pipe as an object.
+- Output: `BrepEvidence` carries the generated `BrepMeasure`, the written body's protocol, and the `Correspondence` the arm answered.
+- Boundary: `service/lane` marshals the measure and correspondence to bytes and the protocol to an ordinal, so no generated message crosses the process pipe as an object.
 - Boundary: this owner never publishes the artifact or mints `SealedStep`, because the response envelope belongs to `service/provider#PROVIDER`.
 
 ```python
@@ -165,8 +165,9 @@ _ARMS: Final[frozendict[str, Arm]] = frozendict({
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BrepEvidence:
-    receipt: BrepKernelReceipt
+    measure: BrepMeasure
     protocol: StepProtocol
+    correspondence: Correspondence
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -181,8 +182,10 @@ def _dispatched(elected: Oneof, sources: frozendict[bytes, Path], /) -> CadRail[
 
 
 def _evidence(outcome: Outcome, output: Path, /) -> CadRail[BrepEvidence]:
-    return receipt(outcome.shape, UNMEASURED, outcome.correspondence.projected).bind(
-        lambda kernel: sealed(outcome.shape, output).map(lambda protocol: BrepEvidence(receipt=kernel, protocol=protocol))
+    return measured(outcome.shape, UNMEASURED).bind(
+        lambda measure: sealed(outcome.shape, output).map(
+            lambda protocol: BrepEvidence(measure=measure, protocol=protocol, correspondence=outcome.correspondence)
+        )
     )
 
 
@@ -192,5 +195,4 @@ def execute(request: ExecuteRequest, sources: frozendict[bytes, Path], output: P
 
 ## [05]-[RESEARCH]
 
-- [ONEOF_ROSTER]-[OPEN]: does the generated `ExecuteRequest` publish its `operation` oneof field roster so `_ARMS` proves totality at import instead of refusing an unmapped field at call time; verify against the generated `operations_pb` module.
-- [MODULE_SEAT]-[OPEN]: does the shared admission rail seat in this module without a sibling import cycle, given every B-rep page imports `built` while this page imports every one of them; verify against a realized package layout and settle the answer at the folder rulings.
+(none)

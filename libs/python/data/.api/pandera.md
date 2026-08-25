@@ -113,7 +113,7 @@
 [LOCAL_ADMISSION]:
 - Declare a contract as a `DataFrameModel` subclass with typed `Field` constraints for a static-checkable reusable schema, `DataFrameSchema` where the schema is built dynamically; import the backend namespace matching the frame the page owns.
 - Gate a function boundary with `@check_types` (or `@check_input`/`@check_output`/`@check_io`) so a typed `Series`/`DataFrame` annotation enforces at call time.
-- Use `lazy=True` and fold `SchemaErrors.failure_cases` into a typed failure receipt that stacks into a `pointblank`/`dataframely`-style grade; use `coerce=True` and `Parser` to normalize before validation.
+- Use `lazy=True` and fold native `SchemaErrors.failure_cases` into the profile grade; use `coerce=True` and `Parser` to normalize before validation.
 - On the polars plane, define `pandera.polars` schemas so validation runs on the polars frame natively; collect a `pl.LazyFrame` to a `pl.DataFrame` at the gate so `SchemaError`/`SchemaErrors` fires. Round-trip through `to_yaml`/`from_yaml` for a versioned contract; `infer_schema` and `to_script` bootstrap, never the final contract.
 
 [RAIL_LAW]:

@@ -2,18 +2,15 @@
 
 `Imposition` owns press imposition — reordering, scaling, rotating, and cropping an already-emitted multi-page PDF onto larger imposed sheets in a press-ready form. It discriminates a closed-payload `ImposeOp` `tagged_union` by one total `match` — `Impose` the drawing case (`source`, `Scheme`, `Geometry`, `Marks`), `Proof` the `ProofPolicy`-driven RGB-screen / CMYK-separations / GRAY-density raster proof — never a per-scheme `Nup`/`Booklet`/`Signature` draw family or a `StrEnum` over an erased `dict`; the compute-only pre-flight is `Imposition.planned` over the same `Impose` payload, never a parallel op case duplicating it. It is the dedicated booklet/signature engine computing the saddle-stitch creep, the folded-signature ordering, and the work-and-turn duplexing that the simpler `document/egress#FINISH` `IMPOSE` in-document n-up step over a finished PDF never reaches. It computes the imposition and places the pages but assembles no document — the imposed sheets hand onward to `document` assembly.
 
-`Scheme` is a closed `StrEnum`: a locally-placeable scheme binds one `PLANS` `place(pages, geometry)` computation fusing page order, recto/verso rotation, and per-sheet creep, while a provider-native scheme (`wire`/`hardcover`/`cards`/`zine`) is a `_PDFIMPOSE_SCHEMAS` row whose fold geometry only `pdfimpose` owns (the inverse of local-only `perfect-bind`); the derived `_ENGINES` route table is the ONE capability declaration admission and execution share — `ImposeOp.Impose` returns `Result[ImposeOp, ImposeFault]` and refuses a scheme-engine pair with no route BEFORE any render, so the default `Scheme.NUP` can never reach a provider registry that lacks it — and the imposed-sheet count derives from the one placement `Block`, never a second formula. `Placement`, `Geometry`, and `Marks` carry the placement axis, the binding-and-gripper-aware cell grid `partition` projects (its divisor invariants `Is`-refined so a non-positive count or negative margin rails at admission), and the press-finishing policy; each placement binds to a shared signature-group OCG through `set_ocmd` and drives its reader toggle/lock through one `set_layer` write, over the `Composed`/`ComposedKind`/`Orientation`/`PlacementPolicy` owners imported from `composition/sheet#SHEET`, never N flat duplicate `add_ocg` groups. This owner's `_composed` fold crosses as one `HOSTILE`-trait kernel onto the warm process pool — the local `pymupdf.show_pdf_page` native mutation and the pure-Python `pdfimpose` provider both hold the GIL, so a `RELEASING` thread row serializes the loop behind them, and the subinterpreter arm stays refused because the worker returns the `msgspec`-backed `Composed` — with every opened handle `with`-bracketed; `pdfimpose` is provider-contained, accepting `(BytesIO(source),)`/`BytesIO()` and returning imposed bytes plus local facts. Local imposition folds editable `Layer` rows beside the imposed bytes into `Composed.layer_rows`; `Imposition.layers` renames that evidence without repeating placement math. `Proof` emits the device raster in the exact admitted `ProofInk`/`ProofRaster` pairing, and the ICC soft-proof / out-of-gamut audit is `graphic/color/managed#MANAGED`'s `ManageOp.Managed(..., transform=IccTransform(proof=...))`, chained as a downstream `core/plan#PLAN` producer node over the proof bytes — never a re-implemented lcms2 transform here; the LOCAL `press` printer's-mark set is distinct from the `Marks.overlay` figure-overlay route to `composition/compose#COMPOSE`. Receipts thread `core/receipt#RECEIPT`'s named `ArtifactReceipt.Egress`/`Pdf`/`Preview` mints selected by `Composed.kind`; every imposition routes through the `core/plan#PLAN` `ArtifactPipeline` as a producer node.
 
 ## [01]-[INDEX]
 
-- [02]-[IMPOSE]: the press-imposition owner discriminating a closed `ImposeOp` `tagged_union` — `Impose` (locally-placeable n-up/booklet/signature/work-and-turn/cut-and-stack/come-and-go/perfect-bind/sheetwise plus provider-native wire/hardcover/cards/zine, route-admitted through the derived `_ENGINES` table) and `Proof` (the RGB/CMYK/GRAY raster proof) — folded once into the imported `Composed` evidence struct the `folded()` successor threads, railed `RuntimeRail[ArtifactReceipt]` over `async_boundary(catch=_FAULTS)`, dispatched to the local `pymupdf.show_pdf_page` engine or the `pdfimpose` schema wrappers; `planned` is the compute-only pre-flight over the `Impose` payload.
 
 ## [02]-[IMPOSE]
 
-- Owner: `Imposition` discriminates over the closed `ImposeOp` `expression.tagged_union`, one typed payload per case, never a `StrEnum` over a shared erased `dict`; the verb family is two cases (`Impose`/`Proof`) plus the `planned` pre-flight projection — never a `Nup`/`Booklet`/`Signature` triple differing only by a literal scheme, and never a `Plan` case duplicating `Impose`'s payload to carry a receipt-less JSON blob. `Scheme` splits into the locally-placeable set (each a `PLANS` `place(pages, geometry)` row fusing page order, recto/verso rotation, and per-sheet creep) and the provider-native set (`WIRE`/`HARDCOVER`/`CARDS`/`ZINE`, a `_PDFIMPOSE_SCHEMAS` row whose fold geometry only `pdfimpose` owns), each row's `accepts` frozenset filtering the one candidate kwarg dict so a schema never sees a kwarg it rejects; `_ENGINES` DERIVES each scheme's capable engines from those two tables — one declaration site admission (`Impose`'s `Result` ingress) and execution (`_composed`'s route) both read — and the imposed-sheet count is the derived `_sheet_count` over the one placement list, never a second `sheets` callable. `Placement` projects every field straight onto the `show_pdf_page` keyword set and feeds the one `set_layer` reader-config write; `Geometry` projects once through `partition` to the binding-aware cell grid with every field live, and its `boxes()` derivation pins the imposed form's `TrimBox`/`BleedBox` so a press tool reads the finished-work area off the page geometry; `Marks` carries the press-finishing policy. `pymupdf` owns the cross-document `show_pdf_page` draw, the imposed-sheet construction, the `add_ocg`+`set_ocmd`+`set_layer` OCG binding, the press-finish surface, and the press-faithful RGB/CMYK/GRAY proof raster; the per-scheme page-order, creep, verso-rotation, and tumble arithmetic is this owner's fold over that one floor, never a re-implemented byte emitter.
+- Owner: `Imposition` discriminates over the closed `ImposeOp` `expression.tagged_union`, one typed payload per case, never a `StrEnum` over a shared erased `dict`; the verb family is two cases (`Impose`/`Proof`) plus the `planned` pre-flight projection — never a `Nup`/`Booklet`/`Signature` triple differing only by a literal scheme, and never a `Plan` case duplicating `Impose`'s payload to carry a plan-only JSON blob. `Scheme` splits into the locally-placeable set (each a `PLANS` `place(pages, geometry)` row fusing page order, recto/verso rotation, and per-sheet creep) and the provider-native set (`WIRE`/`HARDCOVER`/`CARDS`/`ZINE`, a `_PDFIMPOSE_SCHEMAS` row whose fold geometry only `pdfimpose` owns), each row's `accepts` frozenset filtering the one candidate kwarg dict so a schema never sees a kwarg it rejects; `_ENGINES` DERIVES each scheme's capable engines from those two tables — one declaration site admission (`Impose`'s `Result` ingress) and execution (`_composed`'s route) both read — and the imposed-sheet count is the derived `_sheet_count` over the one placement list, never a second `sheets` callable. `Placement` projects every field straight onto the `show_pdf_page` keyword set and feeds the one `set_layer` reader-config write; `Geometry` projects once through `partition` to the binding-aware cell grid with every field live, and its `boxes()` derivation pins the imposed form's `TrimBox`/`BleedBox` so a press tool reads the finished-work area off the page geometry; `Marks` carries the press-finishing policy. `pymupdf` owns the cross-document `show_pdf_page` draw, the imposed-sheet construction, the `add_ocg`+`set_ocmd`+`set_layer` OCG binding, the press-finish surface, and the press-faithful RGB/CMYK/GRAY proof raster; the per-scheme page-order, creep, verso-rotation, and tumble arithmetic is this owner's fold over that one floor, never a re-implemented byte emitter.
 - Cases: dispatched by one total `match` — `Impose(source, scheme, geometry, marks)` admits the scheme-engine pair against `_ENGINES` (an unroutable pair is the `<no-route>` refusal BEFORE any render), then the fold resolves `PLANS[scheme]` or the provider row, opens the source (raising the `EmptyFileError` the `_FAULTS` tuple admits on a zero-page source), computes the `Placement` list and derived count, mints one shared OCG per unique signature name, binds each member through `set_ocmd`, drives one `_configure_layers` reader write, runs the `Marks` finish, and pins the derived page boxes — the saddle order, head-to-head verso rotation, per-fold creep, duplex mirror, come-and-go duplicate, and sheetwise split all carried by the resolved `PLANS` row, the case unchanged. `Proof(source, dpi, sheet, policy)` returns `Result[ImposeOp, ImposeFault]`, refuses a non-finite dpi or one whose truncated rasterizer integer is zero with `<proof-dpi>` and a negative sheet selector with `<proof-sheet>` (the count-dependent overrun stays the boundary's trapped `IndexError`), refuses an ink/codec pair outside `_PROOF_RASTERS` with `<proof-route>`, and discriminates the `sheet` selector on input shape — an `int` proofs one imposed sheet, a tuple a contact strip (empty = every sheet) — rasterizing in the `ProofPolicy` ink model and encoding in the exact admitted `ProofRaster` codec. ICC-managed soft-proof and out-of-gamut audit chain outward through `graphic/color/managed#MANAGED` `ManageOp.Managed(..., transform=IccTransform(proof=...))` as a parent-keyed downstream producer, so the proof codec never silently changes and no lcms2 transform is re-owned here. A new scheme is one `Scheme` member plus one table row — `_ENGINES` re-derives — never a new case, a per-scheme imposer sibling, a per-page draw family, or a hard-coded `rotate=0`.
-- Auto: `_composed(op) -> Composed` is the ONE total `match`, executed once per path — offloaded by the async emission, landed on the `folded()` successor the `contribute`/`layers` projections read — never re-entered per projection. `Impose`'s `_admit` guard has already railed a non-positive grid count or negative extent as `BeartypeCallHintViolation` (only a direct scalar parameter is deep-checked, never a `Struct`/`Block` field) BEFORE the placement resolution feeds the native draw; `_imposed` allocates the derived `_sheet_count` on the live `out` document, mints ONE shared OCG per unique placement `name`, folds its `Layer` rows beside the output bytes, and folds `_draw_one` — each binding a `name`-bearing placement to its shared group through `set_ocmd` under `PlacementPolicy.membership` and drawing `show_pdf_page` under the same policy on the live native page, never a held `Page` list that outlives `out` — then keeps the rows that bound a real group, drives one `_configure_layers` write over the deduped groups, runs the `Marks.finished` finish, the `_press_marks` LOCAL crop/fold/registration/colour-bar draw (distinct from the `Marks.overlay` route to `composition/compose#COMPOSE`), and the `Geometry.boxes()` TrimBox/BleedBox pin, and returns the deterministic `tobytes` reading the REAL `Document.page_count`. This native-handle `Block.map`/`choose` sweep is the platform-forced seam, not a `Result[Document, Never]` fold — the engine raise the boundary converts replaces a per-element `Result` thread that can never carry an `Error`. `_grid`/`_folded_plan`/`_duplexed`/`_stacked`/`_paired`/`_split` bodies are the `PLANS` rows (NUP and PERFECT_BIND both bind `_grid`, differing by a `Geometry.spine` field; WORK_AND_TURN and WORK_AND_TUMBLE both bind `_duplexed`, differing by the `on_across` mirror-axis value — two rows over one body), each `cell` from `partition`. `planned` projects the `ImposedPlan` without drawing, keying the placement model on the RESOLVED engine — a PDFIMPOSE-engined request carries empty placements because only `pdfimpose` owns that fold geometry, so a dual-routed scheme never fabricates a local stream the provider imposition diverges from; the `Proof` arm rasterizes through `_rasterized` in the `ProofPolicy` ink model and encodes native `tobytes` or the `pil_tobytes` bridge, the `_contact` montage celling on the LARGEST selected sheet so a mixed-size gang run never mis-cells.
-- Receipt: each op contributes `core/receipt#RECEIPT` off the one `Composed` fold — the `Composed.kind` discriminant plus the `Composed.layers` count select the named flat-scalar mint once, so the owner adds NO sibling factory and NO new case. An OCG-bearing `Impose` op selects `ArtifactReceipt.Egress(key, len(data), pages, 0, 0, layers)` carrying the imposed byte count, REAL page count, and minted-OCG count on the `overlays` slot (zero encryption/outline depth — imposition is neither a security nor a navigation close), a degenerate no-mark imposition the `Pdf` form; `Proof` selects `Preview(key, extent[0], extent[1], bytes_, scores)` carrying byte count and pixmap extent. `contribute` reads the successor's `composed` evidence — the un-folded owner contributes nothing, so absence stays distinct from evidence and no projection re-enters the render. `planned` contributes no receipt — its `ImposedPlan` is a pre-flight payload, never a fake `0`-page `Pdf` over plan-JSON bytes.
+- Auto: `_composed(op) -> Composed` is the ONE total `match`, executed once per path — offloaded by the async emission, landed on the `folded()` successor that `layers` reads — never re-entered per projection. `Impose`'s `_admit` guard has already railed a non-positive grid count or negative extent as `BeartypeCallHintViolation` (only a direct scalar parameter is deep-checked, never a `Struct`/`Block` field) BEFORE the placement resolution feeds the native draw; `_imposed` allocates the derived `_sheet_count` on the live `out` document, mints ONE shared OCG per unique placement `name`, folds its `Layer` rows beside the output bytes, and folds `_draw_one` — each binding a `name`-bearing placement to its shared group through `set_ocmd` under `PlacementPolicy.membership` and drawing `show_pdf_page` under the same policy on the live native page, never a held `Page` list that outlives `out` — then keeps the rows that bound a real group, drives one `_configure_layers` write over the deduped groups, runs the `Marks.finished` finish, the `_press_marks` LOCAL crop/fold/registration/colour-bar draw (distinct from the `Marks.overlay` route to `composition/compose#COMPOSE`), and the `Geometry.boxes()` TrimBox/BleedBox pin, and returns the deterministic `tobytes` reading the REAL `Document.page_count`. This native-handle `Block.map`/`choose` sweep is the platform-forced seam, not a `Result[Document, Never]` fold — the engine raise the boundary converts replaces a per-element `Result` thread that can never carry an `Error`. `_grid`/`_folded_plan`/`_duplexed`/`_stacked`/`_paired`/`_split` bodies are the `PLANS` rows (NUP and PERFECT_BIND both bind `_grid`, differing by a `Geometry.spine` field; WORK_AND_TURN and WORK_AND_TUMBLE both bind `_duplexed`, differing by the `on_across` mirror-axis value — two rows over one body), each `cell` from `partition`. `planned` projects the `ImposedPlan` without drawing, keying the placement model on the RESOLVED engine — a PDFIMPOSE-engined request carries empty placements because only `pdfimpose` owns that fold geometry, so a dual-routed scheme never fabricates a local stream the provider imposition diverges from; the `Proof` arm rasterizes through `_rasterized` in the `ProofPolicy` ink model and encodes native `tobytes` or the `pil_tobytes` bridge, the `_contact` montage celling on the LARGEST selected sheet so a mixed-size gang run never mis-cells.
 - Growth: a new locally-placeable scheme is one `Scheme` member plus one `PLANS` row, a new provider-native scheme one `Scheme` member plus one `_PDFIMPOSE_SCHEMAS` row carrying its `impose` function and `accepts` kwarg frozenset — `_ENGINES` re-derives both, never a parallel imposer class, an `if scheme == ...` branch, or a new `ImposeOp` case; a geometry behavior is one `Orientation` or `CreepMode` policy value or one `Geometry` field read in `partition`, the fold, or the `_pdfimpose_kwargs` dict; a placement behavior axis extends `PlacementPolicy`; a deeper signature is the same `_folded_plan` fold over a larger `Geometry.leaves`; a press-finish concern is one `Marks` field; a LOCAL printer's mark is one `PressMark` member plus one `_press_marks` arm, while a figure overlay still routes through `Marks.overlay` to `composition/compose#COMPOSE` — two distinct seams; a proof axis is one `ProofInk`/`ProofRaster` member plus one `_PROOF_RASTERS` admission row or one `ProofPolicy` field, the ICC gamut audit an outward `graphic/color/managed#MANAGED` chain. Zero new surface.
 
 ```python
@@ -21,7 +18,6 @@
 import math
 from collections.abc import Callable, Iterable
 from enum import StrEnum
-from functools import partial
 from io import BytesIO
 from typing import TYPE_CHECKING, Annotated, Final, Literal, Self, assert_never
 
@@ -35,13 +31,13 @@ from msgspec import Struct, msgpack, structs
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import FAULT_CONF, TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
 from rasm.artifacts.composition.sheet import Composed, ComposedKind, Orientation, PlacementPolicy, Quarter
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN, ArtifactKind, ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.export.layered import Layer
 
 lazy import pymupdf
@@ -56,9 +52,6 @@ lazy from pdfimpose.schema import wire as pdf_wire
 
 if TYPE_CHECKING:
     from pymupdf import Colorspace, Document, Page, Pixmap, Shape
-
-    from rasm.runtime.receipts import Receipt
-
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type Box = tuple[float, float, float, float]
@@ -462,9 +455,9 @@ class Imposition(Struct, frozen=True):
     lane: LanePolicy
     composed: Option[Composed] = Nothing
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[Composed]:
         key = self._key
-        return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
+        return ArtifactWork(key=key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
@@ -473,23 +466,18 @@ class Imposition(Struct, frozen=True):
     def folded(self) -> Self:
         return structs.replace(self, composed=Some(_composed(self.op)))
 
-    async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        return await async_boundary(IMPOSE_FOLD, partial(self._folded, key), catch=_FAULTS)
+    async def _emit(self) -> RuntimeRail[Composed]:
+        match await async_boundary(IMPOSE_FOLD, self._folded, catch=_FAULTS):
+            case Result(tag="ok", ok=composed):
+                kind: ArtifactKind = "preview" if composed.kind is ComposedKind.PREVIEW else "document"
+                Metrics.record({BYTE_VOLUME: float(len(composed.data))}, domain=DOMAIN, kind=kind, scope=self.lane.scope)
+                return Ok(composed)
+            case refused:
+                return Error(refused.error)
 
-    async def _folded(self, key: ContentKey, /) -> ArtifactReceipt:
+    async def _folded(self) -> Composed:
         crossed = await self.lane.offload(Kernel.of(_composed, KernelTrait.HOSTILE), self.op)
-        return self._receipt(key, crossed.default_with(_impose_raise))
-
-    def _receipt(self, key: ContentKey, composed: Composed, /) -> ArtifactReceipt:
-        match composed.kind:
-            case ComposedKind.PDF if composed.layers:
-                return ArtifactReceipt.Egress(key, len(composed.data), composed.pages, 0, 0, composed.layers)
-            case ComposedKind.PDF:
-                return ArtifactReceipt.Pdf(key, len(composed.data), composed.pages)
-            case ComposedKind.PREVIEW:
-                return ArtifactReceipt.Preview(key, composed.extent[0], composed.extent[1], len(composed.data), composed.scores)
-            case _:
-                assert_never(composed.kind)
+        return crossed.default_with(_impose_raise)
 
     def planned(self) -> Option[ImposedPlan]:
         match self.op:
@@ -499,9 +487,6 @@ class Imposition(Struct, frozen=True):
                 return Nothing
             case _ as unreachable:
                 assert_never(unreachable)
-
-    def contribute(self) -> "Iterable[Receipt]":
-        yield from self.composed.map(lambda live: tuple(self._receipt(self._key, live).contribute())).default_value(())
 
     def layers(self, names: tuple[str, ...] = ()) -> tuple[Layer, ...]:
         return self.composed.map(lambda live: Layer.renamed(live.layer_rows, names)).default_value(())

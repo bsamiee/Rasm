@@ -157,7 +157,7 @@ public interface IParticipant {
 - Law: the read case adopts AFTER `ArchiveIo` has proved schema readability, checksum, and reader state, so a participant never sees a payload the frame did not verify.
 - Law: the exchange result is read through its own total dispatch — the caller knows which direction it asked for, but the union answers both, so the mismatched arm refuses by CASE rather than by an `is`-probe with a fall-through a third direction would silently take.
 - Law: the participant's own members are already railed, so each call crosses through `Op.Catch` alone and no arm re-wraps an existing `Fin` in a second success.
-- Receipt: both crossings answer their `ArchiveIntegrity` evidence, so a caller records what the archive actually reported rather than inferring success from the absence of a fault.
+- Output: both crossings answer their `ArchiveIntegrity` evidence, so a caller records what the archive actually reported rather than inferring success from the absence of a fault.
 - Boundary: the `ParticipationAsk` cases carry LIVE `RhinoDoc`, `BinaryArchiveWriter`, `BinaryArchiveReader`, and file-options handles by design — this rail is the seam where `lifecycle#ADAPTER` terminates them, which is why the detach-first law lives INSIDE the arms rather than at the case constructors.
 - Boundary: this rail runs inside the host's own save and open sequence and opens no document session; the document is already the host's and the crossing mutates no table. No deferral and no re-drive is expressible here — the host callback owns the thread and a retried write reopens a chunk the host already closed.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Seq`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`); `Persistence/userdata` (`ArchiveIo.Cross`, `ArchiveIntegrity`, `ArchiveEnvelope`); `Document/session` (`DocKey.Of`); RhinoCommon file I/O (`.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
@@ -358,7 +358,6 @@ public static class PluginSettings {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

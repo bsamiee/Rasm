@@ -2,7 +2,7 @@
 
 `Rasm.Meshing.mesh` owns the mesh substrate every DDG consumer composes: the ONE mesh admission discriminant `MeshSource`, the validated `MeshSpace` snapshot every arm resolves to, the decode-time `MeshDraft` accumulator and its `SceneWalk` fold, the `LaplacianCache` memoization, the intrinsic triangulation and `MeshLaplacian` assembly, and the topology, transport, and power-diagram witnesses. DEC operator assembly homes at `Meshing/dec`, reconstruction at `Meshing/reconstruct`, and every DDG solver at its owning `Processing/` page.
 
-`MeshSource`, `MeshSpace`, `MeshDraft`, `MeshBlockRange`, `MeshAdjointSnapshot`, and `TopologyReceipt` are the public cross-package decode names the Geometry pages, the `Processing/receipts` route, the interchange decoders, and the `Rasm.Compute` adjoint seam bind. `MeshSource` arms carry `Rasm.Drawing`'s `EncodedGeometry` lane arena verbatim, `MeshDraft` composes `Meshing/edit`'s arena law by name, and every band on this page is a `ToleranceLane` read off the snapshot's own bound `Context`.
+`MeshSource`, `MeshSpace`, `MeshDraft`, `MeshBlockRange`, `MeshAdjointSnapshot`, and `Topology` are the public cross-package decode names the Geometry pages, the `Processing/session` route, the interchange decoders, and the `Rasm.Compute` adjoint seam bind. `MeshSource` arms carry `Rasm.Drawing`'s `EncodedGeometry` lane arena verbatim, `MeshDraft` composes `Meshing/edit`'s arena law by name, and every band on this page is a `ToleranceLane` read off the snapshot's own bound `Context`.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@
 - Entry: `MeshSpace.Of(Mesh, …)` and `MeshSpace.Of(MeshSource, …)` are the two admission entries and `MeshSpace.Accrue(MeshDraft, …)` the draft close into a host snapshot; all three funnel one `Admit` gate — null screen, `Mesh.IsValid` gate, defensive `DuplicateMesh` snapshot, `Context` binding, assembly policy fixed for the snapshot lifetime. `MeshDraft.Close` is the PUBLIC arena egress beside it: it publishes the packed lanes, the rebased corner roster, and the block overlay without minting a host mesh at all, which is the read an Element-tier `ImportedGeometry` mint composes. `MeshSpace.Bounds` and `MeshSpace.Index` are the memoized extent and broad-phase reads — a consumer building its own per-face box roster re-opens the copy this memo collapses.
 - Auto: `Admit` is the one snapshot gate and takes its provenance as a parameter, so the `Native` arm re-wraps the SNAPSHOT (never the caller's mesh, which aliases the memory the defensive copy exists to escape) while the lane arms keep their immutable source arm. `LiftArena` reads the `Position` lane into vertices and the corner roster into triangles, carrying `Normal` and `Uv` when declared. `LiftVolume` folds the cell block through `CellTopology.Facets`, keying each facet on its sorted CORNER tuple; a key appearing once is a boundary facet and becomes a mesh face. `MeshDraft.Append` is total on its arena and returns the block's ORDINAL — the only block handle the scene fold carries — while `Close` pools each declared channel densely and refuses only an EMPTY column. `MeshDraft.Place` answers on the same `Fin` rail, so a stale ordinal from a caller-side memo refuses instead of vanishing. `SceneWalk.Accrue` walks the scene depth-first, prunes each excluded subtree, threads the parent frame into every node's placements, appends each node's blocks through the accessor's own memo, and sweeps the draft's un-referenced ordinals in un-placed at identity — every placement and every parent-frame read folding onto the one accumulator the walk aborts on.
 - Law: `MeshDraft.Close` refuses a channel EMPTY across the whole arena and a vertex count past the encode seam's own `int` width; it never refuses a ragged union. Per-block `Declared` is the gate every consumer reads, and a block that declared no lane leaves its ordinates in that lane untouched — never read as values — so the pooled lane stays dense while a partially-declaring pool stays honest. Inverting that law — refusing a block that declared fewer lanes than the draft's union — is the DELETED form: it refused every real multi-source import where a UV-bearing block sits beside a UV-free one.
-- Receipt: none at this cluster — `MeshSpace` IS the receipt-bearing artifact and `TopologyReceipt` witnesses it at `[03]`; `MeshDraft` is build state, and `MeshBlockRange` is an extent, not evidence.
+- Output: `MeshSpace` IS the hash-eligible artifact and `Topology` witnesses it at `[03]`; `MeshDraft` is build state, and `MeshBlockRange` is an extent, not evidence.
 - Packages: `Rasm.Drawing` (`EncodedGeometry`/`EncodingChannel`/`Encode.Of` the lane arena and its one raw-lane mint), `Rasm.Spatial` (`SpatialIndex`/`SpatialKind`/`BuildPolicy` the broad-phase build), `Rasm.Meshing` (`ArenaPolicy` from `Meshing/edit` — one arena policy row, never a draft twin), `Rasm.Domain` (`Context`, `ToleranceLane`, `Op`, `Kind`), `Rasm.Numerics` (`Dimension`, `GeometryFault`), QuikGraph (`DelegateIncidenceGraph` + `ImplicitDepthFirstSearchAlgorithm` — the scene walk's lazily-adjacent container and its reach-only colouring), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`), LanguageExt.Core, Rhino.Geometry.
 - Growth: a new source modality is one `MeshSource` case with one `Lift` arm; a new cell family is one `CellTopology` row carrying its facet table; a new interchange reader is one `SceneWalk<TNode>` instantiation, zero new folds; a new lane is one `EncodingChannel` row at the `Drawing/pack` owner and zero draft edits — the pool fold is channel-generic and strides on the channel's own declared arity. Zero new carriers.
 - Boundary: `MeshSpace`'s whole value is the VALIDATED HOST SNAPSHOT — the `Mesh.IsValid` gate, the defensive copy, the `Context` binding, and the Laplacian memo keyed on the snapshot's identity — so a raw-buffer arm aliasing caller memory cannot honour it; `Arena` and `Volume` therefore admit through their own `Lift` and never hand a caller's buffer to the substrate. `MeshSource.Arena` carries the `(EncodedGeometry, ImmutableArray<long>)` lane pair and NOT `ImportedGeometry`: the closed spelling names an Element-tier carrier (`Rasm.Element/.planning/Projection/projection.md:322`) the kernel cannot depend upward on, so the strata law refutes it here and the Element mint composes `MeshDraft.Close` instead — the same fact, spelled at the tier that owns it. Three further named losses ride the snapshot decision: the plural carriers' direct buffer access, bought back by `Lift` at one gate; decode-time arena pooling, which survives as `MeshDraft`'s internal and never as a public shape; and each provider's native ABI, which stays behind its own arm because the layout is the library's, not the kernel's. `Volume` publishes the LINEAR boundary hull — mid-side nodes carry no boundary corner, so a quadratic cell's curved facet flattens to its corner triangle, and a consumer needing the curved facet reads the lane arena directly. Corners are `long` end to end — the seam's own width and the `Volume` arm's — while counts narrow to `int` at `Encode.Of`, which is the one place the width disagreement is decidable and where `Close` refuses it typed. `MeshDraft` and `Meshing/edit`'s `MeshEdit` are two arenas under one law and split on ADMISSION SIDE: `MeshEdit` binds a `Context` because it mutates already-admitted geometry under a proven tolerance regime, `MeshDraft` binds none because raw decoded lanes have no regime until `Accrue` supplies one. A MISSING parent frame in the walk is a walk-order violation and refuses typed: reading it as the identity transform relocates a whole subtree to the world origin with nothing on the rail to say so. `SceneWalk`'s FRAME LAW is that a node's own frame is the HEAD of its placements and a node placing nothing inherits its parent's unchanged, which is what lets a mesh-free transform node carry its subtree; a format publishing world transforms per node ignores the threaded parent and the law is vacuous there. `MeshletBand` is NOT this owner's — the partition band seats beside `MeshBlock` at `Rasm.Element`, and `MeshBlockRange` here is the draft's own extent, never a band.
@@ -190,8 +190,8 @@ public readonly record struct MeshSpace {
 - Cases: `MeshLaplacian` rows `Cotangent`/`IntrinsicDelaunay`/`TuftedIntrinsic` carry the triangulation source, cache memo, and kind-consistent intrinsic snapshot as row data, so no call site branches on row equality — the two columns the census carried as bools were perfectly correlated, a row running on the INPUT triangulation exactly when its quality is the caller's to answer for. `TransportHalf` is the transport vocabulary and a request is a `CapabilitySet<TransportHalf>` — frames answer direction and normal coordinates answer crossing, two INDEPENDENT measurements of one pass, so the three named encodings were exactly its three legal non-empty subsets and the roster derives instead of restating them. `CoverSubstitution`, `CoverLaw`, and `MeshTrait` are the cover-substitution, cover-proof, and topology vocabularies; `OverlayEmit` and `PowerDensityPolicy` carry their emission and fan-quadrature geometry the same way.
 - Entry: `MeshSpace.Laplacian` is the one Laplacian entry, the kind row's delegate routing the cache memo and the `TriangulationSource.Input` row routing the aspect-ratio guard while intrinsic kinds mollify; `MeshSpace.FaceNormals` is the one per-face normal read — the memoized unit-normal column over the native face roster, so a mesh-evidence consumer indexes faces without a native copy or a `ComputeFaceNormals` mutation; `MeshAdjointSnapshot.Of` projects the cached `DiscreteCalculus` for the adjoint seam; `MeshKernel.TopologyDetailed` is the total topology diagnostic; `MeshKernel.RestrictedPowerCells` is the power-diagram entry. One selector row owns each discretization, no per-kind assembly sibling.
 - Auto: `LaplacianCache.For` resolves the per-snapshot cache; each memo seats its `Atom<HashMap>` through `Cell.Claim` only on `Fin.Succ`, so a transient failure re-computes and a racing computer's seated value is what both callers read. Downstream solver artifacts ride the one type-keyed `Memoized` slot materialized from the `(TKey, T)` pair, so the substrate names no downstream type. Intrinsic assembly runs `FromMesh` → `FlipFrontier.Settle` → `Freeze` with the FLIP-N integer normal-coordinate update keeping the kernel integral and the parity invariant exact, and with signposts seeded over the input fan at `FromMesh` and maintained per flip, so the frozen snapshot's angles are the flipped triangulation's own and the input halfedge directions the overlay traces survive beside them; the tufted path builds the double cover, applies global Sharp-Crane mollification, settles the flip frontier, and admits only under the structural guards. Every degenerate-area floor is scale-derived from `DegenerateAreaFloorOf`, one owner.
-- Law: a band a consumer can override is a `ToleranceLane` read off `MeshSpace.Tolerance`; a scale-relative NUMERICAL floor — the cotangent denominator screen, `DegenerateAreaFloorOf`, `SpdMassShift` — stays an `EpsilonPolicy` row because it guards float arithmetic, not a domain decision, and admits no per-model override. Receipts gated at a band CARRY that band, so a witness read later states the regime it passed under rather than assuming the reader's.
-- Receipt: `SparseLaplacian` carries the stiffness/mass/witness bundle under dimension-agreement claims; `TuftedLaplacianReceipt` witnesses the full cover construction, its proved cover laws riding one `CapabilitySet<CoverLaw>` column and its residual band riding beside them; `TopologyReceipt` is the total un-gated topology witness carrying its measured `CapabilitySet<MeshTrait>`, its DERIVED watertight and Euler-validated reads, and the typed `(Euler, Genus, BoundaryComponents)` projection row — every field is evidence and a new witness is one row; `SignpostTransportReceipt`, `CommonSubdivision`, and `RestrictedPowerReceipt` witness transport, overlay partition-of-unity, and radical-clip degeneracy. Census bool `SignpostTransportReceipt.IntrinsicSnapshot` is ABSORBED, not dropped: `TransportOf` guards `imesh is { IsFrozen: true, SignpostAngle: not null }` at entry, so a receipt reporting an unfrozen snapshot is unrepresentable and the field carries a constant `true`. Every gated receipt is one `ValidityClaim.All` fold over the rails claim rows; `TopologyReceipt` alone stays gate-free.
+- Law: a band a consumer can override is a `ToleranceLane` read off `MeshSpace.Tolerance`; a scale-relative NUMERICAL floor — the cotangent denominator screen, `DegenerateAreaFloorOf`, `SpdMassShift` — stays an `EpsilonPolicy` row because it guards float arithmetic, not a domain decision, and admits no per-model override. Witnesses gated at a band CARRY that band, so a read later states the regime it passed under rather than assuming the reader's.
+- Output: `SparseLaplacian` carries the stiffness/mass/witness bundle under dimension-agreement claims; `TuftedCover` witnesses the full cover construction, its proved cover laws riding one `CapabilitySet<CoverLaw>` column and its residual band riding beside them; `Topology` is the total un-gated topology witness carrying its measured `CapabilitySet<MeshTrait>`, its DERIVED watertight and Euler-validated reads, and the typed `(Euler, Genus, BoundaryComponents)` projection row — every field is evidence and a new witness is one row; `SignpostTransport`, `CommonSubdivision`, and `PowerCensus` witness transport, overlay partition-of-unity, and radical-clip degeneracy. Census bool `SignpostTransport.IntrinsicSnapshot` is ABSORBED, not dropped: `TransportOf` guards `imesh is { IsFrozen: true, SignpostAngle: not null }` at entry, so a witness reporting an unfrozen snapshot is unrepresentable and the field carries a constant `true`. Every gated witness is one `ValidityClaim.All` fold over the rails claim rows; `Topology` alone stays gate-free.
 - Exemption: `FlipFrontier` is a WORK-LIST fixpoint, not a traversal, and names its refusal in-fence at the owner both flip consumers compose — QuikGraph's `BreadthFirstSearchAlgorithm` colours each vertex once and admits no re-entry, so composing it caps every edge at one flip and silently changes the algorithm, and `IQueue<TVertex>` selects a frontier over a STATIC container while every flip rewrites the incidence the frontier reads. Power-cell FIFO frontier and signpost fan orbit refuse the same operators for the same reason and stay measured statement kernels. `IntrinsicMesh.EdgeData` stays a mutable `Dictionary` because a flip rewrites it in place; `SeedHalfedges` freezes into a `FrozenDictionary` at `Freeze`, and `LaplacianCache.solverSlots` stays concurrent because it grows across the snapshot's whole lifetime. That same clause covers every span-kernel accumulator that dies with the fold that fills it: `LaplacianTriplets`' per-face triplet columns, the SPD assembly's `triplets` list, `TransportFramesOf`'s `rows`, and the overlay's `points`, `crossings`, and preallocated `alongB` slot table — the last is preallocated BY NORMAL COORDINATE precisely so a missed crossing lands as a null slot the completeness gate refuses. `MeshKernel.TraitsOf` takes five bools because RhinoCommon's `IsManifold` publishes its predicates as `out` parameters: the K2 exemption is a HOST-BOUNDARY one, the five arguments are consumed by one fold into `CapabilitySet<MeshTrait>` in the same expression that reads them, and no bool crosses a page surface.
 - Packages: RhinoCommon is a genuine Rhino boundary here per the Tier-0 capture law, never thinned; `Numerics/matrix` owns sparse assembly and the Cholesky factor, `Numerics/spectral` the `DiscreteCalculus` carrier, `Numerics/atoms` the projection and magnitude value objects, `Spatial/neighbors` the one k-NN substrate the power-incident seed rides rather than a private RTree, `Spatial/index` the broad phase the snapshot memoizes, `Processing/geodesics` the one chart-unfolding `WalkChart` the overlay trace seats in `EdgeOverlay` mode rather than minting a second unfold; `Domain/rails` owns `Op`, the `ValidityClaim` fold, and the `Transition`/`Cell` CAS verdict the memos seat through, `Domain/context` the `Context` and its lanes, `Domain/validation` the `CapabilitySet`/`ICapability` idiom. Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL concurrency complete the floor.
 - Growth: a fourth Laplacian discretization is one `MeshLaplacian` row, one cache memo, and one assembly member, every call site untouched; a new memoized solver artifact is zero cache edits — the owning page mints its key record and calls `Memoized`; a new transport half is one `TransportHalf` row, a new cover law one `CoverLaw` row, a new topology fact one `MeshTrait` row; a new signpost gauge, power-density model, or topology witness is one row or one field. Zero new public surface.
@@ -341,7 +341,7 @@ internal readonly record struct PowerClipPolicy(
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SparseLaplacian(
     SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped,
-    int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default, int NegativeCotangentCount = 0) : IValidityEvidence {
+    int SkippedDegenerateFaces = 0, Option<TuftedCover> Tufted = default, int NegativeCotangentCount = 0) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountExactly(count: Stiffness.Rows.Value, expected: Stiffness.Cols.Value),
         ValidityClaim.CountExactly(count: MassConsistent.Rows.Value, expected: Stiffness.Rows.Value),
@@ -349,11 +349,11 @@ public readonly record struct SparseLaplacian(
         ValidityClaim.CountExactly(count: MassLumped.Count, expected: Stiffness.Rows.Value),
         ValidityClaim.CountAtLeast(count: SkippedDegenerateFaces, floor: 0),
         ValidityClaim.CountAtLeast(count: NegativeCotangentCount, floor: 0),
-        Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true));
+        Tufted.Map(static cover => cover.IsValid).IfNone(noneValue: true));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TuftedLaplacianReceipt(
+public readonly record struct TuftedCover(
     MeshLaplacian Kind, CapabilitySet<CoverLaw> Laws, Tolerance ResidualBand,
     int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges,
     int IntrinsicFaces, int CoverFaces, int CoverEdges, int BoundaryEdges, int NonManifoldEdges,
@@ -386,7 +386,7 @@ internal readonly record struct TuftedBaseFaces(Mesh Triangulated, int TriangleC
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TopologyReceipt(
+public readonly record struct Topology(
     CapabilitySet<MeshTrait> Traits, int Vertices, int TopologyVertices, int TopologyEdges, int Faces,
     int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges,
     int EulerCharacteristic, Option<int> Genus) {
@@ -394,8 +394,8 @@ public readonly record struct TopologyReceipt(
         Traits.AdmitsAll(CapabilitySet<MeshTrait>.Of(MeshTrait.Closed, MeshTrait.Solid, MeshTrait.Manifold)) && NonManifoldEdges == 0;
     public bool EulerValidated => Genus.IsSome;
     internal Fin<TOut> Project<TOut>(Op key) {
-        TopologyReceipt self = this;
-        return AtomProjection.Rows<TopologyReceipt, TOut>(self: self, key: key,
+        Topology self = this;
+        return AtomProjection.Rows<Topology, TOut>(self: self, key: key,
             ProjectionRow.Of<(int Euler, int Genus, int BoundaryComponents)>(() => self.Genus.Match(
                 Some: genus => Fin.Succ((self.EulerCharacteristic, genus, self.BoundaryComponents)),
                 None: () => Fin.Fail<(int Euler, int Genus, int BoundaryComponents)>(key.InvalidResult()))),
@@ -417,7 +417,7 @@ public readonly record struct SignpostFrameFacts(
     double MaxAngleRadians, double MaxLengthResidual, double MaxSignpostUpdateResidual);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct SignpostTransportReceipt(
+public readonly record struct SignpostTransport(
     CapabilitySet<TransportHalf> Halves, int VertexCount, int IntrinsicEdgeCount, int IntrinsicFlipCount,
     int FlipBudgetExhaustedEdges, int NormalCoordinateParityErrors, int SumNormalCoordinates,
     Option<SignpostFrameFacts> Frames, Option<int> CommonSubdivisionSegments, Option<int> TracedPathEdgeCount,
@@ -483,7 +483,7 @@ public readonly record struct PowerCell(
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct RestrictedPowerReceipt(
+public readonly record struct PowerCensus(
     int SiteCount, int ClippedTriangleCount, int FragmentCount, int IncidentPairCount, int QueuePeakDepth,
     double FragmentAreaMin, double FragmentAreaMax, double TotalArea, double SurfaceArea, double IntegrationResidual,
     int FirstMomentFiniteCount, int NeighborFacetCount, int EmptyCellCount, int BoundarySiteCount,
@@ -501,18 +501,18 @@ public readonly record struct RestrictedPowerReceipt(
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct RestrictedPowerDiagram(Arr<PowerCell> Cells, Arr<PowerFacet> Facets, RestrictedPowerReceipt Receipt) : IValidityEvidence {
+public readonly record struct RestrictedPowerDiagram(Arr<PowerCell> Cells, Arr<PowerFacet> Facets, PowerCensus Census) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.CountExactly(count: Cells.Count, expected: Receipt.SiteCount),
-        ValidityClaim.CountExactly(count: Cells.Filter(static cell => cell.Empty).Count, expected: Receipt.EmptyCellCount),
-        ValidityClaim.CountExactly(count: Facets.Count, expected: Receipt.NeighborFacetCount),
-        ValidityClaim.Evidence(Receipt));
+        ValidityClaim.CountExactly(count: Cells.Count, expected: Census.SiteCount),
+        ValidityClaim.CountExactly(count: Cells.Filter(static cell => cell.Empty).Count, expected: Census.EmptyCellCount),
+        ValidityClaim.CountExactly(count: Facets.Count, expected: Census.NeighborFacetCount),
+        ValidityClaim.Evidence(Census));
     internal Fin<TOut> Project<TOut>(Op key) {
         RestrictedPowerDiagram self = this;
         return AtomProjection.Rows<RestrictedPowerDiagram, TOut>(self: self, key: key,
             ProjectionRow.Of<Arr<PowerCell>>(() => Fin.Succ(self.Cells)),
             ProjectionRow.Of<Arr<PowerFacet>>(() => Fin.Succ(self.Facets)),
-            ProjectionRow.Of<RestrictedPowerReceipt>(() => Fin.Succ(self.Receipt)),
+            ProjectionRow.Of<PowerCensus>(() => Fin.Succ(self.Census)),
             ProjectionRow.Of<Seq<Point3d>>(() => Fin.Succ(toSeq(
                 self.Cells.AsIterable().Filter(static cell => !cell.Empty).Map(static cell => cell.Barycenter)))));
     }
@@ -908,7 +908,7 @@ internal static class MeshKernel {
     internal static Fin<SpatialIndex> FaceIndexOf(Mesh mesh, Op key);
     internal static double DegenerateAreaFloorOf(double scale) =>
         Math.Max(scale, EpsilonPolicy.ZeroTolerance) * Math.Max(scale, EpsilonPolicy.ZeroTolerance) * EpsilonPolicy.SqrtEpsilon;
-    internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space) {
+    internal static Fin<Topology> TopologyDetailed(MeshSpace space) {
         Mesh mesh = space.Native;
         bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool hasBoundary);
         int euler = mesh.TopologyVertices.Count - mesh.TopologyEdges.Count + mesh.Faces.Count;
@@ -916,7 +916,7 @@ internal static class MeshKernel {
         int components = mesh.DisjointMeshCount;
         int numerator = (2 * components) - boundaryComponents - euler;
         bool hasGenus = manifold && oriented && components > 0 && numerator >= 0 && numerator % 2 == 0;
-        return Fin.Succ(new TopologyReceipt(
+        return Fin.Succ(new Topology(
             Traits: TraitsOf(hasBoundary: hasBoundary || boundaryComponents > 0, closed: mesh.IsClosed,
                 solid: mesh.IsSolid, manifold: manifold, oriented: oriented),
             Vertices: mesh.Vertices.Count, TopologyVertices: mesh.TopologyVertices.Count, TopologyEdges: mesh.TopologyEdges.Count,
@@ -975,7 +975,7 @@ internal static class MeshKernel {
     }
     private static double ChordAngleOf(IntrinsicMesh imesh, int tail, int tip, SignpostPolicy policy);
 
-    private static Fin<(Option<TransportFrames> Frames, SignpostTransportReceipt Receipt)> TransportOf(MeshSpace space, IntrinsicMesh imesh, SignpostPolicy policy, Op key) =>
+    private static Fin<(Option<TransportFrames> Frames, SignpostTransport Transport)> TransportOf(MeshSpace space, IntrinsicMesh imesh, SignpostPolicy policy, Op key) =>
         from _ in guard(imesh is { IsFrozen: true, SignpostAngle: not null }, key.InvalidInput())
         from halves in TransportHalf.Law.Admit(policy.Halves)
         from frames in halves.Admits(TransportHalf.Frames)
@@ -984,7 +984,7 @@ internal static class MeshKernel {
         from overlay in halves.Admits(TransportHalf.Overlay)
             ? BuildCommonSubdivision(space: space, imesh: imesh, policy: policy, key: key).Map(Some)
             : Fin.Succ(Option<CommonSubdivision>.None)
-        select (frames, new SignpostTransportReceipt(
+        select (frames, new SignpostTransport(
             Halves: halves, VertexCount: imesh.VertexCount, IntrinsicEdgeCount: imesh.EdgeCount,
             IntrinsicFlipCount: imesh.FlipCount, FlipBudgetExhaustedEdges: imesh.FlipBudgetExhaustedEdges,
             NormalCoordinateParityErrors: imesh.ParityErrorCount,
@@ -993,10 +993,10 @@ internal static class MeshKernel {
             CommonSubdivisionSegments: overlay.Map(static sub => sub.SumNormalCoordinates),
             TracedPathEdgeCount: overlay.Map(static sub => sub.SourceEdgeCount),
             Subdivision: overlay));
-    internal static Fin<SignpostTransportReceipt> SignpostTransportReceiptOf(MeshSpace space, IntrinsicMesh imesh, Op key, Option<SignpostPolicy> policy = default) =>
+    internal static Fin<SignpostTransport> SignpostTransportOf(MeshSpace space, IntrinsicMesh imesh, Op key, Option<SignpostPolicy> policy = default) =>
         TransportOf(space: space, imesh: imesh, policy: policy.IfNone(noneValue: SignpostPolicy.Default), key: key)
-            .Map(static transport => transport.Receipt);
-    [StructLayout(LayoutKind.Auto)] internal readonly record struct ConnectionEntries(Seq<(int I, int J, double Weight, double Rho)> Rows, SignpostTransportReceipt Receipt);
+            .Map(static pair => pair.Transport);
+    [StructLayout(LayoutKind.Auto)] internal readonly record struct ConnectionEntries(Seq<(int I, int J, double Weight, double Rho)> Rows, SignpostTransport Transport);
     internal static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, SignpostPolicy policy, Op key) =>
         from transport in TransportOf(space: space, imesh: imesh, policy: policy, key: key)
         from frames in transport.Frames.ToFin(key.Unsupported(inputType: typeof(TransportHalf), outputType: typeof(ConnectionEntries)))
@@ -1004,7 +1004,7 @@ internal static class MeshKernel {
             Some: shift => guard(shift.Count == frames.Rows.Count, key.InvalidInput()).ToFin().Map(_ => frames.Rows.Map(
                 (row, index) => (row.I, row.J, row.Weight, Rho: row.Rho + shift[index: index]))),
             None: () => Fin.Succ(frames.Rows))
-        select new ConnectionEntries(Rows: adjusted, Receipt: transport.Receipt);
+        select new ConnectionEntries(Rows: adjusted, Transport: transport.Transport);
 
     // --- [COMMON_SUBDIVISION]
     [Union]
@@ -1142,7 +1142,7 @@ flowchart LR
     SparseLaplacian -->|M + tL| CholeskySparse
     LaplacianCache -->|Calculus memo| MeshAdjointSnapshot
     LaplacianCache -->|per-face bounds| SpatialIndex
-    IntrinsicMesh -->|signpost angles + overlay| SignpostTransportReceipt
+    IntrinsicMesh -->|signpost angles + overlay| SignpostTransport
     MeshSpace -->|radical clip frontier| RestrictedPowerDiagram
     MeshSpace -.->|degenerate / guard breach| Op
 ```
@@ -1165,7 +1165,7 @@ Each `[RAIL]` cell names the one return rail; the per-axis kind rides the indexe
 |  [10]   | Flip settlement     | `FlipFrontier`                        | `Settle → FlipFrontier` (budget census)              |    —    |
 |  [11]   | Adjoint handle      | `MeshAdjointSnapshot`                 | `Of → Fin<MeshAdjointSnapshot>`                      |    1    |
 |  [12]   | Substrate assembly  | `MeshKernel`                          | `Fin` rails per member                               |    —    |
-|  [13]   | Tangent transport   | `SignpostPolicy` + transport receipts | `SignpostTransportReceiptOf → Fin<...>`              |    —    |
+|  [13]   | Tangent transport   | `SignpostPolicy` + `SignpostTransport`    | `SignpostTransportOf → Fin<...>`              |    —    |
 |  [14]   | Power diagram       | `RestrictedPowerDiagram`              | `RestrictedPowerCells → Fin<RestrictedPowerDiagram>` |    —    |
 
 - [01]-[MESH_ADMISSION]: `[Union]` over native, lane-arena, and FE-volume arms; every arm resolves to the one validated snapshot.
@@ -1181,13 +1181,12 @@ Each `[RAIL]` cell names the one return rail; the per-axis kind rides the indexe
 - [11]-[ADJOINT_HANDLE]: public record over the cached `DiscreteCalculus`.
 - [12]-[SUBSTRATE_ASSEMBLY]: internal kernel — cotangent/IDT/tufted/SPD/topology.
 - [13]-[TANGENT_TRANSPORT]: policy + gauge-angle kernel + overlay.
-- [14]-[POWER_DIAGRAM]: receipt-carrying Laguerre diagram, scale-derived clip policy.
+- [14]-[POWER_DIAGRAM]: census-carrying Laguerre diagram, scale-derived clip policy.
 
 ## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -59,7 +59,7 @@ Every surface is a `proto.Plan` method: the gate parses untrusted bytes with `Pa
 |  [02]   | `FromString`        | `(serialized: bytes) -> Plan` (cls) | classmethod parse to a fresh `Plan`         |
 |  [03]   | `MergeFromString`   | `(serialized: bytes) -> int`        | merge additional wire bytes                 |
 |  [04]   | `SerializeToString` | `() -> bytes`                       | canonical protobuf byte egress              |
-|  [05]   | `ByteSize`          | `() -> int`                         | wire byte length for the gate receipt       |
+|  [05]   | `ByteSize`          | `() -> int`                         | wire byte length for gate diagnostics        |
 |  [06]   | `HasField`          | `(field_name: str) -> bool`         | presence probe (peer `WhichOneof(oneof)`)   |
 |  [07]   | `IsInitialized`     | `() -> bool`                        | required-field completeness check           |
 
@@ -96,7 +96,7 @@ Every surface is a `proto.Plan` method: the gate parses untrusted bytes with `Pa
 
 [CONSUMER]: `tabular/query#QUERY` holds one default-loaded `_REGISTRY` and resolves every `extension_urns` entry through `lookup_urn`, a `None` answering the `PlanRefusal.UNKNOWN_EXTENSION` row; an estate function vocabulary beyond the bundled set registers there once through `register_extension_yaml`, so every inbound plan reads one vocabulary. `lookup_function` stays unbound: the gate resolves the extension SPACE a plan declares, and resolving each function overload needs the `(name, signature)` pair only a declaration walk carries.
 
-[CONSUMER]: `tabular/query#QUERY` `_plan_provenance` re-reads `extension_urns` on the admitted plan and lands each `SimpleExtensionURN.urn` as a `("substrait-urn", urn)` lineage edge on the `QueryReceipt`, so the foreign producer's function vocabulary survives the gate that resolved it.
+[CONSUMER]: `tabular/query#QUERY` `_plan_provenance` re-reads `extension_urns` on the admitted plan and lands each `SimpleExtensionURN.urn` as a `("substrait-urn", urn)` lineage edge on the query result, so the foreign producer's function vocabulary survives the gate that resolved it.
 
 [EXTENSION_SCHEMA_SKEW]: this installed distribution carries the URN-era extension schema and no URI-era field survives beside it — `Plan.extension_urns` sits at field 8 over `SimpleExtensionURN { extension_urn_anchor = 1, urn = 2 }`, field 1 is unassigned, and each `SimpleExtensionDeclaration` nested row (`ExtensionType`, `ExtensionTypeVariation`, `ExtensionFunction`) back-references its space through `extension_urn_reference` at field 4. Producers still minting the retired `extension_uris` at field 1 with `extension_uri_reference` at field 1 therefore parse CLEAN: proto3 files both retired fields into the unknown set, `extension_urns` reads empty, and every declaration's reference reads the 0 default. `libs/dotnet/Rasm.Persistence/.api/api-flowtide-substrait.md` records the producer end that does exactly this, so `tabular/query#QUERY` refuses declarations-without-spaces on its own `RETIRED_EXTENSION_SCHEMA` row ahead of the resolution check, which a vacuous empty list otherwise passes.
 
@@ -160,7 +160,7 @@ Every `builders.plan` surface returns `Callable[[ExtensionRegistry], Plan]` — 
 - `Plan` crosses as the wire artifact itself, never a re-encoded copy: `SerializeToString` and `ByteSize` re-emit and measure a plan this package MINTS, while a gated inbound plan hands its original bytes onward untouched so the producer's content key survives.
 - `builders.plan`/`builders.type`/`builders.extended_expression` thunk `Callable[[ExtensionRegistry], Plan]`, building a plan lazily and binding functions against one registry; `read_named_table` and unary/binary combinators own the relation family.
 - `PlanPrinter.stringify_plan` renders a rejected or admitted plan to gate-log text — a display path, never a parse path.
-- Rejection answers a typed refusal row naming which of the four checks stopped, never an engine fault lifted onto the rail; admission carries no receipt of its own, since the consuming query's receipt already censuses the plan — one owner reports the wire and the gate stays free of receipt concerns.
+- Rejection answers a typed refusal row naming which of the four checks stopped, never an engine fault lifted onto the rail; admission returns the admitted `Plan`, and the consuming query owns any caller-required plan census.
 - `protobuf` owns the wire codec beneath `ParseFromString`/`SerializeToString`; `datafusion` and the DuckDB substrait extension own plan production and execution; downstream owners consume an admitted `Plan` or its bytes.
 
 [STACKING]:
@@ -174,5 +174,5 @@ Every `builders.plan` surface returns `Callable[[ExtensionRegistry], Plan]` — 
 [RAIL_LAW]:
 - Package: `substrait[extensions]`
 - Owns: the typed Substrait `Plan` protobuf model with byte ingress/egress, an `ExtensionRegistry` resolving functions by URN and signature over simple-extension YAML/dict definitions, `type_inference` schema validation over plans/relations/expressions, registry-threaded plan/type/expression `builders`, a `simple_extension_utils` dict loader, a `derivation_expression` evaluator, and a `PlanPrinter` renderer
-- Accept: gating inbound plan bytes pre-execution — `ParseFromString` structural parse, `ExtensionRegistry.lookup_urn` reference resolution, and `infer_plan_schema` type-check — censusing an admitted plan's relation tree and extension urns onto the consuming receipt, and round-tripping the same wire `Plan` with `datafusion.substrait` and the DuckDB substrait extension
+- Accept: gating inbound plan bytes pre-execution — `ParseFromString` structural parse, `ExtensionRegistry.lookup_urn` reference resolution, and `infer_plan_schema` type-check — preserving an admitted plan's relation tree and extension urns on the consuming query result, and round-tripping the same wire `Plan` with `datafusion.substrait` and the DuckDB substrait extension
 - Reject: wrapper-renames of `Plan`/`ExtensionRegistry`/`infer_plan_schema`; a hand-rolled Substrait protobuf parser, function-resolution table, or schema-inference walk; a plan trusted from an engine's internal parser where the standalone gate validates the wire artifact; a per-engine validation boundary where one `Plan` gate guards both engines; raw `substrait_antlr`/`_internal` handles crossing the package boundary

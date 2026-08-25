@@ -1,19 +1,19 @@
 # [RASM_FABRICATION]
 
-`Rasm.Fabrication` is a production digital-fabrication engine: one polymorphic `Fabrication` owner closes 3D model to verified machine program across subtractive CAM, production additive, true-shape nesting, sheet-stock and tube forming, welding, steel exchange, and controller-family posting. Machine truth is the output bar: every program survives voxel removal verification, on-machine probing, and modal cycle-time simulation before it posts, and the spec plane, shop documentation, and signed quality records ride the same content-keyed spine.
+`Rasm.Fabrication` is a production digital-fabrication engine: one polymorphic `Fabrication` owner closes 3D model to verified machine program across subtractive CAM, production additive, true-shape nesting, sheet-stock and tube forming, welding, steel exchange, and controller-family posting. Machine truth is the output bar: every program survives voxel removal verification, on-machine probing, and modal cycle-time simulation before it posts, and the spec plane, shop documentation, and signed quality records retain content identity.
 
-Every manufacturing process folds through a single `FabricationPolicy` dispatch to a content-keyed artifact minted on the `EgressKind` egress spine, over the `Rasm` geometry kernel and the `Rasm.Element` seam.
+Every manufacturing process folds through a single `FabricationPolicy` dispatch to its canonical domain result. Addressable outputs carry their `EgressKind` content key on that result.
 
 ## [01]-[ROUTER]
 
 [PROCESS]:
-- [01]-[OWNER](.planning/Process/owner.md): Content keys, the policy family, the receipt carrier, and the polymorphic `Run` dispatch.
+- [01]-[OWNER](.planning/Process/owner.md): Content keys, the policy family, and the polymorphic `Run` dispatch.
 - [02]-[ATOMS](.planning/Process/atoms.md): Acyclic atoms floor — arc-native profile geometry, admitted motion, decoded equipment, and plan carriers.
 - [03]-[FAMILY](.planning/Process/family.md): Generated vocabulary floor — `Machine.Admit` equipment generation and `PostDialect` grammar binding.
 - [04]-[PHYSICS](.planning/Process/physics.md): State-dependent material laws, coolant-coupled cutting response, and energy budgets.
 - [05]-[FAULTS](.planning/Process/faults.md): Direct generated `FabricationFault` union partitioned by owning concern.
 - [06]-[DERIVATION](.planning/Process/derivation.md): Aggregate-admitted plan derivation with lot scheduling and critical-path evidence.
-- [07]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union, instrument roster, projection fan, span scopes, descriptor pack.
+- [07]-[TELEMETRY](.planning/Process/telemetry.md): Instruments, spans, hook rail, and descriptor pack.
 
 [TOOLING]:
 - [08]-[MAGAZINE](.planning/Tooling/magazine.md): Provider-detached `ToolAssembly` owner — typed-shortfall kitting, reserve-adjusted life schedule.
@@ -29,13 +29,13 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [14]-[PROFILE](.planning/Ingress/profile.md): DXF/DWG census, profile-lane resolution, arc-preserving contour healing, and `Ingress.Admit`.
 - [15]-[SOLID](.planning/Ingress/solid.md): STEP/IGES/STL/3DM/3MF unit-resolved admission with conditioning and repair evidence.
 - [16]-[STEEL](.planning/Ingress/steel.md): DSTV/NC1 admission into typed steel features and arc-aware contours.
-- [17]-[ELEMENT](.planning/Ingress/element.md): `ElementGraph` admission into component, connection, relationship, and fact receipts.
+- [17]-[ELEMENT](.planning/Ingress/element.md): `ElementGraph` admission into components, connections, relationships, and facts.
 
 [TOOLPATH]:
 - [18]-[MOTION](.planning/Toolpath/motion.md): CAM generator arms over process modality and cut strategy.
 - [19]-[SURFACE](.planning/Toolpath/surface.md): Cutter-location surface finishing — waterline, scallop, pencil, rest.
 - [20]-[PARTITION](.planning/Toolpath/partition.md): Generative site field to boundary-clipped cells, density closure, and the 3D complex.
-- [21]-[GUARD](.planning/Toolpath/guard.md): Scope-stamped planar, medial, voxel, and robot collision receipts.
+- [21]-[GUARD](.planning/Toolpath/guard.md): Planar, medial, voxel, and robot collision verdicts.
 - [22]-[SKELETON](.planning/Toolpath/skeleton.md): Constant-engagement walk over the kernel clearance family.
 - [23]-[TURNING](.planning/Toolpath/turning.md): Controller-neutral lathe algebra under one `CutSide` row.
 - [24]-[WIRE](.planning/Toolpath/wire.md): Wire-EDM demand owner — guide correspondence, wire-bow evidence, simultaneous blocks.
@@ -73,7 +73,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [46]-[OPTIMIZATION](.planning/Posting/optimization.md): Admitted recursive optimization with machine-minute evidence and pattern folding.
 
 [VERIFY]:
-- [47]-[REMOVAL](.planning/Verify/removal.md): Voxel material-removal verify into gouge, uncut, overcut, and residual receipts.
+- [47]-[REMOVAL](.planning/Verify/removal.md): Voxel material-removal verification of gouge, uncut, overcut, and residual measurements.
 - [48]-[PROBING](.planning/Verify/probing.md): Post-cycle metrology truth — probe cycles, ICP datum best-fit, conformance verdicts.
 - [49]-[SIMULATE](.planning/Verify/simulate.md): Modal-state execution walk — the authoritative cycle-time owner.
 - [50]-[ESTIMATION](.planning/Verify/estimation.md): Cost and carbon estimation into parallel signed ledgers.
@@ -132,11 +132,11 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Thinktecture.Runtime.Extensions.Json` — STJ converters for the generated value objects, smart enums, and unions on every egress.
 - `JetBrains.Annotations`
 - `System.IO.Hashing` — Reached only through the kernel content-hash mint every egress key seeds from.
-- `NodaTime` — Instant stamps on travelers, quality records, probing receipts, and tool-life schedules.
+- `NodaTime` — Instant stamps on travelers, quality records, probing results, and tool-life schedules.
 - `NodaTime.Serialization.SystemTextJson` — STJ codec carrying those instants, intervals, and zones across the content-keyed wire.
 - `QuikGraph` — Setup-precedence, assembly, and rapid-link routing graphs, bipartite fixture assignment, and the mesh-shell disjoint-set components.
 - `Riok.Mapperly` — Source-generated boundary projections over non-aliased shapes; a shape behind an `extern alias` keeps a hand copyist.
-- `Generator.Equals` — Compile-time structural equality and member-level difference receipts over attributed partial owners.
+- `Generator.Equals` — Compile-time structural equality and member-level difference results over attributed partial owners.
 - `UnitsNet` — Cut-parameter and tolerance quantity boundary.
 - `System.Numerics.Tensors` — Sampling folds across the hot toolpath and nesting lanes.
 - `CommunityToolkit.HighPerformance` — Grayscale, engagement, and layer-census raster grids.
@@ -162,7 +162,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Caching.Hybrid` — Solver memo seat behind `HybridCache`; durable L2 federates at the Persistence cache seam.
 
 [OBSERVABILITY]:
-- `Microsoft.Extensions.Compliance.Redaction` — Classification attributes on classified receipt members; redactor binding stays at the app root.
+- `Microsoft.Extensions.Compliance.Redaction` — Classification attributes on protected evidence members; redactor binding stays at the app root.
 
 [MACHINE_CONNECTIVITY]:
 - `MTConnect.NET-Common` — ISO-13399 cutting-tool slice behind the magazine and tool telemetry.

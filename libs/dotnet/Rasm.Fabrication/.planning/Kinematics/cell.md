@@ -10,17 +10,17 @@
 
 ## [02]-[ROBOT_CELL]
 
-- Owner: `CellSource` closes library and embedded XML ingress; `RobotCell` admits source, base frame, and default TCP; `CellGoal` closes Cartesian and joint targets; generated `CellWaypoint` admits every per-occurrence target property; `CellTargetPlan` closes generated and explicit target series and derives both through one waypoint fold; `CellProgramName` admits the provider's own identifier grammar; `CellPolicy` admits compilation, dynamics, and inverse policy; `CellPlacementAxis` and `CellSampling` generate the search lattice; `CellTimebase` and `CellClock` generate the animation lattice off that same sampler; `CellPlacementMetric` and `CellPlacementPolicy` own scoring, `CellPlacementPolicy.Burden` the one normalized weighted fold; `CellProgramRequest` and `CellProgramReceipt` collapse solve, placement, and animation modalities under one entry; `CellStation` and `CellMotion` retain per-waypoint provider evidence through frozen projection, `CellPosedStation` and `CellAnimation` retain the between-waypoint pose census; `CellLibrary` and `CellDrive` own their effectful boundaries.
+- Owner: `CellSource` closes library and embedded XML ingress; `RobotCell` admits source, base frame, and default TCP; `CellGoal` closes Cartesian and joint targets; generated `CellWaypoint` admits every per-occurrence target property; `CellTargetPlan` closes generated and explicit target series and derives both through one waypoint fold; `CellProgramName` admits the provider's own identifier grammar; `CellPolicy` admits compilation, dynamics, and inverse policy; `CellPlacementAxis` and `CellSampling` generate the search lattice; `CellTimebase` and `CellClock` generate the animation lattice off that same sampler; `CellPlacementMetric` and `CellPlacementPolicy` own scoring, `CellPlacementPolicy.Burden` the one normalized weighted fold; `CellProgramRequest` and `CellOutcome` collapse solve, placement, and animation modalities under one entry; `CellStation` and `CellMotion` retain per-waypoint provider evidence through frozen projection, `CellPosedStation` and `CellAnimation` retain the between-waypoint pose census; `CellLibrary` and `CellDrive` own their effectful boundaries.
 - Cases: `CellTargetPlan.Generated` derives one waypoint per admitted `Move` from a `CellInterpolation` row, a combinable `CellPosture` set, and a `ToolAxisDemand` resolved per waypoint index. `CellTargetPlan.Explicit` admits one `CellWaypoint` per move, and each waypoint selects `CellGoal.Cartesian` or `CellGoal.Joint` while carrying optional `Frame`, `Tool`, `Speed`, `Zone`, and `Command` values with coordinated external axes. Both cases converge on one waypoint series, so target projection, cardinality proof, and per-index fault detail are stated once. `CellTimebase.Normalized` and `CellTimebase.Elapsed` carry the provider's own `isNormalized` argument beside the span each derives from the planned duration, so the sample horizon is read, never asserted, and a bare boolean never selects between two sampling bodies.
 - Entry: `RobotProgram.Run(RobotCell, Seq<Move>, CellProgramRequest)` dispatches `CellProgramRequest.Motion`, `CellProgramRequest.Placement`, and `CellProgramRequest.Animation` over one cell and move admission. `CellLibrary.Run` closes refresh, download, and removal through one bracketed `IO<CellCatalog>`, while `CellDrive.Run(RobotSystem)` closes upload, play, and pause through one `IO<CellDelivery>` over the system's own `Remote` channel.
 - Auto: aggregate admission accumulates independent `Move.Admit` failures, validates exact waypoint cardinality, enforces joint-vector and external-axis finiteness, and validates program partition indices before any provider constructor runs. One `Plan` fold loads, resolves, and compiles for every modality that needs a program, so the motion and animation lanes share one compilation and the placement lane keeps its own lattice load because it rebases `RobotSystem.BasePlane` per candidate rather than compiling per candidate. `Program` owns look-ahead timing and manufacturer emission; the animation lane gates on `Program.HasSimulation` before reading `CurrentSimulationPose`, which throws where the planner produced no simulation. `KinematicSolution.Errors` remain opaque provider diagnostics inside `JointDiagnostic.Provider`; their source channel selects the typed arm and their text is never parsed or reminted as identity. An absent controller channel fails typed rather than dereferencing a null remote.
-- Receipt: `CellProgramReceipt.Motion` carries the frozen `FabricationResult.Motion` move, joint, duration, and cell-code wire beside the `CellMotion` evidence that produced it, so per-station flange poses, realized configurations per `MechanicalGroup`, segment durations, and warnings reach the consumer instead of dying at the projection. `CellProgramReceipt.Placement` retains the selected cell with every ranked candidate, its keyed metrics, and the opaque provider diagnostics that explain an infeasible candidate, ranked by the same normalized lower-is-better burden `Score` polarity `MachineMatch` carries. `CellProgramReceipt.Animation` retains `Program.Duration` as the cycle and one `CellPosedStation` per sampled instant carrying the provider's clock reading, the per-group flange planes, the elapsed and travel measured against the prior posed station, the posed-mesh occupancy box, and that station's solver diagnostics. `CellCatalog` and `CellDelivery` retain boundary facts without widening the motion wire; the upload arm preserves the posting-owned artifact key beside the exact `Robots.Program` handed to the controller, so `Posting/dialect` binds post-to-machine custody by digest equality with no second identity mint.
+- Result: `CellOutcome.Motion` carries the frozen `FabricationResult.Motion` move, joint, duration, and cell-code wire beside the `CellMotion` evidence that produced it, so per-station flange poses, realized configurations per `MechanicalGroup`, segment durations, and warnings reach the consumer instead of dying at the projection. `CellOutcome.Placement` retains the selected cell with every ranked candidate, its keyed metrics, and the opaque provider diagnostics that explain an infeasible candidate, ranked by the same normalized lower-is-better burden `Score` polarity `MachineMatch` carries. `CellOutcome.Animation` retains `Program.Duration` as the cycle and one `CellPosedStation` per sampled instant carrying the provider's clock reading, the per-group flange planes, the elapsed and travel measured against the prior posed station, the posed-mesh occupancy box, and that station's solver diagnostics. `CellCatalog` and `CellDelivery` retain boundary facts without widening the motion wire; the upload arm preserves the posting-owned artifact key beside the exact `Robots.Program` handed to the controller, so `Posting/dialect` binds post-to-machine custody by digest equality with no second identity mint.
 - Packages: `Robots` owns cell loading, Cartesian and joint targets, `RobotSystem.Kinematics`, `RobotSystem.BasePlane`, `PlaneToNumbers`/`NumbersToPlane`, `IndustrialSystem.MechanicalGroups` with its per-link `Joint.Range`/`MaxSpeed` travel, program planning, posts, remotes, and online libraries; `Rhino3dm` stays behind `extern alias R3`; `MathNet.Numerics` owns lattice spacing and placement excursion; NodaTime owns `Duration`; RhinoCommon owns frames, intervals, and transforms; UnitsNet owns feed and angular-rate conversion at the provider boundary; `Thinktecture.Runtime.Extensions` owns generated admission and dispatch; `LanguageExt.Core` owns traversal, typed faults, immutable rows, `IO`, and bracketed lifetime; `Rasm.Domain` owns `IValidityEvidence` and `ValidityClaim`; `Process/owner.md`, `Process/faults.md`, and `Kinematics/machine.md` supply frozen atoms.
 - Law: the alias crossing is HAND-WRITTEN by construction. The mapping generator emits fully-qualified names only and carries no extern-alias machinery, so it cannot address a type behind `extern alias R3` at all — `RobotBoundary.ToR3`/`FromR3` are the deleted form of nothing, and a generated mapper there is unreachable rather than merely unidiomatic.
-- Law: only `CellProgramReceipt` is a receipt here. `Receipt<TEvidence>` makes key, concern, and stamp REQUIRED (`Process/owner`), so the two boundary answers keep page nouns — `CellCatalog` and `CellDelivery` — and each states the discriminant the suffix was standing in for: `CellCatalog` carries the producing `CellLibrary` case itself, so a name roster says whether a refresh, a download, or a removal reached the store and which `LibraryItem` it acted on, and `CellDelivery` carries `CellDriveKind` beside an `Option<ContentKey>` that is optional by DOMAIN, because `Play` and `Pause` move no artifact.
+- Law: only `CellOutcome` is a result here. The two boundary answers keep page nouns — `CellCatalog` and `CellDelivery` — and each states the discriminant the suffix was standing in for: `CellCatalog` carries the producing `CellLibrary` case itself, so a name roster says whether a refresh, a download, or a removal reached the store and which `LibraryItem` it acted on, and `CellDelivery` carries `CellDriveKind` beside an `Option<ContentKey>` that is optional by domain, because `Play` and `Pause` move no artifact.
 - Law: the compiled program's name is an admitted value, not a string. `Program.IsValidIdentifier` is the PROVIDER's grammar, so `CellProgramName` runs it once at its own boundary and the compile call reads a proved value; the policy validator re-gating the same rule over a raw column, with a `nameof` literal seeding it unadmitted, was the deleted form.
 - Law: the vendor correspondence is a ROW SET carrying the provider ordinals each row answers for, so admission is a containment read that refuses an ordinal a provider release adds. A discard arm folding every unknown vendor onto `Unspecified` registered a real arm under a filter token.
-- Growth: a robot motion posture is one `CellInterpolation` row, a target modality is one `CellGoal` case, a target-series policy is one `CellTargetPlan` case, an orientation modality is one `ToolAxisDemand` case on the machine owner, a base-search dimension is one `CellPlacementAxis` row, a placement objective is one `CellPlacementMetric` row with its `CellPlacementPolicy` weight and normalization reference, a sampling clock is one `CellTimebase` row, a solve modality is one `CellProgramRequest` case with its `CellProgramReceipt` twin, a controller verb is one `CellDrive` case, an online-library verb is one `CellLibrary` case, and a supported vendor is one `CellVendor` row carrying its provider ordinal. Multi-mechanism programs remain one aligned target stream per `MechanicalGroup`, and external-axis values stay on each waypoint.
+- Growth: a robot motion posture is one `CellInterpolation` row, a target modality is one `CellGoal` case, a target-series policy is one `CellTargetPlan` case, an orientation modality is one `ToolAxisDemand` case on the machine owner, a base-search dimension is one `CellPlacementAxis` row, a placement objective is one `CellPlacementMetric` row with its `CellPlacementPolicy` weight and normalization reference, a sampling clock is one `CellTimebase` row, a solve modality is one `CellProgramRequest` case with its `CellOutcome` twin, a controller verb is one `CellDrive` case, an online-library verb is one `CellLibrary` case, and a supported vendor is one `CellVendor` row carrying its provider ordinal. Multi-mechanism programs remain one aligned target stream per `MechanicalGroup`, and external-axis values stay on each waypoint.
 - Boundary: `RobotProgram` owns robot-cell kinematics, provider compilation, and the animated pose census `Verify/simulate.md` consumes, so no sibling page imports `Robots`; `MachineTool` owns non-robot topology and motion dynamics; swept cutter and holder collision stay on `Toolpath/guard.md`; CNC AST lowering stays on `Posting/program.md`. `CellWaypoint.Project`, `RobotProgram.PlaceCell`, `RobotProgram.Rebase`, and `RobotProgram.Pose` are provider-boundary statement exemptions because provider target construction, RhinoCommon plane mutation, the `ref`-returning `BasePlane` assignment, and the animate-then-read simulation cursor are imperative seams. Provider strings never select a typed fault, provider geometry never crosses the alias boundary — posed meshes leave as one kernel occupancy box and a mesh count — and no verb family grows beside `RobotProgram.Run`. `RobotBoundary.Ingress` is the one provider-to-atoms projection: `MechanicalGroup`, `Joint`, and `Manufacturers` stay inside it — the last of them behind the `CellVendor` row set — and `MachineIngress.Robot` rows leave, so the vendor correspondence and the joint-travel units are settled once, here.
 
 ```csharp
@@ -213,12 +213,12 @@ public abstract partial record CellProgramRequest {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CellProgramReceipt {
-    private CellProgramReceipt() { }
+public abstract partial record CellOutcome {
+    private CellOutcome() { }
 
-    public sealed record Motion(FabricationResult.Motion Result, CellMotion Evidence) : CellProgramReceipt;
-    public sealed record Placement(CellPlacement Result) : CellProgramReceipt;
-    public sealed record Animation(CellAnimation Result) : CellProgramReceipt;
+    public sealed record Motion(FabricationResult.Motion Value, CellMotion Evidence) : CellOutcome;
+    public sealed record Placement(CellPlacement Value) : CellOutcome;
+    public sealed record Animation(CellAnimation Value) : CellOutcome;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -601,10 +601,10 @@ public sealed record CellPlacement(CellPlacementCandidate Selected, Seq<CellPlac
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RobotProgram {
-    public static Fin<CellProgramReceipt> Run(RobotCell cell, Seq<Move> moves, CellProgramRequest request) =>
+    public static Fin<CellOutcome> Run(RobotCell cell, Seq<Move> moves, CellProgramRequest request) =>
         from admitted in Admit(cell, moves)
         from job in Optional(request).ToFin(new KernelFault.InvalidValue("cell", "robot-cell:request"))
-        from receipt in job.Switch(
+        from result in job.Switch(
             state: admitted,
             motion: static (state, row) => Optional(row.Policy)
                 .ToFin(new KernelFault.InvalidValue("cell", "robot-cell:motion-policy"))
@@ -621,7 +621,7 @@ public static class RobotProgram {
                 .Apply(static (policy, clock) => (Policy: policy, Clock: clock))
                 .ToFin()
                 .Bind(admittedPolicy => Animate(state, admittedPolicy.Policy, admittedPolicy.Clock)))
-        select receipt;
+        select result;
 
     private static Fin<(RobotCell Cell, Seq<Move> Moves)> Admit(RobotCell cell, Seq<Move> moves) =>
         from admittedCell in Optional(cell).ToFin(new KernelFault.InvalidValue("cell", "robot-cell:cell"))
@@ -639,13 +639,13 @@ public static class RobotProgram {
         from program in Compile(system, targets, policy)
         select (System: system, Targets: targets, Program: program);
 
-    private static Fin<CellProgramReceipt> Solve((RobotCell Cell, Seq<Move> Moves) admitted, CellPolicy policy) =>
+    private static Fin<CellOutcome> Solve((RobotCell Cell, Seq<Move> Moves) admitted, CellPolicy policy) =>
         from planned in Plan(admitted, policy)
         from motion in Project(admitted.Moves, planned.Program)
         from result in motion.ToResult()
-        select new CellProgramReceipt.Motion(result, motion);
+        select new CellOutcome.Motion(result, motion);
 
-    private static Fin<CellProgramReceipt> Animate(
+    private static Fin<CellOutcome> Animate(
         (RobotCell Cell, Seq<Move> Moves) admitted,
         CellPolicy policy,
         CellClock clock) =>
@@ -661,7 +661,7 @@ public static class RobotProgram {
                 (state, row) => Pose(planned.System, planned.Program, planned.Targets, clock, row.Station, row.Instant, state.Prior)
                     .Map(posed => (Rows: state.Rows.Add(posed), Prior: Some(posed))))
             .As()
-        select (CellProgramReceipt)new CellProgramReceipt.Animation(new CellAnimation(
+        select (CellOutcome)new CellOutcome.Animation(new CellAnimation(
             Cycle: Duration.FromSeconds(planned.Program.Duration),
             Stations: folded.Rows,
             Warnings: Warned(planned.Program)));
@@ -699,7 +699,7 @@ public static class RobotProgram {
                     Errors: toSeq(pose.Kinematics).Bind(static solution => toSeq(solution.Errors))));
             });
 
-    private static Fin<CellProgramReceipt> Place(
+    private static Fin<CellOutcome> Place(
         (RobotCell Cell, Seq<Move> Moves) admitted,
         CellPolicy policy,
         CellPlacementPolicy placement) =>
@@ -708,7 +708,7 @@ public static class RobotProgram {
         from candidates in cells.TraverseM(candidate => Evaluate(system, candidate, admitted.Moves, policy, placement)).As()
         let ranked = toSeq(candidates.OrderBy(static candidate => candidate.Score))
         from selected in SelectPlacement(ranked)
-        select new CellProgramReceipt.Placement(new CellPlacement(selected, ranked));
+        select new CellOutcome.Placement(new CellPlacement(selected, ranked));
 
     private static Fin<Program> Compile(RobotSystem system, Seq<Target> targets, CellPolicy policy) =>
         from _ in policy.MultiFileIndices.ForAll(index => index < targets.Count)
@@ -948,14 +948,14 @@ config:
 ---
 flowchart LR
     accTitle: Robot-cell lifecycle
-    accDescr: Admitted cell identity and move evidence generate Cartesian or joint targets, cross the Rhino3dm boundary once, compile through the Robots program owner, fold provider diagnostics into typed faults, and project the frozen motion receipt or the sampled pose census while library and controller effects remain separate boundary modalities.
+    accDescr: Admitted cell identity and move evidence generate Cartesian or joint targets, cross the Rhino3dm boundary once, compile through the Robots program owner, fold provider diagnostics into typed faults, and project the frozen motion result or the sampled pose census while library and controller effects remain separate boundary modalities.
     Raw["Cell source + move evidence"] --> Admit["Generated admission"]
     Search["Placement lattice"] --> Batch["Batch kinematics score"]
     Batch --> Admit
     Admit --> Plan["Target-plan fold"]
     Plan --> Alias["Rhino3dm boundary"]
     Alias --> Program["Robots program"]
-    Program --> Motion["Motion receipt"]
+    Program --> Motion["Motion result"]
     Clock["Animation clock"] --> Sample["Sampled pose"]
     Program --> Sample
     Sample --> Census["Posed-station census"]
@@ -968,7 +968,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

@@ -2,11 +2,9 @@
 
 `Idml` owns the IDML template-mutation hand-off — the editable InDesign deliverable authored by mutating an InDesign-exported `.idml` template, never synthesized from scratch. `Idml` is one frozen `msgspec.Struct` binding a `base: IdmlSource` template admitted through `IndesignPayload` and a `steps: tuple[IdmlStep, ...]` fold threaded over one running `IDMLPackage` and drained once into `IdmlFact`. `IdmlStep` is the closed `expression.tagged_union` over SimpleIDML's step-eligible `@use_working_copy` algebra; `prefix` applies once to `Idml.base`, and batch `add_pages_from_idml` subsumes singular page insertion. IDML carries the named XML tag tree, so this owner feeds content into designer-authored structure instead of emitting page geometry.
 
-SimpleIDML is pure-Python over `zipfile`+`lxml`, so the mutation fold crosses the runtime lane through the instance seam — `self.lane.offload(Kernel.of(_mutate, KernelTrait.HOSTILE), self)` over the one `lane: LanePolicy` field, the heavy per-step extract/repackage keeping the lane capacity small — and only the picklable `IdmlFact` crosses back, never a live `IDMLPackage`/`_Element`; the lane's boundary converts a worker raise (a malformed Zip, the `_resolved` `KeyError`, an lxml raise) to the `BoundaryFault` rail, so no raise-bridge and no second boundary exist here. Each `@use_working_copy` mutation extracts to a temp tree, mutates, repackages, overwrites the input file, closes it, and returns a FRESH path-backed instance — so `_mutate` MUST thread the returned instance forward (a `BytesIO`-backed package crashes the decorator's `os.unlink(filename)`), bracket every spill and instance in one `ExitStack`, and drain `Path(final.filename).read_bytes()` off the last instance. One per-instance `emit -> RuntimeRail[ArtifactReceipt]` IS the `core/plan#PLAN` `ArtifactWork.work` coroutine the ONE `ArtifactPipeline` schedules (the `export/layered#LAYERED` `LayeredExport.emit` counterpart), threading the PRE-RUN `_key` — minted over the canonical frozen spec, never the produced package bytes, so `receipt.slot == node.key` and the reuse fabric elides a duplicate — into the existing `core/receipt#RECEIPT` `ArtifactReceipt.Office` case directly: an IDML package IS an Office-class structured-document Zip.
 
 ## [01]-[INDEX]
 
-- [02]-[INDESIGN]: the one IDML template-mutation owner — a frozen `Idml` folding `steps: tuple[IdmlStep, ...]` over one running `IDMLPackage` through SimpleIDML's verified `@use_working_copy` algebra, drained across the process worker into an `ArtifactReceipt.Office` production the `ArtifactPipeline` schedules.
 
 ## [02]-[INDESIGN]
 
@@ -14,9 +12,8 @@ SimpleIDML is pure-Python over `zipfile`+`lxml`, so the mutation fold crosses th
 - Cases: `IdmlStep` cases fold over the one held package — `insert` (`insert_idml` at a destination anchor), `add_pages` (the batch `add_pages_from_idml`), `import_xml` (honoring the source's content-control attributes), `place_pdf` (`import_pdf` carrying the `PdfCrop` mode and page), `set_attributes` (the verified `href` image-relink — an empty `href` removes the page item), `add_note`, `merge_layers`/`suffix_layers`/`remove_layer`/`remove_orphan_layers`/`remove_guides` (the designmap layer algebra), `remove_content` (the template-reset inverse of `insert`), `add_story` (`add_story_with_content`), `leaf_to_node` (a `Rectangle` leaf promoted to a `TextFrame` node so tagged content nests) — dispatched by one total `match`; the legacy monolithic `Compose`/`Combine`/`Import`/`Place` ops collapse into this step fold over one base.
 - Auto: `_mutate` runs the worker seam — it spills `base.data` to a path-backed temporary file, opens and prefixes it, and folds `Block.of_seq(plan.steps)` over one `ExitStack` that registers every spill and returned instance for close-on-exit. Each mutation returns a fresh path-backed instance, so the fold threads that successor into the next step. Nested `spill`, `resolved`, and `apply` kernels own the platform statements: file lifetime, live-tree XPath admission, and provider mutation dispatch never escape as module-level helpers. `_resolved` validates each XPath against the current `package.xml_structure` before its mutation; layer and story ids skip XPath admission because they key the design map and story files. `_mutate` drains bytes and structural inventory from the terminal instance.
 - Output: `IdmlFact` is the picklable evidence carrier — the serialized `data` plus the `spreads`/`stories`/`pages`/`fonts`/`styles`/`layers`/`tags`/`nodes` structural inventory read off the final package and the applied-`steps` count.
-- Receipt: `_emit` maps the worker rail onto `ArtifactReceipt.Office(self._key, len(fact.data), inventory)` — the structural inventory riding the Office `finish.*` band; IDML is an Office-class structured-document ZIP, so no parallel receipt case exists. `IdmlFact` forces terminal package bytes and structural inventory through one worker result the receipt projection preserves. `ContentIdentity.key` mints the pre-run key over the spec's deterministic-msgpack bytes, and the same key seeds `ArtifactWork`. `_emit` then awaits `Journal.record` over `receipt.evidence(*self._diff)` — an editable designer deliverable is `OPERATIONAL` production evidence whose package volume charges `STORAGE`, and whose diff carries the ORDERED step sequence because the receipt's `finish.steps` band leaf is a count no audit row ever sees; the seat is that awaitable fold, because recording suspends where `contribute` cannot.
 - Growth: a SimpleIDML mutation is one `IdmlStep` case plus one `apply` arm plus one `facts` arm over the verified algebra; a source attribute is one `IdmlSource` field; a structural fact is one required `IdmlFact` field; an admission cause is one `IdmlFault` case beside one casualty comprehension the monoid already reduces; an untrusted ingress is one `IndesignPayload` band line; a crop mode is one `PdfCrop` token. Another deliverable is one `ArtifactWork` node the `ArtifactPipeline` schedules.
-- Boundary: per-operation base reopen, parallel source lists, erased dictionaries, forwarding case constructors, crop dispatch tables, `BytesIO` package mutation, class-qualified offload, raise bridges, and parallel IDML receipts are rejected. `export_xml`/`export_as_tree` tagged-content egress stays `document/lens#LENS`.
+- Boundary: per-operation base reopen, parallel source lists, erased dictionaries, forwarding case constructors, crop dispatch tables, `BytesIO` package mutation, class-qualified offload, raise bridges, and parallel IDML outputs are rejected. `export_xml`/`export_as_tree` tagged-content egress stays `document/lens#LENS`.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -35,13 +32,13 @@ from msgspec.msgpack import Encoder
 from pydantic import StringConstraints, TypeAdapter, ValidationError
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.journal import Assigned, Change, Journal
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import RuntimeRail
 
+from rasm.artifacts.core.hooks import BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 
 lazy from simple_idml import idml
 
@@ -238,32 +235,19 @@ class Idml(Struct, frozen=True):
         ))
         return Ok(cls(base=base, steps=steps, lane=lane)) if casualties.is_empty() else Error(casualties.reduce(IdmlFault.combined))
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[IdmlFact]:
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(_KIND, _CANON.encode((self.base, self.steps)))
 
-    @property
-    def _diff(self) -> tuple[Change, ...]:
-        return tuple(Assigned(path=f"/steps/{index}", next=step.tag) for index, step in enumerate(self.steps))
-
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[IdmlFact]:
         crossed = await self.lane.offload(Kernel.of(_mutate, KernelTrait.HOSTILE), self)
-        settled = crossed.map(
-            lambda fact: ArtifactReceipt.Office(
-                self._key,
-                len(fact.data),
-                frozendict({
-                    name: float(getattr(fact, name))
-                    for name in ("spreads", "stories", "pages", "fonts", "styles", "layers", "tags", "nodes", "steps")
-                }),
-            )
-        )
-        match settled:
-            case Result(tag="ok", ok=receipt):
-                return (await Journal.record(receipt.evidence(*self._diff))).map(lambda _landed: receipt)
+        match crossed:
+            case Result(tag="ok", ok=fact):
+                Metrics.record({BYTE_VOLUME: float(len(fact.data))}, domain=DOMAIN, kind="office", scope=self.lane.scope)
+                return Ok(fact)
             case refused:
                 return Error(refused.error)
 
@@ -373,7 +357,6 @@ __all__ = [
 
 <!-- source-only: research row template; every landed row opens on the list dash this placeholder omits, the census reading `^- [TOKEN]-[OPEN|BLOCKED]:` alone:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

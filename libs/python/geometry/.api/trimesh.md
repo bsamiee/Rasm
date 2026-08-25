@@ -202,7 +202,7 @@ Analysis and spatial surfaces for measurement, interference, and visibility; the
 - `boolean.*` and `convex_decomposition` route to `manifold3d`, require watertight operands, and fold n-ary input through `reduce_cascade`; convex hull is `scipy.spatial.ConvexHull` and minimum bounds are `bounds`/`nsphere`.
 - `repair.*` return `bool` success and mutate in place; `smoothing.filter_*` mutate `vertices` over a shared `scipy.sparse` Laplacian and return the same `Trimesh`; `process=True` on construction runs the merge-and-validate pass.
 - `ProximityQuery`, `RayMeshIntersector` (Embree when `ray.has_embree`), `CollisionManager` (FCL), and `VoxelGrid` are persistent query owners amortizing index construction over one fixed mesh.
-- Each op captures a mesh receipt: `load_scene` carries format and vertex/face count with `is_watertight`/`is_winding_consistent`; boolean/decomposition/registration carry the operation, input counts, result validity, and the transform and cost; `mass_properties` carries `MassProperties`.
+- Each op returns its mesh result directly: `load_scene` carries format and vertex/face count with `is_watertight`/`is_winding_consistent`; boolean/decomposition/registration carry the operation, input counts, result validity, and the transform and cost; `mass_properties` returns `MassProperties`.
 
 [STACKING]:
 - data mesh codec (`rasm.data.spatial.mesh`): `mesh.export(file_type='glb') -> bytes` is the only encode path, owned by `MeshPayload`; geometry returns the conditioned triangulation and the data codec owns GLB/3MF/PLY serialization, so the kernel never opens a file handle.
@@ -210,7 +210,7 @@ Analysis and spatial surfaces for measurement, interference, and visibility; the
 - `open3d`(`.api/open3d.md`)/`small_gicp`(`.api/small-gicp.md`)/`kiss-matcher`(`.api/kiss-matcher.md`): trimesh owns mesh-mesh rigid (`mesh_other`/`icp`/`procrustes`) and non-rigid (`nricp_amberg`/`nricp_sumner`) alignment; point-cloud global registration and fine GICP route to those engines, and every backend's 4x4 transform feeds the same `apply_transform`.
 - `shapely` planar -> `creation` solid: `creation.extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, and `Trimesh.section(...)` closes the loop to a `Path3D` whose `.polygons_full` are `shapely` polygons, so section -> planar-op -> re-extrude is one rail.
 - `scipy.sparse`: `smoothing.laplacian_calculation(pinned_vertices=...)` returns a reusable cotangent/uniform Laplacian; the implicit `filter_laplacian` path solves through `scipy.sparse.linalg.spsolve`, and the operator reuses across `filter_taubin`/`filter_laplacian`/`filter_humphrey` via `laplacian_operator=`.
-- within-lib deviation rail: `ProximityQuery(reference).signed_distance(sample.sample_surface(target, n)[0])` folds a watertight-gated signed-distance distribution into deviation receipt facts, amortizing the `rtree` triangle index across the sample batch.
+- within-lib deviation rail: `ProximityQuery(reference).signed_distance(sample.sample_surface(target, n)[0])` folds a watertight-gated signed-distance distribution into `DeviationResult`, amortizing the `rtree` triangle index across the sample batch.
 - within-lib identity: `Trimesh.identifier_hash`/`Scene.identifier_hash` is a rotation/translation/scale-invariant content hash seeding `ContentIdentity` for memoized boolean/decomposition/registration results.
 
 [LOCAL_ADMISSION]:

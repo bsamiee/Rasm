@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_GRAPH_ANALYTIC]
 
-Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-analytics producers compose. `AnalyticValue` collapses every reducer return — `scalar`, `leaderboard`, `groups` partition, `reach` per-hop census — to one typed carrier with its own three projections, `ranked` folds both provider shapes through one ranking discriminating on input shape, and `reached` is the band's one layered reachability walk, never a sibling fold per producing page. Authors no analytics, receipts, or graduation; the producing pages own those.
+Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-analytics producers compose. `AnalyticValue` collapses every reducer return — `scalar`, `leaderboard`, `groups` partition, `reach` per-hop census — to one typed carrier with its own three projections, `ranked` folds both provider shapes through one ranking discriminating on input shape, and `reached` is the band's one layered reachability walk, never a sibling fold per producing page. Authors no analytics or observation surface; the producing pages own those.
 
 `graph/features` owns the `networkx` reducer table, `graph/nonmanifold` the `topologicpy` one; both import this vocabulary downward and mint no parallel value family. `graph/algebra`, the compas-numerics sibling, mints its own scalar `Census` — it produces COMPAS-JSON handles and residuals, never a reducer-return analytic, so it composes the graduation spine directly and this substrate not at all.
 
@@ -14,7 +14,7 @@ Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-an
 - Owner: `AnalyticValue` is the one carrier for every graph-analytic reducer return; each projection closes with `assert_never`, so a new return shape breaks every census at type-check. `tabled` is the columnar third projection — the shape the graduation `EvidenceFrame` port admits — so an analytic board crosses the geometry-to-data seam through the producing page's frame row while this substrate stays graduation-free.
 - Packages: `expression` and `numpy` per the fence imports, and the runtime `Depth` walk bound alone — no folder sibling, so this substrate stays below every producer; `msgspec`-free, this owner carrying no wire shape while the consuming pages serialize.
 - Growth: a new return shape is one case and one arm per projection; a new reachability question is one `reached` call with its own neighbourhood and seed set, never a second walk; a new census read is a consumer-side `peak_of`/`scalar_of` call, never a new projection here; a provider whose scores arrive keyed by string node ids extends `ranked`'s probe by one arm.
-- Boundary: no analytics tables, no graph construction, no receipts, no graduation — the producing pages own those; no parallel `AnalyticValue` twin authored beside this one, no module-level `_peak` fold beside the union, and no msgspec subclass family for the same bounded variant set.
+- Boundary: no analytics tables, graph construction, or observation surface — the producing pages own those; no parallel `AnalyticValue` twin authored beside this one, no module-level `_peak` fold beside the union, and no msgspec subclass family for the same bounded variant set.
 
 ```python
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------

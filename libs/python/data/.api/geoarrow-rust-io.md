@@ -88,7 +88,7 @@ Each writer lowers a GeoArrow-native `Table` back to its format in one call; `wr
 - `ObjectStore` is the sole remote-source handle, threaded as `fs`; the `_async` reader variants own the awaitable cloud path against a synchronous blocking read.
 - `ParquetFile`/`ParquetDataset` push `bbox`/`bbox_paths`, `limit`, and `offset` into the scan and plan on `row_group_bounds`/`row_groups_bounds`, so a spatial subset reads only the intersecting row groups.
 - `GeoParquetEncoding` fixes the geometry column encoding at write time against a post-write re-encode; `ParquetWriter` streams frames larger than memory under an explicit `close`.
-- evidence: each call captures operation, format, source kind (local or `ObjectStore`), selected `batch_size`/`bbox`/encoding, and row and row-group counts as an ingress receipt.
+- evidence: each call exposes operation, format, source kind (local or `ObjectStore`), selected `batch_size`/`bbox`/encoding, and row and row-group counts at the ingress seam.
 
 [STACKING]:
 - `arro3-core`(`.api/arro3-core.md`): every reader returns an `arro3.core.Table`; `ParquetWriter(file, schema)` binds an `arro3.core.Schema` and `write_batch`/`write_table` append `arro3.core` RecordBatch/Table/RecordBatchReader.

@@ -18,7 +18,7 @@
 - [09]-[CAUSAL](.planning/state/causal.md): Four-way causal ordering honest under clock uncertainty — held delivery, finality reads.
 - [10]-[COMMIT](.planning/state/commit.md): Anti-entropy across replicas — each commit carries parents, causal vector, stamp, and author.
 - [11]-[MACHINE](.planning/state/machine.md): Statecharts as data — one transition spec whose macrostep folds the declared tree.
-- [12]-[EVIDENCE](.planning/state/evidence.md): Peer outcome decode — receipt lifecycle ranks and availability lattices per tenant.
+- [12]-[EVIDENCE](.planning/state/evidence.md): Command lifecycle outcomes, progress tallies, and availability lattices per tenant.
 - [13]-[FEED](.planning/state/feed.md): Tenant-scoped evidence-and-document timeline folded by contribution identity.
 - [14]-[PRESENCE](.planning/state/presence.md): Live actor faces — join, heartbeat, and ephemeral-move ops converging without consensus.
 

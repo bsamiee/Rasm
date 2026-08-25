@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_VERIFY]
 
-`Verify.XunitV3` owns snapshot approval testing for xUnit v3: every `[Fact]`/`[Theory]` calls a `Verifier` static entry minting a `SettingsTask` whose awaited build compares against the committed `.verified.` file and writes `.received.` on mismatch. Scrubbers, named-value stabilization, uniqueness keys, and custom stream/string comparers carry from the transitive `Verify` core. On the AppUi proof rail it stacks onto the headless render lane: a `UseStreamComparer` byte snapshot proves a rendered dashboard, `VerifyJson` of a settled layout or command receipt proves structure.
+`Verify.XunitV3` owns snapshot approval testing for xUnit v3: every `[Fact]`/`[Theory]` calls a `Verifier` static entry minting a `SettingsTask` whose awaited build compares against the committed `.verified.` file and writes `.received.` on mismatch. Scrubbers, named-value stabilization, uniqueness keys, and custom stream/string comparers carry from the transitive `Verify` core. On the AppUi proof rail it stacks onto the headless render lane: a `UseStreamComparer` byte snapshot proves a rendered dashboard, and `VerifyJson` of a settled layout or command outcome proves structure.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -107,14 +107,14 @@
 - `DerivePathInfo`, `UseProjectRelativeDirectory`, and `UseSourceFileRelativeDirectory` redirect `.verified.` placement into a committed directory rather than beside transient build output.
 
 [STACKING]:
-- `SkiaSharp`(`.api/api-skiasharp.md`) and `Avalonia.Headless`(`.api/api-headless.md`): the headless render lane encodes an offscreen `SKImage` to a PNG `byte[]` (or the `RenderReceipt` frame bytes), which `Verify(bytes, "png", ...)` snapshots under a `UseStreamComparer` that hashes rather than byte-equals; `UniqueForTargetFramework()` partitions per host so a Skia raster drift does not cross-fail, sealing the byte-snapshot proof of a rendered dashboard.
-- Structural proof folds `VerifyJson` onto a settled receipt — a `CommandDeck`, a `TableViewState`, or a frozen layout blob — with `ScrubLinesContaining`/`AddNamedGuid` stabilizing volatile ids and timestamps, so a layout regression reads as a one-line diff; `AddExtraSettings` tunes the object-graph serializer for types Verify does not format by default.
+- `SkiaSharp`(`.api/api-skiasharp.md`) and `Avalonia.Headless`(`.api/api-headless.md`): the headless render lane encodes an offscreen `SKImage`, then Verify snapshots the resulting `VisualArtifact.FrameHash`, `DrawHash`, and `ColorSpace`; `UniqueForTargetFramework()` partitions per host so a Skia raster drift does not cross-fail.
+- Structural proof folds `VerifyJson` onto a settled `CommandDeck`, `TableViewState`, or frozen layout blob, with `ScrubLinesContaining`/`AddNamedGuid` stabilizing volatile ids and timestamps, so a layout regression reads as a one-line diff; `AddExtraSettings` tunes the object-graph serializer for types Verify does not format by default.
 - `[CallerFilePath]` fills every `sourceFile` parameter so no test passes a literal path, and `Verify.XunitV3.props` initializes the attachment context at module load so `AddAttachmentEvents()` routes received/verified files into the xUnit v3 attachment stream; the `assay test --dotnet` lane runs these as ordinary MTP tests, and a mismatch surfaces as a `Completed(FAILED)` result, not a rail fault.
 - `await VerifyChecks.Run()` validates the verify configuration once and `DanglingSnapshots.Run()` reports orphaned `.verified.` files in a cleanup pass; neither is a per-test call.
 
 [LOCAL_ADMISSION]:
 - Snapshot files default to `[ClassName].[MethodName].verified.[ext]` beside the test source; `UseProjectRelativeDirectory`/`UseSourceFileRelativeDirectory`/`DerivePathInfo` redirect to a committed directory under CI.
-- `Throws*` proves a failure shape only where an exception is the contract boundary; inside ROP code the receipt verifies via `VerifyJson` of the `Fin`/`Validation` failure value, never a thrown exception.
+- `Throws*` proves a failure shape only where an exception is the contract boundary; inside ROP code `VerifyJson` verifies the `Fin`/`Validation` failure value, never a thrown exception.
 - `Combination` folds a cartesian input matrix into one snapshot, collapsing N near-identical `[Theory]` cases.
 
 [RAIL_LAW]:

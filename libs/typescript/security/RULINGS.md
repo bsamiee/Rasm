@@ -13,7 +13,7 @@
 - `Intake` verifies the HELD octets — re-encoding respells floats, key order, and escapes, authenticating what no peer sent.
 - Credential storage rides the material's entropy class — guessable material earns argon2, random mints the SHA-256 compare; no table walks them.
 - Rejected credentials are verdict arms, never faults — a fault channel hides the rejection count the throttle spends.
-- KDF cost claims leave as core `Board.Claim` receipts on `BenchmarkClaimWire` — `Board.Claim.matches` host admission gates them, never a local row.
+- KDF cost claims leave as core `Board.Claim` values on `BenchmarkClaimWire` — `Board.Claim.matches` host admission gates them, never a local row.
 - `jose` importers admit armored text alone, so a DER arm marshals armor at the call — a direct `subtle.importKey` seats a second algorithm table.
 
 ## [03]-[COLLAPSE]

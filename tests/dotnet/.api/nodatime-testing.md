@@ -69,7 +69,7 @@
 [DETERMINISM]: the clock moves only through `Advance*`, `Reset`, and `AutoAdvance`, so a temporal proof is a pure function of the advance sequence. `AutoAdvance` makes the read itself the mutation — a spec asserting over repeated reads states the expected drift or leaves the property at zero.
 
 [STACKING]:
-- `NodaTime` (`libs/dotnet/.api/api-nodatime.md`): `FakeClock` implements `IClock.GetCurrentInstant()` and substitutes `SystemClock.Instance`; `FakeDateTimeZoneSource.ToProvider()` substitutes `DateTimeZoneProviders.Tzdb`, so a DST-straddling receipt window proves against a scripted transition rather than tzdb contents.
+- `NodaTime` (`libs/dotnet/.api/api-nodatime.md`): `FakeClock` implements `IClock.GetCurrentInstant()` and substitutes `SystemClock.Instance`; `FakeDateTimeZoneSource.ToProvider()` substitutes `DateTimeZoneProviders.Tzdb`, so a DST-straddling stamp window proves against a scripted transition rather than tzdb contents.
 - `timeprovider-testing.md`: `FakeTimeProvider` owns the BCL `TimeProvider` plane — monotonic marks, elapsed pairs, and timer firing — and `FakeClock` owns the semantic `Instant`; a spec advancing one and reading the other proves nothing, so paired advances move both.
 - `xunit.v3` (`xunit-v3.md`): plain construction inside `[Fact]` bodies; the doubles hold no fixture requirement and no disposal contract.
 

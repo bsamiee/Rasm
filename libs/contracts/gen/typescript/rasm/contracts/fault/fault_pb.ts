@@ -63,10 +63,6 @@ export const FaultRecoverySchema: GenMessage<FaultRecovery, {validType: FaultRec
   messageDesc(file_rasm_contracts_fault_fault, 0);
 
 /**
- * The compact in-process observation a host receipt carries beside its outcome: the recovery verdict, the bounded
- * cause chain (outermost first), whether that chain was cut, and the producing family's identity where one exists.
- * A foreign error crosses with neither `domain` nor `case`.
- *
  * @generated from message rasm.contracts.fault.FaultObservation
  */
 export type FaultObservation = Message<"rasm.contracts.fault.FaultObservation"> & {
@@ -97,10 +93,6 @@ export type FaultObservation = Message<"rasm.contracts.fault.FaultObservation"> 
 };
 
 /**
- * The compact in-process observation a host receipt carries beside its outcome: the recovery verdict, the bounded
- * cause chain (outermost first), whether that chain was cut, and the producing family's identity where one exists.
- * A foreign error crosses with neither `domain` nor `case`.
- *
  * @generated from message rasm.contracts.fault.FaultObservation
  */
 export type FaultObservationValid = Message<"rasm.contracts.fault.FaultObservation"> & {

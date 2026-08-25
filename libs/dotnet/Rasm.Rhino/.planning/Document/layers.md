@@ -2,20 +2,20 @@
 
 `Rasm.Rhino.Document` owns the layer tree as a managed domain: full-path nesting topology, per-layer render material, linetype, print pen, print color, and section style, visibility and locking with their persistent variants, the per-detail-viewport override family, and every structural mutation — create, graft, reparent, merge, duplicate, delete, purge, revive, current-layer anointment, and ordering. The drawing-standards half composes the kernel `Rasm.Drawing` estate: a standards-issued layer name projects into the host `::` path through `HostLayerScheme.RhinoPath` and re-admits through the same rows, a plot width is a `LineWidth` ladder rung with the host's two sentinel postures as named cases, and the plot product projects as a kernel `PlotStyle` for the CAD egress — no standards grammar, width table, or pen mapping is re-derived here.
 
-`Layers.Ask` folds two products off one read window: a detached `LayerTree` under parameterized per-detail probe targets, and a host-free `OrganizationFact` when the caller supplies the federation authority. `Layers.Commit` folds an admitted operation program inside one session capability window through the shared `DocumentCommit.Sealed`, so every structural change seals one undo record and returns one typed fact stream on the shared `FactStream` substrate. `TableKind.Layers` stays the identity and reclamation row this page composes for purge tallies; the tree itself is minted here.
+`Layers.Ask` folds two products off one read window: a detached `LayerTree` under parameterized per-detail probe targets, and a host-free `OrganizationFact` when the caller supplies the federation authority. `Layers.Commit` folds an admitted operation program inside one session capability window through `DocumentCommit.Sealed`. `TableKind.Layers` stays the identity and reclamation row this page composes for purge; the tree itself is minted here.
 
 ## [01]-[INDEX]
 
 - [02]-[IDENTITY_AND_ADDRESS]: `LeafName`, `LayerPath`, `StandardLayers`, `Liveness`, `LayerRef`, and the detached `LayerStamp` anchor.
 - [03]-[TREE_SNAPSHOT]: `LayerTrait`, `PrintPen`, `LayerFace`, `DetailTrait`, `DetailFace`, `LayerNode`, and the `LayerTree` detached topology.
 - [04]-[EDITS_AND_OVERRIDES]: `LayerEdit` staged-property program on its slot rosters beside the `LayerOverride` per-detail family.
-- [05]-[COMMIT_RAIL]: `LayerOp`, `LayerDelta`, the `Layers` entry pair, and the `LayerReceipt` alias over the shared fact stream.
+- [05]-[COMMIT_RAIL]: `LayerOp`, `LayerDelta`, and the `Layers` entry pair.
 - [06]-[ORGANIZATION_PROJECTION]: `OrganizationFact` host-free egress, its `IOrganizationAuthority` port, and the `rasm.contracts.organization` `[Mapper]` codec.
 - [07]-[SURFACE_LEDGER]: page owner map.
 
 ## [02]-[IDENTITY_AND_ADDRESS]
 
-- Owner: `LeafName` admits one leaf name under the HOST name rule — the host's own legality probe plus separator freedom, no field structure — because a Rhino document's layers are arbitrary user text no published grammar governs; `LayerPath` canonicalizes trimmed segments and admits every leaf through that same rule before owning leaf, parent, and child projections. `StandardLayers` is the standards crossing: both directions of the kernel `Rasm.Drawing.LayerName` ↔ host-path correspondence, composed through `HostLayerScheme.RhinoPath` and nothing local. `Liveness` closes the deleted-row resolution axis as rows. `LayerRef` `[Union]` closes id, index, full-path, and current-layer addressing; `LayerStamp` `[ComplexValueObject]` is the detached identity anchor every receipt row and tree node carries.
+- Owner: `LeafName` admits one leaf name under the HOST name rule — the host's own legality probe plus separator freedom, no field structure — because a Rhino document's layers are arbitrary user text no published grammar governs; `LayerPath` canonicalizes trimmed segments and admits every leaf through that same rule before owning leaf, parent, and child projections. `StandardLayers` is the standards crossing: both directions of the kernel `Rasm.Drawing.LayerName` ↔ host-path correspondence, composed through `HostLayerScheme.RhinoPath` and nothing local. `Liveness` closes the deleted-row resolution axis as rows. `LayerRef` `[Union]` closes id, index, full-path, and current-layer addressing; `LayerStamp` `[ComplexValueObject]` is the detached identity anchor every fact row and tree node carries.
 - Entry: `LayerRef.ById`/`AtIndex`/`AtPath`/`Current` are the only constructors. Internal `Resolve` admits one live row for every address case under a `Liveness` row, and `Index` projects that row's durable table index without a second lookup. `StandardLayers.Path(name, key)` projects a standards name into an admitted host path; `StandardLayers.Name(standard, path, key)` re-admits a host path under a declared standard. `StandardLayers` is a PUBLIC altitude entry under the folder census ruling — the `apps/<app>/` plugin shell's issued-set import composes it, so its zero in-corpus caller count proves altitude, not death.
 - Law: the HOST leaf rule and the STANDARDS grammar are two facts with two owners, and the discriminant is stated here: `LeafName` admits what the HOST accepts (any legal layer text), while the kernel `Rasm.Drawing.LayerName` admits what a STANDARD publishes — a set issued under NCS, ISO 13567, BS 1192, or the estate scheme crosses through `StandardLayers`, and a document following no standard never fabricates one. The prior local `LayerName` value object shadowed the kernel owner's simple name inside one assembly and carried no standards structure; the rename resolves the shadow and the standards half composes down.
 - Law: the `::` path is a PROJECTION of the standards name, never the storage form — `HostLayerScheme.RhinoPath.Path` spells the segments and `Unproject` re-admits through the standard's OWN `LayerName.Parse` (the kernel member is reached through the scheme row, which re-joins the host separator onto the standard's delimiter before parsing), so a consumer that stored `Parent::Child` re-enters through `StandardLayers.Name` and no local code splits a standards path; the five `Layer.PathSeparator` sites on this page are the HOST-grammar owners' own interior (`LeafName` refusal, `LayerPath` canonicalize/segment/append) under the Boundary row's host-grammar law, never consumers.
@@ -711,21 +711,17 @@ public abstract partial record LayerEdit {
 
 ## [05]-[COMMIT_RAIL]
 
-- Owner: `SortSense` and `DuplicateScope` close the two ordering/copy knob pairs as rows; `LayerArrangement` `[Union]` closes sibling ordering; `LayerOp` `[Union]` closes the structural mutation family; `LayerDelta` admits one named program with its `RedrawPolicy`; `LayerBodyKind` is the kind vocabulary, `LayerBody` the body family answering it, `LayerSlot` the kinded slot vocabulary conforming `IFactSlot<LayerBody, LayerBodyKind>`, and `LayerReceipt` is the `global using` alias over the shared `FactStream` — this folder's receipt joins the substrate with two declarations and an extension block, exactly the join `Document/facts.md` promises.
+- Owner: `SortSense` and `DuplicateScope` close the two ordering/copy knob pairs as rows; `LayerArrangement` `[Union]` closes sibling ordering; `LayerOp` `[Union]` closes the structural mutation family; `LayerDelta` admits one named program with its `RedrawPolicy`.
 - Entry: `Layers.Ask` is the read window; `Layers.Commit` derives its needs through `SessionNeed.Mutation(custody:, redraw:)`, demands once, and commits through `DocumentCommit.Sealed` — the envelope owner is `Document/commit.md` and this rail composes it whole.
 - Law: reparent is staged mutation with a cycle guard — the resolved new parent must not be a child of the target — and the root move writes the empty parent id; rename and every face edit ride the same staged-copy-then-`Modify` path, so a failed program never half-writes a live layer.
 - Law: merge is object custody before structure and composes `DocumentCommit.Compensated` — the slice's ONE compensation algebra: residents are the fold's source, each re-home a landed key, the source-layer delete the RELEASE step whose refusal unwinds the landed prefix, and the retained attribute snapshots free after the fold settles on BOTH exits, because a release that freed them first would hand the rollback a disposed attribute set. Source equal to target refuses twice — at admission by ADDRESS and inside `Apply` by resolved IDENTITY, which is what catches `ById` and `AtPath` naming one layer.
 - Law: purge tallies compose `TableKind.Layers.Reclaim` — the vocabulary row stays the one reclamation delegate — and revive addresses the dead row by id or index under `Liveness.IncludeDeleted`, the only path that may see a deleted layer.
 - Law: explicit arrangement admits one complete permutation of every active layer before the native sort boundary.
 - Law: `Rollback` is a HOST-SIDE undo of one layer's prior modification and runs INSIDE the sealed record the delta opened. `UndoModify(layerIndex)` with no serial targets the host's CURRENT record — the record this commit is building — so the serial-free arm reverses edits the enclosing commit just landed. A rollback therefore carries its own admitted `UndoSerial` for a PRIOR record, and the serial-free overload is admissible only in a delta landing no other operation on the same layer; a delta mixing `Amend` and serial-free `Rollback` on one target is the deleted form.
-- Law: the receipt conforms the substrate — `LayerSlot` declares the body kinds each row emits as ONE `CapabilitySet<LayerBodyKind>` column, `LayerBody` answers its kind through one total fold, the undo serial stamps through the stream's own `Stamped` projection with the typed `UndoSerial` on the body — so the gate, the accumulation, the zero-serial refusal, and every projection are the shared owner's, and the former local `LayerFact`/`LayerReceipt` machinery (five cases, a hand fold, six projections) deletes whole.
 - Boundary: layer-table events stay on the events page's `EventFamily` binding, named-layer-state save/restore stays on the presets page, and object relayering by query stays on the tables rail; this page enters `document.Objects` only inside the merge arm's custody move.
-- Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `FactStream`, `UndoSerial`), `Document/commit.md` (`DocumentCommit.Sealed`/`Compensated`, `RedrawPolicy`, `HostInteraction`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DraftFault`); `RhinoCommon` layer-table mutation members per the `.api` catalog.
+- Packages: `Document/commit.md` (`DocumentCommit.Sealed`/`Compensated`, `RedrawPolicy`, `HostInteraction`, `UndoSerial`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DraftFault`); `RhinoCommon` layer-table mutation members per the `.api` catalog.
 
 ```csharp
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-global using LayerReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Document.LayerSlot, Rasm.Rhino.Document.LayerBody>;
-
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class SortSense {
@@ -881,7 +877,7 @@ public abstract partial record LayerOp {
             .ToFin();
     }
 
-    internal Fin<LayerReceipt> Apply(RhinoDoc document, Op op) =>
+    internal Fin<Unit> Apply(RhinoDoc document, Op op) =>
         Switch(
             (Document: document, Op: op),
             createCase: static (context, edit) =>
@@ -895,20 +891,19 @@ public abstract partial record LayerOp {
                         return Fin.Succ(value: state.Document.Layers.Add(layer: minted));
                     }))
                 from _ in guard(index >= 0, context.Op.InvalidResult()).ToFin()
-                from receipt in Amended(document: context.Document, index: index, edits: edit.Edits, slot: LayerSlot.Created, op: context.Op)
-                select receipt,
+                from _edited in Amended(document: context.Document, index: index, edits: edit.Edits, op: context.Op)
+                select unit,
             graftCase: static (context, edit) =>
                 from index in context.Op.Catch(() => Fin.Succ(value: edit.Color.Match(
                     Some: color => context.Document.Layers.AddPath(layerPath: edit.Path.Value, layerColor: color),
                     None: () => context.Document.Layers.AddPath(layerPath: edit.Path.Value))))
                 from _ in guard(index >= 0, context.Op.InvalidResult()).ToFin()
-                from stamp in Stamped(document: context.Document, index: index, op: context.Op)
-                from receipt in LayerFacts.Node(slot: LayerSlot.Grafted, stamp: stamp, key: context.Op)
-                select receipt,
+                from _stamped in Stamped(document: context.Document, index: index, op: context.Op)
+                select unit,
             amendCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
-                from receipt in Amended(document: context.Document, index: index.Value, edits: edit.Edits, slot: LayerSlot.Amended, op: context.Op)
-                select receipt,
+                from _edited in Amended(document: context.Document, index: index.Value, edits: edit.Edits, op: context.Op)
+                select unit,
             reparentCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
                 from parent in edit.Parent
@@ -917,34 +912,25 @@ public abstract partial record LayerOp {
                 from acyclic in guard(
                     parent.Map(candidate => candidate.Id != target.Id && !candidate.IsChildOf(otherlayerId: target.Id)).IfNone(noneValue: true),
                     context.Op.InvalidInput()).ToFin()
-                from receipt in Staged(
+                from _written in Staged(
                     document: context.Document,
                     index: target.LayerIndex,
                     revise: staged => context.Op.Catch(() => {
                         staged.ParentLayerId = parent.Map(static layer => layer.Id).IfNone(Guid.Empty);
                         return Fin.Succ(value: unit);
                     }),
-                    slot: LayerSlot.Reparented,
                     op: context.Op)
-                select receipt,
+                select unit,
             mergeCase: static (context, edit) =>
                 from source in edit.Source.Resolve(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
                 from target in edit.Target.Resolve(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
                 from distinct in guard(source.Id != target.Id, context.Op.InvalidInput()).ToFin()
-                from sourceStamp in LayerStamp.Of(layer: source, key: context.Op)
-                from targetStamp in LayerStamp.Of(layer: target, key: context.Op)
-                from merged in Merged(
+                from _merged in Merged(
                     document: context.Document,
                     sourceIndex: source.LayerIndex,
                     targetIndex: target.LayerIndex,
                     op: context.Op)
-                from receipt in LayerFacts.Merge(
-                    source: sourceStamp,
-                    target: targetStamp,
-                    relayered: merged.Relayered,
-                    cleanupFaults: merged.CleanupFaults,
-                    key: context.Op)
-                select receipt,
+                select unit,
             duplicateCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
                 from minted in context.Op.Catch(() => Fin.Succ(value: toSeq(context.Document.Layers.Duplicate(
@@ -952,73 +938,61 @@ public abstract partial record LayerOp {
                     duplicateObjects: edit.Scope.Objects,
                     duplicateSublayers: edit.Scope.Sublayers))))
                 from _ in guard(!minted.IsEmpty, context.Op.InvalidResult()).ToFin()
-                from stamps in minted
+                from _stamped in minted
                     .Traverse(row => Stamped(document: context.Document, index: row, op: context.Op).ToValidation())
                     .As()
                     .ToFin()
-                from receipt in stamps.Traverse(stamp => LayerFacts.Node(slot: LayerSlot.Duplicated, stamp: stamp, key: context.Op).ToValidation()).As().ToFin()
-                select receipt.Fold(LayerReceipt.Empty, static (state, value) => state + value),
+                select unit,
             deleteCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
-                from stamp in LayerStamp.Of(layer: target, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.Layers.Delete(layerIndex: target.LayerIndex, quiet: edit.Interaction.IsQuiet))
-                from receipt in LayerFacts.Node(slot: LayerSlot.Deleted, stamp: stamp, key: context.Op)
-                select receipt,
+                select unit,
             purgeCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, liveness: Liveness.IncludeDeleted, key: context.Op)
-                from stamp in LayerStamp.Of(layer: target, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.Layers.Purge(layerIndex: target.LayerIndex, quiet: edit.Interaction.IsQuiet))
-                from receipt in LayerFacts.Node(slot: LayerSlot.Purged, stamp: stamp, key: context.Op)
-                select receipt,
+                select unit,
             reviveCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, liveness: Liveness.IncludeDeleted, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.Layers.Undelete(layerIndex: index.Value))
-                from stamp in Stamped(document: context.Document, index: index.Value, op: context.Op)
-                from receipt in LayerFacts.Node(slot: LayerSlot.Revived, stamp: stamp, key: context.Op)
-                select receipt,
+                from _stamped in Stamped(document: context.Document, index: index.Value, op: context.Op)
+                select unit,
             anointCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.Layers.SetCurrentLayerIndex(
                     layerIndex: index.Value,
                     quiet: edit.Interaction.IsQuiet))
-                from stamp in Stamped(document: context.Document, index: index.Value, op: context.Op)
-                from receipt in LayerFacts.Node(slot: LayerSlot.Anointed, stamp: stamp, key: context.Op)
-                select receipt,
+                from _stamped in Stamped(document: context.Document, index: index.Value, op: context.Op)
+                select unit,
             exposeCase: static (context, edit) =>
                 from target in edit.Target.Resolve(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
-                from stamp in LayerStamp.Of(layer: target, key: context.Op)
                 from _ in context.Op.Confirm(success: context.Document.Layers.ForceLayerVisible(layerId: target.Id))
-                from receipt in LayerFacts.Node(slot: LayerSlot.Exposed, stamp: stamp, key: context.Op)
-                select receipt,
-            arrangeCase: static (context, edit) => edit.Arrangement.Apply(document: context.Document, key: context.Op)
-                .Bind(count => LayerFacts.Order(count: count, key: context.Op)),
+                select unit,
+            arrangeCase: static (context, edit) => edit.Arrangement.Apply(document: context.Document, key: context.Op).Map(static _ => unit),
             rollbackCase: static (context, edit) =>
                 from index in edit.Target.Index(document: context.Document, liveness: Liveness.ActiveOnly, key: context.Op)
                 from _ in context.Op.Confirm(success: edit.Serial.Match(
                     Some: serial => context.Document.Layers.UndoModify(layerIndex: index.Value, undoRecordSerialNumber: serial.Value),
                     None: () => context.Document.Layers.UndoModify(layerIndex: index.Value)))
-                from stamp in Stamped(document: context.Document, index: index.Value, op: context.Op)
-                from receipt in LayerFacts.Node(slot: LayerSlot.RolledBack, stamp: stamp, key: context.Op)
-                select receipt,
+                from _stamped in Stamped(document: context.Document, index: index.Value, op: context.Op)
+                select unit,
             reclaimCase: static (context, _) => TableKind.Layers.Reclaim(document: context.Document, key: context.Op)
-                .Bind(tally => LayerFacts.Reclaimed(tally: tally, key: context.Op)));
+                .Map(static _ => unit));
 
     private static Fin<LayerStamp> Stamped(RhinoDoc document, int index, Op op) =>
         Optional(document.Layers.FindIndex(index: index))
             .ToFin(Fail: op.InvalidResult())
             .Bind(layer => LayerStamp.Of(layer: layer, key: op));
 
-    private static Fin<LayerReceipt> Amended(RhinoDoc document, int index, Seq<LayerEdit> edits, LayerSlot slot, Op op) =>
+    private static Fin<Unit> Amended(RhinoDoc document, int index, Seq<LayerEdit> edits, Op op) =>
         edits.IsEmpty
-            ? Stamped(document: document, index: index, op: op).Bind(stamp => LayerFacts.Node(slot: slot, stamp: stamp, key: op))
+            ? Stamped(document: document, index: index, op: op).Map(static _ => unit)
             : Staged(
                 document: document,
                 index: index,
                 revise: staged => edits.TraverseM(edit => edit.Apply(staged: staged, key: op)).As().Map(static _ => unit),
-                slot: slot,
                 op: op);
 
-    private static Fin<LayerReceipt> Staged(RhinoDoc document, int index, Func<Layer, Fin<Unit>> revise, LayerSlot slot, Op op) =>
+    private static Fin<Unit> Staged(RhinoDoc document, int index, Func<Layer, Fin<Unit>> revise, Op op) =>
         from live in Optional(document.Layers.FindIndex(index: index)).ToFin(Fail: op.MissingContext())
         from landed in op.Catch(() => {
             Layer copy = new();
@@ -1033,15 +1007,12 @@ public abstract partial record LayerOp {
                         quiet: true))
                     select written);
         })
-        from stamp in Stamped(document: document, index: index, op: op)
-        from receipt in LayerFacts.Node(slot: slot, stamp: stamp, key: op)
-        select receipt;
+        from _stamped in Stamped(document: document, index: index, op: op)
+        select unit;
 
     private sealed record LayerMove(Guid ObjectId, ObjectAttributes Original);
 
-    private sealed record LayerMerge(int Relayered, Seq<Error> CleanupFaults);
-
-    private static Fin<LayerMerge> Merged(RhinoDoc document, int sourceIndex, int targetIndex, Op op) =>
+    private static Fin<Unit> Merged(RhinoDoc document, int sourceIndex, int targetIndex, Op op) =>
         from moves in StagedMoves(document: document, sourceIndex: sourceIndex, op: op)
         from merged in DocumentCommit.Compensated(
                 source: moves,
@@ -1052,10 +1023,12 @@ public abstract partial record LayerOp {
                     op: op),
                 release: _ => op.Confirm(success: document.Layers.Delete(layerIndex: sourceIndex, quiet: true)))
             .BiBind(
-                Succ: landed => Fin.Succ(value: new LayerMerge(
-                    Relayered: landed.Count,
-                    CleanupFaults: Release(moves: moves, op: op))),
-                Fail: primary => Fin.Fail<LayerMerge>(error: Release(moves: moves, op: op)
+                Succ: _ => Release(moves: moves, op: op).Fold(
+                    Fin.Succ(value: unit),
+                    static (state, cleanup) => state.Match(
+                        Succ: _ => Fin.Fail<Unit>(error: cleanup),
+                        Fail: fault => Fin.Fail<Unit>(error: fault + cleanup))),
+                Fail: primary => Fin.Fail<Unit>(error: Release(moves: moves, op: op)
                     .Fold(primary, static (fault, cleanup) => fault + cleanup)))
         select merged;
 
@@ -1105,88 +1078,6 @@ public abstract partial record LayerOp {
 ```
 
 ```csharp
-// --- [SUBSECTION]
-[SmartEnum<int>]
-public sealed partial class LayerBodyKind : ICapability<LayerBodyKind> {
-    public static readonly LayerBodyKind Node = new(key: 0);
-    public static readonly LayerBodyKind Merge = new(key: 1);
-    public static readonly LayerBodyKind Order = new(key: 2);
-    public static readonly LayerBodyKind Reclaim = new(key: 3);
-    public static readonly LayerBodyKind Undo = new(key: 4);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LayerBody : IFactBody<LayerBodyKind> {
-    private LayerBody() { }
-
-    public sealed record Node(LayerStamp Stamp) : LayerBody;
-    public sealed record Merged(LayerStamp Source, LayerStamp Target, int Relayered, Seq<Error> CleanupFaults) : LayerBody;
-    public sealed record Ordered(int Count) : LayerBody;
-    public sealed record Reclaimed(int Tally) : LayerBody;
-    public sealed record UndoRecord(UndoSerial Serial) : LayerBody;
-
-    public LayerBodyKind Kind => Switch(
-        node: static _ => LayerBodyKind.Node,
-        merged: static _ => LayerBodyKind.Merge,
-        ordered: static _ => LayerBodyKind.Order,
-        reclaimed: static _ => LayerBodyKind.Reclaim,
-        undoRecord: static _ => LayerBodyKind.Undo);
-}
-
-[SmartEnum<int>]
-public sealed partial class LayerSlot : IFactSlot<LayerBody, LayerBodyKind> {
-    public static readonly LayerSlot Created = new(key: 0, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Grafted = new(key: 1, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Amended = new(key: 2, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Reparented = new(key: 3, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Merged = new(key: 4, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Merge));
-    public static readonly LayerSlot Duplicated = new(key: 5, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Deleted = new(key: 6, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Purged = new(key: 7, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Revived = new(key: 8, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Anointed = new(key: 9, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Exposed = new(key: 10, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot RolledBack = new(key: 11, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
-    public static readonly LayerSlot Arranged = new(key: 12, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Order));
-    public static readonly LayerSlot Reclaimed = new(key: 13, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Reclaim));
-    public static readonly LayerSlot UndoRecord = new(key: 14, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Undo));
-
-    public CapabilitySet<LayerBodyKind> Bodies { get; }
-}
-
-public static class LayerFacts {
-    public static Fin<LayerReceipt> Node(LayerSlot slot, LayerStamp stamp, Op key) =>
-        LayerReceipt.Of(slot: slot, body: new LayerBody.Node(Stamp: stamp), key: key);
-
-    public static Fin<LayerReceipt> Merge(LayerStamp source, LayerStamp target, int relayered, Seq<Error> cleanupFaults, Op key) =>
-        LayerReceipt.Of(
-            slot: LayerSlot.Merged,
-            body: new LayerBody.Merged(Source: source, Target: target, Relayered: relayered, CleanupFaults: cleanupFaults),
-            key: key);
-
-    public static Fin<LayerReceipt> Order(int count, Op key) =>
-        LayerReceipt.Of(slot: LayerSlot.Arranged, body: new LayerBody.Ordered(Count: count), key: key);
-
-    public static Fin<LayerReceipt> Reclaimed(int tally, Op key) =>
-        LayerReceipt.Of(slot: LayerSlot.Reclaimed, body: new LayerBody.Reclaimed(Tally: tally), key: key);
-
-    public static LayerReceipt Stamp(this LayerReceipt receipt, uint serial) =>
-        receipt.Stamped(
-            slot: LayerSlot.UndoRecord,
-            record: static minted => new LayerBody.UndoRecord(Serial: minted),
-            serial: serial);
-
-    public static Seq<LayerStamp> Stamps(this LayerReceipt receipt, LayerSlot slot) =>
-        receipt.Project(slot: slot).Choose(static body => body is LayerBody.Node node ? Some(node.Stamp) : Option<LayerStamp>.None);
-
-    public static Option<UndoSerial> Serial(this LayerReceipt receipt) =>
-        receipt.Project(slot: LayerSlot.UndoRecord)
-            .Choose(static body => body is LayerBody.UndoRecord undo ? Some(undo.Serial) : Option<UndoSerial>.None)
-            .HeadOrNone();
-
-    public static int Touched(this LayerReceipt receipt) => receipt.FactCount(slot: LayerSlot.Amended);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayerDelta {
     private LayerDelta(Seq<LayerOp> operations, Option<string> recordName, RedrawPolicy redraw) {
@@ -1217,7 +1108,7 @@ public static partial class Layers {
             needs: [SessionNeed.Read]);
     }
 
-    public static Fin<LayerReceipt> Commit(DocumentSession session, LayerDelta delta, Op? key = null) {
+    public static Fin<Unit> Commit(DocumentSession session, LayerDelta delta, Op? key = null) {
         Op op = key.OrDefault();
         return session.Demand(
             use: document => DocumentCommit.Sealed(
@@ -1228,8 +1119,7 @@ public static partial class Layers {
                 run: () => delta.Operations
                     .TraverseM(operation => operation.Apply(document: document, op: op))
                     .As()
-                    .Map(static receipts => receipts.Fold(LayerReceipt.Empty, static (state, value) => state + value)),
-                stamp: static (receipt, serial) => receipt.Stamp(serial: serial),
+                    .Map(static _ => unit),
                 project: Fin.Succ,
                 op: op),
             key: op,
@@ -1511,7 +1401,7 @@ public static partial class OrganizationCodec {
 |  [01]   | leaf and path identity | `LeafName` / `LayerPath`     | generated host-grammar values      | `Of` / `Segments` / `Child`               |
 |  [02]   | standards crossing     | `StandardLayers`             | both directions of one scheme row  | `Path` / `Name`                           |
 |  [03]   | layer addressing       | `LayerRef` / `Liveness`      | address union under a liveness row | `ById` / `AtIndex` / `AtPath` / `Current` |
-|  [04]   | detached anchor        | `LayerStamp`                 | id/index/path evidence product     | receipt and node rows                     |
+|  [04]   | detached anchor        | `LayerStamp`                 | id/index/path evidence product     | `Of` / tree nodes                         |
 |  [05]   | condition vocabulary   | `LayerTrait` / `DetailTrait` | capability sets under one law      | `Conditions.Admits`                       |
 |  [06]   | plot weight            | `PrintPen`                   | ladder rung beside named sentinels | `OfHost` / `Pen` / `LayerFace.PlotOf`     |
 |  [07]   | tree topology          | `LayerTree` / `LayerNode`    | one-read acyclic-proved snapshot   | `Layers.Ask` / `Find`                     |
@@ -1520,16 +1410,14 @@ public static partial class OrganizationCodec {
 |  [10]   | structural mutation    | `LayerOp`                    | admitted total operation union     | operation factories / `Apply`             |
 |  [11]   | sibling ordering       | `LayerArrangement`           | by-name/explicit union             | `LayerOp.Arrange`                         |
 |  [12]   | commit program         | `LayerDelta`                 | named redraw-scoped program        | `Layers.Commit`                           |
-|  [13]   | consequence evidence   | `LayerSlot` / `LayerBody`    | shared fact stream + undo serial   | `LayerFacts` mints and projections        |
-|  [14]   | host-free organization | `OrganizationFact`           | recursive ordered forest           | `Layers.Ask` with an authority            |
-|  [15]   | federation vocabulary  | `IOrganizationAuthority`     | composition-root-bound port        | `MemberOf` / `ViewOf`                     |
-|  [16]   | organization egress    | `OrganizationCodec`          | generated organization wire        | `Encode`                                  |
+|  [13]   | host-free organization | `OrganizationFact`           | recursive ordered forest           | `Layers.Ask` with an authority            |
+|  [14]   | federation vocabulary  | `IOrganizationAuthority`     | composition-root-bound port        | `MemberOf` / `ViewOf`                     |
+|  [15]   | organization egress    | `OrganizationCodec`          | generated organization wire        | `Encode`                                  |
 
 ## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

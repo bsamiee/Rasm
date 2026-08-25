@@ -90,7 +90,7 @@
 - payload axis: `objects='raw'` returns the stored element handle with zero pickle round-trip; `RtreeContainer` is the variant for a live Python object payload, and `dumps`/`loads` back the persistent path.
 - bulk axis: the `(id, coords, obj)` generator constructor packs the tree in one pass — the required path for a static element set, since repeated `insert` rebalances incrementally and loses the packed-tree query locality.
 - batch axis: `intersection_v`/`nearest_v` fold a whole query batch into one native call over numpy `(n, d)` arrays, the vectorized path the Bounds arm uses for multi-element clearance candidate generation.
-- evidence: each build captures the entry count and the overall `bounds` MBR; a query receipt keys the candidate count the exact refinement narrows and the R-tree pre-filter ratio the spatial owner folds against the caller ceiling.
+- evidence: each index carries the entry count and overall `bounds` MBR; the query result carries the candidate count consumed by exact refinement and the R-tree pre-filter ratio.
 - boundary: rtree owns the persistent bounding-box index and candidate pre-filter; exact nearest-surface distance, ray, and containment stay `trimesh` proximity, narrow-phase collision and signed separation stay `python-fcl`, and fine point-cloud registration stays `small-gicp`/`open3d`.
 
 [RAIL_LAW]:

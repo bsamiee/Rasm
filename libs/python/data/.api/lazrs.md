@@ -89,7 +89,7 @@ Each reader, writer, and appender carries its chunked members; `decompress_many`
 - Sequential and Rayon-parallel pairs are one codec over a `parallel` axis: block `decompress_points`/`compress_points` own buffer-in/buffer-out work and the streaming `*Decompressor`/`*Compressor` classes own chunked file-like work — the buffer-vs-stream split, never duplicated logic.
 - `DecompressionSelection(value)` composes the `SELECTIVE_DECOMPRESS_*` bitmask as the only field-narrowing surface, fed to a decompressor or `decompress_points_with_chunk_table`, never a post-decode drop.
 - `read_chunk_table`/`read_chunk_table_only`/`write_chunk_table` and `decompress_points_with_chunk_table` own COPC chunk access; the chunk table reads once and threads into selective block decode, never re-walked per point.
-- Each codec run captures point-format id, extra-byte count, chunk size, item size, point count, `parallel` flag, and selective mask as a point-cloud receipt the data owner folds into its `MeshPayload` receipt stream.
+- Each codec run exposes point-format id, extra-byte count, chunk size, item size, point count, `parallel` flag, and selective mask as codec measurements on the canonical mesh result.
 
 [STACKING]:
 - `laspy`(`.api/laspy.md`): `lazrs` binds as the `LazBackend.Lazrs`/`LazrsParallel` codec backend that `laspy.open`/`read`/`CopcReader.open` select; `laspy` owns LAS container, header, dimensions, and CRS while `lazrs` decodes the compressed record stream, and `laspy.DecompressionSelection.to_laszip()` lowers to the `int` mask this surface wraps.

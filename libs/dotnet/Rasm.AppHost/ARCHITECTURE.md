@@ -11,7 +11,7 @@ Rasm.AppHost/
 │   ├── Lifecycle.cs     # Phase transitions, ranked drain, and the cancellation custody every lane closes through
 │   ├── Time.cs          # ClockPolicy record, DeadlineClass gauge roster, SchedulePort occurrence rail, FencingToken carrier
 │   ├── Resources.cs     # CacheLane axis, PoolPolicy rows, DrainSpec/DrainQueue family, and the DedupeWindow primitive
-│   ├── Modules.cs       # ModuleContribution rows, DescriptorSlot algebra, and the receipted one-pass composition fold
+│   ├── Modules.cs       # ModuleContribution rows, DescriptorSlot algebra, and the one-pass composition fold
 │   ├── Config.cs        # ConfigSource rank axis, ConfigError vocabulary, ReloadOutcome transitions, OperatorOverride family
 │   ├── Secrets.cs       # SecretLease rows, CredentialMaterial DER admission vocabulary, and the KMS-unwrap custody
 │   ├── Ports.cs         # Port-record family under the cardinality invariant, the boot tenancy mint, the suite JSON wire law
@@ -21,11 +21,11 @@ Rasm.AppHost/
 │   └── Features.cs      # FlagDefinition rows over the TargetingRule union, Bucketing off ContentHash, and the FlagVerdict carrier
 ├── Agent/               # Bidirectional agent surface over the capability registry
 │   ├── Mcp.cs           # CapabilityDescriptor-to-AIFunction projection; McpAdoptedTool pairs MCP registration with reasoning
-│   ├── Reasoning.cs     # ReasoningSession loop, SemanticDiscovery ranking, ModelGovernance draw owner, ReasoningTranscript receipt
+│   ├── Reasoning.cs     # ReasoningSession loop, SemanticDiscovery ranking, ModelGovernance draw owner, ReasoningTranscript result
 │   ├── Federation.cs    # McpClientTool adoption onto brokered federated.{server}.{tool} descriptor rows
 │   ├── Capability.cs    # CapabilityDescriptor rows, CommandAlgebra commit-or-rollback, GrantBroker ceiling algebra, codegen seat
 │   ├── Identity.cs      # Per-issuer trust anchors, the Principal validation rail, TokenLease custody, PolicyDescriptor rows
-│   └── Runtime.cs       # Run(CommandIntent) entry; hook veto, grant-handle mediation, CommandAlgebra dispatch, chained receipt
+│   └── Runtime.cs       # Run(CommandIntent) entry; hook veto, grant-handle mediation, CommandAlgebra dispatch, chained result
 ├── Wire/                # Outbound and external-binding seam
 │   ├── Outbound.cs      # OutboundHop case family, frozen HopPolicy/HopAllotment rows, CapabilitySet<HopCapability> columns
 │   ├── LiveWire.cs      # Binding rows over the industrial-transport axis; the MQTT live-wire row and egress sink
@@ -39,16 +39,16 @@ Rasm.AppHost/
 │   ├── Solver.cs        # SolverKind category rows with representation and effect-ceiling columns; manifest, negotiation, hosted load
 │   └── Provisioning.cs  # UpdateRail phase machine over the UpdateOutcome union; FleetRoll walks MembershipView.Serving under one RollStrategy
 └── Observability/       # Telemetry composition, health grading, and redacted support capture
-    ├── Telemetry.cs     # ForeignSource admission, TelemetryDomain roster, signal governance, native conformance receipt
+    ├── Telemetry.cs     # ForeignSource admission, TelemetryDomain roster, and signal governance
     ├── Health.cs        # Pressure grades folded in one atomic cell; store probes ride the production pool
-    ├── Bundles.cs       # SupportTrigger union, contributed artifact ports, dump custody, manifest keys, capped zip receipts
-    ├── Instruments.cs   # AppHostMeasure/AppHostSlot rosters, ReceiptKind instrument writes, the ProviderProgram both providers bind
-    ├── Hooks.cs         # AppHostPoint roster with modality and plane columns; AppHostFact union seats one payload per point; FactSink egress
-    ├── Benchmarks.cs    # BenchmarkReceipt fold rows, the gate-anchor seat, span-linked deep-capture columns
+    ├── Bundles.cs       # SupportTrigger union, contributed artifact ports, dump custody, manifest keys, capped zip output
+    ├── Instruments.cs   # AppHostMeasure/AppHostSlot rosters, direct producer writes, the ProviderProgram both providers bind
+    ├── Hooks.cs         # AppHostPoint roster with modality and plane columns; AppHostFact union seats one payload per point; typed taps
+    ├── Benchmarks.cs    # Benchmark fold rows, the gate-anchor seat, span-linked deep-capture columns
     └── Egress.cs        # Disposition vocabulary, queue-arming policy row, blob queue, mutual-auth mount, dual-leg handler
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail choice is named in the return type: `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail choice is named in the return type: `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; operation results stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
 
 ## [02]-[STRATA]
 
@@ -59,10 +59,10 @@ Strata order the interior member-resolved where a folder's owners split across r
 - S1 `Observability` — the one grader: pressure folds once into the atomic reading cell, and no upper stratum re-grades a reading it consumes.
 - S1 absent edge — `ServedPlane` rows bind at the root, so no store type reaches this stratum and the forbidden S1-to-S2 reference never mints.
 - S2 catalog — capability, grant, and principal mint at one rank, so the wire and broker front read one admission truth off one stratum.
-- S2 co-seat — the hash-chained `EventLog` (`Runtime/Determinism`) stamps `CommandReceipt` rows.
+- S2 co-seat — the hash-chained `EventLog` (`Runtime/Determinism`) stamps `CommandResult` rows.
 - S2 co-seat — `Runtime/LaneGuard` folds S1 readings into the `Admission` union, whose `ShedCause` names the refusal.
 - S2→S0 — tenancy crosses as the boot-minted `TenantContext` value, never a mint the catalog re-derives.
-- S3 `Wire` — delivery and coordination stay peers: neither imports the other, and both reach the catalog rather than a sibling's receipts.
+- S3 `Wire` — delivery and coordination stay peers: neither imports the other, and both reach the catalog rather than a sibling's results.
 - S3→S0 — `FencingToken` crosses as a decoded value off the clock seat, and the wire consumes no catalog member on that path.
 - S4 broker front — fronts consume disjoint lower owners and share no member, so no same-stratum edge exists and the rank stays cycle-free.
 - S4 `CommandDispatch` (`Agent/Runtime`) — takes `GrantHandle` as same-stratum fact and threads every command onto the S2 log.
@@ -141,9 +141,8 @@ flowchart LR
     TsRuntime([typescript:runtime])
     PyRuntime{{python:runtime}}
     Agent e1@-->|"[WIRE]: DescriptorPinWire"| Core
-    Runtime e2@-->|"[WIRE]: ReceiptHeaderWire"| Core
     Observability e3@-->|"[WIRE]: CommandAvailabilityWire"| Core
-    Wire e4@-->|"[WIRE]: BindingStatusWire + CoercedValueWire + WriteReceiptWire"| Core
+    Wire e4@-->|"[WIRE]: BindingStatus + CoercedValueWire + WriteOutcomeWire"| Core
     Runtime e5@-->|"[WIRE]: HostFingerprintWire"| Core
     Observability e6@-->|"[TRANSPORT]: OtelExport"| TsRuntime
     Agent e7@-->|"[WIRE]: capability.DiscoverResponse"| PyRuntime
@@ -162,7 +161,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost C# platform seams
-    accDescr: Which ports, wires, receipts, and content keys cross between AppHost and every .NET peer.
+    accDescr: Which ports, wires, domain shapes, and content keys cross between AppHost and every .NET peer.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
@@ -184,16 +183,15 @@ flowchart LR
     Kernel e4@-->|"[SHAPE]: InstrumentSpec + AlertSeverity"| Observability
     Kernel e5@-->|"[CONTENT_KEY]: ContentHash"| Runtime
     Kernel e6@-->|"[CONTRACT]: PackWireContext"| Runtime
-    Kernel e7@-->|"[PORT]: ReceiptSinkPort + TenantContext"| Runtime
+    Kernel e7@-->|"[PORT]: TenantContext"| Runtime
     Bim e8@-->|"[PORT]: BimHooks"| Observability
-    Bim e9@-->|"[RECEIPT]: BimBenchReceipt"| Observability
     Bim e10@-->|"[EVENT]: CloudEvents announcement"| Wire
     Bim e11@-->|"[WIRE]: BrickGraph"| Wire
     Bim e42@-->|"[PORT]: ITessellationCompanion"| Compute
     Runtime e12@-->|"[PORT]: ProjectionContext"| Element
     Observability e13@-->|"[PORT]: InstrumentSet + SpanBand"| Element
     Materials e14@-->|"[PORT]: TelemetryContributorPort"| Observability
-    Materials e15@-->|"[WIRE]: BenchmarkReceipt"| Observability
+    Materials e15@-->|"[SHAPE]: Benchmark"| Observability
     Runtime e16@-->|"[PORT]: DeterminismContext"| AppUi
     Runtime e17@<-->|"[PORT]: ProjectionContext"| Persistence
     Wire e18@<-->|"[PORT]: CoordinationOp"| Persistence
@@ -201,22 +199,19 @@ flowchart LR
     Persistence e20@-->|"[SHAPE]: RecoveryObjective"| Runtime
     Runtime e21@-->|"[PROJECTION]: ReplayWindow"| Persistence
     Runtime e22@<-->|"[PORT]: HybridCache"| Persistence
-    Persistence e23@-->|"[RECEIPT]: ProvisionVerdict"| Observability
+    Persistence e23@-->|"[RESULT]: ProvisionVerdict"| Observability
     Observability e24@<-->|"[PORT]: TelemetryContributorPort"| Persistence
-    Persistence e25@-->|"[PORT]: PersistenceHooks"| Observability
     Observability e26@-->|"[PORT]: HookRail"| AppUi
     Runtime e27@<-->|"[FAULT]: FaultBand"| AppUi
     Observability e28@-->|"[PORT]: ProfileSampleSource"| AppUi
-    Fabrication e29@-->|"[RECEIPT]: FabricationFact"| Observability
     Fabrication e30@-->|"[PORT]: FabricationHooks"| Observability
     Observability e31@-->|"[PORT]: TelemetryContributorPort"| Fabrication
-    Wire e32@-->|"[RECEIPT]: MachineObservationWire"| Fabrication
+    Wire e32@-->|"[SHAPE]: MachineObservationIngress"| Fabrication
     Runtime e33@-->|"[PORT]: Admission"| Compute
     Runtime e34@-->|"[PORT]: WorkLane"| Compute
     Agent e35@-->|"[PORT]: IChatClient"| Compute
     Agent e36@-->|"[PORT]: Spec"| Compute
-    Compute e37@-->|"[PORT]: ComputeHookRail"| Observability
-    Compute e38@-->|"[RECEIPT]: DigitalTwin"| Wire
+    Compute e38@-->|"[RESULT]: DigitalTwin"| Wire
     Wire e39@<-->|"[TRANSPORT]: CollabWireContext"| AppUi
     Sandbox e40@<-->|"[SHAPE]: PackKind"| Compute
     AppUi e41@-->|"[SHAPE]: CommandIntent + CommandTxn + CallerModality"| Agent
@@ -240,7 +235,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost boot-to-drain spine
-    accDescr: How profile resolution feeds boot and composition, and how the drain conductor folds participants into one unload receipt.
+    accDescr: How profile resolution feeds boot and composition, and how the drain conductor folds participants into one phase commit.
     Resolve(["ProfileSurface.Resolve"]) e1@--> Boot["ProfileBoot.Boot"]
     Boot e2@--> Compose["ConfigSource.Compose"]
     Compose e3@--> Admit["PolicyBinding + OptionsAdmission"]
@@ -250,10 +245,10 @@ flowchart LR
     Running e7@--> Rails["SignalGovernance / HealthSurface / SupportCapture / OutboundSurface"]
     Rails e8@--> Ports[("Runtime ports")]
     Running e9@--> Drain["DrainConductor.Drain"]
-    Drain e10@--> Unloaded(["DrainReceipt: Unloaded"])
+    Drain e10@--> Unloaded(["PhaseCommit: Unloaded"])
 ```
 
-Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behind validated frozen policy, and transitions the `Lifecycle` cell to Running; the telemetry, health, support, and outbound rails surround it and surface through the port records, and `DrainConductor.Drain` folds ranked participants into one `DrainReceipt`. Exact per-stage wiring lives on the owning implementation pages.
+Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behind validated frozen policy, and transitions the `Lifecycle` cell to Running; the telemetry, health, support, and outbound rails surround it and surface through the port records, and `DrainConductor.Drain` folds ranked participants into one `PhaseCommit`. Exact per-stage wiring lives on the owning implementation pages.
 
 ## [05]-[BOUNDARIES]
 
@@ -277,7 +272,7 @@ Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behi
 - `Describe`/`DescribeKeyed` rows and `FromAssemblies` own every service registration; service-descriptor spellings are never hand-written.
 - Generated Thinktecture and NodaTime converters own STJ serialization, and classified values redact at every exporter and bundle seam.
 - One scheduler, one cache owner, and one retry owner sit on each seam; database retry stays at the Persistence execution strategy.
-- Every outcome stays its own typed receipt record rather than a shared ledger or reported-value abstraction.
+- Every operation returns its canonical domain result rather than projecting a second generic carrier.
 - `DeliveryFanout`, `LiveWire`, `AlertEngine`, and `FidelityScale` are the one notification sender, binding poller, alerter, and power monitor.
 - Notification, polling, alerting, and power monitoring read the existing hop, health, and power signals as their only state.
 - Plugin rows drive their phases by host-attach injection; posix traps and single-instance enforcement belong to the service and standalone rows.

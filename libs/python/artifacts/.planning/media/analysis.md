@@ -10,11 +10,9 @@ It composes the container decode/fault surface, audio `_decode_audio`, filter ca
 
 ## [02]-[ANALYSIS]
 
-- Owner: `Analysis` discriminates modality over the closed `AnalysisOp` family, each case carrying its typed payload (a source `blob` plus its op knobs), never a shared erased `params` bag, a per-measurement subclass, or a parallel `waveform`/`loudness`/`scenes` trio; `AnalysisArm` is the closed `NATIVE`/`SUBSTITUTE` route vocabulary — a `StrEnum`, token identity with no payload — whose `of` derivation routes native only when the op's `_NATIVE` row is non-empty AND present in the probe, so a limited wheel routes to the substitute, a full build to the native filter with the same evidence shape, and a substitute-only row can never route native; `AnalysisEvidence` the frozen carrier this page owns (the artifact `container` tag, the route `codec`, source `duration`, `byte_count`, `count`, and the measured `facts` band) projecting onto `ArtifactReceipt.Media` at `_keyed`; `MediaFault` the container cause vocabulary threaded unchanged.
 - Cases: `Waveform`/`Spectrogram` render native filter output or NumPy envelope/STFT images while both routes derive the same peak/RMS or centroid facts from normalized PCM. `Loudness` returns exact R128 facts from `loudnorm.stats` or explicitly named unweighted fallback facts. `Silence`/`BlackDetect` fold threshold flags through `_flag_spans`; `SceneDetect` uses native `select` or normalized mean-absolute frame delta; `Thumbnail` uses native `thumbnail` or variance picks and refuses an empty video before `_sheet`. `Metrics(blob, selected)` generates any subset of peak/RMS/crest/DC/zero-crossing/centroid/rolloff/bandwidth/flatness/dynamic-range facts from one `AudioMetric` vocabulary and one FFT correspondence.
-- Entry: `emit()` threads `parents` into `ArtifactWork`; `_key` derives the pre-run key through `CANON` and `ContentIdentity.key` and `_keyed` threads it as the receipt slot with the product address on the `address` band fact; `_dispatch` offloads `_analyze`, which derives `AnalysisArm.of(op.tag, media_filters())` on the process side so `av` stays worker-scope, and maps the lane's outer `BoundaryFault` through `_lapsed` before flattening the worker `Result`. The `media/container#CONTAINER` `_worker` aspect maps `BeartypeCallHintViolation` to `MediaFault.contract` at definition time, and every native graph drains through the `media/filtergraph#FILTER` `_drained` kernel rather than a page-local pull loop.
+- Entry: `emit()` threads `parents` into `ArtifactWork`; `_key` derives the pre-run key through `CANON` and `ContentIdentity.key`; `_dispatch` offloads `_analyze`, which derives `AnalysisArm.of(op.tag, media_filters())` on the process side so `av` stays worker-scope, and maps the lane's outer `BoundaryFault` through `_lapsed` before flattening the worker `Result`. The `media/container#CONTAINER` `_worker` aspect maps `BeartypeCallHintViolation` to `MediaFault.contract` at definition time, and every native graph drains through the `media/filtergraph#FILTER` `_drained` kernel rather than a page-local pull loop.
 - Auto: the route is `AnalysisArm.of(op.tag, media_filters())`, so a producer never passes a `use_native` flag, a new native dependency is one `_NATIVE` row, and a substitute-only op is the empty row read as data; a `Waveform`/`Spectrogram`/`Thumbnail` produces a PNG and a `Loudness`/`Silence`/`BlackDetect`/`SceneDetect` a `msgspec.json` facts blob, both keyed and both carrying the measured band.
-- Receipt: each analysis contributes one `ArtifactReceipt.Media` whose slot threads the PRE-RUN node key — the `core/receipt#RECEIPT` elision law — with the produced-bytes content address on the `address` band fact. Route identity rides `codec`, numeric output rides `facts`, and `AnalysisEvidence` keeps provider handles out of the receipt owner. Exact R128 facts exist only on the native route; substitute fact names expose their weaker measurement.
 - Growth: a structurally distinct measurement is one `AnalysisOp` case, `_NATIVE` row, admission arm, and `_analyzed` arm; another audio scalar is one `AudioMetric` member plus one `measured` row; a native dependency is one requirement-set edit; a substitute replaces one route body behind the same `AnalysisArm` value.
 
 ```python
@@ -38,11 +36,11 @@ from numpy.lib.stride_tricks import sliding_window_view
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import TRANSIENT, BoundaryFault, FaultRow, RuntimeRail, async_boundary, rostered
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.workers import Kernel, KernelTrait
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
+from rasm.artifacts.core.hooks import ArtifactsLeg, BYTE_VOLUME, DOMAIN
 from rasm.artifacts.core.plan import Admission, ArtifactWork
-from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, MediaFault, _lapsed
 
 lazy import av
@@ -200,26 +198,25 @@ class Analysis(Struct, frozen=True):
             case _:
                 return Analysis(op=op, lane=lane, parents=parents)
 
-    def emit(self, /) -> ArtifactWork:
+    def emit(self, /) -> ArtifactWork[AnalysisProduct]:
         return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
         return ContentIdentity.key(f"media.analysis-{self.op.tag}", CANON.encode(self.op))
 
-    async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
+    async def _emit(self) -> RuntimeRail[AnalysisProduct]:
         railed = await async_boundary(ANALYSIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
-        return railed.bind(
+        settled = railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(ANALYSIS_FOLD.subject, fault)))
         )
+        match settled:
+            case Result(tag="ok", ok=product):
+                Metrics.record({BYTE_VOLUME: float(len(product[0]))}, domain=DOMAIN, kind="media", scope=self.lane.scope)
+        return settled
 
-    async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:
-        return (await self._dispatch()).map(self._keyed)
-
-    def _keyed(self, product: AnalysisProduct, /) -> ArtifactReceipt:
-        blob, ev = product
-        address = ContentIdentity.key(ev.container, blob)
-        return ArtifactReceipt.Media(self._key, ev.container, ev.codec, ev.duration, ev.byte_count, ev.count, 0, ev.facts | {"address": address.hex})
+    async def _folded(self, /) -> Result[AnalysisProduct, MediaFault]:
+        return await self._dispatch()
 
     async def _dispatch(self, /) -> Result[AnalysisProduct, MediaFault]:
         outcome = await self.lane.offload(Kernel.of(_analyze, KernelTrait.HOSTILE, idempotent=True), self.op)

@@ -147,7 +147,7 @@ Array-bridge accessors cross the open3d boundary into numpy: legacy `geometry` b
 - multiway axis: the scan owner appends `PoseGraphNode(pose)` per cloud and `PoseGraphEdge(source_node_id, target_node_id, transformation, uncertain=...)` per pairwise solution into a `PoseGraph`, then `global_optimization(graph, GlobalOptimizationLevenbergMarquardt(), GlobalOptimizationConvergenceCriteria(), GlobalOptimizationOption(...))` returns `None`, mutating each node's `.pose` to the absolute transform in place.
 - multiway trap: `GlobalOptimizationOption` positional order is `(max_correspondence_distance, edge_prune_threshold, preference_loop_closure, reference_node)`, so the loop-closure gain keyword-binds `preference_loop_closure` or it lands in `edge_prune_threshold` and disables loop closure.
 - reconstruction axis: `create_from_point_cloud_poisson`/`ball_pivoting`/`alpha_shape` are static `TriangleMesh` constructors, the algorithm a constructor choice rather than a runtime mode flag.
-- evidence: each registration captures fitness, inlier rmse, correspondence count, and transformation; each reconstruction captures input point count and output vertex/triangle count as a scan receipt.
+- evidence: each registration result carries fitness, inlier rmse, correspondence count, and transformation; each reconstruction result carries input point count and output vertex/triangle count.
 
 [STACKING]:
 - `small-gicp`(`.api/small-gicp.md`): `registration_fgr_based_on_feature_matching`/`registration_ransac_based_on_feature_matching` yield a `RegistrationResult.transformation` seeding `small_gicp.align(target, source, init_T_target_source=T)` for fine GICP/VGICP refinement.

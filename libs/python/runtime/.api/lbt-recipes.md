@@ -2,7 +2,7 @@
 
 `lbt-recipes` (import `lbt_recipes`) owns out-of-process execution of the packaged Ladybug Tools simulation recipes: a `Recipe` loads a recipe by name or folder, coerces each input through its `pollination_handlers` chain to the queenbee `DAGInput` type, writes `<simulation_id>_inputs.json`, shells `queenbee local run` — the `queenbee-local` luigi DAG runner — over Radiance/OpenStudio/EnergyPlus, then reads the result folder back through the output handlers.
 
-`lbt-recipes` holds the executor boundary of the recipe rail: queenbee owns the consumed schema and `pollination-handlers` the bound IO coercion, leaving lbt-recipes the subprocess run and its luigi/error-log receipt; the runtime composes `Recipe` + `RecipeSettings` + `Recipe.run` into the simulation-job owner.
+`lbt-recipes` holds the executor boundary of the recipe rail: queenbee owns the consumed schema and `pollination-handlers` the bound IO coercion, leaving lbt-recipes the subprocess run and its luigi/error-log evidence; the runtime composes `Recipe` + `RecipeSettings` + `Recipe.run` into the simulation-job owner.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -105,7 +105,7 @@ Each packaged recipe is a folder — `package.json` contract + `run.py` luigi en
 [STACKING]:
 - `queenbee`(`queenbee.md`): `RecipeInput.INPUT_TYPES` keys are queenbee `DAGInput` type strings and the `package.json` at `Recipe.path` is a queenbee recipe contract — loadable as `BakedRecipe.from_folder` submitting as a `Job`, the schema-side complement to the `queenbee local run` luigi path `Recipe.run` drives.
 - `pollination-handlers`(`pollination-handlers.md`): the input/output handler chains are `pollination_handlers` functions; lbt-recipes is the `importlib` resolution site and the `RecipeInput.handle_value`/`RecipeOutput.value` invocation site.
-- runtime rails: `Recipe.run` rides the process-resource lane + `anyio` deadline scope; the luigi/error logs parse into the runtime receipt; a transient engine-precheck retries through the `stamina` owner; the run is an OpenTelemetry span.
+- runtime rails: `Recipe.run` rides the process-resource lane + `anyio` deadline scope; the luigi/error logs parse into the runtime `RecipeRun`; a transient engine-precheck retries through the `stamina` owner; the run is an OpenTelemetry span.
 
 [LOCAL_ADMISSION]:
 - AGPL-3.0: this distribution and its `queenbee-local` executor are network-copyleft, admitted only as a process-boundary subprocess, never linked into a distributed library surface — the license is the binding admission flag.
@@ -114,5 +114,5 @@ Each packaged recipe is a folder — `package.json` contract + `run.py` luigi en
 [RAIL_LAW]:
 - Package: `lbt-recipes`
 - Owns: the recipe execution wrapper, the packaged LBT recipes, handler-driven typed input coercion, parametric input/output management, local luigi execution via `queenbee local run`, engine-version checks, and luigi/error-log parsing
-- Accept: `Recipe(recipe_name)` construction, `input_value_by_name`/`handle_inputs` then `run(settings=RecipeSettings(...))`, `output_value_by_name` for typed results, `version.check_*` engine gates, the run driven through the runtime process-resource lane + deadline scope + receipt + OTel span
+- Accept: `Recipe(recipe_name)` construction, `input_value_by_name`/`handle_inputs` then `run(settings=RecipeSettings(...))`, `output_value_by_name` for typed results, `version.check_*` engine gates, the run driven through the runtime process-resource lane + deadline scope + `RecipeRun` + OTel span
 - Reject: re-implementing the luigi DAG scheduler or `queenbee local run`, an in-process recipe runner, hand-rolled handler resolution or input casting, trusting the subprocess exit code without parsing the logs, running without an engine precheck

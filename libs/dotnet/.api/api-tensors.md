@@ -203,5 +203,5 @@
 [RAIL_LAW]:
 - Package: `System.Numerics.Tensors`
 - Owns: strided tensor owners and views, native-sized indexing and ranges, raw-memory marshalling, and the vectorized span operator set
-- Accept: a fused vectorized chain over caller-owned spans whose measured BenchmarkDotNet receipt beats the scalar baseline on the hot lane
+- Accept: a fused vectorized chain over caller-owned spans whose measured BenchmarkDotNet report beats the scalar baseline on the hot lane
 - Reject: a package-local numeric loop over a span this surface already vectorizes, a bespoke tensor wrapper or `DeviceTensor`/`GpuTensor` parallel type — device-ness is a residency discriminant — a single-call `TensorPrimitives.Normalize` row (no such member; compose `Norm` then `Divide`), and an exact-predicate decision routed through a floating reduction

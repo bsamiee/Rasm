@@ -2,18 +2,18 @@
 
 `ToolWear` admits timestamped body, edge, and consumable observations; projects each criterion through an explicit `WearChannel`; fits condition trajectories; derives conservative remaining life; and returns one maintenance decision with its evidence. Subtractive wear and non-subtractive consumption share `ToolLifeBasis` without manufacturing flank-wear fields for unrelated modalities.
 
-`WearRegistry` closes every admitted `ProcessKind` explicitly. Each process is `Tracked` with criteria, consumable specifications, or both, or `Untracked` with a stated reason; uncovered processes cannot become empty success or infinite life. Limits, warnings, reconditioning, and prices remain admitted shop data rather than taxonomy constants. `Tooling/cuttingdata` `LinearFit` owns the ONE least-squares regression in the package and `Regression` its ONE receipt, so a trajectory fit and a Taylor calibration read the same slope, intercept, residual, fit-space determination, domain, and terminal sample rather than two regression bodies that drift. Moments come off `Rasm.Domain` `Stat<Scalar>`, the kernel's ONE moment owner.
+`WearRegistry` closes every admitted `ProcessKind` explicitly. Each process is `Tracked` with criteria, consumable specifications, or both, or `Untracked` with a stated reason; uncovered processes cannot become empty success or infinite life. Limits, warnings, reconditioning, and prices remain admitted shop data rather than taxonomy constants. `Tooling/cuttingdata` `LinearFit` owns the ONE least-squares regression in the package and `Regression` its ONE result, so a trajectory fit and a Taylor calibration read the same slope, intercept, residual, fit-space determination, domain, and terminal sample rather than two regression bodies that drift. Moments come off `Rasm.Domain` `Stat<Scalar>`, the kernel's ONE moment owner.
 
 Every signal-to-channel correspondence is a COLUMN on the channel row and every channel-to-criterion projection resolves through one signal-keyed dispatch table, so a distributed type test never stands between an observation and the value it carries.
 
-Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remain named receipt wires; `LifeProjection` feeds `ToolCatalog.Refresh` as window-bounded body-or-edge multi-basis life evidence.
+Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remain named result wires; `LifeProjection` feeds `ToolCatalog.Refresh` as window-bounded body-or-edge multi-basis life evidence.
 
 ## [01]-[INDEX]
 
 - [02]-[WEAR_VOCABULARY]: `WearMechanism`, `WearPhase`, `WearScope`, `WearValueKind`, `ConsumableKind`, and `MaintenanceDisposition`.
 - [03]-[SIGNAL_CHANNELS]: `SignalKind`, `ConditionSignal`, the signal-keyed reader table, `WearChannel`, and `WearCriterion`.
 - [04]-[WEAR_REGISTRY]: `WearSample`, `ConsumableSpec`, `WearApplicability`, `ProcessWear`, `WearRegistry`, and `ConsumableReading` over the `Process/atoms` `ConsumableKey`.
-- [05]-[FORECAST_MODELS]: `TaylorModel`, `PhaseSchedule`, `WearPolicy`, `ForecastBand`, `WearEvidence`, `WearState`, `ConsumableRow`, `CriticalWear`, `MaintenanceAction`, `WearReceipt`, and the `TaylorLaw` calibration shapes.
+- [05]-[FORECAST_MODELS]: `TaylorModel`, `PhaseSchedule`, `WearPolicy`, `ForecastBand`, `WearEvidence`, `WearState`, `ConsumableRow`, `CriticalWear`, `MaintenanceAction`, `WearVerdict`, and the `TaylorLaw` calibration shapes.
 - [06]-[ASSESSMENT]: the `ToolWear` assessment, forecast, consumable, projection, and calibration fold.
 
 ## [02]-[WEAR_VOCABULARY]
@@ -412,13 +412,13 @@ public sealed record ConsumableReading(ConsumableKey Key, ToolLifeBasis Basis, d
 
 ## [05]-[FORECAST_MODELS]
 
-- Owner: `TaylorModel` and `ModelDiagnostic` own phase-aware evolution; `PhaseSchedule` owns the trajectory's ordered partition and the phase it classifies; `WearPolicy` owns the assessment thresholds; `ForecastBand` owns the conservative projection; `WearReceipt` owns forecast and maintenance truth.
+- Owner: `TaylorModel` and `ModelDiagnostic` own phase-aware evolution; `PhaseSchedule` owns the trajectory's ordered partition and the phase it classifies; `WearPolicy` owns the assessment thresholds; `ForecastBand` owns the conservative projection; `WearVerdict` owns forecast and maintenance truth.
 - Law: `ModelDiagnostic` COMPOSES the `Tooling/cuttingdata` `Regression` rather than declaring a second regression. The page's own lead names one regression owner, and a private fit body beside it meant the trajectory slope and the Taylor slope were computed by two functions that could disagree about the same samples.
 - Law: `PhaseSchedule` admits the consumed-fraction partition ONCE with its curvature band and answers the phase itself, so no fold re-reads the columns to classify. Four bare fractions on `WearPolicy` carried an ordering the validator proved for two of them while the comment claimed three, and inspection sat inside a partition it never belonged to — inspection reads a REMAINING fraction where break-in and acceleration read a CONSUMED one. NAMED LOSS: none — `InspectionFraction` stays on the policy as the action threshold it always was, now seated beside no boundary that invites the conflation.
 - Cases: `WearState` distinguishes tool, consumable, status, and unconsumed evidence; `MaintenanceAction` distinguishes continue, monitor, inspect, rotate, replace, recondition, retire, and not-applicable, each case projecting onto the `MaintenanceDisposition` row of the same name through one total `Disposition` arm.
 - Auto: `TaylorLaw` narrows one `PowerLaw` to the fitted speed coefficient under admitted feed, depth, and load exponents, and its terminal projection GENERATES rather than transcribing the model columns by hand.
 - Entry: `TaylorLaw.Admit(ingress, study)` is the ONE construction, and the study's residual, determination, and sample floors gate it there. Reading those columns off a constructed law to reject it afterwards is the deleted form, because a law that exists at all is a law a caller holds.
-- Receipt: `ModelDiagnostic` carries the shared fit beside both endpoint derivatives, so slope, intercept, residual, determination, sample domain, and the last observed value all read off one receipt. `FabricationFact.ToolWear.Of` projects the critical state onto `rasm.fabrication.tool.wear`, `rasm.fabrication.tool.assessments`, and `rasm.fabrication.fit.residual` through `Process/telemetry#FACT_PROJECTION` as kind `tool-wear`, carrying the `Disposition` key as the assessment population's outcome dimension so the in-service share reads off that one series; a receipt without a critical state projects nothing.
+- Result: `ModelDiagnostic` carries the shared fit beside both endpoint derivatives, so slope, intercept, residual, determination, sample domain, and the last observed value all read off one result. `ToolWear.Assess` writes the critical state through `FabricationInstruments.ToolWear`, `ToolAssessments`, `FitResidual`, and `ToolFloor`, carrying the `Disposition` key as the assessment population's outcome dimension; a result without a critical state writes nothing.
 - Packages: `NodaTime` `Instant`, `Duration`, and `Interval.Contains`; `Tooling/cuttingdata` `LinearFit`, `PowerLawFit`, `Regression`, and `PowerLaw`; MathNet.Numerics monotone cubic interpolation for the endpoint derivatives; `Riok.Mapperly` for the calibration projection.
 - Growth: a phase axis is one column on `PhaseSchedule` and one arm in its `At` pattern.
 - Boundary: point-estimate scheduling, infinite fallback life, invented zero budgets, a line fitted to a resampled spline rather than the observations, and swallowed fit failures are deleted forms.
@@ -596,7 +596,7 @@ public abstract partial record MaintenanceAction {
         notApplicable: static _ => MaintenanceDisposition.NotApplicable);
 }
 
-public sealed record WearReceipt(Seq<WearState> States, Seq<ConsumableRow> Consumables,
+public sealed record WearVerdict(Seq<WearState> States, Seq<ConsumableRow> Consumables,
     Option<CriticalWear> Critical, MaintenanceAction Action, Seq<ModelDiagnostic> Diagnostics,
     Seq<LifeBudget> LifeProjection, Instant AssessedAt);
 
@@ -761,7 +761,7 @@ public abstract partial record WearRequest {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WearResult {
     private WearResult() { }
-    public sealed record Assessment(WearReceipt Receipt) : WearResult;
+    public sealed record Assessment(WearVerdict Verdict) : WearResult;
     public sealed record Calibration(TaylorLaw Law) : WearResult;
 }
 ```
@@ -769,11 +769,11 @@ public abstract partial record WearResult {
 ## [06]-[ASSESSMENT]
 
 - Owner: `ToolWear` owns the assessment, forecast, consumable, projection, and calibration fold.
-- Law: criterion coverage is proved as a COVERING relation, not a bijection. Every observed target must reach at least one criterion its scope admits, but a criterion the shop declared for a target this run never observed is a criterion waiting for evidence, not a defect — demanding it in both directions rejected a valid partial assessment, and the census the receipt publishes states how many pairs actually resolved.
-- Entry: `ToolWear.Apply(WearRequest, FabricationTap?)` is the one polymorphic entry over assessment and Taylor calibration; the tap threads through the request switch and defaults silent, so a headless assessment emits nothing and branches nowhere.
+- Law: criterion coverage is proved as a COVERING relation, not a bijection. Every observed target must reach at least one criterion its scope admits, but a criterion the shop declared for a target this run never observed is a criterion waiting for evidence, not a defect — demanding it in both directions rejected a valid partial assessment, and the census the result publishes states how many pairs actually resolved.
+- Entry: `ToolWear.Apply(WearRequest, Option<InstrumentSet>)` is the one polymorphic entry over assessment and Taylor calibration; the set threads through the request switch and defaults absent for headless assessment.
 - Auto: admission accumulates malformed signal, time, target, channel-kind, registry, and budget rows; assessment groups by target, projects through the declared channel row, removes policy-defined outliers, fits the exposure trajectory through the shared regression owner, and classifies phase jointly from consumed fraction and the monotone spline's start-to-end derivative ratio, so a curve that steepens reads accelerated before its limit fraction says so. Missing specification, missing reading, untracked-process readings, stale windows, and terminal status fail typed.
-- Receipt: `WearReceipt` carries all states, consumable rows, critical row, maintenance action, model diagnostics, and window-bounded `LifeProjection`; projection groups tool states by target and life basis, then retains the most conservative whole forecast per key.
-- Packages: `Tooling/cuttingdata` `LinearFit` and `PowerLawFit`; `Rasm.Domain` `Stat<Scalar>`, `Scalar`, `MomentNormalizer`, and `Op` — the kernel's one moment owner; `Process/telemetry` (`FabricationTap`, `FabricationFact.ToolWear`); MathNet.Numerics `Interpolate.CubicSplineMonotone` and `IInterpolation.Differentiate`.
+- Result: `WearVerdict` carries all states, consumable rows, critical row, maintenance action, model diagnostics, and window-bounded `LifeProjection`; projection groups tool states by target and life basis, then retains the most conservative whole forecast per key.
+- Packages: `Tooling/cuttingdata` `LinearFit` and `PowerLawFit`; `Rasm.Domain` `Stat<Scalar>`, `Scalar`, `MomentNormalizer`, and `Op` — the kernel's one moment owner; `Process/telemetry` (`FabricationInstruments`); MathNet.Numerics `Interpolate.CubicSplineMonotone` and `IInterpolation.Differentiate`.
 - Boundary: a current value taken outside the admitted rows, status-only spent inference, phase read from the limit fraction alone while the page claims trajectory classification, a mean-and-dispersion pair folded beside the kernel moment owner, and bare `Seq.Last` reads are deleted forms.
 
 ```csharp
@@ -781,14 +781,14 @@ public abstract partial record WearResult {
 public static class ToolWear {
     private static readonly Op WearOp = Op.Of(name: "fabrication:tool-wear");
 
-    public static Fin<WearResult> Apply(WearRequest request, FabricationTap? tap = null) => request.Switch(
-        state: tap ?? FabricationTap.Silent,
-        assess: static (port, row) => Assess(row.Value, port)
-            .Map<WearResult>(static receipt => new WearResult.Assessment(receipt)),
+    public static Fin<WearResult> Apply(WearRequest request, Option<InstrumentSet> set = default) => request.Switch(
+        state: set,
+        assess: static (instruments, row) => Assess(row.Value, instruments)
+            .Map<WearResult>(static result => new WearResult.Assessment(result)),
         calibrate: static (_, row) => Calibrate(row.Value)
             .Map<WearResult>(static law => new WearResult.Calibration(law)));
 
-    private static Fin<WearReceipt> Assess(WearAssessment request, FabricationTap tap) =>
+    private static Fin<WearVerdict> Assess(WearAssessment request, Option<InstrumentSet> set) =>
         from applicability in request.Registry.For(request.Process)
             .ToFin(new FabricationFault.WearEstimateUnfit(request.Assembly.Tool, request.Samples.Count))
         from _ in InputFits(applicability, request)
@@ -803,12 +803,26 @@ public static class ToolWear {
                     states.Choose(static state => state is WearState.Unconsumed row ? Some(row.Reason) : None)
                         .Head.IfNone("no-terminal-consumption"))))
         from life in Project(states, request.Policy, request.AssessedAt)
-        let receipt = new WearReceipt(states, consumableStates.Choose(static row => row.Row), critical, action,
+        let result = new WearVerdict(states, consumableStates.Choose(static row => row.Row), critical, action,
             toolStates.Choose(static state => state is WearState.Tool tool
                 && tool.Evidence is WearEvidence.Measured measured ? Some(measured.Diagnostic) : None),
             life, request.AssessedAt)
-        let _fact = FabricationFact.ToolWear.Of(receipt).Map(tap.Fire)
-        select receipt;
+        from _metrics in result.Critical.Match(
+            Some: critical =>
+                from _assessment in set.Write(FabricationInstruments.ToolAssessments, 1d,
+                    (FabricationInstruments.BasisSlot, critical.Basis.Key),
+                    (FabricationInstruments.ActionSlot, result.Action.Disposition.Key))
+                from _wear in set.Write(FabricationInstruments.ToolWear, critical.FractionRemaining,
+                    (FabricationInstruments.BasisSlot, critical.Basis.Key),
+                    (FabricationInstruments.ActionSlot, result.Action.Disposition.Key))
+                from _fit in result.Diagnostics.Map(static row => row.RootMeanSquareResidual).Max().Match(
+                    Some: residual => set.Write(FabricationInstruments.FitResidual, residual,
+                        (FabricationInstruments.ModelSlot, FabricationInstruments.Taylor)),
+                    None: static () => Fin.Succ(unit))
+                from _floor in set.Level(FabricationInstruments.ToolFloor, critical.FractionRemaining, Some(critical.Basis.Key))
+                select unit,
+            None: static () => Fin.Succ(unit))
+        select result;
 
     private static Fin<Unit> InputFits(WearApplicability applicability, WearAssessment request) => applicability switch {
         WearApplicability.Untracked when !request.Samples.IsEmpty || request.Taylor.IsSome || !request.Consumables.IsEmpty =>
@@ -1046,21 +1060,20 @@ config:
 ---
 flowchart LR
     accTitle: Tool-wear composition
-    accDescr: Condition signals and registry policy produce wear receipts and life projections for catalog refresh, with the trajectory and Taylor fits both riding the one shared regression owner.
+    accDescr: Condition signals and registry policy produce wear results and life projections for catalog refresh, with the trajectory and Taylor fits both riding the one shared regression owner.
     Signals["ConditionSignal → SignalKind → WearChannel"] --> Wear["ToolWear.Apply"]
     Registry["WearRegistry"] --> Wear
     Assembly["ToolAssembly"] --> Wear
     Fit["cuttingdata LinearFit — the one regression owner"] --> Wear
-    Wear --> Receipt["WearReceipt"]
-    Receipt --> Magazine["LifeProjection → ToolCatalog.Refresh"]
-    Receipt --> Estimate["Verify/estimation"]
+    Wear --> Result["WearVerdict"]
+    Result --> Magazine["LifeProjection → ToolCatalog.Refresh"]
+    Result --> Estimate["Verify/estimation"]
 ```
 
 ## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

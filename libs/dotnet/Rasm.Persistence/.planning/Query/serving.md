@@ -16,7 +16,6 @@ Read SCOPE parts from read SHAPE here: tenant and window ride the scope value wh
 - Cases: `ResidenceFold` is `Plain` (a declared column projected as itself), `Simple` (a shipped-catalog aggregate over one column), `Bucket` (a caller-stated grain), `Quantile` (a fraction under the convention the residence answers), `Weighted` (the toolkit time-weighted mean over raw chunks), `Mean` (the accessor over a materialised weight summary), and `Tail` (the accessor over a materialised sketch).
 - Entry: `ResidencePlan.Scan(AnalyticsSchema, Seq<(Identifier Column, string Value)> matches)` builds the filter-only plan; `Project(schema, matches, Seq<(Identifier Name, ResidenceFold Fold)> columns, Seq<Identifier> order)` builds the projected read; `Aggregate(schema, matches, Seq<Identifier> keys, Seq<(Identifier Name, ResidenceFold Fold)> folds)` builds the grouped read; `Lower(Plan, ResidenceScope, ResidenceProjection)` is the one lowering, gating the window and the residence's declared projection subset ahead of every relation.
 - Auto: the plan is the query currency and the residence row supplies the tokens, so a question written once renders three ways and no second query language enters. Every arm recurses through `Visit`, never `Accept`, so the admitted-relation test runs once per node and an unadmitted kind returns the typed refusal rather than reaching a base arm that throws. Grouping keys thread DOWN into the fold, so a windowed aggregate re-buckets at the caller's grain rather than silently answering the residence's own storage grain.
-- Receipt: lowering carries no slot of its own — the lowered text rides the `store.columnar.residence.read` receipt the serving plane lands.
 - Packages: FlowtideDotNet.Substrait (`Plan`/`Relation`/`RelationVisitor<TReturn,TState>`/`ReadRelation`/`FilterRelation`/`ProjectRelation`/`AggregateRelation`/`AggregateMeasure`/`SortRelation`/`FetchRelation`/`TopNRelation`/`RootRelation`/`NamedTable.Names`/`NamedStruct.Names`/`DirectFieldReference`/`StructReferenceSegment.Field`/`ScalarFunction`/`AggregateFunction`/`SortField`/`SortDirection`/`Literals.NumericLiteral`/`Literals.StringLiteral`/`Literals.BoolLiteral`/`FunctionsComparison`/`FunctionsArithmetic`/`FunctionsAggregateGeneric`), Rasm (`Domain/stats#SCALAR_CARRIER` `QuantileRule` — the quantile convention a reader states rather than inherits), Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnType.Plan`, `#RESIDENCE_FAMILY` `Residence`/`ResidenceProjection`/`ResidenceFault`, `#PROVISIONING` `SeriesResidence` — the materialised summary the toolkit folds read), NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new relation kind is one `Visit*` override beside its row in the admitted test; a new comparison or arithmetic operator is one row on `Operators` or `Postfixes`; a new shipped aggregate is one row on `Folds`; a new residence-owned fold is one row on `Residents` beside its `ResidenceFold` case, which breaks every builder at compile time; zero new surface — a second query language, a raw-SQL reader, a per-residence lowering, a hand-assembled relation at a consuming page, or a fold spelled at a call site is the deleted form.
 - Law: the two fold CLASSES answer differently. Dialect folds — `time_bucket`, `quantile` — read the residence row's own delegate column, so every residence spells one or declines it by not publishing the projection it serves. Toolkit folds — `time_weight`, `weight_average`, `sketch_quantile` — read state only a provisioning arm that materialises the summary produces, so a residence whose arm emits no continuous aggregate refuses `Unlowerable` rather than lowering a naive `avg` that over-counts a dense burst under the caption the weighted mean earned.
@@ -419,11 +418,10 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
 
 ## [03]-[SERVING_PLANE]
 
-- Owner: `ResidenceReach` closes the transports one read discriminates on; `ResidenceRow` is the ONE row surface every reach yields, with a `Fin` reader per physical family; `ResidenceReceipt`/`ResidenceResult<T>` carry the read's evidence and its payload; `ResidenceHealth` is the family policy-health row; `ResidenceRead` is the ONE query entry and the ONE health probe; `ResidenceIngestReceipt` carries the staged count and `ResidenceLanding` is the ONE relational landing.
+- Owner: `ResidenceReach` closes the transports one read discriminates on; `ResidenceRow` is the ONE row surface every reach yields, with a `Fin` reader per physical family; `ResidenceResult<T>` carries the read result; `ResidenceHealth` is the family policy-health row; `ResidenceRead` is the ONE query entry and the ONE health probe; `ResidenceWrite` carries the staged count and `ResidenceLanding` is the ONE relational landing.
 - Cases: `ResidenceReach` is `Relational(NpgsqlDataSource)` | `Fleet(ClickHouseClient)` | `Flight(FlightSqlClient)` | `Local(ColumnarSession)`; `ResidenceRow` is `Ado(DbDataReader)` | `Arrow(RecordBatch, int Ordinal)`.
 - Entry: `ResidenceRead.Read<T>(ResidenceReach, Plan, ResidenceScope, ResidenceProjection, Func<ResidenceRow, Fin<T>>)` is the ONE query entry over every residence; `ResidenceRead.Health(ResidenceReach, Residence, AnalyticsSchema, ProjectionContext)` is the FAMILY policy probe every residence answers over the same reach arms; `ResidenceLanding.Stage(NpgsqlDataSource, AnalyticsSchema, Seq<Seq<ColumnCell>>, ProjectionContext)` is the ONE relational landing.
 - Auto: every reach runs ONE ordered discipline — OPEN the lease chain, EXECUTE the lowered text, DRAIN through the caller's one shape, REPORT the scanned figure only that leg can honestly supply — so the three ADO-shaped reaches are one body and three rows and the Arrow reach differs by its drain alone. No caller-supplied SQL string has a parameter to arrive on, which is what makes writer/reader drift and ad-hoc tenant scans unrepresentable. Landing derives its column list, its tenancy lead, and every wire type from the same `AnalyticsSchema` the DDL emitter provisions from, so a landed row and the table it lands in cannot drift on order, count, or physical type.
-- Receipt: a residence read rides `store.columnar.residence.read` as the non-generic `ResidenceReceipt` carrying the residence key, the lowered text, the scanned rows, and the elapsed figure; an ingest rides `store.columnar.residence.ingest` as one `ResidenceIngestReceipt` naming its dataset beside the staged count.
 - Packages: Npgsql (`NpgsqlDataSource.CreateCommand`/`OpenConnectionAsync`/`NpgsqlConnection.BeginBinaryImportAsync`/`NpgsqlBinaryImporter.StartRowAsync`/`WriteAsync`/`CompleteAsync`/`NpgsqlException`), ClickHouse.Driver (`ClickHouseClient.CreateConnection`/`ClickHouseCommand.ExecuteReaderAsync`/`QueryStats`/`ClickHouseServerException`), DuckDB.NET.Data.Full (`DuckDBConnection.Duplicate`/`DuckDBCommand.UseStreamingMode`/`DuckDBException`), Apache.Arrow.Flight.Sql (`FlightSqlClient.ExecuteAsync(string, Transaction)`/`DoGetAsync(FlightTicket)`/`Transaction.NoTransaction`), Apache.Arrow.Flight (`FlightInfo.Endpoints`/`TotalRecords`/`FlightEndpoint.Ticket`), Apache.Arrow (`RecordBatch`/`StringArray`/`Int64Array`/`DoubleArray`/`TimestampArray`/`ListArray.ValueOffsets`/`Values`), Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `ColumnCell`/`ColumnShape.Admits`/`ColumnType.Cell`, `#RESIDENCE_FAMILY` `Residence`, `Element/graph#PROJECTION_FRAME` `ProjectionContext`), NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new transport is one `ResidenceReach` case breaking the read dispatch at compile time; a new ADO-shaped reach is one `AdoLeg` row carrying its lease chain and its scanned reader; a new physical family a shape reads is one `ResidenceRow` member answering both arms; zero new surface — a per-residence read entry, a per-reach shape delegate, a `DbDataReader`-typed shape the Arrow leg must fake, a second importer body, or a raw-SQL reader is the deleted form.
 - Law: absence is a RAIL fact on both row arms — an Arrow primitive reads nullable by construction and a relational column reads `IsDBNull` ahead of its typed getter, so a shape needing a total column takes the refusal rather than an empty string, a zero, or a 1970 instant, the three sentinels a board renders indistinguishably from a measured reading. `QueryStats` is the ONLY honest scanned figure on the Fleet leg: the returned row count says nothing about the granules a predicate pruned, which is the whole reason the tenant leads the sort key.
@@ -510,18 +508,14 @@ public abstract partial record ResidenceRow {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct ResidenceReceipt(string Residence, string Lowered, long Scanned, Duration Elapsed);
-
-public readonly record struct ResidenceResult<T>(Residence Residence, string Lowered, Seq<T> Rows, long Scanned, Duration Elapsed) {
-    public ResidenceReceipt Receipt => new(Residence.Key, Lowered, Scanned, Elapsed);
-}
+public readonly record struct ResidenceResult<T>(Residence Residence, string Lowered, Seq<T> Rows, long Scanned, Duration Elapsed);
 
 public readonly record struct ResidenceHealth(string Residence, string Relation, Option<Instant> Oldest, Option<Instant> Newest, long Rows) {
     public bool Retained(ResidencePolicy policy, Instant now) => Oldest.Map(at => at >= now - policy.Retain).IfNone(true);
     public Duration Lag(Instant now) => Newest.Map(at => now - at).IfNone(Duration.Zero);
 }
 
-public readonly record struct ResidenceIngestReceipt(string Dataset, long Staged, Instant At, CorrelationId Correlation);
+public readonly record struct ResidenceWrite(string Dataset, long Staged, Instant At, CorrelationId Correlation);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ResidenceRead {
@@ -642,7 +636,7 @@ public static class ResidenceLanding {
                 None: () => Fail<Error, Option<(Identifier, NpgsqlDbType)>>(
                     new ResidenceFault.Unprovisioned($"<schema-spine:{schema.Dataset}>")));
 
-    public static IO<Fin<ResidenceIngestReceipt>> Stage(
+    public static IO<Fin<ResidenceWrite>> Stage(
         NpgsqlDataSource store, AnalyticsSchema schema, Seq<Seq<ColumnCell>> rows, ProjectionContext frame) =>
         (Conformed(schema, Supplied(schema), rows), Landed(schema))
             .Apply(static (bound, landed) => (Bound: bound, Landed: landed)).As().ToFin().Match(
@@ -667,9 +661,9 @@ public static class ResidenceLanding {
                     }
                 }
                 ulong staged = await importer.CompleteAsync(token).ConfigureAwait(false);
-                return Fin<ResidenceIngestReceipt>.Succ(new ResidenceIngestReceipt(schema.Dataset, (long)staged, landedAt, frame.Correlation));
+                return Fin<ResidenceWrite>.Succ(new ResidenceWrite(schema.Dataset, (long)staged, landedAt, frame.Correlation));
             }).ConfigureAwait(false)).MapFail(Residence.Series.IngestRefused)),
-            Fail: error => IO.pure(Fin<ResidenceIngestReceipt>.Fail(error)));
+            Fail: error => IO.pure(Fin<ResidenceWrite>.Fail(error)));
 
     static Validation<Error, Seq<(ColumnRow Column, NpgsqlDbType Wire)>> Conformed(
         AnalyticsSchema schema, Seq<ColumnRow> supplied, Seq<Seq<ColumnCell>> rows) =>

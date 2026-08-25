@@ -38,7 +38,7 @@ const _families = [
   "CommitWire", "BranchWire", "VersionVectorWire", "MerkleSummaryWire",
   "EntityEditWire", "CredentialPublicWire", "DescriptorPinWire",
   "BenchmarkClaimWire",
-  "BindingStatus", "CoercedValueWire", "WriteReceiptWire",
+  "BindingStatus", "CoercedValueWire", "WriteOutcomeWire",
   "FlagVerdictWire", "AppUiSurfaceProgram", "CommandGateWire", "EvidenceTimelineWire",
   "BcfTopicWire", "BcfViewpointWire", "ModelDiffWire",
   "Material", "Set",
@@ -1671,7 +1671,7 @@ const _schema = {
   BenchmarkClaimWire: Format.proto.family(Format.proto.suite.BenchmarkClaimWire, Board.Claim.FromWire, "json"),
   BindingStatus: Format.proto.frame(Format.proto.suite.BindingStatus, "json"),
   CoercedValueWire: Format.proto.frame(Format.proto.suite.CoercedValueWire, "json"),
-  WriteReceiptWire: Format.proto.frame(Format.proto.suite.WriteReceiptWire, "json"),
+  WriteOutcomeWire: Format.proto.frame(Format.proto.suite.WriteOutcomeWire, "json"),
   FlagVerdictWire: Format.proto.frame(Format.proto.suite.FlagVerdictWire, "json"),
   AppUiSurfaceProgram: Format.proto.frame(Format.proto.suite.AppUiSurfaceProgram, "json"),
   CommandGateWire: Format.proto.frame(Format.proto.suite.CommandGateWire, "json"),
@@ -1741,7 +1741,7 @@ const _rows = {
   BenchmarkClaimWire: _proto("BenchmarkClaimWire"),
   BindingStatus: _proto("BindingStatus"),
   CoercedValueWire: _proto("CoercedValueWire"),
-  WriteReceiptWire: _proto("WriteReceiptWire"),
+  WriteOutcomeWire: _proto("WriteOutcomeWire"),
   FlagVerdictWire: _proto("FlagVerdictWire"),
   AppUiSurfaceProgram: _proto("AppUiSurfaceProgram"),
   CommandGateWire: _proto("CommandGateWire"),
@@ -1924,7 +1924,7 @@ declare namespace Wire {
   type BenchmarkClaim = Decoded<"BenchmarkClaimWire">
   type BindingStatus = Decoded<"BindingStatus">
   type CoercedValue = Decoded<"CoercedValueWire">
-  type WriteReceipt = Decoded<"WriteReceiptWire">
+  type WriteOutcome = Decoded<"WriteOutcomeWire">
   type FlagVerdict = Decoded<"FlagVerdictWire">
   type AppUiSurface = Decoded<"AppUiSurfaceProgram">
   type ControlIntent = AppUiSurface["root"]
@@ -2295,7 +2295,6 @@ export { Wire }
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

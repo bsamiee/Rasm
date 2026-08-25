@@ -138,6 +138,4 @@ def _seeded(
 
 ## [04]-[RESEARCH]
 
-- [SPLITTER_SECTION]-[OPEN]: does `BRepAlgoAPI_Splitter` carry `SectionEdges` like the Boolean operators, or does the protocol need a narrower base for the split row; verify against the installed `OCP.BRepAlgoAPI` surface.
-- [NON_DESTRUCTIVE]-[OPEN]: does `SetNonDestructive(True)` change the history a correspondence reads, and does an operand a later arm reuses require it; verify against the folder `.api` catalogue and a live n-ary probe.
-- [GLUE_POLICY]-[OPEN]: does `SetGlue` earn a wire arm for operands known to share coincident faces, and what does it cost when that assumption fails; verify against the folder `.api` catalogue and a live probe.
+(none)

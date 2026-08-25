@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_GATE]
 
-`QualityGate` is the delivery plane's one quality verdict — the total fold turning every producer's own conformance evidence into ONE graded `GateVerdict` per artifact under a per-kind threshold policy an office tunes without touching code. Four verdict families reach it: the measured raster scores `graphic/raster/measure#MEASURE` folds onto the `core/receipt#RECEIPT` `ArtifactReceipt.Preview` band, the `document/tagged#ACCESS` `StructureAudit`/`PreflightAudit`/`ArchiveAudit` clause verdicts, the PAdES `ConformanceVerdict` riding `ArtifactReceipt.Verdict`, and the `document/lens#LENS` `TableAudit` extraction scalars. It grades, and it produces nothing: no bytes, no content key, no `ArtifactWork`, no `ArtifactReceipt` case — a judgment over emitted evidence mints no artifact of its own.
+`QualityGate` grades concrete producer facts and document audits against the policy for their artifact kind. `GateVerdict.combine` preserves the worst grade across an issue.
 
 Absence is a GRADE, never a pass: `Grade.UNMEASURED` is the value a coordinate takes when the family never arrived or the supplied family never carried the axis, so a gate that passes what it never measured is unrepresentable rather than merely discouraged. Every coordinate reduces to one `Bar` row over one named numeric axis — a clause failure is the scalar `1.0`, a boolean verdict field the scalar `1.0`/`0.0` — so one policy grammar spans four heterogeneous producers, and a bar naming an axis its producer's own `Struct` never declares raises at IMPORT off the `structs.fields` derivation rather than reading `UNMEASURED` forever at a fold. The fold is associative over both axes: `Grade` is a monoid with `PASS` as identity taking the worst grade any coordinate reached, and `GateVerdict.combine` folds per-artifact verdicts into the one issue-wide verdict `delivery/transmittal#TRANSMITTAL`'s admission gate reads.
 
@@ -16,7 +16,6 @@ Absence is a GRADE, never a pass: `Grade.UNMEASURED` is the value a coordinate t
 - Law: `Bar` is the ONE threshold row over `(family, axis, bound, threshold, breach)`, and it grades exactly one named numeric axis. A graded ladder is an `ADVISORY` row beside a `REFUSE` row over one axis, so a per-axis severity ramp costs one row and no field. `breach` defaults `REFUSE` because a declared bar states a requirement; an advisory bar names its softness explicitly at the row.
 - Law: `Coordinate` carries `measured: Option[float]` and `bar: Option[Bar]`, and `_grade` reads BOTH: a coordinate holding no bar is a family the policy demanded and no evidence supplied, a coordinate holding a bar and no measurement is an axis the supplied family never carried, and both grade `UNMEASURED`. Neither ever grades `PASS`.
 - Law: `GateVerdict` is closed under `combine` — worst grade, concatenated subjects, concatenated coordinates, CONJUNCTED `ships` — so the singular per-artifact verdict and the plural per-issue verdict are ONE value, never a `GateReport` sibling over a verdict block. `ships` conjuncts because a transmittal ships as a unit: one artifact its own kind row refuses sinks the set, and a sibling's pass vouches for nothing. `unmeasured` and `failing` DERIVE off the coordinate rows, so no set field mirrors what the rows already own.
-- Receipt: this page mints no `ArtifactReceipt` case, no `ContentKey`, and no `ArtifactWork` — the verdict rides `delivery/transmittal#TRANSMITTAL`'s own `TransmittalEvidence` and reaches the fact stream through that owner's projection. `GateVerdict.facts` answers native scalars for that fold; `Coordinate.render` answers the `family.axis@grade` token every refusal names.
 - Boundary: no measurement of its own — every scalar arrives already measured by its producer, and this page re-runs no oracle, no metric, and no clause predicate. Rejected: a bare `bool` verdict a consumer cannot repair from; a `first-failure` abort that hides the sibling breaches one repair pass owes; a family whose absence defaults to pass; a threshold literal spliced into a predicate body instead of a row; a per-family verdict sibling type; a `Grade` ordering read off `StrEnum` declaration position.
 
 ```python
@@ -31,16 +30,17 @@ from expression import Error, Nothing, Ok, Option, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
-from rasm.artifacts.core.hooks import ArtifactsLeg
-from rasm.artifacts.core.receipt import ArtifactKind, ArtifactReceipt, ConformanceVerdict
+from rasm.artifacts.core.hooks import ArtifactKind, ArtifactsLeg
 from rasm.artifacts.document.lens import TableAudit
 from rasm.artifacts.document.tagged import ArchiveAudit, ArchiveCheck, PreflightAudit, PreflightCheck, StructureAudit, UaCheck
+from rasm.artifacts.exchange.conformance import ConformanceVerdict
+from rasm.artifacts.graphic.raster.process import RasterFact
 from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
 from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type GateSource = ArtifactReceipt | StructureAudit | PreflightAudit | ArchiveAudit | TableAudit
+type GateSource = RasterFact | ConformanceVerdict | StructureAudit | PreflightAudit | ArchiveAudit | TableAudit
 
 
 class Grade(StrEnum):
@@ -74,10 +74,7 @@ _SEVERITY: Final[frozendict[Grade, int]] = frozendict({Grade.PASS: 0, Grade.ADVI
 GATE_REPEATED: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.GATE, point="evidence.census", arm="config", defect="repeated-family", retriability=TERMINAL, slots=("families",)
 )
-GATE_UNGRADABLE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
-    leg=ArtifactsLeg.GATE, point="evidence.source", arm="config", defect="ungradable-receipt", retriability=TERMINAL, slots=("kind",)
-)
-RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([GATE_REPEATED, GATE_UNGRADABLE]))
+RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.singleton(GATE_REPEATED))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -288,13 +285,12 @@ if _UNGOVERNED:
 
 ## [04]-[GATE]
 
-- Owner: `QualityGate` carries the artifact's `kind`, its `subject` content key, and the admitted `Block[GateEvidence]`; `graded()` is its one terminal and it is TOTAL — every path answers a `GateVerdict`, because a gate that can fail to grade is a gate a caller routes around. `of` is the one accumulating admission over the closed `GateSource` shape union, shape-dispatched by a single total `match`: the two gradable receipt cases unwrap their bands, the four decoded audits admit whole, and every other receipt case refuses by name.
-- Entry: `of(kind, subject, *sources)` returns `RuntimeRail[Self]` under the accumulating disposition — every ungradable source and every repeated family lands in ONE `BoundaryFault.combine` reduction, so a caller repairs the whole evidence set in one pass. An ungradable receipt REFUSES rather than dropping: a gate that silently ignores what it was handed is the same forged verdict as one that passes what it never measured, so selecting the gradable receipts out of an issue's block is the composition root's filter, stated at the call site. A repeated family refuses because `QualityGate` is per-artifact — two raster bands for one subject name two artifacts, and folding them hides whichever graded better.
+- Owner: `QualityGate` carries the artifact's `kind`, its `subject` content key, and the admitted `Block[GateEvidence]`; `graded()` is its total terminal. `of` shape-dispatches the closed `GateSource` union once, projecting `RasterFact` and `ConformanceVerdict` while admitting each document audit whole.
+- Entry: `of(kind, subject, *sources)` returns `RuntimeRail[Self]` under the accumulating disposition. A repeated family refuses because `QualityGate` is per-artifact — two raster bands for one subject name two artifacts, and folding them hides whichever graded better.
 - Auto: `_measured` is the ONE normalized projection, a total `match` answering `frozendict[str, float]` per family. `_numeric` reads every native numeric field off `structs.asdict` — booleans coerce, so a verdict flag is thresholdable with no per-field arm — and drops the non-numeric fields (`level`, `failures`, `pdf_version`, `pdfa_claim`) that carry no bar. `_clauses` projects the producer's WHOLE clause vocabulary, `0.0` passing and `1.0` failing, so a clean audit never reads `UNMEASURED` on a clause it actually ran. A raster band's string-valued scores (the `shift` tuple render) drop: a non-numeric score is unthresholdable, and a barred axis missing from the band grades `UNMEASURED`.
 - Auto: `graded` folds in two passes and one reduce. Each `policy.bars` row mints one coordinate off its family's supplied projection; each family the policy DEMANDS and no evidence supplied mints one bar-less coordinate under the family's own name, so the `_DEFAULT` row carrying zero bars still publishes absence rather than an empty pass. The grade is `_worst` reduced from `Grade.PASS` over every coordinate — the monoid identity, so an artifact with no coordinates at all grades `PASS` only where its row demanded nothing, and `ships` compares that grade's severity against the row's own floor.
-- Packages: `expression` (`Option`/`Some`/`Nothing` the absence carrier, `Block` the accumulating admission and coordinate folds, `Map` the family-keyed projection lookup, `tagged_union`/`tag`/`case` the evidence union, `Result` through `RuntimeRail`); `msgspec` (`Struct` every value, `structs.fields` the import-time axis derivation, `structs.asdict` the numeric projection, `structs.replace` the per-kind bar tuning); the builtin `frozendict` (the policy, severity, axis, and measurement tables — msgspec-native and hashable); stdlib `annotationlib.get_annotations` (the family/case load gate), `collections.Counter` (the repeated-family census), `enum.StrEnum`; core (`receipt.ArtifactKind`/`ArtifactReceipt`/`ConformanceVerdict`); document (`tagged.StructureAudit`/`PreflightAudit`/`ArchiveAudit`/`UaCheck`/`PreflightCheck`/`ArchiveCheck`, `lens.TableAudit`); runtime (`faults.BoundaryFault`/`RuntimeRail`, `identity.ContentKey`). No new external library and no oracle — every scalar arrives measured.
 - Growth: a new verdict family is one `GateFamily` member, one `GateEvidence` case, one `_admitted` arm, one `_measured` arm, one `_AXES` row, and its bars — the two load gates and the `assert_never` tails break at import until every piece exists. A new governed kind is one `_POLICY` row; a new bar one tuple entry; a new grade one member and one `_SEVERITY` row. Zero new surface: the gate grows by member, case, and row, never by method.
-- Boundary: no measurement, no rendering, no content key, no `ArtifactWork`, no receipt case, no durable record, and no hook fire — the verdict is a value its consumer carries, and `delivery/transmittal#TRANSMITTAL` owns the one refusal that acts on it. No `beartype` ingress guard and no `LanePolicy`: nothing crosses a worker lane and every input is an already-admitted owner value, so the folder's `_GUARD` idiom has no boundary to guard here. Rejected: a `Result`-returning `graded` that lets a caller default past a verdict; a mutable score registry; a per-family `grade_*` verb family the closed union already discriminates; a threshold argument on the entrypoint.
+- Boundary: `QualityGate` measures and renders nothing, mints no content key, creates no `ArtifactWork`, records no durable fact, and fires no hook. `delivery/transmittal#TRANSMITTAL` owns the refusal that acts on its verdict. No `beartype` ingress guard and no `LanePolicy`: nothing crosses a worker lane and every input is an already-admitted owner value, so the folder's `_GUARD` idiom has no boundary to guard here. Rejected: a `Result`-returning `graded` that lets a caller default past a verdict; a mutable score registry; a per-family `grade_*` verb family the closed union already discriminates; a threshold argument on the entrypoint.
 
 ```python
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -357,12 +353,10 @@ def _grade(bar: Option[Bar], measured: Option[float], /) -> Grade:
 
 def _admitted(source: GateSource, /) -> RuntimeRail[GateEvidence]:
     match source:
-        case ArtifactReceipt(tag="preview", preview=(_key, _width, _height, _bytes, scores)):
+        case RasterFact(score=scores):
             return Ok(GateEvidence(raster=scores))
-        case ArtifactReceipt(tag="verdict", verdict=(_key, verdict)):
+        case ConformanceVerdict() as verdict:
             return Ok(GateEvidence(conformance=verdict))
-        case ArtifactReceipt(tag=kind):
-            return Error(GATE_UNGRADABLE.raised(kind))
         case StructureAudit() as audit:
             return Ok(GateEvidence(structure=audit))
         case PreflightAudit() as audit:
@@ -416,9 +410,9 @@ config:
 ---
 flowchart LR
     accTitle: Quality gate verdict fold
-    accDescr: Four producer verdict families normalizing into one measurement plane, graded against per-kind threshold rows into coordinates whose worst grade folds into one shippable verdict the transmittal admission reads.
-    Preview["core/receipt: ArtifactReceipt.Preview scores band"] --> Admit["QualityGate.of: accumulating shape dispatch"]
-    Verdict["core/receipt: ArtifactReceipt.Verdict ConformanceVerdict"] --> Admit
+    accDescr: Six evidence families normalizing into one measurement plane, graded against per-kind threshold rows into coordinates whose worst grade folds into one shippable verdict the transmittal admission reads.
+    Raster["graphic/raster/process: RasterFact"] --> Admit
+    Conformance["exchange/conformance: ConformanceVerdict"] --> Admit
     Tagged["document/tagged: StructureAudit / PreflightAudit / ArchiveAudit"] --> Admit
     Lens["document/lens: TableAudit"] --> Admit
     Admit --> Plane["_measured: one frozendict[str, float] per family (clauses total, booleans coerced, non-numerics dropped)"]

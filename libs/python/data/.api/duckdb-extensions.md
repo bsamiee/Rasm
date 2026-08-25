@@ -73,7 +73,7 @@ Provider rows carry DIFFERENT halves. `httpfs` registers the `s3`, `gcs`, and `r
 |  [04]   | `delta_get_transaction_version` | `delta_get_transaction_version(...)` | last committed app version       |
 |  [05]   | `delta_set_transaction_version` | `delta_set_transaction_version(...)` | record an app version            |
 
-[CONSUMER]: `tabular/columnar#SCAN` `_DUCK_READER` rows `delta_scan` beside this extension for both `DatasetKind.DELTA` and `DatasetKind.RECEIPTS`, so `ScanPlan.DuckDb` binds the analytics evidence residence as its one `source` view and the DuckDB arm answers an interactive read of the receipt stream.
+[CONSUMER]: `tabular/columnar#SCAN` seats `delta_scan` beside this extension for `DatasetKind.DELTA`, so `ScanPlan.DuckDb` reads Delta tables through the extension-owned scan.
 
 ## [03]-[SUBSTRAIT]
 

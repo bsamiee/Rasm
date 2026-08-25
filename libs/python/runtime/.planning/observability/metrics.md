@@ -1,8 +1,8 @@
 # [PY_RUNTIME_METRICS]
 
-`Metrics` is the metric spine, registering the measured instrument set against the `observability/telemetry#TELEMETRY`-installed `MeterProvider` — it constructs no provider, reader, or exporter, minting its meter once from the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row — and one `INSTRUMENTS` table owns every instrument family and every derived surface, so a new signal is EXACTLY one row: its mint, its enrollment, its carrier key, its `MEASURES` census pair, its `ViewRow` allow-list, and its `MeterReceipt` name all read that row and no second declaration exists to lag it. Install custody is two-tier: per-composition `MeterReceipt`s key by the receipts-owned `ScopeKey` — a same-scope re-bootstrap returns its cached receipt stamped `REENTRANT`, a second composition after enrollment receives `ADOPTED` — while the imported `latched` guards the one process enrollment, so the SDK never holds a doubled callback set.
+`Metrics` is the metric spine, registering the measured instrument set against the `observability/telemetry#TELEMETRY`-installed `MeterProvider` — it constructs no provider, reader, or exporter, minting its meter once from the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row — and one `INSTRUMENTS` table owns every instrument family and every derived surface, so a new signal is EXACTLY one row: its mint, its enrollment, its carrier key, its `MEASURES` census pair, its `ViewRow` allow-list, and its `MeterInstall` roster all read that row and no second declaration exists to lag it. Install custody is two-tier: per-composition `MeterInstall`s key by the observe-owned `ScopeKey` — a same-scope re-bootstrap returns its cached install stamped `REENTRANT`, a second composition after enrollment receives `ADOPTED` — while the imported `latched` guards the one process enrollment, so the SDK never holds a doubled callback set.
 
-Observable instruments read one frozen `MetricSnapshot` per collection and each row folds its own half of it: the process reading is a PROCESS fact sampled once and published once, the occupancy roster is composition-partitioned and stamps its own scope. One `RLock` serializes map read-modify-write and lets the export thread read the window and copy the roster before the syscall runs unheld, so free-threaded publishers cannot lose a registration, while the instrument carrier and the admitted-tenant set read lock-free off their immutable snapshots — the gate bounds distinct values and map mutation, never every measurement. Non-default scopes stamp a `composition` attribute at the one `_attributed` fold every recording path shares — the default scope staying attribute-free exactly as the tenant law spells absence — so `record`, `observe`, `retry_hook`, `occupied`, and `timed` all partition on a `scope` keyword and none can omit what a sibling stamps. Every synchronous recording path threads `context=` because Python exemplars attach only from a supplied span context, and the telemetry install pins `exemplar_filter=TraceBasedExemplarFilter()` on the constructor, so no deployment `OTEL_METRICS_EXEMPLAR_FILTER` value can silence the hand-off; an observable callback samples on the export thread where no span is active, so its rows mint an `Observation` carrying no exemplar slot at all. Names spell `rasm.<domain>.<measure>` with UCUM units and no pre-baked `_total` or unit suffix, and the instrumentation scope mints through the faults-owned `scoped` stamp over that same `SCOPES[Scope.METER]` row, so meter, tracer, and logger carry one version and one semconv coordinate. Tenant folds on as the `rasm.tenant` baggage entry the W3C composite carries; a single-tenant process carries no entry. This owner also holds the cardinality plane whole — the per-instrument `ViewRow` allow-lists and the tenant-value budget `_attributed` enforces — as DATA the telemetry install projects into SDK `View`s, so no SDK type enters below the composition root. Retry attempts ride the metrics-owned `retry_hook` the `reliability/resilience#RESILIENCE` owner registers, the drain taxonomy imports from `observability/receipts#RECEIPT`, and provider construction, exporter wiring, product export, and health stay telemetry-, resilience-, and AppHost-owned.
+Observable instruments read one frozen `MetricSnapshot` per collection and each row folds its own half of it: the process reading is a PROCESS fact sampled once and published once, the occupancy roster is composition-partitioned and stamps its own scope. One `RLock` serializes map read-modify-write and lets the export thread read the window and copy the roster before the syscall runs unheld, so free-threaded publishers cannot lose a registration, while the instrument carrier and the admitted-tenant set read lock-free off their immutable snapshots — the gate bounds distinct values and map mutation, never every measurement. Non-default scopes stamp a `composition` attribute at the one `_attributed` fold every recording path shares — the default scope staying attribute-free exactly as the tenant law spells absence — so `record`, `observe`, `retry_hook`, `occupied`, and `timed` all partition on a `scope` keyword and none can omit what a sibling stamps. Every synchronous recording path threads `context=` because Python exemplars attach only from a supplied span context, and the telemetry install pins `exemplar_filter=TraceBasedExemplarFilter()` on the constructor, so no deployment `OTEL_METRICS_EXEMPLAR_FILTER` value can silence the hand-off; an observable callback samples on the export thread where no span is active, so its rows mint an `Observation` carrying no exemplar slot at all. Names spell `rasm.<domain>.<measure>` with UCUM units and no pre-baked `_total` or unit suffix, and the instrumentation scope mints through the faults-owned `scoped` stamp over that same `SCOPES[Scope.METER]` row, so meter, tracer, and logger carry one version and one semconv coordinate. Tenant folds on as the `rasm.tenant` baggage entry the W3C composite carries; a single-tenant process carries no entry. This owner also holds the cardinality plane whole — the per-instrument `ViewRow` allow-lists and the tenant-value budget `_attributed` enforces — as DATA the telemetry install projects into SDK `View`s, so no SDK type enters below the composition root. Retry attempts ride the metrics-owned `retry_hook` the `reliability/resilience#RESILIENCE` owner registers, the drain taxonomy imports from `observability/observe#OBSERVE`, and provider construction, exporter wiring, product export, and health stay telemetry-, resilience-, and AppHost-owned.
 
 ## [01]-[INDEX]
 
@@ -11,11 +11,11 @@ Observable instruments read one frozen `MetricSnapshot` per collection and each 
 
 ## [02]-[METRIC]
 
-- Owner: `INSTRUMENTS` is the one table every derived surface reads — a row's `kind` selects its mint from `SYNC_MINT` or `OBSERVABLE_MINT`, its `name` IS the key the synchronous carrier holds it under, the `mapped` rows derive `MEASURES` against the `DOMAINS` roster, `views` derives one name-exact `ViewRow` per row from its own `keys` projection, and `MeterReceipt.instruments` names the same rows — no per-instrument `create_*` call, seed function, carrier field, name-to-field map, or hand-listed allow-list beside it. Both mint tables key one enum and their key sets partition it exactly, so `SYNC_MINT` membership is the single discriminant both enrollment folds read and a row can neither declare one family while landing in the other's fold nor fall through both. `InstrumentKind` spans the closed OTel instrument space whole rather than the subset in hand, and a producer's declared aggregation intent selects a kind instead of forcing every measure through a histogram. `latched` imports from `reliability/faults#FAULT` and guards the process enrollment `_enrolled` beside the telemetry owner's pipeline latch — one definition, its `reentrant` closure stamping `ADOPTED` for a later composition — while the per-scope latch is the `_receipts` map fold, never a re-pinned local guard.
-- Entry: under a `PACKAGE`/`TEST` profile no provider is set, so `get_meter` resolves the API proxy meter and the fold mints proxy instruments that upgrade in place at the install — the gate is the installed provider, never a profile argument here, and every proxy family answers the same `isinstance` narrowing its real counterpart does. `record` is one polymorphic entrypoint: a scalar records the `SERVE_DURATION` row, a `Mapping` records each named measure onto the row `MEASURES` resolves — the artifacts emit-harvest seam records under `domain="artifact"` and its graduated texture slots under `domain="texture"` fanned by the producing `tool` its map band names, the data query-receipt projection under `domain="query"`, the geometry charter fold under `domain="geometry"`, the compute graduation taps under `domain="compute"`, the bench family under `domain="bench"` — timings keyed by subject beside the graded verdict under its `outcome` discriminant — the worker-crossing `Cost` bracket under `domain="cost"` keyed by kernel name, the evidence drain's landed facts and metered quantities under `domain="journal"`, and this branch's own pulse-conduit drops under `domain="runtime"` — both arms under the active context so every measurement exemplar-correlates to its span, and both arms fold the tenant entry and the caller's composition stamp onto the attributes through `_attributed` under its budget. EVERY recording path resolves its write member from the instrument's own family through `_write` — the three by-name rows included — so a row re-kinded from histogram to counter moves every call site with it and no site names a write verb. `timed` folds a resolved rail through `FAULT_OUTCOME` at one site — `deadline` lands `cancelled`, every other fault `rejected`, an `Ok` rail `completed` — never a lossy ok/error bool per handler.
-- Auto: the free-threading gate protects each registry and receipt map mutation and nothing else — the carrier and the tenant set are immutable values swapped whole, so a measurement reads them without queueing behind a process-wide lock, and only a first-seen tenant value takes the gate. Each observable callback reads the sample window and the occupancy roster under one gate pass, samples the process off the gate, publishes the reading back under a second pass, then hands ONE `MetricSnapshot` to the row's own projection — the syscall window never held across a lock a measurement takes, and a registration landing mid-sample never overwritten because nothing swaps an occupancy row at all. That reading is a process fact seated at the process tier: it samples once and publishes one point whatever the composition count, where seating it per scope republished one host RSS under every `composition` value and doubled every sum a board takes across that dimension. It refreshes on the EXPORT cycle under `READING_TTL_S` rather than at a producer call, so a composition that records nothing still exports live gauges and one cycle's five process rows share one `oneshot`; `cpu_percent(interval=None)` is the non-blocking since-last-call delta, the first sample the `0.0` seed. Platform-gated columns leave their slot absent and publish no point where the host binds no `uss` field or `num_fds` member, since a substituted RSS and a zeroed descriptor count each read on a board exactly like the measurement they stand in for. `rasm.band.in_flight` is a level the export cycle samples through the `occupied` probes bounded owners register, one series per named band — this owner names no `CapacityLimiter` and imports no `anyio`, the probe being a bare integer read — so a lane limiter, a worker pool, and a durable intake each report their own saturation instead of summing into one number, where a per-drain remainder instead republishes the last drain's abandoned count under a level's name and doubles the drain counter's own `cancelled` column. Probe custody is lifetime-bound at both ends: each call fences, so one raising owner subtracts itself from its band rather than darkening every other bound in the cycle, and a band whose last owner retires leaves the map entirely — a level nobody holds publishes NO point, because a zero-seeded fold reads identically to a live limiter sitting empty and buries the one distinction the series answers. `rasm.lane.drained` is the opposite shape and therefore synchronous: a drain receipt is a per-drain delta whose counts add at the call. Its `outcome` dimension carries the receipts-owned TERMINAL partition alone, `accepted` naming the admitted total those four columns exactly sum to. `ProcessReading.sample`'s `suppress` is the one admitted raw-except site: the OTel observable-callback contract returns `Iterable[Observation]` and forbids a railed `Result`, so a dead-process race drops the reading and the gauges yield empty for that cycle; its vanished-process fence rides the receipts-owned `PROCESS_FAULTS` tuple, never a second local mint.
-- Law: the fault attribute roster seats at `reliability/faults#FAULT`, never here — this owner IMPORTS the fault family, and receipts, logging, and the fault owner itself all stamp those keys while receipts sits BELOW this page on the import rail. Metric dimensions and fault attributes are two vocabularies: `CROSS_DIMENSIONS` admits what a view identifies a STREAM by, and a fault subject is unbounded cardinality there.
-- Growth: a new measured signal is ONE `InstrumentSpec` row and nothing else — a mapping-arm row carries `mapped=True` under a rostered segment beside whatever `dimensions` its producer stamps through the `record` discriminant map, an observable row carries its `project`, and the carrier key, the census pair, the receipt name, and the view allow-list all name themselves from that row; a measure whose capability subject no `DOMAINS` row holds admits that row first, while a second producer under a standing subject adds none; a new by-name reader is one `Final` name constant its own row spells; a new metric dimension is one `Dimension` member on the row's `dimensions` tuple, reaching the write site and the view allow-list at once; a new process probe one `ProbeField` literal with its `ProcessReading` field and `_gauge` row inside the batched `oneshot`, a platform-gated one taking the optional slot so its gauge publishes nothing where the host binds no counter; a new bounded owner reporting occupancy one `occupied` scope around its lifetime under its own `band` value, its probe minting that band's series on entry and retiring it with the band's last owner, no row edit either way; a new terminal drain disposition one `DrainOutcome` member at the receipts owner, reaching this counter through the imported `DRAIN_DISPOSITIONS` with no edit here; a new fault-to-outcome mapping one `FAULT_OUTCOME` row, unmapped tags defaulting `rejected`; a new cardinality ceiling one `SignalProfile.cardinality_budget` value threaded through `install`; a new composition one `ScopeKey` value threaded through the `scope` keyword every entry carries, reaching each series through the one attribute fold. OTel closes the instrument space, so `InstrumentKind` grows only where that specification mints a family.
+- Owner: `INSTRUMENTS` is the one table every derived surface reads — a row's `kind` selects its mint from `SYNC_MINT` or `OBSERVABLE_MINT`, its `name` IS the key the synchronous carrier holds it under, the `mapped` rows derive `MEASURES` against the `DOMAINS` roster, `views` derives one name-exact `ViewRow` per row from its own `keys` projection, and `MeterInstall.instruments` names the same rows — no per-instrument `create_*` call, seed function, carrier field, name-to-field map, or hand-listed allow-list beside it. Both mint tables key one enum and their key sets partition it exactly, so `SYNC_MINT` membership is the single discriminant both enrollment folds read and a row can neither declare one family while landing in the other's fold nor fall through both. `InstrumentKind` spans the closed OTel instrument space whole rather than the subset in hand, and a producer's declared aggregation intent selects a kind instead of forcing every measure through a histogram. `latched` imports from `reliability/faults#FAULT` and guards the process enrollment `_enrolled` beside the telemetry owner's pipeline latch — one definition, its `reentrant` closure stamping `ADOPTED` for a later composition — while the per-scope latch is the `_installs` map fold, never a re-pinned local guard.
+- Entry: under a `PACKAGE`/`TEST` profile no provider is set, so `get_meter` resolves the API proxy meter and the fold mints proxy instruments that upgrade in place at the install — the gate is the installed provider, never a profile argument here, and every proxy family answers the same `isinstance` narrowing its real counterpart does. `record` is one polymorphic entrypoint: a scalar records the `SERVE_DURATION` row, a `Mapping` records each named measure onto the row `MEASURES` resolves — the artifacts emit seam records under `domain="artifact"` and its graduated texture slots under `domain="texture"` fanned by the producing `tool` its map band names, the data query profile projection under `domain="query"`, the geometry charter fold under `domain="geometry"`, the compute graduation taps under `domain="compute"`, the bench family under `domain="bench"` — timings keyed by subject beside the graded verdict under its `outcome` discriminant — the worker-crossing `Cost` bracket under `domain="cost"` keyed by kernel name, the evidence drain's landed facts and metered quantities under `domain="journal"`, and this branch's own pulse-conduit drops under `domain="runtime"` — both arms under the active context so every measurement exemplar-correlates to its span, and both arms fold the tenant entry and the caller's composition stamp onto the attributes through `_attributed` under its budget. EVERY recording path resolves its write member from the instrument's own family through `_write` — the three by-name rows included — so a row re-kinded from histogram to counter moves every call site with it and no site names a write verb. `timed` folds a resolved rail through `FAULT_OUTCOME` at one site — `deadline` lands `cancelled`, every other fault `rejected`, an `Ok` rail `completed` — never a lossy ok/error bool per handler.
+- Auto: the free-threading gate protects each registry and install map mutation and nothing else — the carrier and the tenant set are immutable values swapped whole, so a measurement reads them without queueing behind a process-wide lock, and only a first-seen tenant value takes the gate. Each observable callback reads the sample window and the occupancy roster under one gate pass, samples the process off the gate, publishes the reading back under a second pass, then hands ONE `MetricSnapshot` to the row's own projection — the syscall window never held across a lock a measurement takes, and a registration landing mid-sample never overwritten because nothing swaps an occupancy row at all. That reading is a process fact seated at the process tier: it samples once and publishes one point whatever the composition count, where seating it per scope republished one host RSS under every `composition` value and doubled every sum a board takes across that dimension. It refreshes on the EXPORT cycle under `READING_TTL_S` rather than at a producer call, so a composition that records nothing still exports live gauges and one cycle's five process rows share one `oneshot`; `cpu_percent(interval=None)` is the non-blocking since-last-call delta, the first sample the `0.0` seed. Platform-gated columns leave their slot absent and publish no point where the host binds no `uss` field or `num_fds` member, since a substituted RSS and a zeroed descriptor count each read on a board exactly like the measurement they stand in for. `rasm.band.in_flight` is a level the export cycle samples through the `occupied` probes bounded owners register, one series per named band — this owner names no `CapacityLimiter` and imports no `anyio`, the probe being a bare integer read — so a lane limiter, a worker pool, and a durable intake each report their own saturation instead of summing into one number, where a per-drain remainder instead republishes the last drain's abandoned count under a level's name and doubles the drain counter's own `cancelled` column. Probe custody is lifetime-bound at both ends: each call fences, so one raising owner subtracts itself from its band rather than darkening every other bound in the cycle, and a band whose last owner retires leaves the map entirely — a level nobody holds publishes NO point, because a zero-seeded fold reads identically to a live limiter sitting empty and buries the one distinction the series answers. `rasm.lane.drained` is the opposite shape and therefore synchronous: a `Drained` is a per-drain delta whose counts add at the call. Its `outcome` dimension carries the observe-owned TERMINAL partition alone, `accepted` naming the admitted total those four columns exactly sum to. `ProcessReading.sample`'s `suppress` is the one admitted raw-except site: the OTel observable-callback contract returns `Iterable[Observation]` and forbids a railed `Result`, so a dead-process race drops the reading and the gauges yield empty for that cycle; its vanished-process fence rides the observe-owned `PROCESS_FAULTS` tuple, never a second local mint.
+- Law: the fault attribute roster seats at `reliability/faults#FAULT`, never here — this owner IMPORTS the fault family, and observe, logging, and the fault owner itself all stamp those keys while observe sits BELOW this page on the import rail. Metric dimensions and fault attributes are two vocabularies: `CROSS_DIMENSIONS` admits what a view identifies a STREAM by, and a fault subject is unbounded cardinality there.
+- Growth: a new measured signal is ONE `InstrumentSpec` row and nothing else — a mapping-arm row carries `mapped=True` under a rostered segment beside whatever `dimensions` its producer stamps through the `record` discriminant map, an observable row carries its `project`, and the carrier key, the census pair, the install roster, and the view allow-list all name themselves from that row; a measure whose capability subject no `DOMAINS` row holds admits that row first, while a second producer under a standing subject adds none; a new by-name reader is one `Final` name constant its own row spells; a new metric dimension is one `Dimension` member on the row's `dimensions` tuple, reaching the write site and the view allow-list at once; a new process probe one `ProbeField` literal with its `ProcessReading` field and `_gauge` row inside the batched `oneshot`, a platform-gated one taking the optional slot so its gauge publishes nothing where the host binds no counter; a new bounded owner reporting occupancy one `occupied` scope around its lifetime under its own `band` value, its probe minting that band's series on entry and retiring it with the band's last owner, no row edit either way; a new terminal drain disposition one `DrainOutcome` member at the observe owner, reaching this counter through the imported `DRAIN_DISPOSITIONS` with no edit here; a new fault-to-outcome mapping one `FAULT_OUTCOME` row, unmapped tags defaulting `rejected`; a new cardinality ceiling one `SignalProfile.cardinality_budget` value threaded through `install`; a new composition one `ScopeKey` value threaded through the `scope` keyword every entry carries, reaching each series through the one attribute fold. OTel closes the instrument space, so `InstrumentKind` grows only where that specification mints a family.
 - Boundary: no second `MeterProvider`, no SDK provider, reader, exporter, `View`, or exemplar-reservoir construction, no `set_on_retry_hooks` registration, and no AppHost telemetry envelope, health status, or product export — the metric-stream shaping this owner holds is DATA, and the `observability/telemetry#TELEMETRY` install is the one surface that turns a `ViewRow` into an SDK `View`, which is what keeps every SDK type above the composition root. Histogram wire shape is that owner's base2-exponential `WIRE_AGGREGATION` default; the advisory rows here are the explicit-shape fallback a deployment re-arms by naming the instrument, and the tenant ceiling arrives as a policy value rather than a literal minted here. Occupancy arrives the same way: an owner hands in its own read, so no concurrency primitive, lane type, or `anyio` import crosses into this tier to be sampled.
 
 ```python
@@ -41,7 +41,7 @@ from opentelemetry.metrics import CallbackOptions, Counter, Histogram, Meter, Ob
 from stamina.instrumentation import RetryDetails, RetryHook
 
 from rasm.runtime.faults import METRICS_INSTRUMENT, SCOPES, FaultTag, Scope, boundary, latched, scoped
-from rasm.runtime.receipts import DEFAULT_SCOPE, DRAIN_DISPOSITIONS, PROCESS_FAULTS, DrainOutcome, DrainReceipt, ScopeKey
+from rasm.runtime.observe import DEFAULT_SCOPE, DRAIN_DISPOSITIONS, PROCESS_FAULTS, DrainOutcome, Drained, ScopeKey
 
 lazy from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
 lazy from opentelemetry.instrumentation.dbapi import instrument_connection, wrap_connect
@@ -221,7 +221,7 @@ class ViewRow(Struct, frozen=True):
     boundaries: tuple[float, ...] | None = None
 
 
-class MeterReceipt(Struct, frozen=True):
+class MeterInstall(Struct, frozen=True):
     outcome: MeterOutcome
     instruments: tuple[str, ...]
     outcomes: tuple[DrainOutcome, ...]
@@ -400,8 +400,8 @@ class Metrics:
     _reading: ClassVar[ProcessReading | None] = None
     _sampled_at: ClassVar[float] = 0.0
     _instruments: ClassVar[Map[str, SyncInstrument]] = _carrier(scoped(metrics.get_meter, SCOPES[Scope.METER]))
-    _receipts: ClassVar[Map[ScopeKey, MeterReceipt]] = Map.empty()
-    _process: ClassVar[MeterReceipt | None] = None
+    _installs: ClassVar[Map[ScopeKey, MeterInstall]] = Map.empty()
+    _process: ClassVar[MeterInstall | None] = None
     _tenants: ClassVar[frozenset[str]] = frozenset()
     _budget: ClassVar[int] = TENANT_BUDGET
     _observed: ClassVar[frozenset[str]] = frozenset()
@@ -409,7 +409,7 @@ class Metrics:
 
     @classmethod
     @latched(lambda: Metrics._process, lambda r: setattr(Metrics, "_process", r), lambda prior: replace(prior, outcome=MeterOutcome.ADOPTED))
-    def _enrolled(cls) -> MeterReceipt:
+    def _enrolled(cls) -> MeterInstall:
         meter = scoped(metrics.get_meter, SCOPES[Scope.METER])
 
         def enroll(_: None, spec: InstrumentSpec) -> None:
@@ -418,7 +418,7 @@ class Metrics:
 
         INSTRUMENTS.filter(lambda spec: spec.kind not in SYNC_MINT and spec.name not in cls._observed).fold(enroll, None)
         cls._instruments = _carrier(meter)
-        return MeterReceipt(MeterOutcome.INSTALLED, tuple(spec.name for spec in INSTRUMENTS), DRAIN_DISPOSITIONS, cls._budget)
+        return MeterInstall(MeterOutcome.INSTALLED, tuple(spec.name for spec in INSTRUMENTS), DRAIN_DISPOSITIONS, cls._budget)
 
     @classmethod
     def _stamped(cls, name: str) -> None:
@@ -426,19 +426,19 @@ class Metrics:
             cls._observed = cls._observed | {name}
 
     @classmethod
-    def install(cls, scope: ScopeKey = DEFAULT_SCOPE, budget: int = TENANT_BUDGET) -> MeterReceipt:
+    def install(cls, scope: ScopeKey = DEFAULT_SCOPE, budget: int = TENANT_BUDGET) -> MeterInstall:
         with cls._gate:
-            standing = cls._receipts.try_find(scope)
+            standing = cls._installs.try_find(scope)
             cls._budget = cls._budget if cls._process is not None else budget
         match standing:
             case Option(tag="some", some=prior):
                 return replace(prior, outcome=MeterOutcome.REENTRANT)
             case _:
-                receipt = cls._enrolled()
+                enrolled = cls._enrolled()
                 with cls._gate:
                     cls._occupancy = cls._seeded(scope)
-                    cls._receipts = cls._receipts.add(scope, receipt)
-                return receipt
+                    cls._installs = cls._installs.add(scope, enrolled)
+                return enrolled
 
     @classmethod
     def _seeded(cls, scope: ScopeKey) -> Map[ScopeKey, Map[str, Block[Occupancy]]]:
@@ -466,17 +466,17 @@ class Metrics:
             rebound(lambda held: held.filter(lambda live: live is not probe))
 
     @classmethod
-    def receipt(cls) -> Option[MeterReceipt]:
+    def installed(cls) -> Option[MeterInstall]:
         with cls._gate:
             return Option.of_optional(cls._process)
 
     @classmethod
-    def observe(cls, drain: DrainReceipt[object], *, scope: ScopeKey = DEFAULT_SCOPE) -> None:
+    def observe(cls, drained: Drained[object], *, scope: ScopeKey = DEFAULT_SCOPE) -> None:
         context = otel_context.get_current()
         base = cls._attributed({}, context, scope)
-        drained = _write(cls._instruments[LANE_DRAINED])
+        counted = _write(cls._instruments[LANE_DRAINED])
         Block.of_seq(DRAIN_DISPOSITIONS).fold(
-            lambda _, column: drained(getattr(drain, column), {**base, Dimension.OUTCOME: column}, context=context), None
+            lambda _, column: counted(getattr(drained, column), {**base, Dimension.OUTCOME: column}, context=context), None
         )
 
     @overload
@@ -555,9 +555,9 @@ class Metrics:
 
 - Owner: `Instrumentation.install` activates the contrib instrumentor train once — one `TRAIN` table of thunk rows over the module-scope `lazy from` imports, so the cold contrib modules reify on first install, never at import, and a table row never dereferences a lazy proxy at module scope. `Instrumentation.dbapi` is the generic PEP-249 arm beside it: one `DbapiSeam` row names the driver module, connect callable, and `db.system` token, and one polymorphic entry either patches the connect callable forward through `wrap_connect` or retrofits a pre-patch live connection through `instrument_connection`, discriminating on whether a connection is handed in.
 - Cases: the DBAPI rows (`PsycopgInstrumentor`, `SQLite3Instrumentor`) patch the drivers the data query surfaces ride; `HTTPXClientInstrumentor` spans the transport client legs; `Jinja2Instrumentor` spans the artifacts template render/compile/load legs — renders happen at artifacts altitude, activation stays here; `ThreadingInstrumentor` and `AsyncioInstrumentor` propagate context across the thread and coroutine hops the worker crossing drives; `SystemMetricsInstrumentor` runs the `_SYSTEM_SLICE` — the `system.*` and `cpython.gc.*` families alone, because the `rasm.process.*` gauges own the process family off the snapshot's own cached reading and one fact keeps one owner.
-- Entry: `install(scope=)` latches per composition over the one `latched`-guarded train activation and takes no profile argument — the gate is the installed provider, the same law the instrument fold holds — so a PACKAGE/TEST process patches against the no-op providers at zero export cost, a later composition's receipt truthfully records zero newly activated rows, and activation happens once at the composition root, never at library altitude. `_verdict` partitions the whole roster in one pass: the `wraps` presence probe runs before a row's thunk reifies, so one absent driver skips instead of raising out of the composition root and taking every later row with it, and the row's own dependency gate arms its raising arm behind the fence, so a driver whose version falls outside the instrumentor's requirement rows is REFUSED by name rather than silently unpatched under a receipt claiming otherwise. Its columns sum to the roster, so a support bundle reads what this host ships, what it declined, and what it patched off one receipt. DBAPI wrapping likewise activates at the composition root alone: the data-side consumer hands its own admitted driver module in (duckdb, ADBC DBAPI), so this folder imports and patches nothing it does not admit.
+- Entry: `install(scope=)` latches per composition over the one `latched`-guarded train activation and takes no profile argument — the gate is the installed provider, the same law the instrument fold holds — so a PACKAGE/TEST process patches against the no-op providers at zero export cost, a later composition's install truthfully records zero newly activated rows, and activation happens once at the composition root, never at library altitude. `_verdict` partitions the whole roster in one pass: the `wraps` presence probe runs before a row's thunk reifies, so one absent driver skips instead of raising out of the composition root and taking every later row with it, and the row's own dependency gate arms its raising arm behind the fence, so a driver whose version falls outside the instrumentor's requirement rows is REFUSED by name rather than silently unpatched under an install claiming otherwise. Its columns sum to the roster, so a support bundle reads what this host ships, what it declined, and what it patched off one install. DBAPI wrapping likewise activates at the composition root alone: the data-side consumer hands its own admitted driver module in (duckdb, ADBC DBAPI), so this folder imports and patches nothing it does not admit.
 - Growth: a new instrumentor is one `lazy from` line and one `TRAIN` row naming the driver it wraps; a new system-metrics family is one `_SYSTEM_SLICE` key; a new dedicated-instrumentor-less driver is one `DbapiSeam` value the composition root threads through `Instrumentation.dbapi`.
-- Boundary: the Connect server legs stay the serve page's `OpenTelemetryMiddleware` and `Admission` interceptor — its context authority forbids a second server-leg patch — and no sibling package activates an instrumentor. DBAPI spans complement the receipts data plane, never replace it: `QueryReceipt.profile` stays the data owner's truth, `capture_parameters` stays `False` as the export posture, and a driver carrying its own contrib instrumentor never routes through the generic seam.
+- Boundary: the Connect server legs stay the serve page's `OpenTelemetryMiddleware` and `Admission` interceptor — its context authority forbids a second server-leg patch — and no sibling package activates an instrumentor. DBAPI spans complement the data profile plane, never replace it: the data owner's query profile stays its truth, `capture_parameters` stays `False` as the export posture, and a driver carrying its own contrib instrumentor never routes through the generic seam.
 
 ```python
 type TrainVerdict = Literal["activated", "refused", "absent"]
@@ -565,7 +565,7 @@ type TrainVerdict = Literal["activated", "refused", "absent"]
 TRAIN_VERDICTS: Final[tuple[TrainVerdict, ...]] = get_args(TrainVerdict.__value__)
 
 
-class TrainReceipt(Struct, frozen=True):
+class TrainInstall(Struct, frozen=True):
     activated: tuple[str, ...] = ()
     refused: tuple[str, ...] = ()
     absent: tuple[str, ...] = ()
@@ -630,33 +630,33 @@ def _verdict(row: TrainRow) -> TrainVerdict:
 
 
 class Instrumentation:
-    _receipts: ClassVar[Map[ScopeKey, TrainReceipt]] = Map.empty()
-    _process: ClassVar[TrainReceipt | None] = None
+    _installs: ClassVar[Map[ScopeKey, TrainInstall]] = Map.empty()
+    _process: ClassVar[TrainInstall | None] = None
     _gate = RLock()
 
     @classmethod
-    @latched(lambda: Instrumentation._process, lambda r: setattr(Instrumentation, "_process", r), lambda _prior: TrainReceipt())
-    def _activated(cls) -> TrainReceipt:
+    @latched(lambda: Instrumentation._process, lambda r: setattr(Instrumentation, "_process", r), lambda _prior: TrainInstall())
+    def _activated(cls) -> TrainInstall:
         def enroll(held: Map[TrainVerdict, tuple[str, ...]], row: TrainRow) -> Map[TrainVerdict, tuple[str, ...]]:
             verdict = _verdict(row)
             return held.add(verdict, (*held[verdict], row.name))
 
         folded = TRAIN.fold(enroll, Map.of_seq((verdict, ()) for verdict in TRAIN_VERDICTS))
-        return TrainReceipt(activated=folded["activated"], refused=folded["refused"], absent=folded["absent"])
+        return TrainInstall(activated=folded["activated"], refused=folded["refused"], absent=folded["absent"])
 
     @classmethod
-    def install(cls, scope: ScopeKey = DEFAULT_SCOPE) -> TrainReceipt:
+    def install(cls, scope: ScopeKey = DEFAULT_SCOPE) -> TrainInstall:
         with cls._gate:
-            match cls._receipts.try_find(scope):
+            match cls._installs.try_find(scope):
                 case Option(tag="some", some=prior):
                     return prior
                 case _:
-                    receipt = cls._activated()
-                    cls._receipts = cls._receipts.add(scope, receipt)
-                    return receipt
+                    activated = cls._activated()
+                    cls._installs = cls._installs.add(scope, activated)
+                    return activated
 
     @classmethod
-    def receipt(cls) -> Option[TrainReceipt]:
+    def installed(cls) -> Option[TrainInstall]:
         with cls._gate:
             return Option.of_optional(cls._process)
 

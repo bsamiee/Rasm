@@ -1,10 +1,10 @@
 # [APPUI_THEME_EMISSION]
 
-Rasm.AppUi turns the resolved token generation into the live application surface here: one dictionary producer partitions the resolve by `ThemeVariant`, one apply-then-publish swap capsule orders resolve → apply → commit → rebuild → receipt, one `Application.Styles` chain admits the Semi skin stack, and one skin table declares every product control theme as executable rows over the generated token keys. `Theme/tokens.md` owns the generation, `Theme/semi.md` the shipped-key correspondence this emission folds, `Theme/typography.md` the type table it re-emits.
+Rasm.AppUi turns the resolved token generation into the live application surface here: one dictionary producer partitions the resolve by `ThemeVariant`, one apply-then-publish swap capsule orders resolve → apply → commit → rebuild → observe, one `Application.Styles` chain admits the Semi skin stack, and one skin table declares every product control theme as executable rows over the generated token keys. `Theme/tokens.md` owns the generation, `Theme/semi.md` the shipped-key correspondence this emission folds, `Theme/typography.md` the type table it re-emits.
 
 ## [01]-[INDEX]
 
-- [02]-[SWAP_VOCABULARY]: The swap request, trigger, receipt, persisted policy section, and the re-materialization roster.
+- [02]-[SWAP_VOCABULARY]: Swap request, trigger, persisted policy section, and re-materialization roster.
 - [03]-[EMISSION]: The one dictionary producer and its guarded merge rail.
 - [04]-[SWAP_CAPSULE]: The apply-then-publish capsule, its settings registration, and the one synchronous crossing.
 - [05]-[STYLES_RAIL]: The Styles admission boundary, derived accessibility candidates, and the code-side dynamic read.
@@ -12,10 +12,9 @@ Rasm.AppUi turns the resolved token generation into the live application surface
 
 ## [02]-[SWAP_VOCABULARY]
 
-- Owner: `ThemeTrigger` the swap-cause vocabulary the receipt carries; `ThemeRequest` the one swap request value; `ThemeSwitchReceipt` the token-diff receipt; `ThemePolicy` the persisted per-profile settings section; `Rematerialize` the re-materialization roster.
+- Owner: `ThemeTrigger` the swap-cause vocabulary the request carries; `ThemeRequest` the one swap request value; `ThemePolicy` the persisted per-profile settings section; `Rematerialize` the re-materialization roster.
 - Cases: `ThemeTrigger` = boot | user-switch | host-probe | policy-reload; `Rematerialize` rows name every object a dictionary edit CANNOT reach, each beside its reason — the roster is the complete carve-out, and a surface not on it that holds a resolved value is a defect rather than an accepted exception.
-- Law: the receipt carries NO wall stamp — the message envelope's HLC is the sole evidence time authority (`Diagnostics/evidence.md`), so an `Instant` column here was an asserted second clock beside it; ordering among swaps is the commit order of the one atom.
-- Receipt: `ThemeSwitchReceipt` — variant, density, trigger, changed keys, correlation id — projected onto the evidence stream through `EvidenceMap.ToEvidence(receipt)` and sealed once through the sink port at composition; a `ThemePolicy` reload lands its `ReloadOutcome` on the options-monitor reload stream, the same class the locale section rides.
+- Evidence: the committed variant, density, trigger, and changed-key count fire as `AppUiFact.Theme` at `AppUiPoint.Theme` on the composition `HookRail`; the CloudEvent envelope's HLC is the sole evidence time authority, and ordering among swaps is the commit order of the one atom. `ThemePolicy` reloads land their `ReloadOutcome` on the options-monitor reload stream, the same class the locale section rides.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one trigger constant, one policy value, or one `Rematerialize` row with its reason; zero new surface.
 - Boundary: `Rematerialize` rows are DISPATCHED, never merely listed — the swap capsule takes one bound rebuild action PER ROW and its mount proof refuses a roster row nothing rebuilds, so a row that rebuilds nothing cannot sit indistinguishable beside one that does.
@@ -34,13 +33,6 @@ public sealed partial class ThemeTrigger {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-public sealed record ThemeSwitchReceipt(
-    ThemeVariantRow Variant,
-    DensityRow Density,
-    ThemeTrigger Trigger,
-    Seq<TokenKey> ChangedKeys,
-    CorrelationId CorrelationId);
 
 public sealed record ThemeRequest(ThemeVariantRow Variant, DensityRow Density, Option<Color> Accent, ThemeTrigger Trigger);
 
@@ -147,9 +139,9 @@ public static class ThemeEmission {
 ## [04]-[SWAP_CAPSULE]
 
 - Owner: `ThemeCell` — the apply-then-publish swap capsule with its one `Ran` synchronous crossing and its settings registration.
-- Law: `Swap` orders resolve → apply → commit → rebuild → receipt: the CANDIDATE seed feeds the resolve and neither atom commits until the retained application succeeded, so a refused generation or a failed apply leaves `Current` AND `Seed` at the committed predecessor — the prior spelling swapped the seed before the resolve could refuse, leaving a rejected accent live for the next unrelated swap.
-- Entry: `Swap(ThemeRequest, PreferenceCell, CorrelationId) : IO<Fin<ThemeSwitchReceipt>>`; `Rebuilt() ` — the per-row dispatch over the bound re-materialization actions; `Covered(HashMap<Rematerialize, IO<Unit>> bound) : Fin<Unit>` — the mount proof that every roster row carries a rebuild; `Settings(scopes, preferences, correlation)` — the settings-registry row whose picker extent DERIVES from the resolved extent scale; `For(profile, mount, preferences)` — the per-surface resolve over the election and the override column; `Preview(simulate)` — the operator CVD lens over `ThemeCatalog.Simulated`; `Track(preferences, correlation, observe)` — the host preference-change terminal edge; `Republish(policy, preferences, correlation)` — the options-monitor bridge.
-- Auto: every swap emits one receipt carrying changed keys and sinks it through the composition-bound `Sink` delegate (bound to `EvidenceMap.ToEvidence(receipt).Seal(…)` at the root), so theme transitions ride the one evidence stream; `Diff` gates the no-op on the record's generated equality — an identical regeneration answers `previous.Equals(next)` and skips the fan whole — while `Changed` survives per key because the receipt names WHICH tokens moved.
+- Law: `Swap` orders resolve → apply → commit → rebuild → observe: the CANDIDATE seed feeds the resolve and neither atom commits until the retained application succeeded, so a refused generation or a failed apply leaves `Current` AND `Seed` at the committed predecessor — the prior spelling swapped the seed ahead of resolution, leaving a rejected accent live for the next unrelated swap.
+- Entry: `Swap(ThemeRequest, PreferenceCell) : IO<Fin<ResolvedTheme>>`; `Rebuilt() ` — the per-row dispatch over the bound re-materialization actions; `Covered(HashMap<Rematerialize, IO<Unit>> bound) : Fin<Unit>` — the mount proof that every roster row carries a rebuild; `Settings(scopes, preferences)` — the settings-registry row whose picker extent DERIVES from the resolved extent scale; `For(profile, mount, preferences)` — the per-surface resolve over the election and the override column; `Preview(simulate)` — the operator CVD lens over `ThemeCatalog.Simulated`; `Track(preferences, observe)` — the host preference-change terminal edge; `Republish(policy, preferences)` — the options-monitor bridge.
+- Auto: every successful swap returns the committed `ResolvedTheme` and fires its transition facts through the composition-bound `HookRail`; `Diff` gates the no-op on the record's generated equality — an identical regeneration answers `previous.Equals(next)` and reports zero changed keys — while `Changed` counts the exact keys that moved.
 - Packages: Avalonia, Rasm.AppHost (project — `ReloadOutcome`, `ConfigError`, `SettingsRow`, `SettingScope`), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one bound rebuild action per new `Rematerialize` row — the mount proof breaks the composition that forgot it; one settings field per new policy value.
 - Boundary: `ThemePolicy` is the persisted per-profile theme section — `Republish` admits the variant and density keys through the generated `TryGet` lookups and the accent hex through `Color.TryParse`, a rejected write keeps prior values live as `ReloadOutcome.Rejected` on the reload stream, and cross-process propagation rides the op-log cursor exactly as the locale section does; variant and density are CLOSED rosters, so both settings fields pick from their own generated rows and a hand roster naming a retired variant is unspellable; the accent surface projection reads the LIVE seed accent — a persisted explicit accent equal to the default re-admits identically, so the projection carries no override bookkeeping.
@@ -162,7 +154,7 @@ public sealed class ThemeCell(
     Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> surfaceOverride,
     Func<ResolvedTheme, IO<Fin<Unit>>> apply,
     HashMap<Rematerialize, IO<Unit>> rebuild,
-    Func<ThemeSwitchReceipt, IO<Unit>> sink) {
+    HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail) {
     public Atom<ResolvedTheme> Current { get; } = current;
 
     public Atom<AppearanceSeed> Seed { get; } = seed;
@@ -173,7 +165,7 @@ public sealed class ThemeCell(
 
     public Func<ResolvedTheme, IO<Fin<Unit>>> Apply { get; } = apply;
 
-    public Func<ThemeSwitchReceipt, IO<Unit>> Sink { get; } = sink;
+    public HookRail<AppUiPoint, AppUiFact, TelemetrySource> Rail { get; } = rail;
 
     public static Fin<Unit> Covered(HashMap<Rematerialize, IO<Unit>> bound) =>
         toSeq(Rematerialize.Items).Filter(row => bound.Find(row).IsNone) switch {
@@ -185,7 +177,7 @@ public sealed class ThemeCell(
     IO<Unit> Rebuilt() =>
         toSeq(Rematerialize.Items).Fold(IO.pure(unit), (io, row) => io.Bind(_ => rebuild.Find(row).IfNone(IO.pure(unit))));
 
-    public IO<Fin<ThemeSwitchReceipt>> Swap(ThemeRequest request, PreferenceCell preferences, CorrelationId correlation) =>
+    public IO<Fin<ResolvedTheme>> Swap(ThemeRequest request, PreferenceCell preferences) =>
         IO.lift(() => {
             AppearanceSeed candidate = request.Accent.Match(
                 Some: accent => Seed.Value with { Accent = accent },
@@ -199,18 +191,17 @@ public sealed class ThemeCell(
                         ignore(Seed.Swap(_ => step.Candidate));
                         return Current.Swap(_ => next);
                     })
-                    .Bind(committed => Rebuilt().Map(_ => Fin.Succ(new ThemeSwitchReceipt(
-                        committed.Variant, committed.Density, request.Trigger, Diff(step.Previous, committed), correlation)))),
-                Fail: error => IO.pure(Fin.Fail<ThemeSwitchReceipt>(error)))),
-            Fail: error => IO.pure(Fin.Fail<ThemeSwitchReceipt>(error))))
-        .Bind(result => result.Match(
-            Succ: receipt => Sink(receipt).Map(_ => Fin.Succ(receipt)),
-            Fail: error => IO.pure(Fin.Fail<ThemeSwitchReceipt>(error))));
+                    .Bind(committed => Rebuilt().Bind(_ => IO.lift(() => Rail.Fire(
+                        AppUiPoint.Theme,
+                        new AppUiFact.Theme(committed.Variant.Key, committed.Density.Key, request.Trigger.Key, Diff(step.Previous, committed)),
+                        Op.Of(name: "appui.theme.swap"),
+                        body: _ => Fin.Succ(committed))))),
+                Fail: error => IO.pure(Fin.Fail<ResolvedTheme>(error)))),
+            Fail: error => IO.pure(Fin.Fail<ResolvedTheme>(error))));
 
     public Validation<Error, SettingsRow> Settings(
         Func<HashMap<string, SettingScope>> scopes,
-        PreferenceCell preferences,
-        CorrelationId correlation) =>
+        PreferenceCell preferences) =>
         Extent().Bind(extent => Schema(extent)).Map(schema => new SettingsRow(
             Section: ThemePolicy.Section,
             LabelKey: $"{ThemePolicy.Section}.title",
@@ -218,7 +209,7 @@ public sealed class ThemeCell(
             Read: () => State(Held()),
             Scopes: scopes,
             Defaults: State(ThemePolicy.Default),
-            Apply: state => IO.lift(() => Republish(Decode(state), preferences, correlation))));
+            Apply: state => IO.lift(() => Republish(Decode(state), preferences))));
 
     Validation<Error, double> Extent() =>
         Current.Value.Metric(MetricFamily.Extent, 1).Match(
@@ -260,8 +251,8 @@ public sealed class ThemeCell(
     static Option<string> Read(FormState state, string field) =>
         state.Values.Find(field).Bind(static value => value.Uniform).Bind(static value => Optional(value.GetString()));
 
-    public ReloadOutcome Republish(ThemePolicy policy, PreferenceCell preferences, CorrelationId correlation) =>
-        Admitted(policy).Bind(request => Ran(request, preferences, correlation)) is { IsFail: true, Case: Error error }
+    public ReloadOutcome Republish(ThemePolicy policy, PreferenceCell preferences) =>
+        Admitted(policy).Bind(request => Ran(request, preferences)) is { IsFail: true, Case: Error error }
             ? new ReloadOutcome.Rejected(ThemePolicy.Section, new ConfigError.BindRejected(ThemePolicy.Section, error))
             : new ReloadOutcome.Applied(ThemePolicy.Section);
 
@@ -272,12 +263,12 @@ public sealed class ThemeCell(
 
     public ResolvedTheme Preview(Func<Color, Color> simulate) => ThemeCatalog.Simulated(Current.Value, simulate);
 
-    public IDisposable Track(PreferenceCell preferences, CorrelationId correlation, Action<Fin<ThemeSwitchReceipt>> observe) =>
+    public IDisposable Track(PreferenceCell preferences, Action<Fin<ResolvedTheme>> observe) =>
         preferences.Track(_ => observe(Ran(
-            new ThemeRequest(ThemeVariantRow.HostMatched, Current.Value.Density, None, ThemeTrigger.Probe), preferences, correlation)));
+            new ThemeRequest(ThemeVariantRow.HostMatched, Current.Value.Density, None, ThemeTrigger.Probe), preferences)));
 
-    Fin<ThemeSwitchReceipt> Ran(ThemeRequest request, PreferenceCell preferences, CorrelationId correlation) =>
-        Op.Of(name: "appui.theme.swap").Catch(() => Swap(request, preferences, correlation).Run());
+    Fin<ResolvedTheme> Ran(ThemeRequest request, PreferenceCell preferences) =>
+        Op.Of(name: "appui.theme.swap").Catch(() => Swap(request, preferences).Run());
 
     static Fin<ThemeRequest> Admitted(ThemePolicy policy) =>
         (Variant(policy.Variant), Density(policy.Density)) switch {
@@ -296,14 +287,13 @@ public sealed class ThemeCell(
     static Option<DensityRow> Density(string key) =>
         DensityRow.TryGet(key, out DensityRow? row) ? Optional(row) : None;
 
-    static Seq<TokenKey> Changed<T>(FrozenDictionary<TokenKey, T> previous, FrozenDictionary<TokenKey, T> next) =>
-        toSeq(toSeq(previous.Keys.Concat(next.Keys).Distinct())
-            .Filter(key => !previous.TryGetValue(key, out T? before) || !next.TryGetValue(key, out T? after) || !EqualityComparer<T>.Default.Equals(before, after))
-            .OrderBy(static key => key.Value, StringComparer.Ordinal));
+    static uint Changed<T>(FrozenDictionary<TokenKey, T> previous, FrozenDictionary<TokenKey, T> next) =>
+        (uint)previous.Keys.Concat(next.Keys).Distinct()
+            .Count(key => !previous.TryGetValue(key, out T? before) || !next.TryGetValue(key, out T? after) || !EqualityComparer<T>.Default.Equals(before, after));
 
-    static Seq<TokenKey> Diff(ResolvedTheme previous, ResolvedTheme next) =>
+    static uint Diff(ResolvedTheme previous, ResolvedTheme next) =>
         previous.Equals(next)
-            ? Seq<TokenKey>()
+            ? 0u
             : Changed(previous.Paints, next.Paints) + Changed(previous.Metrics, next.Metrics)
                 + Changed(previous.Types, next.Types) + Changed(previous.Depths, next.Depths)
                 + Changed(previous.Materials, next.Materials) + Changed(previous.Spans, next.Spans)
@@ -578,7 +568,7 @@ config:
 ---
 flowchart LR
     accTitle: Token generation and emission ownership
-    accDescr: One appearance seed and one density policy enter the catalog under a variant projection, the catalog generates the resolved theme, and the emission partitions it by variant into the application resources while the cell publishes its receipt.
+    accDescr: One appearance seed and one density policy enter the catalog under a variant projection, the catalog generates the resolved theme, and the emission partitions it by variant into the application resources while the cell fires the committed theme fact through the hook rail.
     AppearanceSeed --> ThemeCatalog
     DensityRow --> ThemeCatalog
     PreferenceCell --> ThemeVariantRow
@@ -588,7 +578,8 @@ flowchart LR
     ResolvedTheme --> SemiCorrespondence
     ThemeEmission --> ThemeRail
     ResolvedTheme --> ThemeCell
-    ThemeCell --> ThemeSwitchReceipt
+    ThemeCell --> ThemeFact["AppUiFact.Theme"]
+    ThemeFact --> HookRail
     ThemeCell --> Rematerialize
 ```
 

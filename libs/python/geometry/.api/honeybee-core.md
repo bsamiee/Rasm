@@ -120,7 +120,7 @@ Window-to-wall ratio, gridded glazing, louvers, and overhangs are owned operatio
 |  [10]   | `search.filter_array_by_keywords` / `get_attr_nested`                   | static   | keyword + nested-attribute filtering           |
 |  [11]   | `checkdup.check_duplicate_identifiers` / `is_equivalent`                | static   | duplicate-id detection; geometric equivalence  |
 
-- `Model.check_all`: `detailed=False` returns one concatenated string and raises `ValueError` on the first defect; `detailed=True` returns a `list[dict]` of error rows (`type`/`code`/`error_type`/`element_id`/`message`/nested `parents`) and does NOT raise — the only shape that folds into a `Result` receipt. It already invokes every registered extension's `check_all`, so full-stack validation is one call with no extra flag.
+- `Model.check_all`: `detailed=False` returns one concatenated string and raises `ValueError` on the first defect; `detailed=True` returns a `list[dict]` of error rows (`type`/`code`/`error_type`/`element_id`/`message`/nested `parents`) and does NOT raise — the shape that folds directly into `Result`. It already invokes every registered extension's `check_all`, so full-stack validation is one call with no extra flag.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

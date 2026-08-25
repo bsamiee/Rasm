@@ -123,8 +123,6 @@ message MaterialProfileWire {
   repeated MeasureValueWire offsets = 5;
 }
 
-// The producer lifts this receipt WHOLE, so every column is required and a zero is an engineering value, not
-// absence: a zero shear centre reads doubly-symmetric, and a zero axis distance reads non-reinforced.
 message SectionPropertiesWire {
   MeasureValueWire area = 1 [(buf.validate.field).required = true];
   MeasureValueWire iyy = 2 [(buf.validate.field).required = true];

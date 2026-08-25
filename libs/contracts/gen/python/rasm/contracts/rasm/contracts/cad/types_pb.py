@@ -10,6 +10,7 @@ from typing import Literal, NoReturn, TYPE_CHECKING, TypeAlias
 
 from protobuf import Enum, Message
 from protobuf._codegen import file_desc
+from protobuf.wkt import empty_pb
 
 from ....buf.validate import validate_pb
 from ..artifact import artifact_pb
@@ -17,10 +18,48 @@ from ..spatial import vector_pb
 
 if TYPE_CHECKING:
     from protobuf import DescFile, Oneof
+    from protobuf.wkt import Empty
 
     from ..artifact.artifact_pb import ArtifactRef
-    from ..spatial.vector_pb import Point3
+    from ..spatial.vector_pb import Point3, UnitDirection3
 
+
+_SealedBodyFields: TypeAlias = Literal["step", "iges", "artifact"]
+
+class SealedBody(Message[_SealedBodyFields]):
+    """
+    One sealed exact body by reference. The format arm names what the artifact octets declare: STEP carries its file-local
+    application protocol, IGES declares no application protocol and carries presence alone.
+
+    ```proto
+    message rasm.contracts.cad.SealedBody
+    ```
+
+    Attributes:
+        format:
+            ```proto
+            oneof format
+            ```
+        artifact:
+            ```proto
+            optional rasm.contracts.artifact.ArtifactRef artifact = 3;
+            ```
+    """
+
+    __slots__ = ("artifact", "format")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            format: Oneof[Literal["step"], StepProtocol] | Oneof[Literal["iges"], Empty] | None = None,
+            artifact: ArtifactRef | None = None,
+        ) -> None:
+            pass
+
+        format: Oneof[Literal["step"], StepProtocol] | Oneof[Literal["iges"], Empty] | None
+        artifact: ArtifactRef | None
 
 _Point2Fields: TypeAlias = Literal["x_m", "y_m"]
 
@@ -312,39 +351,186 @@ class Profile(Message[_ProfileFields]):
 
         regions: list[ProfileRegion]
 
-_SealedStepFields: TypeAlias = Literal["protocol", "artifact"]
+_IndicesFields: TypeAlias = Literal["values"]
 
-class SealedStep(Message[_SealedStepFields]):
+class Indices(Message[_IndicesFields]):
     """
+    Zero-based TopExp order inside the exact decoded source artifact. The provider proves every sealed artifact decodes
+    in one fixed order, so an ordinal is durable per artifact digest and the operation names the grain it indexes.
+
     ```proto
-    message rasm.contracts.cad.SealedStep
+    message rasm.contracts.cad.Indices
     ```
 
     Attributes:
-        protocol:
+        values:
             ```proto
-            rasm.contracts.cad.StepProtocol protocol = 2;
-            ```
-        artifact:
-            ```proto
-            optional rasm.contracts.artifact.ArtifactRef artifact = 3;
+            repeated uint32 values = 1 [packed = true];
             ```
     """
 
-    __slots__ = ("protocol", "artifact")
+    __slots__ = ("values",)
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            protocol: StepProtocol | None = None,
-            artifact: ArtifactRef | None = None,
+            values: list[int] | None = None,
         ) -> None:
             pass
 
-        protocol: StepProtocol
-        artifact: ArtifactRef | None
+        values: list[int]
+
+_SelectionFields: TypeAlias = Literal["all", "indices"]
+
+class Selection(Message[_SelectionFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.Selection
+    ```
+
+    Attributes:
+        selection:
+            ```proto
+            oneof selection
+            ```
+    """
+
+    __slots__ = ("selection",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            selection: Oneof[Literal["all"], Empty] | Oneof[Literal["indices"], Indices] | None = None,
+        ) -> None:
+            pass
+
+        selection: Oneof[Literal["all"], Empty] | Oneof[Literal["indices"], Indices] | None
+
+_ImageFields: TypeAlias = Literal["grain", "ordinal"]
+
+class Image(Message[_ImageFields]):
+    """
+    One image ordinal in the SEALED artifact's decoded order. Absent where the reseal could not name the image uniquely.
+
+    ```proto
+    message rasm.contracts.cad.Image
+    ```
+
+    Attributes:
+        grain:
+            ```proto
+            rasm.contracts.cad.Grain grain = 1;
+            ```
+        ordinal:
+            ```proto
+            optional uint32 ordinal = 2;
+            ```
+    """
+
+    __slots__ = ("grain", "ordinal")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            grain: Grain | None = None,
+            ordinal: int | None = None,
+        ) -> None:
+            pass
+
+        grain: Grain
+        ordinal: int
+
+_TraceFields: TypeAlias = Literal["grain", "operand", "source", "relation", "images"]
+
+class Trace(Message[_TraceFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.Trace
+    ```
+
+    Attributes:
+        grain:
+            ```proto
+            rasm.contracts.cad.Grain grain = 1;
+            ```
+        operand:
+            ```proto
+            uint32 operand = 2;
+            ```
+        source:
+            ```proto
+            uint32 source = 3;
+            ```
+        relation:
+            ```proto
+            rasm.contracts.cad.Relation relation = 4;
+            ```
+        images:
+            ```proto
+            repeated rasm.contracts.cad.Image images = 5;
+            ```
+    """
+
+    __slots__ = ("grain", "operand", "source", "relation", "images")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            grain: Grain | None = None,
+            operand: int = 0,
+            source: int = 0,
+            relation: Relation | None = None,
+            images: list[Image] | None = None,
+        ) -> None:
+            pass
+
+        grain: Grain
+        operand: int
+        source: int
+        relation: Relation
+        images: list[Image]
+
+_CorrespondenceFields: TypeAlias = Literal["traces", "section"]
+
+class Correspondence(Message[_CorrespondenceFields]):
+    """
+    ```proto
+    message rasm.contracts.cad.Correspondence
+    ```
+
+    Attributes:
+        traces:
+            ```proto
+            repeated rasm.contracts.cad.Trace traces = 1;
+            ```
+        section:
+            ```proto
+            repeated rasm.contracts.cad.Image section = 2;
+            ```
+    """
+
+    __slots__ = ("traces", "section")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            traces: list[Trace] | None = None,
+            section: list[Image] | None = None,
+        ) -> None:
+            pass
+
+        traces: list[Trace]
+        section: list[Image]
 
 _TopologyCensusFields: TypeAlias = Literal["vertices", "edges", "faces", "solids"]
 
@@ -392,46 +578,130 @@ class TopologyCensus(Message[_TopologyCensusFields]):
         faces: int
         solids: int
 
-_BooleanProvenanceFields: TypeAlias = Literal["modified", "generated"]
+_PrincipalFields: TypeAlias = Literal["moments_m5", "axes", "gyration_m", "symmetry_axis", "symmetry_point"]
 
-class BooleanProvenance(Message[_BooleanProvenanceFields]):
+class Principal(Message[_PrincipalFields]):
     """
     ```proto
-    message rasm.contracts.cad.BooleanProvenance
+    message rasm.contracts.cad.Principal
     ```
 
     Attributes:
-        modified:
+        moments_m5:
             ```proto
-            bool modified = 1;
+            repeated double moments_m5 = 1 [packed = true];
             ```
-        generated:
+        axes:
             ```proto
-            bool generated = 2;
+            repeated rasm.contracts.spatial.UnitDirection3 axes = 2;
+            ```
+        gyration_m:
+            ```proto
+            repeated double gyration_m = 3 [packed = true];
+            ```
+        symmetry_axis:
+            ```proto
+            bool symmetry_axis = 4;
+            ```
+        symmetry_point:
+            ```proto
+            bool symmetry_point = 5;
             ```
     """
 
-    __slots__ = ("modified", "generated")
+    __slots__ = ("moments_m5", "axes", "gyration_m", "symmetry_axis", "symmetry_point")
 
     if TYPE_CHECKING:
 
         def __init__(
             self,
             *,
-            modified: bool = False,
-            generated: bool = False,
+            moments_m5: list[float] | None = None,
+            axes: list[UnitDirection3] | None = None,
+            gyration_m: list[float] | None = None,
+            symmetry_axis: bool = False,
+            symmetry_point: bool = False,
         ) -> None:
             pass
 
-        modified: bool
-        generated: bool
+        moments_m5: list[float]
+        axes: list[UnitDirection3]
+        gyration_m: list[float]
+        symmetry_axis: bool
+        symmetry_point: bool
 
-_BrepKernelReceiptFields: TypeAlias = Literal["volume_m3", "area_m2", "centroid", "topology", "watertight", "volume_delta_m3", "boolean_provenance"]
+_InertiaFields: TypeAlias = Literal["ixx_m5", "iyy_m5", "izz_m5", "ixy_m5", "ixz_m5", "iyz_m5", "principal"]
 
-class BrepKernelReceipt(Message[_BrepKernelReceiptFields]):
+class Inertia(Message[_InertiaFields]):
+    """
+    Centroidal inertia at unit density in metres to the fifth; the principal frame diagonalizes it.
+
+    ```proto
+    message rasm.contracts.cad.Inertia
+    ```
+
+    Attributes:
+        ixx_m5:
+            ```proto
+            double ixx_m5 = 1;
+            ```
+        iyy_m5:
+            ```proto
+            double iyy_m5 = 2;
+            ```
+        izz_m5:
+            ```proto
+            double izz_m5 = 3;
+            ```
+        ixy_m5:
+            ```proto
+            double ixy_m5 = 4;
+            ```
+        ixz_m5:
+            ```proto
+            double ixz_m5 = 5;
+            ```
+        iyz_m5:
+            ```proto
+            double iyz_m5 = 6;
+            ```
+        principal:
+            ```proto
+            optional rasm.contracts.cad.Principal principal = 7;
+            ```
+    """
+
+    __slots__ = ("ixx_m5", "iyy_m5", "izz_m5", "ixy_m5", "ixz_m5", "iyz_m5", "principal")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            ixx_m5: float = 0,
+            iyy_m5: float = 0,
+            izz_m5: float = 0,
+            ixy_m5: float = 0,
+            ixz_m5: float = 0,
+            iyz_m5: float = 0,
+            principal: Principal | None = None,
+        ) -> None:
+            pass
+
+        ixx_m5: float
+        iyy_m5: float
+        izz_m5: float
+        ixy_m5: float
+        ixz_m5: float
+        iyz_m5: float
+        principal: Principal | None
+
+_BrepMeasureFields: TypeAlias = Literal["volume_m3", "area_m2", "centroid", "topology", "watertight", "volume_delta_m3", "inertia"]
+
+class BrepMeasure(Message[_BrepMeasureFields]):
     """
     ```proto
-    message rasm.contracts.cad.BrepKernelReceipt
+    message rasm.contracts.cad.BrepMeasure
     ```
 
     Attributes:
@@ -459,13 +729,13 @@ class BrepKernelReceipt(Message[_BrepKernelReceiptFields]):
             ```proto
             optional double volume_delta_m3 = 7;
             ```
-        boolean_provenance:
+        inertia:
             ```proto
-            optional rasm.contracts.cad.BooleanProvenance boolean_provenance = 8;
+            optional rasm.contracts.cad.Inertia inertia = 9;
             ```
     """
 
-    __slots__ = ("volume_m3", "area_m2", "centroid", "topology", "watertight", "volume_delta_m3", "boolean_provenance")
+    __slots__ = ("volume_m3", "area_m2", "centroid", "topology", "watertight", "volume_delta_m3", "inertia")
 
     if TYPE_CHECKING:
 
@@ -478,7 +748,7 @@ class BrepKernelReceipt(Message[_BrepKernelReceiptFields]):
             topology: TopologyCensus | None = None,
             watertight: bool | None = None,
             volume_delta_m3: float | None = None,
-            boolean_provenance: BooleanProvenance | None = None,
+            inertia: Inertia | None = None,
         ) -> None:
             pass
 
@@ -488,9 +758,165 @@ class BrepKernelReceipt(Message[_BrepKernelReceiptFields]):
         topology: TopologyCensus | None
         watertight: bool
         volume_delta_m3: float
-        boolean_provenance: BooleanProvenance | None
+        inertia: Inertia | None
 
-_TessellateResponseFields: TypeAlias = Literal["element_count", "triangle_count", "kernel", "artifact"]
+_HealingFields: TypeAlias = Literal["before", "after", "tolerance_before_m", "tolerance_after_m", "valid_before", "valid_after", "steps"]
+
+class Healing(Message[_HealingFields]):
+    """
+    What healing moved: the census, the maximum tolerance, and validity before and after, beside one row per step run.
+
+    ```proto
+    message rasm.contracts.cad.Healing
+    ```
+
+    Attributes:
+        before:
+            ```proto
+            optional rasm.contracts.cad.TopologyCensus before = 1;
+            ```
+        after:
+            ```proto
+            optional rasm.contracts.cad.TopologyCensus after = 2;
+            ```
+        tolerance_before_m:
+            ```proto
+            double tolerance_before_m = 3;
+            ```
+        tolerance_after_m:
+            ```proto
+            double tolerance_after_m = 4;
+            ```
+        valid_before:
+            ```proto
+            bool valid_before = 5;
+            ```
+        valid_after:
+            ```proto
+            bool valid_after = 6;
+            ```
+        steps:
+            ```proto
+            repeated rasm.contracts.cad.Healing.Step steps = 7;
+            ```
+    """
+
+    __slots__ = ("before", "after", "tolerance_before_m", "tolerance_after_m", "valid_before", "valid_after", "steps")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            before: TopologyCensus | None = None,
+            after: TopologyCensus | None = None,
+            tolerance_before_m: float = 0,
+            tolerance_after_m: float = 0,
+            valid_before: bool = False,
+            valid_after: bool = False,
+            steps: list[Healing.Step] | None = None,
+        ) -> None:
+            pass
+
+        before: TopologyCensus | None
+        after: TopologyCensus | None
+        tolerance_before_m: float
+        tolerance_after_m: float
+        valid_before: bool
+        valid_after: bool
+        steps: list[Healing.Step]
+
+    _StepFields: TypeAlias = Literal["kind", "changed"]
+
+    class Step(Message[_StepFields]):
+        """
+        ```proto
+        message rasm.contracts.cad.Healing.Step
+        ```
+
+        Attributes:
+            kind:
+                ```proto
+                rasm.contracts.cad.HealStepKind kind = 1;
+                ```
+            changed:
+                ```proto
+                bool changed = 2;
+                ```
+        """
+
+        __slots__ = ("kind", "changed")
+
+        if TYPE_CHECKING:
+
+            def __init__(
+                self,
+                *,
+                kind: HealStepKind | None = None,
+                changed: bool = False,
+            ) -> None:
+                pass
+
+            kind: HealStepKind
+            changed: bool
+
+_PartIdentityFields: TypeAlias = Literal["node", "label", "product", "instance", "layers"]
+
+class PartIdentity(Message[_PartIdentityFields]):
+    """
+    One emitted placement. `node` is the exact glTF node name the emitter wrote, so a consumer joins on the container's
+    own key; `label` is the XCAF entry of the instance, `product` the part name, `instance` the instance name where the
+    source spelled one, and `layers` the channel glTF drops and this roster therefore carries.
+
+    ```proto
+    message rasm.contracts.cad.PartIdentity
+    ```
+
+    Attributes:
+        node:
+            ```proto
+            string node = 1;
+            ```
+        label:
+            ```proto
+            string label = 2;
+            ```
+        product:
+            ```proto
+            optional string product = 3;
+            ```
+        instance:
+            ```proto
+            optional string instance = 4;
+            ```
+        layers:
+            ```proto
+            repeated string layers = 5;
+            ```
+    """
+
+    __slots__ = ("node", "label", "product", "instance", "layers")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            node: str = "",
+            label: str = "",
+            product: str | None = None,
+            instance: str | None = None,
+            layers: list[str] | None = None,
+        ) -> None:
+            pass
+
+        node: str
+        label: str
+        product: str
+        instance: str
+        layers: list[str]
+
+_TessellateResponseFields: TypeAlias = Literal["element_count", "triangle_count", "measure", "artifact", "parts"]
 
 class TessellateResponse(Message[_TessellateResponseFields]):
     """
@@ -507,17 +933,21 @@ class TessellateResponse(Message[_TessellateResponseFields]):
             ```proto
             uint64 triangle_count = 3;
             ```
-        kernel:
+        measure:
             ```proto
-            optional rasm.contracts.cad.BrepKernelReceipt kernel = 4;
+            optional rasm.contracts.cad.BrepMeasure measure = 4;
             ```
         artifact:
             ```proto
             optional rasm.contracts.artifact.ArtifactRef artifact = 6;
             ```
+        parts:
+            ```proto
+            repeated rasm.contracts.cad.PartIdentity parts = 7;
+            ```
     """
 
-    __slots__ = ("element_count", "triangle_count", "kernel", "artifact")
+    __slots__ = ("element_count", "triangle_count", "measure", "artifact", "parts")
 
     if TYPE_CHECKING:
 
@@ -526,15 +956,17 @@ class TessellateResponse(Message[_TessellateResponseFields]):
             *,
             element_count: int = 0,
             triangle_count: int = 0,
-            kernel: BrepKernelReceipt | None = None,
+            measure: BrepMeasure | None = None,
             artifact: ArtifactRef | None = None,
+            parts: list[PartIdentity] | None = None,
         ) -> None:
             pass
 
         element_count: int
         triangle_count: int
-        kernel: BrepKernelReceipt | None
+        measure: BrepMeasure | None
         artifact: ArtifactRef | None
+        parts: list[PartIdentity]
 
 class StepProtocol(Enum):
     """
@@ -566,15 +998,151 @@ class StepProtocol(Enum):
     AP214 = 2
     AP242 = 3
 
+class Emission(Enum):
+    """
+    The neutral format an Execute reply seals its body into; STEP emits AP242 and IGES emits the manifold B-rep entity form.
+
+    ```proto
+    enum rasm.contracts.cad.Emission
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            EMISSION_UNSPECIFIED = 0
+            ```
+        STEP:
+            ```proto
+            EMISSION_STEP = 1
+            ```
+        IGES:
+            ```proto
+            EMISSION_IGES = 2
+            ```
+    """
+
+    UNSPECIFIED = 0
+    STEP = 1
+    IGES = 2
+
+class Grain(Enum):
+    """
+    The sub-shape kinds a finished operator answers history for; shells and wires never answer and carry no member.
+
+    ```proto
+    enum rasm.contracts.cad.Grain
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            GRAIN_UNSPECIFIED = 0
+            ```
+        VERTEX:
+            ```proto
+            GRAIN_VERTEX = 1
+            ```
+        EDGE:
+            ```proto
+            GRAIN_EDGE = 2
+            ```
+        FACE:
+            ```proto
+            GRAIN_FACE = 3
+            ```
+        SOLID:
+            ```proto
+            GRAIN_SOLID = 4
+            ```
+    """
+
+    UNSPECIFIED = 0
+    VERTEX = 1
+    EDGE = 2
+    FACE = 3
+    SOLID = 4
+
+class Relation(Enum):
+    """
+    ```proto
+    enum rasm.contracts.cad.Relation
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            RELATION_UNSPECIFIED = 0
+            ```
+        DELETED:
+            ```proto
+            RELATION_DELETED = 1
+            ```
+        GENERATED:
+            ```proto
+            RELATION_GENERATED = 2
+            ```
+        MODIFIED:
+            ```proto
+            RELATION_MODIFIED = 3
+            ```
+        KEPT:
+            ```proto
+            RELATION_KEPT = 4
+            ```
+    """
+
+    UNSPECIFIED = 0
+    DELETED = 1
+    GENERATED = 2
+    MODIFIED = 3
+    KEPT = 4
+
+class HealStepKind(Enum):
+    """
+    ```proto
+    enum rasm.contracts.cad.HealStepKind
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            HEAL_STEP_KIND_UNSPECIFIED = 0
+            ```
+        SEW:
+            ```proto
+            HEAL_STEP_KIND_SEW = 1
+            ```
+        UNIFY:
+            ```proto
+            HEAL_STEP_KIND_UNIFY = 2
+            ```
+        FIX:
+            ```proto
+            HEAL_STEP_KIND_FIX = 3
+            ```
+        SMALL_EDGES:
+            ```proto
+            HEAL_STEP_KIND_SMALL_EDGES = 4
+            ```
+    """
+
+    UNSPECIFIED = 0
+    SEW = 1
+    UNIFY = 2
+    FIX = 3
+    SMALL_EDGES = 4
+
 
 _DESC = file_desc(
-    b'\n\x1erasm/contracts/cad/types.proto\x12\x12rasm.contracts.cad\x1a\x1bbuf/validate/validate.proto\x1a&rasm/contracts/artifact/artifact.proto\x1a#rasm/contracts/spatial/vector.proto"B\n\x06Point2\x12\x18\n\x03x_m\x18\x01 \x01(\x01R\x02xMB\x07\xbaH\x04\x12\x02@\x01\x12\x18\n\x03y_m\x18\x02 \x01(\x01R\x02yMB\x07\xbaH\x04\x12\x02@\x01R\x01xR\x01y"\n\n\x08LineSpan"G\n\x07ArcSpan\x12<\n\x07through\x18\x01 \x01(\x0b2\x1a.rasm.contracts.cad.Point2R\x07throughB\x06\xbaH\x03\xc8\x01\x01"L\n\nSplineSpan\x12>\n\x07through\x18\x01 \x03(\x0b2\x1a.rasm.contracts.cad.Point2R\x07throughB\x08\xbaH\x05\x92\x01\x02\x08\x01"\xf9\x01\n\x0bProfileKnot\x128\n\x05point\x18\x01 \x01(\x0b2\x1a.rasm.contracts.cad.Point2R\x05pointB\x06\xbaH\x03\xc8\x01\x01\x122\n\x04line\x18\x02 \x01(\x0b2\x1c.rasm.contracts.cad.LineSpanH\x00R\x04line\x12/\n\x03arc\x18\x03 \x01(\x0b2\x1b.rasm.contracts.cad.ArcSpanH\x00R\x03arc\x128\n\x06spline\x18\x04 \x01(\x0b2\x1e.rasm.contracts.cad.SplineSpanH\x00R\x06splineB\x11\n\x08outgoing\x12\x05\xbaH\x02\x08\x01"P\n\rPiecewiseLoop\x12?\n\x05knots\x18\x01 \x03(\x0b2\x1f.rasm.contracts.cad.ProfileKnotR\x05knotsB\x08\xbaH\x05\x92\x01\x02\x08\x02"\xe7\x02\n\x12PeriodicSplineLoop\x12>\n\x07through\x18\x01 \x03(\x0b2\x1a.rasm.contracts.cad.Point2R\x07throughB\x08\xbaH\x05\x92\x01\x02\x08\x03:\x90\x02\xbaH\x8c\x02\x1a\x89\x02\n"periodic_spline_loop.distinct_tail\x12Athe closing point is implicit and must not repeat the first point\x1a\x9f\x01size(this.through) >= 3 && (this.through[0].x_m != this.through[size(this.through) - 1].x_m || this.through[0].y_m != this.through[size(this.through) - 1].y_m)"\xb3\x01\n\x0bProfileLoop\x12A\n\tpiecewise\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PiecewiseLoopH\x00R\tpiecewise\x12Q\n\x0fperiodic_spline\x18\x02 \x01(\x0b2&.rasm.contracts.cad.PeriodicSplineLoopH\x00R\x0eperiodicSplineB\x0e\n\x05curve\x12\x05\xbaH\x02\x08\x01"\x85\x01\n\rProfileRegion\x12=\n\x05outer\x18\x01 \x01(\x0b2\x1f.rasm.contracts.cad.ProfileLoopR\x05outerB\x06\xbaH\x03\xc8\x01\x01\x125\n\x05holes\x18\x02 \x03(\x0b2\x1f.rasm.contracts.cad.ProfileLoopR\x05holes"P\n\x07Profile\x12E\n\x07regions\x18\x01 \x03(\x0b2!.rasm.contracts.cad.ProfileRegionR\x07regionsB\x08\xbaH\x05\x92\x01\x02\x08\x01"\xaf\x01\n\nSealedStep\x12H\n\x08protocol\x18\x02 \x01(\x0e2 .rasm.contracts.cad.StepProtocolR\x08protocolB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00\x12H\n\x08artifact\x18\x03 \x01(\x0b2$.rasm.contracts.artifact.ArtifactRefR\x08artifactB\x06\xbaH\x03\xc8\x01\x01J\x04\x08\x01\x10\x02R\x07content"p\n\x0eTopologyCensus\x12\x1a\n\x08vertices\x18\x01 \x01(\x04R\x08vertices\x12\x14\n\x05edges\x18\x02 \x01(\x04R\x05edges\x12\x14\n\x05faces\x18\x03 \x01(\x04R\x05faces\x12\x16\n\x06solids\x18\x04 \x01(\x04R\x06solids"M\n\x11BooleanProvenance\x12\x1a\n\x08modified\x18\x01 \x01(\x08R\x08modified\x12\x1c\n\tgenerated\x18\x02 \x01(\x08R\tgenerated"\xaa\x05\n\x11BrepKernelReceipt\x12-\n\tvolume_m3\x18\x02 \x01(\x01R\x08volumeM3B\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12)\n\x07area_m2\x18\x03 \x01(\x01R\x06areaM2B\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12B\n\x08centroid\x18\x04 \x01(\x0b2\x1e.rasm.contracts.spatial.Point3R\x08centroidB\x06\xbaH\x03\xc8\x01\x01\x12F\n\x08topology\x18\x05 \x01(\x0b2".rasm.contracts.cad.TopologyCensusR\x08topologyB\x06\xbaH\x03\xc8\x01\x01\x12#\n\nwatertight\x18\x06 \x01(\x08H\x00R\nwatertight\x88\x01\x01\x12=\n\x0fvolume_delta_m3\x18\x07 \x01(\x01H\x01R\rvolumeDeltaM3B\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x88\x01\x01\x12T\n\x12boolean_provenance\x18\x08 \x01(\x0b2%.rasm.contracts.cad.BooleanProvenanceR\x11booleanProvenanceB\r\n\x0b_watertightB\x12\n\x10_volume_delta_m3:\xb8\x01\xbaH\xb4\x01\x1a\xb1\x01\n)brep_kernel_receipt.volume_delta_presence\x12<volume delta is present exactly for watertight tessellations\x1aFhas(this.volume_delta_m3) == (has(this.watertight) && this.watertight)J\x04\x08\x01\x10\x02R\x05validR\ncentroid_m"\x9c\x02\n\x12TessellateResponse\x12#\n\relement_count\x18\x02 \x01(\x04R\x0celementCount\x12%\n\x0etriangle_count\x18\x03 \x01(\x04R\rtriangleCount\x12E\n\x06kernel\x18\x04 \x01(\x0b2%.rasm.contracts.cad.BrepKernelReceiptR\x06kernelB\x06\xbaH\x03\xc8\x01\x01\x12H\n\x08artifact\x18\x06 \x01(\x0b2$.rasm.contracts.artifact.ArtifactRefR\x08artifactB\x06\xbaH\x03\xc8\x01\x01J\x04\x08\x01\x10\x02J\x04\x08\x05\x10\x06R\rartifact_hashR\x0eartifact_bytes*x\n\x0cStepProtocol\x12\x1d\n\x19STEP_PROTOCOL_UNSPECIFIED\x10\x00\x12\x17\n\x13STEP_PROTOCOL_AP203\x10\x01\x12\x17\n\x13STEP_PROTOCOL_AP214\x10\x02\x12\x17\n\x13STEP_PROTOCOL_AP242\x10\x03B\x15\xaa\x02\x12Rasm.Contracts.Cadb\x06proto3',
+    b'\n\x1erasm/contracts/cad/types.proto\x12\x12rasm.contracts.cad\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a&rasm/contracts/artifact/artifact.proto\x1a#rasm/contracts/spatial/vector.proto"\xe8\x01\n\nSealedBody\x12B\n\x04step\x18\x02 \x01(\x0e2 .rasm.contracts.cad.StepProtocolH\x00R\x04stepB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00\x12,\n\x04iges\x18\x04 \x01(\x0b2\x16.google.protobuf.EmptyH\x00R\x04iges\x12H\n\x08artifact\x18\x03 \x01(\x0b2$.rasm.contracts.artifact.ArtifactRefR\x08artifactB\x06\xbaH\x03\xc8\x01\x01B\x0f\n\x06format\x12\x05\xbaH\x02\x08\x01J\x04\x08\x01\x10\x02R\x07content"B\n\x06Point2\x12\x18\n\x03x_m\x18\x01 \x01(\x01R\x02xMB\x07\xbaH\x04\x12\x02@\x01\x12\x18\n\x03y_m\x18\x02 \x01(\x01R\x02yMB\x07\xbaH\x04\x12\x02@\x01R\x01xR\x01y"\n\n\x08LineSpan"G\n\x07ArcSpan\x12<\n\x07through\x18\x01 \x01(\x0b2\x1a.rasm.contracts.cad.Point2R\x07throughB\x06\xbaH\x03\xc8\x01\x01"L\n\nSplineSpan\x12>\n\x07through\x18\x01 \x03(\x0b2\x1a.rasm.contracts.cad.Point2R\x07throughB\x08\xbaH\x05\x92\x01\x02\x08\x01"\xf9\x01\n\x0bProfileKnot\x128\n\x05point\x18\x01 \x01(\x0b2\x1a.rasm.contracts.cad.Point2R\x05pointB\x06\xbaH\x03\xc8\x01\x01\x122\n\x04line\x18\x02 \x01(\x0b2\x1c.rasm.contracts.cad.LineSpanH\x00R\x04line\x12/\n\x03arc\x18\x03 \x01(\x0b2\x1b.rasm.contracts.cad.ArcSpanH\x00R\x03arc\x128\n\x06spline\x18\x04 \x01(\x0b2\x1e.rasm.contracts.cad.SplineSpanH\x00R\x06splineB\x11\n\x08outgoing\x12\x05\xbaH\x02\x08\x01"P\n\rPiecewiseLoop\x12?\n\x05knots\x18\x01 \x03(\x0b2\x1f.rasm.contracts.cad.ProfileKnotR\x05knotsB\x08\xbaH\x05\x92\x01\x02\x08\x02"\xe7\x02\n\x12PeriodicSplineLoop\x12>\n\x07through\x18\x01 \x03(\x0b2\x1a.rasm.contracts.cad.Point2R\x07throughB\x08\xbaH\x05\x92\x01\x02\x08\x03:\x90\x02\xbaH\x8c\x02\x1a\x89\x02\n"periodic_spline_loop.distinct_tail\x12Athe closing point is implicit and must not repeat the first point\x1a\x9f\x01size(this.through) >= 3 && (this.through[0].x_m != this.through[size(this.through) - 1].x_m || this.through[0].y_m != this.through[size(this.through) - 1].y_m)"\xb3\x01\n\x0bProfileLoop\x12A\n\tpiecewise\x18\x01 \x01(\x0b2!.rasm.contracts.cad.PiecewiseLoopH\x00R\tpiecewise\x12Q\n\x0fperiodic_spline\x18\x02 \x01(\x0b2&.rasm.contracts.cad.PeriodicSplineLoopH\x00R\x0eperiodicSplineB\x0e\n\x05curve\x12\x05\xbaH\x02\x08\x01"\x85\x01\n\rProfileRegion\x12=\n\x05outer\x18\x01 \x01(\x0b2\x1f.rasm.contracts.cad.ProfileLoopR\x05outerB\x06\xbaH\x03\xc8\x01\x01\x125\n\x05holes\x18\x02 \x03(\x0b2\x1f.rasm.contracts.cad.ProfileLoopR\x05holes"P\n\x07Profile\x12E\n\x07regions\x18\x01 \x03(\x0b2!.rasm.contracts.cad.ProfileRegionR\x07regionsB\x08\xbaH\x05\x92\x01\x02\x08\x01"-\n\x07Indices\x12"\n\x06values\x18\x01 \x03(\rR\x06valuesB\n\xbaH\x07\x92\x01\x04\x08\x01\x18\x01"\x84\x01\n\tSelection\x12*\n\x03all\x18\x01 \x01(\x0b2\x16.google.protobuf.EmptyH\x00R\x03all\x127\n\x07indices\x18\x02 \x01(\x0b2\x1b.rasm.contracts.cad.IndicesH\x00R\x07indicesB\x12\n\tselection\x12\x05\xbaH\x02\x08\x01"o\n\x05Image\x12;\n\x05grain\x18\x01 \x01(\x0e2\x19.rasm.contracts.cad.GrainR\x05grainB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00\x12\x1d\n\x07ordinal\x18\x02 \x01(\rH\x00R\x07ordinal\x88\x01\x01B\n\n\x08_ordinal"\xef\x01\n\x05Trace\x12;\n\x05grain\x18\x01 \x01(\x0e2\x19.rasm.contracts.cad.GrainR\x05grainB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00\x12\x18\n\x07operand\x18\x02 \x01(\rR\x07operand\x12\x16\n\x06source\x18\x03 \x01(\rR\x06source\x12D\n\x08relation\x18\x04 \x01(\x0e2\x1c.rasm.contracts.cad.RelationR\x08relationB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00\x121\n\x06images\x18\x05 \x03(\x0b2\x19.rasm.contracts.cad.ImageR\x06images"x\n\x0eCorrespondence\x121\n\x06traces\x18\x01 \x03(\x0b2\x19.rasm.contracts.cad.TraceR\x06traces\x123\n\x07section\x18\x02 \x03(\x0b2\x19.rasm.contracts.cad.ImageR\x07section"p\n\x0eTopologyCensus\x12\x1a\n\x08vertices\x18\x01 \x01(\x04R\x08vertices\x12\x14\n\x05edges\x18\x02 \x01(\x04R\x05edges\x12\x14\n\x05faces\x18\x03 \x01(\x04R\x05faces\x12\x16\n\x06solids\x18\x04 \x01(\x04R\x06solids"\x81\x02\n\tPrincipal\x12/\n\nmoments_m5\x18\x01 \x03(\x01R\tmomentsM5B\x10\xbaH\r\x92\x01\n\x08\x03\x10\x03"\x04\x12\x02@\x01\x12F\n\x04axes\x18\x02 \x03(\x0b2&.rasm.contracts.spatial.UnitDirection3R\x04axesB\n\xbaH\x07\x92\x01\x04\x08\x03\x10\x03\x12/\n\ngyration_m\x18\x03 \x03(\x01R\tgyrationMB\x10\xbaH\r\x92\x01\n\x08\x03\x10\x03"\x04\x12\x02@\x01\x12#\n\rsymmetry_axis\x18\x04 \x01(\x08R\x0csymmetryAxis\x12%\n\x0esymmetry_point\x18\x05 \x01(\x08R\rsymmetryPoint"\x8e\x02\n\x07Inertia\x12\x1e\n\x06ixx_m5\x18\x01 \x01(\x01R\x05ixxM5B\x07\xbaH\x04\x12\x02@\x01\x12\x1e\n\x06iyy_m5\x18\x02 \x01(\x01R\x05iyyM5B\x07\xbaH\x04\x12\x02@\x01\x12\x1e\n\x06izz_m5\x18\x03 \x01(\x01R\x05izzM5B\x07\xbaH\x04\x12\x02@\x01\x12\x1e\n\x06ixy_m5\x18\x04 \x01(\x01R\x05ixyM5B\x07\xbaH\x04\x12\x02@\x01\x12\x1e\n\x06ixz_m5\x18\x05 \x01(\x01R\x05ixzM5B\x07\xbaH\x04\x12\x02@\x01\x12\x1e\n\x06iyz_m5\x18\x06 \x01(\x01R\x05iyzM5B\x07\xbaH\x04\x12\x02@\x01\x12C\n\tprincipal\x18\x07 \x01(\x0b2\x1d.rasm.contracts.cad.PrincipalR\tprincipalB\x06\xbaH\x03\xc8\x01\x01"\xb5\x06\n\x0bBrepMeasure\x12-\n\tvolume_m3\x18\x02 \x01(\x01R\x08volumeM3B\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12)\n\x07area_m2\x18\x03 \x01(\x01R\x06areaM2B\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12B\n\x08centroid\x18\x04 \x01(\x0b2\x1e.rasm.contracts.spatial.Point3R\x08centroidB\x06\xbaH\x03\xc8\x01\x01\x12F\n\x08topology\x18\x05 \x01(\x0b2".rasm.contracts.cad.TopologyCensusR\x08topologyB\x06\xbaH\x03\xc8\x01\x01\x12#\n\nwatertight\x18\x06 \x01(\x08H\x00R\nwatertight\x88\x01\x01\x12=\n\x0fvolume_delta_m3\x18\x07 \x01(\x01H\x01R\rvolumeDeltaM3B\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x88\x01\x01\x125\n\x07inertia\x18\t \x01(\x0b2\x1b.rasm.contracts.cad.InertiaR\x07inertiaB\r\n\x0b_watertightB\x12\n\x10_volume_delta_m3:\xce\x02\xbaH\xca\x02\x1a\xaa\x01\n"brep_measure.volume_delta_presence\x12<volume delta is present exactly for watertight tessellations\x1aFhas(this.volume_delta_m3) == (has(this.watertight) && this.watertight)\x1a\x9a\x01\n\x1dbrep_measure.inertia_presence\x12Binertia is present exactly where the measured body carries a solid\x1a5has(this.inertia) == (this.topology.solids > uint(0))J\x04\x08\x01\x10\x02J\x04\x08\x08\x10\tR\x05validR\ncentroid_mR\x12boolean_provenance"\xf7\x03\n\x07Healing\x12B\n\x06before\x18\x01 \x01(\x0b2".rasm.contracts.cad.TopologyCensusR\x06beforeB\x06\xbaH\x03\xc8\x01\x01\x12@\n\x05after\x18\x02 \x01(\x0b2".rasm.contracts.cad.TopologyCensusR\x05afterB\x06\xbaH\x03\xc8\x01\x01\x12>\n\x12tolerance_before_m\x18\x03 \x01(\x01R\x10toleranceBeforeMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12<\n\x11tolerance_after_m\x18\x04 \x01(\x01R\x0ftoleranceAfterMB\x10\xbaH\r\x12\x0b@\x01)\x00\x00\x00\x00\x00\x00\x00\x00\x12!\n\x0cvalid_before\x18\x05 \x01(\x08R\x0bvalidBefore\x12\x1f\n\x0bvalid_after\x18\x06 \x01(\x08R\nvalidAfter\x12@\n\x05steps\x18\x07 \x03(\x0b2 .rasm.contracts.cad.Healing.StepR\x05stepsB\x08\xbaH\x05\x92\x01\x02\x08\x01\x1ab\n\x04Step\x12@\n\x04kind\x18\x01 \x01(\x0e2 .rasm.contracts.cad.HealStepKindR\x04kindB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00\x12\x18\n\x07changed\x18\x02 \x01(\x08R\x07changed"\xdd\x01\n\x0cPartIdentity\x12\x1b\n\x04node\x18\x01 \x01(\tR\x04nodeB\x07\xbaH\x04r\x02\x10\x01\x12\x1d\n\x05label\x18\x02 \x01(\tR\x05labelB\x07\xbaH\x04r\x02\x10\x01\x12&\n\x07product\x18\x03 \x01(\tH\x00R\x07productB\x07\xbaH\x04r\x02\x10\x01\x88\x01\x01\x12(\n\x08instance\x18\x04 \x01(\tH\x01R\x08instanceB\x07\xbaH\x04r\x02\x10\x01\x88\x01\x01\x12&\n\x06layers\x18\x05 \x03(\tR\x06layersB\x0e\xbaH\x0b\x92\x01\x08\x18\x01"\x04r\x02\x10\x01B\n\n\x08_productB\x0b\n\t_instance"\xda\x02\n\x12TessellateResponse\x12#\n\relement_count\x18\x02 \x01(\x04R\x0celementCount\x12%\n\x0etriangle_count\x18\x03 \x01(\x04R\rtriangleCount\x12A\n\x07measure\x18\x04 \x01(\x0b2\x1f.rasm.contracts.cad.BrepMeasureR\x07measureB\x06\xbaH\x03\xc8\x01\x01\x12H\n\x08artifact\x18\x06 \x01(\x0b2$.rasm.contracts.artifact.ArtifactRefR\x08artifactB\x06\xbaH\x03\xc8\x01\x01\x12@\n\x05parts\x18\x07 \x03(\x0b2 .rasm.contracts.cad.PartIdentityR\x05partsB\x08\xbaH\x05\x92\x01\x02\x08\x01J\x04\x08\x01\x10\x02J\x04\x08\x05\x10\x06R\rartifact_hashR\x0eartifact_bytes*x\n\x0cStepProtocol\x12\x1d\n\x19STEP_PROTOCOL_UNSPECIFIED\x10\x00\x12\x17\n\x13STEP_PROTOCOL_AP203\x10\x01\x12\x17\n\x13STEP_PROTOCOL_AP214\x10\x02\x12\x17\n\x13STEP_PROTOCOL_AP242\x10\x03*J\n\x08Emission\x12\x18\n\x14EMISSION_UNSPECIFIED\x10\x00\x12\x11\n\rEMISSION_STEP\x10\x01\x12\x11\n\rEMISSION_IGES\x10\x02*a\n\x05Grain\x12\x15\n\x11GRAIN_UNSPECIFIED\x10\x00\x12\x10\n\x0cGRAIN_VERTEX\x10\x01\x12\x0e\n\nGRAIN_EDGE\x10\x02\x12\x0e\n\nGRAIN_FACE\x10\x03\x12\x0f\n\x0bGRAIN_SOLID\x10\x04*|\n\x08Relation\x12\x18\n\x14RELATION_UNSPECIFIED\x10\x00\x12\x14\n\x10RELATION_DELETED\x10\x01\x12\x16\n\x12RELATION_GENERATED\x10\x02\x12\x15\n\x11RELATION_MODIFIED\x10\x03\x12\x11\n\rRELATION_KEPT\x10\x04*\x98\x01\n\x0cHealStepKind\x12\x1e\n\x1aHEAL_STEP_KIND_UNSPECIFIED\x10\x00\x12\x16\n\x12HEAL_STEP_KIND_SEW\x10\x01\x12\x18\n\x14HEAL_STEP_KIND_UNIFY\x10\x02\x12\x16\n\x12HEAL_STEP_KIND_FIX\x10\x03\x12\x1e\n\x1aHEAL_STEP_KIND_SMALL_EDGES\x10\x04B\x15\xaa\x02\x12Rasm.Contracts.Cadb\x06proto3',
     [
         validate_pb.desc(),
+        empty_pb.desc(),
         artifact_pb.desc(),
         vector_pb.desc(),
     ],
     {
+        "SealedBody": SealedBody,
         "Point2": Point2,
         "LineSpan": LineSpan,
         "ArcSpan": ArcSpan,
@@ -585,12 +1153,24 @@ _DESC = file_desc(
         "ProfileLoop": ProfileLoop,
         "ProfileRegion": ProfileRegion,
         "Profile": Profile,
-        "SealedStep": SealedStep,
+        "Indices": Indices,
+        "Selection": Selection,
+        "Image": Image,
+        "Trace": Trace,
+        "Correspondence": Correspondence,
         "TopologyCensus": TopologyCensus,
-        "BooleanProvenance": BooleanProvenance,
-        "BrepKernelReceipt": BrepKernelReceipt,
+        "Principal": Principal,
+        "Inertia": Inertia,
+        "BrepMeasure": BrepMeasure,
+        "Healing": Healing,
+        "Healing.Step": Healing.Step,
+        "PartIdentity": PartIdentity,
         "TessellateResponse": TessellateResponse,
         "StepProtocol": StepProtocol,
+        "Emission": Emission,
+        "Grain": Grain,
+        "Relation": Relation,
+        "HealStepKind": HealStepKind,
     },
 )
 

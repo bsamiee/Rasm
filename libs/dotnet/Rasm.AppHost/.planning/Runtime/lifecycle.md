@@ -1,26 +1,25 @@
 # [APPHOST_LIFECYCLE_AND_DRAIN]
 
-Rasm.AppHost runs one process lifecycle: eight `RuntimePhase` rows and one `PhaseStep` correspondence carrying every legal edge, one Atom-backed `Lifecycle` capsule committing through the kernel transition mechanism and minting a `PhaseReceipt` per commit, a five-case `FaultSource` spine with crash-marker and upgrade boot probing, a rank-band drain conductor folding participant rows into one `DrainReceipt` of gauged crossings, and one `CancelScope` spine beneath which every cancellation token derives. Owned axes are the phase family with its step correspondence, the fault traps, the boot log-event run, the frozen drain bands with their capability column, and cancellation provenance over Microsoft.Extensions.Hosting lifetime tokens, Thinktecture-generated vocabulary, generated protobuf contracts, LanguageExt rails, and NodaTime instants.
+Rasm.AppHost runs one process lifecycle: eight `RuntimePhase` rows and one `PhaseStep` correspondence carrying every legal edge, one Atom-backed `Lifecycle` capsule committing through the kernel transition mechanism, a five-case `FaultSource` spine with crash-marker and upgrade boot probing, a rank-band drain conductor folding participant rows into the stopped phase fact, and one `CancelScope` spine beneath which every cancellation token derives. Owned axes are the phase family with its step correspondence, the fault traps, the boot log-event run, the frozen drain bands with their capability column, and cancellation provenance over Microsoft.Extensions.Hosting lifetime tokens, Thinktecture-generated vocabulary, generated protobuf contracts, LanguageExt rails, and NodaTime instants.
 
-Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm/Domain/frame#SOURCE` and `Observability/telemetry#CORRELATION_SPINE` `Correlation.Mint` performs the boot mint, so this capsule takes the minted value at construction and threads it as the identity every phase, fault, and drain receipt stamps. `FaultBand` and its `Code(offset)` derivation arrive from `Rasm/Domain/rails#FAULT_BAND`, the one registry in the branch, with `[FaultCase]`/`Fault`/`generated identity admission` the folder fault-estate floor every AppHost family rides; `Transition<TState>` and `Cell` from `Rasm/Domain/rails#TRANSITION`; `CapabilitySet`/`ICapability`/`CapabilityLaw` from `Rasm/Domain/validation#CAPABILITY`; `MonotonicTimeline`, `GaugedSpan`, and `IGaugeLane` from `Rasm/Parametric/projections#TIMELINE`. `HookRail<AppHostPoint, AppHostFact, TelemetrySource>` and the `AppHostPoint`/`AppHostFact` rosters arrive from `Observability/hooks#HOOK_ROSTER`, so every phase publish and every degradation read crosses one rail rather than a per-capsule fan-out; `ClockPolicy`, `DeadlineClass`, `DeadlineOutcome`, and `DeadlineReceipt` from `Runtime/time#CLOCK_SPLIT` and `#DEADLINE_TAXONOMY`; `ILatencyContext`, `CheckpointToken`, and `LatencySpine.Mark` from `Observability/telemetry#SIGNAL_GOVERNANCE`; `AppHostMeasure`, `AppHostSlot`, and `InstrumentSet` from `Observability/instruments#INSTRUMENT_CATALOG`.
+Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm/Domain/frame#SOURCE` and `Observability/telemetry#CORRELATION_SPINE` `Correlation.Mint` performs the boot mint, so this capsule takes the minted value at construction and threads it through every phase and fault fact. `FaultBand` and its `Code(offset)` derivation arrive from `Rasm/Domain/rails#FAULT_BAND`, the one registry in the branch, with `[FaultCase]`/`Fault`/`generated identity admission` the folder fault-estate floor every AppHost family rides; `Transition<TState>` and `Cell` from `Rasm/Domain/rails#TRANSITION`; `CapabilitySet`/`ICapability`/`CapabilityLaw` from `Rasm/Domain/validation#CAPABILITY`; `MonotonicTimeline`, `GaugedSpan`, and `IGaugeLane` from `Rasm/Parametric/projections#TIMELINE`. `HookRail<AppHostPoint, AppHostFact, TelemetrySource>` and the `AppHostPoint`/`AppHostFact` rosters arrive from `Observability/hooks#HOOK_ROSTER`, so every phase publish and every degradation read crosses one rail rather than a per-capsule fan-out; `ClockPolicy`, `DeadlineClass`, and `DeadlineOutcome` from `Runtime/time#CLOCK_SPLIT` and `#DEADLINE_TAXONOMY`; `ILatencyContext`, `CheckpointToken`, and `LatencySpine.Mark` from `Observability/telemetry#SIGNAL_GOVERNANCE`; `AppHostMeasure`, `AppHostSlot`, and `InstrumentSet` from `Observability/instruments#INSTRUMENT_CATALOG`.
 
 ## [01]-[INDEX]
 
 - [02]-[PHASE_FAMILY]: Eight phases, one step correspondence, kernel-committed transitions, boot log events.
 - [03]-[FAULT_SPINE]: Five native fault sources, trap registrations, and crash-marker probing.
-- [04]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into one receipt of gauged crossings.
+- [04]-[DRAIN_CONDUCTOR]: Frozen rank bands fold participant rows into the stopped phase fact.
 - [05]-[CANCEL_SPINE]: One root source; derived scopes carry `Op` provenance segments and deadline rows.
 
 ## [02]-[PHASE_FAMILY]
 
-- Owner: `RuntimePhase` `[SmartEnum<string>]` eight rows; `PhaseStep` `[SmartEnum<string>]` the ONE phase correspondence — every row carries its admitting phase set, its target, and its evidence-free mint, and `Next`, the phase-shaped admission, and the receipt's trigger key are all projections of it; `PhaseTrigger` `[Union]` the trigger vocabulary, each case naming its own step; `Lifecycle` the boundary capsule owning the Atom-backed receipt cell, the injected hook rail, and the boot-minted `CorrelationId`; `LifecycleFault` the fault family riding the kernel `[FaultCase]`/`Fault` floor — `[FaultCase]` realizes the registry over `FaultBand.Lifecycle` (its `Band` accessor is the ONE band read), `Code` derive SEALED, and `generated identity admission` proves the offset roster at first construction; `LifecycleLog` the boot log-event run based at `FaultBand.SpineEventsBase`; `PhaseSubscription` the LIFO detacher composite.
+- Owner: `RuntimePhase` `[SmartEnum<string>]` eight rows; `PhaseStep` `[SmartEnum<string>]` the ONE phase correspondence — every row carries its admitting phase set, its target, and its evidence-free mint, and `Next` plus phase-shaped admission project from it; `PhaseTrigger` `[Union]` the trigger vocabulary, each case naming its own step and `Stopped` carrying the terminal band facts; `PhaseCommit` the chronological lifecycle fact; `Lifecycle` the boundary capsule owning the Atom-backed commit cell, the injected hook rail, and the boot-minted `CorrelationId`; `LifecycleFault` the fault family riding the kernel `[FaultCase]`/`Fault` floor; `LifecycleLog` the boot log-event run based at `FaultBand.SpineEventsBase`; `PhaseSubscription` the LIFO detacher composite.
 - Cases: eight phases; ten `PhaseStep` rows, each the key one `PhaseTrigger` case carries; `LifecycleFault` = IllegalTransition | ModuleRejected | ActivationRejected.
-- Entry: `Fin<PhaseReceipt> Transition(PhaseTrigger trigger)` — `Cell.Step` commits the candidate and the refused verdict becomes the `IllegalTransition` rail; the `RuntimePhase`-shaped overload admits evidence-free targets from host-attach injection through `PhaseStep.Derived`, which resolves against the phase HELD rather than the target alone; `IO<T> Captured<T>(IO<T> body)` brackets a support capture, so the resume phase is read off the cell rather than supplied; `HookTap<…> DegradationTap` is the degradation-to-phase producer the composition seats on the rail.
-- Auto: every settled commit fires `AppHostPoint.Phase` once with the committed receipt and the latest receipt is the cell value itself; `Attach` projects the host lifetime tokens into transitions — never a second state machine; `DegradationTap` folds each `DegradationReading` into the degraded or recovered step, so the degradation rail is the sole producer of both and no caller commits a level by hand; receipts flow to the receipt-sink envelope unchanged.
-- Receipt: `PhaseReceipt` — from, to, step key, `Instant`, held `Duration`, profile, correlation id.
+- Entry: `Fin<PhaseCommit> Transition(PhaseTrigger trigger)` — `Cell.Step` commits the candidate and the refused verdict becomes the `IllegalTransition` rail; the `RuntimePhase`-shaped overload admits evidence-free targets from host-attach injection through `PhaseStep.Derived`, which resolves against the phase HELD rather than the target alone; `IO<T> Captured<T>(IO<T> body)` brackets a support capture, so the resume phase is read off the cell rather than supplied; `HookTap<…> DegradationTap` is the degradation-to-phase producer the composition seats on the rail.
+- Auto: every settled commit writes the lifecycle transition metric and fires `AppHostPoint.Phase` once with the committed fact; `Attach` projects the host lifetime tokens into transitions; `DegradationTap` folds each `DegradationReading` into the degraded or recovered step, so the degradation rail is the sole producer of both and no caller commits a level by hand.
 - Packages: Microsoft.Extensions.Hosting, Microsoft.Extensions.Logging, Rasm (kernel `Cell`/`Transition`/`FaultBand`/`HookRail`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: one phase row plus the `PhaseStep` rows naming it, or one trigger case with its step row; both break every dispatch site at compile time and neither adds a member.
-- Boundary: `PhaseStep` is the primary correspondence and everything else on this page derives from it — `From` is the admitting set, `To` the target, `Free` the evidence-free mint the phase-shaped overload needs, so a phase edge is stated ONCE and the three parallel total switches that restated it (next, derived, key) are gone with the hand-kept transition diagram that mirrored them a fourth time; NAMED LOSS — the rendered edge picture, recovered by the roster's own `From`/`To` columns, which ARE the edge list and cannot drift from the law they are. `Recovered` and `CaptureCompleted` were admitted by the old transition law with no producer anywhere, which made `Degraded` and `SupportCapture` absorbing states in practice; both now have one: the degradation rail through `DegradationTap` and the capture bracket through `Captured`, whose finalizer reads the pre-capture phase off the cell so the resume target is state rather than a caller argument. `Lifecycle` is the named boundary capsule for the statement carve-out — the token registration and trap wiring carry language-owned statement forms while every other member stays expression-shaped; the candidate mints against the held receipt inside `Cell.Step` and the ONE clock read is hoisted outside it, so a contended retry re-derives the receipt from the state it actually lost to and never re-reads the clock; the fire is the SETTLED commit rather than the swap body, so a contended retry never publishes a receipt the cell rejected, and the `Phase` row's Observe modality admits no veto — the only refusal `Fire` can answer is an unseated point, which is a composition defect and rides the rail rather than an `ignore`; subscription is a `HookTap` row the composition hands `HookRail.Of`, so a per-capsule subscribe member and its detacher both delete and `rail.Release(TelemetrySource.AppHost, key)` is the one teardown; evidence-bearing targets (faulted, capture-resume, upgrade) carry no `Free` mint, so the phase-shaped admission cannot reach them and fault evidence is never silently dropped; the boot self-loop row receipts upgrade detection without leaving boot; `PhaseReceipt.Trigger` is the step key, and the six boot events base at `FaultBand.SpineEventsBase` with the registry row `FaultBand.SpineEvents` holding the same value — the dual-owner invariant the kernel band law names, moving as one edit.
+- Boundary: `PhaseStep` is the primary correspondence and everything else on this page derives from it — `From` is the admitting set, `To` the target, `Free` the evidence-free mint the phase-shaped overload needs, so a phase edge is stated ONCE and the three parallel total switches that restated it (next, derived, key) are gone with the hand-kept transition diagram that mirrored them a fourth time; NAMED LOSS — the rendered edge picture, recovered by the roster's own `From`/`To` columns, which ARE the edge list and cannot drift from the law they are. `Recovered` and `CaptureCompleted` were admitted by the old transition law with no producer anywhere, which made `Degraded` and `SupportCapture` absorbing states in practice; both now have one: the degradation rail through `DegradationTap` and the capture bracket through `Captured`, whose finalizer reads the pre-capture phase off the cell so the resume target is state rather than a caller argument. `Lifecycle` is the named boundary capsule for the statement carve-out — the token registration and trap wiring carry language-owned statement forms while every other member stays expression-shaped; the candidate mints against the held commit inside `Cell.Step` and the ONE clock read is hoisted outside it, so a contended retry re-derives the commit from the state it actually lost to and never re-reads the clock; the fire is the SETTLED commit rather than the swap body, so a contended retry never publishes a commit the cell rejected, and the `Phase` row's Observe modality admits no veto — the only refusal `Fire` can answer is an unseated point, which is a composition defect and rides the rail rather than an `ignore`; subscription is a `HookTap` row the composition hands `HookRail.Of`, so a per-capsule subscribe member and its detacher both delete and `rail.Release(TelemetrySource.AppHost, key)` is the one teardown; evidence-bearing targets (faulted, capture-resume, upgrade) carry no `Free` mint, so the phase-shaped admission cannot reach them and fault evidence is never silently dropped; the boot self-loop row carries upgrade detection without leaving boot; `PhaseCommit.Trigger` is the step key, and the six boot events base at `FaultBand.SpineEventsBase` with the registry row `FaultBand.SpineEvents` holding the same value — the dual-owner invariant the kernel band law names, moving as one edit.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -66,8 +65,8 @@ public sealed partial class PhaseStep {
     public static readonly PhaseStep DrainRequested = new("DrainRequested",
         from: AllBut(RuntimePhase.Boot, RuntimePhase.Draining, RuntimePhase.Unloaded), to: Some(RuntimePhase.Draining),
         free: static () => Some<PhaseTrigger>(new PhaseTrigger.DrainRequested()));
-    public static readonly PhaseStep DrainCompleted = new("DrainCompleted",
-        from: Only(RuntimePhase.Draining), to: Some(RuntimePhase.Unloaded), free: static () => Some<PhaseTrigger>(new PhaseTrigger.DrainCompleted()));
+    public static readonly PhaseStep Stopped = new("Stopped",
+        from: Only(RuntimePhase.Draining), to: Some(RuntimePhase.Unloaded), free: Evidence);
 
     public FrozenSet<RuntimePhase> From { get; }
     public Option<RuntimePhase> To { get; }
@@ -105,11 +104,17 @@ public abstract partial record PhaseTrigger {
     }
     public sealed record FaultCommitted(FaultSource Source) : PhaseTrigger { public override PhaseStep Step => PhaseStep.FaultCommitted; }
     public sealed record DrainRequested : PhaseTrigger { public override PhaseStep Step => PhaseStep.DrainRequested; }
-    public sealed record DrainCompleted(Option<DrainReceipt> Receipt = default) : PhaseTrigger { public override PhaseStep Step => PhaseStep.DrainCompleted; }
+    public sealed record Stopped(Seq<BandFact> Bands) : PhaseTrigger { public override PhaseStep Step => PhaseStep.Stopped; }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct PhaseReceipt(RuntimePhase From, RuntimePhase To, string Trigger, Instant At, Duration Held, ConsumptionProfile Profile, CorrelationId CorrelationId);
+public readonly record struct PhaseCommit(RuntimePhase From, RuntimePhase To, PhaseTrigger Trigger, Instant At, Duration Held, ConsumptionProfile Profile, CorrelationId CorrelationId) {
+    public Fin<DomainEvent> Event(EventSource source, HlcStamp stamp) =>
+        DomainEvent.Of(
+            Topic.Lifecycle, EventType.Of(TelemetryDomain.AppHost.Key, "lifecycle", Trigger.Step.Key), source,
+            $"{CorrelationId}:{Trigger.Step.Key}:{ClockPolicy.Persisted(At)}",
+            JsonSerializer.SerializeToElement(this, SuiteContracts.Host), DataClassification.Operational, stamp);
+}
 
 public readonly record struct PhaseSubscription(Seq<Action> Detachers) : IDisposable {
     public void Dispose() => Detachers.Rev().Iter(static detach => detach());
@@ -150,24 +155,25 @@ public static partial class LifecycleLog {
     public static partial void SignalTrapped(ILogger logger, string signal);
 }
 
-public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, CorrelationId correlationId, HookRail<AppHostPoint, AppHostFact, TelemetrySource> rail, Op key) {
-    readonly Atom<PhaseReceipt> cell = Atom(new PhaseReceipt(RuntimePhase.Boot, RuntimePhase.Boot, PhaseStep.Validated.Key, clocks.Now, Duration.Zero, profile, correlationId));
+public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, CorrelationId correlationId, HookRail<AppHostPoint, AppHostFact, TelemetrySource> rail, InstrumentSet instruments, Op key) {
+    readonly Atom<PhaseCommit> cell = Atom(new PhaseCommit(RuntimePhase.Boot, RuntimePhase.Boot, new PhaseTrigger.Validated(), clocks.Now, Duration.Zero, profile, correlationId));
     public ConsumptionProfile Profile { get; } = profile;
     public ClockPolicy Clocks { get; } = clocks;
     public CorrelationId CorrelationId { get; } = correlationId;
     public HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail { get; } = rail;
+    public InstrumentSet Instruments { get; } = instruments;
     public Op Key { get; } = key;
     public CancelScope Spine { get; } = CancelScope.Root(Op.Of(nameof(Lifecycle)));
     public RuntimePhase Phase => cell.Value.To;
-    public PhaseReceipt Latest => cell.Value;
+    public PhaseCommit Latest => cell.Value;
 
-    public Fin<PhaseReceipt> Transition(PhaseTrigger trigger) =>
+    public Fin<PhaseCommit> Transition(PhaseTrigger trigger) =>
         Settle(Cell.Step(
             cell: cell,
             step: Candidate(trigger: trigger, at: Clocks.Now),
             declined: new LifecycleFault.IllegalTransition(cell.Value.To, trigger.Step)));
 
-    public Fin<PhaseReceipt> Transition(RuntimePhase target) =>
+    public Fin<PhaseCommit> Transition(RuntimePhase target) =>
         PhaseStep.Derived(at: cell.Value.To, target: target)
             .ToFin(new LifecycleFault.IllegalTransition(cell.Value.To, PhaseStep.DrainRequested))
             .Bind(Transition);
@@ -182,36 +188,46 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
     public HookTap<AppHostPoint, AppHostFact, TelemetrySource> DegradationTap =>
         new(Name: Op.Of(nameof(DegradationTap)),
             Observe: fact => fact.Switch(
-                receipt: static _ => Fin.Succ(unit),
                 phase: static _ => Fin.Succ(unit),
                 command: static _ => Fin.Succ(unit),
+                outcome: static _ => Fin.Succ(unit),
                 delivery: static _ => Fin.Succ(unit),
                 degradation: row => ignore(Transition(row.Reading.Level == DegradationLevel.Full
                     ? new PhaseTrigger.Recovered()
                     : (PhaseTrigger)new PhaseTrigger.Degraded())) is var _ ? Fin.Succ(unit) : Fin.Succ(unit),
-                profile: static _ => Fin.Succ(unit)),
+                alert: static _ => Fin.Succ(unit),
+                binding: static _ => Fin.Succ(unit),
+                profile: static _ => Fin.Succ(unit),
+                coordination: static _ => Fin.Succ(unit),
+                companion: static _ => Fin.Succ(unit)),
             Scope: Some(Seq(AppHostPoint.Degradation)),
             Owner: Some(TelemetrySource.AppHost));
 
     public PhaseSubscription Attach(IHostApplicationLifetime lifetime) {
         var started = lifetime.ApplicationStarted.Register(() => ignore(Transition(RuntimePhase.Running)));
         var stopping = lifetime.ApplicationStopping.Register(() => ignore(Transition(RuntimePhase.Draining)));
-        var stopped = lifetime.ApplicationStopped.Register(() => ignore(Transition(RuntimePhase.Unloaded)));
+        var stopped = lifetime.ApplicationStopped.Register(() => ignore(Transition(new PhaseTrigger.Stopped([]))));
         return new PhaseSubscription([started.Dispose, stopping.Dispose, stopped.Dispose]);
     }
 
     internal IO<T> Railed<T>(Fin<T> settled) => settled.Match(Succ: IO.pure, Fail: IO.fail<T>);
 
-    Func<PhaseReceipt, Option<PhaseReceipt>> Candidate(PhaseTrigger trigger, Instant at) =>
+    Func<PhaseCommit, Option<PhaseCommit>> Candidate(PhaseTrigger trigger, Instant at) =>
         held => trigger.Step.Next(at: held.To, trigger: trigger)
-            .Map(next => new PhaseReceipt(held.To, next, trigger.Step.Key, at, at - held.At, Profile, CorrelationId));
+            .Map(next => new PhaseCommit(held.To, next, trigger, at, at - held.At, Profile, CorrelationId));
 
-    Fin<PhaseReceipt> Settle(Transition<PhaseReceipt> verdict) =>
+    Fin<PhaseCommit> Settle(Transition<PhaseCommit> verdict) =>
         verdict switch {
-            Transition<PhaseReceipt>.Committed committed =>
-                Rail.Fire(at: AppHostPoint.Phase, fact: new AppHostFact.Phase(Commit: committed.State), key: Key)
+            Transition<PhaseCommit>.Committed committed =>
+                Instruments.Write(
+                    AppHostMeasure.LifecycleTransitions, 1d,
+                    InstrumentSet.Tags(
+                        (AppHostSlot.From, committed.State.From.Key),
+                        (AppHostSlot.To, committed.State.To.Key),
+                        (AppHostSlot.Trigger, committed.State.Trigger.Step.Key)))
+                    .Bind(_ => Rail.Fire(at: AppHostPoint.Phase, fact: new AppHostFact.Phase(Commit: committed.State), key: Key))
                     .Map(_ => committed.State),
-            Transition<PhaseReceipt>.Refused refused => Fin.Fail<PhaseReceipt>(refused.Cause),
+            Transition<PhaseCommit>.Refused refused => Fin.Fail<PhaseCommit>(refused.Cause),
         };
 }
 ```
@@ -331,14 +347,13 @@ public static class FaultSpine {
 
 ## [04]-[DRAIN_CONDUCTOR]
 
-- Owner: `DrainCapability` `[SmartEnum<string>]` realizing kernel `ICapability<DrainCapability>`; `DrainBand` `[SmartEnum<int>]` the frozen rank bands carrying a `CapabilitySet<DrainCapability>`; `DrainRow` the participant registration; `DrainStep` and `DrainReceipt` the receipts; `DrainConductor` the ordered fold.
+- Owner: `DrainCapability` `[SmartEnum<string>]` realizing kernel `ICapability<DrainCapability>`; `DrainBand` `[SmartEnum<int>]` the frozen rank bands carrying a `CapabilitySet<DrainCapability>`; `DrainRow` the participant registration; `BandFact` the participant crossing carried by `PhaseTrigger.Stopped`; `DrainConductor` the ordered fold.
 - Cases: Interaction 100, Compute 200, Stores 300, Telemetry 400; capabilities store-write | egress.
-- Entry: `IO<DrainReceipt> Drain(Seq<DrainRow> rows, ILatencyContext latency, CheckpointToken checkpoint, InstrumentSet instruments, Duration inherited)` — `IO` carries the ordered flush effects and aborts on a rejected fence transition; the conductor intersects the admitted caller remainder with `DeadlineClass.DrainCooperative` once, and every step reads that one result.
-- Auto: the conductor's first act is the draining fence, and interior admission dispatches on the phase cell, so inbound admission ceases before any band-100 row runs; every step receipt lands regardless of outcome; each step writes its own band-tagged duration observation and the fold records its own latency checkpoint at the boundary it owns.
-- Receipt: `DrainReceipt` aggregates `DrainStep` rows — name, band, and the `DeadlineReceipt` whose lane names the ceiling actually in force — with final phase, `Instant`, elapsed, correlation id; `Stragglers` is the forced-outcome projection.
+- Entry: `IO<PhaseCommit> Drain(Seq<DrainRow> rows, ILatencyContext latency, CheckpointToken checkpoint, InstrumentSet instruments, Duration inherited)` — `IO` carries the ordered flush effects and aborts on a rejected fence transition; the conductor intersects the admitted caller remainder with `DeadlineClass.DrainCooperative` once, and every participant reads that one result.
+- Auto: the conductor's first act is the draining fence, and interior admission dispatches on the phase cell, so inbound admission ceases before any band-100 row runs; every participant returns one `BandFact`; each participant writes its own band-tagged duration observation and the fold records its own latency checkpoint at the boundary it owns.
 - Packages: Rasm (kernel `CapabilitySet`/`GaugedSpan`/`MonotonicTimeline`/`InstrumentSet`), Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `DrainRow` per participant, one band row per package altitude, one `DrainCapability` row per capability the bands differ on; zero new surface.
-- Boundary: the band's store-dependency bool becomes a `CapabilitySet<DrainCapability>` under a legal-corner law, because the axes are not independent — a band that may write but cannot export publishes a step receipt nothing can read, so `DrainLaw` bars that corner at construction and the Telemetry row's egress-only membership is a data fact rather than a second bool; `DrainOutcome` DELETES onto `DeadlineOutcome` — flushed, escalated, and straggled were met, escalated, and forced under other names, and `Runtime/time#DEADLINE_TAXONOMY` already owns the correspondence including the cooperative-escalates-to-forced arc, so a second three-valued vocabulary was the drift; the caller's strictly positive `DrainRuntimeRequest.cooperative` is an INHERITED REMAINDER, not permission to reset the clock — the conductor computes `min(inherited, local)` once, the cancellation source expires on that result, the total timeout adds only the local forced tail, and the receipt records the same effective bound, so a five-second parent remainder can never become a fresh twenty-second cooperative window; NAMED GAIN — the receipt says WHICH ceiling cut a step, because the gauged lane is `DrainCooperative` when the cooperative token tripped and `DrainForced` when the total ceiling cut it; the fence is IDEMPOTENT on `Draining` and abortive everywhere else — a signal trap and the host stopping token both commit `Draining` before this fold runs and the step law refuses a second `DrainRequested` from `Draining`, so a bare railed transition here aborts the drain on exactly the paths that requested it while a `Boot` or `Unloaded` cell still aborts; the drain duration writes ONE OBSERVATION PER STEP under the band dimension the measure roster declares, so the percentile objective grades a real population rather than one summed point per band; the latency checkpoint records at the fold boundary through the injected token, so no `Stopwatch` appears anywhere below it; registration rows arrive field-identical from the drain-participant port; the maintenance-lease handoff emits as a Stores-band row, graceful handoff distinct from crash reclamation; the finalized Persistence single-`IDocumentSession` same-transaction spine mints no prepared transactions, so NO 2PC in-doubt drain row exists — a prepared-transaction reconciliation row or a managed XA transaction manager beside the spine is dead apparatus; on bundled-companion rows the parent's registration fans the drain signal to the child over the local-ipc hop.
+- Boundary: the band's store-dependency bool becomes a `CapabilitySet<DrainCapability>` under a legal-corner law, because the axes are not independent — a band that may write but cannot export publishes an unreadable step value, so `DrainLaw` bars that corner at construction and the Telemetry row's egress-only membership is a data fact rather than a second bool; `DrainOutcome` DELETES onto `DeadlineOutcome` — flushed, escalated, and straggled were met, escalated, and forced under other names, and `Runtime/time#DEADLINE_TAXONOMY` already owns the correspondence including the cooperative-escalates-to-forced arc, so a second three-valued vocabulary was the drift; the caller's strictly positive `DrainRuntimeRequest.cooperative` is an INHERITED REMAINDER, not permission to reset the clock — the conductor computes `min(inherited, local)` once, the cancellation source expires on that result, the total timeout adds only the local forced tail, and the stopped fact records the same effective bound, so a five-second parent remainder can never become a fresh twenty-second cooperative window; NAMED GAIN — the band fact says WHICH ceiling cut a step, because the gauged lane is `DrainCooperative` when the cooperative token tripped and `DrainForced` when the total ceiling cut it; the fence is IDEMPOTENT on `Draining` and abortive everywhere else — a signal trap and the host stopping token both commit `Draining` before this fold runs and the step law refuses a second `DrainRequested` from `Draining`, so a bare railed transition here aborts the drain on exactly the paths that requested it while a `Boot` or `Unloaded` cell still aborts; the drain duration writes ONE OBSERVATION PER STEP under the band dimension the measure roster declares, so the percentile objective grades a real population rather than one summed point per band; the latency checkpoint records at the fold boundary through the injected token, so no `Stopwatch` appears anywhere below it; registration rows arrive field-identical from the drain-participant port; the maintenance-lease handoff emits as a Stores-band row, graceful handoff distinct from crash reclamation; the finalized Persistence single-`IDocumentSession` same-transaction spine mints no prepared transactions, so NO 2PC in-doubt drain row exists — a prepared-transaction reconciliation row or a managed XA transaction manager beside the spine is dead apparatus; on bundled-companion rows the parent's registration fans the drain signal to the child over the local-ipc hop.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -370,41 +385,30 @@ public static class DrainLaw {
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DrainRow(string Name, DrainBand Band, int Rank, Func<CancellationToken, IO<Unit>> Drain);
 
-public readonly record struct DrainStep(string Name, DrainBand Band, DeadlineReceipt Deadline) {
-    public DeadlineOutcome Outcome => Deadline.Outcome;
-    public Duration Allotted => Deadline.Allotted;
-    public Duration Consumed => Deadline.Consumed;
+public readonly record struct BandFact(string Name, DrainBand Band, GaugedSpan<DeadlineClass> Span) {
+    public DeadlineOutcome Outcome => DeadlineOutcome.Of(Span);
+    public Duration Consumed => Duration.FromTimeSpan(Span.Elapsed);
 }
-
-public readonly record struct DrainReceipt(Seq<DrainStep> Steps, RuntimePhase Final, Instant At, Duration Elapsed, CorrelationId CorrelationId);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DrainConductor {
     extension(Lifecycle host) {
-        public IO<DrainReceipt> Drain(Seq<DrainRow> rows, ILatencyContext latency, CheckpointToken checkpoint, InstrumentSet instruments, Duration inherited) =>
-            from start in host.Railed(host.Clocks.Line.Capture(host.Key))
+        public IO<PhaseCommit> Drain(Seq<DrainRow> rows, ILatencyContext latency, CheckpointToken checkpoint, InstrumentSet instruments, Duration inherited) =>
             from fence in host.Railed(Fence(host))
             let cooperative = inherited < DeadlineClass.DrainCooperative.Allotted
                 ? inherited
                 : DeadlineClass.DrainCooperative.Allotted
-            from steps in toSeq(rows.OrderBy(static row => row.Band.Key).ThenBy(static row => row.Rank))
+            from bands in toSeq(rows.OrderBy(static row => row.Band.Key).ThenBy(static row => row.Rank))
                 .TraverseM(row => Step(row, host, instruments, cooperative)).As()
             from marked in IO.lift(() => LatencySpine.Mark(latency, checkpoint))
-            from finish in host.Railed(host.Clocks.Line.Capture(host.Key))
-            from elapsed in host.Railed(host.Clocks.Line.Elapsed(start, finish, host.Key))
-            let receipt = new DrainReceipt(steps.Strict(), RuntimePhase.Unloaded, host.Clocks.Now, Duration.FromTimeSpan(elapsed), host.CorrelationId)
-            from closed in host.Railed(host.Transition(new PhaseTrigger.DrainCompleted(Some(receipt))))
-            select receipt;
+            from closed in host.Railed(host.Transition(new PhaseTrigger.Stopped(bands.Strict())))
+            select closed;
     }
 
-    extension(DrainReceipt receipt) {
-        public Seq<DrainStep> Stragglers => receipt.Steps.Filter(static step => step.Outcome == DeadlineOutcome.Forced);
-    }
-
-    static Fin<PhaseReceipt> Fence(Lifecycle host) =>
+    static Fin<PhaseCommit> Fence(Lifecycle host) =>
         host.Phase == RuntimePhase.Draining ? Fin.Succ(host.Latest) : host.Transition(RuntimePhase.Draining);
 
-    static IO<DrainStep> Step(DrainRow row, Lifecycle host, InstrumentSet instruments, Duration cooperative) =>
+    static IO<BandFact> Step(DrainRow row, Lifecycle host, InstrumentSet instruments, Duration cooperative) =>
         from work in IO.pure(Op.Of(row.Name))
         from start in host.Railed(host.Clocks.Line.Capture(work))
         from lane in IO.lift(() => host.Spine.Derive(work, host.Clocks, DeadlineClass.DrainCooperative, cooperative)).Bracket(
@@ -419,12 +423,12 @@ public static class DrainConductor {
         let bound = lane == DeadlineClass.DrainCooperative
             ? cooperative.ToTimeSpan()
             : cooperative.ToTimeSpan() + DeadlineClass.DrainForced.Bound
-        let step = new DrainStep(row.Name, row.Band,
-            DeadlineReceipt.Of(new GaugedSpan<DeadlineClass>(Lane: lane, Work: work, Elapsed: elapsed, Bound: bound), host.Clocks.Now))
+        let fact = new BandFact(row.Name, row.Band,
+            new GaugedSpan<DeadlineClass>(Lane: lane, Work: work, Elapsed: elapsed, Bound: bound))
         from written in host.Railed(instruments.Write(
-            AppHostMeasure.DrainDuration, step.Consumed.TotalSeconds,
-            InstrumentSet.Tags((AppHostSlot.Band, step.Band.Key.ToString(CultureInfo.InvariantCulture)))))
-        select step;
+            AppHostMeasure.DrainDuration, fact.Consumed.TotalSeconds,
+            InstrumentSet.Tags((AppHostSlot.Band, fact.Band.Key.ToString(CultureInfo.InvariantCulture)))))
+        select fact;
 }
 ```
 
@@ -434,7 +438,7 @@ public static class DrainConductor {
 - Entry: `CancelScope Derive(Op segment, ClockPolicy clocks, Option<DeadlineClass> bound = default)` derives a local row allotment; `Derive(Op, ClockPolicy, DeadlineClass, Duration)` preserves a caller-inherited effective allotment without minting a second deadline owner.
 - Packages: Rasm (kernel `Op`), LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one derivation row per scope axis — phase, queue, hop attempt; zero new surface.
-- Boundary: the root lives on the `Lifecycle` capsule and every scope below it derives through linked tokens — a free-floating `CancellationTokenSource` below the spine is the named defect; provenance is a SEQUENCE of `Op` segments rather than a concatenated path string, so a consumer reads the segment it cares about instead of splitting text and `Path` renders once at the boundary that surfaces it in `DrainStep` names and hop receipts; `CancelDeadline` always retains the owning `DeadlineClass` even when its effective allotment is a shorter inherited remainder, and the deadline source binds the policy's `TimeProvider` at construction so fake-clock specs drive expiry deterministically.
+- Boundary: the root lives on the `Lifecycle` capsule and every scope below it derives through linked tokens — a free-floating `CancellationTokenSource` below the spine is the named defect; provenance is a SEQUENCE of `Op` segments rather than a concatenated path string, so a consumer reads the segment it cares about instead of splitting text and `Path` renders once at the boundary that surfaces it in `BandFact.Name`; `CancelDeadline` always retains the owning `DeadlineClass` even when its effective allotment is a shorter inherited remainder, and the deadline source binds the policy's `TimeProvider` at construction so fake-clock specs drive expiry deterministically.
 
 ```csharp
 // --- [MODELS] --------------------------------------------------------------------------

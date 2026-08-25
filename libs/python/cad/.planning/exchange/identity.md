@@ -13,7 +13,7 @@
 
 - Owner: `UNIT`, `SCHEMA`, and `EMITTED` are the byte-stability values, and this section's roster — both exchange controllers, `xstep.cascade.unit`, `write.step.unit`, `write.step.schema` — is the MEMBERSHIP the contract requires; `service/lane#REGIME` holds the one executable table and fold and imports these values, so the ruling and its execution cannot drift apart.
 - Law: controller init precedes every static, because a static seated before its protocol registers reverts silently and reads back its default.
-- Law: OCCT defaults length to millimetres and keeps writer schema process-global, so leaving either implicit breaks metre receipts and idempotent artifact identity together.
+- Law: OCCT defaults length to millimetres and keeps writer schema process-global, so leaving either implicit breaks metre measurement and idempotent artifact identity together.
 - Law: `write.step.schema` and `EMITTED` are one decision written twice — OCCT ordinal and wire enum — and `exchange/step#CODEC` proves they agree on every emitted file.
 - Law: an unpinned writer emits `AUTOMOTIVE_DESIGN` rather than AP242, so a missing `write.step.schema` silently ships a file declaring a protocol this page never chose; that is the failure `sealed`'s re-read catches.
 - Growth: a new process-global exchange knob is one value declared here beside one `Pin` row at `service/lane#REGIME` consuming it.
@@ -114,5 +114,4 @@ def canonical(model: StepData_StepModel, /) -> CadRail[StepData_StepModel]:
 
 ## [04]-[RESEARCH]
 
-- [HEADER_RESIDUE]-[OPEN]: do FILE_DESCRIPTION `description` and `implementation_level` vary run to run, and do `SetDescriptionValue` and `SetImplementationLevel` deserve `.api` rows; diff two emissions, then seat the rows before either lands in this fence.
-- [GLB_STABILITY]-[OPEN]: which `RWGltf_CafWriter` outputs vary run to run — generator string, node ordering, buffer padding; diff two emissions of one admitted document and seat the resulting law at `tessellation/emission`.
+(none)

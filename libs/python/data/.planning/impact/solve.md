@@ -6,7 +6,7 @@ Demand vocabulary is the open project's: functional units arrive as resolved `(a
 
 ## [01]-[INDEX]
 
-- [02]-[SOLVE]: the `LcaBatch` shared-factorization sweep — `MultiLCA` over one mounted datapackage set, the score-frame lowering, the typed batch receipt.
+- [02]-[SOLVE]: the `LcaBatch` shared-factorization sweep — `MultiLCA` over one mounted datapackage set and the content-keyed score-frame lowering.
 - [03]-[CONTRIBUTION]: the `Contribution` driver-mining axis over `bw2analyzer` — processes, emissions, the recursive walk.
 
 ## [02]-[SOLVE]
@@ -14,9 +14,9 @@ Demand vocabulary is the open project's: functional units arrive as resolved `(a
 - Owner: `LcaBatch` — one frozen batch per project: named functional units (`dict[str, dict[int, float]]`, the provider's own demand shape), the impact-category tuple set, and the Monte Carlo iteration count; ONE `MultiLCA` construction serves every `(unit, category)` cell, which is the whole point — N×M scores at one factorization instead of N×M solves.
 - Law: `method_config` spells `{"impact_categories": [...]}` — the provider's own config key, spelled once here — and `data_objs` mounts through `bd.get_multilca_data_objs(functional_units, method_config)`, so the mounted set derives from the SAME two inputs the solve reads and a hand-assembled datapackage list cannot drift from the demand it serves.
 - Law: the batch lowers to a self-describing score frame — `unit`/`category`/`amount` columns keyed by the batch `ContentKey` — through the folder's canonical Arrow fold at the caller's columnar seam; a per-cell `MaterialImpact` mint is the rejected form, because a sweep row is analytics evidence, not a material declaration, and the carrier stays the one EN 15804 matrix owner.
-- Receipt: one `SolveReceipt` per batch — unit count, category count, iterations, the batch key — under `domain="impact"`/`kind="batch"`; identity folds the sorted functional-unit and category rosters through the deterministic encoder, so an identical sweep dedupes and a widened one re-keys.
+- Law: `solved` returns the score frame beside its `ContentKey`; identity folds the sorted functional-unit and category rosters through the deterministic encoder, so an identical sweep keys identically and a widened one re-keys. Unit count, category count, and iterations remain on the request that produced the frame.
 - Packages: `bw2calc` (`MultiLCA(demands, method_config, data_objs, use_distributions)`, `.lci()`/`.lcia()`/`.scores`, `keep_first_iteration`), `bw2data` (`projects.set_current`, `get_multilca_data_objs`), `pyarrow` (the score-frame lowering) — every one bound at module scope through its own `lazy import`, so the compiled solver and Arrow loads fall on first use with no function-local import, and each raise set resolves at its call for the same reason — runtime (`RuntimeRail`/`boundary`/`Catch`/`Depth`/`FaultRow`/`ContentIdentity`/`scoped`/`Metrics`/`on_thread`), `impact/impact#IMPACT` (`ContributionRow`, the carrier's own mined-driver row this page composes and never re-declares).
-- Growth: a new sweep axis is more rows in the two admitted rosters — zero surface; a distribution summary beyond the mean is one field on `SolveReceipt`; zero new solver.
+- Growth: a new sweep axis is more rows in the two admitted rosters; a distribution summary beyond the mean is another score-frame column; zero new solver.
 - Boundary: no matrix assembly (`impact/inventory#PACKAGES` custodies datapackages), no per-material carrier mint (the carrier's `brightway` arm owns it), no method authoring — categories name methods the project already holds, and an absent method surfaces as the provider's own raise railed at the fence.
 
 ```python
@@ -35,8 +35,6 @@ from rasm.data.tabular.interop import DataLeg
 from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, rostered, scoped
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
-from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -68,39 +66,14 @@ SOLVE_UNBOUNDED: Final[FaultRow[DataLeg]] = FaultRow(
 RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([SOLVE_BATCH, SOLVE_MINE, SOLVE_UNBOUNDED]))
 
 
-class SolveReceipt(Struct, frozen=True, gc=False):
-    units: int
-    categories: int
-    iterations: int
-    content_key: ContentKey
-
-    def contribute(self) -> "Iterable[Receipt]":
-        Metrics.record({"rasm.impact.solves": float(self.units * self.categories)}, domain="impact", kind="batch")
-        yield Receipt.of(
-            "solve",
-            (
-                "emitted",
-                "multilca",
-                {
-                    "domain": "impact",
-                    "kind": "batch",
-                    "key": self.content_key.hex,
-                    "units": self.units,
-                    "categories": self.categories,
-                    "iterations": self.iterations,
-                },
-            ),
-        )
-
-
 class LcaBatch(Struct, frozen=True):
     project: str
     functional_units: "dict[str, dict[int, float]]"
     categories: tuple[tuple[str, ...], ...]
     iterations: int = 0
 
-    async def solved(self) -> "RuntimeRail[tuple[pa.Table, SolveReceipt]]":
-        def run() -> "tuple[pa.Table, SolveReceipt]":
+    async def solved(self) -> "RuntimeRail[tuple[pa.Table, ContentKey]]":
+        def run() -> "tuple[pa.Table, ContentKey]":
             bd.projects.set_current(self.project)
             config = {"impact_categories": [tuple(category) for category in self.categories]}
             data_objs = bd.get_multilca_data_objs(functional_units=self.functional_units, method_config=config)
@@ -117,10 +90,7 @@ class LcaBatch(Struct, frozen=True):
             })
             identity = _ENCODER.encode((sorted(self.functional_units), sorted(self.categories), self.iterations))
             key = ContentIdentity.key("impact", identity)
-            receipt = SolveReceipt(
-                units=len(self.functional_units), categories=len(self.categories), iterations=self.iterations, content_key=key
-            )
-            return table, receipt
+            return table, key
 
         with _TRACER.start_as_current_span(
             "solve.batch", attributes={"rasm.impact.units": len(self.functional_units), "rasm.impact.categories": len(self.categories)}

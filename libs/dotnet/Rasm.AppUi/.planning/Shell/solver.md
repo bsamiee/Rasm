@@ -466,22 +466,15 @@ public static class LayoutPrograms {
 
 ## [04]-[SOLVER_PANEL]
 
-- Owner: `LayoutSolver` the one custom Avalonia `Panel` folding the `Kiwi` solve into measure/arrange; `TableauEdit` the closed four-verb delta vocabulary carrying its own inverse; `LayoutReceipt` the pass evidence.
+- Owner: `LayoutSolver` the one custom Avalonia `Panel` folding the `Kiwi` solve into measure/arrange; `TableauEdit` the closed four-verb delta vocabulary carrying its own inverse.
 - Entry: `public Fin<Unit> Load(ConstraintProgram next)` — the transactional delta over the live tableau; `protected override Size MeasureOverride(Size availableSize)` and `protected override Size ArrangeOverride(Size finalSize)` — the named boundary capsule where the panel's own bounds drive as edit variables suggested to `availableSize`/`finalSize`, `Solver.Solve` runs the dual-simplex (`Solve` itself calls `UpdateVariables`, flushing each solved row constant into its `Variable.Value`), and `VariableEnv.ValueOf` reads the solved positions into each child's arrange rectangle.
-- Auto: `Load` diffs the incoming `ConstraintProgram` against the live one and stages exactly the departed and arrived rows and edit variables as `TableauEdit` values, so the tableau is edited where Cassowary is incremental and rebuilt nowhere; `MeasureOverride` opens the pass (clearing the fault cell and capturing the `MonotonicTimeline` stamp), measures each child, suggests the available size to the panel's edit variables, then suggests every measured child extent onto its `Medium` edit row through `Measured` — retaining the folded probe values for the design-pinned projection — and reads the desired size from the solved panel extent; `ArrangeOverride` suggests the final size, runs `Solve`, arranges each child at its solved `(Left, Top, Width, Height)`, and seals the pass receipt; runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue` so the layout re-solves without touching constraint rows at all.
-- Receipt: `LayoutReceipt` — panel key, constraint count, the post-solve violated-row count, pass elapsed, the exact pass fault as `Option<Error>`, `Instant` — minted at the one place a pass ends (`ArrangeOverride`) and handed to the composition-bound evidence column; relaxation and refusal ride SEPARATE columns because they are separate facts, `Relaxed` reading the violated count alone; `Diagnostics/evidence.md` projects it through `EvidenceMap.ToEvidence(LayoutReceipt)`, and `TelemetryRow` contributes the solve-duration, relaxed-constraint, and layout-fault instruments inward through the AppHost `TelemetryContributorPort`, `Observe` writing all three off that one receipt.
+- Auto: `Load` diffs the incoming `ConstraintProgram` against the live one and stages exactly the departed and arrived rows and edit variables as `TableauEdit` values, so the tableau is edited where Cassowary is incremental and rebuilt nowhere; `MeasureOverride` opens the pass (clearing the fault cell and capturing the `MonotonicTimeline` stamp), measures each child, suggests the available size to the panel's edit variables, then suggests every measured child extent onto its `Medium` edit row through `Measured` — retaining the folded probe values for the design-pinned projection — and reads the desired size from the solved panel extent; `ArrangeOverride` suggests the final size, runs `Solve`, arranges each child at its solved `(Left, Top, Width, Height)`, records the measured pass directly, and fires `AppUiFact.Layout` on the package hook rail; runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue` so the layout re-solves without touching constraint rows at all.
+- Evidence: `AppUiFact.Layout` carries the panel key, constraint count, measured elapsed span, and exact pass fault at `AppUiPoint.Layout`; the local violated-row count writes the `Relaxed` instrument directly, while `TelemetryRow` contributes the solve-duration, relaxed-constraint, and layout-fault rows inward through the AppHost `TelemetryContributorPort`.
 - Packages: Kiwi, Avalonia, Rasm (kernel `MonotonicTimeline`/`Custody`/`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: a new layout pass concern is one `LayoutSolver` policy value; a new tableau verb is one `TableauEdit` case whose `Inverse` and `Apply` arms break at compile time; one layout instrument is one `InstrumentSpec` row on `LayoutSolver.TelemetryRow`; zero new surface.
 - Boundary: `LayoutSolver` is the named boundary capsule for the measure/arrange statement carve-out — the `Solver` mutation, the `SuggestValue` edits, and the child-arrange loop carry the only statement bodies, folding into Avalonia's native `Layoutable` pass rather than a parallel layout engine; `Load` is transactional through kernel `Custody.Rollback` over the `TableauEdit` inverse — the applied stack replays backwards on the first refusal, so a rejected program leaves the live system exactly as it stood, while a superseded program's handles retire through `VariableEnv.Retain`; the pass degrades to the LAST SOLVED STATE and never to zero — `Read` stays on the `Fin` rail and `MeasureOverride` falls back to the panel's own prior `DesiredSize`; the fault cell ACCUMULATES first-wins and clears once at `MeasureOverride`, so a successful arrange can never erase a measure-pass fault; relaxation is measured, never inferred — `Kiwi` raises nothing when the dual-simplex leaves a soft row unmet, so the only honest reading is the post-solve scan of each live handle's own `Violated`, taken once after the arrange solve; solved positions read back through `VariableEnv.ValueOf` after `Solve` flushes the row constants, so the panel reads positions by direct value lookup and a per-frame poll is the rejected form; the `ControlFactory` `Panel`/`Dock` intents name their `ConstraintProgram`, hand it to this one panel through `MaterializeContext.Layout`, and stamp `ChildKeyProperty` from each child intent's `Key` in their `Mounted` fold before any child enters `Children` — the one admitted source of the solver's child identity, and the property is nullable so absence is `Option.None`, never an empty-string sentinel; child re-measurement reaches this panel through Avalonia's own desired-size edge — `Layoutable.Measure` notifies the visual parent exactly when the child's `DesiredSize` moved (`.api/api-avalonia.md` `[LAYOUT_PASS_OPERATIONS]`), so an out-of-band content-size change re-solves for free and a child-invalidation subscription beside it is the deleted form, while a solver-visible fact carrying no child-extent delta rides `Load` as a program delta; the panel's own measure stays Avalonia-native so a `LayoutSolver` nests inside ordinary Avalonia layout and an ordinary panel nests inside it.
 
 ```csharp
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record LayoutReceipt(string Panel, int Constraints, int Violated, Duration Elapsed, Option<Error> Fault, Instant At) {
-    public const string Kind = "layout";
-
-    public bool Relaxed => Violated > 0;
-}
-
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TableauEdit {
@@ -516,8 +509,8 @@ public abstract partial record TableauEdit {
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class LayoutSolver(
     MonotonicTimeline line,
-    IClock clock,
-    Func<LayoutReceipt, Unit> evidence,
+    InstrumentSet signals,
+    HookRail<AppUiPoint, AppUiFact, TelemetrySource> rail,
     Func<LayoutVar, Option<IVariableStore>> stores) : Panel {
     private static readonly Op Pass = Op.Of(name: "appui.layout.pass");
 
@@ -591,10 +584,31 @@ public sealed class LayoutSolver(
         toSeq(Children).Iter(child => ignore(SolvedRect(child).Match(
             Succ: rect => Op.Side(() => child.Arrange(rect)),
             Fail: error => Fin.Fail<Unit>(Park(error)))));
-        Duration elapsed = mark
+        Option<Duration> elapsed = mark
             .Bind(start => line.Capture(Pass).Bind(end => line.Elapsed(start, end, Pass)))
-            .Match(Succ: Duration.FromTimeSpan, Fail: error => (Park(error), Duration.Zero).Item2);
-        ignore(evidence(new LayoutReceipt(program.Panel, program.Constraints.Count, Slack(), elapsed, fault, clock.GetCurrentInstant())));
+            .Match(
+                Succ: span => Some(Duration.FromTimeSpan(span)),
+                Fail: error => (Park(error), Option<Duration>.None).Item2);
+        elapsed.Iter(span => {
+            int violated = Slack();
+            TagList tags = InstrumentSet.Tags((AppUiTelemetry.PanelSlot, program.Panel));
+            ignore(signals.Write(Solve, span.TotalSeconds, tags)
+                .Bind(_ => violated > 0 ? signals.Write(Relaxed, violated, tags) : Fin.Succ(unit))
+                .Bind(_ => fault.Match(
+                    Some: error => FaultObservation.Of(error).Code.Match(
+                        Some: code => signals.Write(Fault, 1d, InstrumentSet.Tags(
+                            (AppUiTelemetry.PanelSlot, program.Panel), (AppUiTelemetry.FaultSlot, code))),
+                        None: () => signals.Write(Fault, 1d, tags)),
+                    None: static () => Fin.Succ(unit)))
+                .Bind(_ => rail.Fire(
+                    AppUiPoint.Layout,
+                    new AppUiFact.Layout(
+                        program.Panel,
+                        checked((uint)program.Constraints.Count),
+                        span,
+                        fault.Map(FaultWire.Observe)),
+                    Pass)));
+        });
         return finalSize;
     }
 
@@ -659,17 +673,6 @@ public sealed class LayoutSolver(
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Solve, Relaxed, Fault);
 
-    public static Fin<Unit> Observe(InstrumentSet set, LayoutReceipt receipt) {
-        TagList tags = InstrumentSet.Tags((AppUiTelemetry.PanelSlot, receipt.Panel));
-        return set.Write(Solve, receipt.Elapsed.TotalSeconds, tags)
-            .Bind(_ => receipt.Violated > 0 ? set.Write(Relaxed, receipt.Violated, tags) : Fin.Succ(unit))
-            .Bind(_ => receipt.Fault.Match(
-                Some: fault => FaultObservation.Of(fault).Code.Match(
-                    Some: code => set.Write(Fault, 1d, InstrumentSet.Tags(
-                        (AppUiTelemetry.PanelSlot, receipt.Panel), (AppUiTelemetry.FaultSlot, code))),
-                    None: () => set.Write(Fault, 1d, tags)),
-                None: static () => Fin.Succ(unit)));
-    }
 }
 ```
 
@@ -683,15 +686,16 @@ config:
 ---
 flowchart LR
     accTitle: Constraint layout solve spine
-    accDescr: A layout preset lowering into a constraint program the solver loads as a tableau delta, the variable environment resolving the values arrange reads, arrange sealing the pass receipt onto the evidence column, and the same program projecting the layout-constraint wire.
+    accDescr: A layout preset lowering into a constraint program the solver loads as a tableau delta, the variable environment resolving the values arrange reads, arrange recording the measured pass and firing its layout fact, and the same program projecting the layout-constraint wire.
     LayoutPreset --> ConstraintProgram
     ConstraintProgram -->|Load| TableauEdit
     TableauEdit --> Solver
     LayoutSolver -->|MeasureOverride| Solver
     Solver -->|Solve + UpdateVariables| VariableEnv
     VariableEnv -->|ValueOf| ArrangeOverride
-    ArrangeOverride -->|seal| LayoutReceipt
-    LayoutReceipt --> Observe
+    ArrangeOverride --> Instruments
+    ArrangeOverride --> AppUiFactLayout["AppUiFact.Layout"]
+    AppUiFactLayout --> HookRail
     ConstraintProgram -->|Wire| LayoutProgram
 ```
 

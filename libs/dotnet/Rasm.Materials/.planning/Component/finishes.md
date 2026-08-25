@@ -169,7 +169,7 @@ public sealed partial class CoveringKind {
     public string SubstanceId { get; }
     public ComponentAuthority Authority { get; }
     public MaterialId Substance => MaterialId.Of(SubstanceId);
-    public ComponentStandard Receipt => new(Authority.Region, StandardJointThicknessMm: 0.0, Authority);
+    public ComponentStandard Standard => new(Authority.Region, StandardJointThicknessMm: 0.0, Authority);
 
     [UseDelegateFromConstructor]
     public partial bool Admits(CoveringSpecification specification);
@@ -328,7 +328,7 @@ public static class Covering {
         profile: ProfileOf,
         substance: static row => row.Kind.Substance,
         source: static row => row.Source,
-        standard: static row => row.Kind.Receipt,
+        standard: static row => row.Kind.Standard,
         detail: Some<Func<CoveringRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
         appearance: static row => row.Kind.Substance,
         ifc: static row => row.Kind.Ifc);

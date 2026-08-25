@@ -39,7 +39,7 @@ config:
 ---
 flowchart LR
   accTitle: Assay orchestration boundary
-  accDescr: CLI commands and automation fires enter rail or program execution, rail handlers select catalog tools and route inputs into Check rows, the Executor port returns Completed receipts or Faults, and emit writes Report or error Envelopes to stdout.
+  accDescr: CLI commands and automation fires enter rail or program execution, rail handlers select catalog tools and route inputs into Check rows, the Executor port returns Completed outcomes or Faults, and emit writes Report or error Envelopes to stdout.
 
   cli["CLI argv"] --> registry["registry.py<br/>REGISTRY Bind rows"]
   registry --> rail["registry.rail(bind)<br/>settings + scope"]
@@ -83,7 +83,7 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 
 [PAYLOAD_MAP]:
 - `report.detail` carries rail-specific evidence as a tagged `AnyDetail` union; rows ride `report.results` and durable files ride `report.artifacts`.
-- `report.exec` and `Envelope.exec` carry the `ExecReceipt` — target URL, host, exit status, transfer counts — threaded from `Completed.exec`.
+- `report.remote` and `Envelope.remote` carry `RemoteExecution` — target URL, host, exit status, transfer counts — threaded from `Completed.remote`.
 - Cap fires set `Envelope.truncated`, clip the rows, attach the full report as an artifact, and note shown-of-total on `report.notes`, never stderr.
 
 ## [05]-[ARTIFACTS_AND_HISTORY]

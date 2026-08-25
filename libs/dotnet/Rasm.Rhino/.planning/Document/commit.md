@@ -1,6 +1,6 @@
 # [RASM_RHINO_COMMIT]
 
-`Rasm.Rhino.Document` owns the ONE host-mutation commit envelope. Every folder commit rail — table, layer, session-regime, annotation draft, block, object, render content, render settings, exchange, sheet, persistence preset, user-text, capture-adopt — frames its change through `DocumentCommit.Sealed`: the undo bracket opens under a typed custody, the redraw scope suppresses and restores around the body, the sealed serial stamps the folder's own receipt, and every mid-stage fault converges on the one rail that still releases the bracket. A hand-spelled `UndoBracket.Begin` or redraw triple beside this envelope is the deleted form, and twenty-three out-of-page consumers compose it.
+`Rasm.Rhino.Document` owns the host-mutation commit envelope. `DocumentCommit.Sealed` opens typed undo custody inside redraw compensation, projects the serial only into results that own it, and converges every fault before releasing the bracket.
 
 The bracket's custody is a closed union, never a bool triple: a program either opened no record, owns the record it opened, enlisted in the command's record, or was refused a seat — four states the prior five booleans spelled as eight unreachable corners and two hand-kept lifecycle flags. The seal folds the execution outcome and the bounded close directly on their own rails; the two private record families that re-wrapped those rails as hand unions delete with the booleans.
 
@@ -8,7 +8,7 @@ The bracket's custody is a closed union, never a bool triple: a program either o
 
 - [02]-[REDRAW]: `RedrawAxis`, `RedrawPolicy`, `RedrawScope` — the repaint trait vocabulary, the closed posture roster, and the suppress/restore/success-gated-flush bracket.
 - [03]-[COMMIT]: `HostInteraction`, `DocumentCommit` — the host-dialogue axis and the sealed commit entry with its compensation algebra.
-- [04]-[BRACKET]: `BracketCustody`, `BracketPhase`, `UndoBracket` — the record custody union, the monotone lifecycle, and the document transaction capsule.
+- [04]-[BRACKET]: `UndoSerial`, `BracketCustody`, `BracketPhase`, `UndoBracket` — the admitted record identity, custody union, monotone lifecycle, and document transaction capsule.
 
 ## [02]-[REDRAW]
 
@@ -80,7 +80,7 @@ internal static class RedrawScope {
 
 - Owner: `HostInteraction` `[SmartEnum<int>]` — the corpus-wide host-dialogue axis every folder's `quiet` argument reads; `DocumentCommit` — the sealed commit entry and the compensation algebra.
 - Law: `HostInteraction` carries THREE rows because two different facts project the same host bool. `Quiet` and `Interactive` are a CALLER's election on a surface that offers the choice; `Silent` is design-mandated silence — a rollback or compensation leg whose surface offers no choice at all — so a reader tells "the caller chose quiet" from "no choice existed" at the row, and the prior law's per-site comment ("always quiet by design") becomes a row read. A folder minting its own two-row notice vocabulary beside this axis is the forked form, and a bare `quiet:` literal is the unnamed one.
-- Law: `DocumentCommit.Sealed` is ONE entry: it brackets the body in the redraw scope, opens the undo bracket, runs the program, stamps the sealed serial through the bracket's custody, runs the railed receipt projection INSIDE the bracket — so a stamp or projection fault remains rollback-capable — and seals. The identity projection is the default MODALITY, spelled `project: Fin.Succ` at receipt-shaped call sites; the non-projecting arity twin is deleted, so one declaration carries every consumer. NAMED LOSS: the two-argument convenience signature; witness — `Tables.Commit`'s receipt-shaped entry composes `Sealed(..., project: Fin.Succ, ...)` and compiles unchanged.
+- Law: `DocumentCommit.Sealed` brackets the body, opens the undo record, runs the program, applies an optional serial projection, runs the railed result projection inside the bracket, and seals. Callers omit `stamp` when the serial is not part of their canonical result.
 - Law: `DocumentCommit.Compensated` owns the whole compensation algebra: land each element, roll back every landed key on the first refusal, and settle source custody through its release policy — every source releases once the fold's fate is decided, a release refusal after success rolls the landed keys back, and rollback then release faults append in that order onto the initiating fault. The identity release is the default modality riding the `Option` seat, so the release-free arity twin is deleted too; a suffix-only cleanup inside a rollback lambda or a `.Match` ladder re-spelling release beside the fold is the deleted form.
 
 ```csharp
@@ -96,22 +96,24 @@ public sealed partial class HostInteraction {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class DocumentCommit {
-    internal static Fin<TOut> Sealed<TReceipt, TOut>(
+    internal static Fin<TOut> Sealed<TResult, TOut>(
         RhinoDoc document,
         string name,
         bool recordsUndo,
         RedrawPolicy redraw,
-        Func<Fin<TReceipt>> run,
-        Func<TReceipt, uint, TReceipt> stamp,
-        Func<TReceipt, Fin<TOut>> project,
-        Op op) =>
+        Func<Fin<TResult>> run,
+        Func<TResult, Fin<TOut>> project,
+        Op op,
+        Option<Func<TResult, uint, TResult>> stamp = default) =>
         RedrawScope.Within(document: document, redraw: redraw, key: op, body: () => op.Catch(() => {
             using UndoBracket undo = UndoBracket.Begin(document: document, name: name, recordsUndo: recordsUndo);
-            Func<TReceipt, Fin<TReceipt>> stamped = undo.Stamper<TReceipt>(stamp: stamp, key: op);
+            Func<TResult, Fin<TResult>> stamped = undo.Stamper(
+                stamp: stamp.IfNone(static (result, _) => result),
+                key: op);
             Fin<TOut> executed = guard(undo.Admitted, op.InvalidResult()).ToFin()
                 .Bind(_ => op.Catch(run))
                 .Bind(stamped)
-                .Bind(receipt => op.Catch(() => project(receipt)));
+                .Bind(result => op.Catch(() => project(result)));
             return undo.Seal(outcome: executed, key: op);
         }));
 
@@ -142,15 +144,24 @@ internal static class DocumentCommit {
 
 ## [04]-[BRACKET]
 
-- Owner: `BracketCustody` `[Union]` — who owns the undo record: no record, an owned record, the command's enlisted record, or a refused seat; `BracketPhase` `[SmartEnum<int>]` — the monotone open/closed/sealed lifecycle; `UndoBracket` — the receipt-agnostic document transaction capsule.
+- Owner: `UndoSerial` admits the host's positive record identity; `BracketCustody` `[Union]` closes who owns the record; `BracketPhase` `[SmartEnum<int>]` carries the monotone open/closed/sealed lifecycle; `UndoBracket` owns the result-agnostic document transaction capsule.
 - Law: custody is a CLOSED UNION derived once at `Begin`, never a bool triple re-tested per member. The five prior booleans (`required`, `owned`, `enlisted`, `closed`, `terminal`) spelled twenty-four unreachable corners; the union's four cases are the four reachable states, the serial rides its case as an admitted `UndoSerial` — so the `serial > 0u` guard deletes by construction — and an active non-command record lands `Refused`, which the admission gate reads before any mutation runs.
 - Law: the lifecycle is MONOTONE — `Open` → `Closed` → `Sealed` — so "closed" and "seal-attempted" are one ordered axis rather than two independent flags: `Close` advances to `Closed`, `Seal` and `Dispose` terminate at `Sealed`, and a second seal reads the phase and refuses. `Dispose` cannot re-enter close after any seal attempt.
-- Law: `Seal` owns bounded close recovery and the terminal rollback decision, folding the execution outcome and the bounded close DIRECTLY on their own rails — success requires a fault-free close, recovered close faults fail successful execution, failed execution rolls back after recovered close, and an unrecoverable close reports rollback as unexecuted. The two private record families that re-wrapped `Fin<TReceipt>` and `Fin<Option<Error>>` as hand unions for one tuple switch are the deleted form: each was a re-mint of the rail it copied, and the fold now reads the rails it already holds.
-- Law: `UndoBracket` is receipt-agnostic — every folder commit rail folds the sealed serial into its own receipt through `DocumentCommit.Sealed` without a foreign-receipt hop; `Stamper` stamps only through an owned or enlisted custody, whose serial the union already proved positive, and an unrecorded program bypasses stamping.
+- Law: `Seal` owns bounded close recovery and the terminal rollback decision, folding the execution outcome and the bounded close DIRECTLY on their own rails — success requires a fault-free close, recovered close faults fail successful execution, failed execution rolls back after recovered close, and an unrecoverable close reports rollback as unexecuted. The two private record families that re-wrapped `Fin<TResult>` and `Fin<Option<Error>>` as hand unions for one tuple switch are the deleted form: each was a re-mint of the rail it copied, and the fold now reads the rails it already holds.
+- Law: `UndoBracket` is result-agnostic — every folder commit rail folds the sealed serial into its own result through `DocumentCommit.Sealed` without a foreign-shape hop; `Stamper` stamps only through an owned or enlisted custody, whose serial the union already proved positive, and an unrecorded program bypasses stamping.
 - Law: rollback is custody-total — an owned record undoes and clears redo, an enlisted record propagates the failure to the command boundary that owns the record, and an unrecorded or refused seat has nothing to roll; every rollback fault appends onto the primary.
 
 ```csharp
 // --- [TYPES] ---------------------------------------------------------------------------
+[ValueObject<uint>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct UndoSerial {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref uint value) =>
+        validationError = value is 0u ? new ValidationError(message: "Undo serial must be positive.") : null;
+
+    internal static Option<UndoSerial> Maybe(uint value) =>
+        value is 0u ? Option<UndoSerial>.None : Some(Create(value));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record BracketCustody {
     private BracketCustody() { }
@@ -199,43 +210,43 @@ internal ref struct UndoBracket {
         return new UndoBracket(document: document, custody: custody);
     }
 
-    public Func<TReceipt, Fin<TReceipt>> Stamper<TReceipt>(Func<TReceipt, uint, TReceipt> stamp, Op key) {
+    public Func<TResult, Fin<TResult>> Stamper<TResult>(Func<TResult, uint, TResult> stamp, Op key) {
         BracketCustody seat = custody;
-        return receipt => seat.Switch(
-            state: (Receipt: receipt, Stamp: stamp, Key: key),
-            unrecordedCase: static (held, _) => Fin.Succ(value: held.Receipt),
+        return result => seat.Switch(
+            state: (Result: result, Stamp: stamp, Key: key),
+            unrecordedCase: static (held, _) => Fin.Succ(value: held.Result),
             ownedCase: static (held, owned) => Stamped(held: held, serial: owned.Serial),
             enlistedCase: static (held, enlisted) => Stamped(held: held, serial: enlisted.Serial),
-            refusedCase: static (held, _) => Fin.Fail<TReceipt>(error: held.Key.InvalidResult()));
+            refusedCase: static (held, _) => Fin.Fail<TResult>(error: held.Key.InvalidResult()));
 
-        static Fin<TReceipt> Stamped(
-            (TReceipt Receipt, Func<TReceipt, uint, TReceipt> Stamp, Op Key) held, UndoSerial serial) =>
+        static Fin<TResult> Stamped(
+            (TResult Result, Func<TResult, uint, TResult> Stamp, Op Key) held, UndoSerial serial) =>
             from fold in held.Key.Need(held.Stamp)
-            from stamped in held.Key.Catch(() => Fin.Succ(value: fold(held.Receipt, serial.Value)))
+            from stamped in held.Key.Catch(() => Fin.Succ(value: fold(held.Result, serial.Value)))
             select stamped;
     }
 
-    public Fin<TReceipt> Seal<TReceipt>(Fin<TReceipt> outcome, Op key) {
+    public Fin<TResult> Seal<TResult>(Fin<TResult> outcome, Op key) {
         if (phase == BracketPhase.Sealed) {
-            return Fin.Fail<TReceipt>(error: key.InvalidResult());
+            return Fin.Fail<TResult>(error: key.InvalidResult());
         }
         Fin<Option<Error>> closure = CloseBounded(key: key);
         phase = BracketPhase.Sealed;
         RhinoDoc owner = document;
         BracketCustody seat = custody;
         return outcome.Match(
-            Succ: receipt => closure.Match(
+            Succ: result => closure.Match(
                 Succ: recovered => recovered.Match(
-                    Some: static fault => Fin.Fail<TReceipt>(error: fault),
-                    None: () => Fin.Succ(value: receipt)),
-                Fail: open => Fin.Fail<TReceipt>(error: open + new DraftFault.HostRefused(
+                    Some: static fault => Fin.Fail<TResult>(error: fault),
+                    None: () => Fin.Succ(value: result)),
+                Fail: open => Fin.Fail<TResult>(error: open + new DraftFault.HostRefused(
                     Key: key,
                     Member: nameof(UndoBracket.Close),
                     Detail: "undo record remains open after bounded close recovery"))),
             Fail: primary => closure.Match(
-                Succ: recovered => Fin.Fail<TReceipt>(error: recovered.Map(error => primary + error).IfNone(primary))
+                Succ: recovered => Fin.Fail<TResult>(error: recovered.Map(error => primary + error).IfNone(primary))
                     .Rollback(() => Reversed(document: owner, custody: seat, key: key)),
-                Fail: open => Fin.Fail<TReceipt>(error: primary
+                Fail: open => Fin.Fail<TResult>(error: primary
                     + open
                     + new DraftFault.HostRefused(
                         Key: key,
@@ -298,7 +309,6 @@ internal ref struct UndoBracket {
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

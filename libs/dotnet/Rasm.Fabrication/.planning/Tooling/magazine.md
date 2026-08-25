@@ -10,7 +10,7 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 
 - [02]-[TOOL_VOCABULARY]: `ToolKey`, `ToolEdgeKey`, `Magazine`, `MagazineBehavior`, `ArmSwing`, `ToolSelection`, `SlotKind`, `ToolAvailability`, `LifeBasisRow`, `MetricDimension`, `ToolMeasure`, and `ShortfallReason` — every provider correspondence carried as a column.
 - [03]-[TOOL_ASSEMBLY]: `SlotAddress`, `ToolTarget`, `LifeBudget`, `MetricBand`, `ToolMetric`, `ToolEdge`, `ToolSnapshot`, `ToolAssemblyIngress`, `ToolAssembly`, `MagazineLayout`, `SlotState`, `SlotMap`, `LifeDemand`, `WorkItem`, and `MagazinePolicy`.
-- [04]-[PROVIDER_CATALOG]: `CatalogSource`, `CatalogReceipt`, `ToolIngress`, `MagazineSlots`, `ToolAssemblyMap`, and the `ToolCatalog` decode, atoms-floor projection, refresh, and canonical-hash fold.
+- [04]-[PROVIDER_CATALOG]: `CatalogSource`, `CatalogEntry`, `ToolIngress`, `MagazineSlots`, `ToolAssemblyMap`, and the `ToolCatalog` decode, atoms-floor projection, refresh, and canonical-hash fold.
 - [05]-[KITTING_SCHEDULE]: `ToolChangeEvidence`, `KitShortfall`, `KitOutcome`, `ToolChange`, and the `ToolMagazine` kitting, scheduling, and `HolderEnvelope` entries.
 
 ## [02]-[TOOL_VOCABULARY]
@@ -279,7 +279,7 @@ public sealed partial class ShortfallReason {
 - Law: `ToolMetric` carries its RESOLVED canonical magnitude as an admitted member. Deriving it per read re-parsed the unit on every lookup and had to answer an absence its own admission had already refused, which it did with a sentinel every downstream fold then propagated.
 - Cases: `ToolTarget` distinguishes body and edge budgets; `SlotState` distinguishes empty, loaded, reserved, quarantined, and manual staging.
 - Auto: generated factories reject blank identity, invalid ranges, duplicate edge keys, duplicate metric kinds, non-positive geometry, partial slot maps, duplicate physical tools, and inconsistent lifecycle evidence. Snapshot content excludes observation instants and validity windows while those fields remain on evidence.
-- Receipt: `SlotMap.Load` and `.Reserve` return the rail, so a refused placement names the conflicting slot and its occupant rather than returning the map unchanged.
+- Result: `SlotMap.Load` and `.Reserve` return the rail, so a refused placement names the conflicting slot and its occupant rather than returning the map unchanged.
 - Packages: `UnitsNet` dynamic quantity admission, `NodaTime` evidence windows and durations, `FrozenDictionary` reservation index, LanguageExt.Core, Thinktecture.Runtime.Extensions, and RhinoCommon compose directly.
 - Growth: a slot topology is one `Magazine` row with admitted `MagazineLayout` data.
 - Boundary: provider hashes as identity, dimension-per-case metric siblings, mutable snapshot identity, parallel wear state, single-basis scheduling, absent life budgets read as exhausted, tool groups substituting for geometric interchangeability, and invented infinite capacity are deleted forms.
@@ -816,13 +816,13 @@ public sealed partial class MagazinePolicy {
 
 - Owner: `ToolCatalog` owns the ONE provider decode in the package, the atoms-floor projection, the telemetry refresh, and the canonical snapshot preimage; `ToolAssemblyMap` owns the refresh rebase; `MagazineSlots` owns the durable placement stream spellings.
 - Cases: `CatalogSource` distinguishes provider digest from telemetry content; `ToolIngress` distinguishes asset admission and telemetry refresh.
-- Entry: `ToolCatalog.Admit(ToolIngress, FabricationTap?)` is the one catalog boundary and `ToolCatalog.Cutter`/`ToolCatalog.Evidence` are the one crossing onto the atoms floor; the tap defaults silent, so a headless admission emits nothing.
+- Entry: `ToolCatalog.Admit(ToolIngress, Option<InstrumentSet>)` is the one catalog boundary and `ToolCatalog.Cutter`/`ToolCatalog.Evidence` are the one crossing onto the atoms floor; the set defaults absent for headless admission.
 - Law: `Process/owner` reads no provider surface, so an admitted assembly becomes the atoms floor's cutter geometry and tool evidence HERE. Both project off `ToolMetric` rows this catalog already resolved into canonical millimetres, degrees, and grams, so the crossing is one lookup per column rather than a second measurement decode under the vocabulary floor.
 - Law: `ToolEvidence.Admit` takes the assembly's own KEY as its tool identifier and its serial as the serial. Passing the serial into both slots left every tool identified by a number the controller never programs it under, so a telemetry join against the machine's tool table matched nothing.
 - Auto: a refresh advances the observation instant, preserves the exact target-basis and edge-key sets, never lowers consumed life, and retains every terminal body or edge state; every column the rebase carries unchanged GENERATES and the snapshot is the one slot it swaps, so a new assembly column cannot silently drop out of a refresh.
-- Receipt: `CatalogReceipt` carries admitted assembly, optional slot, typed source evidence, and observation time. `FabricationFact.ToolRefresh.Of` projects a telemetry-sourced receipt's refresh interval onto `rasm.fabrication.tool.refresh.age` through `Process/telemetry#FACT_PROJECTION` as kind `tool-refresh`; a provider-digest source projects nothing. `MagazineSlots` names the `store.fabrication.magazine.<verb>` streams committed slot-map mutations and the re-admitted placement census ride on the Persistence slot registry, so crib state survives restart without a parallel in-memory registry.
+- Result: `CatalogEntry` carries admitted assembly, optional slot, typed source evidence, and observation time. `ToolCatalog.Admit` writes a telemetry-sourced result's refresh interval through `FabricationInstruments.ToolRefreshAge`; a provider-digest source writes nothing. `MagazineSlots` names the `store.fabrication.magazine.<verb>` streams committed slot-map mutations and the re-admitted placement census ride on the Persistence slot registry, so crib state survives restart without a parallel in-memory registry.
 - Law: every preimage on this page frames through `Process/owner#RUN_DISPATCH` `FabricationCanon` over the one `Rasm.Element` `CanonicalWriter` and closes on `Ordered`. A page-local byte kernel stringifying each field and length-framing it by hand was a second codec beside that writer: it wrote absent optionals as the empty string an empty value already occupies, read generated rows through `.Key` rather than the discriminant framing, and rendered every double through a text formatter the codec encodes directly.
-- Packages: MTConnect.NET-Common cutting-tool model, `Riok.Mapperly` for the rebase, `Process/owner` (`FabricationCanon.Ordered`), `Rasm.Domain` (`ContentHash.Hex`, `CapabilitySet`), `Process/telemetry` (`FabricationTap`, `FabricationFact.ToolRefresh`), LanguageExt.Core, and Thinktecture.Runtime.Extensions compose directly.
+- Packages: MTConnect.NET-Common cutting-tool model, `Riok.Mapperly` for the rebase, `Process/owner` (`FabricationCanon.Ordered`), `Rasm.Domain` (`ContentHash.Hex`, `CapabilitySet`), `Process/telemetry` (`FabricationInstruments`), LanguageExt.Core, and Thinktecture.Runtime.Extensions compose directly.
 - Growth: a provider measurement is one `ToolMeasure` row; a lifecycle correspondence is one `ToolAvailability` row.
 - Boundary: no provider type crosses out of this cluster, and the atoms floor admits scalars alone. A second byte codec beside the writer, a hand `x32` spelling of `ContentHash.Hex`, an empty string standing for an absent optional in a preimage, and a magic-zero register standing for an unset one are deleted forms.
 
@@ -835,7 +835,7 @@ public abstract partial record CatalogSource {
     public sealed record Telemetry(UInt128 Content, Instant Previous) : CatalogSource;
 }
 
-public sealed record CatalogReceipt(ToolAssembly Assembly, Option<SlotAddress> Slot, CatalogSource Source,
+public sealed record CatalogEntry(ToolAssembly Assembly, Option<SlotAddress> Slot, CatalogSource Source,
     Instant ObservedAt);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -866,12 +866,14 @@ public static partial class ToolAssemblyMap {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToolCatalog {
-    public static Fin<CatalogReceipt> Admit(ToolIngress ingress, FabricationTap? tap = null) =>
-        from receipt in ingress.Switch(
+    public static Fin<CatalogEntry> Admit(ToolIngress ingress, Option<InstrumentSet> set = default) =>
+        from result in ingress.Switch(
             asset: static row => AdmitAsset(row),
             refresh: static row => Refresh(row))
-        let _fact = FabricationFact.ToolRefresh.Of(receipt).Map((tap ?? FabricationTap.Silent).Fire)
-        select receipt;
+        from _refresh in result.Source is CatalogSource.Telemetry telemetry
+            ? set.Write(FabricationInstruments.ToolRefreshAge, (result.ObservedAt - telemetry.Previous).TotalSeconds)
+            : Fin.Succ(unit)
+        select result;
 
     private static Fin<Unit> Schema(CuttingToolAsset asset) {
         AssetValidationResult validation = asset.IsValid(MTConnectVersions.Version24);
@@ -881,7 +883,7 @@ public static class ToolCatalog {
                 Optional(asset.ToolId), validation.Message));
     }
 
-    private static Fin<CatalogReceipt> AdmitAsset(ToolIngress.Asset request) =>
+    private static Fin<CatalogEntry> AdmitAsset(ToolIngress.Asset request) =>
         from _ in Schema(request.Value)
         from lifecycle in Optional(request.Value.CuttingToolLifeCycle)
             .ToFin(Asset(request.Value, "lifecycle"))
@@ -934,7 +936,7 @@ public static class ToolCatalog {
             placement.Map(static row => row.Address),
             Optional(lifecycle.ProgramToolGroup), lifecycle.ConnectionCodeMachineSide ?? string.Empty,
             request.EnvelopePolicy, state, stable))
-        select new CatalogReceipt(assembly, placement.Map(static row => row.Address),
+        select new CatalogEntry(assembly, placement.Map(static row => row.Address),
             new CatalogSource.Provider(request.Value.GenerateHash(includeTimestamp: false)), request.ObservedAt);
 
     private const double ExactGrid = 0.0;
@@ -1010,7 +1012,7 @@ public static class ToolCatalog {
         edgeAngle: static row => row.Metric(ToolMeasure.CuttingEdgeAngle).IfNone(0.0),
         halfPointAngle: static row => row.Metric(ToolMeasure.PointAngle).Map(static angle => angle * 0.5).IfNone(0.0));
 
-    private static Fin<CatalogReceipt> Refresh(ToolIngress.Refresh request) =>
+    private static Fin<CatalogEntry> Refresh(ToolIngress.Refresh request) =>
         from _ in request.ObservedAt > request.Current.Snapshot.ObservedAt
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(ToolKey.Tooling("tool-refresh:stale"))
@@ -1026,7 +1028,7 @@ public static class ToolCatalog {
                 request.Current.Snapshot.ReconditionCount, request.Current.Snapshot.ReconditionLimit,
                 request.LengthWear, request.RadiusWear))
         from assembly in ToolAssembly.Admit(ToolAssemblyMap.Rebase(request.Current) with { Snapshot = next })
-        select new CatalogReceipt(assembly, request.Current.HomeSlot,
+        select new CatalogEntry(assembly, request.Current.HomeSlot,
             new CatalogSource.Telemetry(next.Content, request.Current.Snapshot.ObservedAt), request.ObservedAt);
 
     private static bool Monotone(ToolSnapshot previous, Seq<LifeBudget> life,
@@ -1162,19 +1164,18 @@ public static class ToolCatalog {
 ## [05]-[KITTING_SCHEDULE]
 
 - Owner: `ToolMagazine` owns kitting, scheduling, and `HolderEnvelope`; `ToolChangeEvidence` owns the exchange clock; `KitOutcome` owns the kitting fold's state and its terminal reading; `ToolChange` owns one exchange's bindings.
-- Law: `KitOutcome` carries no content key, plane, or settle instant and takes no receipt name, because a crib allocation settles nothing a consumer addresses. A `*Receipt` suffix over a fold state claims the `Process/owner` settled-receipt spine the shape holds none of.
+- Law: `KitOutcome` carries loaded, staged, quarantined, and shortfall rows directly; it is not content-addressed.
 - Law: `ToolChangeEvidence` is the ONE exchange clock and `Elapsed` is DERIVED — `Traverse + ArmSwing`, with the traverse read off the layout's own slot-index distance and the swing share off the `ArmSwing` row the policy's behaviours select. A caller-supplied elapsed literal is the deleted form, and the two halves stay separate columns because a consumer pricing an overlapped change reads which half it can hide.
 - Law: every exchange names a REAL ordinal pair. A change out of an empty spindle starts at the layout's declared `Park` — the changer station, which no pot may occupy — so its index distance is zero by that layout's own definition and the elapsed span collapses to the arm swing through the same arithmetic every other change takes. An absence carrier on the ordinal, or a sentinel standing for "no prior slot", would leave a consumer keying exchanges on an ordered pair holding two shapes for one fact.
-- Law: a refused reservation SURFACES. Silently returning the map unchanged left the receipt claiming a reservation the crib never held and the next demand competing for the same slot.
-- Entry: `ToolMagazine.Kit(SlotMap, Seq<WorkItem>, MagazinePolicy)`, `.Schedule(SlotMap, Seq<WorkItem>, MagazinePolicy)`, and `.HolderEnvelope(ToolAssembly)` are one entry per distinct receipt consumer. Layout and magazine kind derive from `SlotMap`; holder allowance derives from `ToolAssembly`.
+- Law: a refused reservation SURFACES. Silently returning the map unchanged left the result claiming a reservation the crib never held and the next demand competing for the same slot.
+- Entry: `ToolMagazine.Kit(SlotMap, Seq<WorkItem>, MagazinePolicy)`, `.Schedule(SlotMap, Seq<WorkItem>, MagazinePolicy)`, and `.HolderEnvelope(ToolAssembly)` are one entry per distinct result consumer. Layout and magazine kind derive from `SlotMap`; holder allowance derives from `ToolAssembly`.
 - Auto: kitting classifies each demand through ONE declared resolver run folded until the first candidate answers, so a new sourcing route is a row rather than another nesting level; every requested life basis resolves on the candidate or that candidate is not selectable; reserve is committed with demand; preselection resolves against the next change's slot within `PreselectDistance`.
-- Receipt: `KitOutcome` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, its `ToolChangeEvidence`, limiting-life evidence, and the next slot to preselect.
+- Result: `KitOutcome` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, its `ToolChangeEvidence`, limiting-life evidence, and the next slot to preselect.
 - Packages: `PolygonAlgebra` offsets the holder profile; LanguageExt.Core owns the folds and rails.
 - Growth: a sourcing route is one `Resolvers` row.
 - Boundary: the magazine swap schedule is a PAGING problem over caller-supplied placement — an assignment solver over a cost matrix models a placement decision this page does not own and is a declared refusal, not an omission. Preselection naming its own slot, reserve that is checked but not committed, and shortfall rows without a reason are deleted forms.
 
 ```csharp
-// --- [RECEIPTS] ------------------------------------------------------------------------
 public readonly record struct ToolChangeEvidence(int FromSlot, int ToSlot, int IndexSteps,
     Duration Traverse, Duration ArmSwing, Duration Elapsed);
 
@@ -1197,7 +1198,7 @@ public static class ToolMagazine {
         ? Fin.Fail<KitOutcome>(ToolKey.Tooling("magazine-kit:empty"))
         : toSeq(work.DistinctBy(static row =>
                 (row.Op, row.Assembly.Identity, row.Required, row.FormDiameterBand)))
-            .FoldM<Fin, KitOutcome>(Seed(slots), (receipt, demand) => Allocate(receipt, demand, policy)).As();
+            .FoldM<Fin, KitOutcome>(Seed(slots), (result, demand) => Allocate(result, demand, policy)).As();
 
     public static Fin<Seq<ToolChange>> Schedule(SlotMap slots, Seq<WorkItem> work, MagazinePolicy policy) =>
         from state in work.FoldM<Fin, ScheduleState>(ScheduleState.Empty,
@@ -1263,23 +1264,23 @@ public static class ToolMagazine {
                     ? ShortfallReason.AllSpent
                     : ShortfallReason.NoInterchangeable)));
 
-    private static Fin<KitOutcome> Allocate(KitOutcome receipt, WorkItem demand, MagazinePolicy policy) =>
-        Fin.Succ(Classify(receipt.Slots, demand, policy).Switch(
-            state: (Receipt: receipt, Demand: demand),
+    private static Fin<KitOutcome> Allocate(KitOutcome result, WorkItem demand, MagazinePolicy policy) =>
+        Fin.Succ(Classify(result.Slots, demand, policy).Switch(
+            state: (Result: result, Demand: demand),
             installed: static (state, row) =>
-                state.Receipt.Loaded.Exists(tool => tool.Identity == row.Assembly.Identity)
-                    ? state.Receipt
-                    : state.Receipt with { Loaded = state.Receipt.Loaded.Add(row.Assembly) },
-            staged: static (state, row) => state.Receipt with {
-                Loaded = state.Receipt.Loaded.Add(row.Assembly),
-                Staged = state.Receipt.Staged.Add(row.Assembly),
+                state.Result.Loaded.Exists(tool => tool.Identity == row.Assembly.Identity)
+                    ? state.Result
+                    : state.Result with { Loaded = state.Result.Loaded.Add(row.Assembly) },
+            staged: static (state, row) => state.Result with {
+                Loaded = state.Result.Loaded.Add(row.Assembly),
+                Staged = state.Result.Staged.Add(row.Assembly),
                 Slots = row.Slots,
             },
-            missing: static (state, row) => Unplaced(state.Receipt, state.Demand, row.Reason)));
+            missing: static (state, row) => Unplaced(state.Result, state.Demand, row.Reason)));
 
-    private static KitOutcome Unplaced(KitOutcome receipt, WorkItem demand, ShortfallReason reason) {
-        KitOutcome noted = receipt with {
-            Missing = receipt.Missing.Add(new KitShortfall(demand.Op, demand.Required, reason)),
+    private static KitOutcome Unplaced(KitOutcome result, WorkItem demand, ShortfallReason reason) {
+        KitOutcome noted = result with {
+            Missing = result.Missing.Add(new KitShortfall(demand.Op, demand.Required, reason)),
         };
         return noted.Slots.FirstEmpty
             .Map(slot => noted.Slots.Reserve(slot, demand.Op, demand.Required).Match(
@@ -1402,7 +1403,6 @@ flowchart LR
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
-[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
 -->
 
 (none)

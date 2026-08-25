@@ -119,7 +119,7 @@
 
 [LOCAL_ADMISSION]:
 - import: top-level `gmsh` module; namespaced functions carry no return-object identity, so extraction tuples cross as data into the `MeshField`/`MeshExchange` owner, and no geometry-branch kernel is imported — boundary input arrives as data per the compute charter.
-- boundary: the generated `MeshField` crosses the `HandoffAxis` as receipt data, and a consumer selects its own mesh substrate off that receipt.
+- boundary: the generated `MeshField` crosses the `HandoffAxis` as wire data, and a consumer selects its own mesh substrate off that crossing.
 
 [RAIL_LAW]:
 - Package: `gmsh`
