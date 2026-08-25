@@ -42,7 +42,6 @@ from msgspec.structs import replace
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Reviewer = Literal["coderabbit", "greptile", "macroscope"]
@@ -3259,7 +3258,6 @@ def dot_blind(globs: tuple[str, ...], /) -> tuple[str, ...]:
 
 
 def scope_proofs(repo: Path, /) -> tuple[tuple[str, bool], ...]:
-    # `docs/laws/topology.md` row [50]: a reviewer-config glob implying `libs/**` owes its `.planning`/`.api` alternates, and the failing proof names the owner.
     declarations = scope_declarations(repo)
     blind = tuple((surface, label, missed) for surface, label, globs in declarations if (missed := dot_blind(globs)))
     first = f" (first: {blind[0][0]} {blind[0][1]} -> {blind[0][2][0]})" if blind else ""

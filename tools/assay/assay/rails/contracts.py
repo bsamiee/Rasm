@@ -24,7 +24,16 @@ from pathlib import Path, PurePosixPath
 import re
 from struct import pack
 from types import MappingProxyType
-from typing import Annotated, ClassVar, Final, Literal, override, Protocol, runtime_checkable, Self
+from typing import (
+    Annotated,
+    ClassVar,
+    Final,
+    Literal,
+    override,
+    Protocol,
+    runtime_checkable,
+    Self,
+)
 lazy import shutil
 
 from expression import Error, Ok, Result
@@ -32,7 +41,9 @@ from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 import xxhash
-lazy from google.protobuf.descriptor_pb2 import FileDescriptorSet as GoogleFileDescriptorSet
+lazy from google.protobuf.descriptor_pb2 import (
+    FileDescriptorSet as GoogleFileDescriptorSet,
+)
 lazy from google.protobuf.descriptor_pool import DescriptorPool as GoogleDescriptorPool
 lazy from google.protobuf.json_format import Parse, ParseError
 lazy from google.protobuf.message import DecodeError, Message
@@ -80,8 +91,13 @@ from assay.core.model import (
 from assay.core.routing import discover, Routed, Scope
 from assay.core.transaction import SwapTransaction
 from assay.diagnostics import cap_note, fold
-from assay.rails.contracts_generation import changes, compose_image, freshness_rows, GenerationImage, render
-
+from assay.rails.contracts_generation import (
+    changes,
+    compose_image,
+    freshness_rows,
+    GenerationImage,
+    render,
+)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -138,8 +154,6 @@ _ROOT_FILES: Final[frozenset[str]] = frozenset((
     "README.md",
     "ARCHITECTURE.md",
     "RULINGS.md",
-    "IDEAS.md",
-    "TASKLOG.md",
     MANIFEST,
     SCHEMA,
     "buf.yaml",

@@ -87,7 +87,6 @@ from assay.rails.provision import ProvisionParams
 from assay.rails.static import StaticParams
 from assay.rails.test import TestParams
 
-
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 

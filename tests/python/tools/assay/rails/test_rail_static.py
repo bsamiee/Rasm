@@ -10,14 +10,25 @@ import msgspec
 import pytest
 
 from assay.composition.registry import REGISTRY
-from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, StaticRun, Tool
+from assay.core.model import (
+    Check,
+    Claim,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    RailStatus,
+    receipt,
+    Runner,
+    StaticRun,
+    Tool,
+)
 from assay.core.routing import Routed, Scope, TargetFiles
 from assay.diagnostics import sarif_status
 import assay.rails.static as static_rail
 from assay.rails.static import run, StaticParams
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

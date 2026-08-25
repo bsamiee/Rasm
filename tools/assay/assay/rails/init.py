@@ -24,9 +24,16 @@ from tomlkit.items import Array
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
-from assay.core.model import BaseParams, Claim, Completed, Fault, RailStatus, receipt, Report
+from assay.core.model import (
+    BaseParams,
+    Claim,
+    Completed,
+    Fault,
+    RailStatus,
+    receipt,
+    Report,
+)
 from assay.diagnostics import fold
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

@@ -12,7 +12,7 @@ include:
 
 ## [01]-[PROOF_BAR]
 
-- An oracle predicts behavior from an independent source — closed-form math, conservation, fixture geometry, category contract, runtime observation, documented external behavior; a shape-only inspection of self-constructed values stands alone nowhere.
+- An oracle predicts behavior from an independent source — closed-form math, conservation, fixture geometry, category rules, runtime observation, documented external behavior; a shape-only inspection of self-constructed values stands alone nowhere.
 - Banned shapes are findings on sight: existence tests (the compiler or importer already proves it), mirror tests asserting a constructed value's own fields or re-implementing the production algorithm as its own oracle, specs proving only that their own doubles were called, speculative-state tests over states the production surface cannot construct, and per-function spam where a generated domain covers the family.
 - Every law family registers a refuting witness the law must fail on; a witness the law survives, or one sitting trivially outside the domain, exposes a tautology — and that registration gap is itself the finding.
 - A failing law is evidence: the demanded repair targets the production owner, never a dilution of the law into shape-only proof.
@@ -35,7 +35,7 @@ include:
 
 - TypeScript unit specs colocate beside source — a unit spec under `tests/typescript/`, or shared harness beside source, is misfiled; C# and Python suites mirror the production tree (`tests/dotnet/libs/<Package>/<Source>.spec.cs`, `tests/python/libs/<package>/`), and e2e/load specs carry the disjoint `*.pw.ts`/`*.k6.ts` suffixes so no runner sweeps another's estate.
 - Tier and grouping directories are lowercase with `_`-prefixed kit directories; PascalCase begins only at a C# project boundary, and each `tests/dotnet` project carries exactly one routing classifier, adding only its own suite-owned harness packages.
-- Nothing cross-language lives inside a single language's tree; `tests/containers.json`, the `libs/contracts/` estate every branch imports, and the assay operator are the only neutral seams, and a container image pinned anywhere but `tests/containers.json` is a finding.
+- Nothing cross-language lives inside a single language's tree; `tests/containers.json` and the assay operator are the only neutral seams, and a container image pinned anywhere but `tests/containers.json` is a finding.
 - assay is the single mutation and coverage gate authority; thresholds and kill-floors live in owning configs, never in docs or specs, and zero mutant discovery is a failed rail, never a green pass.
 - Marker taxonomy is closed and declared in the owning config; an undeclared or hand-applied auto-marker is a finding.
 - Benchmarks run only in the separate measurement session, and a gated case is a single registry row with absolute budget and dispersion ceiling; a benchmark without its row, or a phantom row, is a finding.

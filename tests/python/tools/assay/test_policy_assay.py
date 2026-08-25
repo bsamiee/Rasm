@@ -10,7 +10,6 @@ from assay.core.model import Language
 from tests.python._testkit.runtime import REPO_ROOT
 from tests.python._testkit.spec import validity_matrix
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"

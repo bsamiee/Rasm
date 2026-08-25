@@ -6,7 +6,7 @@ This standard binds every `libs/` planning surface: it fixes the doc-set per tie
 
 This planning corpus widens by scope: a folder owns one package, a branch aggregates one independently adoptable language estate, and the cross-`libs/` core owns polyglot law. Peer languages appear in a branch or folder doc only as seam-registry counterpart nodes; every capability, ownership, and dependency claim spanning languages stays at the cross-`libs/` core.
 
-- Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md`.
+- Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `RULINGS.md`.
 - Folder (`<pkg>/`): branch index docs at root; design pages in `.planning/` use `<sub-domain>/<page>.md`, or `<page>.md` for a single-page concept.
 - Cross-language estate (`libs/contracts/`): the full folder doc set with one `.api/` catalogue per emission target and one for the driver tool.
 - Cross-`libs/` core (`libs/.planning/`): the branch doc-set beside `campaign-method.md` and `planning-targets.md`.
@@ -14,7 +14,6 @@ This planning corpus widens by scope: a folder owns one package, a branch aggreg
 [API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
 - Catalogues document external distributions and host SDK assemblies alone; a corpus package declares its members on its own design pages.
 - `libs/contracts/` carries one catalogue per emission target and one for the driver; the descriptor set derives every roster.
-- Cross-folder member use verifies at the owning design page under `docs/laws/topology.md` `[FENCE_SEAM]`.
 - Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
 - Folder `.api/`: carries the Domain tier for package-specific distributions and the Substrate tier for language-branch-wide ones.
 - Every folder consuming a substrate package reads the branch catalogue and lists the package in its README `## [03]-[SUBSTRATE_PACKAGES]` section.
@@ -29,7 +28,6 @@ Each index doc opens on its own charter law, and every line it carries is load-b
 - Domain packages: the folder-specific libraries the folder admits, grouped into `[CONCERN]` groups under `## [02]-[DOMAIN_PACKAGES]`.
 - Domain concerns group by honest breadth — a single-package group survives only as a genuine seam; substrate groups mirror the branch registry.
 - Rows carry no version pin and no `.api/` link — versions centralize in the owning manifest, and a catalogue link couples to a moving surface.
-- New admissions land here from the folder's ideas and tasks.
 - License gate: any license granting an OSS project full free use admits, copyleft included — the estate is fully OSS with zero commercial intent.
 - Payment-required or paid-tier-gated capability rejects; no deeper license analysis runs.
 - Row and annotation grammar follows the docgen readme template; depth beyond the one line belongs to the package's `.api/` catalogue, never the row.
@@ -39,28 +37,13 @@ Each index doc opens on its own charter law, and every line it carries is load-b
 - Codemaps name the complete eventual source structure under the real domain concept each node owns; a planned-but-empty sub-domain stays visible.
 - Branch architecture owns dependency direction and the folder roster with one-line charters; folder architecture composes that direction.
 - Every seam appears at both endpoint folders with identical kind and direction; a new kind amends this standard before use.
-- Settled architecture contains no owner-state registry or transient build order; task cards own construction order.
 - `[<KIND>]: <shape>`; `KIND: WIRE|CONTRACT|SHAPE|PROJECTION|PORT|BOUNDARY|RECEIPT|CONTENT_KEY|EVENT|TRANSPORT|TESSELLATION|GRADUATION|LEDGER|FAULT`.
 - Codemap edges carry `IMPORT` — a sub-domain composing a sibling owner — and `COUNTER` — the strata counter-edge — under the same label grammar.
-- Page filenames are their codemap node name language appropriate cased, so card, page, and node resolve as one name and a rename moves consistently.
+- Page filenames are their codemap node name language appropriate cased, so page and node resolve as one name and a rename moves consistently.
 
 [RULINGS]:
 - `RULINGS.md` settles decisions at its tier and guards re-litigation; with `README.md` and `ARCHITECTURE.md` it forms the folder's core.
 - Schema, admission law, row anatomy, and tier scope: `.claude/skills/docgen/templates/rulings.template.md`; sections are a closed vocabulary.
-
-[IDEAS]:
-- Two sections, `[01]-[OPEN]` and `[02]-[CLOSED]`; each idea is a card leading on a bracketed UPPERCASE_SNAKE slug, then its bullets.
-- Card bullets are the closed vocabulary `Capability` `Shape` `Unlocks` `Anchors`, extended by `Tension` where the idea holds a live trade-off.
-- Folder ideas are bigger concepts — a new file, sub-domain, or capability — grounded in the folder's domain, never speculation.
-- Each idea drives one or more tasks; resolved ideas move to `[CLOSED]` with a one-line disposition, so the same idea is never re-litigated.
-
-[TASKLOG]:
-- Two sections, `[01]-[OPEN]` and `[02]-[CLOSED]`; each task card's leader carries a status marker.
-- Open markers: `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`; closed: `[COMPLETE]`, `[DROPPED]`.
-- Task cards carry the same four required bullets, extended by `Atomic` where one landing closes the card.
-- `[BLOCKED]` earns its marker from an `Arms` bullet naming what clears the blocker and a `Route` bullet naming the probe that reads each arm.
-- Integration points align internal to the folder or to a sibling or branch, never coupled.
-- Tasks are scoped guidance — not a full spec and not vague; one idea spawns one or more tasks, each naming the exact file or sub-domain it lands in.
 
 ## [03]-[DESIGN_PAGES]
 
@@ -101,13 +84,13 @@ One integration-point notation, scope-qualified by distance: `page#CLUSTER` insi
 
 - Agent-directed declarative present tense; the doc states law as fact.
 - No reader address, narration, process, or provenance — no links, URLs, versions, dates, or session context on a design page.
-- Hedge vocabulary is gate-owned and binding; open work uses a card state and a research marker, never soft posture.
+- Hedge vocabulary is gate-owned and binding; open work uses a research marker, never soft posture.
 - Vocabulary, owners, and policy values from earlier pages and the route's code doctrine arrive settled and are never re-taught.
 - Sibling-owned facts compose inside a fence, never re-explained.
 
 ## [06]-[REVIEW]
 
-Review is judgment against this standard and the route-owned code doctrine. Each reviewing agent reads the standard, the language's `docs/stacks/<lang>/` doctrine, and the form standards, then grades cold: doc-set placement, card and page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, no fragile duplication or owner-state ledger, and integration points on tasks, never a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
+Review is judgment against this standard and the route-owned code doctrine. Each reviewing agent reads the standard, the language's `docs/stacks/<lang>/` doctrine, and the form standards, then grades cold: doc-set placement, page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, no fragile duplication or owner-state ledger, and integration points, never a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
 
 Signature fences transcribe an external member as settled fence code only when that member is verified against the folder's `.api/` catalogue; an external member outside the `.api/` catalogue stays a marked RESEARCH item and never appears as settled fence code, and a cold grade fails any fence whose external member contradicts a sibling RESEARCH item that declares it unverified.
 

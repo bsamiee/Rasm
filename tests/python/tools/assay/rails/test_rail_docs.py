@@ -12,7 +12,6 @@ from assay.rails.docs import check, DocsParams, FaultedPromotion
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
 
-
 if TYPE_CHECKING:
     from assay.core.model import Check, Report
     from tests.python.tools.assay.kit import AssayHarness

@@ -89,7 +89,7 @@ class Shape extends Schema.Class<Shape>("Shape")({
 class Sealed extends Shape.extend<Sealed>("Sealed")({
     seal: Schema.UUID,
 }) {
-    get receipt(): string {
+    get reference(): string {
         return `${this.caption}#${this.seal}`;
     }
 }

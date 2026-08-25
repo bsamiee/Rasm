@@ -31,9 +31,10 @@ from cyclopts import App
 from defusedxml.ElementTree import fromstring, ParseError
 import msgspec
 import networkx as nx
-from svgelements import Path as SvgPath  # type: ignore[import-untyped]  # ty: ignore[unresolved-import]  # untyped, no py.typed stub
+from svgelements import (
+    Path as SvgPath,  # type: ignore[import-untyped]  # ty: ignore[unresolved-import]  # untyped, no py.typed stub
+)
 from xxhash import xxh3_128_hexdigest
-
 
 if TYPE_CHECKING:
     from xml.etree.ElementTree import Element

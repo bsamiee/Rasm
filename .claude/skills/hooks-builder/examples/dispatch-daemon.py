@@ -28,7 +28,6 @@ import anyio
 from anyio.abc import SocketStream
 import msgspec
 
-
 SOCKET_ENV = "HOOK_DISPATCH_SOCKET"  # explicit socket path override; else derived per project below
 STATE_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_DATA") or os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
 PROTECTED = frozenset((".env", ".pem", ".key", "id_rsa", "id_ed25519", "credentials"))  # POLICY: basenames a write blocks

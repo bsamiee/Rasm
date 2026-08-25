@@ -20,7 +20,13 @@ from typing import override, TYPE_CHECKING, TypedDict
 import anyio
 from dirty_equals import IsInt, IsPartialDict, IsPositiveFloat
 from expression import Error, Ok
-from hypothesis import given, HealthCheck, settings as hyp_settings, strategies as st, target
+from hypothesis import (
+    given,
+    HealthCheck,
+    settings as hyp_settings,
+    strategies as st,
+    target,
+)
 from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine
 import msgspec
 from opentelemetry import trace
@@ -63,12 +69,30 @@ from assay.core.govern import (
     touched,
     WriteSink,
 )
-from assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool
+from assay.core.model import (
+    ArtifactKind,
+    Check,
+    Claim,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    RailStatus,
+    receipt,
+    Runner,
+    Tool,
+)
 from assay.core.routing import Routed, Scope
-from tests.python._testkit.spec import assert_error_status, assert_ok, model_based, monotone, roundtrip, support_matrix, validity_matrix
-
+from tests.python._testkit.spec import (
+    assert_error_status,
+    assert_ok,
+    model_based,
+    monotone,
+    roundtrip,
+    support_matrix,
+    validity_matrix,
+)
 from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness
-
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

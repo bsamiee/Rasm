@@ -51,8 +51,14 @@ from assay.core.model import (
     ToolArgs,
 )
 from assay.core.routing import parse_csproj, Routed, Scope
-from assay.diagnostics import Capture, CAPTURE_ENCODER, CAPTURES, node_text, ts_language, ts_query
-
+from assay.diagnostics import (
+    Capture,
+    CAPTURE_ENCODER,
+    CAPTURES,
+    node_text,
+    ts_language,
+    ts_query,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable

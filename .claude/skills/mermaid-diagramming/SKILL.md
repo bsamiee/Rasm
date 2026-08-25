@@ -46,13 +46,11 @@ Select the archetype by intent, copy its template, and refill — a catalog temp
 |  [06]   | [SCHEMA](templates/schema.mmd.md)               | persistent entity relations | `erDiagram`         | split by aggregate root          |
 |  [07]   | [STRATA](templates/strata.mmd.md)               | layer dependency direction  | `flowchart TB`      | collapse peer layers             |
 |  [08]   | [SCHEDULE](templates/schedule.mmd.md)           | dated committed work        | `gantt`             | split by phase                   |
-|  [09]   | [BOARD](templates/board.mmd.md)                 | stage-held work now         | `kanban`            | split by workflow segment        |
-|  [10]   | [HISTORY](templates/history.mmd.md)             | branch and merge truth      | `gitGraph LR:`      | split by release train           |
-|  [11]   | [TOPOLOGY](templates/topology.mmd.md)           | deployables and reach       | `architecture-beta` | split by zone                    |
-|  [12]   | [LANDSCAPE](templates/landscape.mmd.md)         | one-zoom system landscape   | `C4Context`         | re-declare at the next zoom      |
-|  [13]   | [EVENT_FLOW](templates/event-flow.mmd.md)       | command-event causality     | `eventmodeling`     | split by stream                  |
-|  [14]   | [PROFILE](templates/profile.mmd.md)             | two-subject capability map  | `radar-beta`        | one comparison per fence         |
-|  [15]   | [DECOMPOSITION](templates/decomposition.mmd.md) | weighted whole-to-part      | `treemap-beta`      | aggregate the tail               |
+|  [09]   | [HISTORY](templates/history.mmd.md)             | branch and merge truth      | `gitGraph LR:`      | split by release train           |
+|  [10]   | [TOPOLOGY](templates/topology.mmd.md)           | deployables and reach       | `architecture-beta` | split by zone                    |
+|  [11]   | [LANDSCAPE](templates/landscape.mmd.md)         | one-zoom system landscape   | `C4Context`         | re-declare at the next zoom      |
+|  [12]   | [EVENT_FLOW](templates/event-flow.mmd.md)       | command-event causality     | `eventmodeling`     | split by stream                  |
+|  [13]   | [PROFILE](templates/profile.mmd.md)             | two-subject capability map  | `radar-beta`        | one comparison per fence         |
 
 ## [04]-[VALIDATE]
 

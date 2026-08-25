@@ -24,15 +24,36 @@ import psutil
 import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
-from assay.automation.model import Debounce, describe, Edge, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
+from assay.automation.model import (
+    Debounce,
+    describe,
+    Edge,
+    Manual,
+    Program,
+    Rail,
+    Schedule,
+    Sequence,
+    Watch,
+    WatchFilter,
+)
 from assay.composition.catalog import select
 from assay.composition.registry import rail, REGISTRY
 from assay.composition.store import ArtifactScope
 from assay.core.exec import EngineExecutor
-from assay.core.model import Check, Claim, Counts, Envelope, envelope, Fault, Language, RailStatus, Report, ToolArgs
+from assay.core.model import (
+    Check,
+    Claim,
+    Counts,
+    Envelope,
+    envelope,
+    Fault,
+    Language,
+    RailStatus,
+    Report,
+    ToolArgs,
+)
 from assay.core.routing import Routed, Scope
 from assay.diagnostics import fold
-
 
 if TYPE_CHECKING:
     from typing import Protocol

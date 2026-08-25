@@ -1,6 +1,6 @@
 # [CAMPAIGN_METHOD]
 
-One planning loop drives the three peer branches — `libs/dotnet`, `libs/python`, `libs/typescript` — to a decision-complete, implementation-ready bar: one method, three language doctrines, aligned never coupled, run through workflows.
+One planning loop drives the three peer branches — `libs/dotnet`, `libs/python`, `libs/typescript` — to a decision-complete, implementation-ready bar: one method, three language doctrines, aligned never coupled.
 
 `CLAUDE.md` `[DOC_TOPOLOGY]` routes every durable question to its owning surface; a campaign resolves each owner there rather than carrying its own routing table.
 
@@ -8,9 +8,7 @@ One planning loop drives the three peer branches — `libs/dotnet`, `libs/python
 
 PLANNING does ALL discovery — research, package mining, ideation, gap-hunt — and authors a decision-complete design corpus in which every owner is a transcription-complete CODE FENCE. To "implement" or "realize" is to author or deepen a code FENCE — the markdown fenced block inside a design page that IS the work product — with the manifest, `.api`, and tooling work realization requires. Planning-item measure is the diff to its fence, never the prose framing it.
 
-Operating surface is the `.planning/` design corpus with its per-tier index docs — `README.md`, `ARCHITECTURE.md`, `RULINGS.md`, `IDEAS.md`, `TASKLOG.md` — the per-folder `.api/` catalogues, the central manifests, and the Nix toolchain; a source file or source tree never lands, and `docs/laws/` absorbs the pass's cross-cutting lessons whether pre-determined or surfaced post-implementation.
-
-Tasks and ideas target a design page, a fence, a package or tooling admission, or an architecture/doc refinement; one naming source-file creation is out of scope and removed. Implementation-readiness is one test: once plan mode exits and writing begins, workflow agents need ZERO external lookups — the work and its integration points already sit on the page or its `.api` catalogue.
+Operating surface is the `.planning/` design corpus with its per-tier index docs — `README.md`, `ARCHITECTURE.md`, `RULINGS.md` — the per-folder `.api/` catalogues, the central manifests, and the Nix toolchain; a source file or source tree never lands.
 
 ## [02]-[THE_BAR]
 
@@ -23,13 +21,13 @@ Every planning target clears the lib-grade foundation bar, never app scaffolding
 
 ## [03]-[WORKFLOW_ORCHESTRATION]
 
-Every substantive pass runs as workflows, never one-off agents, fanned out across three altitudes and refined at each. Five adversarial stages carry it — DISCOVERY grounds the pass, CRITIQUE and RED-TEAM attack the work, VERIFY proves and improves it to the root, and INTEGRATE re-attacks the landed whole once the campaign's last landing settles.
+Every substantive pass fans out across three altitudes and refines at each. Five adversarial stages carry it — DISCOVERY grounds the pass, CRITIQUE and RED-TEAM attack the work, VERIFY proves and improves it to the root, and INTEGRATE re-attacks the landed whole once the campaign's last landing settles.
 
 DISCOVERY grounds every downstream stage as read-only reconnaissance, its one concession. It full-reads every targeted page and its folder, enumerates both `.api` tiers and the doctrine inventory from a source-of-truth listing, and resolves scope against disk. Its map carries per-page composed and underused capability with verified members, contextual seams, stacking guidance, and a hostile weak/strong call, never a verdict, phantom, or guess. Downstream stages re-read and exceed the map; it never licenses a skim.
 
 CRITIQUE and RED-TEAM hold writer authority over their assigned planning territory. Each derives its verdict from current disk before prior claims; earlier reports provide navigation and refutation targets, never authority. Scope rows bound first look, while live concurrent ownership alone defers an otherwise in-scope repair.
 
-New-owner or scope-expansion findings land as complete cards at the narrowest tier, and unreachable facts stay `[RESEARCH]` rows. Review returns an applied-fix receipt carrying each finding's exact disposition. Clean verdicts require the full named attack to find no violation, so writer authority never forces churn.
+Unreachable facts stay `[RESEARCH]` rows. Review returns an applied-fix receipt carrying each finding's exact disposition. Clean verdicts require the full named attack to find no violation, so writer authority never forces churn.
 
 CRITIQUE agents WRITE every proven repair in place; their reads and notes serve a predicate-positive doctrinal-conformance and capability-completeness audit. They enumerate the substrate and folder `.api/` tiers in full, stack every applicable capability into its strongest owning fence, and require every applicable doctrine and promised capability to hold.
 
@@ -46,7 +44,7 @@ RED-TEAM agents WRITE every proven rebuild in place; their reads and notes serve
 - Long tail: runtime edge states and failure modes preserve the declared rails, parameterization, and boundaries.
 - Composition: RED-TEAM re-derives package choice, lower-stratum ownership, policy resolution, routing, lifecycle, and caller orchestration.
 - Integrity: RED-TEAM repairs downward dependency, duplicated ownership, host leakage, sibling-interior coupling, sprawl, and phantoms at every end.
-- Generative consequence: existing owner grammars absorb admitted capability, while new owner families land as complete cards.
+- Generative consequence: existing owner grammars absorb admitted capability.
 - Cold close: RED-TEAM re-judges every CRITIQUE dimension against the rebuilt result before verdict.
 
 VERIFY agents WRITE the improvement their proof exposes; adversarial never confirming, they re-derive whether the claimed work was necessary, prove on disk that it landed, then improve the solution to the ROOT — a single-point patch is itself the defect VERIFY repairs wherever a dense reconstruction of the same files is available.
@@ -61,7 +59,7 @@ INTEGRATE holds writer authority over the whole touched corpus, never the closin
 - Collapse: repeated construction folds into its algebraic owner; twins minted by concurrent legs merge at the narrowest owner.
 - Folder strata: each touched folder re-integrates its interior strata, re-routing every landing that bypassed a folder-local owner.
 - Branch strata: each folder re-derives what lower strata now supply, wiring landed substrate over every local approximation above it.
-- Unlocks: capability a landing freed but never wired, the unbound port or consumer-less row, wires here or lands as a complete card at its owner.
+- Unlocks: capability a landing freed but never wired, the unbound port or consumer-less row, wires here.
 - Cold close: INTEGRATE re-judges every VERIFY dimension against the integrated result before the campaign's verdict.
 
 Every agent, the main agent included and every critique or red-team role alike, follows the standards below:
@@ -70,16 +68,13 @@ Every agent, the main agent included and every critique or red-team role alike, 
 - APPROACH naivety — hardcoded enumerated instances where a parameterized algorithmic owner generates the space.
 - AUTHORITY naivety — a selected profile, provider mechanism, historical receipt, observed state, or external package treated as the semantic owner.
 - Claims land proved on a live rail: installed-tree reflection, throwaway harness apps, provisioned-host probes, whichever rail reaches the fact.
-- Blockers, research rows, and cards chase to full realization on the whole tool estate; a residual survives only on an observable no rail fires.
-- Ruling violations route as cards — IDEA at concept grain, TASK at landing grain — never inline workarounds.
+- Blockers and research rows chase to full realization on the whole tool estate; a residual survives only on an observable no rail fires.
 - Items formulated in isolation of their folder's ground-up code-doctrine integration are corrected or removed.
-- Cross-language ideas land at their right touchpoints the same turn; full ripple coverage and refactoring to the ENTIRE splash radius.
 - Collapse freedom: every enumerated collapse-signal list in a workflow prompt is a floor, never the complete set.
 - Audit tasks cover manifest and README registries against disk, missing `.api/` catalogues, stronger packages, and per-language tooling gaps.
 - Catalog-alignment law: a `.api/` catalogue never redirects — a folder-tier file that points at or duplicates a substrate-tier catalogue is deleted.
 - Every stage reads the owning folder, branch, cross-`libs/`, and touched `tests/` registries before re-deciding a settled question.
-- Card markers follow the file's own template comment.
-- Law lives in the ruling row; reviewer stages either repair a dossier finding at its existing owner or mint a card at the narrowest new owner.
+- Law lives in the ruling row; reviewer stages repair a dossier finding at its existing owner.
 - Model policy assigns by veracity need: exploration, decompile reads, currency dossiers, and throwaway-harness authoring ride lighter lanes.
 - Every authoring, red-team, merge, alignment, cross-cutting, and ideation lane rides the capable model.
 
@@ -87,10 +82,8 @@ Every agent, the main agent included and every critique or red-team role alike, 
 
 Every campaign gives each branch its own concurrent allocation, additive never subtractive, never effort diverted from a sibling; branch peer-status and owner-set re-derivation are `ARCHITECTURE.md`'s.
 
-Each branch runs its own aggressive ideation into its tiered `IDEAS.md`/`TASKLOG.md`, reading the sibling corpora for cross-pollination; the cross-language concert lands in the cross-`libs/` pool. Branch roles and the contract seams bounding this cross-pollination are `ARCHITECTURE.md`.
-
 ## [05]-[PLAN_MODE_DISCIPLINE]
 
-Plan mode exits only when every gate, fence, page, sub-domain, admission, catalogue, manifest edit, and refinement the campaign touches is decision-complete — no residual research deferred to an execution turn, no finding, idea, gap, or suggestion truncated or tossed. Each finding lands at its right tier and target; a finding without a home is a defect, not a discard.
+Plan mode exits only when every gate, fence, page, sub-domain, admission, catalogue, manifest edit, and refinement the campaign touches is decision-complete — no residual research deferred to an execution turn, no finding, gap, or suggestion truncated or tossed. Each finding lands at its right tier and target; a finding without a home is a defect, not a discard.
 
 Every addition is critiqued and red-teamed as it lands, and the whole plan and corpus are critiqued and red-teamed as one body before the plan finalizes.

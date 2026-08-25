@@ -15,7 +15,16 @@ import pytest
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.govern import exclusive_lease
-from assay.core.model import ArtifactKind, Band, Claim, Fault, Mode, PackageRun, RailStatus, receipt
+from assay.core.model import (
+    ArtifactKind,
+    Band,
+    Claim,
+    Fault,
+    Mode,
+    PackageRun,
+    RailStatus,
+    receipt,
+)
 from assay.core.routing import parse_csproj
 import assay.core.transaction as transaction_mod
 from assay.diagnostics import fold
@@ -38,9 +47,13 @@ from assay.rails.package import (
     YakMeta,
 )
 from tests.python._testkit.laws import spec
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, assert_roundtrip
+from tests.python._testkit.spec import (
+    assert_error,
+    assert_error_status,
+    assert_ok,
+    assert_roundtrip,
+)
 from tests.python.tools.assay.kit import SeamExecutor, YakShape
-
 
 if TYPE_CHECKING:
     import builtins

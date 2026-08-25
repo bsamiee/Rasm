@@ -16,7 +16,6 @@ from typing import Annotated, ClassVar, Literal, Self
 from cyclopts import Parameter
 import msgspec
 
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 

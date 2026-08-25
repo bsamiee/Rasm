@@ -6,7 +6,7 @@
         },
         {
             "path": "AGENTS.md",
-            "description": "Agent load order and engineering contract: planning-state scope, design-doc completeness bar, .api/ obligations, monorepo topology frame"
+            "description": "Agent load order and engineering rules: planning-state scope, design-doc completeness bar, .api/ obligations, monorepo topology frame"
         },
         {
             "path": "README.md",
@@ -19,63 +19,8 @@
         },
         {
             "path": "libs/.planning/ARCHITECTURE.md",
-            "description": "Tier-0 topology law: the stratification law every branch answers, contract classes, observability conformance anchors, the consumption-axis roster deployment shape rides",
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "libs/contracts/**", "libs/contracts/.api/**", "docs/laws/**"]
-        },
-        {
-            "path": "libs/contracts/manifest.json",
-            "description": "Cross-language atomic-case registry: exact definition, authority, actors, readiness, oracle, and frozen evidence",
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "tests/**"]
-        },
-        {
-            "path": "libs/contracts/ARCHITECTURE.md",
-            "description": "Contracts-estate topology law: strata, seams, and the [07]-[REGISTRY] authority-class vocabulary every atomic case declares against",
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**", "libs/contracts/**", "libs/contracts/.api/**", "tests/**"]
-        },
-        {
-            "path": "libs/contracts/RULINGS.md",
-            "description": "Contracts-estate decision registry: settled re-litigation guards for the cross-language contracts estate",
-            "scope": ["libs/contracts/**", "libs/contracts/.api/**"]
-        },
-        {
-            "path": "docs/laws/topology.md",
-            "description": "Coupling table a consumer walks and resolves live: which surface obligates which counterparts in one change, self-contained rows plus conditioned cards",
-            "scope": ["libs/**", "docs/**", "tests/**", "tools/**", ".claude/**", ".coderabbit.yaml", ".greptile/**", ".macroscope/**"]
-        },
-        {
-            "path": "docs/laws/scars.md",
-            "description": "Regression-proven law with no other owner: each scar states the standing law and the falsifiable failure mode its trigger forecloses",
-            "scope": ["libs/**", "docs/**", "tests/**", "tools/**", ".claude/**"]
-        },
-        {
-            "path": "docs/laws/patterns.md",
-            "description": "Cross-branch pattern law: content identity, admission, and rail shapes binding two or more language branches at once",
-            "scope": ["libs/**", "docs/**", "tests/**", "tools/**"]
-        },
-        {
-            "path": "docs/glossary/README.md",
-            "description": "Glossary corpus router: the entry schema, the [NOT] earn rule, the polysemy refusal law, and the band-admission ladder",
-            "scope": ["**/*.md"]
-        },
-        {
-            "path": "docs/glossary/estate.md",
-            "description": "Binding sense of the structural vocabulary: ownership tiers and units, dependency rank and concern planes, boundary kinds, corpus surfaces, pass verbs, and the words refused bare",
-            "scope": ["**/*.md"]
-        },
-        {
-            "path": "docs/glossary/patterns.md",
-            "description": "Binding sense of the shape vocabulary: code shapes and boundary roles, the algebraic properties a merge claims, replicated-state and logical-time protocols, durable history, and derived views",
-            "scope": ["**/*.md"]
-        },
-        {
-            "path": "docs/glossary/platform.md",
-            "description": "Binding sense of the substrate vocabulary: the telemetry model, its transport and backends, engine classes, schema change, replication, columnar storage, and the execution substrate",
-            "scope": ["**/*.md"]
-        },
-        {
-            "path": "docs/glossary/domain.md",
-            "description": "Binding sense of the discipline vocabulary: the building model, fabrication, drawing, geometry, geospatial reference, and building physics",
-            "scope": ["libs/**", "docs/**"]
+            "description": "Tier-0 topology law: the stratification law every branch answers, authority classes, observability conformance anchors, the consumption-axis roster deployment shape rides",
+            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**", "libs/**/.api/**"]
         },
         {
             "path": ".claude/skills/docgen/references/defects.md",

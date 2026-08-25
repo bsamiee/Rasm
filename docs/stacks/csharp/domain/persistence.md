@@ -362,8 +362,8 @@ public static class FactRail {
 - Law: `LinqToDBForEFTools.Initialize()` once at composition activates the bridge, `ToLinqToDB()` deepens any rail queryable inside the same model and connection, the bridge connection enlists in `Database.CurrentTransaction` by default with `CreateLinqToDBConnectionDetached` as the explicit opt-out signature, and a bridged queryable materializes through the bare linq2db `ToListAsync`/`ToArrayAsync` while the unbridged EF queryable disambiguates through `ToListAsyncEF`/`ToArrayAsyncEF` — the `*EF` suffix names the EF lane where both surfaces import into one file; the bridge is a lane of the one rail, never a second public query surface.
 - Law: the setter builder is statement-bodied by API shape — a plain `if` adds a setter, deleting expression-tree surgery — setters reach inside document columns, and zero-affected where the predicate proved rows is a typed concurrency signal folded, never discarded.
 - Law: merge clauses evaluate in declaration order — order is semantics, and a delete declared before an update deletes what the update would have claimed; `Using` admits client batches without staging, the by-source rows close two-sided reconciliation in one statement, and `MergeWithOutput`/`MergeWithOutputInto` land the action discriminant plus before and after images from the statement that caused them, zero roundtrips.
-- Law: `BulkCopyAsync` receipts `RowsCopied` with `Abort` as the mid-stream rollback lever; `KeepIdentity` is mandatory under the time-ordered identity row or the store re-mints and admission identity is lost, `ConflictAction.Ignore` is doubly gated — `MultipleRows` plus an engine that spells it — and pairs with a rows-versus-source reconciliation receipt or losses are invisible, and `MaxDegreeOfParallelism` consumes the suite budget, never an independent pool.
-- Law: every bulk composition renders without executing — `ToSqlQuery` returns the statement as a value, the audit receipt and dry-run spelling for gated destructive lanes.
+- Law: `BulkCopyAsync` returns `RowsCopied` with `Abort` as the mid-stream rollback lever; `KeepIdentity` is mandatory under the time-ordered identity row or the store re-mints and admission identity is lost, `ConflictAction.Ignore` is doubly gated — `MultipleRows` plus an engine that spells it — and pairs with rows-versus-source reconciliation or losses are invisible, and `MaxDegreeOfParallelism` consumes the suite budget, never an independent pool.
+- Law: every bulk composition renders without executing — `ToSqlQuery` returns the statement as the audit and dry-run value for gated destructive lanes.
 - Exemption: the transaction bracket and the bridge lease are the platform-forced statement seam.
 
 ```csharp conceptual
@@ -391,12 +391,12 @@ public static class WriteMass {
         ArgumentNullException.ThrowIfNull(store);
         return await Op.Of().Catch(async ct => {
             using var bridge = store.CreateLinqToDBConnection();
-            var receipt = await bridge.GetTable<Fact>()
+            var copy = await bridge.GetTable<Fact>()
                 .BulkCopyAsync(new BulkCopyOptions { BulkCopyType = BulkCopyType.MultipleRows, KeepIdentity = true }, rows, ct)
                 .ConfigureAwait(false);
-            return (int)receipt.RowsCopied == rows.Count
+            return (int)copy.RowsCopied == rows.Count
                 ? Fin.Succ(new MassFact("<lane-b>", rows.Count, rows.Map(static f => f.Key)))
-                : Fin.Fail<MassFact>(Error.New(8243, $"<lost:{rows.Count - (int)receipt.RowsCopied}>"));
+                : Fin.Fail<MassFact>(Error.New(8243, $"<lost:{rows.Count - (int)copy.RowsCopied}>"));
         }, token).ConfigureAwait(false);
     }
 

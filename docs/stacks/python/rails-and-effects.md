@@ -1,6 +1,6 @@
 # [PYTHON_RAILS_AND_EFFECTS]
 
-This page is the carrier algebra. `expression` owns the result and absence carriers, the do-notation builders, the `pipe`/`compose` composition surface, and immutable traversal; this page legislates which carrier states an outcome, how a boundary mints it, how reusable transforms thread it, how a collection sequences it, how a fault vocabulary combines, where the carrier collapses, and how state and receipts carry evidence. A carrier is itself the sequencing algebra — `Option` and `Result` short-circuit, the accumulating fold combines — never a flag the body re-reads. It is chosen once at admission and threaded unchanged: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value or a raised exception happens only at the process, CLI, network, or persistence edge. Interior flow is total over admitted carriers — raw provider shapes, `None`-as-failure, unclassified exceptions, and cancellation never travel it.
+This page is the carrier algebra. `expression` owns the result and absence carriers, the do-notation builders, the `pipe`/`compose` composition surface, and immutable traversal; this page legislates which carrier states an outcome, how a boundary mints it, how reusable transforms thread it, how a collection sequences it, how a fault vocabulary combines, where the carrier collapses, and how state and results carry evidence. A carrier is itself the sequencing algebra — `Option` and `Result` short-circuit, the accumulating fold combines — never a flag the body re-reads. It is chosen once at admission and threaded unchanged: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value or a raised exception happens only at the process, CLI, network, or persistence edge. Interior flow is total over admitted carriers — raw provider shapes, `None`-as-failure, unclassified exceptions, and cancellation never travel it.
 
 Four siblings own the surfaces this algebra composes as settled material. `concurrency.md` owns the runtime that raises a deadline, a group fault, or a cancellation; the definition-time aspect weave that stacks retry and type guarding over a pure core is `surfaces-and-dispatch.md`'s; the serialized many-producer state cell is `boundaries.md`'s; the closed-family ADT mechanics are `shapes.md`'s. This page composes each to state only which raise crosses into the fault vocabulary and which carrier transports the step.
 
@@ -183,7 +183,7 @@ Every failure type is a closed vocabulary the program owns, and the carrier real
 [VOCABULARY_SHAPE]:
 - Law: the failure type is a closed family — a `Literal` set for a handful of causes, a `StrEnum` when the causes are iterated or wire-carried, a `@tagged_union` fault family when a cause carries a structured payload — chosen by `shapes.md`'s owner discriminants and admitted through its two-tier `of_*` constructor, so the interior never hand-builds a malformed fault; this card spends its lines on the one thing the shape alone does not decide, which disposition the carrier realizes.
 - Law: the disposition is the correctness decision this page owns, orthogonal to whether the operands are independent or dependent: independent operands compose applicatively and the disposition is a free choice the carrier realizes — `Result.map2`/`Option.starmap` over a fixed arity and `traverse`/`sequence` over a batch both abort on the first fault, while the partitioning fold combines every one — whereas dependent operands are abort-only, because a `bind` chain's later step consumes the earlier value and has nothing left to accumulate against. A deadline, a cancelled scope, or a task-group fault enters as one more case in the family, the scope that raised it owned by the concurrency page; the disposition rides as the surfaces page's policy value, never a `strict: bool` the body re-derives.
-- Law: the accumulating disposition is only realizable when the fault type carries a combination law — `Fault.combined` is an associative monoid whose `aggregate` case holds the typed members and whose `_members` normalization flattens nested aggregates so `Block.reduce(Fault.combined)` closes the casualty set keeping each member structurally addressable instead of message-collapsed; this monoid is the fault-side instance of the same combination law a receipt carries in `[05]`, and a fault family without it can only abort.
+- Law: the accumulating disposition is only realizable when the fault type carries a combination law — `Fault.combined` is an associative monoid whose `aggregate` case holds the typed members and whose `_members` normalization flattens nested aggregates so `Block.reduce(Fault.combined)` closes the casualty set keeping each member structurally addressable instead of message-collapsed; this monoid is the fault-side instance of the same combination law a result carries in `[05]`, and a fault family without it can only abort.
 - Law: a fault is migrated through the same combinators as the success half — `map_error` re-spells the category later without losing the `of_detail` provider message it carries, `to_result_with` supplies the fault as a zero-argument thunk paid only on the absent branch, and recovery keys on the case or code the fault still carries, never the re-spelled message.
 - Law: every case in the family has a minting seam in its owning surface — a fact the runtime already classifies (a worker death, a type-hint violation) weaves the runtime's own conversion instead of minting a local case no seam reaches, and a case nothing mints is deleted, not diagrammed.
 - Reject: `Exception` subclasses as the interior fault type; a bare `str` fault for a multi-cause domain; `None` standing in for failure; recovery by `==` over a message; an aggregate that joins members into one string and erases their codes; a disposition re-derived from a flag the policy value already carries.
@@ -247,71 +247,11 @@ def respelled(outcome: Result[int, Fault], /) -> Result[int, Fault]:
     return outcome.map_error(lambda fault: Fault(detail=("<recovered>", fault.detail[1])) if fault.tag == "detail" else fault)
 ```
 
-## [05]-[STATE_RECEIPTS]
+## [05]-[STATE_AND_FACTS]
 
-State belongs at a boundary or session owner, and producer count alone selects its carrier: a single producer threads the frozen owner immutably, each step returning the next owner with no cell and no contention, while a many-producer cell is the boundary owner's serialized agent whose drain, token, apply, and reply mechanics that page owns. A typed receipt carries evidence; a fact stream carries chronology; neither collapses into a generic ledger.
+State belongs at a boundary or session owner, and producer count alone selects its carrier: a single producer threads the frozen owner immutably, each step returning the next owner with no cell and no contention, while a many-producer cell is the boundary owner's serialized agent whose drain, token, apply, and reply mechanics that page owns. A domain result carries evidence; a fact stream carries chronology; neither collapses into a generic ledger.
 
-[RECEIPTS]:
-- Law: the split is capability — a fact stream answers what happened and when, a typed receipt answers how this computation resolved — and it is the page's region because no upstream owner carries chronology-versus-evidence; one `@tagged_union` fact owner makes resolve, supersede, retire, and fault its cases over the settled exhaustiveness mechanic `shapes.md` owns, the slot a derived projection and the payload each case's own evidence, so parallel record types synced by hand never appear.
-- Law: keep a typed receipt — a frozen owner whose fields carry solver, sampling, route, status, metric, or proof evidence — when the fields are evidence; projection by kind, group-by-slot-last-wins, and full chronology are pure folds over the one fact stream, and a receipt combines through the same monoidal `combined` law the fault carries in `[04]` — `Receipt.combined` is its evidence-side instance — never a generic accumulator.
-- Reject: parallel `added`/`updated`/`removed` lists kept in sync; a `Literal` tag beside a `Receipt | str` payload where the case family carries the evidence; a generic `dict[str, object]` receipt erasing the typed fields; payload bytes carried on a receipt where a hash suffices.
-
-```python conceptual
-from dataclasses import dataclass
-from typing import Literal, assert_never
-
-from expression import Nothing, Option, Some, case, tag, tagged_union
-from expression.collections import Block, Map
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Receipt:
-    route: str
-    samples: int
-    residual: float
-
-    @staticmethod
-    def combined(left: "Receipt", right: "Receipt", /) -> "Receipt":
-        return Receipt(route=right.route, samples=left.samples + right.samples, residual=min(left.residual, right.residual))
-
-
-@tagged_union(frozen=True)
-class Fact:
-    tag: Literal["resolved", "superseded", "retired", "faulted"] = tag()
-    resolved: tuple[str, Receipt] = case()
-    superseded: tuple[str, Receipt] = case()
-    retired: str = case()
-    faulted: tuple[str, str] = case()
-
-    @property
-    def slot(self) -> str:
-        match self:
-            case Fact(tag="resolved", resolved=(key, _)) | Fact(tag="superseded", superseded=(key, _)) | Fact(tag="faulted", faulted=(key, _)):
-                return key
-            case Fact(tag="retired", retired=key):
-                return key
-            case unreachable:
-                assert_never(unreachable)
-
-    @property
-    def evidence(self) -> Option[Receipt]:
-        match self:
-            case Fact(tag="resolved", resolved=(_, receipt)) | Fact(tag="superseded", superseded=(_, receipt)):
-                return Some(receipt)
-            case Fact(tag="retired") | Fact(tag="faulted"):
-                return Nothing
-            case unreachable:
-                assert_never(unreachable)
-
-
-def collapsed(facts: Block[Fact], /) -> Option[Receipt]:
-    return Nothing if (witnessed := facts.choose(lambda fact: fact.evidence)).is_empty() else Some(witnessed.reduce(Receipt.combined))
-
-
-def latest_per_slot(facts: Block[Fact], /) -> Map[str, Fact]:
-    return facts.fold(lambda acc, fact: acc.add(fact.slot, fact), Map.empty())
-
-
-def faults_in_order(facts: Block[Fact], /) -> Block[tuple[str, str]]:
-    return facts.choose(lambda fact: Some(fact.faulted) if fact.tag == "faulted" else Nothing)
-```
+[DOMAIN_RESULTS]:
+- Law: the computation returns its actual domain value through `Result`; evidence the caller needs is part of that value. Chronology is a domain `Fact` union on the owning stream, not a second metadata carrier.
+- Law: projection by kind, group-by-slot-last-wins, and chronology are ordinary folds over the fact stream. A function with no domain value returns `None` in the success channel.
+- Reject: a generic result protocol, caller-filled evidence mappings, or parallel `added`/`updated`/`removed` collections.

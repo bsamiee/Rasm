@@ -24,7 +24,10 @@ import msgspec
 import pytest
 
 from tests.python._testkit import laws as laws_mod
-from tests.python._testkit.bench import _series_from_storage, pytest_benchmark_update_json
+from tests.python._testkit.bench import (
+    _series_from_storage,
+    pytest_benchmark_update_json,
+)
 from tests.python._testkit.laws import (
     assert_law_coverage,
     auto_exempt,
@@ -37,9 +40,13 @@ from tests.python._testkit.laws import (
     Sut,
     uncollected_laws,
 )
-from tests.python._testkit.runtime import PROFILE_DEFAULT, PROFILE_MUTATION, PROFILE_STATEFUL, REPO_ROOT
+from tests.python._testkit.runtime import (
+    PROFILE_DEFAULT,
+    PROFILE_MUTATION,
+    PROFILE_STATEFUL,
+    REPO_ROOT,
+)
 from tests.python._testkit.spec import support_matrix
-
 
 if TYPE_CHECKING:
     from unittest.mock import Mock

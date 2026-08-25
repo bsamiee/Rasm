@@ -103,7 +103,6 @@
 ## [04]-[STRUCTURE]
 
 - `region-map/` dirs and `api-catalogues.md` do NOT re-enter — the folder `ARCHITECTURE.md` codemap and the two-tier `.api/` catalogs own that truth.
-- Per-folder `FEATURES.md` and `existing-work.md` do NOT re-enter — the README router and `TASKLOG.md` own file navigation and work state.
 - Per-folder `[OWNER_REGISTRY]` and `[DEPENDENCY_DIRECTION]` ledgers do NOT re-enter — the branch `ARCHITECTURE.md` states dependency direction once.
 - Standalone seam ledgers do NOT re-enter — the folder `ARCHITECTURE.md` `[03]-[SEAMS]` is the one seam record, mirrored at both endpoints.
 - SPIKE owner-state tracking does NOT re-enter — a SPIKE marker rides its design page beside the deterministic floor, never a state registry.
@@ -113,12 +112,7 @@
 - Python and TypeScript packages carry FLAT layouts — the importable directory at project root and entries at package root, a `src/` level refusing.
 - Import-shadow risk repairs at the `sys.path` entry, never by nesting — a `src/` level buys isolation that entry already decides.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.
-- Observability backends stand per DEPLOYMENT — one branch serves unrelated app roots, so a placement card re-litigates the platform/product split.
 
 ## [05]-[PROCESS]
 
-- Refuted `[COMPLETE]` cards delete and re-author as a new open card under a new slug with all four fields — no re-open mechanic exists at any tier.
-- `[BLOCKED]` is the TERMINAL hold naming a live upstream blocker beside its arms and route — a corpus at zero open work still carries it.
-- Holds close by re-running their own route — deleting one discards the probe that reverses it, and the next pass re-derives the blocker.
-- Blockers an in-pass probe clears were never holds — the card re-marks `[QUEUED]` and lands in that same pass.
 - Registered member rosters claim what their fences must honor — zero call sites repairs to a consumer or a recorded negative, never removal.

@@ -23,7 +23,6 @@ from time import time_ns
 import httpx
 import msgspec
 
-
 SINK_URL = os.environ.get("HOOK_SINK_URL", "http://127.0.0.1:4000/events")  # POLICY: the collector; a dead one never gates
 BRAND = os.environ.get("HOOK_PROVIDER", "claude")  # source tag so a dual-provider fleet's events self-identify their origin
 NAMESPACE = "com.parametric-forge"  # reverse-DNS root for the CloudEvents type

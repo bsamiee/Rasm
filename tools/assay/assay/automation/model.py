@@ -11,7 +11,6 @@ from msgspec import json, Meta, Raw
 
 from assay.core.model import Base, Claim
 
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 

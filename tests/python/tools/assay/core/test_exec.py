@@ -19,15 +19,40 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 import pytest
 
 import assay.core.exec as exec_mod
-from assay.core.exec import argv_for, EngineExecutor, Executor, fan_out, retry_predicate, run_check, run_check_async, splice_command
+from assay.core.exec import (
+    argv_for,
+    EngineExecutor,
+    Executor,
+    fan_out,
+    retry_predicate,
+    run_check,
+    run_check_async,
+    splice_command,
+)
 import assay.core.govern as govern_mod
 from assay.core.govern import fan_schedule, remaining, reset_foreign_census
-from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Stage, Tool, ToolGroup
+from assay.core.model import (
+    Check,
+    Claim,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    RailStatus,
+    receipt,
+    Runner,
+    Stage,
+    Tool,
+    ToolGroup,
+)
 from assay.core.routing import discover, discover_async, Routed, Scope
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, validity_matrix
-
+from tests.python._testkit.spec import (
+    assert_error,
+    assert_error_status,
+    assert_ok,
+    validity_matrix,
+)
 from tests.python.tools.assay.kit import AssayHarness
-
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping, Sequence

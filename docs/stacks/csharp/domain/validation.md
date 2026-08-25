@@ -48,7 +48,7 @@ This table routes a validation concern to its owning surface; the most specific 
 [VARIANTS_AND_SELECTORS]:
 - Law: `RuleSet` names a seam variant and removes its rules from plain `Validate` silently — the default selector runs only rules whose set list is empty or contains `default`; `RuleSet("a,b; c", ...)` publishes one block into several variants, matched `OrdinalIgnoreCase`.
 - Law: selector strategies compose as a union — properties plus rulesets widens, never narrows — and undotted `IncludeProperties` approves entire child validators; reaching into a child requires the dotted path.
-- Law: `RuleSetsExecuted` is the run receipt recording selection, not success — an executed name means its rules were eligible and ran, pass/fail lives only in the failures, and merged results union receipts distinct.
+- Law: `RuleSetsExecuted` is run metadata recording selection, not success — an executed name means its rules were eligible and ran, pass/fail lives only in the failures, and merged validation results union executed names distinctly.
 - Reject: partial-as-admission — selectors exist for per-field feedback and variant routing, and only the seam row's full declared run admits.
 
 ```csharp conceptual
@@ -114,7 +114,7 @@ public sealed class ShapeEditLaw : AbstractValidator<ShapeEdit> {
 - Law: exactly one assembly scan at the composition root with the `filter` predicate as the only exclusion — registration is dual and idempotent, one `TryAddEnumerable` interface row plus one `TryAdd` concrete row sharing one lifetime, so manual lines beside a scan are drift the dedup hides.
 - Law: a validator with no scoped constructor dependency registers singleton — the graph is immutable after construction and accessors compile once; the scoped default exists for injected scoped dependencies, not per-request state.
 - Law: one validator class per validated shape — the scanner takes the first closed `IValidator<>` interface, so a dual-shape validator registers under one interface by enumeration order; children enter parents by constructor injection plus `SetValidator`, and the DI graph mirrors the shape graph one-to-one.
-- Law: multi-module packs for one `T` resolve as `IEnumerable<IValidator<T>>` and merge through the result-combining constructor with distinct receipts; same-ownership packs prefer the `Include` spelling.
+- Law: multi-module packs for one `T` resolve as `IEnumerable<IValidator<T>>` and merge through the result-combining constructor with distinct executed-name metadata; same-ownership packs prefer the `Include` spelling.
 - Law: `ValidatorOptions.Global` is write-once at the composition root before any validator constructs — `PropertyNameResolver` and `DisplayNameResolver` run at `RuleFor` declaration time, so a late write has already missed every constructed rule, and the four selector factories swap partial-run policy system-wide at the same seat.
 
 ## [04]-[OUTCOME_PROJECTION]
@@ -192,13 +192,13 @@ public static class Bridge {
 - Law: triggers close at three — at-boot, per-message, per-batch; per-read and per-render are validate-on-read wearing a trigger's name.
 - Law: carrier is selected by row structure — independent facts accumulate on the applicative carrier, sequenced mounts abort on the fail-fast carrier, and mixed seams accumulate structure fully before aborting into the I/O-or-domain step — so the row's bridge target makes failure semantics readable without opening a validator; a dependent chain deeper than two steps inside an accumulating validator is a mount sequence wearing validation's clothes.
 - Law: per-field interactive runs and whole-shape admission are the same validator under different selectors — two rule graphs for one shape is the rejected form — and edit surfaces construct the same DTOs through the same fail-closed materialization; environmental leniency is a ruleset or severity variant on the one validator, never a swapped graph.
-- Law: egress has no row — interior totality makes outputs valid by construction, and an egress validator is a symptom report routed to the leaking constructor; per-record skip under bulk import is a receipted outcome on the rail, with admitted, skipped, and aborted counts as one batch value.
-- Law: the full declared run mints the admission record — seam identity, executed-variant receipt, override policy in force — so admission is a one-field query, and the record is an ordinary fact on the operational stream under telemetry governance.
+- Law: egress has no row — interior totality makes outputs valid by construction, and an egress validator is a symptom report routed to the leaking constructor; per-record skip under bulk import is a recorded outcome on the rail, with admitted, skipped, and aborted counts as one batch value.
+- Law: the full declared run mints the admission record — seam identity, executed variants, override policy in force — so admission is a one-field query, and the record is an ordinary fact on the operational stream under telemetry governance.
 
 [ARM_AND_OVERRIDE]:
 - Law: each seam owns one provider-exception arm where deserializer, binder, and transport throws become the same fault stream stage 2 feeds — malformed syntax, unknown member, and type mismatch are one vocabulary distinguished by code, and arm faults carry the seam identity, so which provider failed where is recoverable from the fault alone.
 - Law: the null-root `InvalidOperationException` and the sync-over-async throw are composition defects, never seam outcomes — converting them disguises a wiring bug as a data bug, and they fail fast at the seam's first exercise.
-- Law: a forced override re-runs the same graph under a policy that downgrades the gating tier to a recorded tier — identical failures still mint, still cross the bridge, and no longer block — and permission is a conjunction of the row's override column and the code band's eligibility, so neither a permissive seam nor a permissive code alone opens the gate.
+- Law: a forced override re-runs the same graph under a policy that downgrades the gating tier to a non-gating tier — identical failures still mint, still cross the bridge, and no longer block — and permission is a conjunction of the row's override column and the code band's eligibility, so neither a permissive seam nor a permissive code alone opens the gate.
 - Reject: skipping the validator under override, and post-hoc deletion of failures from an outcome — both are evidence tampering; the partition belongs to the projection, not the seam.
 - Exemption: the context-preparation kernel — strategy construction, the `RootContextData` policy write, and the run — is the platform-forced mutable-context seam.
 
@@ -221,7 +221,7 @@ public static class Seam {
     public static readonly Seq<SeamRow> Matrix =
         [new("<seam-edit>", typeof(ShapeEdit), new ShapeEditLaw(), Trigger.PerMessage, ["<variant-submit>"], OverrideOpen: false)];
 
-    public static Validation<Error, (Admitted<TShape> Shape, AdmissionRecord Receipt)> Admit<TShape>(Func<TShape> decode) where TShape : notnull =>
+    public static Validation<Error, (Admitted<TShape> Shape, AdmissionRecord Admission)> Admit<TShape>(Func<TShape> decode) where TShape : notnull =>
         Matrix.Find(row => row.Payload == typeof(TShape) && row.Owner.CanValidateInstancesOfType(typeof(TShape)))
             .ToValidation((Error)new Fault.Arm("<matrix>", $"<unguarded:{typeof(TShape).Name}>"))
             .Bind(row => Op.Of().Catch(() => Fin.Succ(decode())).ToValidation()

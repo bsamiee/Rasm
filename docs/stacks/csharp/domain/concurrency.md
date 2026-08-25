@@ -1,6 +1,6 @@
 # [CONCURRENCY]
 
-Throughput is one declared posture. Every producer in the process flows through a closed lane vocabulary — a channel row with declared capacity, full-mode backpressure, drop receipts, and a drain band — and every loss is receipted into one kind-tagged stream, so written = consumed + receipted loss closes from declarations alone with drop eviction and drain residue as kinds on that one stream; unreceipted loss is a rail rejection. One frozen budget record owns every degree, permit, capacity, and window and proves its own cross-axis inequalities at admission. Pacing is limiter policy rows whose verdicts carry typed evidence; identical concurrent intents collapse into one keyed flight; push streams admit only where time or combination algebra earns them and deliver through declared cadence edges; live collection state travels only as change-sets off two sources. Growth lands as rows: a new producer is a lane row, a new pacing class a limiter row, a new invalidation one resolution row, a rebalance one budget edit.
+Throughput is one declared posture. Every producer in the process flows through a closed lane vocabulary — a channel row with declared capacity, full-mode backpressure, drop losses, and a drain band — and every loss is recorded into one kind-tagged stream, so written = consumed + recorded loss closes from declarations alone with drop eviction and drain residue as kinds on that one stream; unaccounted loss is a rail rejection. One frozen budget record owns every degree, permit, capacity, and window and proves its own cross-axis inequalities at admission. Pacing is limiter policy rows whose verdicts carry typed evidence; identical concurrent intents collapse into one keyed flight; push streams admit only where time or combination algebra earns them and deliver through declared cadence edges; live collection state travels only as change-sets off two sources. Growth lands as rows: a new producer is a lane row, a new pacing class a limiter row, a new invalidation one resolution row, a rebalance one budget edit.
 
 ## [01]-[CONCURRENCY_CHOOSER]
 
@@ -18,14 +18,14 @@ This table routes a throughput concern to its owning surface; the most specific 
 |  [08]   | live collection state         | source + one change-set chain          | snapshot re-query               |
 |  [09]   | global invalidation           | one of five resolution rows            | per-consumer root subscriptions |
 |  [10]   | cross-process exclusivity     | heartbeat lease + staleness inequality | read-then-write claim           |
-|  [11]   | shutdown loss accounting      | two-phase participation + `DrainFact`  | unreceipted teardown            |
+|  [11]   | shutdown loss accounting      | two-phase participation + `DrainFact`  | unaccounted teardown            |
 
 ## [02]-[CHANNEL_LANES]
 
 [LANE_ROWS]:
 - Law: a lane is one `[SmartEnum<string>]` row whose wire key is the lane name and whose columns carry capacity, full-mode, prioritization, reader arity, continuation inlining, and drain band — one vocabulary per process, producers dispatch the polymorphic `Open<T>` on the row, and inline `BoundedChannelOptions` at a call site makes the backpressure decision unrecoverable from declarations and forfeits the `Items` inventory the conservation audit walks.
 - Law: six rows close the vocabulary; a producer fitting no row is a missing item, never a bespoke channel, and `LaneRow.Get(name)` admits an external lane selector through the one key seam.
-- Law: the loss column is `Option<LossClass>` set by full-mode at declaration — the three drop modes carry their class, `Wait` and the rendezvous row carry `None`, so a `Wait` lane never manufactures a refused-write receipt and `Open<T>` selects the callback-bearing `CreateBounded` overload only where a loss class exists.
+- Law: the loss column is `Option<LossClass>` set by full-mode at declaration — the three drop modes carry their class, `Wait` and the rendezvous row carry `None`, so a `Wait` lane never manufactures a refused-write loss record and `Open<T>` selects the callback-bearing `CreateBounded` overload only where a loss class exists.
 - Law: every bounded-lane operation serializes on one internal monitor, so the throughput ceiling is lock hand-off rate — a hot lane shards into budget-derived key-hash lanes, and widening capacity raises burst absorption, never throughput and never latency, because an empty-buffer write hands off directly to a parked reader.
 - Law: capacity 0 is the rendezvous row — no buffer exists, a write completes only when a read consumed it, and timing-dependent hand-off assertions become sequential ones.
 - Law: `SingleReader` on an unbounded lane selects the pooled single-consumer implementation and forfeits `Count` (`CanCount` is `false`); `SingleWriter` is consumed by nothing, and the prioritized row ignores both arity flags but reports `CanCount`/`CanPeek` true because its `PriorityQueue<bool,T>` backing is internally serialized regardless.
@@ -76,12 +76,12 @@ public sealed partial class LaneRow {
         _ => Option<LossClass>.None,
     };
 
-    public Channel<T> Open<T>(Atom<Seq<LaneLoss>> receipts) where T : notnull =>
+    public Channel<T> Open<T>(Atom<Seq<LaneLoss>> losses) where T : notnull =>
         (Prioritized, Capacity, Loss) switch {
             (true, _, _) => throw new InvalidOperationException($"<prioritized-row-needs-OpenRanked:{Key}>"),
             (_, { IsSome: true, Case: int cap }, { IsSome: true, Case: LossClass cls }) => Channel.CreateBounded<T>(
                 new BoundedChannelOptions(cap) { FullMode = Mode, SingleReader = Single, AllowSynchronousContinuations = Inline },
-                _ => ignore(receipts.Swap(f => f.Add(new LaneLoss(this, cls))))),
+                _ => ignore(losses.Swap(f => f.Add(new LaneLoss(this, cls))))),
             (_, { IsSome: true, Case: int cap }, _) => Channel.CreateBounded<T>(
                 new BoundedChannelOptions(cap) { FullMode = Mode, SingleReader = Single, AllowSynchronousContinuations = Inline }),
             _ => Channel.CreateUnbounded<T>(new UnboundedChannelOptions { SingleReader = Single }),
@@ -105,11 +105,11 @@ public static class Ranked {
 ```
 
 [LANE_EVIDENCE]:
-- Law: under the three drop modes `TryWrite` returns `true` on a live channel and `WaitToWriteAsync` is immediately `true` — drop modes structurally delete writer-side backpressure, so write success is not delivery evidence and the receipt is the only loss evidence; a drop lane without `itemDropped` is unreceipted loss.
+- Law: under the three drop modes `TryWrite` returns `true` on a live channel and `WaitToWriteAsync` is immediately `true` — drop modes structurally delete writer-side backpressure, so write success is not delivery evidence and the loss record is the only loss evidence; a drop lane without `itemDropped` is unaccounted loss.
 - Law: `DropNewest` evicts the newest buffered item, never the incoming one; the `itemDropped` callback runs synchronously on the writing thread outside the channel lock — fold it into a fact stream and never log, allocate heavily, or block inside it.
-- Law: loss reasons are disjoint classes — evicted-oldest measures conflation lag, refused-write measures shed load — and one merged counter destroys the only signal separating consumer-slow from producer-hot; receipts key on the row's vocabulary symbol, never the channel instance, so they survive lane re-creation and aggregate across shards.
+- Law: loss reasons are disjoint classes — evicted-oldest measures conflation lag, refused-write measures shed load — and one merged counter destroys the only signal separating consumer-slow from producer-hot; losses key on the row's vocabulary symbol, never the channel instance, so they survive lane re-creation and aggregate across shards.
 - Law: `Wait` rows put pressure evidence on the writer instead — stamped `WriteAsync` await durations and park counts; drop-mode `TryWrite` never allocates while a parked `Wait` write allocates per park, so shed lanes are allocation-free under overload by construction.
-- Law: depth evidence is a sampled gauge where `CanCount` holds — the base reader defaults `CanCount`/`CanPeek` to `false` and `Completion` to a never-completing task, so generic lane instrumentation probes capability, never assumes it; write-path evidence is the receipt stream, read-path evidence the sampled gauge, and the two cadences never share an instrument.
+- Law: depth evidence is a sampled gauge where `CanCount` holds — the base reader defaults `CanCount`/`CanPeek` to `false` and `Completion` to a never-completing task, so generic lane instrumentation probes capability, never assumes it; write-path evidence is the loss stream, read-path evidence the sampled gauge, and the two cadences never share an instrument.
 - Law: completion splits by verb — `TryComplete(error)` is first-call-wins idempotent shutdown whose coded fault rethrows as the `ChannelClosedException` inner from residue reads; loops key on `WaitToReadAsync` folding clean completion to `false`, single reads accept the throw, and a writer that must not throw on shutdown polls `WaitToWriteAsync` and folds `false` to its own stop signal.
 - Law: a dedicated consumer loop passes the default token on its read verbs and shuts down via completion — a cancelable token forfeits the pooled parked-operation fast path on every wait, and `ReadAllAsync` greedily drains between waits so cancellation lands only at the empty-buffer edge.
 - Law: N workers on one shared lane distribute items by race with no per-worker fairness — a workload requiring per-consumer fairness shards into per-consumer lanes instead of fighting the race.
@@ -117,11 +117,11 @@ public static class Ranked {
 [BLOCK_ADMISSION]:
 - Law: a dataflow block earns admission over a lane on exactly four capabilities — `LinkTo` with `PropagateCompletion` topology completion, `BatchBlock` grouping with `TriggerBatch` and non-greedy two-phase reservation, `BroadcastBlock` latest-value for N consumers (one consumer is the mailbox row, and a null cloning function shares references across consumers, silently reintroducing aliasing), and `TransformBlock` ordered parallel transform under `MaxDegreeOfParallelism` plus `EnsureOrdered`.
 - Law: a bounded propagator's output is linked or pulled before the first `SendAsync` — bounded transform, undrained output, parked producer is the canonical zero-fault wedge, because the one bound covers input and output together; `LinkTo` without `PropagateCompletion` never completes downstream.
-- Law: a faulted block discards its buffered input — loss without receipts — so residue extracts via `TryReceiveAll` before `Fault`, and the leaf's `Completion` fault folds into the receipt rail as attributed loss.
+- Law: a faulted block discards its buffered input unless residue is extracted via `TryReceiveAll` before `Fault`; the leaf's `Completion` fault then records the attributed loss on the same loss stream.
 - Law: one offer verb per row — `Post` is the `TryWrite` analog, `SendAsync` parks one postponed message — and mixing them mixes two backpressure regimes on one hop; non-greedy reservation is the family's only multi-source atomic take, so hand-rolled cross-lane atomic consumption marks a missing join row.
-- Law: `DataflowBlock.NullTarget<T>()` is the declared absorb row — receiptless discard admitted only behind a predicate-guarded `LinkTo`, so discard is a routing decision, never a default; `Encapsulate(target, source)` folds a multi-block segment into one propagator presentable as one row with one ingress and one egress.
+- Law: `DataflowBlock.NullTarget<T>()` is the declared absorb row — unrecorded discard is admitted only behind a predicate-guarded `LinkTo`, so discard is a routing decision, never a default; `Encapsulate(target, source)` folds a multi-block segment into one propagator presentable as one row with one ingress and one egress.
 - Law: a broadcast sink is an `ITargetBlock`, so no lane seats there and the sink block's own `BoundedCapacity` is that hop's one waiting room.
-- Reject: `BufferBlock` — a lane row is denser; `WriteOnceBlock` — a single-assignment cell owns publish-once; standalone `ActionBlock` — lane plus reader loop separates buffering policy from execution policy and keeps drain receipted.
+- Reject: `BufferBlock` — a lane row is denser; `WriteOnceBlock` — a single-assignment cell owns publish-once; standalone `ActionBlock` — lane plus reader loop separates buffering policy from execution policy and keeps drain recorded.
 
 ## [03]-[PARALLELISM_BUDGET]
 
@@ -131,7 +131,7 @@ public static class Ranked {
 - Law: platform defaults are pinned, never inherited — `Parallel.ForEachAsync` defaults to `Environment.ProcessorCount` (a negative degree means default, never unbounded) and PLINQ defaults to `min(ProcessorCount, 512)` under a hard 512 cap, so two unconfigured subsystems are 2x oversubscription no declaration shows.
 - Law: each hop owns exactly one waiting room — a limiter queue in front of a bounded lane is two buffers with two policies whose pressure evidence splits; the record assigns one waiting axis per hop and zeroes the other.
 - Law: cpu and io degrees never share one number — cpu is sized by local cores, io by the remote system's capacity, and collapsing them couples a remote slowdown to local starvation.
-- Law: the budget is observable and the loop closes — limiter statistics and lane receipts fold into periodic budget evidence, sustained queue growth over a window is the undersized-axis signal, and rebalancing is one record edit with zero call-site edits; a budget without its evidence fold is set once and wrong forever.
+- Law: the budget is observable and the loop closes — limiter statistics and lane losses fold into periodic budget evidence, sustained queue growth over a window is the undersized-axis signal, and rebalancing is one record edit with zero call-site edits; a budget without its evidence fold is set once and wrong forever.
 
 ```csharp conceptual
 public sealed record Budget(
@@ -172,15 +172,15 @@ public static class Budgeted {
 [PARALLEL_ADMISSION]:
 - Law: `Parallel.ForEachAsync` is the default parallel iteration — the body token is the loop's internal token tripping on any sibling fault or the external token, all failures aggregate on the returned task, and the aggregate converts once at the rail boundary; per-iteration catch blocks forfeit the aggregation the primitive already performs.
 - Law: source enumeration serializes under an internal lock — a slow producer serializes the whole loop, and the decoupled spelling is producer, lane, then `ForEachAsync` over `ReadAllAsync`; `ParallelOptions` pins degree, scheduler, and token together as one policy value.
-- Law: PLINQ admits only cpu-bound, side-effect-free, associative work in the total spelling — degree, cancellation, and a declared egress: `WithMergeOptions(NotBuffered)` for a streaming enumerated consumer, `FullyBuffered` for a terminal materialized sink, or `ForAll` into a lane write that re-enters the receipted world; `ForAll` runs the sink action on the partition threads with no merge back to the caller, so a `WithMergeOptions` beside a `ForAll` is dead configuration the merge never reads. `AsOrdered` is scoped and closed by `AsUnordered`, and `AsSequential` exits before cheap projection tails buy merge cost for nothing.
+- Law: PLINQ admits only cpu-bound, side-effect-free, associative work in the total spelling — degree, cancellation, and a declared egress: `WithMergeOptions(NotBuffered)` for a streaming enumerated consumer, `FullyBuffered` for a terminal materialized sink, or `ForAll` into a lane write that re-enters the recorded world; `ForAll` runs the sink action on the partition threads with no merge back to the caller, so a `WithMergeOptions` beside a `ForAll` is dead configuration the merge never reads. `AsOrdered` is scoped and closed by `AsUnordered`, and `AsSequential` exits before cheap projection tails buy merge cost for nothing.
 - Law: `Parallel.ForAsync<T>` spans `IBinaryInteger<T>` for index kernels with no materialized range; synchronous `Parallel.For`/`ForEach` survive only inside measured kernels under the named kernel exemption.
 - Law: partitioning is a declared input shape — `Partitioner.Create(0, n, rangeSize)` sizes index ranges to cache or work granularity, range partitioning serving cache locality on uniform work and chunk partitioning serving load balance on skewed work; `EnumerablePartitionerOptions.NoBuffering` serves latency-sensitive producers whose items must not sit invisible in chunk buffers.
-- Law: the single-flight gate sits between intent and acquisition — the first entrant publishes its task handle into a keyed cell by compare-and-set and owns execution, losers await it and receive a coalesced receipt counting entrants served, so a coalesced intent consumes zero permits and zero lane capacity.
+- Law: the single-flight gate sits between intent and acquisition — the first entrant publishes its task handle into a keyed cell by compare-and-set and owns execution, losers await it and receive a coalesced loss record counting entrants served, so a coalesced intent consumes zero permits and zero lane capacity.
 - Law: the flight owner clears by compare-exchanging its own handle out, because a blind clear tears a successor's flight; waiter cancellation bounds the wait, never the shared work, and the key derives from the admitted request value — one keyed gate per identity vocabulary, since caller-context keys defeat coalescing exactly where it pays.
 
 [CROSS_PROCESS_LEASE]:
 - Law: the lease record is owner id, claim stamp, heartbeat stamp at a shared medium — owner identity pairs the process identifier with a boot-instant stamp, so a reborn process never satisfies its predecessor's lease.
-- Law: claim is the medium's own atomic create-if-absent — atomic file create, unique-key insert — never read-then-write; the steal is an atomic conditional swap on the observed stale stamp, so two contenders cannot both reclaim, and the winner emits a takeover receipt naming the previous owner and the observed staleness.
+- Law: claim is the medium's own atomic create-if-absent — atomic file create, unique-key insert — never read-then-write; the steal is an atomic conditional swap on the observed stale stamp, so two contenders cannot both reclaim, and the winner emits a takeover loss record naming the previous owner and the observed staleness.
 - Law: release-on-drain is a cooperative-phase step ordered before the owner's lanes force-drain — successors observe release while the owner is alive to complete it, and a release scheduled after forced teardown races process death, reproducing the stale-lease window the protocol exists to prevent.
 - Law: a contender steals only when heartbeat staleness observed from the medium at decision time exceeds the budget's threshold — under the staleness inequality a draining-but-alive owner is structurally unstealable, because it either heartbeats or releases before the threshold can elapse.
 
@@ -188,13 +188,13 @@ public static class Budgeted {
 
 [LIMITER_ROWS]:
 - Law: four limiters are four `[SmartEnum<string>]` rows over one `Partition` acquisition column — `ConcurrencyLimiter` gates in-flight work and returns permits on lease disposal; the token bucket prices sustained rate as `TokensPerPeriod` over `ReplenishmentPeriod` and burst as `TokenLimit`, and declaring one without deriving the other is half a policy; a fixed window admits 2x the rate across a boundary, which the `SlidingWindowRateLimiter` `SegmentsPerWindow` count amortizes.
-- Law: the acquisition verb is itself policy — `AttemptAcquire` is shed-with-receipt at the edge where the caller owns retry cadence, `AcquireAsync` is queue-and-wait where the limiter owns ordering, and a zero `QueueLimit` degrades the awaited acquire to fail-fast, the declared no-waiting row.
-- Law: queue order is policy — `OldestFirst` reserves freed permits for the head and fails the newcomer on overflow; `NewestFirst` barges and evicts the oldest queued waiter as the staleness receipt — interactive intent takes `NewestFirst`, fairness-bound throughput takes `OldestFirst`.
+- Law: the acquisition verb is itself policy — `AttemptAcquire` is shed-with-loss record at the edge where the caller owns retry cadence, `AcquireAsync` is queue-and-wait where the limiter owns ordering, and a zero `QueueLimit` degrades the awaited acquire to fail-fast, the declared no-waiting row.
+- Law: queue order is policy — `OldestFirst` reserves freed permits for the head and fails the newcomer on overflow; `NewestFirst` barges and evicts the oldest queued waiter as the staleness loss record — interactive intent takes `NewestFirst`, fairness-bound throughput takes `OldestFirst`.
 - Law: failed leases carry typed evidence — `MetadataName.RetryAfter` names the earliest useful retry instant and feeds schedule policy, so a fixed backoff beside a `RetryAfter`-bearing lease re-derives what the lease already states.
 - Law: zero-permit calls are probes — `AttemptAcquire(0)` succeeds iff permits remain, `AcquireAsync(0)` parks to the next replenishment edge without consuming — deleting polling loops over `GetStatistics()`; a `permitCount` above `PermitLimit` throws synchronously, a construction defect that never becomes a queue entry.
 - Law: `GetStatistics()` is an init-only snapshot record — available permits, queued count, total successful and failed leases — never a live view; a widening gap between successful leases and disposals is the permit-leak signal, and a successful zero-permit probe increments the success counter, so it counts verdicts, never permits consumed.
 - Law: `AcquireAsync(weight)` prices heterogeneous work on one limiter — weight in cost units, cumulative queued weight counted against `QueueLimit`, the weight function a policy value beside the row — so one weighted limiter replaces N per-class limiters whose relative rates would otherwise be hand-derived.
-- Reject: a semaphore as limiter — queue order, eviction receipts, typed metadata, and statistics deleted at once.
+- Reject: a semaphore as limiter — queue order, eviction losses, typed metadata, and statistics deleted at once.
 
 ```csharp conceptual
 [SmartEnum<string>]
@@ -256,10 +256,10 @@ public static class AdmissionGate {
 [DELIVERY_EDGE]:
 - Law: every delivery edge to a cadence-bound observer declares its triple — coalescing row, significance gate, scheduler — and raw push to such an observer is the rejected form, never the slow observer itself.
 - Law: the coalescing rows — `Sample(period)` conflates to latest at fixed cadence; `Throttle(due)` commits on quiet gap and permanently starves under steady input, the silent-starvation chooser; `Buffer(span, count)` trips on whichever bound first; `Window` streams frames where `Buffer` materializes lists, so unbounded frames take `Window` with an in-window `Scan`.
-- Law: `Sample` and `Throttle` drop silently — where loss must be receipted the spelling is lossless `Buffer` folded to a latest-plus-dropped-count value; bare `Sample` is admissible only where intermediates are semantically void.
+- Law: `Sample` and `Throttle` drop silently — where loss must be recorded the spelling is lossless `Buffer` folded to a latest-plus-dropped-count value; bare `Sample` is admissible only where intermediates are semantically void.
 - Law: both cadence rows generalize stream-driven — `Sample(sampler)` clocks from any pulse observable, `Throttle(value => IObservable<TGate>)` derives a per-value quiet window from the value itself — so dynamic cadence is a selector, never a rebuilt chain or a timer dictionary.
 - Law: `DistinctUntilChanged` sits after coalescing — conflate time first, then suppress non-changes; keyed cadence composes as `GroupBy` then a per-group coalescing row, merged — per-key conflation with one declaration per axis.
-- Law: published state crossing scheduler hops is rank-guarded — every update carries the source's own monotone, a CAS admits only ascending ranks, and stale arrivals fold to receipted skips, the reorder gauge; the guard earns admission only at genuine multi-writer convergence — a single-source chain threads its rank through `Scan` and writes plainly.
+- Law: published state crossing scheduler hops is rank-guarded — every update carries the source's own monotone, a CAS admits only ascending ranks, and stale arrivals fold to recorded skips, the reorder gauge; the guard earns admission only at genuine multi-writer convergence — a single-source chain threads its rank through `Scan` and writes plainly.
 
 ```csharp conceptual
 public static class DeliveryEdge {
@@ -296,7 +296,7 @@ Four canonical seams cross the worlds — `OnNext` has no park position, so the 
 | :-----: | :------------- | :---------------------------------------------- | :------------------------- |
 |  [01]   | rail to stream | `FromAsync`/`Defer` over the effect             | the effect's typed failure |
 |  [02]   | stream to rail | `Materialize()` folded once into typed outcomes | terminal verdict           |
-|  [03]   | stream to lane | non-waiting `TryWrite` into a drop row          | drop receipts              |
+|  [03]   | stream to lane | non-waiting `TryWrite` into a drop row          | drop losses                |
 |  [04]   | lane to stream | async `Observable.Create` over the read stream  | disposal cancels the pull  |
 
 ## [06]-[CHANGE_SETS]
@@ -336,7 +336,7 @@ public static class LiveSet {
 - Law: above the five sits the source-swap row — `Switch` over `IObservable<IObservableCache<,>>` replaces the entire source while preserving the chain, the prior contribution retracting as removals; `Switch` is for a different store or scope, `EditDiff` for recomputed membership of the same logical set.
 - Law: the stream forms close the swap family — `IObservable<IEnumerable<T>>.EditDiff(keySelector)` turns a re-resolved snapshot stream into a change-set stream with no intermediate source, and the `IObservable<Optional<T>>` overload turns a presence stream into a one-key live set — a poller or configuration reload becomes a live set by appending one operator.
 - Law: the refresh matrix is the downstream law — `Filter` re-tests membership on `Refresh`, sorted consumers re-position, `Group` re-keys, and `Transform` ignores `Refresh` unless `transformOnRefresh: true`, the silently-stale default; `AutoRefresh` prices its noise with `propertyChangeThrottle` for one item's burst and `changeSetBuffer` for many items' refreshes, and `SuppressRefresh` is the declared opt-out for refresh-noisy upstreams — `WhereReasonsAreNot` and its inclusion dual scope any consumer to the reason classes it can act on.
-- Law: receipted bounding lives on the source forms — `ExpireAfter` and `LimitSizeTo` return the removed and evicted pairs, closing the identity set ingress = membership + receipted expiry + receipted eviction; the chain forms drop the receipt stream and survive only where the identity need not close, and a null per-item expiry means never-expires — retention is per-item data, not a cache-wide constant.
+- Law: recorded bounding lives on the source forms — `ExpireAfter` and `LimitSizeTo` return the removed and evicted pairs, closing the identity set ingress = membership + recorded expiry + recorded eviction; the chain forms drop the loss stream and survive only where the identity need not close, and a null per-item expiry means never-expires — retention is per-item data, not a cache-wide constant.
 - Law: membership bounds resources — `SubscribeMany` ties a subscription to membership with removal disposing it, `DisposeMany` disposes leavers, and the `AsyncDisposeMany` completion stream is the cache's drain hook.
 
 [CHAIN_ECONOMY]:
@@ -350,22 +350,22 @@ public static class LiveSet {
 ## [07]-[DRAIN_PARTICIPATION]
 
 [PARTICIPATION_LAW]:
-- Law: a lane's drain participation is three verbs — stop accepting via clean `TryComplete`, cooperative flush bounded by the band's soft budget, forced residue sweep receipted as one `DrainFact` — composed under the runtime band walk, which owns ordering and budget shares; an abort remains typed on that verdict instead of being reminted as the exception-only completion payload of `Channel`.
+- Law: a lane's drain participation is three verbs — stop accepting via clean `TryComplete`, cooperative flush bounded by the band's soft budget, forced residue sweep recorded as one `DrainFact` — composed under the runtime band walk, which owns ordering and budget shares; an abort remains typed on that verdict instead of being reminted as the exception-only completion payload of `Channel`.
 - Law: the cooperative phase ends consumer loops through the read verb's own terminal grammar — `WaitToReadAsync` folding to `false` — and the token appears only in the forced phase; a batching consumer flushes its partial batch the moment the verb folds, so every batch loop's exit edge is a flush edge.
-- Law: forced-phase residue reads come out FIFO on plain lanes and in comparer order on the prioritized row; post-completion write refusals are drain residue, never drop receipts — conflating the two double-counts loss, so residue receipts as `LaneLoss(DrainResidue)` into the same `Atom<Seq<LaneLoss>>` the drop modes feed and the loss vocabulary stays one stream with a kind column, never a parallel `int` beside the receipts.
-- Law: limiters dispose in the forced phase after lanes complete — disposal fails all queued acquisitions, so cooperative work never observes synthetic limiter failures; stream scopes end cooperatively via `TakeUntil(softDeadline, scheduler)` and forcibly by scope disposal; a cache drains as stop-edits, release batching gates, close receipt streams, await `AsyncDisposeMany` completion.
-- Law: the conservation identity is the audit — written = consumed + receipted loss per lane, summing to one process identity provable from declarations because drop loss and drain residue share the one receipt stream; a lane that cannot close the identity from its declared evidence is misconfigured by construction.
+- Law: forced-phase residue reads come out FIFO on plain lanes and in comparer order on the prioritized row; post-completion write refusals are drain residue, never drop losses — conflating the two double-counts loss, so residue is recorded as `LaneLoss(DrainResidue)` in the same `Atom<Seq<LaneLoss>>` the drop modes feed and the loss vocabulary stays one stream with a kind column, never a parallel `int` beside the losses.
+- Law: limiters dispose in the forced phase after lanes complete — disposal fails all queued acquisitions, so cooperative work never observes synthetic limiter failures; stream scopes end cooperatively via `TakeUntil(softDeadline, scheduler)` and forcibly by scope disposal; a cache drains as stop-edits, release batching gates, close loss streams, await `AsyncDisposeMany` completion.
+- Law: the conservation identity is the audit — written = consumed + recorded loss per lane, summing to one process identity provable from declarations because drop loss and drain residue share the one loss stream; a lane that cannot close the identity from its declared evidence is misconfigured by construction.
 - Exemption: the cooperative flush loop and the forced residue sweep are the platform-forced `Task` seam.
 
 ```csharp conceptual
 public readonly record struct DrainFact(LaneRow Lane, int Consumed, int Residue, bool Forced, Option<Error> Abort) {
-    public bool Closes(int written, Seq<LaneLoss> receipts) =>
-        written == Consumed + receipts.Count(loss => loss.Lane == Lane);
+    public bool Closes(int written, Seq<LaneLoss> losses) =>
+        written == Consumed + losses.Count(loss => loss.Lane == Lane);
 }
 
 public static class LaneDrain {
     public static async Task<DrainFact> Participate<T>(
-        LaneRow row, Channel<T> lane, Atom<Seq<LaneLoss>> receipts, Func<T, ValueTask> step, Option<Error> abort, TimeSpan soft, CancellationToken forced) {
+        LaneRow row, Channel<T> lane, Atom<Seq<LaneLoss>> losses, Func<T, ValueTask> step, Option<Error> abort, TimeSpan soft, CancellationToken forced) {
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(lane);
         ArgumentNullException.ThrowIfNull(step);
@@ -380,9 +380,9 @@ public static class LaneDrain {
             }
         }
         catch (OperationCanceledException) when (budget.IsCancellationRequested) { }
-        while (lane.Reader.TryRead(out _)) { // Exemption: forced residue sweep — each undelivered item receipts DrainResidue so loss stays one stream
+        while (lane.Reader.TryRead(out _)) { // Exemption: forced residue sweep — each undelivered item records DrainResidue on the same loss stream
             residue++;
-            ignore(receipts.Swap(f => f.Add(new LaneLoss(row, LossClass.DrainResidue))));
+            ignore(losses.Swap(f => f.Add(new LaneLoss(row, LossClass.DrainResidue))));
         }
         return new DrainFact(row, consumed, residue, Forced: budget.Token.IsCancellationRequested, Abort: abort);
     }

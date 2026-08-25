@@ -232,4 +232,4 @@ Boards and retention are deploy-plane facts `iac` realizes from the core-encoded
 
 ## [07]-[ADMISSION_POLICY]
 
-One workspace manifest (`pnpm-workspace.yaml`) declares package admission and version bounds, and the architecture suite refuses the manifest departing from it; `viewer` is the second Nx project inside `ui` carrying the same edge set, and dev infrastructure stays under `tests/`, never the branch. Installation rationale stays in the manifest; folder pages name capability, entrypoints, boundaries, and exclusions. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
+One workspace manifest (`pnpm-workspace.yaml`) declares package admission and version bounds, and the architecture suite refuses the manifest departing from it; `viewer` is the second Nx project inside `ui` carrying the same edge set, and dev infrastructure stays under `tests/`, never the branch. Installation rationale stays in the manifest; folder pages name capability, entrypoints, boundaries, and exclusions.

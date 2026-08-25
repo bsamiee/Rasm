@@ -1,6 +1,6 @@
 # [VISUALS]
 
-Every visual output — interactive frame, thumbnail, chart, vector export, document page — is one row over one render capsule: a scene records once into an immutable `SKPicture` behind an op-budget gate, target kinds are rows over one frozen render-policy record, and what leaves the capsule is a value with its receipt, never a canvas or a live native. Text shapes before it rasters through one typography-role grid; vector, icon, and raster assets admit once into a frozen catalog whose failure modes are boot facts; a chart is a fold over a series-spec table whose evidence twin renders headless from the same values; and theme, typography, motion, locale, and iconography are five instantiations of one frozen token algebra — a total variant-by-density grid, one pure resolve fold, one atomic generation swap with a changed-key diff — so a literal paint, font, duration, or easing at a call site is the defect this page exists to delete. Growth lands as rows: a new target, role, asset class, series kind, or tokenized concern is one declaration inside an existing owner, never new pipeline code.
+Every visual output — interactive frame, thumbnail, chart, vector export, document page — is one row over one render capsule: a scene records once into an immutable `SKPicture` behind an op-budget gate, target kinds are rows over one frozen render-policy record, and what leaves the capsule is a value with its result, never a canvas or a live native. Text shapes before it rasters through one typography-role grid; vector, icon, and raster assets admit once into a frozen catalog whose failure modes are boot facts; a chart is a fold over a series-spec table whose evidence twin renders headless from the same values; and theme, typography, motion, locale, and iconography are five instantiations of one frozen token algebra — a total variant-by-density grid, one pure resolve fold, one atomic generation swap with a changed-key diff — so a literal paint, font, duration, or easing at a call site is the defect this page exists to delete. Growth lands as rows: a new target, role, asset class, series kind, or tokenized concern is one declaration inside an existing owner, never new pipeline code.
 
 ## [01]-[VISUALS_CHOOSER]
 
@@ -10,13 +10,13 @@ This table routes a visual concern to its owning surface; the most specific row 
 | :-----: | :------------------ | :------------------------------------ | :-------------------------- |
 |  [01]   | output target       | target row over one render capsule    | bespoke pipeline per target |
 |  [02]   | retained scene      | one gated recorded `SKPicture`        | `SKBitmap` working surface  |
-|  [03]   | frame identity      | pinned-projection hash receipt        | encoded-artifact hash       |
-|  [04]   | document artifact   | page-protocol fold + dual receipt     | dispose-only export         |
+|  [03]   | frame identity      | pinned-projection hash result         | encoded-artifact hash       |
+|  [04]   | document artifact   | page-protocol fold + dual result      | dispose-only export         |
 |  [05]   | text on any surface | shaped run via the role grid          | paint-carried font state    |
 |  [06]   | font fallback       | frozen role × script grid             | host registry probe at draw |
 |  [07]   | vector asset        | admitted owner + variant matrix       | draw-time tint filter       |
 |  [08]   | icon                | (`Symbol`, `IconVariant`) catalog row | string-keyed registry       |
-|  [09]   | raster asset        | codec admission + two-key receipt     | eager whole-image decode    |
+|  [09]   | raster asset        | codec admission + two-key result      | eager whole-image decode    |
 |  [10]   | chart               | series-spec table + headless twin     | per-chart code-behind       |
 |  [11]   | styling values      | one frozen token algebra              | call-site literals          |
 |  [12]   | color motion        | perceptual tween row                  | componentwise sRGB lerp     |
@@ -26,7 +26,7 @@ This table routes a visual concern to its owning surface; the most specific row 
 [SCENE_AND_TARGETS]:
 - Law: a scene records once — `SKPictureRecorder.BeginRecording(cullRect, useRTree: true)` yields the immutable `SKPicture` every target replays, the R-tree making playback against a clip skip out-of-bounds ops — and `CullRect` is the declared extent: content outside it may be elided, and layout reads it directly.
 - Law: target kinds are rows over one frozen policy record — pinned `SKImageInfo`, `SKSurfaceProperties`, declared `SKSamplingOptions`, op and byte ceilings — so a new output target is one row and zero pipeline code; `BytesSize64` gates dimensions because the `int` size forms overflow past ~2 GB.
-- Law: cost is computable before pixels — `ApproximateOperationCount` and `ApproximateBytesUsed` are the `SKPicture` recording receipts read after `EndRecording`, and `GetApproximateOperationCount(includeNested: true)` folds sub-pictures into the count — so a scene over the op ceiling fails a structural gate without ever allocating a surface, and the cost-probe target carries `Option` absence in the hash slot, never a sentinel string.
+- Law: cost is computable before pixels — `ApproximateOperationCount` and `ApproximateBytesUsed` are `SKPicture` metrics read after `EndRecording`, and `GetApproximateOperationCount(includeNested: true)` folds sub-pictures into the count — so a scene over the op ceiling fails a structural gate without ever allocating a surface, and the cost-probe target carries `Option` absence in the hash slot, never a sentinel string.
 - Law: `SaveLayer` is earned only by group compositing — group alpha, blend, or image filter over a subtree — and always carries computed bounds, because the unbounded overload allocates clip-sized layers and per-shape alpha rides the paint; `QuickReject` culls expensive subtrees against device clip and total matrix before any draw.
 - Reject: per-draw `new SKPaint()` — token-resolved long-lived and pooled-scratch `Reset()` are the two legal paint lifetimes; `UniqueId` as cache identity — it is process-local, never content identity; snapshot-then-keep-drawing — `Snapshot()` is copy-on-write, so the capsule orders snapshot last; and `Clear`-versus-`DrawColor` confusion — `Clear` replaces pixels including alpha while `DrawColor` composites, differing exactly on translucent fills over reused surfaces, the ghost-frame defect.
 - Exemption: the capsule's using-scoped recorder, surface, and pixmap bodies are the platform-forced statement seam.
@@ -42,7 +42,7 @@ public abstract partial record Target {
 
 public sealed record RenderPolicy(SKImageInfo Pinned, SKSurfaceProperties Props, int OpCeiling, long ByteCeiling);
 public readonly record struct NativeFormat(SKColorType ColorType, SKAlphaType Alpha);
-public readonly record struct FrameReceipt(Option<string> Hash, SKImageInfo Info, NativeFormat Native, int Ops);
+public readonly record struct RenderedFrame(Option<string> Hash, SKImageInfo Info, NativeFormat Native, int Ops);
 
 public static class RenderCapsule {
     public static Fin<SKPicture> Record(RenderPolicy policy, SKRect cull, Action<SKCanvas> scene) {
@@ -57,26 +57,26 @@ public static class RenderCapsule {
         });
     }
 
-    public static Fin<FrameReceipt> Project(Target target, RenderPolicy policy, SKPicture scene) {
+    public static Fin<RenderedFrame> Project(Target target, RenderPolicy policy, SKPicture scene) {
         ArgumentNullException.ThrowIfNull(target);
         return target.Switch(
             state: (Policy: policy, Scene: scene),
             evidence: static (s, _) => Raster(s.Policy.Pinned, s.Policy, s.Scene, 1f),
             thumbnail: static (s, t) => Raster(s.Policy.Pinned.WithSize(
                 new SKSizeI((int)(s.Policy.Pinned.Width * t.Scale), (int)(s.Policy.Pinned.Height * t.Scale))), s.Policy, s.Scene, t.Scale),
-            costProbe: static (s, _) => Fin.Succ(new FrameReceipt(None, s.Policy.Pinned,
+            costProbe: static (s, _) => Fin.Succ(new RenderedFrame(None, s.Policy.Pinned,
                 new NativeFormat(s.Policy.Pinned.ColorType, s.Policy.Pinned.AlphaType), s.Scene.GetApproximateOperationCount(includeNested: true))));
     }
 
-    static Fin<FrameReceipt> Raster(SKImageInfo info, RenderPolicy policy, SKPicture scene, float scale) {
-        if (info.BytesSize64 > policy.ByteCeiling) { return Fin.Fail<FrameReceipt>(Error.New(7802, $"<byte-gate:{info.BytesSize64}>")); }
+    static Fin<RenderedFrame> Raster(SKImageInfo info, RenderPolicy policy, SKPicture scene, float scale) {
+        if (info.BytesSize64 > policy.ByteCeiling) { return Fin.Fail<RenderedFrame>(Error.New(7802, $"<byte-gate:{info.BytesSize64}>")); }
         return Op.Of().Catch(() => {
             using var surface = SKSurface.Create(info, policy.Props);
             surface.Canvas.Clear(SKColors.Transparent);
             surface.Canvas.Scale(scale);
             surface.Canvas.DrawPicture(scene);
             using var pixels = surface.PeekPixels();
-            return Fin.Succ(new FrameReceipt(
+            return Fin.Succ(new RenderedFrame(
                 Some(XxHash3.HashToUInt64(pixels.GetPixelSpan()).ToString("x16", CultureInfo.InvariantCulture)),
                 info, new NativeFormat(info.ColorType, info.AlphaType), scene.ApproximateOperationCount));
         });
@@ -92,16 +92,16 @@ public static class RenderCapsule {
 
 [EVIDENCE_IDENTITY]:
 - Law: frame identity hashes the pinned pixel projection, never encoder output — encoded bytes couple identity to compression internals — and the evidence info declares all four fields, because `SKImageInfo.PlatformColorType` swaps byte order across hosts and premul is the native format pinned for a baseline's lifetime.
-- Law: evidence renders on raster surfaces only — GPU output varies by driver, MSAA resolve, and backend, so the GPU path is throughput, never identity — and the receipt is composite: content hash, declared info, and the `(SKColorType, SKAlphaType)` native row the host resolved, so a hash divergence decomposes into a content change versus a `PlatformColorType` byte-order swap from the receipt alone instead of staying mysterious.
-- Law: baselines are content-addressed by the receipt — two proofs rendering one scene under one policy share one baseline, and a policy edit re-keys every dependent baseline at once, so churn is proportional to policy change, not proof count; a stochastic effect carries its seed in its token row or it is a per-frame hash break by design.
+- Law: evidence renders on raster surfaces only — GPU output varies by driver, MSAA resolve, and backend, so the GPU path is throughput, never identity — and the result is composite: content hash, declared info, and the `(SKColorType, SKAlphaType)` native row the host resolved, so a hash divergence decomposes into a content change versus a `PlatformColorType` byte-order swap from the result alone instead of staying mysterious.
+- Law: baselines are content-addressed by the result — two proofs rendering one scene under one policy share one baseline, and a policy edit re-keys every dependent baseline at once, so churn is proportional to policy change, not proof count; a stochastic effect carries its seed in its token row or it is a per-frame hash break by design.
 - Law: deterministic encoding rides the knob-pinned `SKPixmap.Encode` rows (`SKPngEncoderOptions`), never the image convenience overloads; `SKImage.FromEncodedData` defers decode and retains `EncodedData` for pass-through re-export — correct for draw-once and forward-the-bytes lanes only, because lazy images re-decode under cache pressure with floating defaults.
 - Boundary: the frame content hash is the in-process content-key choice the system-API identity owner fixes — `XxHash3.HashToUInt64` over the pinned pixel span, reused verbatim — never a second hashing path minted here; a persisted or signed artifact key is the durable byte-identity owner's canonical codec, composed at the export seam.
 
 [DOCUMENT_EXPORT]:
 - Law: a document is a forward-only page fold — `BeginPage` returns a canvas valid only until `EndPage`, `Close()` finalizes, `Abort()` discards — and the failure arm aborts explicitly: a capsule that merely disposes has neither committed nor failed loudly, the silent-loss defect; `SKDocument.CreateXps` shares the page protocol, so format is one row whose only divergence is the metadata argument's presence.
 - Law: scene content enters pages as pictures so vectors and text survive — rasterizing vectors into a document is the fidelity defect — and `EncodingQuality` is a discontinuity, not a gradient: 101 is lossless, 100 and below switch embedded raster to JPEG, so the lossless row is mandatory for artifacts re-entering hash gates.
-- Law: document bytes embed timestamps — byte identity requires pinned `Creation`/`Modified` — and the receipt is dual: per-page replay through the capsule's evidence target plus byte length, so a metadata-only change moves byte identity while page hashes hold, attributable without opening the file.
-- Boundary: the durable commit composes the atomic-write law; this lane contributes the `Close()`-before-commit ordering edge and the receipt.
+- Law: document bytes embed timestamps — byte identity requires pinned `Creation`/`Modified` — and the result is dual: per-page replay through the capsule's evidence target plus byte length, so a metadata-only change moves byte identity while page hashes hold, attributable without opening the file.
+- Boundary: the durable commit composes the atomic-write law; this lane contributes the `Close()`-before-commit ordering edge and the result.
 
 ```csharp conceptual
 [SmartEnum<string>]
@@ -115,11 +115,11 @@ public sealed partial class DocumentFormat {
 }
 
 public sealed record PageSpec(float Width, float Height, SKPicture Content);
-public readonly record struct PageReceipt(int Index, Option<string> Hash, int Ops);
-public sealed record ExportReceipt(Seq<PageReceipt> Pages, long ByteLength);
+public readonly record struct PageEvidence(int Index, Option<string> Hash, int Ops);
+public sealed record ExportResult(Seq<PageEvidence> Pages, long ByteLength);
 
 public static class DocumentExport {
-    public static Fin<ExportReceipt> Commit(DocumentFormat format, Stream sink, Seq<PageSpec> pages, RenderPolicy evidence, DateTime stamp) {
+    public static Fin<ExportResult> Commit(DocumentFormat format, Stream sink, Seq<PageSpec> pages, RenderPolicy evidence, DateTime stamp) {
         ArgumentNullException.ThrowIfNull(format);
         ArgumentNullException.ThrowIfNull(sink);
         var key = Op.Of();
@@ -127,25 +127,25 @@ public static class DocumentExport {
             using var document = format.Open(sink, stamp);
             return pages.Map((page, index) => Emit(document, evidence, index, page))
                 .TraverseM(identity).As()
-                .Bind(receipts => key.Catch(() => {
+                .Bind(results => key.Catch(() => {
                     document.Close();
-                    return Fin.Succ(new ExportReceipt(receipts.Strict(), sink.Length));
+                    return Fin.Succ(new ExportResult(results.Strict(), sink.Length));
                 }))
                 .BindFail(primary => key.Catch(() => {
                     document.Abort();
                     return Fin.Succ(unit);
                 }).Match(
-                    Succ: _ => Fin.Fail<ExportReceipt>(primary),
-                    Fail: cleanup => Fin.Fail<ExportReceipt>(primary + cleanup)));
+                    Succ: _ => Fin.Fail<ExportResult>(primary),
+                    Fail: cleanup => Fin.Fail<ExportResult>(primary + cleanup)));
         });
     }
 
-    static Fin<PageReceipt> Emit(SKDocument document, RenderPolicy evidence, int index, PageSpec page) {
+    static Fin<PageEvidence> Emit(SKDocument document, RenderPolicy evidence, int index, PageSpec page) {
         var canvas = document.BeginPage(page.Width, page.Height);
         canvas.DrawPicture(page.Content);
         document.EndPage();
         return RenderCapsule.Project(new Target.Evidence(), evidence, page.Content)
-            .Map(receipt => new PageReceipt(index, receipt.Hash, receipt.Ops));
+            .Map(result => new PageEvidence(index, result.Hash, result.Ops));
     }
 }
 ```
@@ -214,12 +214,12 @@ public static class ShapeBoundary {
 - Law: a typography role is one frozen row owning every axis both sides read — typeface chain, size, features, cluster level, `Edging`, `Hinting`, `Subpixel`, `LinearMetrics`, synthetic knobs, line-metric policy — and a call site holds a resolved role, never loose font parameters; `LinearMetrics: true` is the layout-stable default for any measured role, because edging, subpixel, and hinting otherwise change advance rounding and drift measurement from drawn pixels.
 - Law: line layout derives from `SKFontMetrics`, never constants — `Spacing` is the font's own advance, nullable underline and strikeout metrics project to `Option`, and extent fields size scroll extents while line fields size baselines; mixing the two families clips ascenders or bloats line boxes.
 - Law: fallback is a frozen role × script-class grid probed from packaged faces at catalog freeze — runtime segmentation is a grid lookup; the host `MatchCharacter` probe survives only as the interactive-only tail row, and `SKTypeface.FromFamilyName` is banned at admission because it silently substitutes the nearest host font — `FromData` is the fail-loud route.
-- Law: a cell carrying `Embolden` or `SkewX` is a declared receipt that the chain lacks a true face; style matching is nearest-match, so freeze-time enumeration is the only way to distinguish a true style from a substitution, and mixed-chain line metrics come from the role's primary face only — per-run metrics produce ransom-note baselines.
+- Law: a cell carrying `Embolden` or `SkewX` explicitly states that the chain lacks a true face; style matching is nearest-match, so freeze-time enumeration is the only way to distinguish a true style from a substitution, and mixed-chain line metrics come from the role's primary face only — per-run metrics produce ransom-note baselines.
 - Law: a role declared shaping-exempt is probed at freeze against its actual character domain — pure ASCII, no features, single face — and `BreakText` plus advance-accumulated positioning are legal only under a proven exemption.
 
 [DOCUMENT_PROJECTION]:
 - Law: structured text parses through one immutable pipeline per surface class (`MarkdownPipelineBuilder`, extensions individually admitted) and projects the AST onto the typed render vocabulary, never HTML — one catamorphism with two state channels, a role-delta stack for inlines where `EmphasisInline.DelimiterCount` composes transforms over the active role, and a layout cursor for blocks; an unhandled node family is a total-dispatch compile break.
-- Law: extension admission pairs with arm coverage as one checked policy, and `HtmlBlock`/`HtmlInline` are projection-policy rows — verbatim code, drop-with-receipt, or reject — because the render vocabulary has no raw-markup row.
+- Law: extension admission pairs with arm coverage as one checked policy, and `HtmlBlock`/`HtmlInline` are projection-policy rows — verbatim code, drop with a fact, or reject — because the render vocabulary has no raw-markup row.
 - Law: `LiteralInline.Content` slices travel zero-copy to the shaping boundary; `Markdown.ToPlainText` is the derived secondary projection, never a second parser, and the projection output freezes so a theme swap re-resolves roles without re-parsing while an edit re-projects without re-theming.
 
 ## [04]-[ASSET_LAW]
@@ -270,7 +270,7 @@ public static class VectorAssets {
 - Law: icon identity is the (`Symbol`, `IconVariant`) pair end-to-end — a closed glyph enum crossed with an orthogonal variant axis — and the domain catalog derives role-to-pair rows from it; string-keyed registries, path-drawn copies of vocabulary glyphs, and ad-hoc glyph bitmaps are the three rejected forms.
 - Law: font-backed icons delete the raster ladder — scale is font size, color is the foreground slot, both token-resolved — and inherit the text determinism axes, so evidence surfaces bearing icons pin exactly what typography pins; the `Color` variant is payload-bearing and ignores tinting by design, so catalog rows mixing it with tint-driven theming mark it.
 - Law: raster assets admit through `SKCodec.Create(stream, out SKCodecResult)` — a full taxonomy where `IncompleteInput` is partial success with rows-decoded evidence, never a boolean failure — with `Info` gating shape before allocation, decode landing directly in the pinned working format, and `EncodedOrigin` baked into the artifact so no consumer ever sees pre-rotation pixels.
-- Law: asset identity is two keys on one load receipt — the locator names the slot, the content hash names the value — so staleness is hash inequality, derived rasters key on (source hash, derivation row), and a baseline mismatch decomposes into asset drift versus render drift from receipts alone; identity computes at admission, and a pipeline hashing per frame has misplaced the seam.
+- Law: asset identity is two keys on one load result — the locator names the slot, the content hash names the value — so staleness is hash inequality, derived rasters key on (source hash, derivation row), and a baseline mismatch decomposes into asset drift versus render drift from results alone; identity computes at admission, and a pipeline hashing per frame has misplaced the seam.
 - Law: animated rasters are codec rows — `FrameCount`, `GetFrameInfo`, `RepetitionCount`, dependency-explicit `SKCodecOptions.FrameIndex`/`PriorFrame` — and the codec never owns a timer: the motion pump schedules the frame table, so animated rasters ride the same reduced-motion and frame-ceiling policy as every moving surface.
 - Reject: eager whole-image `SKBitmap.Decode`; loader-local retry loops — the outbound hop already has one retry owner; tier clearing as invalidation — invalidation is an identity comparison, clearing an operational action.
 
@@ -324,7 +324,7 @@ public static class ChartEvidence {
 ```
 
 [STREAM_BINDING]:
-- Law: a chart binds to a fold artifact, never a producer — a fixed window or downsampled projection computed in the stream lane, with lanes, backpressure, and drop receipts arriving settled from the throughput layer — and the two mutation grains never mix on one series: in-place entity mutation inside a stable pre-allocated window for high-frequency feeds, atomic collection swap for structural change; rebuilding collections per tick is the canonical live-chart defect.
+- Law: a chart binds to a fold artifact, never a producer — a fixed window or downsampled projection computed in the stream lane, with lanes, backpressure, and drop-loss facts arriving settled from the throughput layer — and the two mutation grains never mix on one series: in-place entity mutation inside a stable pre-allocated window for high-frequency feeds, atomic collection swap for structural change; rebuilding collections per tick is the canonical live-chart defect.
 - Law: downsampling is upstream and explicit — at most ~2 points per rendered pixel column, a min/max pair per bucket preserving the extremes averaging destroys — with bucket width derived from declared `MinStep` and `UnitWidth`, never guessed from render width.
 - Law: live and evidence charts ride the motion disable row (`LiveCharts.DisableAnimations`), and streaming axis limits are pinned or hysteresis-banded in the stream fold, so the frame-to-frame diff is data motion, never scale motion.
 - Law: `SyncContext` is the chart-side declaration of the marshaled-input guarantee; window artifacts are value snapshots — a saved window plus its spec plus the catalog generation re-renders bit-identical evidence, so live-chart forensics is replay of values, never reproduction of timing.
@@ -336,9 +336,9 @@ public static class ChartEvidence {
 - Law: consumers mount against keys and hold resolved artifacts — every pigment, type, duration, and easing payload is minted only inside the resolve fold, so the literal-at-call-site audit is grep-shaped and a key that fails to resolve is a freeze-time rejection, never a runtime path.
 - Law: the grid is total at freeze — a missing cell is a construction rejection, never a draw-time fallback chain — and density is an axis, not a scale factor: compact and comfortable rows carry distinct stroke, spacing, and type-size payloads because optical correctness does not scale linearly, and the cell count is the honest price totality makes safe to pay.
 - Law: the resolved payload is a value-semantic record, never a live native — the paint payload is the full pigment row (float color with color-space tag, stroke metrics, effect slots) carrying generated structural equality, and the live `SolidColorPaint`/`ColorPaletteResources` mints from it at the binding edge; the `IEquatable<TPayload>` bound makes the diff genuine value equality, so two distinct cells resolving an identical pigment emit nothing and a reference-typed payload — whose default equality is per-instance — silently emitting every key on every swap is the foreclosed defect.
-- Law: the changed-key set bounds re-mount work while the causing-axis field routes partial subscription, so one swap moves raw canvas and chart surfaces through one receipt and a content-identical flip is a zero-key no-op.
+- Law: the changed-key set bounds re-mount work while the causing-axis field routes partial subscription, so one swap moves raw canvas and chart surfaces through one diff and a content-identical flip is a zero-key no-op.
 - Law: generation stamps unify staleness — shaped-run caches, vector variant matrices, ramp tables, and chart paints all key on catalog generation, so cross-cache coherence is one integer's monotonicity — and the catalog is one process-wide instance, because per-window catalogs fork the stamp and desynchronize derived caches.
-- Boundary: theme application — variant binding, density switching, template consumption — is interaction law; this algebra's deliverables end at the resolved record and the diff receipt.
+- Boundary: theme application — variant binding, density switching, template consumption — is interaction law; this algebra's deliverables end at the resolved record and changed-key diff.
 - Reject: cascade resolution as the canvas theming substrate — dictionary chains resolve per element per pass, and the fold's held output is both the determinism and the performance win.
 
 ```csharp conceptual
@@ -378,7 +378,7 @@ public sealed class TokenAlgebra<TPayload>(Catalog<TPayload> catalog, string var
 [MOTION_ROWS]:
 - Law: a motion token is a (duration, easing) row in the same frozen algebra — easing payloads are pure unit-interval functions, property-checked at freeze: monotone where declared, endpoint-exact, bounded overshoot — and one easing vocabulary serves charts and visual motion alike, so two easing tables in one system is the rejected form.
 - Law: the sentinel system is vocabulary — the disable row is the one-millisecond constant and the unset marker means inherit — so treating zero as off or max-value as very slow misreads both, and admission normalizes raw durations through the vocabulary.
-- Law: reduced motion is an axis, not a flag check — the reduced variant degrades durations to the sentinel and easing to linear, perceivable state changes degrade to opacity-only rows rather than disappearing, and the platform preference admits once at the boundary and republishes through the standard diff receipt with zero call-site conditionals.
+- Law: reduced motion is an axis, not a flag check — the reduced variant degrades durations to the sentinel and easing to linear, perceivable state changes degrade to opacity-only rows rather than disappearing, and the platform preference admits once at the boundary and republishes through the standard changed-key diff with zero call-site conditionals.
 - Law: bespoke curves are keyframe-table and parameterized-builder rows, never hand-written interpolation functions, and motion cost is auditable from declarations — the frame ceiling times per-row durations yields the worst-case redraw budget per swap before any frame renders.
 
 [PERCEPTUAL_LAW]:

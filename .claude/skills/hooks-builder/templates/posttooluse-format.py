@@ -22,7 +22,6 @@ import sys
 
 import msgspec
 
-
 WRITE_TOOLS = frozenset(("Edit", "Write", "NotebookEdit"))  # POLICY: tools that mutate a file; only these route to FORMAT
 REDACT_TOOLS = frozenset(("Bash", "Read", "Grep", "WebFetch"))  # POLICY: tools whose output is scanned for secrets
 SECRET = re.compile(r"sk-ant-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{36}|AKIA[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]{10,}")  # POLICY

@@ -21,7 +21,6 @@ from ruamel.yaml import YAML
 from tests.python._testkit.runtime import REPO_ROOT
 lazy from tests.python._testkit.strategies import resolve
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LAW_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")

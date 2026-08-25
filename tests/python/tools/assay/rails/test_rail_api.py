@@ -39,7 +39,6 @@ from tests.python._testkit.spec import assert_error, assert_ok, assert_roundtrip
 from tests.python._testkit.strategies import resolve as st_resolve
 from tests.python.tools.assay.kit import RailProbe, SeamExecutor
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path

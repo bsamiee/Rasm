@@ -49,12 +49,12 @@ Use the active Python surface directly. This chooser owns language syntax, type-
 
 [TYPED_DICT_PAYLOAD_FORMS]: how a keyword or dictionary payload states its static key law.
 
-| [INDEX] | [CONCERN]          | [USE]                            | [REJECTED_FORM]                    |
-| :-----: | :----------------- | :------------------------------- | :--------------------------------- |
-|  [01]   | kwargs payload     | `Unpack[TypedDict]`              | homogeneous `**kwargs`             |
-|  [02]   | typed dict closure | `closed=` and `extra_items=`     | open payload prose                 |
-|  [03]   | required keys      | `Required[]` and `NotRequired[]` | split `TypedDict` inheritance      |
-|  [04]   | immutable keys     | `ReadOnly[T]` in `TypedDict`     | prose-only immutable key promises  |
+| [INDEX] | [CONCERN]          | [USE]                            | [REJECTED_FORM]                   |
+| :-----: | :----------------- | :------------------------------- | :-------------------------------- |
+|  [01]   | kwargs payload     | `Unpack[TypedDict]`              | homogeneous `**kwargs`            |
+|  [02]   | typed dict closure | `closed=` and `extra_items=`     | open payload prose                |
+|  [03]   | required keys      | `Required[]` and `NotRequired[]` | split `TypedDict` inheritance     |
+|  [04]   | immutable keys     | `ReadOnly[T]` in `TypedDict`     | prose-only immutable key promises |
 
 [CLOSED_DISPATCH_AND_VALUE_FORMS]: how a closed domain dispatches, proves exhaustiveness, and carries an immutable value.
 

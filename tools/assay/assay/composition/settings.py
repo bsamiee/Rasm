@@ -16,13 +16,26 @@ from urllib.parse import urlsplit
 
 import fsspec
 import msgspec
-from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, model_validator
-from pydantic_settings import BaseSettings, NoDecode, PydanticBaseSettingsSource, SettingsConfigDict
+from pydantic import (
+    AfterValidator,
+    AliasChoices,
+    BaseModel,
+    BeforeValidator,
+    computed_field,
+    ConfigDict,
+    Field,
+    model_validator,
+)
+from pydantic_settings import (
+    BaseSettings,
+    NoDecode,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 from upath import UPath
 
 from assay.composition.store import ArtifactStore, safe_segment
 from assay.core.model import ArtifactKind, DOTNET_CONFIG_ANCHORS, wire_safe
-
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

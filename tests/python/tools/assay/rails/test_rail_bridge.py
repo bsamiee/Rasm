@@ -13,7 +13,19 @@ import pytest
 
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
-from assay.core.model import Artifact, ArtifactKind, BridgeLifecycle, Claim, Fault, Mode, RailStatus, receipt, Report, validate_detail, VerifySummary
+from assay.core.model import (
+    Artifact,
+    ArtifactKind,
+    BridgeLifecycle,
+    Claim,
+    Fault,
+    Mode,
+    RailStatus,
+    receipt,
+    Report,
+    validate_detail,
+    VerifySummary,
+)
 from assay.rails.bridge import (
     _aggregate_closure,
     _completed_from_stdout,
@@ -44,7 +56,6 @@ from assay.rails.bridge import (
 )
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-
 
 if TYPE_CHECKING:
     from assay.core.exec import Executor

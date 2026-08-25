@@ -8,8 +8,17 @@ never edit ``Tool.command``. Rows producing parseable output declare their diagn
 """
 
 from assay.composition.store import PY_ARTIFACT_ROOTS, PY_COVERAGE_FILES
-from assay.core.model import Claim, Input, Language, Mode, Parser, Runner, Stage, Tool, ToolGroup
-
+from assay.core.model import (
+    Claim,
+    Input,
+    Language,
+    Mode,
+    Parser,
+    Runner,
+    Stage,
+    Tool,
+    ToolGroup,
+)
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

@@ -12,7 +12,6 @@ from assay import __main__ as _main_mod, bootstrap_error, install_tracing
 from assay.core.model import Claim, RailStatus
 from tests.python.tools.assay.kit import read_one_envelope_from_bytes
 
-
 if TYPE_CHECKING:
     from tests.python.tools.assay.kit import VerbRunner
 
@@ -266,7 +265,9 @@ def test_main_subprocess_human_renderer_console_stderr(cli: VerbRunner) -> None:
 
 def test_install_tracing_empty_endpoint_is_noop() -> None:
     """An empty tracing endpoint leaves the current tracer provider untouched."""
-    from opentelemetry.trace import get_tracer_provider as _gtp  # ruff:ignore[import-outside-top-level]
+    from opentelemetry.trace import (  # ruff:ignore[import-outside-top-level]
+        get_tracer_provider as _gtp,
+    )
 
     before = _gtp()
     install_tracing("")
@@ -285,7 +286,9 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
     binding: its `lazy from` resolves eagerly once `opentelemetry.trace` is already imported (the runtime
     plugin imports it first), so a patch on the source module never reaches a reified name.
     """
-    from opentelemetry.sdk.trace import TracerProvider  # ruff:ignore[import-outside-top-level]
+    from opentelemetry.sdk.trace import (  # ruff:ignore[import-outside-top-level]
+        TracerProvider,
+    )
     import opentelemetry.trace as _ot  # ruff:ignore[import-outside-top-level]
 
     import assay as assay_pkg  # ruff:ignore[import-outside-top-level]

@@ -66,7 +66,7 @@ public static class RequestSurface {
         };
 
     extension(Request request) {
-        public Fin<Receipt> Dispatch(Ledger ledger) => request.Switch(
+        public Fin<LedgerResult> Dispatch(Ledger ledger) => request.Switch(
             state: ledger,
             open:  static (l, o) => l.Open(o.Code),
             amend: static (l, a) => l.Amend(a.Code, a.Delta),
@@ -100,7 +100,7 @@ public static class RequestSurface {
 
 ```csharp conceptual
 public static class BatchSurface {
-    public static Fin<Iterable<Receipt>> Run(Ledger ledger, params ReadOnlySpan<Request> requests) =>
+    public static Fin<Iterable<LedgerResult>> Run(Ledger ledger, params ReadOnlySpan<Request> requests) =>
         Iterable<Request>.FromSpan(requests)
             .TraverseM(request => request.Dispatch(ledger))
             .As();
@@ -139,20 +139,20 @@ public static class BatchSurface {
 ```csharp conceptual
 public sealed record Context(int Ceiling);
 
-public sealed record Policy(Context Canonical, Func<Input, Context, Fin<Receipt>> Step) {
+public sealed record Policy(Context Canonical, Func<Input, Context, Fin<Input>> Step) {
     public static readonly Policy Strict = new(
         new Context(Ceiling: 1),
         static (input, context) => input.Score <= context.Ceiling
-            ? Fin.Succ(Receipt.Empty)
-            : Fin.Fail<Receipt>(new Fault.Bounds($"<over:{input.Score}/{context.Ceiling}>")));
+            ? Fin.Succ(input)
+            : Fin.Fail<Input>(new Fault.Bounds($"<over:{input.Score}/{context.Ceiling}>")));
 
     public static readonly Policy Lenient = new(
         Strict.Canonical with { Ceiling = 8 },
-        static (input, _) => Fin.Succ(Receipt.Degraded));
+        static (input, _) => Fin.Succ(input));
 }
 
 public static class PolicySurface {
-    public static Fin<Receipt> Run(Policy policy, Input input, Option<Context> context = default) =>
+    public static Fin<Input> Run(Policy policy, Input input, Option<Context> context = default) =>
         policy.Step(input, context.IfNone(policy.Canonical));
 }
 ```
@@ -343,7 +343,7 @@ public static class FloorDispatch {
 [PRECEDENCE_TABLE]:
 - Law: when a composition-time aspect stack recurs over one core, its order is a value — a closed `Concern` `[Union]` resolving each case to its transformer plus a `WeaveName` vocabulary whose `Rank` column is the canonical order, folded ascending so the lowest rank wraps innermost — never a fixed tower re-spelled at every owner, because the same stack written by hand at each call site is the inline-repeated-concern defect.
 - Law: one correctness constraint fixes the floor and the rank column declares the rest — recovery is rank 0 so a retry above it re-drives the already-recovered body, retry is the highest rank so a transient re-runs the whole observed core, and the relative rank of bracket and catch is the policy the column states once; a new aspect is one `[Union]` case plus one `WeaveName` row with every call site untouched.
-- Law: every transformer satisfies one shape — `Func<IO<Receipt>, IO<Receipt>>` — so the rank-ordered fold keeps the carrier and the rail intact through an arbitrary-depth stack, and the rank lives on the vocabulary item rather than a bent comparer so the order is recoverable from the declaration alone.
+- Law: every transformer satisfies one shape — `Func<IO<Report>, IO<Report>>` — so the rank-ordered fold keeps the carrier and the rail intact through an arbitrary-depth stack, and the rank lives on the vocabulary item rather than a bent comparer so the order is recoverable from the declaration alone.
 - Reject: the same bracket-retry-catch tower hand-spelled as sibling methods; a caller-supplied order where the `WeaveName` rank column already fixes it; a transformer typed `Func<IO<object>, IO<object>>` that erases the result.
 
 ```csharp conceptual
@@ -358,11 +358,11 @@ public sealed partial class WeaveName {
 
 [Union]
 public abstract partial record Concern {
-    public sealed record Recovering(CatchM<Error, IO, Receipt> Handler) : Concern;
-    public sealed record Bracketing(Func<Resource, IO<Receipt>> Use, Func<Resource, IO<Unit>> Fin) : Concern;
+    public sealed record Recovering(CatchM<Error, IO, Report> Handler) : Concern;
+    public sealed record Bracketing(Func<Resource, IO<Report>> Use, Func<Resource, IO<Unit>> Fin) : Concern;
     public sealed record Retrying(Schedule Backoff) : Concern;
 
-    public (WeaveName At, Func<IO<Receipt>, IO<Receipt>> Weave) Ranked(IO<Resource> acquire) => Switch(
+    public (WeaveName At, Func<IO<Report>, IO<Report>> Weave) Ranked(IO<Resource> acquire) => Switch(
         state: acquire,
         recovering: static (_, r) => (WeaveName.Recover, core => (core | r.Handler).As()),
         bracketing: static (a, b) => (WeaveName.Bracket, _ => a.Bracket(Use: b.Use, Fin: b.Fin)),
@@ -370,7 +370,7 @@ public abstract partial record Concern {
 }
 
 public static class AspectFold {
-    public static IO<Receipt> Woven(IO<Resource> acquire, IO<Receipt> core, params ReadOnlySpan<Concern> concerns) =>
+    public static IO<Report> Woven(IO<Resource> acquire, IO<Report> core, params ReadOnlySpan<Concern> concerns) =>
         toSeq(Iterable<Concern>.FromSpan(concerns).Map(concern => concern.Ranked(acquire)).OrderBy(static row => row.At.Rank))
             .Fold(core, static (wrapped, row) => row.Weave(wrapped));
 }

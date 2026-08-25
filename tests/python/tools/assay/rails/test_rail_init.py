@@ -13,7 +13,6 @@ from assay.rails.init import check, InitParams, python_app, python_lib
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python.tools.assay.kit import assay_settings, SeamExecutor
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 COVERS: tuple[object, ...] = (check, InitParams, python_app, python_lib)

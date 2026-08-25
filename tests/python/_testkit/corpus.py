@@ -61,7 +61,6 @@ import rasm.contracts as emitted
 from rasm.contracts.io.cloudevents.v1.cloudevents_pb import CloudEvent
 from rasm.contracts.rasm.contracts.clock.hlc_pb import Hlc
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 

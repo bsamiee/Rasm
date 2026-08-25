@@ -4,7 +4,13 @@
 
 import pytest
 
-from assay.composition.catalog import BUF_DEFECT_EXIT, launch, PROBE_TIMEOUT_S, select, TOOLS
+from assay.composition.catalog import (
+    BUF_DEFECT_EXIT,
+    launch,
+    PROBE_TIMEOUT_S,
+    select,
+    TOOLS,
+)
 from assay.core.model import Claim, Input, Language, Mode, Parser, Runner, Tool
 from assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT
 from tests.python._testkit.laws import spec
@@ -12,7 +18,6 @@ from tests.python._testkit.spec import assert_roundtrip, idempotent
 from tests.python._testkit.strategies import (
     resolve as _resolve,  # ruff:ignore[unused-import]
 )
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

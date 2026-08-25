@@ -15,10 +15,23 @@ from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import Executor
-from assay.core.model import BaseParams, Check, Claim, Completed, Fault, Language, Mode, ProvisionRun, RailStatus, Report, Step, Tool, ToolArgs
+from assay.core.model import (
+    BaseParams,
+    Check,
+    Claim,
+    Completed,
+    Fault,
+    Language,
+    Mode,
+    ProvisionRun,
+    RailStatus,
+    Report,
+    Step,
+    Tool,
+    ToolArgs,
+)
 from assay.core.routing import Routed, Scope
 from assay.diagnostics import fold
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

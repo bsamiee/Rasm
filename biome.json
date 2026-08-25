@@ -36,7 +36,6 @@
             "!**/scratch",
             "!**/.scratch",
             "!**/.tmp",
-            "!.claude/workflows",
             "!libs/contracts/gen",
             "!**/*.html"
         ]
@@ -98,8 +97,7 @@
     "formatter": {
         "enabled": true,
         "indentStyle": "space",
-        "indentWidth": 4,
-        "lineWidth": 150
+        "indentWidth": 4
     },
     "linter": {
         "enabled": true,

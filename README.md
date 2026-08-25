@@ -10,7 +10,7 @@ Rasm is a polyglot monorepo whose `libs/` estates hold independently adoptable C
 |  [02]   | `apps`  | App-keyed islands; each `apps/<app-name>/` holds one app's projects across any languages |
 |  [03]   | `tools` | Repo operators and architecture-pressure surfaces, each charter-owned by its own README  |
 |  [04]   | `tests` | C#, Python, and TypeScript suites beside the cross-language contract corpus              |
-|  [05]   | `docs`  | Durable doctrine: standards, per-language stacks, laws, atlas, and glossary              |
+|  [05]   | `docs`  | Durable doctrine: standards and per-language stacks                                      |
 
 ## [02]-[TOOL_OWNERS]
 
@@ -54,7 +54,7 @@ uv run assay self-test
 | :-----: | :------------------------------- | :-------------------------------------------------------------------------------- |
 |  [01]   | `CLAUDE.md`                      | Agent constitution: doc topology, implementation standards, tool and lane routing |
 |  [02]   | `AGENTS.md`                      | Session load order and the read-only planning-corpus engineering contract         |
-|  [03]   | `docs/README.md`                 | Doctrine router across standards, stacks, laws, atlas, and glossary               |
+|  [03]   | `docs/README.md`                 | Doctrine router across standards and stacks                                       |
 |  [04]   | `libs/.planning/ARCHITECTURE.md` | Stratification law, dependency direction, consumption model, admission ladder     |
 |  [05]   | `libs/.planning/README.md`       | Planning doc-set per tier, index-doc contracts, and design-page grammar           |
 |  [06]   | `tests/README.md`                | Proof-estate law across every language suite and the contract corpus              |

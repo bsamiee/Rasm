@@ -74,7 +74,7 @@ catalog:
   '@gltf-transform/core': 4.4.2
   '@gltf-transform/extensions': 4.4.2
   '@gltf-transform/functions': 4.4.2
-  ktx-parse: 1.1.0 # reads what the one provisioned ktx CLI writes; lineage peer: pyproject.toml pyktx over the Forge libktx (docs/laws/topology.md [43])
+  ktx-parse: 1.1.0 # reads what the one provisioned ktx CLI writes; lineage peer: pyproject.toml pyktx over the Forge libktx
   meshoptimizer: 1.2.0
   watlas: 1.0.1
   ssh2: 1.17.0

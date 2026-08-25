@@ -58,7 +58,6 @@ from tests.python._testkit.spec import (
     ValidityCase,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 

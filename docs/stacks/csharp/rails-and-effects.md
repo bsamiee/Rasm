@@ -2,7 +2,7 @@
 
 LanguageExt owns result rails, effect execution, immutable traversal, schedule policy, and boundary state cells. A carrier is chosen once at admission and never re-chosen mid-pipeline: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value happens only at host, UI, native, command, or wire edges. Admitted domain values enter these surfaces; raw host, native, wire, and generated shapes do not.
 
-Four siblings own the shapes this algebra composes as settled material. Closed `[Union]` families over the `Fault` base, their generated identity, and the `Admission` bridge are `shapes.md`'s; the definition-time generator weave and the composition-time aspect fold that stack retry, bracket, and catch over one core, with the continue-or-done iterative-dispatch step, are `surfaces-and-dispatch.md`'s; the native lifetime capsule, the serialized many-`Ref` state transaction, and the boundary memo key are `boundaries.md`'s; the span fold kernels a measured body names at the `EXPRESSION_SPINE` exemption are `algorithms.md`'s. This page composes each to legislate only which carrier states an outcome, how a boundary mints it, how a reusable transform threads it, how a collection sequences it, how faults accumulate through `Validation`, where the carrier collapses, and how a cell or receipt carries evidence.
+Four siblings own the shapes this algebra composes as settled material. Closed `[Union]` families over the `Fault` base, their generated identity, and the `Admission` bridge are `shapes.md`'s; the definition-time generator weave and the composition-time aspect fold that stack retry, bracket, and catch over one core, with the continue-or-done iterative-dispatch step, are `surfaces-and-dispatch.md`'s; the native lifetime capsule, the serialized many-`Ref` state transaction, and the boundary memo key are `boundaries.md`'s; the span fold kernels a measured body names at the `EXPRESSION_SPINE` exemption are `algorithms.md`'s. This page composes each to legislate only which carrier states an outcome, how a boundary mints it, how a reusable transform threads it, how a collection sequences it, how faults accumulate through `Validation`, where the carrier collapses, and where state or facts live.
 
 ## [01]-[RAIL_CHOOSER]
 
@@ -47,7 +47,7 @@ Every boundary converts once into the carrier that states the real outcome; reus
 - Reject: reminting a captured failure from its `Message`; a bare `try`/`catch` wrapping a rail transform; a blanket `MapFail` onto a typed fault, which destroys type, stack, and cause for every unknown failure at once.
 
 ```csharp conceptual
-public static Fin<Receipt> Capture(Func<Fin<Receipt>> native, CancellationToken token) =>
+public static Fin<Report> Capture(Func<Fin<Report>> native, CancellationToken token) =>
     Op.Of().Catch(native, NativeBoundary.Classify, token);
 ```
 
@@ -61,7 +61,7 @@ public static Fin<Receipt> Capture(Func<Fin<Receipt>> native, CancellationToken 
 - Use: `Match`, `IfFail`, `Run`, `RunAsync`, or unsafe extraction only at host, UI, native, command, or wire edges.
 - Law: the collapse member's return shape is carrier-owned — `Try` and `Eff` `Run()` land `Fin<T>` while `IO<T>` `Run()`/`RunAsync()` return the bare value and throw the typed `Error` — so `ThrowIfFail` or a `Fin`-shaped `Bind` on an `IO` terminal is a phantom spelling; an `IO` lane lands on `Fin` by carrying `IO<Fin<T>>` or lifting through `Eff`.
 - Law: reusable domain transforms keep the carrier; `.Value` and the `internal` `SuccValue`/`SuccessValue` accessors are never the exit.
-- Law: a collapse into a void or bool host override persists the typed failure into its owning evidence surface — fact stream, receipt cell, failure atom — before the scalar returns; a collapse that only maps the failure to `false` or `null` leaves the rail ornamental at the one edge it exists to explain.
+- Law: a collapse into a void or bool host override persists the typed failure into its owning fact stream or failure atom before the scalar returns; a collapse that only maps the failure to `false` or `null` leaves the rail ornamental at the one edge it exists to explain.
 - Reject: mid-pipeline collapse inside a pure projection; `Option.Match` inside an expression rail; a `Some` arm null-probing the payload `Option` structurally cannot make null; a `from x in Fin.Succ(...)` shell binding a pure value no later step consumes — `Fin.Succ` in a query sequences an effect or captures a pre-mutation read, nothing else.
 
 ## [03]-[TRAVERSAL_FLOW]
@@ -85,13 +85,13 @@ Traversal is rail policy: the collection shape and the sequencing operator toget
 - Reject: `.Map(f).TraverseM(identity)` where direct `.TraverseM(f)` fuses; index-threaded folds unless the fold carries algorithm state.
 
 ```csharp conceptual
-public static Fin<Seq<Receipt>> TraverseRaw(string[] raw) =>
+public static Fin<Seq<Report>> TraverseRaw(string[] raw) =>
     toSeq(raw)
         .Map((value, index) => AdmitCode(value).Map(code => new Input(Code: code, Score: index + 1)))
         .TraverseM(identity)
         .As()
         .Bind(inputs => inputs.TraverseM(input => Mode.Strict.Apply(input)).As())
-        .Map(static receipts => receipts.Strict());
+        .Map(static reports => reports.Strict());
 ```
 
 [FILTER_MAP_AND_AGGREGATION]:
@@ -173,7 +173,7 @@ An effect carries the runtime; `Eff<RT,T>` and `IO<T>` defer boundary work until
 - Reject: service-location wrappers and ambient host globals inside reusable transforms.
 
 ```csharp conceptual
-public sealed record Runtime(Mode Mode, TimeProvider Clock, Atom<HashMap<CodeValue, Receipt>> Cache, CancellationToken Cancel);
+public sealed record Runtime(Mode Mode, TimeProvider Clock, Atom<HashMap<CodeValue, Report>> Cache, CancellationToken Cancel);
 
 public static class Capability {
     public static readonly Eff<Runtime, Mode> AskMode =
@@ -182,8 +182,8 @@ public static class Capability {
     public static readonly Eff<Runtime, DateTimeOffset> Now =
         Eff.runtime<Runtime>().Map(static runtime => runtime.Clock.GetUtcNow()).As();
 
-    public static Eff<Runtime, Receipt> InMode(Eff<Mode, Receipt> scoped) =>
-        Eff.local<Runtime, Mode, Receipt>(static runtime => runtime.Mode, scoped);
+    public static Eff<Runtime, Report> InMode(Eff<Mode, Report> scoped) =>
+        Eff.local<Runtime, Mode, Report>(static runtime => runtime.Mode, scoped);
 }
 ```
 
@@ -196,7 +196,7 @@ public static class Capability {
 - Reject: resource lifetime hidden behind ordinary domain state.
 
 ```csharp conceptual
-public static IO<Receipt> Guarded(IO<Resource> acquire, Func<Resource, IO<Receipt>> use) {
+public static IO<Report> Guarded(IO<Resource> acquire, Func<Resource, IO<Report>> use) {
     ArgumentNullException.ThrowIfNull(acquire);
     ArgumentNullException.ThrowIfNull(use);
 
@@ -204,7 +204,7 @@ public static IO<Receipt> Guarded(IO<Resource> acquire, Func<Resource, IO<Receip
         .Retry(Backoff)
         .Bracket(
             Use: use,
-            Catch: static error => IO.fail<Receipt>(NativeBoundary.Classify(error).Map(static f => (Error)f).IfNone(error)),
+            Catch: static error => IO.fail<Report>(NativeBoundary.Classify(error).Map(static f => (Error)f).IfNone(error)),
             Fin: static resource => resource.ReleaseIO());
 }
 ```
@@ -233,14 +233,14 @@ public static class Custody {
 - Reject: bare `eff1 | eff2` as fallback or retry semantics; predicates written against exception types instead of codes and facets.
 
 ```csharp conceptual
-public static CatchM<Error, M, Receipt> Transient<M>() where M : Fallible<Error, M>, Monad<M> =>
-    @catch<M, Receipt>(static error => error.IsExceptional, static _ => pure<M, Receipt>(Receipt.Retried));
+public static CatchM<Error, M, Report> Transient<M>() where M : Fallible<Error, M>, Monad<M> =>
+    @catch<M, Report>(static error => error.IsExceptional, static _ => pure<M, Report>(Report.Retried));
 
-public static K<M, Receipt> Recover<M>(K<M, Receipt> work) where M : Fallible<Error, M>, Monad<M> =>
+public static K<M, Report> Recover<M>(K<M, Report> work) where M : Fallible<Error, M>, Monad<M> =>
     work
       | Transient<M>()
-      | expected<M, Receipt>(static _ => pure<M, Receipt>(Receipt.Degraded))
-      | @catch<M, Receipt>(static _ => true, static _ => pure<M, Receipt>(Receipt.Empty));
+      | expected<M, Report>(static _ => pure<M, Report>(Report.Degraded))
+      | @catch<M, Report>(static _ => true, static _ => pure<M, Report>(Report.Empty));
 ```
 
 [SCHEDULE_POLICY]:
@@ -262,7 +262,7 @@ public static readonly Schedule Backoff =
    | Schedule.maxCumulativeDelay(max: 30 * seconds))
    & Schedule.spaced(space: 100 * ms);
 
-public static IO<Receipt> Resilient(IO<Receipt> work) =>
+public static IO<Report> Resilient(IO<Report> work) =>
     work.Retry(Backoff);
 ```
 
@@ -293,13 +293,13 @@ public static IO<State> Converge(Atom<State> cell, Func<State, State> advance) =
 - Rule: the same glyph is a different algebra per carrier, so a non-local type reaches for the named method (`union`/`intersect` on `Schedule` are Prelude functions, schedule intersect is not `&`); `|` on `Validation` is first-success choice while on `Fallible` it is catch-wrapping, so an ambiguous receiver is `.As()`-anchored before the operator.
 - Reject: a `[Flags]` enum bitwise `|` standing in for combinable capability, which shapes.md replaces with frozen-set membership and a fold; a domain owner defining `+`/`|` whose algebra is not the rail's, which collides with the carrier overloads at one call site.
 
-## [06]-[STATE_RECEIPTS]
+## [06]-[STATE_AND_FACTS]
 
 State belongs at a boundary or session owner, not inside pure domain accumulation.
 
 [CELL_AND_THREAD]:
-- Law: one producer in one run threads the receipt through a state or writer transformer channel — pure, replayable, no atom, no contention; many producers or runs require a cell.
-- Law: a threaded receipt dies at the run boundary; cross-run accumulation, cross-thread visibility, or observation outside the pipeline requires a cell.
+- Law: one producer in one run threads the result through a state or writer transformer channel — pure, replayable, no atom, no contention; many producers or runs require a cell.
+- Law: a threaded result dies at the run boundary; cross-run accumulation, cross-thread visibility, or observation outside the pipeline requires a cell.
 - Use: layer both — thread per run, fold each run's final output into the cell once at the run edge, one swap per run.
 - Reject: a cell where one run's thread suffices; a thread where another thread must observe.
 
@@ -312,14 +312,14 @@ State belongs at a boundary or session owner, not inside pure domain accumulatio
 - Reject: read-modify-write outside `Swap`; hiding native lifetime, host tree mutation, or domain aggregation behind `Atom<T>`.
 
 ```csharp conceptual
-public static Fin<Receipt> Memoized(Runtime runtime, Input input) =>
-    runtime.Cache.Value.Find(input.Code) is { IsSome: true, Case: Receipt cached }
+public static Fin<Report> Memoized(Runtime runtime, Input input) =>
+    runtime.Cache.Value.Find(input.Code) is { IsSome: true, Case: Report cached }
         ? Fin.Succ(cached)
-        : runtime.Mode.Apply(input).Map(receipt =>
+        : runtime.Mode.Apply(input).Map(result =>
             runtime.Cache
-                .Swap(state => state.TryAdd(input.Code, receipt))
+                .Swap(state => state.TryAdd(input.Code, result))
                 .Find(input.Code)
-                .IfNone(receipt));
+                .IfNone(result));
 ```
 
 [BOUNDARY_STATE_FAMILIES]:
@@ -330,25 +330,11 @@ public static Fin<Receipt> Memoized(Runtime runtime, Input input) =>
 - Boundary: two-or-more-`Ref` atomic transitions are STM, not a single-cell boundary.
 - Reject: global mutable state disguised as functional flow.
 
-[RECEIPTS]:
-- Law: the split is capability — a stream answers what happened and when, a typed receipt answers how this computation resolved; collapsing a receipt into a stream, or a generic ledger over typed proof, erases the typed evidence.
+[DOMAIN_RESULTS_AND_FACTS]:
+- Law: the computation returns its actual domain value through the selected rail. Evidence needed by the caller is a field of that value; chronology is a `FactRecord` on the owning fact stream. No second metadata carrier is introduced.
 - Law: one `FactRecord` carries a kind discriminant, a slot identifier, and a payload union; adds, updates, removals, and errors are kind cases over `Atom<Seq<FactRecord>>`, never parallel record types.
-- Projection: filter-by-kind, group-by-slot-last-wins, and full chronology are pure folds over that one fact stream, never separate cells or parallel fields synced by hand.
-- Law: keep a typed receipt when fields carry solver, sampling, route, status, metric, spectral, mesh, extraction, or proof evidence; `Atom<ReceiptRecord>` holds the latest, history escalates to `Atom<Seq<ReceiptRecord>>`.
-- Law: every receipt field derives from the run fact it reports — a parameter callers hardwire to one value at every site is false evidence and deletes.
-- Law: failure-diagnostic side channels a boundary returns beside its primary result — out-parameter point sets, refusal codes — fold onto the typed receipt on the empty and failure branches, never the success branch alone; success-only binding discards the explanation exactly where it decides.
-
-```csharp conceptual
-public readonly record struct Receipt(CodeValue Code, int Count) {
-    public static readonly Receipt Empty = new(Code: CodeValue.Create(value: "SUM"), Count: 0);
-
-    public static Receipt operator +(Receipt left, Receipt right) =>
-        new(Code: left.Code, Count: left.Count + right.Count);
-
-    public static Receipt Collapse(Seq<Receipt> receipts) =>
-        receipts.Fold(Empty, static (sum, receipt) => sum + receipt);
-}
-```
+- Projection: filter-by-kind, group-by-slot-last-wins, and full chronology are pure folds over that fact stream. A value that already exists in the domain is returned directly, and an operation with no domain value returns `Unit`.
+- Reject: generic result records, caller-filled evidence fields, or a state cell duplicating facts already owned by the stream.
 
 ## [07]-[INTEROP]
 

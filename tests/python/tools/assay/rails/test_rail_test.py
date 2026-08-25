@@ -57,9 +57,13 @@ from assay.rails.test import (
     coverage_percent,
     TestParams,
 )
-from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, validity_matrix
+from tests.python._testkit.spec import (
+    assert_error_status,
+    assert_ok,
+    refutes,
+    validity_matrix,
+)
 from tests.python.tools.assay.kit import SeamExecutor
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

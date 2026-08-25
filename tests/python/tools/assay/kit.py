@@ -66,7 +66,6 @@ from tests.python._testkit.seams import (
 )
 from tests.python._testkit.strategies import resolve
 
-
 if TYPE_CHECKING:
     from expression import Result
     import pytest
@@ -471,7 +470,9 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
     Returns:
         The installed module double for further per-test configuration.
     """
-    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]
+    from assay.automation import (  # ruff:ignore[import-outside-top-level]
+        engine as automation_engine,
+    )
 
     fake = _make_psutil_module({}, cpu_count=cpu_count)
     fake.cpu_percent = cpu_percent

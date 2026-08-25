@@ -310,7 +310,6 @@ classes:
       matchers:
         - '(per|cites?|according to|under).{0,40}(deleted|retired|superseded|re-?ruled|former)'
         - '(law|rule|standard) (no longer|does not) (hold|apply|exist)'
-      refuting_citation: 'docs/laws/ + memory current state — a finding grounded in a superseded ruling is void, the prose twin of stale-disk-quoted-shape-void; the discriminator is the cited law re-verified on current disk — a standing law confirmed there keeps the finding live'
       landed_surfaces:
         - '.coderabbit.yaml'
         - '.greptile/rules.md'

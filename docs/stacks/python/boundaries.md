@@ -1,6 +1,6 @@
 # [PYTHON_BOUNDARIES]
 
-Foreign material crosses once: a boundary owner projects native handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, receipts, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the seam names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners.
+Foreign material crosses once: a boundary owner projects native handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, results, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the seam names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners.
 
 ## [01]-[SEAM_CHOOSER]
 
@@ -525,5 +525,5 @@ def signed(raw: bytes, /) -> Result[tuple[str, str], WireFault]:
 - Use: signatures, content hashes, idempotency keys, checksums, and byte-stable forwarding.
 - Law: the sub-tree that must round-trip byte-identically is a `msgspec.Raw` band on the message envelope — the decoder holds the inner octets opaque instead of parsing them and a re-encode writes them verbatim, so a float spelled `1.1000`, a `-0.0`, and a non-finite `1e400` survive intact where a parse-then-reserialize re-spells every one; `bytes(raw)` is the exact octet sequence the digest signs, captured before any interior owner sees a parsed value.
 - Law: semantic equality and byte equality are distinct invariants — one `hashlib` surface per byte-identity domain is fixed at composition (`hashlib.sha256(bytes(raw)).hexdigest()`), never chosen per site, and the parsed projection of the same message envelope is a separate egress that never feeds the signature.
-- Boundary: a receipt carries the coordinate and the hex digest, never the `Raw` octets; the persisted fingerprint is the stable `hashlib` digest, never a process-randomized `hash()` whose seed resets each run.
+- Boundary: a result carries the coordinate and the hex digest, never the `Raw` octets; the persisted fingerprint is the stable `hashlib` digest, never a process-randomized `hash()` whose seed resets each run.
 - Reject: a parsed-then-reserialized payload between verification, signing, or forwarding; a per-site encoder where one composition-fixed `hashlib` surface serves; a `hash()` persisted as stable identity; a domain field reaching the interior where the `msgspec.Raw` band holds the signed octets opaque.

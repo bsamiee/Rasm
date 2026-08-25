@@ -48,11 +48,21 @@ from assay.core.govern import (
     stream_artifacts,
     touched,
 )
-from assay.core.model import Check, Completed, Fault, HOST_BOUND_CLAIMS, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
+from assay.core.model import (
+    Check,
+    Completed,
+    Fault,
+    HOST_BOUND_CLAIMS,
+    Mode,
+    RailStatus,
+    receipt,
+    Runner,
+    Tool,
+    ToolGroup,
+)
 from assay.core.remote import pooled_ssh, run_remote
 from assay.core.routing import discover, place, Routed
 from assay.diagnostics import AST_MATCHES
-
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine, Mapping, MutableMapping

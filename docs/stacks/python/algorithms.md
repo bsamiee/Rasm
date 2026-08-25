@@ -1,8 +1,8 @@
 # [PYTHON_ALGORITHMS]
 
-Numeric work is admitted once and routed by operand shape. Raw arrays cross into a finite-checked owner at one boundary, the interior is total over admitted operands, and the operand's structure selects the owning factorization through one route-keyed policy row, never the call site and never a knob beside the matrix. Every solve is the one composed `admit -> route -> solve -> witness -> receipt` lifecycle written once; a per-module pipeline re-deriving the chain is the rejected form.
+Numeric work is admitted once and routed by operand shape. Raw arrays cross into a finite-checked owner at one boundary, the interior is total over admitted operands, and the operand's structure selects the owning factorization through one route-keyed policy row, never the call site and never a knob beside the matrix. Every solve is the one composed `admit -> route -> solve -> witness -> result` lifecycle written once; a per-module pipeline re-deriving the chain is the rejected form.
 
-Every library refuses its own gates — no constructor checks finiteness, array arithmetic returns `nan`/`inf` silently, a near-singular solve yields a garbage vector with no signal, an exact-`==` symmetry test fails on an accumulation-built matrix — so admission re-imposes each refused gate as one explicit predicate. Every result leaves as a frozen `msgspec.Struct` receipt carrying its route case, the scale-derived tolerance it was gated against, and the recomputed true relative residual against the original operator, never a raw `ndarray` or factorization handle.
+Every library refuses its own gates — no constructor checks finiteness, array arithmetic returns `nan`/`inf` silently, a near-singular solve yields a garbage vector with no signal, an exact-`==` symmetry test fails on an accumulation-built matrix — so admission re-imposes each refused gate as one explicit predicate. Every solve returns a frozen `msgspec.Struct` carrying its route case, the scale-derived tolerance it was gated against, and the recomputed true relative residual against the original operator, never a raw `ndarray` or factorization handle.
 
 ## [01]-[ROUTE_SPINE]
 
@@ -21,15 +21,15 @@ The operand shape selects the route before any solve; the most specific shape wi
 |  [09]   | huge sparse or changing pattern        | matrix-free Krylov, incomplete-LU precondition | verdict-routed sparse direct solve        |
 |  [10]   | symbolic operator, repeated evaluation | one `"numpy"`-lowered kernel, evaluated dense  | dense route on the lowered callable       |
 
-Recover the fallback from the route value and record it on the receipt, never a caller-named entrypoint: a fill ratio (symbolic factor nonzeros over input nonzeros, read from the held sparse factor before the numeric sweep) routes direct versus iterative, and the regularized least-squares case (the design matrix stacked over a `√λ`-scaled identity) is the derived consequence of the conditioning budget exceeding the inverse cap. The fallback is a rebind onto the same lifecycle: primary and conditioning routes converge on the one witness gate, and the receipt records the taken path. The per-member factorization surface — the held-factor tuple, the assumption flag, the index-band, the incomplete-LU operator — is the companion band's depth applied at the compute boundary; this table fixes which substrate and which algebraic shape the operand selects.
+Recover the fallback from the route value and record it on the result, never a caller-named entrypoint: a fill ratio (symbolic factor nonzeros over input nonzeros, read from the held sparse factor before the numeric sweep) routes direct versus iterative, and the regularized least-squares case (the design matrix stacked over a `√λ`-scaled identity) is the derived consequence of the conditioning budget exceeding the inverse cap. The fallback is a rebind onto the same lifecycle: primary and conditioning routes converge on the one witness gate, and the result records the taken path. The per-member factorization surface — the held-factor tuple, the assumption flag, the index-band, the incomplete-LU operator — is the companion band's depth applied at the compute boundary; this table fixes which substrate and which algebraic shape the operand selects.
 
 [ROUTE_UNION]:
-- Law: the `Route` `StrEnum` is the one closed vocabulary over every operand shape the route table lists and the receipt's sole route discriminant, so a new substrate lands as one member, each `Route`-keyed table gains one row, and the receipt carries the taken path. The dense spine `solved` serves the six dense members while the sparse and symbolic members thread their own held factor and lowered callable through the shared witness, so one vocabulary spans every route and no parallel route type forms beside it.
+- Law: the `Route` `StrEnum` is the one closed vocabulary over every operand shape the route table lists and the result's sole route discriminant, so a new substrate lands as one member, each `Route`-keyed table gains one row, and the result carries the taken path. The dense spine `solved` serves the six dense members while the sparse and symbolic members thread their own held factor and lowered callable through the shared witness, so one vocabulary spans every route and no parallel route type forms beside it.
 - Law: the operand is the spine's own admitted `np.ndarray` argument, never a case payload, because every dense route carries the identical operator shape; what varies per route is policy — the post-solve admission `Gate`, the `Scale` the tolerance derives from, and the pre-solve conditioning `Probe` — bundled as one `RoutePolicy` frozen owner in one `frozendict[Route, RoutePolicy]` the spine reads by the route key. A `conditioned: bool` re-selecting the probe body is the rejected knob; the `Probe` value carries it.
 - Law: the solver is the companion factorization injected as a second `frozendict[Route, Solver]` filled at the compute boundary — the one legitimate split from `RoutePolicy`, because the dense-Cholesky, pivoted-LU, least-squares-SVD, and eigensolver members are dependency-gated off-wheel while the gate-scale-probe bundle is pure — so the in-wheel `numpy.linalg` one-shot members and the companion `scipy.linalg` held factors enter through the one injection seam the spine never branches on.
 - Law: every `Route`-keyed table is total over its domain by construction, so an unrouted operand is the classifier's fault projected to `Result` at the seam; static `match` exhaustiveness rides the one genuinely heterogeneous owner `SolveTerminal`, whose three cases carry distinct payloads the spine consumes, never a uniform-payload union the tag alone indexes.
 - Reject: a `compute_vectors: bool`, `mode: str`, or `sym: bool` parameter riding beside the matrix — a parallel knob re-describing the input is arity smuggled back; sibling `solve_spd`/`solve_general`/`solve_lstsq` functions where one routed dispatch discriminates on the operand; a second route-keyed `frozendict` per pure-policy axis where one `RoutePolicy` row carries the bundle; a `FactorRoute` tagged union whose six cases each carry one `np.ndarray` and whose claimed exhaustiveness no spine `match` realizes — the `Route` key into the policy and solver tables is denser than a tag-only shape read by `getattr`.
-- Boundary: the spine's terminal `bind` lands in the `witnessed` receipt core the witness layer owns, so `solved` returns `Result[SolveReceipt, SolveFault]` and the residual is computed exactly once at that terminus, never a second time here; the element carrier is `numpy` `float64`, admission narrows the dtype and asserts C-contiguity once, and the interior never re-checks either.
+- Boundary: the spine's terminal `bind` lands in the `witnessed` result core the witness layer owns, so `solved` returns `Result[SolveResult, SolveFault]` and the residual is computed exactly once at that terminus, never a second time here; the element carrier is `numpy` `float64`, admission narrows the dtype and asserts C-contiguity once, and the interior never re-checks either.
 
 ```python conceptual
 from collections.abc import Callable
@@ -94,7 +94,7 @@ POLICY: frozendict[Route, RoutePolicy] = frozendict({
 })
 
 
-def solved(route: Route, operand: np.ndarray, solvers: frozendict[Route, Solver], b: np.ndarray, cap: float, /) -> Result["SolveReceipt", SolveFault]:
+def solved(route: Route, operand: np.ndarray, solvers: frozendict[Route, Solver], b: np.ndarray, cap: float, /) -> Result["SolveResult", SolveFault]:
     policy = POLICY[route]
     return (
         admitted(operand)
@@ -135,7 +135,7 @@ def conditioned(a: np.ndarray, cap: float, /) -> Result[np.ndarray, SolveFault]:
 ## [03]-[TOLERANCE_AND_HELD_HANDLE]
 
 [SCALE_DERIVED_TOLERANCE]:
-- Law: every threshold is one of two derivation forms over operator and right-hand-side scale — `Scale.OPERATOR_RHS` is `ε·‖A‖_F·max(‖b‖∞, 1)` for a square solve, `Scale.SINGULAR_DIM` is `ε·σ_max·max(shape)` for the least-squares rank floor reading `σ_max` off the held SVD — closed in one `Scale` vocabulary and projected by one `scaled(form, a, b)`, never a per-route `frozendict[Route, Callable]` whose definite and square rows duplicate one body; the route's `Scale` member rides its `RoutePolicy` row so the derivation is the policy axis the spine already threads, and `solved` reads `scaled(policy.scale, m, b)` at the one terminus. A bare per-module absolute literal in `1e-4..1e-8` is unreplayable and uncomparable across operators, the rejected form, and a fresh literal per call site is the same defect spelled inline; the derived scalar carries onto the receipt as the tolerance the witness gated against.
+- Law: every threshold is one of two derivation forms over operator and right-hand-side scale — `Scale.OPERATOR_RHS` is `ε·‖A‖_F·max(‖b‖∞, 1)` for a square solve, `Scale.SINGULAR_DIM` is `ε·σ_max·max(shape)` for the least-squares rank floor reading `σ_max` off the held SVD — closed in one `Scale` vocabulary and projected by one `scaled(form, a, b)`, never a per-route `frozendict[Route, Callable]` whose definite and square rows duplicate one body; the route's `Scale` member rides its `RoutePolicy` row so the derivation is the policy axis the spine already threads, and `solved` reads `scaled(policy.scale, m, b)` at the one terminus. A bare per-module absolute literal in `1e-4..1e-8` is unreplayable and uncomparable across operators, the rejected form, and a fresh literal per call site is the same defect spelled inline; the derived scalar carries onto the result as the tolerance the witness gated against.
 - Law: recompute domain rank as `count(σ_i > ε_rank · σ_max)` with a caller-supplied relative `ε_rank`; the LAPACK default rank cut misclassifies significant singular values for an operator with `‖A‖₂ ~ 10⁶`.
 
 [HELD_HANDLE]:
@@ -224,16 +224,16 @@ def settled(verdict: SolveTerminal, witness: float, cap: float, /) -> Result[np.
             assert_never(never)
 ```
 
-## [05]-[WITNESS_AND_RECEIPT]
+## [05]-[WITNESS_AND_RESULT]
 
 [RESIDUAL_WITNESS]:
 - Law: every solve — dense, sparse, direct, iterative, primary, fallback — converges on one witness gate that recomputes the true relative residual `‖b - A·x‖ / ‖b‖` against the original operator and compares it to the scale-derived tolerance; this single signal survives preconditioning, breakdown substitution, cancellation, and provider divergence, and a solve that returns without passing the gate is the rejected form.
-- Law: the witness reads the residual in the operator's own working precision and rejects a non-finite residual before comparing it to the tolerance; a `nan` residual compared with `<=` silently passes, so the finite check precedes the magnitude check, and the residual is computed exactly once per result — the gate returns it and the receipt carries that value, never a second recomputation.
+- Law: the witness reads the residual in the operator's own working precision and rejects a non-finite residual before comparing it to the tolerance; a `nan` residual compared with `<=` silently passes, so the finite check precedes the magnitude check, and the residual is computed exactly once per result — the gate returns it and the result carries that value, never a second recomputation.
 
-[TYPED_RECEIPT]:
-- Law: every result leaves as one frozen `msgspec.Struct` `SolveReceipt` carrying the route case as a `Route` member, the scale-derived tolerance it was gated against, and the recomputed residual — the numeric evidence this layer owns; it never carries the operator, the factorization handle, or an eagerly decoded solution array, because the numeric block is large and its decode is the consumer's choice. The solution defers as a `Raw` field: the contiguous-octet capture and the consumer's zero-copy `frombuffer` view are `numpy`'s own `ascontiguousarray(...).tobytes()` and reconstruction, this page's substrate, while the byte-identical opaque round-trip band is `boundaries.md`'s `msgspec.Raw` wire mechanic — this card fixes only which evidence the receipt holds.
+[TYPED_RESULT]:
+- Law: every result leaves as one frozen `msgspec.Struct` `SolveResult` carrying the route case as a `Route` member, the scale-derived tolerance it was gated against, and the recomputed residual — the numeric evidence this layer owns; it never carries the operator, the factorization handle, or an eagerly decoded solution array, because the numeric block is large and its decode is the consumer's choice. The solution defers as a `Raw` field: the contiguous-octet capture and the consumer's zero-copy `frombuffer` view are `numpy`'s own `ascontiguousarray(...).tobytes()` and reconstruction, this page's substrate, while the byte-identical opaque round-trip band is `boundaries.md`'s `msgspec.Raw` wire mechanic — this card fixes only which evidence the result holds.
 - Law: the egress weave is the `aspected` factory `surfaces-and-dispatch.md` owns, composed over the pure witness core and never re-derived here: the in-process numeric interior carries no transient provider, so the spine weaves only the factory's fixed type-guard arm under one shared `BeartypeConf`, which lifts a `BeartypeCallHintViolation` through `lifted` onto `<type-hint>` — a malformed operand shape becomes a `SolveFault` member rather than an escaping exception, and a co-occurring concern lands as one more `Concern` entry with the body untouched. No `numpy.linalg.LinAlgError` capture rides this weave: the `<singular>` cap-against-`cond` gate at admission already precludes the near-singular factorization that raises it, so a re-catch at egress re-imposes a gate the interior owns once.
-- Boundary: the receipt's scalar projection — route, tolerance, residual — is the `str | float` evidence a downstream span or structured-emission consumer reads, never the `Raw` solution bytes; the emission weave that consumes it is the domain observability owner's, this layer states only that the projection carries scalars and the solution stays bytes.
+- Boundary: the result's scalar projection — route, tolerance, residual — is the `str | float` evidence a downstream span or structured-emission consumer reads, never the `Raw` solution bytes; the emission weave that consumes it is the domain observability owner's, this layer states only that the projection carries scalars and the solution stays bytes.
 
 ```python conceptual
 import numpy as np
@@ -242,7 +242,7 @@ from expression import Error, Ok, Result
 from msgspec import Raw, Struct
 
 
-class SolveReceipt(Struct, frozen=True, gc=False):
+class SolveResult(Struct, frozen=True, gc=False):
     route: Route
     tolerance: float
     residual: float
@@ -258,9 +258,9 @@ def attested(a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Resu
 
 
 @aspected(lifted=lambda _v: "<type-hint>", conf=_TYPE_GUARD)
-def witnessed(route: Route, a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Result[SolveReceipt, SolveFault]:
+def witnessed(route: Route, a: np.ndarray, x: np.ndarray, b: np.ndarray, tol: float, /) -> Result[SolveResult, SolveFault]:
     framed = lambda ok: Raw(np.ascontiguousarray(ok, dtype=np.float64).tobytes())
-    return attested(a, x, b, tol).map(lambda pair: SolveReceipt(route, tol, pair[1], framed(pair[0])))
+    return attested(a, x, b, tol).map(lambda pair: SolveResult(route, tol, pair[1], framed(pair[0])))
 ```
 
 ## [06]-[COMPANION_ADMISSION]
@@ -272,7 +272,7 @@ The symbolic, dimensional, and uncertainty surfaces are the compute companion ba
 - Reject: symbolic per-sample evaluation in a loop; re-deriving the symbolic expression per call; admitting the lowered kernel without the finite-sample gate.
 
 [DIMENSIONAL_AND_ERROR]:
-- Law: the `pint` units route strips a dimensioned input to its canonical base-unit magnitude through one module-level registry before the stripped array crosses the `[02]` finite-admission gate, and the receipt re-attaches the unit on egress; the `uncertainties` route lifts a fit covariance into auto-propagating arithmetic strictly as a boundary-and-receipt concern. Both obey the one admission law under their own gate — the magnitude through the flat finite gate, the kernel through the finite-sample probe — so a `Quantity` or an object-dtype error array never reaches a BLAS call, where its `__array_ufunc__` dispatch defeats the float64 kernel.
+- Law: the `pint` units route strips a dimensioned input to its canonical base-unit magnitude through one module-level registry before the stripped array crosses the `[02]` finite-admission gate, and the returned domain value re-attaches the unit on egress; the `uncertainties` route lifts a fit covariance into auto-propagating arithmetic strictly at the boundary, with uncertainty carried by the returned domain value. Both obey the one admission law under their own gate — the magnitude through the flat finite gate, the kernel through the finite-sample probe — so a `Quantity` or an object-dtype error array never reaches a BLAS call, where its `__array_ufunc__` dispatch defeats the float64 kernel.
 - Reject: stringly-typed unit suffixes on field names; manual error-propagation arithmetic where the route derives the partials from its own shared-variable graph; mixing a dimensioned quantity or an uncertainty object into the dense factorization hot path.
 
 ```python conceptual
@@ -308,7 +308,7 @@ The constant-coefficient periodic operators and the seeded sampler have no compa
 
 [SEEDED_SAMPLING]:
 - Law: draw stochastic samples through one explicit `numpy.random.default_rng(seed)` over a state-serializable generator for checkpoint-resume, deriving independent parallel streams through `SeedSequence.spawn`; the default entropy source is non-deterministic regardless of seeding, so the seed and the spawned child index are the replicate family's replay key, recorded for an exact checkpoint resume.
-- Boundary: a stochastic estimate leaves as a replicate family whose cross-replicate spread is the receipt's variance evidence; a single draw carries no recoverable variance.
+- Boundary: a stochastic estimate leaves as a replicate family whose cross-replicate spread is the result's variance evidence; a single draw carries no recoverable variance.
 
 ```python conceptual
 from collections.abc import Callable

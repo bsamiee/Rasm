@@ -21,17 +21,40 @@ import pytest
 
 from assay.automation import engine as _eng
 from assay.automation.engine import drive, is_governed
-from assay.automation.model import Action, Debounce, Edge, Manual, Program, Rail, Schedule, Sequence, Trigger, Watch, WatchFilter
-from assay.core.model import Claim, Completed, Counts, envelope, Fault, RailStatus, receipt
+from assay.automation.model import (
+    Action,
+    Debounce,
+    Edge,
+    Manual,
+    Program,
+    Rail,
+    Schedule,
+    Sequence,
+    Trigger,
+    Watch,
+    WatchFilter,
+)
+from assay.core.model import (
+    Claim,
+    Completed,
+    Counts,
+    envelope,
+    Fault,
+    RailStatus,
+    receipt,
+)
 from assay.diagnostics import fold
 from tests.python.tools.assay.kit import RailProbe
-
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from assay.core.model import Envelope
-    from tests.python.tools.assay.kit import AssayHarness, CpuDoubleInstaller, CpuSampler
+    from tests.python.tools.assay.kit import (
+        AssayHarness,
+        CpuDoubleInstaller,
+        CpuSampler,
+    )
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -679,9 +702,7 @@ def test_drive_emits_ndjson_on_stdout(assay_root: AssayHarness, capsysbinary: py
 
     Falsified by: writing to stderr, writing non-JSON bytes, or omitting the newline separator.
     """
-    from tests.python.tools.assay.kit import (  # ruff:ignore[import-outside-top-level]
-        read_one_envelope_from_bytes,
-    )
+    from tests.python.tools.assay.kit import read_one_envelope_from_bytes  # ruff: ignore[import-outside-top-level, unsorted-imports]
 
     anyio.run(drive, Manual(), Program(argv=()), assay_root.settings)
 

@@ -30,13 +30,27 @@ from upath import UPath
 from assay.composition.settings import Ssh
 from assay.composition.store import ArtifactScope
 from assay.core.aspect import ring_recent
-from assay.core.model import Artifact, ArtifactKind, Check, Claim, Completed, Fault, Mode, RailStatus, Runner
-
+from assay.core.model import (
+    Artifact,
+    ArtifactKind,
+    Check,
+    Claim,
+    Completed,
+    Fault,
+    Mode,
+    RailStatus,
+    Runner,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Coroutine, Generator, Mapping
 
-    from anyio.abc import ByteReceiveStream, ObjectReceiveStream, ObjectSendStream, Process
+    from anyio.abc import (
+        ByteReceiveStream,
+        ObjectReceiveStream,
+        ObjectSendStream,
+        Process,
+    )
     import asyncssh
 
     from assay.composition.settings import AssaySettings

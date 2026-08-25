@@ -14,7 +14,6 @@ import re
 import shlex
 import sys
 
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Probe = Callable[[list[str], str], str]

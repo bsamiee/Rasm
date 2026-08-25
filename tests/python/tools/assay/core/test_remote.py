@@ -19,19 +19,32 @@ import msgspec
 import pytest
 from upath import UPath
 
-from assay.composition.settings import AssaySettings, PullStrategy, run_id_host_token, Ssh
+from assay.composition.settings import (
+    AssaySettings,
+    PullStrategy,
+    run_id_host_token,
+    Ssh,
+)
 from assay.composition.store import ArtifactScope
 from assay.core.exec import fan_out, run_check
 from assay.core.govern import ExecPlan, recv_ssh
-from assay.core.model import ArtifactKind, Check, Claim, Input, Language, Mode, receipt, Runner, Tool
+from assay.core.model import (
+    ArtifactKind,
+    Check,
+    Claim,
+    Input,
+    Language,
+    Mode,
+    receipt,
+    Runner,
+    Tool,
+)
 import assay.core.remote as remote_mod
 from assay.core.remote import pooled_ssh, remote_command, run_remote, ssh_outcome
 from assay.core.routing import Routed, Scope
 from tests.python._testkit.env import provision, SshHost
 from tests.python._testkit.spec import assert_ok
-
 from tests.python.tools.assay.kit import AssayHarness
-
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Iterator, Mapping

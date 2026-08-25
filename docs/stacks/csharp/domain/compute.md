@@ -1,6 +1,6 @@
 # [COMPUTE]
 
-Compute is one measured engine. A typed intent admits once — shape, dtype row, canonical units — routes through one benchmark-gated substrate fold whose caps derive from the settled budget record, executes on a budgeted lane, and exits as a typed route receipt carrying the taken row, every vetoed row with its reason, and dual evidence for every normalizing admission. Tensors are one owner with two view polarities over three memory gates; staging memory is a closed five-class allocation axis; byte payloads ride one process stream pool whose events fold to a conservation ledger; inference is a fingerprinted session plus a residency lattice where copies are legal at exactly two named points; physical numerics convert exactly once at admission. Growth lands as rows: a new memory source is a gate row, a new accelerator a residency row, a new fast path a claim row, a new op family an intent case.
+Compute is one measured engine. A typed intent admits once — shape, dtype row, canonical units — routes through one benchmark-gated substrate fold whose caps derive from the settled budget record, executes on a budgeted lane, and exits as a typed route result carrying the taken row, every vetoed row with its reason, and dual evidence for every normalizing admission. Tensors are one owner with two view polarities over three memory gates; staging memory is a closed five-class allocation axis; byte payloads ride one process stream pool whose events fold to a conservation ledger; inference is a fingerprinted session plus a residency lattice where copies are legal at exactly two named points; physical numerics convert exactly once at admission. Growth lands as rows: a new memory source is a gate row, a new accelerator a residency row, a new fast path a claim row, a new op family an intent case.
 
 ## [01]-[COMPUTE_CHOOSER]
 
@@ -16,7 +16,7 @@ This table routes a compute concern to its owning surface; the most specific row
 |  [06]   | repeated same-shape inference | `OrtIoBinding` loop posture        | name-array re-marshal per call |
 |  [07]   | route selection               | substrate fold + claim gate        | literal fast-path branch       |
 |  [08]   | parallel kernel               | `ParallelHelper` behind a claim    | unbudgeted parallel loop       |
-|  [09]   | compute evidence              | typed route receipt                | generic ledger                 |
+|  [09]   | compute evidence              | typed route result                 | generic ledger                 |
 |  [10]   | physical numerics             | quantity admission + dual evidence | literal conversion factor      |
 
 ## [02]-[TENSOR_LAW]
@@ -69,7 +69,7 @@ public static class TensorGate {
 - Law: in-place destinations may alias an input only at the same start — partial overlap throws — so shifting-window pipelines own a scratch span by construction; conversions are the `ConvertChecked`/`ConvertSaturating`/`ConvertTruncating` policy column.
 - Law: tolerance classes close the equivalence vocabulary — exact (integer rows), ULP-banded (same-route transcendentals), accumulation-scaled (vectorized reductions reassociate, the bound scaling as N·ε·Σ|xᵢ|), platform-variant (estimate rows, no cross-machine bound exists), cross-platform-variant (C-runtime transcendentals, golden vectors banded never exact) — and the cancellation ratio |Σxᵢ|/Σ|xᵢ| decides when even the scaled bound is vacuous, so proof rows record the ratio class.
 - Law: equivalence proofs sweep length classes straddling the vector width — empty, one, sub-width, exact multiple, multiple-plus-remainder — because the remainder tail executes scalar code; the empty edge is decided by its own arm before the finite gate, since `IsFiniteAll` on an empty span returns false, and integer rows skip the gate entirely.
-- Law: a named kernel row is a policy value — method-group identity under `nameof` keys the proof row, the speed claim, and the receipt at once — and multi-statistic requests batch power sums: `Sum` plus `SumOfSquares` derive mean and variance in two passes, never N sweeps.
+- Law: a named kernel row is a policy value — method-group identity under `nameof` keys the proof row, the speed claim, and the result at once — and multi-statistic requests batch power sums: `Sum` plus `SumOfSquares` derive mean and variance in two passes, never N sweeps.
 - Boundary: tensor-rank `Tensor` ops are the shape-checked composition route; a measured kernel flattens dense operands through the probe and calls the span kernel directly.
 - Boundary: the `TensorPrimitives` element-kernel and `Vector<T>` mechanics are the numeric pages' substrate; this card owns the layer above them — the tolerance class, the acceleration class, and the named kernel as a claim-keying policy value — so a kernel-row table here certifies and routes element kernels it never re-derives.
 
@@ -111,7 +111,7 @@ public sealed partial class KernelRow {
 ## [03]-[STAGING]
 
 [CLASS_AXIS]:
-- Law: five classes close the staging axis — `stackalloc` under one declared cap and never inside a loop, `SpanOwner<T>` for scoped rents of unbounded size (escape is a compile error and `Dispose` the guaranteed return), `MemoryOwner<T>` for storable rents that cross awaits, `ArrayPoolBufferWriter<T>` where the final size is unknown (`MemoryBufferWriter<T>` is the fixed-capacity sibling that fails past its window rather than renting), and the stream pool for byte payloads crossing IO and codec seams — a `new T[]` in a staging path is the unpooled, unreceipted sixth spelling.
+- Law: five classes close the staging axis — `stackalloc` under one declared cap and never inside a loop, `SpanOwner<T>` for scoped rents of unbounded size (escape is a compile error and `Dispose` the guaranteed return), `MemoryOwner<T>` for storable rents that cross awaits, `ArrayPoolBufferWriter<T>` where the final size is unknown (`MemoryBufferWriter<T>` is the fixed-capacity sibling that fails past its window rather than renting), and the stream pool for byte payloads crossing IO and codec seams — a `new T[]` in a staging path is the unowned sixth spelling.
 - Law: `AllocationMode` is the rent-time reset column — pooled rents carry prior content, so trust-seam and partially-written payloads rent `Clear` while fully-overwritten payloads keep the bandwidth — and the `ArrayPool<T>` parameter isolates per-lane pools so one lane's size-class churn cannot evict another's.
 - Law: `MemoryOwner<T>.Slice` is a consuming transfer — it nulls the source and exactly one owner ever returns the array; `AsStream()` transfers disposal identically, and holding both handles is the double-return defect.
 - Law: the writer-then-owner handoff is the one legal two-stage lifetime — produce through `IBufferWriter<T>`, consume `WrittenMemory`, dispose after the consumer completes; `Clear()` resets the written window for reuse, and owners never reset — the pool is the reuse mechanism, so owner reuse is a new rent.
@@ -149,7 +149,7 @@ public static class StagingAxis {
 - Law: exactly one `RecyclableMemoryStreamManager` per process with `Options` frozen at construction — a second manager forks the block economy and doubles steady-state memory.
 - Law: zero free-byte caps retain the high-water mark forever — bounded `MaximumSmallPoolFreeBytes`/`MaximumLargePoolFreeBytes` are the production posture, returns past the cap discard with a healthy `EnoughFree` reason, and `GenerateCallStacks`/`ZeroOutBuffer` flip only on the declared diagnostics row.
 - Law: a stream lives in chained blocks until contiguity is demanded — `GetReadOnlySequence()` reads without migration and the stream is itself `IBufferWriter<byte>`, `GetBuffer()` is the contiguity cliff, `ToArray` pays migration plus copy and `ThrowExceptionOnToArray` converts that audit into a structural ban; `MaximumStreamCapacity` stops runaway producers by policy.
-- Law: tags name lanes — a small closed vocabulary declared with the policy, never call sites — and the event stream folds to three projections: per-tag conservation (created = disposed + live + finalized), discard taxonomy (`EnoughFree` dominant means caps below workload, oversize discards mean payloads exceed `MaximumBufferSize` — opposite tuning moves), and lifetime-percentile early warning that predicts held-stream leaks before conservation breaks; double-dispose is data — the event carries both stacks as a protocol-violation receipt, and the posture poisons the offending lane until repaired.
+- Law: tags name lanes — a small closed vocabulary declared with the policy, never call sites — and the event stream folds to three projections: per-tag conservation (created = disposed + live + finalized), discard taxonomy (`EnoughFree` dominant means caps below workload, oversize discards mean payloads exceed `MaximumBufferSize` — opposite tuning moves), and lifetime-percentile early warning that predicts held-stream leaks before conservation breaks; double-dispose is data — the event carries both stacks as a protocol-violation result, and the posture poisons the offending lane until repaired.
 - Use: `Capacity64` for long-range capacity, `SafeRead` threading position explicitly so concurrent readers never race the cursor, and `WriteTo` window copies over slicing detours.
 
 ```csharp conceptual
@@ -201,9 +201,9 @@ public static class StreamPool {
 
 [SESSION_AND_PROVIDERS]:
 - Law: one session per model identity, cached process-wide; the fingerprint is the `MEMO_KEY` composite key over the `BYTE_IDENTITY` codec — the model-bytes content digest is the content axis and every behavior-bearing option column the policy axis: provider rows, optimization level, pinned free dimensions, registered assets, initializer overrides, config entries — so the model digest and the option projection ride the one canonical `XxHash3.HashToUInt64` the identity domain owns, never a second hashing path minted here; adapter variation is run-policy data (`OrtLoraAdapter` plus `RunOptions.AddActiveLoraAdapter` over one base session) whose active set joins the policy axis and every cache key, `PrePackedWeightsContainer` shares packed weights so option-variant sessions pay weight memory once, and a cache keyed on model path alone aliases behaviorally different sessions.
-- Law: provider selection is policy rows in priority order through the uniform `AppendExecutionProvider(name, options)` shape; capability is probed via `OrtEnv.Instance().GetAvailableProviders()` and never assumed, a vetoed row degrades to the next with its reason in the receipt, and the CPU row is the implicit terminal.
+- Law: provider selection is policy rows in priority order through the uniform `AppendExecutionProvider(name, options)` shape; capability is probed via `OrtEnv.Instance().GetAvailableProviders()` and never assumed, a vetoed row degrades to the next with its reason in the result, and the CPU row is the implicit terminal.
 - Law: symbolic dimensions bind at build — `AddFreeDimensionOverrideByName` plus `EnableMemoryPattern` is the fixed-shape posture, and genuinely varying shapes disable pattern reuse as a declared session column, never an accident.
-- Law: warmup is admission — the golden run pays allocation and pattern cost, proves liveness, and mints the equivalence receipt; an equivalence breach refuses the session even on the terminal row, because correctness gates admission while capability only gates routing — a fast wrong model is the worst admitted object.
+- Law: warmup is admission — the golden run pays allocation and pattern cost, proves liveness, and mints the equivalence result; an equivalence breach refuses the session even on the terminal row, because correctness gates admission while capability only gates routing — a fast wrong model is the worst admitted object.
 - Law: threading is suite policy — multi-session suites call `DisablePerSessionThreads()` and ride the global pool declared once at environment boot with counts derived from the budget record; `RunOptions.Terminate` is a one-way latch whose scope equals the instance's sharing scope, so per-run cancellation requires per-run `RunOptions`.
 - Law: `ModelMetadata.CustomMetadataMap` is the artifact's self-description channel and `InputMetadata` the admission shape validated once — per-call re-validation re-derives what admission settled; deployment constants bind through `AddInitializer` against `OverridableInitializerMetadata`, never per-run inputs, and extension assets enter through `RegisterOrtExtensions()` with their hashes joining the fingerprint.
 - Exemption: the admission choreography body is the platform-forced statement seam.
@@ -219,10 +219,10 @@ public sealed record SessionPlan(ReadOnlyMemory<byte> Model, Seq<ProviderRow> Pr
         .ToString("x16", CultureInfo.InvariantCulture);
 }
 
-public sealed record AdmissionReceipt(string Fingerprint, Seq<string> Vetoed, Seq<string> Applied, float Defect);
+public sealed record AdmissionResult(string Fingerprint, Seq<string> Vetoed, Seq<string> Applied, float Defect);
 
 public static class SessionAdmission {
-    public static Fin<(InferenceSession Session, AdmissionReceipt Receipt)> Admit(SessionPlan plan, string input, string output, float[] golden, long[] shape, float[] reference, float tolerance) {
+    public static Fin<(InferenceSession Session, AdmissionResult Admission)> Admit(SessionPlan plan, string input, string output, float[] golden, long[] shape, float[] reference, float tolerance) {
         ArgumentNullException.ThrowIfNull(plan);
         var capable = toSeq(OrtEnv.Instance().GetAvailableProviders());
         var applied = plan.Providers.Filter(row => capable.Exists(held => held == row.Name));
@@ -237,13 +237,13 @@ public static class SessionAdmission {
             using var warm = session.Run(run, [input], [probe], [output]);
             var defect = TensorPrimitives.Distance<float>(warm[0].GetTensorDataAsSpan<float>(), reference);
             if (defect > tolerance) {
-                return Fin.Fail<(InferenceSession, AdmissionReceipt)>(Error.New(8401, $"<warmup-defect:{defect}>"));
+                return Fin.Fail<(InferenceSession, AdmissionResult)>(Error.New(8401, $"<warmup-defect:{defect}>"));
             }
 
-            var receipt = new AdmissionReceipt(plan.Fingerprint(applied.Map(static row => row.Name)), vetoed, applied.Map(static row => row.Name), defect);
+            var result = new AdmissionResult(plan.Fingerprint(applied.Map(static row => row.Name)), vetoed, applied.Map(static row => row.Name), defect);
             var admitted = session;
             session = null;
-            return Fin.Succ((admitted, receipt));
+            return Fin.Succ((admitted, result));
         }
         finally { session?.Dispose(); }
     }
@@ -296,20 +296,20 @@ public sealed class BoundLoop : IDisposable {
 
 [INTENT_AND_FOLD]:
 - Law: a typed compute intent is the single solve-path entry — payload by staging class, kernel symbol, dtype and length class, canonical-unit parameters, budget reference — and the discriminant is recoverable from the value itself; a fast-flag or execution-hint parameter re-describing what the value encodes is the rejected arity form, and modalities are cases of one closed intent family under one total fold.
-- Law: solve and lifecycle vocabularies are disjoint — admit, route, execute, receipt never share a signature with quiesce, drain, evict, dispose — so eviction can never share a lock with inference, and eviction itself is drain-gated deterministic disposal under budget-derived capacity, never a global pause; the review check is lexical, which is what makes it enforceable.
+- Law: solve and lifecycle vocabularies are disjoint — admit, route, execute, result never share a signature with quiesce, drain, evict, dispose — so eviction can never share a lock with inference, and eviction itself is drain-gated deterministic disposal under budget-derived capacity, never a global pause; the review check is lexical, which is what makes it enforceable.
 - Law: one total fold over the closed substrate-row table routes every admitted intent — columns are veto, cost, cap, fallback — and the scalar reference is the unvetoable terminal row, so all-rows-vetoed is unreachable and the fold needs no failure arm; the fold is deterministic data, reproducible offline from intent plus claims alone.
 - Law: veto ordering is a cost gradient — static vetoes before probes before claim lookups — and the deadline is a cost-column input, so deadline-aware routing falls through expensive rows with no deadline-specific branch.
-- Law: every cap derives arithmetically from the settled budget record — lane share × payload-class weight — and the same derivation feeds parallel floors and session thread counts, so one budget edit re-caps routing, re-floors parallelism, and stales claims coherently; a second budget-like record anywhere in compute is the foreclosed defect, exhaustion queues on the solve lane with a receipt rather than dropping, and intent stamps and receipt durations ride the settled clock seam — an ad-hoc stopwatch beside the fold is the foreclosed second clock.
-- Law: batching is a fold output, never an intent property — queued intents sharing (kernel, dtype, row) coalesce into one execution whose receipt fans back out per intent; the remote row composes the transport substrate as an opaque executor arrow with serialization in its cost column and the payload cap in its veto column — compute never sees a wire type.
+- Law: every cap derives arithmetically from the settled budget record — lane share × payload-class weight — and the same derivation feeds parallel floors and session thread counts, so one budget edit re-caps routing, re-floors parallelism, and stales claims coherently; a second budget-like record anywhere in compute is the foreclosed defect, exhaustion queues on the solve lane with a result rather than dropping, and intent stamps and result durations ride the settled clock seam — an ad-hoc stopwatch beside the fold is the foreclosed second clock.
+- Law: batching is a fold output, never an intent property — queued intents sharing (kernel, dtype, row) coalesce into one execution whose result fans back out per intent; the remote row composes the transport substrate as an opaque executor arrow with serialization in its cost column and the payload cap in its veto column — compute never sees a wire type.
 - Exemption: the scalar reference fold body is the named kernel statement seam.
 
 [CLAIM_GATE]:
-- Law: no fast path exists without a matching measured receipt — a non-reference row is admissible only when the claims table holds its (kernel symbol, dtype, length class, substrate row) identity under a live environment fingerprint; absence or mismatch demotes to vetoed-with-reason — correct-but-reference, never an exception — the demotion receipt is the re-measurement signal, and an empty claims table is the cold start: reference routes only, correct on day zero, fast through measurement, never the reverse.
+- Law: no fast path exists without a matching measured result — a non-reference row is admissible only when the claims table holds its (kernel symbol, dtype, length class, substrate row) identity under a live environment fingerprint; absence or mismatch demotes to vetoed-with-reason — correct-but-reference, never an exception — the demotion result is the re-measurement signal, and an empty claims table is the cold start: reference routes only, correct on day zero, fast through measurement, never the reverse.
 - Law: the environment fingerprint is a closed column set — ISA and vector-width class, core topology, budget-record version, session fingerprint on model rows, asset hashes on native rows — compared structurally, so one environment change stales claims en masse with zero per-claim invalidation code; staleness is epoch algebra — prior-epoch claims demote but persist until re-measurement confirms or replaces — and the demotion-to-confirmation interval is the gauge separating slow-because-regressed from slow-because-unproven.
 - Law: a displacing row clears a declared margin or the incumbent holds — the floor sits at or above the measurement's published variance class, so flapping cannot pass the gate it was built to stop; hysteresis is a column, never tuned behavior.
 - Law: route admission is a conjunction — equivalence proof and speed claim — and the equivalence gate dominates: a fast wrong kernel is poisoned regardless of ratio; pipeline claims measure end-to-end because cache effects between stages break the independence that stage-ratio arithmetic assumes.
 - Law: length-class boundaries derive from route mechanics — vector-width multiples, the parallel floor, cache footprints — never accumulated thresholds; a literal fast-path branch is the foreclosed spelling because every threshold is a claim row.
-- Law: receipts carry route provenance — the taken row and every vetoed row with its reason — plus dual evidence for every normalizing admission: the canonical value used beside the original received, so disputes resolve from receipts rather than reproduction; a veto firing outside its declared reason column is a table-integrity defect the receipt fold surfaces, receipt combination is settled rail law, typed algorithm receipts never flatten into a generic ledger, and genericity lives in the one projection delegate that makes each receipt family a live data source.
+- Law: results carry route provenance — the taken row and every vetoed row with its reason — plus dual evidence for every normalizing admission: the canonical value used beside the original received, so disputes resolve from results rather than reproduction; a veto firing outside its declared reason column is a table-integrity defect the result fold surfaces, result combination is settled rail law, typed algorithm results never flatten into a generic ledger, and genericity lives in the one projection delegate that makes each result family a live data source.
 
 ```csharp conceptual
 public sealed record Intent(string Kernel, ReadOnlyMemory<double> Payload, TimeSpan Remaining) {
@@ -327,7 +327,7 @@ public readonly record struct LaneDerivation(int BudgetVersion, double LaneShare
 
 public sealed record ClaimKey(string Kernel, string Dtype, string Substrate, int LengthClass);
 public sealed record Claim(string Fingerprint, double Ratio);
-public readonly record struct RouteReceipt(string Kernel, string Taken, Seq<(string Row, string Veto)> Trail, double Value);
+public readonly record struct RouteResult(string Kernel, string Taken, Seq<(string Row, string Veto)> Trail, double Value);
 
 [SmartEnum<string>]
 public sealed partial class SubstrateRow {
@@ -354,7 +354,7 @@ public sealed partial class SubstrateRow {
 public static class MassEngine {
     public const double Margin = 1.2;
 
-    public static RouteReceipt Route(Intent intent, Seq<SubstrateRow> rows, HashMap<ClaimKey, Claim> claims, LaneDerivation lane, string isa) {
+    public static RouteResult Route(Intent intent, Seq<SubstrateRow> rows, HashMap<ClaimKey, Claim> claims, LaneDerivation lane, string isa) {
         ArgumentNullException.ThrowIfNull(intent);
         var live = lane.Stamp(isa);
         var routed = rows.Map(row => (Row: row, Veto: Vetoes(intent, row, claims, lane, live)))
@@ -363,7 +363,7 @@ public static class MassEngine {
                     : slot.Veto is { IsSome: true, Case: string reason } ? (state.Taken, state.Trail.Add((slot.Row.Key, reason)))
                     : (Some(slot.Row), state.Trail));
         var taken = routed.Taken.IfNone(SubstrateRow.Reference);
-        return new RouteReceipt(intent.Kernel, taken.Key, routed.Trail, taken.Arrow(intent.Payload));
+        return new RouteResult(intent.Kernel, taken.Key, routed.Trail, taken.Arrow(intent.Payload));
     }
 
     static Option<string> Vetoes(Intent intent, SubstrateRow row, HashMap<ClaimKey, Claim> claims, LaneDerivation lane, string live) =>
@@ -388,7 +388,7 @@ public static class MassEngine {
 - Law: aggregation rides owned folds — `UnitMath.Sum`/`UnitMath.Average` pin the result unit, every family's `Zero` seeds folds, `As(UnitSystem.SI)` is the declared system projection, and `Info.BaseDimensions` arithmetic admits dynamically-described quantities through dimension vectors, never name matching.
 - Law: the admitted family table — quantities, canonical units, display units — is one frozen declaration per bounded context with converter extensions registered once at boot through `SetConversionFunction`, so the boundary's accepted grammar is enumerable at boot and a rejection names the admitted set rather than echoing a parser error.
 - Law: a quantity-bearing tensor carries canonical scalars with the unit row on the intent, never per element — and canonicalizing before dispatch keeps measured claims unit-invariant, where converting inside the kernel would multiply the claim table by the unit enum.
-- Law: dual evidence holds at the unit seam — the receipt carries the original (value, unit) pair beside the canonical scalar, so egress answers exactly what was received; the same law covers dtype narrowing and downsampling, because normalization without retained evidence is information destruction at the boundary.
+- Law: dual evidence holds at the unit seam — the result carries the original (value, unit) pair beside the canonical scalar, so egress answers exactly what was received; the same law covers dtype narrowing and downsampling, because normalization without retained evidence is information destruction at the boundary.
 
 [PERCEPTUAL_ROW]:
 - Law: a tuning row stores M perceptual knobs and derives the N−M physical constants as computed members — response and damping fraction stored; angular frequency, stiffness, and damping rate derived — so co-varying constants cannot de-sync, and storing a derived member is the rejected form: the moment two stored members must co-vary, the type has hidden an invariant it should compute.

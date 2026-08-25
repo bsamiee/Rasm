@@ -288,7 +288,7 @@ export type { Row };
 - Law: per-kind behavior is one record at the owner, keyed by the vocabulary and checked against one mapped shape — `{ readonly [K in Kind]: (payload: Payload[K]) => Rail }` — and dispatch is one generic indexed call, `_HANDLERS[kind](payload)`: the mapped annotation is what resolves the indexed access to a single correlated signature, so the per-kind payload flows through without casts.
 - Law: annotation versus `satisfies` is adjudicated by the record's consumer — the record backing a correlated generic dispatch is annotated with its mapped shape, because `satisfies` keeps the inferred per-row function types and the generic indexed call then faces a union of signatures it cannot satisfy; the vocabulary table whose row literals feed derivation takes the anchor form instead, its shape check placed by export reach, because widening is the thing being prevented.
 - Law: a new kind is one vocabulary row, one payload field, and one handler row — the mapped shape turns the missing handler into a compile error at the record while every consumer stays untouched; the diff of the next kind never leaves the owner.
-- Law: the record and its dispatch publish as one assembled vocabulary owner — interior rows spread in, the dispatch member beside them, companion types on the merged hub — so a consumer imports one name and reaches rows, payloads, receipts, and dispatch; a loose dispatch operation exported beside its table is the split this form deletes.
+- Law: the record and its dispatch publish as one assembled vocabulary owner — interior rows spread in, the dispatch member beside them, companion types on the merged hub — so a consumer imports one name and reaches rows, payloads, results, and dispatch; a loose dispatch operation exported beside its table is the split this form deletes.
 - Reject: consumer-side reassembly — a call site assembling its own record over exported loose handlers, a `switch` over kinds repeated per consumer, an `Object.keys` iteration re-deriving what `Kind` already is.
 - Boundary: the assembled owner's interior anchor, guard pair, and member-pollution trap are `derivation.md`'s vocabulary site; this page owns the handler surface and the dispatch member it publishes.
 
@@ -314,21 +314,21 @@ declare namespace ROUTE {
         readonly amend: { readonly key: string; readonly delta: number };
         readonly close: { readonly key: string; readonly seal: string };
     };
-    type Receipt = { readonly kind: Kind; readonly weight: number; readonly note: string };
-    type Shape = typeof _rows & { readonly submit: <K extends Kind>(kind: K, payload: Payload[K]) => Effect.Effect<Receipt, Refused> };
+    type Submission = { readonly kind: Kind; readonly weight: number; readonly note: string };
+    type Shape = typeof _rows & { readonly submit: <K extends Kind>(kind: K, payload: Payload[K]) => Effect.Effect<Submission, Refused> };
     type _Rows<T extends Record<Kind, Row> = typeof _rows> = T; // row guard: a malformed or missing row fails at the declaration with zero widening
     type _Slots<K extends Kind = keyof Payload> = K; // key guard: a payload slot outside the vocabulary fails here
 }
 
 class Refused extends Data.TaggedError("Refused")<{ readonly kind: ROUTE.Kind; readonly cause: string }> {}
 
-const _receipt = (kind: ROUTE.Kind, note: string): ROUTE.Receipt => ({ kind, weight: _rows[kind].weight, note: `${_rows[kind].label}:${note}` }); // the handler reads its row's policy columns through one projection
+const _submission = (kind: ROUTE.Kind, note: string): ROUTE.Submission => ({ kind, weight: _rows[kind].weight, note: `${_rows[kind].label}:${note}` }); // the handler reads its row's policy columns through one projection
 
-const _HANDLERS: { readonly [K in ROUTE.Kind]: (payload: ROUTE.Payload[K]) => Effect.Effect<ROUTE.Receipt, Refused> } = {
-    open: ({ key }) => Effect.succeed(_receipt("open", key)),
+const _HANDLERS: { readonly [K in ROUTE.Kind]: (payload: ROUTE.Payload[K]) => Effect.Effect<ROUTE.Submission, Refused> } = {
+    open: ({ key }) => Effect.succeed(_submission("open", key)),
     amend: ({ key, delta }) =>
-        delta === 0 ? Effect.fail(new Refused({ kind: "amend", cause: "<zero-delta>" })) : Effect.succeed(_receipt("amend", `${key}+${delta}`)),
-    close: ({ key, seal }) => Effect.succeed(_receipt("close", `${key}:${seal}`)),
+        delta === 0 ? Effect.fail(new Refused({ kind: "amend", cause: "<zero-delta>" })) : Effect.succeed(_submission("amend", `${key}+${delta}`)),
+    close: ({ key, seal }) => Effect.succeed(_submission("close", `${key}:${seal}`)),
 };
 
 const ROUTE: ROUTE.Shape = {
@@ -337,7 +337,7 @@ const ROUTE: ROUTE.Shape = {
     submit: (kind, payload) => _HANDLERS[kind](payload), // the generic indexed call rides the contextual signature and stays cast-free
 };
 
-const _spent: Effect.Effect<ROUTE.Receipt, Refused> = ROUTE.submit("amend", { key: "<key-a>", delta: 2 });
+const _spent: Effect.Effect<ROUTE.Submission, Refused> = ROUTE.submit("amend", { key: "<key-a>", delta: 2 });
 
 // @ts-expect-error
 const _drift = ROUTE.submit("amend", { key: "<key-a>", seal: "<seal-a>" });

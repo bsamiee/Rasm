@@ -1,6 +1,6 @@
 # [BOUNDARIES]
 
-Foreign material crosses once: a boundary owner projects handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, receipts, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the seam names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners, and every native crossing mints a closed fault family so the cause stays structurally addressable.
+Foreign material crosses once: a boundary owner projects handles, sentinels, callbacks, thread-affine work, state cells, and protocol bytes into admitted values or typed rails, so everything the interior receives — values, results, policies, effects — is recoverable from declarations rather than from the foreign surface that produced it. Only the seam names a provider type, catches a provider exception, or holds a native lifetime; the interior is total over admitted owners, and every native crossing mints a closed fault family so the cause stays structurally addressable.
 
 ## [01]-[SEAM_CHOOSER]
 
@@ -377,7 +377,7 @@ public sealed class FrameConverter : JsonConverter<Frame> {
 - Law: a digest is a terminal projection, never an incremental state — deriving a full-state key from a prior key and a delta requires a composable accumulator owned by the content-addressing design, and a digest-only shortcut cannot reconstruct the order-independent full-state address.
 - Law: a parent-ancestry key folds as an ordered incremental hash over the sorted parent keys — an XOR or addition fold self-cancels duplicate identical-content parents and erases multiplicity, so two nodes with different dependency multisets key identically.
 - Exemption: the parse-probe `using` inside the admission kernel is the named platform-forced statement seam.
-- Boundary: receipts carry coordinates and hashes, never payload bytes.
+- Boundary: the admitted value carries coordinates and hashes, never payload bytes.
 - Reject: parse-and-reserialize between verification, signing, or forwarding.
 
 ```csharp conceptual

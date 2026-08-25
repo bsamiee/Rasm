@@ -30,7 +30,6 @@ from assay.core.model import Claim
 from tests.python._testkit.spec import roundtrip
 from tests.python._testkit.strategies import resolve
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 COVERS: tuple[object, ...] = (decode, describe, encode)

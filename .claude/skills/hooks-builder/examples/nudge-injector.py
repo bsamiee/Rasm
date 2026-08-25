@@ -21,7 +21,6 @@ import sys
 
 import msgspec
 
-
 TABLE_PATH = os.environ.get("HOOK_NUDGES") or f"{os.environ.get('CLAUDE_PROJECT_DIR', os.getcwd())}/.claude/nudges.json"
 MAX_PAYLOAD = 8 * 1024 * 1024  # bound the stdin read; a pathological prompt never balloons resident memory
 

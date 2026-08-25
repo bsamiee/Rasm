@@ -14,7 +14,12 @@ import inspect
 from operator import itemgetter
 from typing import Final, Protocol, TYPE_CHECKING
 
-from beartype import beartype, BeartypeConf, BeartypeStrategy, BeartypeViolationVerbosity
+from beartype import (
+    beartype,
+    BeartypeConf,
+    BeartypeStrategy,
+    BeartypeViolationVerbosity,
+)
 from expression import Ok, Result
 from expression.collections import block
 from opentelemetry import baggage, context, trace
@@ -23,7 +28,6 @@ import structlog
 from structlog.contextvars import bound_contextvars, get_contextvars
 
 from assay.core.model import Fault, RailStatus
-
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

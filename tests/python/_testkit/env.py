@@ -20,7 +20,6 @@ lazy import httpx
 lazy from moto.server import ThreadedMotoServer
 lazy import s3fs
 
-
 if TYPE_CHECKING:
     from collections.abc import Awaitable
 

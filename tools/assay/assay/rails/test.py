@@ -19,7 +19,14 @@ import structlog
 
 from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
-from assay.composition.store import ArtifactScope, ArtifactStore, DOTNET_ARTIFACT_ROOTS, DOTNET_BUILD_CLOSURE, PY_ARTIFACT_ROOTS, PY_COVERAGE_FILES
+from assay.composition.store import (
+    ArtifactScope,
+    ArtifactStore,
+    DOTNET_ARTIFACT_ROOTS,
+    DOTNET_BUILD_CLOSURE,
+    PY_ARTIFACT_ROOTS,
+    PY_COVERAGE_FILES,
+)
 from assay.core.exec import Executor
 from assay.core.govern import leased
 from assay.core.model import (
@@ -47,7 +54,6 @@ from assay.core.model import (
 )
 from assay.core.routing import expand, parse_csproj, resolve_languages, route, Scope
 from assay.diagnostics import fold
-
 
 if TYPE_CHECKING:
     from expression.collections import Block

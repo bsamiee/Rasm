@@ -19,7 +19,6 @@ import sys
 
 import msgspec
 
-
 BRAND = os.environ.get("HOOK_PROVIDER", "claude")  # codex fails closed on updatedPermissions, so the durable rule is Claude-only
 SAFE_TOOLS = frozenset(("Read", "Glob", "Grep", "NotebookRead"))  # POLICY: read-only tools cleared wholesale by identity
 SAFE_BASH = frozenset(("ls", "cat", "pwd", "rg", "fd", "tree", "head", "tail", "wc", "loc"))  # POLICY: read-only argv[0]

@@ -15,9 +15,18 @@ import psutil
 import structlog
 
 from assay.composition.catalog import launch, select, TOOLS
-from assay.core.model import ArtifactKind, Check, Claim, Completed, Language, Match, Runner, ToolArgs, wire_encode
+from assay.core.model import (
+    ArtifactKind,
+    Check,
+    Claim,
+    Completed,
+    Language,
+    Match,
+    Runner,
+    ToolArgs,
+    wire_encode,
+)
 from assay.core.routing import Routed, Scope
-
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

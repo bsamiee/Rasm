@@ -312,7 +312,7 @@ Every extension lands on a canonical owner: a row where possible, a compiler-for
 
 ## [06]-[ADMISSION_POLICY]
 
-Root `Directory.Packages.props` owns NuGet admission as one `PackageVersion` row per package; each `.csproj` carries the bare `PackageReference`, label-grouped by owner and versionless. Every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
+Root `Directory.Packages.props` owns NuGet admission as one `PackageVersion` row per package; each `.csproj` carries the bare `PackageReference`, label-grouped by owner and versionless.
 
 Root `Directory.Build.props` owns every host-assembly `Reference` and its `HintPath`, resolved from one overridable host-bundle path property and gated by the RhinoCommon-, Grasshopper-, and host-UI-aware flags project classification sets. Each `.csproj` names host NAMESPACES as `Using` rows and never the assembly, so classification drives the reference and a host package carries no manifest row; `System.Drawing.Common` alone holds both a central row and a gated host reference.
 

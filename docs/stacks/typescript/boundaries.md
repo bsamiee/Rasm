@@ -9,7 +9,7 @@ When a foreign signal matches several rows, the most specific owner wins, and id
 | [INDEX] | [FOREIGN_SIGNAL]               | [SEAM_OWNER]                    | [INTERIOR_FORM]                 | [REJECTED_FORM]                |
 | :-----: | :----------------------------- | :------------------------------ | :------------------------------ | :----------------------------- |
 |  [01]   | raw payload: body/file/message | Schema owner at first sight     | decoded value on the rail       | interior re-validation         |
-|  [02]   | signed or hashed octets        | opaque byte band at admission   | digest receipt + projection     | parse-then-reserialize         |
+|  [02]   | signed or hashed octets        | opaque byte band at admission   | coordinate + digest projection  | parse-then-reserialize         |
 |  [03]   | trace identity in headers      | `HttpTraceContext` codec family | `Option`-carried parent span    | hand-parsed `traceparent`      |
 |  [04]   | HTTP, RPC, or CLI surface      | contribution family             | derived server, client, spec    | hand-rolled route table        |
 |  [05]   | foreign binary or text format  | `Schema.transformOrFail` codec  | `ParseError` on the decode rail | second codec fault family      |
@@ -47,7 +47,7 @@ When a foreign signal matches several rows, the most specific owner wins, and id
 - Use: signatures, content keys, idempotency tokens, checksum verification, byte-stable forwarding.
 - Law: a sub-band that must round-trip byte-identically is held opaque at admission — `Schema.Uint8ArrayFromSelf` in memory, `Schema.Uint8ArrayFromBase64` across a text wire — and the digest computes over those held octets before any content parse; identity and content are two projections of one admission, never two reads of the source.
 - Law: parse-then-reserialize is rejected for signed material — a re-encode respells float forms, key order, and escapes — so forwarding emits the held octets verbatim, and `Schema.encode` of the message envelope re-emits the same band bytes by construction.
-- Boundary: the receipt carries the coordinate and the digest, never the octets; the digest function is fixed at composition and arrives as a parameter or service, never chosen per site.
+- Boundary: the admitted value carries the coordinate and digest, never the octets; the digest function is fixed at composition and arrives as a parameter or service, never chosen per site.
 
 ```typescript conceptual
 import { Effect, Option, type ParseResult, Schema } from "effect";

@@ -1,23 +1,23 @@
 # [DURABILITY]
 
-Embedded durability is one store law with four layers under one epoch fence. Every process reaches a store file through one idempotent open ritual whose rows are declared data; every durable artifact seals under one fixed-offset header that is the artifact's entire trust boundary; every durable mutation is one op-log row adjudicated by a last-writer-wins lattice inside the store's own transaction; every stored byte's lifecycle is a class row swept by one receipted fold. MessagePack and its generated formatters are legislated here for the whole suite; causal stamps and classification verdicts arrive settled and are compared, never re-derived; the sync wire is composed, never owned. Restore is the capstone choreography — fence, verify, materialize, sidecar-clear, atomic-rename, epoch-bump, reopen — every step receipted, never best-effort, and the one epoch token fences the open ritual, the sync cursors, and the artifact headers, so recovery anywhere is the normal path with a wider range. Growth lands as rows: a new pragma is a ritual row, a new entity family one kind row plus one formatter case, a new artifact type one class row, a new codec posture one profile selection.
+Embedded durability is one store law with four layers under one epoch fence. Every process reaches a store file through one idempotent open ritual whose rows are declared data; every durable artifact seals under one fixed-offset header that is the artifact's entire trust boundary; every durable mutation is one op-log row adjudicated by a last-writer-wins lattice inside the store's own transaction; every stored byte's lifecycle is a class row swept by one verdict fold. MessagePack and its generated formatters are legislated here for the whole suite; causal stamps and classification verdicts arrive settled and are compared, never re-derived; the sync wire is composed, never owned. Restore is the capstone choreography — fence, verify, materialize, sidecar-clear, atomic-rename, epoch-bump, reopen — every step recorded, never best-effort, and the one epoch token fences the open ritual, the sync cursors, and the artifact headers, so recovery anywhere is the normal path with a wider range. Growth lands as rows: a new pragma is a ritual row, a new entity family one kind row plus one formatter case, a new artifact type one class row, a new codec posture one profile selection.
 
 ## [01]-[DURABILITY_CHOOSER]
 
 This table routes a durability concern to its owning surface; the most specific row wins.
 
-| [INDEX] | [CONCERN]                 | [OWNER]                                | [REJECTED_FORM]                         |
-| :-----: | :------------------------ | :------------------------------------- | :-------------------------------------- |
-|  [01]   | store open and generation | one idempotent ritual fold             | per-process bootstrap branches          |
-|  [02]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                     |
-|  [03]   | cross-process change      | `data_version` register probe          | notification bus, table polling         |
-|  [04]   | store maintenance         | receipted schedule verb table          | ad-hoc vacuum, best-effort backup       |
-|  [05]   | binary schema             | dense keys + generated resolver        | typeless payloads, map-mode insurance   |
-|  [06]   | codec policy              | one frozen profile row per store class | call-site serializer options            |
-|  [07]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success       |
-|  [08]   | restore                   | seven-step receipted choreography      | best-effort file copy                   |
-|  [09]   | durable mutation and sync | one op-log + guarded set adjudication  | per-kind logs, local fast path          |
-|  [10]   | deletion and preservation | class rows + hold-first sweep fold     | unreceipted cleanup, export-to-preserve |
+| [INDEX] | [CONCERN]                 | [OWNER]                                | [REJECTED_FORM]                        |
+| :-----: | :------------------------ | :------------------------------------- | :------------------------------------- |
+|  [01]   | store open and generation | one idempotent ritual fold             | per-process bootstrap branches         |
+|  [02]   | write transactions        | IMMEDIATE begin + savepoint units      | deferred-then-write                    |
+|  [03]   | cross-process change      | `data_version` register probe          | notification bus, table polling        |
+|  [04]   | store maintenance         | maintenance schedule table             | ad-hoc vacuum, best-effort backup      |
+|  [05]   | binary schema             | dense keys + generated resolver        | typeless payloads, map-mode insurance  |
+|  [06]   | codec policy              | one frozen profile row per store class | call-site serializer options           |
+|  [07]   | artifact commit           | sealed header + atomic rename          | in-place write, verify-by-success      |
+|  [08]   | restore                   | seven-step verified choreography       | best-effort file copy                  |
+|  [09]   | durable mutation and sync | one op-log + guarded set adjudication  | per-kind logs, local fast path         |
+|  [10]   | deletion and preservation | class rows + hold-first sweep fold     | unrecorded cleanup, export-to-preserve |
 
 ## [02]-[EMBEDDED_STORE]
 
@@ -89,13 +89,13 @@ public static class StoreOpen {
 ```
 
 [WAL_AND_VERBS]:
-- Law: any transaction that may write begins IMMEDIATE — `BeginTransaction(IsolationLevel.Serializable, deferred: false)` — because a deferred read transaction attempting its first write after another writer committed holds a stale snapshot whose BUSY_SNAPSHOT surfaces as plain BUSY at default code granularity, burning the whole busy budget on a retry that cannot succeed; the retry partition is BUSY retry-correct, LOCKED waits on nothing external, and CORRUPT or NOTADB is terminal and routes to restore, with `raw.sqlite3_extended_result_codes` upgrading the running taxonomy where receipts must discriminate.
+- Law: any transaction that may write begins IMMEDIATE — `BeginTransaction(IsolationLevel.Serializable, deferred: false)` — because a deferred read transaction attempting its first write after another writer committed holds a stale snapshot whose BUSY_SNAPSHOT surfaces as plain BUSY at default code granularity, burning the whole busy budget on a retry that cannot succeed; the retry partition is BUSY retry-correct, LOCKED waits on nothing external, and CORRUPT or NOTADB is terminal and routes to restore, with `raw.sqlite3_extended_result_codes` upgrading the running taxonomy where results must discriminate.
 - Law: WAL coordination rides same-host shared memory, and the `-wal`/`-shm` sidecar set — never the bare file — is the unit of copy, replace, and deletion; a main file separated from its sidecars is page-level silent corruption recovery cannot detect.
-- Law: readers never block the writer and exactly one writer commits — multi-process write topology is contention-managed serialization, so BUSY is a steady-state signal; continuously overlapping readers starve checkpoints and the WAL grows unbounded, the countermeasure is a scheduled TRUNCATE row plus short read transactions by construction, and `raw.sqlite3_wal_checkpoint_v2`'s out-parameters are the typed checkpoint receipt whose BUSY refusal the schedule retries rather than escalates.
+- Law: readers never block the writer and exactly one writer commits — multi-process write topology is contention-managed serialization, so BUSY is a steady-state signal; continuously overlapping readers starve checkpoints and the WAL grows unbounded, the countermeasure is a scheduled TRUNCATE row plus short read transactions by construction, and `raw.sqlite3_wal_checkpoint_v2`'s out-parameters are the typed checkpoint result whose BUSY refusal the schedule retries rather than escalates.
 - Law: `PRAGMA data_version` moves only when another connection commits — the polling-free cross-process change probe; an unchanged register proves cache validity without touching tables and short-circuits all downstream invalidation.
 - Law: STRICT tables are the typed admission gate — mismatched writes are statement errors, `ANY` is the declared per-column escape; `WITHOUT ROWID` clusters storage on the key but forecloses incremental blob streaming — the large-payload lane is `SqliteBlob` over a `zeroblob(N)` preallocation, fixed-size once written, its handle aborting when any writer mutates the row — so the two storage forms are chosen per table by access pattern, and `RETURNING` supersedes write-then-read identity round trips.
-- Law: maintenance is one receipted schedule table — TRUNCATE checkpoint, `PRAGMA optimize`, `incremental_vacuum(N)`, integrity tiers, backup route — each row carrying cadence, budget, and receipt shape, with receipts as the verbs' native out-channels lifted onto the fact stream; the integrity ladder orders boot `quick_check`, cycle `integrity_check` plus `foreign_key_check` (FK violations never surface from integrity checks), and a deeper tier failing routes to restore, never retry; WAL snapshot pins and TRUNCATE checkpoints are adversaries — a pinned read window blocks truncation and truncation kills pins — so one schedule owns both rows and interleaves them, and a lost pin is a receipted failure, never a silent rewind.
-- Law: the backup chooser is policy rows on one verb — `BackupDatabase` restarts under other-connection writes so hot stores back up on the writing connection, the paced raw backup yields bounded latency and progress receipts, `VACUUM INTO` produces a compacted point-in-time copy through one read transaction without blocking writers — and a copy is admitted only after `quick_check` on the copy itself plus content identity, because the verb succeeding is never the proof.
+- Law: one maintenance schedule table owns TRUNCATE checkpoint, `PRAGMA optimize`, `incremental_vacuum(N)`, integrity tiers, and backup routing; each row carries cadence and budget, while the verb's native outputs project directly onto the fact stream. The integrity ladder orders boot `quick_check`, cycle `integrity_check` plus `foreign_key_check` (FK violations never surface from integrity checks), and a deeper tier failing routes to restore, never retry. WAL snapshot pins and TRUNCATE checkpoints are adversaries — a pinned read window blocks truncation and truncation kills pins — so one schedule owns both rows and interleaves them, and a lost pin is a recorded failure, never a silent rewind.
+- Law: the backup chooser is policy rows on one verb — `BackupDatabase` restarts under other-connection writes so hot stores back up on the writing connection, the paced raw backup yields bounded latency and progress results, `VACUUM INTO` produces a compacted point-in-time copy through one read transaction without blocking writers — and a copy is admitted only after `quick_check` on the copy itself plus content identity, because the verb succeeding is never the proof.
 
 ## [03]-[CODEC_PROFILES]
 
@@ -108,7 +108,7 @@ public static class StoreOpen {
 - Law: `CompositeResolver.Create` resolves first-match-wins and caches per closed generic type — resolver order is a boot-time declaration and late registration is unrepresentable; specificity decreases monotonically down the chain: explicit formatters, generated-domain, generated-schema, standard fallback.
 - Law: options are immutable and each store profile freezes one value — a call-site `With*` forks codec policy invisibly; a profile is one row each from the codec, compression, and hash axes — the codec axis closing at three rows, text, binary, and raw pass-through, where the raw row is never re-framed because double-framing destroys the identity its content key hashed — so a new posture is row selection, never code.
 - Law: the restore lane always reads under `WithSecurity(MessagePackSecurity.UntrustedData)` plus two independent ceilings — a restored blob's provenance is unprovable even for bytes the same process wrote, because they crossed a rest boundary, and the write lane keeps the trusted default so hardening restore costs writes nothing; `WithMaximumObjectGraphDepth` catches the deep-narrow recursion a byte budget cannot see, while `WithMaximumDecompressedSize` is the decompression-bomb ceiling the depth cap is blind to — a kilobyte of `Lz4BlockArray` inflating to gigabytes — so the size ceiling is the class's own `MaxBytes` retention budget reused as the inflation bound, not a second constant, and `UntrustedData`'s 64 MB default is a ceiling to declare against the class, never a default to inherit silently.
-- Law: `Lz4BlockArray` is the binary default — independently compressed blocks, streaming-decompressible; `CompressionMinLength` makes observed encoding diverge from requested policy, so receipts read the payload and never the policy, and decompression is extension-header-driven — the compression row is write-side policy only and segment files mix compressed and plain documents freely.
+- Law: `Lz4BlockArray` is the binary default — independently compressed blocks, streaming-decompressible; `CompressionMinLength` makes observed encoding diverge from requested policy, so the stored form is read from the payload rather than inferred from policy, and decompression is extension-header-driven — the compression row is write-side policy only and segment files mix compressed and plain documents freely.
 - Law: `MessagePackStreamReader.ReadAsync` yields one complete message per read with framing invariant under compression, so append streams and log segments need no custom framing; every serializer entry point threads cancellation, so artifact encode and decode participate in drain without a kill switch.
 - Exemption: the segment reader loop is the platform-forced stream statement seam.
 
@@ -188,14 +188,14 @@ public sealed partial class CodecProfile {
 - Exemption: the seal kernel — the rented-buffer lease, the stream writes, and the catch arm — is the platform-forced stream statement seam.
 
 ```csharp conceptual
-public readonly record struct SealReceipt(string Path, long PlainLength, long StoredLength, bool Compressed, ulong ContentKey);
+public readonly record struct SealedArtifact(string Path, long PlainLength, long StoredLength, bool Compressed, ulong ContentKey);
 
 public static class Seal {
     public const int HeaderSize = 56;
     public const ulong Magic = 0x3153_4C41_4553_5253;
     public const byte HeaderVersion = 1, CodecBinary = 1, CompressionNone = 0, CompressionLz4 = 1, HashStoredDomain = 0, SchemaStamp = 2;
 
-    public static Fin<SealReceipt> Commit(string path, ReadOnlyMemory<byte> plain, long epoch, LZ4Level level, long classSeed) {
+    public static Fin<SealedArtifact> Commit(string path, ReadOnlyMemory<byte> plain, long epoch, LZ4Level level, long classSeed) {
         var staged = $"{path}.{epoch}.staged";
         var target = ArrayPool<byte>.Shared.Rent(LZ4Codec.MaximumOutputSize(plain.Length));
         try {
@@ -213,7 +213,7 @@ public static class Seal {
                     sink.Flush(flushToDisk: true);
                 }
                 File.Move(staged, path, overwrite: true);
-                return Fin.Succ(new SealReceipt(path, plain.Length, stored.Length, stored.Length != plain.Length, content));
+                return Fin.Succ(new SealedArtifact(path, plain.Length, stored.Length, stored.Length != plain.Length, content));
             });
         }
         finally { ArrayPool<byte>.Shared.Return(target); }
@@ -233,10 +233,10 @@ public static class Seal {
 ```
 
 [LADDER_AND_RESTORE]:
-- Law: the rejection ladder is ordered so each tier verifies before the next runs and restore never best-efforts past any tier — magic and identity, header version, header checksum, stored-length truncation with byte counts, and content hash all run on raw bytes with zero decoding; codec and compression capability, the schema-stamp ratchet, and untrusted decode gate the codec machinery only after — the order is the threat model, because corrupted input rejects before any parser with attack surface runs, and every rejection is a typed receipt naming tier, artifact identity, and the evidence pair the tier compared; version and schema stamp are one-way ratchets — readers admit at or below their compiled ceiling, writers emit exactly theirs — so tier-2 future layouts, tier-6 capability gaps, and tier-7 schema skew are deployment evidence, not data errors: rejected by one process and restored by a newer sibling, they localize a rollout fault without touching the artifact.
-- Law: the crash matrix is total — before flush an orphan temp (swept), after flush a complete-but-unclaimed orphan (a receipted salvage candidate, because the sealed header makes completeness provable), after rename the open ritual's epoch reconcile re-runs verification, after the bump committed; the orphan sweep keys on the deterministic epoch-bearing temp suffix, and ladder receipts from sweeps land on the boot fact stream with the same routing as any fault; the boot identity manifest of per-asset content keys is itself a sealed artifact verified first — the verifier of everything is the one thing the ladder alone proves.
-- Law: restore composes the write protocol in reverse — one protocol vocabulary, one receipt taxonomy, the only asymmetry who supplies the bytes; the writer's commit point is the rename, the restorer's is the epoch bump, and everything before either commit point is repeatable garbage by construction.
-- Law: the sidecar fence precedes the payload rename — a fresh payload paired with a stale `-wal` is a corruption mode, not a recoverable state — and every step is receipted with the ledger flushed on failure, so a half-restored store classifies unambiguously at the next open instead of being inspected ad hoc.
+- Law: the rejection ladder is ordered so each tier verifies before the next runs and restore never best-efforts past any tier — magic and identity, header version, header checksum, stored-length truncation with byte counts, and content hash all run on raw bytes with zero decoding; codec and compression capability, the schema-stamp ratchet, and untrusted decode gate the codec machinery only after — the order is the threat model, because corrupted input rejects before any parser with attack surface runs, and every rejection is a typed result naming tier, artifact identity, and the evidence pair the tier compared; version and schema stamp are one-way ratchets — readers admit at or below their compiled ceiling, writers emit exactly theirs — so tier-2 future layouts, tier-6 capability gaps, and tier-7 schema skew are deployment evidence, not data errors: rejected by one process and restored by a newer sibling, they localize a rollout fault without touching the artifact.
+- Law: the crash matrix is total — before flush an orphan temp (swept), after flush a complete-but-unclaimed orphan (a recorded salvage candidate, because the sealed header makes completeness provable), after rename the open ritual's epoch reconcile re-runs verification, after the bump committed; the orphan sweep keys on the deterministic epoch-bearing temp suffix, and ladder results from sweeps land on the boot fact stream with the same routing as any fault; the boot identity manifest of per-asset content keys is itself a sealed artifact verified first — the verifier of everything is the one thing the ladder alone proves.
+- Law: restore composes the write protocol in reverse — one protocol vocabulary and one `StepFact` taxonomy, the only asymmetry who supplies the bytes; the writer's commit point is the rename, the restorer's is the epoch bump, and everything before either commit point is repeatable garbage by construction.
+- Law: the sidecar fence precedes the payload rename — a fresh payload paired with a stale `-wal` is a corruption mode, not a recoverable state — and every step is recorded with the ledger flushed on failure, so a half-restored store classifies unambiguously at the next open instead of being inspected ad hoc.
 - Exemption: the choreography's step kernels — the pool fence, file materialization, and register bump — are the platform-forced ADO and stream statement seam.
 
 ```csharp conceptual
@@ -255,7 +255,7 @@ public static class Restore {
             ("<sidecar>", () => Guarded(() => { File.Delete($"{storePath}-wal"); File.Delete($"{storePath}-shm"); return "<sidecars-cleared>"; })),
             ("<rename>", () => Guarded(() => { File.Move(staged, storePath, overwrite: true); return storePath; })),
             ("<epoch-bump>", () => Guarded(() => Bumped(storePath, successor))),
-            ("<reopen>", () => reopen(storePath).Map(static receipt => $"<ritual-rows:{receipt.Count}>")),
+            ("<reopen>", () => reopen(storePath).Map(static result => $"<ritual-rows:{result.Count}>")),
         ];
         return steps.Fold((Ledger: Seq<StepFact>(), Outcome: Fin.Succ(successor)), (state, step) =>
             state.Outcome.IsFail ? state
@@ -309,14 +309,14 @@ public static class Restore {
 [ADJUDICATION_LAW]:
 - Law: one IMMEDIATE transaction holds the whole effect set — a local write holds register mutation plus op insert, a remote batch holds dedup inserts, adjudication, and cursor advance — so crash recovery is re-delivery and read-your-writes holds by construction; local and remote writes are one rail, because a local fast path bypassing adjudication lets a stale local write overwrite newer synced state.
 - Law: adjudication is one guarded set statement — the row-value comparison `(excluded.stamp, excluded.origin) > (stamp, origin)` executes inside the write lock with no compare-write window, `RETURNING` is the applied set so outcome accounting costs zero extra reads, and the same guard is the optimistic-concurrency check for stale local edits — offline reconciliation and live conflict control are one mechanism, not two; an undo, an offline edit replay, a remote batch, and a restore-then-catch-up are all this one statement against the same registers, the system's only way to change durable state.
-- Law: the outcome union is closed — Applied, Superseded, Duplicate, TombstoneSuppressed — each derived from statement results, and the conservation identity batch = applied + superseded + duplicates + suppressed is the merge audit whose breach is itself a typed merge fault; outcome receipts ride the operational fact stream, never the log, because receipts about merging are not ops.
+- Law: the outcome union is closed — Applied, Superseded, Duplicate, TombstoneSuppressed — each derived from statement results, and the conservation identity batch = applied + superseded + duplicates + suppressed is the merge audit whose breach is itself a typed merge fault; each outcome emits an operational fact, never an op-log row.
 - Law: LWW over causal stamps never loses a causally-later write to an earlier one — the loss class is concurrency only, resolved deterministically by origin tiebreak, and ties are impossible because equal (stamp, origin) is the same op, caught by the dedup key; per-field LWW manufactures a row no writer wrote and is admitted per kind only as a declared class priced at per-field stamps.
-- Law: the batch travels as one bound JSON document shredded by `json_each` — constant statement shape, cached plans, the bound-parameter ceiling out of the sizing decision, leaving lock-hold as the binding constraint with sibling busy receipts as its feedback; the in-batch fold takes each entity's lattice max before the register comparison, so intra-batch losers partition as superseded, and savepoint-per-unit isolates poison ops into receipted quarantine re-examined on capability upgrades.
-- Law: future-looking stamps adjudicate normally — skew is signal-layer evidence, and refusing them holds merge availability hostage to clock quality; a detected fork — same (origin, seq), different content keys — is an epoch-class event emitting a typed fork receipt and halting merge with that peer.
+- Law: the batch travels as one bound JSON document shredded by `json_each` — constant statement shape, cached plans, the bound-parameter ceiling out of the sizing decision, leaving lock-hold as the binding constraint with sibling busy results as its feedback; the in-batch fold takes each entity's lattice max before the register comparison, so intra-batch losers partition as superseded, and savepoint-per-unit isolates poison ops into recorded quarantine re-examined on capability upgrades.
+- Law: future-looking stamps adjudicate normally — skew is signal-layer evidence, and refusing them holds merge availability hostage to clock quality; a detected fork — same (origin, seq), different content keys — is an epoch-class event emitting a typed fork result and halting merge with that peer.
 - Exemption: the apply transaction's command kernel is the platform-forced ADO statement seam.
 
 ```csharp conceptual
-public readonly record struct MergeReceipt(int Batch, int Applied, int Superseded, int Duplicate, int Suppressed) {
+public readonly record struct MergeOutcome(int Batch, int Applied, int Superseded, int Duplicate, int Suppressed) {
     public bool Conserves => Batch == Applied + Superseded + Duplicate + Suppressed;
 }
 
@@ -359,9 +359,9 @@ public static class OpLog {
         ON CONFLICT(peer, origin) DO UPDATE SET seq = max(seq, excluded.seq), stamp = max(stamp, excluded.stamp)
         """;
 
-    public static Fin<MergeReceipt> Apply(SqliteConnection store, string peer, long storeEpoch, long cursorEpoch, string batch, int batchSize) {
+    public static Fin<MergeOutcome> Apply(SqliteConnection store, string peer, long storeEpoch, long cursorEpoch, string batch, int batchSize) {
         ArgumentNullException.ThrowIfNull(store);
-        if (storeEpoch != cursorEpoch) { return Fin.Fail<MergeReceipt>(Error.New(7721, $"<epoch-mismatch:{cursorEpoch}:{storeEpoch}>")); }
+        if (storeEpoch != cursorEpoch) { return Fin.Fail<MergeOutcome>(Error.New(7721, $"<epoch-mismatch:{cursorEpoch}:{storeEpoch}>")); }
         using var apply = store.BeginTransaction(IsolationLevel.Serializable, deferred: false);
         var fresh = Keys(store, apply, Dedup, [("$batch", batch)]);
         var freshDoc = $"[{string.Join(',', fresh)}]";
@@ -369,8 +369,8 @@ public static class OpLog {
         var (superseded, suppressed) = Pair(store, apply, Losses, [("$fresh", freshDoc)]);
         _ = NonQuery(store, apply, Advance, [("$fresh", freshDoc), ("$peer", peer), ("$epoch", storeEpoch)]);
         apply.Commit();
-        var receipt = new MergeReceipt(batchSize, applied, (int)superseded, batchSize - fresh.Count, (int)suppressed);
-        return receipt.Conserves ? Fin.Succ(receipt) : Fin.Fail<MergeReceipt>(Error.New(7722, $"<unconserved:{receipt}>"));
+        var result = new MergeOutcome(batchSize, applied, (int)superseded, batchSize - fresh.Count, (int)suppressed);
+        return result.Conserves ? Fin.Succ(result) : Fin.Fail<MergeOutcome>(Error.New(7722, $"<unconserved:{result}>"));
     }
 
     static Seq<long> Keys(SqliteConnection store, SqliteTransaction apply, string sql, ReadOnlySpan<(string Name, object Value)> binds) {
@@ -403,30 +403,30 @@ public static class OpLog {
 
 [CONVERGENCE_LAW]:
 - Law: the adjudication relation is a join-semilattice over (stamp, origin) — applying any partition of any permutation of the op multiset any number of times yields identical materialized state; that one sentence subsumes idempotency, commutativity, reorder tolerance, and crash replay, and it is the property-test specification verbatim.
-- Law: per-peer cursors are version vectors persisted in the same store and advanced inside the apply transaction — no reconciliation job exists because nothing can diverge; gapped arrivals hold back receipted under a bounded budget, never skip, and the same watermark structure serves in-process projections, which register as consumers.
+- Law: per-peer cursors are version vectors persisted in the same store and advanced inside the apply transaction — no reconciliation job exists because nothing can diverge; gapped arrivals are held back under a bounded budget and recorded as facts, never skipped, and the same watermark structure serves in-process projections, which register as consumers.
 - Law: a bidirectional peer exchange owns two cursor spaces — the read position in the peer's feed and the peer's confirmed position in ours — and one slot serving both silently skips or re-replays entries the moment the two flows advance unequally.
 - Law: merge(snapshot) ≡ merge(ops) — a snapshot is the compressed log prefix carrying registers, watermark vector, and epoch, so bootstrap, file-drop import, and catastrophic recovery are the normal merge with a wider range; snapshot cadence is one growth-ratio row bounding bootstrap cost and truncation eligibility together, and the truncation floor is the minimum over peer cursors and projection watermarks.
 - Law: manifests are commutative-monoid summaries chosen by identity space — seq vectors for ordered log identity, content-key sets for unordered blob identity, cross-use rejected in both directions; acknowledgment IS the cursor echo, so no separate ack protocol exists beside the sequence the log already owns.
 - Law: every cursor pairs (epoch, vector) and epoch comparison is equality-only — any mismatch routes to full resync, because reasoning about epoch recency re-trusts exactly the rewound counters the token exists to deny; one epoch token serves the open ritual, the sync cursors, and the artifact headers, and a second epoch-like counter anywhere re-splits the fence.
-- Law: tombstone collection is cursor-fenced, never time-fenced — a time window resurrects through any peer offline longer than it; a departed peer retires by receipted administrative op, pinning is the deliberate failure direction because it is observable where early collection is silent resurrection, and this lane supplies the fence predicate while retention owns sweep execution; presence rides the same table as an ephemeral class — TTL expiry IS the delete, excluded from cursors, manifests, and snapshots, so liveness chatter cannot inflate sync state.
+- Law: tombstone collection is cursor-fenced, never time-fenced — a time window resurrects through any peer offline longer than it; a departed peer retires by recorded administrative op, pinning is the deliberate failure direction because it is observable where early collection is silent resurrection, and this lane supplies the fence predicate while retention owns sweep execution; presence rides the same table as an ephemeral class — TTL expiry IS the delete, excluded from cursors, manifests, and snapshots, so liveness chatter cannot inflate sync state.
 
 ## [06]-[RETENTION_CLASSES]
 
 [CLASS_LAW]:
-- Law: every stored thing belongs to exactly one class row carrying five decisions — storage lane, retention record, classification ceiling, loss policy (receipted-evict or declared-expiry), identity scheme (content key or name-plus-epoch); an artifact fitting no class is an admission rejection, never a default — the canonical set closes at six rows: sealed snapshot, log segment, evidence bundle, export, cache blob, ephemeral — class membership is immutable, reclassification is export-then-readmit so every lived lifecycle stays receipted, and one catalog inventories every lane, with byte counts recorded from the artifact's own sealed length fields, never a later filesystem stat.
+- Law: every stored thing belongs to exactly one class row carrying five decisions — storage lane, retention record, classification ceiling, loss policy (evict-with-fact or declared-expiry), identity scheme (content key or name-plus-epoch); an artifact fitting no class is an admission rejection, never a default — the canonical set closes at six rows: sealed snapshot, log segment, evidence bundle, export, cache blob, ephemeral — class membership is immutable, reclassification is export-then-readmit so every lived lifecycle stays recorded, and one catalog inventories every lane, with byte counts recorded from the artifact's own sealed length fields, never a later filesystem stat.
 - Law: admission is one fold — classify-check, identity-derive, race-admit, budget-check, lane-write — and the identity scheme alone yields two complete behavioral families: content-keyed classes get dedup and race-loser disposal free, name-plus-epoch classes get versioned replacement free, zero conditional code.
 - Law: classification stamps arrive settled — admission compares stamp against the class ceiling and rejects typed, an unstamped artifact rejects identically because absence of evidence is not clearance, the store never re-redacts or downgrades, ceilings are build-invariant where budgets may widen in debug, and import re-verifies stamps so export round-trips cannot launder.
-- Law: a budget breach truncates with an embedded receipt — capture must succeed degraded — while a ceiling breach rejects outright — security never degrades; the two overflow responses are never interchangeable, depth budgets catch the deep narrow structures byte budgets miss, and a drop-oldest ring builds only with an on-drop receipt delegate receiving identity and stamp, never the dropped entry.
-- Law: the two-tier cache is a lane value, not a feature — the process-retained content-keyed registry, then the class's durable lane, lookup falling tier one, tier two, produce, with produce admitting into both; the registry keys on (epoch, content key) so the restore fence invalidates wholesale with no per-item protocol, racing producers resolve by compare-exchange with the loser disposing its candidate as a receipted fact, and a third cache anywhere forks invalidation and identity.
+- Law: a budget breach truncates with an embedded result — capture must succeed degraded — while a ceiling breach rejects outright — security never degrades; the two overflow responses are never interchangeable, depth budgets catch the deep narrow structures byte budgets miss, and a drop-oldest ring builds only with an on-drop result delegate receiving identity and stamp, never the dropped entry.
+- Law: the two-tier cache is a lane value, not a feature — the process-retained content-keyed registry, then the class's durable lane, lookup falling tier one, tier two, produce, with produce admitting into both; the registry keys on (epoch, content key) so the restore fence invalidates wholesale with no per-item protocol, racing producers resolve by compare-exchange with the loser disposing its candidate as a recorded fact, and a third cache anywhere forks invalidation and identity.
 
 [SWEEP_LAW]:
 - Law: the sweep is a pure three-stage fold — holds exit first and short-circuit every rule, each survivor takes the first deciding verdict in declared order age, count, size, and the size stage evicts oldest-first until under budget; the verdict union closes at Kept, Held, HeldOverBudget, EvictAge, EvictCount, EvictSize, and held bytes count against the budget but cannot evict, so preservation pressure surfaces as `HeldOverBudget` instead of displacing onto unheld artifacts.
-- Law: verdicts are a pure function of inventory snapshot, policy snapshot, and hold rows under one clock instant with identity tiebreak after stamp — decision and execution split, so the verdict list is a testable value, every receipt cites the policy snapshot stamp, and a partial sweep resumes by re-folding with no journal.
+- Law: verdicts are a pure function of inventory snapshot, policy snapshot, and hold rows under one clock instant with identity tiebreak after stamp — decision and execution split, so the verdict list is a testable value, every result cites the policy snapshot stamp, and a partial sweep resumes by re-folding with no journal.
 - Law: holds are first-class rows — whole-class, identity-set, and stamp-range selectors composing by union, bound late at sweep time so a hold placed today protects artifacts admitted tomorrow; release deletes the row with no eviction side effect, and every run emits an active-hold inventory with hold age, because forgotten holds are the dominant retention failure.
-- Law: every removed artifact emits (class, identity, deciding rule, policy stamp, bytes) and the run summary proves inventory = kept + held + evicted; unreceipted deletion anywhere is a rail rejection — operator deletion routes through an administrative verdict kind — and the receipt stream is itself a count-and-age-bounded class, closing meta-retention at depth one.
+- Law: every removed artifact emits (class, identity, deciding rule, policy stamp, bytes) and the run summary proves inventory = kept + held + evicted; unrecorded deletion anywhere is a rail rejection — operator deletion routes through an administrative verdict kind — and the fact stream is itself a count-and-age-bounded class, closing meta-retention at depth one.
 - Law: blob bytes delete after the row commit — the crash window produces collectible orphans, never dangling rows — and the age-gated orphan pass closes the loop with its volume as the crash-loop signal; the deletion budget bounds lock-hold because the sweep is a writer like any other, and cross-class pressure is one allocation pass over declared weight rows, never a second sweeper.
-- Law: eligibility predicates inject — sync fences, projection floors, export pins, the orphan age gate — so the sweep stays the single deletion executor owning zero domain-safety rules, and every refusal names the predicate that held it: the receipt stream is the system's complete deletion and non-deletion ledger at once.
-- Law: evidence windows freeze [t − Δ, t] from the trigger's stamp so capture is idempotent per incident identity, with Δ a per-trigger-kind row; contributors fan in as declared (name, order, budget, deadline) rows — over budget truncates, missed deadline lands absent, over ceiling refuses, each with receipt — the bundle always seals because incidents are precisely when processes die, and the ordered-bounded fold is one algebra shared with drain-band walks, so a bespoke gatherer is the rejected form.
+- Law: eligibility predicates inject — sync fences, projection floors, export pins, the orphan age gate — so the sweep stays the single deletion executor owning zero domain-safety rules, and every refusal names the predicate that held it: the fact stream is the system's complete deletion and non-deletion ledger at once.
+- Law: evidence windows freeze [t − Δ, t] from the trigger's stamp so capture is idempotent per incident identity, with Δ a per-trigger-kind row; contributors fan in as declared (name, order, budget, deadline) rows — over budget truncates, missed deadline lands absent, over ceiling refuses, each with result — the bundle always seals because incidents are precisely when processes die, and the ordered-bounded fold is one algebra shared with drain-band walks, so a bespoke gatherer is the rejected form.
 - Law: export reuses the sweep's verdict machinery read-only, so export and sweep can never disagree about one artifact at one instant; the proof manifest carries identity, content key, classification stamp, retention verdict, and policy stamp per artifact, destination clearance compares exactly like an admission ceiling, partial exports stay explicit with refused rows as load-bearing as included ones, export creates no hold, and re-import is ordinary admission.
 - Exemption: none — the sweep is total expression flow; decision is a pure fold over the inventory snapshot and the platform never forces a statement here.
 
@@ -468,22 +468,22 @@ public abstract partial record Verdict {
     public bool Retains => this is Held or HeldOverBudget;
 }
 
-public readonly record struct SweepReceipt(int Inventory, int Kept, int Retained, int Evicted, long FreedBytes, long PolicyStamp) {
+public readonly record struct SweepSummary(int Inventory, int Kept, int Retained, int Evicted, long FreedBytes, long PolicyStamp) {
     public bool Conserves => Inventory == Kept + Retained + Evicted;
 }
 
 public static class Sweep {
-    public static (Seq<(Item Item, Verdict Verdict)> Ledger, Fin<SweepReceipt> Outcome) Decide(
+    public static (Seq<(Item Item, Verdict Verdict)> Ledger, Fin<SweepSummary> Outcome) Decide(
         Seq<Item> inventory, Budget budget, Seq<Hold> holds, long now, long policyStamp, Func<Item, bool> eligible) {
         var scan = toSeq(inventory.OrderBy(static i => i.Stamp).ThenBy(static i => i.Identity))
             .Fold((Ledger: Seq<(Item, Verdict)>(), Live: 0, Bytes: 0L),
                 (state, item) => Advance(state, item, Adjudicate(state, item, budget, holds, now, eligible)));
         var ledger = scan.Ledger.Rev();
-        var receipt = ledger.Fold(new SweepReceipt(inventory.Count, 0, 0, 0, 0L, policyStamp), static (sum, row) =>
+        var result = ledger.Fold(new SweepSummary(inventory.Count, 0, 0, 0, 0L, policyStamp), static (sum, row) =>
             row.Verdict.Frees ? sum with { Evicted = sum.Evicted + 1, FreedBytes = sum.FreedBytes + row.Item.Bytes }
             : row.Verdict.Retains ? sum with { Retained = sum.Retained + 1 }
             : sum with { Kept = sum.Kept + 1 });
-        return (ledger, receipt.Conserves ? Fin.Succ(receipt) : Fin.Fail<SweepReceipt>(Error.New(7761, $"<unconserved:{receipt}>")));
+        return (ledger, result.Conserves ? Fin.Succ(result) : Fin.Fail<SweepSummary>(Error.New(7761, $"<unconserved:{result}>")));
     }
 
     static Verdict Adjudicate((Seq<(Item, Verdict)> Ledger, int Live, long Bytes) state, Item item, Budget budget, Seq<Hold> holds, long now, Func<Item, bool> eligible) =>

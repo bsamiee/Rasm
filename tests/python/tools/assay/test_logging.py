@@ -16,7 +16,6 @@ from assay import configure_logging
 from assay._logging import _StderrBridgeHandler, _StderrLogger
 from assay.composition.settings import LogFormat
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 COVERS: tuple[object, ...] = (configure_logging,)

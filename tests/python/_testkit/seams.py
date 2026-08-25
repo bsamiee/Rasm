@@ -14,7 +14,6 @@ import msgspec
 lazy import pytest
 lazy import trio.testing
 
-
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Mapping
 

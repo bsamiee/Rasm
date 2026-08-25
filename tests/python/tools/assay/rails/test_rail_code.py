@@ -21,9 +21,30 @@ from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
 from assay.composition.store import ArtifactScope
 from assay.core.exec import apply_row_status, EngineExecutor
-from assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, RailStatus, receipt, Runner, Tool, ToolGroup
+from assay.core.model import (
+    ArtifactKind,
+    Check,
+    Claim,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    RailStatus,
+    receipt,
+    Runner,
+    Tool,
+    ToolGroup,
+)
 from assay.core.routing import resolve_languages, Routed, Scope
-from assay.diagnostics import AstMatch, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, node_text, ts_query
+from assay.diagnostics import (
+    AstMatch,
+    cap_note,
+    Capture,
+    CAPTURE_ENCODER,
+    CAPTURES,
+    node_text,
+    ts_query,
+)
 import assay.rails.code as code_rail
 from assay.rails.code import (
     _AG_SPEC,
@@ -49,7 +70,6 @@ from assay.rails.code import (
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python._testkit.strategies import resolve
 from tests.python.tools.assay.kit import SeamExecutor
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

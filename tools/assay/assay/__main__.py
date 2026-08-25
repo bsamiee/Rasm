@@ -20,7 +20,6 @@ from assay.composition.registry import build_app, parse_fault, REGISTRY
 from assay.composition.settings import AssaySettings
 from assay.core.model import Step, wire_safe
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _EXEC_FLAG: Final[str] = "--exec"

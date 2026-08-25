@@ -20,7 +20,6 @@ import sys
 
 import msgspec
 
-
 TOKEN_PREFIX = "TASKMASTER_DONE::"  # POLICY: the session-scoped completion sentinel; grep-exact, immune to prose drift
 MAX_BLOCKS = 12  # POLICY: durable cumulative cap across the whole run; 0 disarms it and leans on the harness stop_hook_active cap of 8
 CONTRACT_AGENTS: frozenset[str] = frozenset()  # POLICY: agent_types bound to the token contract; empty = every subagent is released

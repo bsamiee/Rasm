@@ -6,13 +6,29 @@ from typing import ClassVar, override, TYPE_CHECKING
 
 import anyio
 from expression import Error, Ok
-from hypothesis import given, HealthCheck, settings as h_settings, strategies as st, target
+from hypothesis import (
+    given,
+    HealthCheck,
+    settings as h_settings,
+    strategies as st,
+    target,
+)
 import msgspec.structs
 import pytest
 from upath import UPath
 
 from assay.composition.catalog import select
-from assay.core.model import Check, Claim, Fault, Input, Language, Mode, RailStatus, Runner, Tool
+from assay.core.model import (
+    Check,
+    Claim,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    RailStatus,
+    Runner,
+    Tool,
+)
 from assay.core.routing import (
     _LocalSource,
     _owner,
@@ -28,9 +44,13 @@ from assay.core.routing import (
     target_files,
     TargetFiles,
 )
-from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix
+from tests.python._testkit.spec import (
+    assert_error,
+    assert_error_status,
+    assert_ok,
+    support_matrix,
+)
 from tests.python.tools.assay.kit import AssayHarness
-
 
 if TYPE_CHECKING:
     from pathlib import Path

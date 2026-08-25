@@ -9,8 +9,7 @@ from pathlib import Path
 import sys
 import threading
 
-
-REPO_ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / "uv.lock").is_file())
+REPO_ROOT: Path = next(parent for parent in Path(__file__).resolve().parents if (parent / "uv.lock").is_file())
 _DEFAULT_HYPOTHESIS_HOME = REPO_ROOT / ".cache" / "hypothesis"
 _hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # ruff:ignore[banned-api]
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
@@ -25,7 +24,13 @@ from typing import TYPE_CHECKING
 import anyio
 from hypothesis import HealthCheck, is_hypothesis_test, Phase, settings as hyp_settings
 from hypothesis.configuration import set_hypothesis_home_dir
-from hypothesis.database import BackgroundWriteDatabase, DirectoryBasedExampleDatabase, GitHubArtifactDatabase, MultiplexedDatabase, ReadOnlyDatabase
+from hypothesis.database import (
+    BackgroundWriteDatabase,
+    DirectoryBasedExampleDatabase,
+    GitHubArtifactDatabase,
+    MultiplexedDatabase,
+    ReadOnlyDatabase,
+)
 from hypothesis.internal.observability import add_observability_callback
 from hypothesis.strategies._internal.utils import to_jsonable
 import msgspec.json
@@ -38,7 +43,6 @@ import structlog
 from structlog.testing import capture_logs
 
 lazy from tests.python._testkit.laws import consume_covers
-
 
 if TYPE_CHECKING:
     from collections.abc import Generator

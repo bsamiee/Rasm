@@ -4,7 +4,7 @@ Proven defect classes hunted at root-cause depth on every surface; each paragrap
 
 Required-field threading dropped by signature migrations, and finiteness admission before range checks — family-wide across the policy roster, zero-sentinel law stated beside the guard.
 
-Identity preimages omitting output-affecting inputs — a caller-supplied seed a stochastic path makes non-derivable, a caller-contract axis, a policy-derived verdict.
+Identity preimages omitting output-affecting inputs — a caller-supplied seed a stochastic path makes non-derivable, a caller-supplied axis, a policy-derived verdict.
 
 Sibling-invariant parity — a guard, memo, typed refusal, or stated invariant one sibling arm carries and its peers lack.
 

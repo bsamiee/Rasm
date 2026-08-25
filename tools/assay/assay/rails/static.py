@@ -39,9 +39,17 @@ from assay.core.model import (
     Tool,
     ToolArgs,
 )
-from assay.core.routing import expand, infer_languages, place, route, Routed, Scope, target_files, TargetFiles
+from assay.core.routing import (
+    expand,
+    infer_languages,
+    place,
+    route,
+    Routed,
+    Scope,
+    target_files,
+    TargetFiles,
+)
 from assay.diagnostics import fold, sarif_status
-
 
 if TYPE_CHECKING:
     from assay.core.model import Completed

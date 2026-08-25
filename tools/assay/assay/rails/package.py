@@ -50,7 +50,6 @@ from assay.core.transaction import SwapTransaction
 from assay.diagnostics import fold
 from assay.rails.bridge import bridge_lease, client_run
 
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
 

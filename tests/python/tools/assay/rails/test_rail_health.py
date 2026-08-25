@@ -18,7 +18,6 @@ from assay.rails import health as health_mod
 from assay.rails.health import census, ORPHAN_MIN_AGE_S, probes, yak_ready
 from tests.python.tools.assay.kit import SeamExecutor
 
-
 if TYPE_CHECKING:
     from assay.core.model import Check
     from tests.python.tools.assay.kit import AssayHarness
@@ -90,7 +89,10 @@ def test_process_hygiene_reports_old_repo_orphans(assay_root: AssayHarness, monk
 
 def test_orphan_process_exception_returns_none() -> None:
     """_orphan_process returns None when proc.info raises OSError — a process vanishing mid-scan never crashes hygiene."""
-    from unittest.mock import create_autospec, PropertyMock  # ruff:ignore[import-outside-top-level]
+    from unittest.mock import (  # ruff:ignore[import-outside-top-level]
+        create_autospec,
+        PropertyMock,
+    )
 
     import psutil as _ps  # ruff:ignore[import-outside-top-level]
 

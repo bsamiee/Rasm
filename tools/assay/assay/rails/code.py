@@ -42,8 +42,18 @@ from assay.core.model import (
     ToolArgs,
 )
 from assay.core.routing import resolve_languages, route, Routed, Scope
-from assay.diagnostics import AST_MATCHES, cap_note, Capture, CAPTURE_ENCODER, CAPTURES, fold, node_text, RG_EVENT, ts_language, ts_query
-
+from assay.diagnostics import (
+    AST_MATCHES,
+    cap_note,
+    Capture,
+    CAPTURE_ENCODER,
+    CAPTURES,
+    fold,
+    node_text,
+    RG_EVENT,
+    ts_language,
+    ts_query,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable

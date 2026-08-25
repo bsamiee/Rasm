@@ -20,11 +20,24 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 import pytest
 from structlog.contextvars import get_contextvars
 
-from assay.core.aspect import assemble, checked, checked_call, compose, Hom, Inversion, Layer, logged, RING, ring_processor, ring_recent, Slot, traced
+from assay.core.aspect import (
+    assemble,
+    checked,
+    checked_call,
+    compose,
+    Hom,
+    Inversion,
+    Layer,
+    logged,
+    RING,
+    ring_processor,
+    ring_recent,
+    Slot,
+    traced,
+)
 from assay.core.model import Claim, Fault, RailStatus, Report
 from assay.diagnostics import fold
 from tests.python._testkit.spec import assert_error, assert_ok, identity, support_matrix
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

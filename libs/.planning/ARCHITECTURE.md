@@ -51,9 +51,7 @@ Geometry, meshing, and semantic exchange each carry exactly one owner per runtim
 
 - Greenfield packages keep their design pages inside one `.planning/` at the package root, sub-domain sub-folders mirroring the eventual source tree.
 - Package roots carry the index docs alone; all planning lives under the single `.planning/`, never inside a real source sub-folder.
-- Each package maps its full folder structure, planned page-less sub-domains included, so the map fuels ideas and tasks.
 - Mature folders with real code carry no `.planning/`; the co-located source architecture note is the only design surface.
-- Mature folders route open split, cleanup, and re-architect work to task cards in the branch `TASKLOG.md`.
 - One exception stands: a genuinely new unbuilt sub-domain inside a mature package keeps its scaffold in that sub-domain folder.
 - Host-boundary planning folders carry a folder `.api/` tier over host assemblies, its rows outside the branch build root under the host gate.
 
@@ -94,7 +92,7 @@ Within each language one organization principle holds: real higher-order domain 
 - No branch mints the value, so no branch owes a producer or a parity mint.
 - Drift defect: respelling publisher bytes into an estate family forks the definition its publisher versions.
 
-Every peer-decoded shape carries one `manifest.json` case; a convention-aligned crossing without one is coincidence, never interop. Composition merges branch contributions at the application root by artifact key under one total order. Content identity derives per the `docs/laws/patterns.md` `[CONTENT_KEY]` law.
+Every peer-decoded shape carries one `manifest.json` case; a convention-aligned crossing without one is coincidence, never interop. Composition merges branch contributions at the application root by artifact key under one total order.
 
 ## [08]-[OBSERVABILITY_CONFORMANCE]
 
@@ -254,7 +252,6 @@ New capability enters at the narrowest rung that holds it, and each rung above i
 - Concepts only one host reveals land as a bounded context named for the concept.
 - Hosts scripted in a branch's own language earn no branch; that runtime is already reached.
 - Ecosystem preference earns no branch — a branch answers reach, and a capability an existing branch reaches lands as a package there.
-- Every rung lands its counterparts in the same pass — `[02]-[STRATA]` rank, manifest row, `.api/` tier, router entry — per `docs/laws/topology.md`.
 
 ## [13]-[APPEARANCE]
 

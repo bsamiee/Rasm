@@ -20,7 +20,6 @@ from typing import Literal
 from cyclopts import App
 import msgspec
 
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Status = Literal["ok", "warn", "fail"]
@@ -31,10 +30,6 @@ class Check(StrEnum):
     AI_LEXICON = "ai-lexicon"
     ARTICLE_OPENER = "article-opener"
     BOLD_EMPHASIS = "bold-emphasis"
-    CARD_FIELD = "card-field"
-    CARD_LEADER = "card-leader"
-    CARD_SECTION = "card-section"
-    CARD_STATUS = "card-status"
     COLLECT = "collect"
     COMMENT_RUNT = "comment-runt"
     COMMENT_SHRED = "comment-shred"
@@ -364,32 +359,18 @@ CONTINUATION_TAIL = re.compile(
 )
 CONTINUATION_HEAD = re.compile(r"[a-z]")
 
-# --- [CARD_GRAMMAR]
-# IDEAS/TASKLOG card files, design-page [RESEARCH] sections, and RULINGS.md registries census against the
-# ratified marker grammar: `[SLUG]-[STATUS]:` leaders, closed status vocabularies, the field roster each file's
-# own source-only template comment declares (ratified set as fallback), the terminal research-section contract,
-# and the rulings section vocabulary under omit-and-renumber.
-CARD_FILES = frozenset({"IDEAS.md", "TASKLOG.md"})
-CORE_FIELDS: tuple[str, ...] = ("Capability", "Shape", "Unlocks", "Anchors")
-RATIFIED_FIELDS = frozenset({*CORE_FIELDS, "Arms", "Atomic", "Ripple", "Route", "Tension"})
-OPEN_STATUSES = frozenset({"ACTIVE", "QUEUED", "BLOCKED"})
-CLOSED_STATUSES = frozenset({"COMPLETE", "DROPPED"})
+# --- [MARKER_GRAMMAR]
+# Design-page [RESEARCH] sections and RULINGS.md registries census against the ratified marker grammar.
 RESEARCH_STATUSES = frozenset({"OPEN", "BLOCKED"})
 # Rulings sections are a closed vocabulary in canonical order; a file's own source-only comment extends it
 # through code-spanned labels under the union law, and unused sections omit with survivors renumbered.
 RULING_SECTIONS: tuple[str, ...] = ("PACKAGES", "SHAPE", "COLLAPSE", "STRUCTURE", "PROCESS")
-STATUS_LAW = "legal open statuses ACTIVE|QUEUED|BLOCKED, closed COMPLETE|DROPPED"
-CARD_HEAD = re.compile(r"^\[(?P<slug>[^\]]+)\]-\[(?P<status>[^\]]+)\]:\s+\S")
-CARD_BULLET = re.compile(r"^- (?P<label>[A-Z][A-Za-z]*):\s+\S")
-CARD_BAND = re.compile(r"^## \[\d{2}\]-\[(?P<band>OPEN|CLOSED)\]\s*$")
 RESEARCH_HEAD = re.compile(r"^\[\d{2}\]-\[RESEARCH\]$")
 RESEARCH_ENTRY = re.compile(r"^- \[(?P<token>[^\]]+)\]-\[(?P<status>[^\]]+)\]:\s*(?P<body>.*)$")
 RULINGS_H1 = re.compile(r"^\[[A-Z][A-Z0-9_]*_RULINGS\]$")
 SPANNED_LABEL = re.compile(r"`\[([A-Z][A-Z0-9_]*)\]`")
 SLUG_SHAPE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 NUMERIC_ID = re.compile(r"^\d+$")
-ABSOLUTE_PATH = re.compile(r"/(?:Users|home)/[\w.-]+")
-SOURCE_ONLY = "source-only"
 COMMENT_OPEN, COMMENT_CLOSE = "<!--", "-->"
 # Same-decision spread: adjacent prose units sharing most content words restate one ruling; the floor bounds the
 # token sets so short structural lines never pair, and the share is Jaccard overlap on 4+-letter words.
@@ -1286,105 +1267,6 @@ def spread_rows(doc: Document) -> tuple[Row, ...]:
     return tuple(rows)
 
 
-def card_vocabulary(lines: tuple[str, ...]) -> tuple[frozenset[str], dict[str, int], frozenset[str]]:
-    # First pass over a card file: the field roster its template comments declare, section-marker lines, templated bands.
-    fields: set[str] = set()
-    sections: dict[str, int] = {}
-    templated: set[str] = set()
-    band = ""
-    commented = False
-    for number, line in enumerate(lines, 1):
-        if (section := CARD_BAND.match(line)) is not None:
-            band = section["band"]
-            sections[band] = number
-            continue
-        stripped = line.strip()
-        opened = not commented and stripped.startswith(COMMENT_OPEN)
-        if opened and SOURCE_ONLY in stripped and band:
-            templated.add(band)
-        if commented or opened:
-            if (field := CARD_BULLET.match(stripped)) is not None:
-                fields.add(field["label"])
-            commented = COMMENT_CLOSE not in stripped
-    return frozenset(fields) or RATIFIED_FIELDS, sections, frozenset(templated)
-
-
-def card_rows(path: Path, text: str) -> tuple[Row, ...]:
-    # IDEAS/TASKLOG marker census: leader grammar, closed statuses, section agreement, the template-comment field
-    # vocabulary with drift detection, four core bullets per open card, and repo-relative paths.
-    if path.name not in CARD_FILES or "templates" in path.parts or teaching(path):
-        return ()
-    lines = tuple(text.splitlines())
-    vocabulary, sections, templated = card_vocabulary(lines)
-    rows: list[Row] = []
-    band = ""
-    commented = False
-    card: tuple[int, str, str] | None = None
-    seen: set[str] = set()
-
-    def sealed() -> None:
-        if card and band == "OPEN" and card[2] in OPEN_STATUSES and (missing := [field for field in CORE_FIELDS if field not in seen]):
-            detail = f"open card [{card[1]}] lacks {', '.join(missing)} — Capability, Shape, Unlocks, Anchors ride every open card"
-            rows.append(row(path, card[0], Check.CARD_FIELD, "fail", detail))
-
-    for number, line in enumerate(lines, 1):
-        stripped = line.strip()
-        if commented or stripped.startswith(COMMENT_OPEN):
-            commented = COMMENT_CLOSE not in stripped
-            continue
-        if (section := CARD_BAND.match(line)) is not None or HEADING.match(line):
-            sealed()
-            card, band = None, section["band"] if section else ""
-            continue
-        if (hit := ABSOLUTE_PATH.search(line)) is not None:
-            rows.append(row(path, number, Check.MACHINE_PATH, "fail", f"{hit.group(0)} is an absolute machine path; card paths stay repo-relative"))
-        if (leader := CARD_HEAD.match(line)) is not None:
-            sealed()
-            slug, status = leader["slug"], leader["status"]
-            card, seen = (number, slug, status), set()
-            if NUMERIC_ID.match(slug):
-                rows.append(
-                    row(
-                        path,
-                        number,
-                        Check.CARD_LEADER,
-                        "fail",
-                        f"id [{slug}] is pure-numeric; ids are semantic UPPERCASE_SNAKE slugs carrying meaning",
-                    )
-                )
-            elif not SLUG_SHAPE.match(slug):
-                rows.append(row(path, number, Check.CARD_LEADER, "fail", f"slug [{slug}] breaks UPPERCASE_SNAKE — a hyphenated slug is a defect"))
-            if status not in OPEN_STATUSES | CLOSED_STATUSES:
-                rows.append(row(path, number, Check.CARD_STATUS, "fail", f"status {status} outside the closed vocabulary — {STATUS_LAW}"))
-            elif band == "OPEN" and status in CLOSED_STATUSES:
-                rows.append(row(path, number, Check.CARD_STATUS, "fail", f"closed status {status} under [OPEN]; move the card to [02]-[CLOSED]"))
-            elif band == "CLOSED" and status in OPEN_STATUSES:
-                rows.append(row(path, number, Check.CARD_STATUS, "fail", f"open status {status} under [CLOSED]; reopen the card under [01]-[OPEN]"))
-            elif not band:
-                rows.append(row(path, number, Check.CARD_SECTION, "fail", f"card [{slug}] sits outside the [OPEN]/[CLOSED] sections"))
-            continue
-        if card and stripped.startswith("- "):
-            if (field := CARD_BULLET.match(stripped)) is None:
-                rows.append(row(path, number, Check.CARD_FIELD, "fail", "card bullet is not a `- Field:` line from the template vocabulary"))
-            elif field["label"] not in vocabulary:
-                detail = f"field {field['label']} drifts from the template-comment vocabulary {'|'.join(sorted(vocabulary))}"
-                rows.append(row(path, number, Check.CARD_FIELD, "fail", detail))
-            else:
-                seen.add(field["label"])
-            continue
-        if not stripped:
-            sealed()
-            card = None
-    sealed()
-    for wanted in ("OPEN", "CLOSED"):
-        if wanted not in sections:
-            rows.append(row(path, 0, Check.CARD_SECTION, "fail", f"card file lacks its ## [NN]-[{wanted}] section marker"))
-        elif wanted not in templated:
-            detail = f"[{wanted}] section carries no source-only template comment; the comment declares the card grammar"
-            rows.append(row(path, sections[wanted], Check.CARD_SECTION, "fail", detail))
-    return tuple(sorted(rows, key=lambda finding: finding.line))
-
-
 def rulings_vocabulary(lines: tuple[str, ...]) -> tuple[str, ...]:
     # Union law: code-spanned labels the file's own template comments declare extend the ratified closed set;
     # ratified order leads, declared extensions follow in declaration order and rank after every ratified label.
@@ -1464,7 +1346,7 @@ def research_rows(path: Path, text: str) -> tuple[Row, ...]:
     # Design-page research census: one terminal ## [NN]-[RESEARCH] section owning every well-formed
     # `- [TOKEN]-[OPEN|BLOCKED]: <question>; <route>` row, `(none)` marking the legal-empty section;
     # a spec page under .planning/<sub>/ carries the section always, and absence is an error.
-    if path.name in CARD_FILES or "templates" in path.parts or teaching(path):
+    if "templates" in path.parts or teaching(path):
         return ()
     parts = path.parts
     spec_page = (
@@ -1732,7 +1614,7 @@ def scan(path: Path, cap: int) -> tuple[Row, ...]:
         return () if teaching(path) else divider_rows(path, text) + comment_rows(path, text)
     doc, lexer_rows = lex(path, text, cap)
     checks = lexer_rows + table_rows(doc) + heading_rows(doc) + link_rows(doc) + prose_rows(doc) + list_rows(doc) + spread_rows(doc)
-    return checks + card_rows(path, text) + rulings_rows(path, text) + research_rows(path, text) + skill_rows(path, text) + bundle_rows(path, text)
+    return checks + rulings_rows(path, text) + research_rows(path, text) + skill_rows(path, text) + bundle_rows(path, text)
 
 
 # --- [EMIT] -----------------------------------------------------------------------------

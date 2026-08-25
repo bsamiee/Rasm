@@ -29,11 +29,31 @@ from protobuf.wkt import (
 import pytest
 import xxhash
 
-from assay.composition.catalog import BUF_DEFECT_EXIT, JSONSCHEMA_PLUGIN, JSONSCHEMA_TEMPLATE, select
+from assay.composition.catalog import (
+    BUF_DEFECT_EXIT,
+    JSONSCHEMA_PLUGIN,
+    JSONSCHEMA_TEMPLATE,
+    select,
+)
 from assay.composition.settings import ArtifactBackend
 from assay.core.exec import apply_row_status, EngineExecutor
 from assay.core.govern import exclusive_lease
-from assay.core.model import Band, Check, Claim, Completed, ContractsRun, Fault, Language, Mode, Parser, RailStatus, receipt, Report, Runner, Tool
+from assay.core.model import (
+    Band,
+    Check,
+    Claim,
+    Completed,
+    ContractsRun,
+    Fault,
+    Language,
+    Mode,
+    Parser,
+    RailStatus,
+    receipt,
+    Report,
+    Runner,
+    Tool,
+)
 from assay.diagnostics import fold
 from assay.rails import contracts as contracts_rail
 from assay.rails.contracts import (
@@ -82,7 +102,6 @@ from assay.rails.contracts import (
 from tests.python._testkit.runtime import REPO_ROOT
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -1800,11 +1819,6 @@ _DEFECTS: tuple[tuple[str, Callable[[Path], Path], str], ...] = (
     ("definition-invalid", lambda t: _corpus(t, seam_schema={**_HAND_SCHEMA, "type": 7}), "definition-invalid"),
     ("definition-id", lambda t: _corpus(t, seam_schema={**_HAND_SCHEMA, "$id": "elsewhere.json"}), "definition-id"),
     ("definition-ref", lambda t: _corpus(t, seam_schema={**_HAND_SCHEMA, "properties": {"key": {"$ref": "#/$defs/ghost"}}}), "definition-ref"),
-    (
-        "definition-anchor",
-        lambda t: _corpus(t, (_entry(definition=LawDefinition(anchor="docs/laws/patterns.md", format="text")), _vendored())),
-        "definition-anchor",
-    ),
     ("schema-stale-seam", lambda t: _corpus(t, seam_schema=derived_schema(Demo, identity=_SEAM_ID) + b"\n"), "schema-stale"),
     (
         "schema-framing",

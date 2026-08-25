@@ -14,7 +14,6 @@ from assay.rails.provision import ProvisionParams
 from tests.python._testkit.spec import assert_error_status, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

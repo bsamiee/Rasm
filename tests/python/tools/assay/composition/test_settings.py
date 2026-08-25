@@ -13,7 +13,13 @@ import uuid
 from dirty_equals import IsPartialDict, IsStr, IsTuple
 import fsspec
 from hypothesis import given, settings as hyp_settings, strategies as st, target
-from hypothesis.stateful import Bundle, initialize, invariant, rule, RuleBasedStateMachine
+from hypothesis.stateful import (
+    Bundle,
+    initialize,
+    invariant,
+    rule,
+    RuleBasedStateMachine,
+)
 import msgspec
 from pydantic import ValidationError
 import pytest
@@ -49,9 +55,19 @@ from assay.composition.store import (
     unframe,
 )
 from assay.core.model import Artifact, ArtifactKind, Claim
-from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
-from tests.python.tools.assay.kit import AssayHarness, make_history_envelope, WIRE_ENCODER
-
+from tests.python._testkit.spec import (
+    assert_none,
+    assert_some,
+    idempotent,
+    model_based,
+    roundtrip,
+    validity_matrix,
+)
+from tests.python.tools.assay.kit import (
+    AssayHarness,
+    make_history_envelope,
+    WIRE_ENCODER,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -600,8 +616,12 @@ def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: Assa
 
     The memory branch rejects None-protocol fallback to local FS; auto_mkdir=False pins option forwarding onto the constructed backend.
     """
-    from fsspec.implementations.local import LocalFileSystem  # ruff:ignore[import-outside-top-level]
-    from fsspec.implementations.memory import MemoryFileSystem  # ruff:ignore[import-outside-top-level]
+    from fsspec.implementations.local import (  # ruff:ignore[import-outside-top-level]
+        LocalFileSystem,
+    )
+    from fsspec.implementations.memory import (  # ruff:ignore[import-outside-top-level]
+        MemoryFileSystem,
+    )
 
     mem = assay_root.settings.store(protocol="memory", root=f"store-proto/{assay_root.settings.run_id}")
     assert isinstance(mem.fs, MemoryFileSystem)

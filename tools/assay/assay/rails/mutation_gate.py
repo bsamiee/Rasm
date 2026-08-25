@@ -18,12 +18,15 @@ from typing import Final, Literal, TYPE_CHECKING
 
 from expression import Error, Ok
 import msgspec
-
-lazy from mutmut.__main__ import get_diff_for_mutant, orig_function_and_class_names_from_key, status_by_exit_code, walk_mutatable_files
+lazy from mutmut.__main__ import (
+    get_diff_for_mutant,
+    orig_function_and_class_names_from_key,
+    status_by_exit_code,
+    walk_mutatable_files,
+)
 lazy from mutmut.mutation.data import SourceFileMutationData
 
 from assay.core.model import MutationLane, TestRun
-
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

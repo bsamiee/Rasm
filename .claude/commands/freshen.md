@@ -89,7 +89,7 @@ Catalog content keyed by package id resolves each bump's owning `.api` catalogs 
 - VERIFICATION KEY: `py:<dist>` | `nuget:<Id>` | `npm:<pkg>` | `host:<assembly>`; each ecosystem owns its `--key` scope.
 - RIPPLE RETURN: Majors report proved, unlanded integration points as `RIPPLE` rows.
 - RIPPLE ADJUDICATION: Prchestrator adjudicates each row; accepted rows cluster into one focused `freshness-integrator` findings dispatch.
-- RIPPLE TERMINUS: That dispatch closes the chain; later discoveries land as `IDEAS.md`/`TASKLOG.md` cards.
+- RIPPLE TERMINUS: That dispatch closes the chain.
 - WRITE TERRITORIES: Dispatches partition catalog and consumer-page writes; overlapping groups merge or serialize.
 - SUBSTRATE ORDER: Shared substrate catalogs run solo before dependent groups.
 - DISPATCH RETRY: Failed or partial dispatches re-dispatch fresh with the same round data.
@@ -97,7 +97,7 @@ Catalog content keyed by package id resolves each bump's owning `.api` catalogs 
 
 ## [03]-[CLOSE]
 
-1. Drain all dispatches; adjudicate every RIPPLE roster to done or a carded IDEAS/TASKLOG row.
+1. Drain all dispatches.
 2. RESIDUE PROOF: Estate-wide `rg` finds no removed/purged member or moved-package `blocked until`/wheel-gate claim; repair each hit at its owner.
 3. DOCS GATE: Run once over touched markdown with `uv run --no-sync assay docs check`.
 4. STATIC GATE: Run the polyglot build proof once through `assay static --all`.

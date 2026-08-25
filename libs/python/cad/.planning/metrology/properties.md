@@ -18,7 +18,7 @@ Seating measurement here dissolves the strata edge the flat corpus carried, wher
 - Law: solid mass folds one mass-weighted centroid over each indexed `TopAbs_SOLID`, taking each solid's mass absolute, so a reversed solid contributes magnitude instead of cancelling a sibling into a forged zero.
 - Law: a volume that is not finite and positive refuses by name on `MEASURE_DEGENERATE`; publishing `0.0` certifies a degenerate solid as measured, and every later mesh reconciliation then compares against that forged zero.
 - Law: election exhaustion is vertex-only topology and refuses; a `0.0` fall-through at the ladder foot is the deleted form.
-- Law: `MatrixOfInertia` rides the filled `GProp_GProps` with no reader, so `geometry/ifc/structural#STRUCTURAL` re-derives section inertia from its own contour fold; the arm is carded rather than guessed into this fence.
+- Law: `MatrixOfInertia` rides the filled `GProp_GProps` with no reader, so `geometry/ifc/structural#STRUCTURAL` re-derives section inertia from its own contour fold.
 - Growth: a new measured dimension is one `Dimension` member and one `_LADDER` row carrying its extent reader and its property fill.
 - Boundary: exact topology alone. Emitted-mesh evidence arrives already admitted from `metrology/census#CENSUS` as a `Closure` arm, and no OCCT mesher, reader, or writer is reachable from this owner.
 

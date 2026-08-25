@@ -38,7 +38,6 @@ from assay.core.model import (
 from assay.core.routing import Routed, Scope
 from assay.diagnostics import fold
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _SUPERVISOR_PROJECT: Final[str] = "tools/rhino-bridge/Supervisor/Supervisor.csproj"

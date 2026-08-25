@@ -1,6 +1,6 @@
 # [INTERACTION]
 
-Retained interaction is catalog rows over settled law. One closed surface-row table mounts every process modality — owned window, embedded, headless — through one builder fold; one screen catalog feeds router, dock, deep link, and workspace restore; view state is an observable projection of settled rails opened and closed by view-driven activation; every interactive cause is a case of one trigger union dispatched into one frozen command-intent table whose menus, key tables, palette, receipts, and automation identity are folds over the same rows; live collections cross exactly one binding seam; everything user-facing passes one presentation gate; theme, automation, and locale derive from keys the rows already own. A new screen or command is rows — catalog rows, intent rows, gesture and placement columns — landing inside an existing owner with zero new pipeline code.
+Retained interaction is catalog rows over settled law. One closed surface-row table mounts every process modality — owned window, embedded, headless — through one builder fold; one screen catalog feeds router, dock, deep link, and workspace restore; view state is an observable projection of settled rails opened and closed by view-driven activation; every interactive cause is a case of one trigger union dispatched into one frozen command-intent table whose menus, key tables, palette, outcomes, and automation identity are folds over the same rows; live collections cross exactly one binding seam; everything user-facing passes one presentation gate; theme, automation, and locale derive from keys the rows already own. A new screen or command is rows — catalog rows, intent rows, gesture and placement columns — landing inside an existing owner with zero new pipeline code.
 
 This is the terminal stack surface, so it composes the finalized corpus as settled material and re-teaches none of it: every fault it mints is a closed `[Union]` over the `Fault` base under generated identity, its `Switch` dispatch and `Validation<Error,T>` accumulation settled; `Atom` and `AtomHashMap` are the settled boundary state cells; live collection state arrives as `SourceCache` change-sets and cadence-coalescing delivery edges, and this surface owns only the last `SortAndBind` hop onto a bound UI collection; the resolved paint, type, density, motion, and locale payloads arrive as the token algebra's `Resolved` record and this surface owns only their application to `RequestedThemeVariant`, `DensityStyle`, and the locale dictionary at the three binding levels; shutdown folds into the banded drain over `HostOptions.ShutdownTimeout` and this surface owns only the `ShutdownRequested` veto edge and the workspace-capture band. ReactiveUI owns routing, commands, activation, and the `Interaction<TInput,TOutput>` view-model question; Avalonia owns the surface, headless, embedding, and theme host; Dock owns the layout model graph; the page weaves them into one row vocabulary.
 
@@ -72,12 +72,12 @@ public static class Mount {
 [CATALOG_LAW]:
 - Law: one catalog row per screen — key, dock role, view-model factory — is read by five consumers: router push, dock placement, deep-link grammar, workspace restore, and generated per-screen verb rows in the command table; a consumer needing a field extends the row, never a side table on the same key, so adding a screen touches exactly one declaration.
 - Law: `RoutingState` is the entire navigation owner — verbs are commands, so `NavigateBack.CanExecute` already encodes stack depth and a hand-written can-go-back flag is rejected; the verb union closes at push, reset, back, replace (pop-plus-push), and modal (routed to the presentation gate), and every cause — menu, palette, deep link, tray, restore — folds to one verb, never a second router.
-- Law: restore is stack manipulation — materialize saved keys, set `NavigationStack`, let `CurrentViewModel` project the top — never command replay; an unresolvable key folds to the default row with a receipt, collapsing first-run, restore, and upgrade into one total fold over (workspace × catalog).
+- Law: restore is stack manipulation — materialize saved keys, set `NavigationStack`, let `CurrentViewModel` project the top — never command replay; an unresolvable key folds to the default row with a restore fact, collapsing first-run, restore, and upgrade into one total fold over (workspace × catalog).
 - Law: deep links arrive through `IActivatableLifetime.Activated` with `ActivationKind.OpenUri` — boot argv and lifetime URIs hit one grammar, and intents arriving before restore queue behind it; the empty stack renders `RoutedViewHost.DefaultContent`, the host view discriminator carries view variance, and the catalog binds the typed `ViewModel` property because a wrong-typed `DataContext` nulls it silently.
 
 [DOCK_LAW]:
 - Law: layout state lives in the factory-created model graph and every structural verb is a factory method — the factory is the single mutation surface command rows target, and capability is row data (`CanClose`/`CanPin`/`CanFloat`, `DockGroup`, the settings-root-dockable capability fold), never drag-handler branching; document docks are items-source rows — open documents are keyed collection membership gated by the same close vetoes, and reopen-last-session is workspace restore, never a bespoke MRU.
-- Law: persistence is two rails — the serialized layout string and `DockState` content rebound by `Id`, structure first — and dockable `Id` and catalog key are one vocabulary; hide is soft-close preserving the instance for restore, `OnDockableClosing`/`OnWindowClosing` are the only close vetoes, and a named workspace is a capture-and-restore command-row pair, so a layout preset is data with two receipts, never an arranging procedure.
+- Law: persistence is two rails — the serialized layout string and `DockState` content rebound by `Id`, structure first — and dockable `Id` and catalog key are one vocabulary; hide is soft-close preserving the instance for restore, `OnDockableClosing`/`OnWindowClosing` are the only close vetoes, and a named workspace is a capture-and-restore command-row pair, so a layout preset is data with two outcomes, never an arranging procedure.
 - Law: factory lifecycle hooks fold into one layout-fact stream feeding dirty-edge capture, activation policy, and unsaved-work gating; `DockSettings` statics apply once at the composition root, and workspace capture rides `WorkspaceDirtyChanged` edges on the drain band, never window `Closing` handlers, because the model graph stays coherent mid-gesture while visual state does not — placement capture clamps saved geometry against the live screen set and folds minimized or mid-drag bounds to last settled values, so restore never lands off-screen.
 
 ```csharp conceptual
@@ -208,13 +208,13 @@ public sealed class EditScreen : ReactiveObject, IActivatableViewModel, INotifyD
 - Law: one frozen row table owns the verb vocabulary — intent key, effect, availability inputs, gesture, placements — and every surface is a pure projection: menus fold by placement, key tables by gesture, the palette by localized header, tray and dock bars by tag; per-surface command registries are deleted, a new command is one row that updates N surfaces by construction, and the OS menu bar and tray render one `NativeMenu` graph — two placements of one model — where a `Click` handler beside a `Command` double-fires.
 - Law: the intent key is triple-duty — localization key, icon key, automation identity — so a literal header or icon reference at a surface is a bypassed row field.
 - Law: stateful verbs are toggle rows — `ToggleType` with checked state bound to its state stream, radio groups whose exactly-one-checked invariant lives in the state owner — and hiding versus disabling an unavailable verb is a per-placement policy bit, never two rows.
-- Law: every cause is a case of one trigger `[Union]` carrying typed evidence — pointer, chord, menu, palette, remote, automation — dispatched totally into intent rows; a scripted or remote verb is one more arm, which is what grants it availability gating, busy exclusion, and receipts, per-target verb variants are evidence values, never sibling rows, and markup input adaptation is behavior rows — a trigger paired with `InvokeCommandAction` — never code-behind handlers.
-- Law: factory choice derives from the effect's carrier — `Create` runs inline, `CreateFromTask` threads the token, `CreateRunInBackground` moves compute off the UI thread, `CreateCombined` absorbs batch verbs as the all-true fold over child `CanExecute` — and results are the receipt rail: the command is `IObservable<TResult>`, the spine subscribes once keyed by intent, receipts embed trigger provenance, and palette ranking, undo journaling, and usage attribution are folds over receipts; commands are disposable owners disposed with the table at process exit, because per-screen disposal orphans surfaces still bound.
+- Law: every cause is a case of one trigger `[Union]` carrying typed evidence — pointer, chord, menu, palette, remote, automation — dispatched totally into intent rows; a scripted or remote verb is one more arm, which is what grants it availability gating, busy exclusion, and outcomes, per-target verb variants are evidence values, never sibling rows, and markup input adaptation is behavior rows — a trigger paired with `InvokeCommandAction` — never code-behind handlers.
+- Law: factory choice derives from the effect's carrier — `Create` runs inline, `CreateFromTask` threads the token, `CreateRunInBackground` moves compute off the UI thread, `CreateCombined` absorbs batch verbs as the all-true fold over child `CanExecute` — and the command returns `IObservable<CommandOutcome>`; the spine subscribes once keyed by intent, while palette ranking, undo journaling, and usage attribution fold over those domain outcomes. Commands are disposable owners disposed with the table at process exit, because per-screen disposal orphans surfaces still bound.
 
 [AVAILABILITY_AND_INPUT]:
 - Law: the built pipeline is seeded-total — supplied gate, catch-to-false into `ThrownExceptions`, false seed, busy exclusion via `IsExecuting`, distinct, replay-1 — so a non-seeded input disables its row forever and a throwing input latches it disabled; adding `!IsExecuting` to a gate double-counts and deadlocks re-enablement, `IsExecuting` is also the canonical busy-indicator input, and `InvokeCommand` is the one stream-to-command pipe — emissions while unavailable drop, never queue — so a hand-subscribed execute bypasses the gate.
 - Law: the `ICommand` bridge returns the cached value and ignores the parameter — parameter-dependent availability is structurally inexpressible at the control seam and enters as a typed input; the bridge maps null to `default(TParam)` silently and throws on a wrong-typed parameter at invoke time, not bind time, `CanExecuteChanged` raises only on distinct transitions, and OS menu exports subscribe it weakly, so rows never leak through native menus.
-- Law: key tables derive from the gesture column — `KeyGesture.Parse` admits the invariant form, the platform format renders display text, and the two never cross — with the conflict fold over (scope × gesture) run at composition, rejecting duplicates as typed receipts instead of runtime shadowing; rate shaping (throttle, debounce) lives on trigger rows, never in execute bodies, and cancel verbs are sibling rows gated on the target's `IsExecuting` with cancellation flowing through the carrier.
+- Law: key tables derive from the gesture column — `KeyGesture.Parse` admits the invariant form, the platform format renders display text, and the two never cross — with the conflict fold over (scope × gesture) run at composition, rejecting duplicates as typed outcomes instead of runtime shadowing; rate shaping (throttle, debounce) lives on trigger rows, never in execute bodies, and cancel verbs are sibling rows gated on the target's `IsExecuting` with cancellation flowing through the carrier.
 
 ```csharp conceptual
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -228,16 +228,16 @@ public abstract partial record Trigger {
     public sealed record Automation(string Peer) : Trigger;
 }
 
-public readonly record struct Receipt(string Intent, string Cause);
+public readonly record struct CommandOutcome(string Intent, string Cause);
 
 public sealed record IntentRow(
     string Key, Option<string> Gesture, Seq<string> Placements,
-    Func<Trigger, CancellationToken, Task<Receipt>> Effect, Seq<IObservable<bool>> Inputs);
+    Func<Trigger, CancellationToken, Task<CommandOutcome>> Effect, Seq<IObservable<bool>> Inputs);
 
-public sealed record BoundRow(IntentRow Row, ReactiveCommand<Trigger, Receipt> Command);
+public sealed record BoundRow(IntentRow Row, ReactiveCommand<Trigger, CommandOutcome> Command);
 
 public static class CommandTable {
-    public static readonly Atom<Seq<Receipt>> Receipts = Atom(Seq<Receipt>());
+    public static readonly Atom<Seq<CommandOutcome>> Outcomes = Atom(Seq<CommandOutcome>());
 
     public static Seq<IntentRow> Rows(IObservable<bool> valid, IObservable<bool> retained) => [
         new("<intent-a>", Some("Ctrl+R"), ["<menu-a>", "<bar-a>"], Evidenced("<intent-a>"), [valid, retained]),
@@ -251,8 +251,8 @@ public static class CommandTable {
             outputScheduler: ui))).Strict();
 
     public static IDisposable Spine(Seq<BoundRow> table) =>
-        table.Map(static bound => (IObservable<Receipt>)bound.Command).Merge()
-            .Subscribe(static receipt => ignore(Receipts.Swap(held => held.Add(receipt))));
+        table.Map(static bound => (IObservable<CommandOutcome>)bound.Command).Merge()
+            .Subscribe(static outcome => ignore(Outcomes.Swap(held => held.Add(outcome))));
 
     public static Seq<BoundRow> Placed(Seq<BoundRow> table, string placement) =>
         table.Filter(bound => bound.Row.Placements.Exists(tag => tag == placement));
@@ -266,8 +266,8 @@ public static class CommandTable {
             .As()
             .Map(static bindings => bindings.Strict());
 
-    static Func<Trigger, CancellationToken, Task<Receipt>> Evidenced(string intent) =>
-        (cause, _) => Task.FromResult(new Receipt(intent, cause.Switch(
+    static Func<Trigger, CancellationToken, Task<CommandOutcome>> Evidenced(string intent) =>
+        (cause, _) => Task.FromResult(new CommandOutcome(intent, cause.Switch(
             pointer:    static p => $"<pointer:{p.X}>",
             chord:      static c => $"<chord:{c.Gesture}>",
             menu:       static m => $"<menu:{m.Placement}>",
@@ -286,7 +286,7 @@ public static class CommandTable {
 
 [GRID_AND_EDITORS]:
 - Law: exactly one shaping owner per grid — the change-set pipeline for live sources or `DataGridCollectionView` for snapshots; stacking both double-shapes and double-notifies, `DeferRefresh()` coalesces descriptor edits into one rebuild, and commit routes the edited row back through the settled admission rail — the grid surfaces validity and never owns it, and `LoadingRow` decoration is idempotent because containers recycle.
-- Law: editors are registry rows — priority-ordered `ICellEditFactory` accept-match for structured values, grammar rows by scope for text (`InstallTextMate`, `SetGrammar`), palette policies for color — and scrub-versus-commit is the uniform dual channel: preview drives cheap visuals, commit drives the receipted mutation, and binding the mutation to the preview channel floods admission at pointer-move rate; durable text positions are anchors, never offsets, and editor theme follows the application variant through `SetTheme` on the variant edge.
+- Law: editors are registry rows — priority-ordered `ICellEditFactory` accept-match for structured values, grammar rows by scope for text (`InstallTextMate`, `SetGrammar`), palette policies for color — and scrub-versus-commit is the uniform dual channel: preview drives cheap visuals, commit drives the outcomeed mutation, and binding the mutation to the preview channel floods admission at pointer-move rate; durable text positions are anchors, never offsets, and editor theme follows the application variant through `SetTheme` on the variant edge.
 - Law: one viewport owner per canvas — `ZoomBorder` owns the pan-zoom transform exclusively, input policy and constraint clamps are declared rows, and camera state is an observed stream like grid selection, so typed viewport state rides the workspace rails, never scraped transform fields; reveal-on-selection is one intent row across grids, trees, and canvases — `ScrollIntoView` or `ZoomToRectangle` per surface kind — gated on selection non-emptiness.
 
 ```csharp conceptual
@@ -345,9 +345,9 @@ public static class BindingEdge {
 ## [07]-[PRESENTATION_GATE]
 
 [GATE_LAW]:
-- Law: dialog-versus-notice is a severity split under one law — blocking decisions are awaited sessions with typed receipts, ambient facts are non-blocking notices — and both pass one suppression fold whose posture (`Present`, `Hold`, `Drop`) is the moment row's column derived once from the settled phase; a call site never inspects phase, nothing user-facing escapes the gate, and resume edges flush held items in arrival order with stale entries aged out by a declared horizon.
-- Law: modal state is host-addressable — `DialogHost` by `Identifier`, the awaited task is the receipt, `DialogHost.Close(identifier, parameter)` supplies the result — so free-floating modal windows are rejected; markup-opened dialogs land in the same session stack, `CloseOnClickAway` is host policy rather than a per-dialog argument, and the session is one handler of an `Interaction`, because a view-model calling the dialog rail directly couples to presentation and forecloses the headless auto-answer.
-- Law: sessions are first-class — `UpdateContent` morphs a live session, so a wizard is a fold over step states inside one session with the final close parameter as the whole flow's receipt, and the closing veto guards mid-flow abandonment.
+- Law: dialog-versus-notice is a severity split under one law — blocking decisions are awaited sessions with typed outcomes, ambient facts are non-blocking notices — and both pass one suppression fold whose posture (`Present`, `Hold`, `Drop`) is the moment row's column derived once from the settled phase; a call site never inspects phase, nothing user-facing escapes the gate, and resume edges flush held items in arrival order with stale entries aged out by a declared horizon.
+- Law: modal state is host-addressable — `DialogHost` by `Identifier`, the awaited task is the outcome, `DialogHost.Close(identifier, parameter)` supplies the result — so free-floating modal windows are rejected; markup-opened dialogs land in the same session stack, `CloseOnClickAway` is host policy rather than a per-dialog argument, and the session is one handler of an `Interaction`, because a view-model calling the dialog rail directly couples to presentation and forecloses the headless auto-answer.
+- Law: sessions are first-class — `UpdateContent` morphs a live session, so a wizard is a fold over step states inside one session with the final close parameter as the whole flow's outcome, and the closing veto guards mid-flow abandonment.
 
 ```csharp conceptual
 [SmartEnum]
@@ -414,7 +414,7 @@ public static class PresentationGate {
 [DERIVED_SURFACES]:
 - Law: automation derives from the vocabulary — `AutomationProperties.Name` from the localization key, `AcceleratorKey` from the claimed gesture, `AutomationId` from the intent or screen key — so automation invocation is a trigger arm, never a parallel naming scheme; owner-drawn surfaces override `OnCreateAutomationPeer` or stay invisible, virtualized rows declare `PositionInSet`/`SizeOfSet` from upstream totals, announcements ride `LiveSetting` instead of focus theft, and focus topology is a `TabNavigation` container-mode row.
 - Law: locale rides the same keys through atomic resource swap, and the locale row carries its direction — applying a locale folds (dictionary swap × `FlowDirection` × gesture display refresh) in one place; owner-drawn content reads its own `FlowDirection` or ships un-mirrored in RTL locales with no diagnostic, and mnemonic markers ride the access-text primitive beside the `AccessKey` row, so accelerators localize with the header.
-- Law: the headless walk is the derivation audit — automation names, gestures, tab cycles, and locale-key totality diff against the table as typed receipts — and anything provable headless holds windowed because the mount law is shared; a windowed-versus-headless divergence is a row-capability fact, repaired as a row edit, never a screen patch.
+- Law: the headless walk is the derivation audit — automation names, gestures, tab cycles, and locale-key totality diff against the table as typed outcomes — and anything provable headless holds windowed because the mount law is shared; a windowed-versus-headless divergence is a row-capability fact, repaired as a row edit, never a screen patch.
 
 ```csharp conceptual
 public sealed record Edge(PlatformColorValues Values, Option<string> Pinned, bool Compact) {

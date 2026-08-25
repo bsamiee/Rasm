@@ -19,12 +19,32 @@ import msgspec
 import structlog
 lazy import asyncssh
 
-from assay.composition.settings import PullStrategy, resolve_tilde, run_id_host_token, Ssh
+from assay.composition.settings import (
+    PullStrategy,
+    resolve_tilde,
+    run_id_host_token,
+    Ssh,
+)
 from assay.composition.store import ArtifactScope, size_from_info
-from assay.core.govern import Captured, captured_outputs, drain_pair, line_count, recv_ssh, stream_artifacts
-from assay.core.model import Artifact, ArtifactKind, Completed, DOTNET_CONFIG_ANCHORS, ExecReceipt, RailStatus, receipt, Runner
+from assay.core.govern import (
+    Captured,
+    captured_outputs,
+    drain_pair,
+    line_count,
+    recv_ssh,
+    stream_artifacts,
+)
+from assay.core.model import (
+    Artifact,
+    ArtifactKind,
+    Completed,
+    DOTNET_CONFIG_ANCHORS,
+    ExecReceipt,
+    RailStatus,
+    receipt,
+    Runner,
+)
 from assay.core.routing import discover_async, parse_csproj
-
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping

@@ -8,10 +8,6 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-# Indentation is the [*] root's; these routes add only the shared width ceiling.
-[*.{ts,tsx,js,jsx,mts,cts,py,yml,yaml,swift}]
-max_line_length = 150
-
 # BuildCheck severities (-check rides Directory.Build.rsp); BC0201/BC0202 cannot model the estate's deliberate cross-pass property reads.
 [*.csproj]
 build_check.BC0201.severity = none

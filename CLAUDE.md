@@ -6,44 +6,35 @@ Rasm is in a long-term planning phase, working strictly within spec-sheets, not 
 
 ## [01]-[REQUIRED]
 
-Every structural mistake — a capability rebuilt over a wrong foundation, a flawed fundamental approach, a code-logic defect, a quality-gap refactor, a strata-integration oversight — is abstracted and recorded in `docs/laws/scars.md` so the same approach never repeats. ALWAYS read `docs/laws/scars.md` at the start of a session.
-
 - Design work in `libs/<language>/` requires FULL reading of `libs/<language>/.planning/` AND `docs/stacks/<language>/`, adhering to both.
 - Each `libs/<language>/` and its sub-folders carry `.api/`; all work stacks external-lib capability from BOTH tiers — REQUIRED.
 - Index docs, spec-sheets, and `.api` catalogs follow `libs/.planning/README.md`; the campaign loop follows `campaign-method.md`.
 - `RULINGS.md` is settled law: read before re-deciding; narrowest tier owns; violations route as cards there, never inline; rows land same-pass.
-- Durable lessons land at the end of session via `docs/laws/README.md` admission ladder; refute-first proves no owner already holds the fact.
-- `docs/laws/topology.md` binds counterpart obligations — consult it before any multi-surface edit.
 
 [DOC_TOPOLOGY]: Every durable question has one owning surface — consult the owner, never re-derive or guess:
 
-| [INDEX] | [SURFACE]                                   | [OWNS]                                                                              |
-| :-----: | :------------------------------------------ | :---------------------------------------------------------------------------------- |
-|  [01]   | `libs/.planning/campaign-method.md`         | Approach standards, quality bar, agent-role law                                     |
-|  [02]   | `libs/.planning/README.md`                  | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar               |
-|  [03]   | `libs/.planning/ARCHITECTURE.md`            | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle      |
-|  [04]   | `libs/.planning/RULINGS.md`                 | Cross-libs settled decisions                                                        |
-|  [05]   | `libs/.planning/planning-targets.md`        | Target index across the corpus                                                      |
-|  [06]   | `libs/<language>/.planning/`                | Language-wide doc-set for cross-folder decisions                                    |
-|  [07]   | `libs/<language>/<folder>/`                 | Folder doc set at root — core three README/ARCHITECTURE/RULINGS + IDEAS/TASKLOG     |
-|  [08]   | `docs/README.md`                            | Doctrine router: `standards/`, `stacks/<language>/`, `laws/`, `atlas/`, `glossary/` |
-|  [09]   | `docs/laws/`                                | Repo maintenance law: edit couplings, cross-branch patterns, regression scars       |
-|  [10]   | `docs/glossary/`                            | Binding sense per reused term, and the divergence its `[NOT]` line names            |
-|  [11]   | `tests/README.md` + `tests/RULINGS.md`      | Proof-estate law — read before any test work                                        |
-|  [12]   | root `README.md` + `tools/<tool>/README.md` | Tool owners, output routing, operator roles                                         |
+| [INDEX] | [SURFACE]                                   | [OWNS]                                                                         |
+| :-----: | :------------------------------------------ | :----------------------------------------------------------------------------- |
+|  [01]   | `libs/.planning/campaign-method.md`         | Approach standards, quality bar, agent-role law                                |
+|  [02]   | `libs/.planning/README.md`                  | Doc-set per tier, card schema + lifecycle markers, spec-sheet grammar          |
+|  [03]   | `libs/.planning/ARCHITECTURE.md`            | Stratification law, cross-branch direction, wire seams, `.planning/` lifecycle |
+|  [04]   | `libs/.planning/RULINGS.md`                 | Cross-libs settled decisions                                                   |
+|  [05]   | `libs/.planning/planning-targets.md`        | Target index across the corpus                                                 |
+|  [06]   | `libs/<language>/.planning/`                | Language-wide doc-set for cross-folder decisions                               |
+|  [07]   | `libs/<language>/<folder>/`                 | Folder doc set at root — README/ARCHITECTURE/RULINGS                           |
+|  [08]   | `docs/README.md`                            | Doctrine router: `standards/`, `stacks/<language>/`                            |
+|  [11]   | `tests/README.md` + `tests/RULINGS.md`      | Proof-estate law — read before any test work                                   |
+|  [12]   | root `README.md` + `tools/<tool>/README.md` | Tool owners, output routing, operator roles                                    |
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                | [NAMING_SCHEMA]                        |
-| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :------------------------------------- |
-|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`                           |
-|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`                           |
-|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`                            |
-|  [04]   | Protobuf (`.proto`)        | Docs: `libs/contracts/proto`   | `libs/contracts/proto`           | `snake_case` files, `PascalCase` types |
-|  [05]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`                           |
-|  [06]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`                           |
-|  [07]   | Markdown (`.md`)           | Skill: `docgen`                | [ANY]                            | `kebab-case`; index docs SCREAM        |
-|  [08]   | Mermaid                    | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages   | [N/A]                                  |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                | [NAMING_SCHEMA]                 |
+| :-----: | :------------------------- | :----------------------------- | :------------------------------- | :------------------------------ |
+|  [01]   | C# (`.cs`)                 | Docs: `docs/stacks/csharp`     | `libs/dotnet` + `.cs`            | `PascalCase`                    |
+|  [02]   | Python (`.py`)             | Docs: `docs/stacks/python`     | `libs/python` + `.py`            | `snake_case`                    |
+|  [03]   | TypeScript (`.ts`, `.tsx`) | Docs: `docs/stacks/typescript` | `libs/typescript` + `.ts`/`.tsx` | `camelCase`                     |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | Skill: `coding-bash`           | [ANY]                            | `kebab-case`                    |
+|  [05]   | SQL (`.sql`)               | Skill: `coding-pg`             | [ANY]                            | `snake_case`                    |
 
 [TOOL_ROUTING]:
 - ALWAYS use `ast-grep` skill on every code surface — outline before reading source, structural search over grep, rewrites, and durable rules.

@@ -14,7 +14,6 @@ import assay.core.transaction as transaction_mod
 from assay.core.transaction import audit_image, SwapTransaction
 from tests.python._testkit.spec import assert_error_status, assert_ok
 
-
 COVERS: tuple[object, ...] = (SwapTransaction, audit_image)
 
 

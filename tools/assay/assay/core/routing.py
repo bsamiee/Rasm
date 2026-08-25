@@ -21,8 +21,17 @@ from upath import UPath
 
 from assay.composition.catalog import select
 from assay.composition.settings import AssaySettings
-from assay.core.model import Base, Check, Claim, Fault, Input, Language, Mode, RailStatus, Tool
-
+from assay.core.model import (
+    Base,
+    Check,
+    Claim,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    RailStatus,
+    Tool,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path

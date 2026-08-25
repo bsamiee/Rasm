@@ -33,7 +33,6 @@ lazy import numpy as np
 
 from tests.python._testkit.runtime import PROFILE_MUTATION, PROFILE_STATEFUL
 
-
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 

@@ -22,7 +22,6 @@ import sys
 
 import msgspec
 
-
 _IFS = re.compile(r"\$\{IFS[^}]*\}|\$IFS")  # de-obfuscate rm${IFS}-rf${IFS}/ and $IFS-split forms before lexing
 _ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")  # a leading NAME=value env-prefix is stripped before the argv[0] command
 _DOLLAR_SUB = re.compile(r"\$\(")  # command-substitution open; the matching close is scanned with paren depth

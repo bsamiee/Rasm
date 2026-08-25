@@ -29,7 +29,6 @@ from tests.python.tools.assay.kit import (
     YakShape,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Generator
     from pathlib import Path
@@ -71,7 +70,9 @@ def pytest_configure(config: pytest.Config) -> None:
     write lands before it reads ``benchmark_storage``.
     """
     if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and config.getoption("benchmark_storage") == _BENCHMARK_ROOT_DEFAULT:
-        from assay.composition.catalog import BENCHMARK_STORAGE_URI  # ruff:ignore[import-outside-top-level]
+        from assay.composition.catalog import (  # ruff:ignore[import-outside-top-level]
+            BENCHMARK_STORAGE_URI,
+        )
 
         config.option.benchmark_storage = BENCHMARK_STORAGE_URI
 
@@ -80,7 +81,9 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     """Reset SUT ContextVars and structlog context before each in-process test."""
     import structlog  # ruff:ignore[import-outside-top-level]
 
-    from assay.automation.engine import _CPU_PRIMED  # ruff:ignore[import-outside-top-level]
+    from assay.automation.engine import (  # ruff:ignore[import-outside-top-level]
+        _CPU_PRIMED,
+    )
     from assay.core.aspect import RING  # ruff:ignore[import-outside-top-level]
     from assay.core.govern import RESOURCE  # ruff:ignore[import-outside-top-level]
     from assay.core.remote import _SSH_CACHE  # ruff:ignore[import-outside-top-level]
@@ -145,10 +148,15 @@ def cli(
         list(starmap(monkeypatch.setenv, (extra_env or {}).items()))
         match isolate:
             case False:
-                from assay import __main__ as main_mod  # ruff:ignore[import-outside-top-level]
+                from assay import (  # ruff:ignore[import-outside-top-level]
+                    __main__ as main_mod,
+                )
 
                 if executor is not None:
-                    from assay.composition.registry import build_app, REGISTRY  # ruff:ignore[import-outside-top-level]
+                    from assay.composition.registry import (  # ruff:ignore[import-outside-top-level]
+                        build_app,
+                        REGISTRY,
+                    )
 
                     monkeypatch.setattr(main_mod, "app", build_app(REGISTRY, executor=executor))
                 neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
@@ -179,7 +187,9 @@ def log_processors() -> tuple[Processor, ...]:
     Returns:
         Processor chain extension carrying the assay ring processor.
     """
-    from assay.core.aspect import ring_processor  # ruff:ignore[import-outside-top-level]
+    from assay.core.aspect import (  # ruff:ignore[import-outside-top-level]
+        ring_processor,
+    )
 
     return (ring_processor,)
 
@@ -215,7 +225,9 @@ def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
     Returns:
         Live list accumulating every captured emit Envelope.
     """
-    from assay.automation import engine as automation_engine  # ruff:ignore[import-outside-top-level]
+    from assay.automation import (  # ruff:ignore[import-outside-top-level]
+        engine as automation_engine,
+    )
 
     probe: SeamProbe[Envelope] = SeamProbe(project=operator.itemgetter(slice(1)))
     probe.install(monkeypatch, automation_engine, "_emit", Sync(None))

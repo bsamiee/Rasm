@@ -62,7 +62,7 @@ A massive subject grows under hierarchy — composites, subgraphs, summarizing n
 - Admission predicate: a concept reaches node status only when it owns, receives, transforms, stores, decides, or transitions under the payload relation.
 - Technologies, protocols, versions, and statuses demote to labels unless the question asks how those items relate to each other.
 - Smallest node set answers the question; when a graph becomes a search task instead of a read, hierarchy, filtering, or a split lands first.
-- Names are canonical domain nouns found in source, glossary, or architecture record — never `manager`, `processor`, `handler`, `service`.
+- Names are canonical domain nouns found in source or architecture record — never `manager`, `processor`, `handler`, `service`.
 
 ## [05]-[EDGE_LAW]
 

@@ -71,7 +71,6 @@ Step order never proves a drain, the owning receipt does: `reconcile` surfaces `
 
 [STEP_9]-[CLOSE]: `round [--harvest] [--defer-routing] --round N` appends the `rounds.jsonl` row and prints the delta; it refuses `routing-undrained` while routing rows lack closer verdicts unless `--defer-routing` records the deferral.
 - WATCH: findings trending down while capability rows rise is the goal line.
-- Campaign close dispatches `/custodian` bare over the round's working diff for one-way touchpoint and ownership custody across the reviewer-config and doctrine surfaces; its receipt returns to the orchestrator and never feeds the harvest.
 
 [STEP_10]-[NEXT]: grade the round on the [GRADING] axes, then pick the next engine — recurrence judges per engine, counts flattening under one engine rotate the next round to another, and `--focus` aims a round within one; greptile rides early rounds, before the accumulated diff meets its size caps.
 - WATCH: plateau under a hardened config.

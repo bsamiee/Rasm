@@ -11,14 +11,20 @@ from fractions import Fraction
 from itertools import starmap
 from math import ceil, floor
 from pathlib import Path
-from typing import get_args, get_type_hints, TYPE_CHECKING, TypeAliasType, TypedDict, TypeForm
+from typing import (
+    get_args,
+    get_type_hints,
+    TYPE_CHECKING,
+    TypeAliasType,
+    TypedDict,
+    TypeForm,
+)
 
 from hypothesis import strategies as st
 import msgspec
 import msgspec.inspect as _mi
 import msgspec.msgpack
 import pydantic
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -18,13 +18,19 @@ import structlog
 from structlog import make_filtering_bound_logger
 from structlog.contextvars import merge_contextvars
 from structlog.dev import ConsoleRenderer
-from structlog.processors import add_log_level, CallsiteParameter, CallsiteParameterAdder, dict_tracebacks, JSONRenderer, TimeStamper
+from structlog.processors import (
+    add_log_level,
+    CallsiteParameter,
+    CallsiteParameterAdder,
+    dict_tracebacks,
+    JSONRenderer,
+    TimeStamper,
+)
 from structlog.stdlib import ProcessorFormatter
 from structlog.typing import Processor
 
 from assay.composition.settings import AssaySettings, LogFormat
 from assay.core.aspect import ring_processor
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

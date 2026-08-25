@@ -17,7 +17,6 @@ import re
 import shlex
 import sys
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _CTRL = re.compile(r"[\x00-\x1f\x7f]+")  # scrub before model-supplied text reaches the terminal

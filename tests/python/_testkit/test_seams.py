@@ -26,7 +26,6 @@ from tests.python._testkit.seams import (
     VariantWriter,
 )
 
-
 if TYPE_CHECKING:
     from pathlib import Path
 

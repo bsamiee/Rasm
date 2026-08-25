@@ -21,7 +21,6 @@ import sys
 
 import msgspec
 
-
 TAG = "repo_state"
 PREVIEW_CAP = 10_000  # over this, additionalContext writes to a file and passes a preview plus path
 MAX_PAYLOAD = 8 * 1024 * 1024  # bound the stdin read; a pathological payload never balloons resident memory

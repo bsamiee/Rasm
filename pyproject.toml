@@ -295,7 +295,7 @@ estate = [
     "pillow",                                             # [ARTIFACTS_GEOMETRY]: image IO; WebP plane decode for the SOG gaussian-splat container
     "psd-tools",                                          # [ARTIFACTS]: PSD read/inspect plus pixel author
     "psdtags",                                            # [ARTIFACTS]: Photoshop TIFF image resources and layer source data
-    "pyktx",                                              # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx; lineage peer: pnpm ktx-parse reads the same ktx product (docs/laws/topology.md [43])
+    "pyktx",                                              # [ARTIFACTS]: in-process KTX2 write, UASTC/ETC1S basis encode, zstd supercompression, and BC7/ASTC transcode over the Forge libktx; lineage peer: pnpm ktx-parse reads the same ktx product
     "pysubs2",                                            # [ARTIFACTS]: subtitle parse/convert/retime/restyle model
     "pyvips",                                             # [ARTIFACTS]: fused decode, downscale, ICC, smartcrop; source API mode over the Forge vips — HEVC/HEIF, JXL, and EXR the binary wheel excludes
     "scikit-image",                                       # [ARTIFACTS]: image processing; its sdist builds at the floor through pythran, which resolves gast 0.7.0 and beniget 0.5.0 natively from 0.19.0
@@ -765,7 +765,7 @@ ignore_imports = ["assay.rails.package -> assay.rails.bridge"]
 [tool.ruff]
 cache-dir = ".cache/ruff"
 preview = true
-line-length = 150
+line-length = 300
 required-version = ">=0.16.2"
 target-version = "py315"
 extend-exclude = [
@@ -839,7 +839,6 @@ ignore = [
     "boolean-type-hint-positional-argument",
     "complex-structure",
     "hardcoded-password-string",
-    "line-too-long",
     "literal-membership",
     "os-getcwd",
     "shebang-not-executable",
@@ -1023,9 +1022,7 @@ ignore-variadic-names = true
 combine-as-imports = true
 force-sort-within-sections = true
 known-first-party = ["assay", "rasm"]  # workspace members install editable, so path heuristics read them as third-party
-lines-after-imports = 2
 order-by-type = false
-split-on-trailing-comma = false
 
 [tool.ruff.lint.mccabe]
 max-complexity = 20
@@ -1056,7 +1053,7 @@ max-public-methods = 10
 
 [tool.sqlfluff.core]
 dialect = "postgres"
-max_line_length = 150
+max_line_length = 0
 
 [tool.sqlfluff.indentation]
 tab_space_size = 4

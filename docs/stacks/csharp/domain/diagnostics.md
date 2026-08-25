@@ -1,6 +1,6 @@
 # [DIAGNOSTICS]
 
-Telemetry is one spine declared at process roots and joined across the suite by one identity carrier. Emission is a compile-checked surface — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss and skew are kind cases on the one receipts fact stream — never parallel cells — and the shed verdict folds in from its rate-limit owner, so every operational view is a projection over one `Atom<Seq<FactRecord>>`. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row and one redactor row, a new transport one carrier adapter.
+Telemetry is one spine declared at process roots and joined across the suite by one identity carrier. Emission is a compile-checked surface — generated log methods, registered instruments, natively emitted spans — and every governing behavior is a declared row: level floors, sampler verdicts, view shapes, batch squares, redactor maps, baggage keys. One sampling verdict at the trace root derives log and exemplar volume; one classification taxonomy meets one redaction seam before any provider observes a record; one stamp cell per process makes cross-process order producer-stamped evidence instead of consumer inference; loss and skew are kind cases on the one fact stream — never parallel cells — and the shed verdict folds in from its rate-limit owner, so every operational view is a projection over one `Atom<Seq<FactRecord>>`. Growth lands as rows — a new event family is one partial method in its band, a new subsystem one source admission, a new sensitivity one taxonomy row and one redactor row, a new transport one carrier adapter.
 
 ## [01]-[SIGNAL_CHOOSER]
 
@@ -79,7 +79,7 @@ public static partial class StepLog {
 - Law: the two delivery classes fix failure behavior — `WriteTo` swallows sink failure into the typed rail, `AuditTo` propagates it to the logging caller — and batched sinks are structurally incompatible with audit guarantees.
 - Law: the `BatchingOptions` square is one declared latency/throughput budget — `EagerlyEmitFirstEvent` and `BufferingTimeLimit` bound worst-case visibility, `BatchSizeLimit` and `QueueLimit` bound throughput cost — tuned together or not at all.
 - Law: batch implementers let exceptions propagate — the batching infrastructure owns retry and failure reporting, and a `try`/`catch` inside `EmitBatchAsync` amputates the rail silently; `OnEmptyBatchAsync` is the sanctioned heartbeat hook.
-- Law: `WriteTo.Fallible` wires the suite's listener onto its sinks; `LoggingFailureKind` with the retry ceiling, queue overflow, and oversize bypass forms the complete loss taxonomy, and the listener projects each failure into one `FactRecord` loss case on the shared receipts stream `rails-and-effects.md` owns — a private `Atom<Seq<SinkLoss>>` beside it is the parallel-cell defect, and `WriteTo` without a listener is unobserved best-effort.
+- Law: `WriteTo.Fallible` wires the suite's listener onto its sinks; `LoggingFailureKind` with the retry ceiling, queue overflow, and oversize bypass forms the complete loss taxonomy, and the listener projects each failure into one `FactRecord` loss case on the shared fact stream `rails-and-effects.md` owns — a private `Atom<Seq<SinkLoss>>` beside it is the parallel-cell defect, and `WriteTo` without a listener is unobserved best-effort.
 - Law: fallback is declared topology — `WriteTo.FallbackChain` reroutes to the next sink on synchronous throw or listener-reported failure, and a fire-and-forget sink that neither throws nor reports defeats the chain silently, so fallback eligibility is a per-sink failure-surface audit.
 - Law: `SelfLog` is the floor beneath the rail — a bounded never-throwing writer, never a pipeline sink, because it runs exactly when the pipeline is the casualty.
 
@@ -139,7 +139,7 @@ public static class Projection {
 - Law: emit natively, admit by name — an instrumentation package enters only where it owns a foreign library's emission, and its shim instrument names are a standing renaming migration; processor order is registration order, and an exporter's own I/O runs inside `Sdk.SuppressInstrumentation`.
 - Law: `ActivityKind` declares boundary semantics and `SetStatus` is the typed verdict — error facts in tags are invisible to every backend error filter; span events die with the sampling verdict while log records survive it, so a fact that must outlive an unsampled trace is a log record, and one exception class has exactly one owning channel.
 - Law: admission evidence enters at creation — `StartActivity` tags and links participate in the sampling verdict while post-start mutation does not, and `HasListeners()` gates expensive tag computation ahead of the call.
-- Law: typed receipts project to span attributes through their own formatting surfaces — the projection adapts per receipt type, and a generic receipt interface as the telemetry carrier erases the route and status evidence worth exporting.
+- Law: domain results project to span attributes through their own formatting surfaces — the projection adapts per result type, while a generic telemetry interface erases the route and status evidence worth exporting.
 - Exemption: the signal root's builder-mutation body is the platform-forced statement seam.
 
 [VOLUME_AND_SHAPE]:
@@ -215,7 +215,7 @@ public static class SignalRoot {
 - Law: the latency context is the explicit in-flight ledger — vocabulary registered at composition, recorded through resolved tokens, cheaper than child spans and free of sampling coupling — joining the suite through its registered root tag; durations never derive from stamp differences.
 
 [STAMP_ALGEBRA]:
-- Law: the stamp is one packed word — 48 bits wall milliseconds, 16 bits counter — so numeric order on the word is causal-consistent order, total under the origin tiebreak; one cell per process stamps every signal, receipt, and op-log entry, and a second cell is the named defect: each internally monotone, their merge not.
+- Law: the stamp is one packed word — 48 bits wall milliseconds, 16 bits counter — so numeric order on the word is causal-consistent order, total under the origin tiebreak; one cell per process stamps every signal, fact, and op-log entry, and a second cell is the named defect: each internally monotone, their merge not.
 - Law: one `Advance` serves local tick and receive — the wall component takes the maximum of held, inbound, and now, the counter follows whichever component matched — so the stamp never trails the wall and runs ahead only by observed peer skew; counter saturation spins to the next millisecond, because silent wraparound is the one unrecoverable corruption.
 - Law: `CompareTo` is the only ordering verb — the type hides the wall component because raw wall comparison is wrong by up to the skew bound — and serialization is fixed-width hex so lexicographic order equals numeric order in any store or log line.
 - Law: the boot epoch rides the origin, so a reborn process is a new origin and high-water persistence is deleted; stamps order and never identify — canonical event identity is the `(stamp, origin)` pair.
@@ -268,7 +268,7 @@ public sealed record StampCell(Atom<Stamp> Cell, string Origin, TimeProvider Clo
 ```
 
 [SKEW_EVIDENCE]:
-- Law: receive consumes the inbound wall component unconditionally — causal order never depends on whether skew is acceptable; an offset past the bound becomes one `FactRecord.Skew` case on the shared receipts stream and the stamp still advances, and rejection is a policy a consumer may layer above the stamp.
+- Law: receive consumes the inbound wall component unconditionally — causal order never depends on whether skew is acceptable; an offset past the bound becomes one `FactRecord.Skew` case on the shared fact stream and the stamp still advances, and rejection is a policy a consumer may layer above the stamp.
 - Law: the bound derives from the skew cases on that stream — worst observed offset raised by the margin — a measured, revisable policy value; the per-peer fold over those cases, not the raw stream, is what health consumes.
 - Law: span clocks carry duration truth and stamps carry order truth — a cross-process waterfall may show negative gaps up to the bound by design, and ordering is producer-stamped evidence, never consumer inference.
 

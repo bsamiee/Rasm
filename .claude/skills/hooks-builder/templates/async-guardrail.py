@@ -19,7 +19,6 @@ import sys
 
 import msgspec
 
-
 CHECK: tuple[str, ...] = ("ruff", "check", "--output-format", "concise", ".")  # POLICY: the slow verification argv
 FINDING = re.compile(r"^(?P<file>[^:]+):(?P<line>\d+):\d+:\s+(?P<rule>\S+)")  # POLICY: file:line:col rule extraction
 TIMEOUT_S = 300  # under the 600s command-hook cap; a scan that legitimately exceeds it forks a detached harvester (integration ASYNC)

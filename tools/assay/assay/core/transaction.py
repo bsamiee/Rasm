@@ -19,7 +19,6 @@ import structlog
 from assay.core.govern import proc_identity_dead
 from assay.core.model import Fault, RailStatus
 
-
 # --- [TYPES] ----------------------------------------------------------------------------
 
 

@@ -10,8 +10,13 @@ import stat
 from expression import Error, Ok, Result
 
 from assay.core.model import Fault
-from assay.core.transaction import audit_image, CLOSE_ON_EXEC, DIRECTORY_OPEN_FLAGS, FILE_READ_FLAGS, NO_FOLLOW
-
+from assay.core.transaction import (
+    audit_image,
+    CLOSE_ON_EXEC,
+    DIRECTORY_OPEN_FLAGS,
+    FILE_READ_FLAGS,
+    NO_FOLLOW,
+)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

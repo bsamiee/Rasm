@@ -34,7 +34,6 @@ from assay.core.model import (
 from assay.core.routing import route
 from assay.diagnostics import fold
 
-
 if TYPE_CHECKING:
     from assay.core.routing import Routed
 
@@ -50,7 +49,7 @@ class DocsParams(BaseParams):
 
 
 class _Finding(msgspec.Struct, frozen=True):
-    """One engine NDJSON row: ``check`` names the emitting check (validate-mermaid, prose-gate, card-*, research-*)."""
+    """One engine NDJSON row: ``check`` names the emitting check (validate-mermaid, prose-gate, research-*)."""
 
     file: str
     line: int
@@ -66,17 +65,7 @@ _FINDING_ROW = msgspec.json.Encoder()
 _SEVERITY = {"fail": "error", "warn": "warning"}
 _SUFFIXES: dict[str, frozenset[str]] = {"prose-gate": frozenset((".md",)), "planning-gate": frozenset((".md",))}
 
-_CARD_FILES: frozenset[str] = frozenset(("IDEAS.md", "TASKLOG.md"))
-_CARD_CORE: frozenset[str] = frozenset(("Capability", "Shape", "Unlocks", "Anchors"))
-_CARD_BULLETS: frozenset[str] = frozenset((*_CARD_CORE, "Arms", "Route", "Tension", "Ripple", "Atomic"))
-_STATUSES: dict[str, frozenset[str]] = {
-    "OPEN": frozenset(("ACTIVE", "QUEUED", "BLOCKED")),
-    "CLOSED": frozenset(("COMPLETE", "DROPPED")),
-    "RESEARCH": frozenset(("OPEN", "BLOCKED")),
-}
-_LEADER = re.compile(r"^\[([A-Z0-9_-]+)\]-\[([A-Z]+)\]: *(.*)$")
-_SLUG_HYPHEN = re.compile(r"\[[A-Z0-9_]*-[A-Z0-9_-]*\]")
-_BULLET = re.compile(r"^- ([A-Z][A-Za-z]*): *(.*)$")
+_STATUSES: dict[str, frozenset[str]] = {"RESEARCH": frozenset(("OPEN", "BLOCKED"))}
 _SECTION = re.compile(r"^## \[\d{1,2}\]-\[([A-Z_]+)\]\s*$")
 _HEADING = re.compile(r"^#{1,2} ")
 _RESEARCH_HEADER = re.compile(r"^#{1,2} \[\d{1,2}\]-\[RESEARCH\]\s*$")
@@ -156,54 +145,6 @@ def _template_statuses(lines: tuple[str, ...], flags: tuple[tuple[bool, bool], .
     return frozenset(declared) | _STATUSES[section]
 
 
-def _template_bullets(lines: tuple[str, ...], flags: tuple[tuple[bool, bool], ...]) -> frozenset[str]:
-    labels = frozenset(found.group(1) for line, (comment, _fence) in zip(lines, flags, strict=True) if comment and (found := _BULLET.match(line)))
-    return labels | _CARD_BULLETS
-
-
-def _card_line(rel: str, number: int, line: str, statuses: frozenset[str], bullets: frozenset[str]) -> tuple[_Finding, ...]:
-    slugs = tuple(_fail(rel, number, "card-slug", f"hyphenated slug {token}; slugs are UPPERCASE_SNAKE") for token in _SLUG_HYPHEN.findall(line))
-    path = (*slugs, *((_fail(rel, number, "card-path", "absolute /Users/ path inside a card"),) if "/Users/" in line else ()))
-    match (_LEADER.match(line) if line.startswith("[") else None, _BULLET.match(line)):
-        case (None, _) if line.startswith("["):
-            return (*path, _fail(rel, number, "card-leader", "malformed card leader; expected [SLUG]-[STATUS]: <thesis>"))
-        case (found, _) if found is not None and found.group(2) not in statuses:
-            return (*path, _fail(rel, number, "card-status", f"illegal card status [{found.group(2)}]; legal: {'|'.join(sorted(statuses))}"))
-        case (found, _) if found is not None and not found.group(3).strip():
-            return (*path, _fail(rel, number, "card-leader", "card leader missing thesis"))
-        case (None, bullet) if bullet is not None and bullet.group(1) not in bullets:
-            vocabulary = ", ".join(sorted(bullets))
-            return (*path, _fail(rel, number, "card-bullet", f"unknown card bullet label {bullet.group(1)!r}; template vocabulary: {vocabulary}"))
-        case _:
-            return path
-
-
-def _card_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bool], ...]) -> tuple[_Finding, ...]:
-    vocab = {section: _template_statuses(lines, flags, section) for section in ("OPEN", "CLOSED")}
-    bullets = _template_bullets(lines, flags)
-    section = ""
-    card: tuple[int, set[str]] | None = None
-    rows: list[_Finding] = []
-
-    def closed(next_card: tuple[int, set[str]] | None) -> tuple[int, set[str]] | None:
-        if card is not None and (missing := _CARD_CORE - card[1]):
-            rows.append(_fail(rel, card[0], "card-core", f"open card missing required bullet(s): {', '.join(sorted(missing))}"))
-        return next_card
-
-    for number, (line, (comment, fence)) in enumerate(zip(lines, flags, strict=True), start=1):
-        if (head := _SECTION.match(line)) is not None:
-            card, section = closed(None), head.group(1)
-        elif not comment and not fence and section in vocab:
-            if line.startswith("["):
-                well_formed = (found := _LEADER.match(line)) is not None and found.group(2) in vocab[section] and bool(found.group(3).strip())
-                card = closed((number, set()) if section == "OPEN" and well_formed else None)
-            elif card is not None and (bullet := _BULLET.match(line)) is not None:
-                card[1].add(bullet.group(1))
-            rows.extend(_card_line(rel, number, line, vocab[section], bullets))
-    closed(None)
-    return tuple(rows)
-
-
 def _research_row(rel: str, number: int, line: str, statuses: frozenset[str]) -> tuple[_Finding, ...]:
     grammar = f"- [TOKEN]-[{'|'.join(sorted(statuses))}]: <question>; <route> or a settled - [TOKEN]: / - [TOKEN] — record"
     match _RESEARCH_ROW.match(line):
@@ -274,9 +215,8 @@ def _research_rows(rel: str, lines: tuple[str, ...], flags: tuple[tuple[bool, bo
 
 def _planning_findings(rel: str, root: Path) -> tuple[_Finding, ...] | None:
     parts = PurePosixPath(rel).parts
-    card = bool(parts) and parts[0] == "libs" and parts[-1] in _CARD_FILES
-    page = bool(parts) and parts[0] == "libs" and not card and ".planning" in parts[:-1] and parts.index(".planning") < len(parts) - 2
-    if not (card or page):
+    page = bool(parts) and parts[0] == "libs" and ".planning" in parts[:-1] and parts.index(".planning") < len(parts) - 2
+    if not page:
         return None
     try:
         text = (root / rel).read_text(encoding="utf-8", errors="replace")
@@ -284,11 +224,11 @@ def _planning_findings(rel: str, root: Path) -> tuple[_Finding, ...] | None:
         return None
     lines = tuple(text.splitlines())
     flags = _masked(lines)
-    return _card_rows(rel, lines, flags) if card else _research_rows(rel, lines, flags)
+    return _research_rows(rel, lines, flags)
 
 
 def _planning(root: Path) -> InprocThunk:
-    """Build the INPROC planning-gate thunk validating card markers and RESEARCH sections over planning durables.
+    """Build the INPROC planning-gate thunk validating RESEARCH sections over planning durables.
 
     Findings are encoded into ``Completed.stdout`` as the same NDJSON rows the process engines print, so the
     fold, severity mapping, and report shape stay one contract across every docs engine.

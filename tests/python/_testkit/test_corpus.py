@@ -35,7 +35,6 @@ from tests.python._testkit import corpus as corpus_kit
 from tests.python._testkit.corpus import assert_corpus, load_manifest
 from tests.python._testkit.spec import assert_ok
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 COVERS: tuple[object, ...] = (load_manifest, assert_corpus)

@@ -16,7 +16,6 @@ import msgspec
 import psutil
 import pytest
 
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path

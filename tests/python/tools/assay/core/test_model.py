@@ -66,7 +66,12 @@ from assay.core.model import (
 )
 from assay.diagnostics import fold
 from tests.python._testkit.laws import spec
-from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic, refutes
+from tests.python._testkit.spec import (
+    assert_roundtrip,
+    idempotent,
+    metamorphic,
+    refutes,
+)
 from tests.python.tools.assay.kit import (
     api_resolution_st,
     api_source_st,
@@ -96,7 +101,6 @@ from tests.python.tools.assay.kit import (
     verify_summary_st,
     WIRE_ENCODER,
 )
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

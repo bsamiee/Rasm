@@ -15,7 +15,6 @@ import zstandard
 
 from assay.core.model import ArtifactKind, Envelope, Report, wire_encode
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

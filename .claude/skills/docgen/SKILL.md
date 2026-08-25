@@ -23,13 +23,11 @@ Fix prose by silent removal, never by mutation in place: delete the defect whole
 - [01]-[DEFECTS](references/defects.md): defect classes — detection test and reframe per class
 
 [TEMPLATES]: Start a new instance from its kind's template — copy the structure, fill the declared slots:
-- [01]-[IDEAS](templates/ideas.template.md): Idea-card grammar at concept grain
-- [02]-[TASKLOG](templates/tasklog.template.md): Task-card grammar at landing grain
-- [03]-[README](templates/readme.template.md): Exact structure, slots only
-- [04]-[ARCHITECTURE](templates/architecture.template.md): Exact structure, replace only the slots
-- [05]-[SPEC](templates/spec.template.md): Exact section spine, slots carry their budgets
-- [06]-[API_CATALOG](templates/api-catalog.template.md): Exact structure, replace only the slots
-- [07]-[RULINGS](templates/rulings.template.md): Permanent decision registry
+- [01]-[README](templates/readme.template.md): Exact structure, slots only
+- [02]-[ARCHITECTURE](templates/architecture.template.md): Exact structure, replace only the slots
+- [03]-[SPEC](templates/spec.template.md): Exact section spine, slots carry their budgets
+- [04]-[API_CATALOG](templates/api-catalog.template.md): Exact structure, replace only the slots
+- [05]-[RULINGS](templates/rulings.template.md): Permanent decision registry
 
 [EXAMPLES]: Consult the matching symptom-indexed set before building or repairing the container:
 - [01]-[TABLES](examples/tables.md): Table crimes and their structural repairs

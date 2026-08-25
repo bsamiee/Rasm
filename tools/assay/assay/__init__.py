@@ -13,14 +13,12 @@ from beartype import BeartypeConf
 from beartype.claw import beartype_this_package
 from opentelemetry.sdk.resources import Resource
 from pydantic import ValidationError
-
 lazy from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 lazy from opentelemetry.sdk.trace import TracerProvider
 lazy from opentelemetry.sdk.trace.export import BatchSpanProcessor
 lazy from opentelemetry.trace import set_tracer_provider
 
 import assay.core.aspect
-
 
 match os.environ.get("ASSAY_CLAW", ""):  # ruff:ignore[banned-api]
     case "1":
@@ -30,7 +28,6 @@ match os.environ.get("ASSAY_CLAW", ""):  # ruff:ignore[banned-api]
 
 from assay._logging import configure_logging
 from assay.composition.settings import AssaySettings
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

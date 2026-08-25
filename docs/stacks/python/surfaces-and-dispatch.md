@@ -65,7 +65,7 @@ class Request:
         return _checked_code(code).map2(_checked_delta(delta), lambda valid, step: Request(amend=(valid, step)))
 
 
-def dispatched(request: Request, ledger: "Ledger", /) -> Result["Receipt", LedgerFault]:
+def dispatched(request: Request, ledger: "Ledger", /) -> Result["LedgerResult", LedgerFault]:
     match request:
         case Request(tag="open"):
             return ledger.open(request.open)
@@ -160,19 +160,19 @@ class Context:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Policy:
     canonical: Context
-    step: Callable[["Input", Context], Result["Receipt", str]]
+    step: Callable[["Input", Context], Result["Input", str]]
     backoff: Callable[[Exception], bool | float | timedelta]
 
 
 STRICT = Policy(
     canonical=Context(ceiling=1),
-    step=lambda value, ctx: Ok(Receipt.EMPTY) if value.score <= ctx.ceiling else Error(f"<over:{value.score}>"),
+    step=lambda value, ctx: Ok(value) if value.score <= ctx.ceiling else Error(f"<over:{value.score}>"),
     backoff=lambda exc: float(exc.args[0]) if isinstance(exc, TimeoutError) else False,
 )
-LENIENT = Policy(canonical=Context(ceiling=8), step=lambda _v, _c: Ok(Receipt.DEGRADED), backoff=lambda _e: 0.5)
+LENIENT = Policy(canonical=Context(ceiling=8), step=lambda value, _ctx: Ok(value), backoff=lambda _e: 0.5)
 
 
-def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -> Result["Receipt", str]:
+def run(policy: Policy, value: "Input", context: Option[Context] = Nothing, /) -> Result["Input", str]:
     return policy.step(value, context.default_value(policy.canonical))
 ```
 

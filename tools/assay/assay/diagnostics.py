@@ -36,7 +36,6 @@ from assay.core.model import (
     SarifStatus,
 )
 
-
 if TYPE_CHECKING:
     from tree_sitter import Node
 

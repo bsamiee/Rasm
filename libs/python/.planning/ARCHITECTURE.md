@@ -212,4 +212,4 @@ flowchart LR
 
 ## [06]-[ADMISSION_POLICY]
 
-Root manifest owns the virtual workspace root, the Python 3.15 platform, dependency groups, version bounds, and `python_version` markers; member manifests hold distribution identity and bare-name edges, and `uv.lock` fixes every resolved version. Native wheels stopping below the floor ride the Forge python-overlay `.pth` behind one marker row `RULINGS.md` settles. Native rendering homes to `artifacts`, OCCT/STEP admission to `cad`, and every admission resolves its whole touch-point set live at `docs/laws/topology.md` `[MANIFEST_ADMISSION]`.
+Root manifest owns the virtual workspace root, the Python 3.15 platform, dependency groups, version bounds, and `python_version` markers; member manifests hold distribution identity and bare-name edges, and `uv.lock` fixes every resolved version. Native wheels stopping below the floor ride the Forge python-overlay `.pth` behind one marker row `RULINGS.md` settles. Native rendering homes to `artifacts` and OCCT/STEP admission to `cad`.

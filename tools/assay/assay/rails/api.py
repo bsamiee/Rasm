@@ -64,7 +64,6 @@ from assay.oracle import (
     xml_doc,
 )
 
-
 if TYPE_CHECKING:
     from pathlib import Path
 

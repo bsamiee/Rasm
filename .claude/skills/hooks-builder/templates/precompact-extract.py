@@ -20,7 +20,6 @@ import time
 
 import msgspec
 
-
 TAIL_LINES = 600  # bound the transcript scan; a compacting session's JSONL can be large
 KEEP_TOOLS = 5  # POLICY: how many recent tool calls and errors the summary carries
 KEEP_ERRORS = 5

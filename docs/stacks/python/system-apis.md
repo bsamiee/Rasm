@@ -180,7 +180,7 @@ type WeightFault = Literal["<rank-mismatch>", "<empty>", "<non-integral>", "<uns
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Receipt:
+class WeightSummary:
     identity: UUID
     weighted: Fraction
     corrected: float
@@ -188,7 +188,7 @@ class Receipt:
 
 
 @beartype
-def receipted(weights: tuple[Fraction, ...], values: tuple[Fraction, ...], prior: UUID, /) -> Result[Receipt, WeightFault]:
+def summarized(weights: tuple[Fraction, ...], values: tuple[Fraction, ...], prior: UUID, /) -> Result[WeightSummary, WeightFault]:
     identity, heap = max(uuid7(), prior), list(weights)
     heapify_max(heap)
     return (
@@ -202,7 +202,7 @@ def receipted(weights: tuple[Fraction, ...], values: tuple[Fraction, ...], prior
         if not (exact := Fraction.from_number(sumprod(weights, values))).is_integer()
         else Error("<subnormal>")
         if not isnormal(corrected := fma(float(weights[0]), float(values[0]), float(exact)))
-        else Ok(Receipt(identity=identity, weighted=exact, corrected=corrected, peak=heappushpop_max(heap, exact)))
+        else Ok(WeightSummary(identity=identity, weighted=exact, corrected=corrected, peak=heappushpop_max(heap, exact)))
     )
 ```
 

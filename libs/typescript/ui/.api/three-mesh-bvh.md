@@ -173,7 +173,7 @@
 
 [STACKING]:
 - `three` (`.api/three.md`): the BVH indexes a `three` `BufferGeometry` and returns `three` `Intersection`/`Box3`/`Triangle` values — `viewer/scene` builds one `MeshBVH` per residency-loaded GLB at graft, parks it on `geometry.boundsTree`, and `refit`s on vertex mutation; `acceleratedRaycast` on `Mesh.prototype.raycast` routes `Raycaster.firstHitOnly` picks through the tree.
-- `viewer/mark` pick pipes: `raycastFirst` is the pointer-pick hot path returning the nearest triangle `Intersection`; the same tree serves brush/lasso through `intersectsBox`/`intersectsSphere` and snapping through `closestPointToPoint` — one tree built once at graft, shared across pick, section, and measure (the `[POINT_CLOUD]` IDEAS card law).
+- `viewer/mark` pick pipes: `raycastFirst` is the pointer-pick hot path returning the nearest triangle `Intersection`; the same tree serves brush/lasso through `intersectsBox`/`intersectsSphere` and snapping through `closestPointToPoint` — one tree built once at graft, shared across pick, section, and measure.
 - `StaticGeometryGenerator` + `viewer/scene` section/measure: `generate` bakes a multi-mesh assembly into one world-space `BufferGeometry`, and a single `MeshBVH` answers section-plane overlap (`shapecast` + `OrientedBox`) and point-to-surface measure (`closestPointToPoint`) across the whole assembly without per-mesh iteration.
 - `PointsBVH` + dense clouds: a `@loaders.gl/las`-decoded `PointCloudLayer` scan acquires a `PointsBVH` for accelerated point pick and radius query where per-point scans are too dense.
 - `ParallelMeshBVHWorker` + `useSharedArrayBuffer`: builds the tree off the render thread and transfers it zero-copy, so a large-assembly graft never stalls the frame loop.

@@ -3,13 +3,11 @@ include:
   - "libs/**"
   - "libs/**/.planning/**"
   - "libs/**/.api/**"
-  - "libs/contracts/**"
-  - "libs/contracts/.api/**"
 ---
 
 # [ESTATE_MODEL]
 
-`libs/` holds independently adoptable packages: each is an external-library-grade dependency an unrelated future application takes, and each serves unknown consumers by construction. Three language estates stand as peers — no branch produces above another, none is a prerequisite, and a branch's host domain names a focus, never a rank. Read `libs/.planning/ARCHITECTURE.md` and `libs/contracts/manifest.json` live before a finding; never carry a copy of either roster here.
+`libs/` holds independently adoptable packages: each is an external-library-grade dependency an unrelated future application takes, and each serves unknown consumers by construction. Three language estates stand as peers — no branch produces above another, none is a prerequisite, and a branch's host domain names a focus, never a rank. Read `libs/.planning/ARCHITECTURE.md` live before a finding; never carry a copy of its roster here.
 
 ## [01]-[ASSUMED_CONSUMER]
 
@@ -23,24 +21,18 @@ include:
 - Closed axes fix their value vocabulary at Tier-0; `host` and `providers` carry open capability-descriptor rows the supplying branch fills, so enumerating an open axis's instances anywhere re-anchors the roster to the instance set that happens to exist — the anchoring defect the open form forecloses.
 - Growth is one Tier-0 row beside one row per branch for a new axis, one case on its owning closed axis for a new value; an open axis grows at its supplying branch alone.
 
-## [03]-[CONTRACT_CLASS]
-
-- Defined contract cases carry the only legitimate cross-estate coupling; read each case live from `libs/contracts/manifest.json` under `libs/contracts/ARCHITECTURE.md` `[REGISTRY]`, never infer its authority.
-- Fences or adapters leaving one branch unable to run without another present carry the cross-language prerequisite defect; the finding names the atomic case and the declared authority it contradicts.
-
-## [04]-[TRANSCRIPTION_CONFORMANCE]
+## [03]-[TRANSCRIPTION_CONFORMANCE]
 
 - Transcription applies only where Tier-0 requires branch-local vocabulary; drift repairs at every named anchor in the same change.
-- Generated contract bindings are not transcriptions: they derive from corpus proto, so a hand branch spelling beside them is a second wire model.
 
-## [05]-[ADMISSION_RUNG]
+## [04]-[ADMISSION_RUNG]
 
 - New capability enters at the narrowest rung that holds it, and the Tier-0 `[12]-[ADMISSION]` ladder read live is the whole discriminant: a row or case carries a new instance of a settled concept, an adapter carries a foreign surface reaching an existing port, a page or sub-domain carries new nouns under a package's existing invariants, and a package is earned only by a bounded context an unrelated application adopts alone.
 - Packages name concepts: a package named for a host, a provider, a verb, or a size-driven split is the finding, and it names the concept the package name obscures.
 - Hosts enter as one host-boundary package beside descriptor rows on the domain owners their demands prove. Four findings follow — a domain package naming a host, a per-host twin of a domain package, a host name reaching below a boundary adapter, and host vocabulary surviving past that adapter into the domain's own nouns.
 - Branches answer reach alone: a page, fence, or manifest row proposing an estate for a runtime an existing branch already reaches is the finding, and it names the branch that reaches it.
 
-## [06]-[TRUTH_PLANE]
+## [05]-[TRUTH_PLANE]
 
 - Append-only log planes own truth and every derived plane carries zero authority: folds, snapshots, traces, cell tables, overlays, and actor configurations accelerate reads and drop at warm-up cost.
 - Shapes crossing planes name their truth plane, their rebuild route, and the retention floor below which rebuild fails; a crossing stating fewer than all three is the finding, and it names the page owning the crossing.

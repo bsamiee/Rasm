@@ -206,7 +206,7 @@ const _board = (
 [CAPTURE_FOLD]:
 - Owner: `Probe.capture` admits `EvidenceTimelineWire` bytes through `Wire.decode`, then normalizes one controlled RGBA8 readback and compares its canonical pixel hash with timeline evidence.
 - Law: the preimage is the producer kernel's `CanonicalWriter` framing — the version's int32-LE UTF-8 byte count then its bytes, width and height as int32-LE ordinals, then the tightly packed top-left RGBA8 sRGB straight-alpha plane as the trailing raw leaf whose extent those two ordinals already recover.
-- Law: `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` owns that framing and the branch carries no `CanonicalWriter` peer — `core/value/contentKey` publishes `Digest.mint` and `Digest.Session` alone — so this page is the ONE site that spells it and a second framing helper elsewhere forks the law.
+- Law: the branch carries no `CanonicalWriter` peer — `core/value/contentKey` publishes `Digest.mint` and `Digest.Session` alone — so this page is the ONE site that spells the framing and a second framing helper elsewhere forks the law.
 - Law: capture compares only `pixels.hash`; `frameHash` identifies encoded artifact bytes and `drawHash` identifies draw attribution.
 - Law: `Probe.packed` publishes that normalization, so the hash preimage and `view/export#SERIALIZER_MATRIX`'s readback arm read one buffer — the preimage streams its framed segments and hands that packed plane as its trailing leaf rather than re-buffering it, and a second repack forks the pixel identity.
 - Boundary: scene supplies async readback, `Digest.mint` owns hashing over the framed segment stream, `Wire` owns timeline decoding, and the packed receipt unpacks through `Format.proto.any` against the one registry.

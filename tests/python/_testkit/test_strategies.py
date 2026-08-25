@@ -15,7 +15,6 @@ import pytest
 
 from tests.python._testkit.strategies import resolve
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _BUDGET = hyp_settings(max_examples=25, deadline=None, database=None)

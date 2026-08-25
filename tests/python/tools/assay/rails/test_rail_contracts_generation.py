@@ -12,11 +12,17 @@ import pytest
 
 from assay.core.model import Fault, RailStatus, receipt
 from assay.rails import contracts as contracts_rail
-from assay.rails.contracts_generation import changes, compose_image, freshness_rows, GenerationImage, render, tree
+from assay.rails.contracts_generation import (
+    changes,
+    compose_image,
+    freshness_rows,
+    GenerationImage,
+    render,
+    tree,
+)
 from tests.python._testkit.spec import assert_error_status, assert_ok, refutes
 from tests.python.tools.assay.kit import AssayHarness
 from tests.python.tools.assay.rails import test_rail_contracts as corpus_kit
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

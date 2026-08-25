@@ -10,7 +10,6 @@ lazy import httpx
 
 from tests.python._testkit.env import ObjectStore, provision, RemoteFS, SshHost
 
-
 if TYPE_CHECKING:
     from pathlib import Path
 

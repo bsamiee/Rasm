@@ -21,7 +21,6 @@ import sys
 import anyio
 import msgspec
 
-
 FIXTURE_TIMEOUT = 10.0  # a hooked-forever target is cancelled at the deadline; anyio kills the child, leaving no orphan
 CONCURRENCY = 8  # bound the spawn fan-out so a large corpus never forks the whole box at once
 TIMEOUT_CODE = -1  # a deadline or spawn failure yields a code no expected verdict (0 or 2) can match, so it always misses
