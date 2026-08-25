@@ -1347,6 +1347,72 @@
                             "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
                         ]
                     }
+                },
+                {
+                    "id": "watch-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.WatchRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/progress#OBSERVATION_SEAMS",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.compute.ProgressService.Watch",
+                            "binding": "generated",
+                            "coordinate": "ProgressStream.Watch"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "typescript:core/interchange/invoke#PROGRESS_WATCH",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.compute.ProgressService.Watch",
+                            "binding": "generated",
+                            "coordinate": "Progress.watch"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "watch-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.compute.WatchResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/interchange/invoke#PROGRESS_WATCH",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.compute.ProgressService.Watch",
+                            "binding": "generated",
+                            "coordinate": "Progress.watch"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/progress#OBSERVATION_SEAMS",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.compute.ProgressService.Watch",
+                            "binding": "generated",
+                            "coordinate": "ProgressStream.Watch"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
                 }
             ]
         },
@@ -3756,6 +3822,381 @@
                                     }
                                 ]
                             }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "board-pack",
+            "law": "Board packs cross to the deploy plane as producer-minted BoardPackWire ProtoJSON; the generated enums carry every indicator, panel, burn, and severity vocabulary, so a producer arm breaks the peer compile instead of drifting.",
+            "cases": [
+                {
+                    "id": "compute",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.board.BoardPackWire",
+                        "framing": "proto-json"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "typescript:core/observe/board#PACK_WIRE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "Board.Pack.decode"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Compute/Runtime/board#TS_PROJECTION",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "BoardWireMap.ToWire"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The producer freezes no pack vector — the compute pack crosses as ProtoJSON with no pinned instance."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "stage-crossing",
+            "law": "The stage crossing is a same-language process crossing: Materials mints the request and re-admits the result through its registry gate, Compute admits and answers under the descriptor rules, and the relaying root never decodes.",
+            "cases": [
+                {
+                    "id": "stage-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.stage.StageRequestWire",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Compute/Model/stage#STAGE_WIRE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "StageWireMap.ToDomain"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Materials/Appearance/interchange#STAGE_CROSSING",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "StageWire.Request"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "Neither end freezes a stage vector — the request crosses as proto binary through the relaying root with no pinned instance."
+                        ]
+                    }
+                },
+                {
+                    "id": "stage-result",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.stage.StageResultWire",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Materials/Appearance/interchange#STAGE_CROSSING",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "StageWire.Admit"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Compute/Model/stage#STAGE_WIRE",
+                            "direction": "message",
+                            "binding": "generated",
+                            "coordinate": "StageWireMap.ToWire"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "Neither end freezes a stage vector — the result crosses as proto binary through the relaying root with no pinned instance."
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "sync-rpc",
+            "law": "Cross-store sync binds each generated request and response to the Persistence service and client boundaries of two processes; frames stay the op-log envelope the service never opens, and the two cursor spaces never substitute.",
+            "cases": [
+                {
+                    "id": "pull-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.PullRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.sync.SyncService.Pull",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.Pull"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.sync.SyncService.Pull",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.Pull"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "pull-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.PullResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.sync.SyncService.Pull",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.Pull"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.sync.SyncService.Pull",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.Pull"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "push-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.PushRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.sync.SyncService.Push",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.Push"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.sync.SyncService.Push",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.Push"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "push-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.PushResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.sync.SyncService.Push",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.Push"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.sync.SyncService.Push",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.Push"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "transfer-set-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.TransferSetRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.sync.SyncService.TransferSet",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.TransferSet"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.sync.SyncService.TransferSet",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.TransferSet"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "transfer-set-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.TransferSetResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.sync.SyncService.TransferSet",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.TransferSet"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.sync.SyncService.TransferSet",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.TransferSet"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "checkout-request",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.CheckoutRequest",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-request",
+                            "method": "rasm.contracts.sync.SyncService.Checkout",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.Checkout"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-request",
+                            "method": "rasm.contracts.sync.SyncService.Checkout",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.Checkout"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
+                        ]
+                    }
+                },
+                {
+                    "id": "checkout-response",
+                    "definition": {
+                        "kind": "proto",
+                        "message": "rasm.contracts.sync.CheckoutResponse",
+                        "framing": "proto-binary"
+                    },
+                    "consumers": [
+                        {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "client-response",
+                            "method": "rasm.contracts.sync.SyncService.Checkout",
+                            "binding": "generated",
+                            "coordinate": "SyncWire.Checkout"
+                        }
+                    ],
+                    "authority": {
+                        "kind": "domain",
+                        "producer": {
+                            "anchor": "dotnet:Rasm.Persistence/Version/ledger#SYNC_TRANSPORTS",
+                            "direction": "server-response",
+                            "method": "rasm.contracts.sync.SyncService.Checkout",
+                            "binding": "generated",
+                            "coordinate": "SyncEndpoint.Checkout"
+                        }
+                    },
+                    "readiness": {
+                        "kind": "blocked",
+                        "blockers": [
+                            "The executable RPC pair carries no frozen request or response vector through the contract harness, so direction and descriptor identity are live while corpus evidence remains absent."
                         ]
                     }
                 }

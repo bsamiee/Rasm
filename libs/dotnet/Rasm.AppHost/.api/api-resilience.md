@@ -103,6 +103,7 @@
 [STACKING]:
 - `Polly.Core`(`.api/api-polly-core.md`): the standard and hedging handlers build their strategy chains on `ResiliencePipelineBuilder`, `ResilienceHandler(pipeline)` wraps the built `ResiliencePipeline<HttpResponseMessage>`, and request metadata threads into `ResilienceContext.Properties` through the request-message extensions.
 - `Microsoft.Extensions.ServiceDiscovery`(`.api/api-service-discovery.md`): `AddResilienceHandler` and `IHttpClientBuilder.AddServiceDiscovery` fold onto one client builder with resilience outermost, so a retried attempt re-resolves the endpoint the discovery handler produced.
+- `Microsoft.Extensions.Http`: `HttpClientBuilderExtensions.AddHttpMessageHandler(this IHttpClientBuilder, Func<DelegatingHandler>)` appends a per-client link, and resilience seats outermost by the same insertion that puts it ahead of the discovery handler — so a link added this way runs INSIDE the retry and hedging loops and observes every attempt, not only the first.
 - Wire outbound composition: the outbound boundary folds one resilience handler per seam and selects the pipeline by authority, so each remote host carries its own retry schedule and breaker state.
 
 [LOCAL_ADMISSION]:

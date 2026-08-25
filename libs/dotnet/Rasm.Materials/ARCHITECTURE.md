@@ -193,8 +193,8 @@ flowchart LR
     Rasm e13@-->|"[SHAPE]: BenchClaim"| Projection
     Component e14@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e15@-->|"[WIRE]: MaterialPropertySet"| Compute
-    Appearance e16@-->|"[WIRE]: StageRequest"| Compute
-    Compute e17@-->|"[WIRE]: StageResult"| Appearance
+    Appearance e16@-->|"[WIRE]: StageRequestWire"| Compute
+    Compute e17@-->|"[WIRE]: StageResultWire"| Appearance
     Appearance e18@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade + EnvironmentLight + TextureSet"| AppUi
     Appearance e19@-->|"[WIRE]: appearance.Material"| Core
     Appearance e20@-->|"[WIRE]: appearance.Material"| PyRuntime

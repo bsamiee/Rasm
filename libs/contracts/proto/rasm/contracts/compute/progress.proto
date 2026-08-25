@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package rasm.contracts.compute;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+// --- [VOCABULARIES] -----------------------------------------------------------------------
+
+// Monotonic phase ladder; rank derives from the value at every consumer and never crosses beside it.
+enum ProgressPhase {
+  PROGRESS_PHASE_UNSPECIFIED = 0;
+  PROGRESS_PHASE_QUEUED = 1;
+  PROGRESS_PHASE_SELECTED = 2;
+  PROGRESS_PHASE_STAGED = 3;
+  PROGRESS_PHASE_RUNNING = 4;
+  PROGRESS_PHASE_STREAMING = 5;
+  PROGRESS_PHASE_FINALIZING = 6;
+  PROGRESS_PHASE_COMPLETED = 7;
+  PROGRESS_PHASE_CANCELLED = 8;
+  PROGRESS_PHASE_FAULTED = 9;
+}
+
+// --- [PROGRESS] ---------------------------------------------------------------------------
+
+// One delivered mark of the watched intent. Fraction and segments are absent where the phase measured nothing;
+// a zero in either is a measurement.
+message WatchResponse {
+  ProgressPhase phase = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional double fraction = 2 [(buf.validate.field).double = {
+    gte: 0
+    lte: 1
+  }];
+  optional uint64 segments = 3;
+  google.protobuf.Timestamp at = 4 [(buf.validate.field).required = true];
+  bytes correlation = 5 [(buf.validate.field).bytes.len = 16];
+}
+
+// Subscribe to the marks of one correlated intent; the stream ends on that intent's terminal mark.
+message WatchRequest {
+  bytes correlation = 1 [(buf.validate.field).bytes.len = 16];
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+
+service ProgressService {
+  rpc Watch(WatchRequest) returns (stream WatchResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

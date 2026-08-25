@@ -93,7 +93,7 @@ Words carrying live senses no context disambiguates refuse bare use, and every s
 - `transaction lane`: Separates a serialized writing path from an unwrapped analytical read path over one engine.
 - `cache lane`: Keys one cache topology a resolver resolves by lane key, so each lane reads its own second-level store.
 - `signal lane`: Carries one telemetry signal's exporter and pipeline rows through egress.
-- `governor`: Refuses bare use; a qualified `<qualifier> governor` bounds one declared budget or route, seated at the owner that declares its ceiling.
+- `governor`: Refuses bare use; qualified `<qualifier> governor` names one owner-bound budget or route with its declared ceiling.
 - `lane governor`: Brackets one work lane's admitted traffic under that lane's own resilience row — admission, bulkhead, breaker, allotment.
 - `catalog`: Refuses bare use.
 - `.api catalog`: Documents one external distribution's or host SDK assembly's verified members at the tier admitting that package.

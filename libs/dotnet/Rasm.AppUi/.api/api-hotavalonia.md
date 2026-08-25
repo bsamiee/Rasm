@@ -14,12 +14,12 @@
 
 [BUILD_ASSETS]: package payload
 
-| [INDEX] | [ASSET]                                | [CAPABILITY]                     |
-| :-----: | :------------------------------------- | :------------------------------- |
-|  [01]   | `build/HotAvalonia.props`              | capability + Avalonia floor      |
-|  [02]   | `build/HotAvalonia.targets`            | knob defaults + Fody/HARFS tasks |
-|  [03]   | `tasks/netstandard2.0/HotAvalonia.dll` | MSBuild task assembly (3 tasks)  |
-|  [04]   | `hotavalonia/tools/HotAvalonia.Remote.dll`         | HARFS file server (out-of-proc)  |
+| [INDEX] | [ASSET]                                    | [CAPABILITY]                     |
+| :-----: | :----------------------------------------- | :------------------------------- |
+|  [01]   | `build/HotAvalonia.props`                  | capability + Avalonia floor      |
+|  [02]   | `build/HotAvalonia.targets`                | knob defaults + Fody/HARFS tasks |
+|  [03]   | `tasks/netstandard2.0/HotAvalonia.dll`     | MSBuild task assembly (3 tasks)  |
+|  [04]   | `hotavalonia/tools/HotAvalonia.Remote.dll` | HARFS file server (out-of-proc)  |
 
 [DEPENDENCY_ASSETS]: dependency fan-out (all `include="All"`)
 
@@ -32,11 +32,11 @@
 
 [MSBUILD_TASKS]: tasks in `tasks/netstandard2.0/HotAvalonia.dll`
 
-| [INDEX] | [TASK]                                           | [CAPABILITY]                                     |
-| :-----: | :----------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `HotAvalonia.GenerateFileSystemServerConfigTask` | emit HARFS server config                         |
-|  [02]   | `HotAvalonia.GetFileSystemClientConfigTask`      | resolve client address/secret into runtimeconfig |
-|  [03]   | `HotAvalonia.StartFileSystemServerTask`          | launch `hotavalonia/tools/HotAvalonia.Remote.dll` after build      |
+| [INDEX] | [TASK]                                           | [CAPABILITY]                                                  |
+| :-----: | :----------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `HotAvalonia.GenerateFileSystemServerConfigTask` | emit HARFS server config                                      |
+|  [02]   | `HotAvalonia.GetFileSystemClientConfigTask`      | resolve client address/secret into runtimeconfig              |
+|  [03]   | `HotAvalonia.StartFileSystemServerTask`          | launch `hotavalonia/tools/HotAvalonia.Remote.dll` after build |
 
 ## [03]-[ENTRYPOINTS]
 

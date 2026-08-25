@@ -1072,7 +1072,7 @@ public static class SettingStore {
 
     // The child chain is host-shaped and a pathological depth would fail the stack instead of the rail, so the walk
     // spends a budget and answers a typed exhaustion naming it.
-    private static readonly Dimension DepthBudget = Dimension.Create(value: 32);
+    private static readonly Rasm.Numerics.Dimension DepthBudget = Rasm.Numerics.Dimension.Create(value: 32);
 
     private static Fin<SettingsTree> Snapshot(PersistentSettings node, SettingPath path, int remaining, Op op) =>
         remaining <= 0

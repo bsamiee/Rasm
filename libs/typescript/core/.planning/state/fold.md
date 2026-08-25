@@ -8,6 +8,7 @@
 - [03]-[TIME_COORDINATE]: full HLC-plus-ordinal read coordinates and ordinal-only D2 time; `Fold.AsOf`.
 - [04]-[MEMORY_LANE]: the in-memory and ordered handles plus the lens reads over every handle; `Replay.memory/.ordered/.view/.feed`.
 - [05]-[DATAFLOW_VERBS]: joins, semijoins, rollups, bounded boards, and fixpoints; `Replay`.
+- [06]-[VERSIONED_LANE]: `Replay.versioned` owns the in-process versioned fold and full-coordinate retained history.
 - [07]-[WATERMARK_PANES]: event-time completeness, the lateness verdict, and window policy folds; `Window`.
 
 ## [02]-[PLAN_CONTRACT]

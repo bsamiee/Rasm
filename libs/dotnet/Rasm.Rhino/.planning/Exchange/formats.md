@@ -94,10 +94,10 @@ public sealed partial class CodecFidelity {
 
     private static DracoDial Compressed(int level, int positionBits, int normalBits, int textureBits) =>
         DracoDial.Create(
-            level: Dimension.Create(value: level),
-            positionBits: Dimension.Create(value: positionBits),
-            normalBits: Dimension.Create(value: normalBits),
-            textureBits: Dimension.Create(value: textureBits));
+            level: Rasm.Numerics.Dimension.Create(value: level),
+            positionBits: Rasm.Numerics.Dimension.Create(value: positionBits),
+            normalBits: Rasm.Numerics.Dimension.Create(value: normalBits),
+            textureBits: Rasm.Numerics.Dimension.Create(value: textureBits));
 }
 
 [SmartEnum<int>]

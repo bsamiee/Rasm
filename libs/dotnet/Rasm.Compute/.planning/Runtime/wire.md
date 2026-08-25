@@ -8,22 +8,23 @@ One compact `rasm.contracts.fault.FaultDetail` — `domain`, `case`, `correlatio
 
 ## [01]-[INDEX]
 
-- [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, control, artifact, fault, clock, scan, and event families, rosters the surviving generated services, and seats the bounded `ParseGuard` beside `WireServices`.
-- [03]-[STAGE_CROSSING]: branch-interior photo-to-PBR slot mirror — `StageRoster`, `StageCrossing`, its static-init soundness proof, and the `Checksum` fold both ends compute and the relaying root compares.
-- [04]-[FAULT_PROJECTION]: the total `StatusCode`→`WireFault` client rail and the `RemoteFault` admission composed off AppHost `FaultWire`.
-- [05]-[TS_PROJECTION]: the browser consumes the generated `@rasm\/contracts` schemas and service descriptors; this page mints no TS shape.
+- [02]-[PROTO_VOCABULARY]: consumes the corpus-owned compute, progress, stage, control, artifact, fault, clock, scan, and event families, rosters the surviving generated services, seats the bounded `ParseGuard` beside `WireServices`, and holds the one enum-to-key lowering every interior roster reads.
+- [03]-[FAULT_PROJECTION]: the total `StatusCode`→`WireFault` client rail and the `RemoteFault` admission composed off AppHost `FaultWire`.
+- [04]-[TS_PROJECTION]: the browser consumes the generated `@rasm\/contracts` schemas and service descriptors; this page mints no TS shape.
 
 ## [02]-[PROTO_VOCABULARY]
 
-- Owner: generated compute/control services and every generated message family admitted at Compute ingress; `WireServices` holds the composition's raw shared channel/invoker and `WireCall` binds the generated client family once to one logical call's `CallSpine`; `ParseGuard` owns bounded parse plus one Celly validator over its closed descriptor set — compute, control, artifact, fault, clock, scan, and `event` for broker extensions, each family earning its seat through a consumer at this ingress; `RuleViolations` projects accumulated rule failures.
-- Cases: `compute.ComputeService`, `artifact.ArtifactService`, and `compute.ControlService`. `grpc.health.v1.Health` and `google.rpc.Status` are upstream standards this corpus never mints: their generated types ship in Grpc.HealthCheck and Google.Api.CommonProtos, the server binds health through `MapGrpcHealthChecksService` at `Rasm.AppHost/Observability/health#WIRE_HEALTH`, and `WireCall.Health` holds the package-shipped client.
-- Law: each semantic package under `libs/contracts/proto/rasm/contracts/<family>/v1/` is the one mint of its fully-qualified names. `compute` owns tessellation and control, `artifact` owns transfer, and `scan` owns Gaussian scan payloads; managed mode derives `Rasm.Contracts.<Family>.V1` with no source `csharp_namespace`. `FaultDetail.domain` and `FaultDetail.case` together are the sole transported fault identity; every peer keeps the remote pair opaque instead of mirroring another branch's band ledger.
-- Law: a non-RPC payload message keeps the plain concept name — `FaultDetail`, `ArtifactFrame`, `GaussianSplatScan` — and mints a `Wire` suffix only to break a collision with a co-resident domain type; a consumer registry transcribes whichever name the descriptor declares and re-spells nothing.
+- Owner: generated compute/progress/control services and every generated message family admitted at Compute ingress; `WireServices` holds the composition's raw shared channel/invoker and `WireCall` binds the generated CLIENT family once to one logical call's `CallSpine`; `ParseGuard` owns bounded parse plus one Celly validator over its closed descriptor set — compute, progress, stage, control, artifact, fault, clock, scan, and `event` for broker extensions, each family earning its seat through a consumer at this ingress; `RuleViolations` projects accumulated rule failures; `WireKeys` folds a generated enum member to the interior roster key that names it.
+- Cases: dialed — `compute.ComputeService`, `artifact.ArtifactService`, `compute.ControlService`; served — `compute.ProgressService`. `grpc.health.v1.Health` and `google.rpc.Status` are upstream standards this corpus never mints: their generated types ship in Grpc.HealthCheck and Google.Api.CommonProtos, the server binds health through `MapGrpcHealthChecksService` at `Rasm.AppHost/Observability/health#WIRE_HEALTH`, and `WireCall.Health` holds the package-shipped client.
+- Law: each semantic package under `libs/contracts/proto/rasm/contracts/<family>/` is the one mint of its fully-qualified names. `compute` owns tessellation, control, and progress, `stage` owns the photo-to-PBR crossing, `artifact` owns transfer, and `scan` owns Gaussian scan payloads; managed mode derives `Rasm.Contracts.<Family>` with no source `csharp_namespace`. `FaultDetail.domain` and `FaultDetail.case` together are the sole transported fault identity; every peer keeps the remote pair opaque instead of mirroring another branch's band ledger.
+- Law: a non-RPC payload message keeps the plain concept name — `FaultDetail`, `ArtifactFrame`, `GaussianSplatScan` — and mints a `Wire` suffix only to break a collision with a co-resident domain type; a consumer registry transcribes whichever name the descriptor declares and re-spells nothing. Where a page names both, the generated side takes the alias suffix at the fence prelude (`using ProgressPhaseWire = Rasm.Contracts.Compute.ProgressPhase;`).
 - Law: a wire message an rpc binds spells `<Verb>Request` inbound and `<Verb>Response` outbound, so the rpc and its two messages resolve from one verb and no envelope stands between the verb and the payload it carries; the domain shape it transcribes keeps its own name — the app root drives the `Rasm.Bim` `Exchange/tessellation#TESSELLATION_BRIDGE` projection onto generated `TessellateRequest`, and `Runtime/payload#RESIDENCY` transcribes `SplatScan` onto `GaussianSplatScan`. Compute carries no parallel tessellation request or policy mirror.
+- Law: `rasm.contracts.stage` is a SAME-LANGUAGE process crossing seated at the corpus — Materials specifies the request, the app root relays the bytes, and `Model/stage#STAGE_WIRE` admits `StageRequestWire` through `ParseGuard.Read` and answers `StageResultWire`. It carries no service, so `WireCall` gains no client for it; the family earns its `ParseGuard` seat through that admission alone. No slot roster, positional checksum, or reciprocal mirror survives on either end — the descriptor IS the compatibility law, and a column landed at one end alone refuses at the corpus gate rather than at a digest two hand rosters computed.
 - Law: the unknown-field posture and validation seat are ONE admission — `ParseGuard.Parser<T>` memoizes the generated parser under `WithDiscardUnknownFields(false)` per message type, so a retired peer field lands in the `UnknownFieldSet` and never raises, while `ParseGuard.Read` validates every parsed message through the ONE process-wide `Celly.Protovalidate.Validator` AFTER the parse and BEFORE the interior sees the value. `WarmRules` walks the closed non-map message-descriptor set and validates one default instance per descriptor before readiness, forcing Celly's lazy CEL compilation into bootstrap; `Validated` admits only those full names and projects every accumulated refusal onto `WireViolation.Rules(Seq<BadRequest.Types.FieldViolation>)`. JSON intake tolerates unknown fields the same way through AppHost `WireJson.Parser` (`WithIgnoreUnknownFields(true)`), so binary and JSON share one posture.
+- Law: `WireKeys.Camel` is the ONE lowering from a generated enum member to a Compute-interior key string, and it is TOTAL over every roster this branch reads by key — the generated member name with its first character lowered, so `IntrinsicAppearance` answers `intrinsicAppearance` and `CoreMl` answers `coreMl`. A roster whose key needs any other fold refuses at that roster's own generated `TryGet` rather than growing a second lowering here, and a hand `(enum, key)` table anywhere on this branch is the deleted form the fold replaces. `defined_only` already refused an undefined ordinal at admission, so the fold's unnamed arm is unreachable through `ParseGuard`.
 - Law: corpus-owned `scan.GaussianSplatScan` rides `artifact.ArtifactFrame` as a standalone artifact. Python `ScanIngestion.run` is the sole domain producer; `SplatMapper.Read` fetches the generated `ArtifactRef`, `FrameEdge` proves its fixed SHA-256 and extent, `ParseGuard.Read` performs the bounded descriptor admission, and `ToDomain` projects it once into `Runtime/payload#RESIDENCY` `SplatScan`. No semantic `ContentHash`, reverse C# wire minter, or geometry-envelope alias enters that artifact path.
 - Auto: the bindings are ONE committed emission — `assay contracts generate` writes `Rasm.Contracts`, this package and every other consumer reference it by project, app roots derive generated bases from the same assembly, and connect-es reads service descriptors off the generated `_pb.ts`.
-- Packages: Rasm.Contracts (project — generated compute, artifact, control, scan, event, and fault families), Google.Protobuf (`MessageParser<T>.WithDiscardUnknownFields`, `CodedInputStream.CreateWithLimits`, `MessageDescriptor.Parser`, `Struct`, `Value`, `UnknownFieldSet`), Celly.Protovalidate (`Validator`, accumulated `Buf.Validate.Violation`, `FieldPath`, `FieldPathElement`), Google.Api.CommonProtos (`BadRequest.Types.FieldViolation`), Grpc.Core.Api (`CallInvoker`, `CallOptions`, `AsyncUnaryCall<T>`, `InterceptorExtensions.Intercept`), Grpc.Net.Client, CommunityToolkit.HighPerformance (`ReadOnlySequenceExtensions.AsStream`), NodaTime, NodaTime.Serialization.Protobuf, Riok.Mapperly, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.AppHost (project — `FaultWire`, `RemoteFault`, `WireViolation`, `WireBoundary`, `WireJson`, `ContractGeneration`)
+- Packages: Rasm.Contracts (project — generated compute, artifact, control, progress, stage, scan, event, and fault families), Google.Protobuf (`MessageParser<T>.WithDiscardUnknownFields`, `CodedInputStream.CreateWithLimits`, `MessageDescriptor.Parser`, `Struct`, `Value`, `UnknownFieldSet`), Celly.Protovalidate (`Validator`, accumulated `Buf.Validate.Violation`, `FieldPath`, `FieldPathElement`), Google.Api.CommonProtos (`BadRequest.Types.FieldViolation`), Grpc.Core.Api (`CallInvoker`, `CallOptions`, `AsyncUnaryCall<T>`, `InterceptorExtensions.Intercept`), Grpc.Net.Client, CommunityToolkit.HighPerformance (`ReadOnlySequenceExtensions.AsStream`), NodaTime, NodaTime.Serialization.Protobuf, Riok.Mapperly, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.AppHost (project — `FaultWire`, `RemoteFault`, `WireViolation`, `WireBoundary`, `WireJson`, `ContractGeneration`)
 - Growth: one rpc row on an existing service or one numbered message field absorbs a new wire fact; zero new surface. An rpc lands with its corpus row, generated service roster, server override, and real peer invocation in one motion; a service-only or client-only declaration is deleted rather than padded with an unused adapter.
 - Boundary: temporal values cross as `Timestamp` and protobuf `Duration` through `ToTimestamp`/`ToProtobufDuration` outward and `ToInstant`/`ToNodaDuration` inward; ProtoJSON formatting and parsing of every generated message is AppHost `Runtime/ports#WIRE_LAW` `WireJson`. `ParseGuard.Read` gates a payload before bounded parse, while `Runtime/channels#ARTIFACT_FRAMES` streams Put and Fetch through the shared frame law under `WireLimits.Artifact`. Sync state, diffing, transfer manifests, and atomic storage strategy remain store mechanics and cannot alias onto either RPC.
 
@@ -56,6 +57,8 @@ public sealed record WireCall(
     // ONE mint: every generated client on this record binds to the SAME intercepted invoker, so a service the
     // contract adds breaks HERE — at the owner that declares it — rather than at a dialing capsule that would
     // otherwise fill the roster positionally and could silently open a channel never carrying the new service.
+    // Only DIALED services seat here. `ProgressService` is served at `Runtime/progress#OBSERVATION_SEAMS` and its
+    // client is the browser's, so a fifth field would open a channel leg this process never calls.
     public static WireCall Of(CallInvoker invoker) => new(
         new ComputeService.ComputeServiceClient(invoker),
         new ControlService.ControlServiceClient(invoker),
@@ -67,7 +70,8 @@ public sealed record WireCall(
 // Inbound parse hardening: one configured parser per T, one bounded stream decode, one validator, one envelope.
 public static class ParseGuard {
     private static readonly FileDescriptor[] Files = [
-        ComputeReflection.Descriptor, ControlReflection.Descriptor,
+        ComputeReflection.Descriptor, ControlReflection.Descriptor, ProgressReflection.Descriptor,
+        global::Rasm.Contracts.Stage.StageReflection.Descriptor,
         global::Rasm.Contracts.Artifact.ArtifactReflection.Descriptor, FaultReflection.Descriptor,
         global::Rasm.Contracts.Clock.HlcReflection.Descriptor,
         global::Rasm.Contracts.Scan.GaussianReflection.Descriptor,
@@ -184,16 +188,34 @@ public static partial class SplatMapper {
 public static class SplatCodec {
     // The format roster is the generated enum's: the domain key is its wire name, so a third format lands as one
     // enum value at the corpus and crosses here with no table edit.
-    public static string Key(SplatFormat format) => format.ToString();
+    public static string Key(SplatFormat format) => WireKeys.Camel(format);
 
     public static ReadOnlyMemory<float> Planes(ByteString packed) =>
         MemoryMarshal.Cast<byte, float>(packed.Span).ToArray();
 }
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+// The generated member name IS the key vocabulary, so the lowering is a projection of the descriptor rather than a
+// second roster beside it: protoc has already stripped the `PBR_STAGE_` prefix and pascal-cased what remains, and
+// one character separates that spelling from the interior key. Written per consumer, the same fold would drift the
+// first time one call site used `ToLower()` and flattened `CoreMl` to `coreml`.
+public static class WireKeys {
+    public static string Camel<TEnum>(TEnum value) where TEnum : struct, Enum =>
+        Enum.GetName(value) is { Length: > 0 } name
+            ? string.Create(name.Length, name, static (span, source) => {
+                source.CopyTo(span);
+                span[0] = char.ToLowerInvariant(span[0]);
+            })
+            // Unreachable through `ParseGuard`, whose `defined_only` rules refuse an undefined ordinal before the
+            // interior sees it: the numeric spelling names no roster row, so the caller's own `TryGet` refuses it
+            // rather than this fold inventing a member the corpus never declared.
+            : value.ToString();
+}
 ```
 
 ```proto signature
-// Header law of the two corpus-homed suite sources (compute.proto and control.proto): managed mode derives
-// Rasm.Contracts.Compute from the package, so no csharp_namespace option rides either source. Import rosters
+// Header law of the corpus-homed suite sources (compute.proto, control.proto, progress.proto): managed mode derives
+// Rasm.Contracts.Compute from the package, so no csharp_namespace option rides any of them. Import rosters
 // are the sources' own, read on disk — a hand mirror of them here forks what it transcribes.
 syntax = "proto3";
 
@@ -209,6 +231,7 @@ Each row names one rpc the semantic corpus sources declare; the generated `<Svc>
 |  [03]   | ArtifactService | Put            | client-stream | PutRequest → PutResponse                       |
 |  [04]   | ControlService  | SetDegradation | unary         | SetDegradationRequest → SetDegradationResponse |
 |  [05]   | ControlService  | DrainRuntime   | unary         | DrainRuntimeRequest → DrainRuntimeResponse     |
+|  [06]   | ProgressService | Watch          | server-stream | WatchRequest → stream WatchResponse            |
 
 Each rpc carries one wire law:
 
@@ -217,6 +240,7 @@ Each rpc carries one wire law:
 - [03]-[PUT]: the same owner validates each shared frame, wraps it in `PutRequest.frame`, and admits `PutResponse.artifact` against the submitted digest and extent; storage mode remains the provider's atomic implementation detail
 - [04]-[SETDEGRADATION]: `SetDegradationRequest` lands its `DegradationLevel` on the one override rail as the `Rasm.AppHost/Runtime/config#KILL_SWITCH` `ForceLevel` arm, and the response answers the resolved level the caller re-admits; richer degradation evidence rides the health owner, so a column lands here when a caller reads it
 - [05]-[DRAINRUNTIME]: commits the drain phase and folds onto `Rasm.AppHost/Runtime/lifecycle#DRAIN_CONDUCTOR`, re-implementing nothing it holds; the request carries the parent's REMAINING cooperative allotment and the handler takes `min(inherited, DeadlineClass.DrainCooperative)`, since allotments inherit through nested seams as the minimum
+- [06]-[WATCH]: Compute SERVES this one — `Runtime/progress#OBSERVATION_SEAMS` `ProgressStream` overrides the generated base, admits the request through `ParseGuard.Validated`, subscribes the correlated `ProgressCell` at `SubscriptionPolicy.Wire`, ends the stream on the terminal mark, and the app root maps the service beside `Rasm.AppHost/Wire/companion#CONTROL_SERVICE` `ControlServiceImpl`; the peer client is `typescript:core/interchange/invoke#PROGRESS_WATCH`
 
 Each message carries its generated field set and wire role; enum vocabularies carry their `_UNSPECIFIED = 0` arm refused by `defined_only` + `not_in: [0]` rules:
 
@@ -234,98 +258,11 @@ Each message carries its generated field set and wire role; enum vocabularies ca
 - [12]-[DRAINRUNTIMEREQUEST]: `cooperative=1 Duration; reason=2 string` — the caller's remaining cooperative allotment
 - [13]-[DRAINSTEP]: `name=1; band=2; allotted=3; consumed=4; outcome=5` — projects one typed drain step
 - [14]-[DRAINRUNTIMERESPONSE]: `steps=1; final_phase=2; at=3; elapsed=4; correlation=5` — projects `DrainReceipt` field-for-field
+- [15]-[WATCHREQUEST]: `correlation=1 bytes(16)` — the RFC 4122 form of the watched intent's own key, and the whole request
+- [16]-[WATCHRESPONSE]: `phase=1 ProgressPhase; fraction=2 optional double; segments=3 optional uint64; at=4 Timestamp; correlation=5 bytes(16)` — the two measurements cross OPTIONAL so an unmeasured phase publishes absence rather than a zero a chart reads as a stall
+- [17]-[STAGE]: `rasm.contracts.stage.StageRequestWire`/`StageResultWire` with their nested product, input, output, score, and bucket rows — admitted here and executed at `Model/stage#STAGE_WIRE`
 
-## [03]-[STAGE_CROSSING]
-
-- Owner: `StageCrossing` — the Compute-side reciprocal mirror of the branch-interior photo-to-PBR slot roster, folding slot ordinals and wire names through ONE canonical projection; `StageRoster` the typed `[OrderedEquality]` roster carrier two generations diff by slot, whose `Sound` proof runs ONCE at the roster owner's static initialization; `Checksum` the kernel `ContentHash.Of` fold over the slot-sorted roster the relaying root compares against the producing end's identical fold.
-- Entry: `StageCrossing.Checksum(roster)` folds one roster to the `UInt128` digest the relaying root renders through `ContentHash.Hex` and compares against the producing end's; `StageCrossing.Request.Sound`/`Result.Sound` is the `Fin<Unit>` the relaying root reads beside the checksum — refused, the crossing never moves a byte.
-- Law: the photo-to-PBR stage crossing is NOT a Compute wire and mints no codec here — `Rasm.Materials` SPECIFIES the request, `Model/stage#STAGE_FOLD` EXECUTES it, the branch strata forbid a project reference either way, so the app root relays the bytes and transcribes them into the lowered-primitive `StageRequest`/`StageResult` records Compute declares independently. What Compute OWES is the reciprocal mirror of the frozen slot roster — the same both-ends-checkable discipline the `[04]-[FAULT_PROJECTION]` generated numeric identity takes — so an appended column at one end alone fails the roster proof rather than misdecoding at its slot, and a relaying root refuses to transcribe a byte across a checksum disagreement.
-- Law: the crossing is BRANCH-INTERIOR — Materials ⇄ Compute across the plugin firebreak, relayed by the app root — and NO peer runtime decodes it, so its MessagePack carriage is lawful under the wire-contract law's peer-decodes discriminant and the corpus gate never sees it; the checksum both ends compute is its whole compatibility law. Materials computes the IDENTICAL fold over its own `(slot = [Key(n)], wire = camelCase member name)` roster (`Appearance/interchange` `StageRequestRow.Checksum`), so the two digests agree by construction or refuse by construction, never by a boot probe comparing one end to itself.
-- Law: roster soundness proves ONCE, at static initialization of the roster owner — unique slots and an arity equal to the lowered record's primary-constructor arity — and surfaces as a `Fin<Unit>` the relaying root reads, never a boot `Probe` a caller must remember to run. NAMED LOSS: the `Digest(join(';'))` hex fold and its UTF-8 separator alphabet are retired. Witness: `Checksum` now rides the kernel `CanonicalWriter` (`Ordinal(slot)` then the length-framed `String(wire)` per sorted row) so a wire name containing `;` or `:` can no longer re-split two rows onto one digest.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Generator.Equals (`[Equatable]`, `[OrderedEquality]`, `Inequalities`), Rasm (project — `ContentHash.Of`, `CanonicalWriter.Sorted`/`Ordinal`/`String`, `ContentHash.Hex`), BCL inbox
-- Growth: a new stage column is one `StageCrossing` slot row landing in the same change as its `Model/stage` record column, which the soundness proof then forces; a corpus `rasm.contracts.stage` family retires the MessagePack leg whole (Materials IDEAS `STAGE_FAMILY`); zero new surface.
-- Boundary: `StageCrossing` carries slot ordinals and wire field names ALONE in its digest — the half the producing end reproduces from its own `[Key(n)]` roster — while the Compute column each slot lands on stays a `nameof` binding this side proves and never transmits, so a rename here breaks a build and never a peer; `Checksum` sorts by slot inside the writer's own published order (`Sorted`), so two ends spelling the roster in different declaration orders agree.
-
-```csharp signature
-// Compute's end of the branch-interior photo-to-PBR crossing. No codec lands here: the specifying package owns the
-// positional roster, the app root relays and transcribes the bytes, and Compute receives already-typed records
-// whose every column is a lowered primitive. Two independently declared rosters with no correspondence is what
-// this owner deletes — each row pins one frozen slot ordinal beside the `Model/stage#STAGE_WIRE` column it
-// lands on through `nameof`, so a rename breaks a build, an appended column with no counterpart refuses `Sound`,
-// and the relaying root compares one digest per direction before it moves a byte. Mirroring the peer's
-// `[Key(n)]` annotations, its serializer, or its vocabularies here would re-mint the rosters that ruling forecloses.
-// Typed roster carrier: `[Equatable]` with the ordered row column makes two roster GENERATIONS diff through the
-// generated Inequalities — the moved slot is NAMED by its index — where a checksum mismatch alone localizes
-// nothing; the digest below stays the wire identity.
-[Equatable]
-public sealed partial record StageRoster([property: OrderedEquality] Seq<(int Slot, string Wire, string Column)> Rows) {
-    // Soundness is a VALUE the roster carries, computed once when the owner's static initializer runs: unique
-    // slots and record arity equal to the row count. A second primary constructor is drift this reports, so the
-    // single-element list pattern answers "exactly one primary constructor" without throwing on the wrong shape.
-    public static Fin<Unit> Sound<TRecord>(StageRoster roster) =>
-        typeof(TRecord).GetConstructors() is [ConstructorInfo primary]
-        && primary.GetParameters().Length == roster.Rows.Count
-        && roster.Rows.Map(static row => row.Slot).ToFrozenSet().Count == roster.Rows.Count
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Shape(ShapeRequirement.Arity,
-                new ShapeEvidence.Counts(typeof(TRecord).GetConstructors().Length, roster.Rows.Count, roster.Rows.Map(static row => row.Slot).ToFrozenSet().Count))));
-}
-
-public static class StageCrossing {
-    public const string RequestWire = "rasm.materials.stage-request.v1";
-    public const string ResultWire = "rasm.materials.stage-result.v1";
-
-    public static readonly StageRoster Request = new(Seq(
-        (0, "stage", nameof(StageRequest.Stage)),
-        (1, "modelCardId", nameof(StageRequest.ModelCardId)),
-        (2, "licenseClass", nameof(StageRequest.License)),
-        (3, "inputs", nameof(StageRequest.Inputs)),
-        (4, "inputWidth", nameof(StageRequest.InputWidth)),
-        (5, "inputHeight", nameof(StageRequest.InputHeight)),
-        (6, "outputWidth", nameof(StageRequest.OutputWidth)),
-        (7, "outputHeight", nameof(StageRequest.OutputHeight)),
-        (8, "tileWidth", nameof(StageRequest.TileWidth)),
-        (9, "tileHeight", nameof(StageRequest.TileHeight)),
-        (10, "overlap", nameof(StageRequest.Overlap)),
-        (11, "padMode", nameof(StageRequest.Pad)),
-        (12, "bucket", nameof(StageRequest.Bucket)),
-        (13, "provider", nameof(StageRequest.Provider)),
-        (14, "precision", nameof(StageRequest.Precision)),
-        (15, "seed", nameof(StageRequest.Seed)),
-        (16, "op", nameof(StageRequest.Op)),
-        (17, "artefact", nameof(StageRequest.Artefact))));
-
-    public static readonly StageRoster Result = new(Seq(
-        (0, "stage", nameof(StageResult.Stage)),
-        (1, "modelCardId", nameof(StageResult.ModelCardId)),
-        (2, "outputs", nameof(StageResult.Outputs)),
-        (3, "providerUsed", nameof(StageResult.ProviderUsed)),
-        (4, "partitionCount", nameof(StageResult.PartitionCount)),
-        (5, "elapsedMs", nameof(StageResult.ElapsedMs)),
-        (6, "goldenDelta", nameof(StageResult.GoldenDelta)),
-        (7, "tilesEmitted", nameof(StageResult.TilesEmitted)),
-        (8, "op", nameof(StageResult.Op)),
-        (9, "artefact", nameof(StageResult.Artefact)),
-        (10, "parityFresh", nameof(StageResult.ParityFresh)),
-        (11, "coverage", nameof(StageResult.Coverage)),
-        (12, "scores", nameof(StageResult.Scores))));
-
-    // Proved ONCE: the static initializer runs these folds when the first consumer touches the roster, and the
-    // relaying root reads the two verdicts beside the two checksums before it moves a byte.
-    public static readonly Fin<Unit> RequestSound = StageRoster.Sound<StageRequest>(Request);
-    public static readonly Fin<Unit> ResultSound = StageRoster.Sound<StageResult>(Result);
-
-    // Slot ordinals and wire names ALONE fold, because that half the producing end reproduces from its own
-    // roster; the Compute column stays a build-time binding. `Sorted` is the writer's OWN published order, so a
-    // re-sorted roster is not a contract change, and the length-framed `String` makes a separator inside a wire
-    // name unable to re-split two rows onto one digest.
-    public static UInt128 Checksum(StageRoster roster) =>
-        ContentHash.Of(roster, static (r, w) => w.Sorted(r.Rows, static row => row.Slot, Comparer<int>.Default,
-            static (row, x) => x.Ordinal(row.Slot).String(row.Wire)));
-}
-```
-
-## [04]-[FAULT_PROJECTION]
+## [03]-[FAULT_PROJECTION]
 
 - Owner: `WireFault` is the local client-edge transport rail; `StatusRail` the CLIENT fold `StatusCode → WireFault`, keyed by numeric `StatusCode`; `Classify` the residual-status projection; `Decode` the detail admission composed off AppHost `FaultWire.Decode`.
 - Cases: every local transport arm derives its numeric identity from `[FaultCase]` against `FaultBand.Wire`, ordinals compacted with the unshipped plane; `Remote` carries the foreign `RemoteFault` opaquely and never reconstructs its source family.
@@ -334,7 +271,7 @@ public static class StageCrossing {
 - Law: recovery crosses through the generated `FaultRecovery` oneof because numeric identity alone cannot determine it; the detail's `domain` + `case` pair is the producing family's ordinal under its owner key and is NEVER a gRPC status code; the message rides `google.rpc.Status`.
 - Packages: Grpc.Core.Api (`RpcException`, `StatusCode`), Rasm.AppHost (project — `FaultWire`, `RemoteFault`, `WireViolation`, `WireBoundary`), Rasm.Contracts (project — `Fault.FaultDetail`), LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm (project)
 - Growth: a new local transport arm is one `[FaultCase]` leaf and one `StatusRail` entry when a status gains distinct semantics; a new malformed-envelope condition is one `WireViolation` case at the AppHost owner.
-- Boundary: the server raises through AppHost `FaultWire.Raise` with one `FaultDetail` in `google.rpc.Status.details`; the client admits exactly one recognized detail as opaque `RemoteFault` on a cause-bearing `WireFault.Remote`. Zero recognized details use transport classification; malformed or multiple recognized details retain the caught RPC error on AppHost's typed `WireBoundary` evidence. In-band conflict slots admit the same compact envelope as response evidence without fabricating a transport cause. Status lookup is keyed by numeric `StatusCode`, never ordinal position.
+- Boundary: the server raises through AppHost `FaultWire.Raise` with one `FaultDetail` in `google.rpc.Status.details`; the client admits exactly one recognized detail as opaque `RemoteFault` on a cause-bearing `WireFault.Remote`. Zero recognized details use transport classification; malformed or multiple recognized details retain the caught RPC error on AppHost's typed `WireBoundary` evidence. In-band conflict slots admit the same compact envelope as response evidence without fabricating a transport cause. Status lookup is keyed by numeric `StatusCode`, never ordinal position. This family is the CLIENT edge alone — the served `ProgressService` leaves its refusals through `FaultWire.Raise` at `Runtime/progress#OBSERVATION_SEAMS`, so no arm here is ever packed onto a trailer.
 
 ```csharp signature
 // Local transport arms derive numeric identity directly from their generated cases; the remote arm retains a
@@ -411,11 +348,11 @@ public abstract partial record WireFault : Fault {
 }
 ```
 
-## [05]-[TS_PROJECTION]
+## [04]-[TS_PROJECTION]
 
-- Law: the browser consumes only its selected generated semantic-package schemas and this page mints no TS interface, alias, or method-shape roster. `artifact.ArtifactService.Fetch` is server-streaming and `Put` client-streaming where an app needs artifact transfer; `StageRoster` never crosses the wire, and `scan.GaussianSplatScan` rides framed bytes with no browser decode forced on every app.
+- Law: the browser consumes only its selected generated semantic-package schemas and this page mints no TS interface, alias, or method-shape roster. `artifact.ArtifactService.Fetch` is server-streaming and `Put` client-streaming where an app needs artifact transfer; `scan.GaussianSplatScan` rides framed bytes with no browser decode forced on every app; the `stage` family is a same-language crossing no browser reads, so it carries no TS consumer at all. `progress.ProgressService.Watch` is the browser's ONE dial into a Compute-served endpoint, bound at `typescript:core/interchange/invoke#PROGRESS_WATCH` over the generated `WatchResponseSchema`.
 
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -13,7 +13,7 @@ This planning corpus widens by scope: a folder owns one package, a branch aggreg
 
 [API_TIERS] — this section owns the two-tier catalogue law; every other surface points here:
 - Catalogues document external distributions and host SDK assemblies alone; a corpus package declares its members on its own design pages.
-- `libs/contracts/` carries one catalogue per emission target and one for the driver tool — rosters census against the descriptor set, no hand member.
+- `libs/contracts/` carries one catalogue per emission target and one for the driver; the descriptor set derives every roster.
 - Cross-folder member use verifies at the owning design page under `docs/laws/topology.md` `[FENCE_SEAM]`.
 - Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
 - Folder `.api/`: carries the Domain tier for package-specific distributions and the Substrate tier for language-branch-wide ones.

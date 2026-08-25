@@ -263,15 +263,15 @@ public sealed partial class PdfImageBytes {
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class PdfImageBudget {
-    public Dimension EncodedBytes { get; }
-    public Dimension Pixels { get; }
+    public Rasm.Numerics.Dimension EncodedBytes { get; }
+    public Rasm.Numerics.Dimension Pixels { get; }
 
     // Both bounds gate an in-process decode of caller-supplied bytes before any PDF page allocates: 16 MiB is the
     // encoded ceiling above which a stamp image is a document asset rather than a mark, and 100 megapixels is the
     // decoded ceiling at which a single 32-bit surface still fits one contiguous managed allocation.
-    public static Dimension EncodedCeiling { get; } = Dimension.Create(value: 16 * 1024 * 1024);
+    public static Rasm.Numerics.Dimension EncodedCeiling { get; } = Rasm.Numerics.Dimension.Create(value: 16 * 1024 * 1024);
 
-    public static Dimension PixelCeiling { get; } = Dimension.Create(value: 100_000_000);
+    public static Rasm.Numerics.Dimension PixelCeiling { get; } = Rasm.Numerics.Dimension.Create(value: 100_000_000);
 
     public static PdfImageBudget Standard { get; } = Create(encodedBytes: EncodedCeiling, pixels: PixelCeiling);
 
@@ -280,12 +280,12 @@ public sealed partial class PdfImageBudget {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref Dimension encodedBytes,
-        ref Dimension pixels) =>
+        ref Rasm.Numerics.Dimension encodedBytes,
+        ref Rasm.Numerics.Dimension pixels) =>
         validationError = Banded(label: nameof(EncodedBytes), value: encodedBytes, ceiling: EncodedCeiling)
             ?? Banded(label: nameof(Pixels), value: pixels, ceiling: PixelCeiling);
 
-    private static ValidationError? Banded(string label, Dimension value, Dimension ceiling) =>
+    private static ValidationError? Banded(string label, Rasm.Numerics.Dimension value, Rasm.Numerics.Dimension ceiling) =>
         value.Value > 0 && value.Value <= ceiling.Value
             ? null
             : new ValidationError(string.Join(" | ", new object?[] {
@@ -467,7 +467,7 @@ public abstract partial record CaptureFrame {
         CaptureDpi DotsPerInch,
         Size2i Extent,
         Option<CapabilitySet<CaptureFeature>> Facade,
-        Option<Dimension> RealtimePasses) : CaptureFrame;
+        Option<Rasm.Numerics.Dimension> RealtimePasses) : CaptureFrame;
 
     // The one default every frameless request inherits is the kernel's PLOT output class, admitted through the
     // capture rail's own output-class arity — a rostered row, never a literal a second consumer could disagree with.
@@ -518,7 +518,7 @@ public abstract partial record CaptureFrame {
         double dpi,
         Size2i pixels,
         Option<CapabilitySet<CaptureFeature>> facade = default,
-        Option<Dimension> realtimePasses = default,
+        Option<Rasm.Numerics.Dimension> realtimePasses = default,
         Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in CaptureDpi.Of(value: dpi, key: op)
@@ -571,7 +571,7 @@ public abstract partial record PageSource {
     public sealed record ViewportCase(ViewportTarget Target) : PageSource;
     // A blank page is an ISSUED SHEET, not a caller pixel pair: the size names its series seat or its custom extent
     // under a standard, and the frame's admitted DPI resolves the host dot extent at mint (D3, D4).
-    public sealed record BlankCase(SheetSize Size, SheetOrientation Orientation, Dimension Count) : PageSource;
+    public sealed record BlankCase(SheetSize Size, SheetOrientation Orientation, Rasm.Numerics.Dimension Count) : PageSource;
 
     internal Fin<PageSource> Admit(Op op) => Switch(
         op,
@@ -715,7 +715,7 @@ public abstract partial record PageSource {
 public abstract partial record PublishTarget {
     private PublishTarget() { }
     public sealed record PdfCase(DocumentPath Target, PdfPolicy Policy, OutputPolicy Output) : PublishTarget;
-    public sealed record PrinterCase(string PrinterName, Dimension Copies) : PublishTarget;
+    public sealed record PrinterCase(string PrinterName, Rasm.Numerics.Dimension Copies) : PublishTarget;
     public sealed record RasterCase(DocumentPath Target, RasterPolicy Policy, OutputPolicy Output) : PublishTarget;
     public sealed record SvgCase(DocumentPath Target, OutputPolicy Output) : PublishTarget;
 
@@ -725,7 +725,7 @@ public abstract partial record PublishTarget {
             from _shape in guard(target.Target != default && target.Output is not null, key.InvalidInput()).ToFin()
             from _policy in key.Need(target.Policy).Bind(policy => policy.Admit(op: key))
             select (PublishTarget)target,
-        // `Dimension` bands its factory at a closed floor of one, but the value object admits `default(Dimension)`
+        // `Dimension` bands its factory at a closed floor of one, but the value object admits `default(Rasm.Numerics.Dimension)`
         // past that floor, so the copy count is re-gated here rather than trusted from the struct's shape alone.
         printerCase: static (key, target) => guard(
             !string.IsNullOrWhiteSpace(value: target.PrinterName) && target.Copies.Value >= 1,
@@ -874,7 +874,7 @@ public sealed partial class PublishBodyKind : ICapability<PublishBodyKind> {
 public abstract partial record PublishBody : IFactBody<PublishBodyKind> {
     private PublishBody() { }
     public sealed record ArtifactCase(StampScope Scope, DocumentPath Artifact, UInt128 ContentKey) : PublishBody;
-    public sealed record SpoolCase(StampScope Scope, Dimension Copies) : PublishBody;
+    public sealed record SpoolCase(StampScope Scope, Rasm.Numerics.Dimension Copies) : PublishBody;
     // Host-surface notes ride the SAME stream: a receipt carrying two parallel sequences made a reader fold twice
     // and let a note land under no delivery leg at all.
     public sealed record NoteCase(ExchangeEvidence Value) : PublishBody;
@@ -920,7 +920,7 @@ public static class PublishFacts {
                 body: new PublishBody.ArtifactCase(Scope: scope, Artifact: artifact, ContentKey: key),
                 key: op);
 
-        public static Fin<PublishReceipt> Spooled(Seq<StampScope> scopes, Dimension copies, Op op) =>
+        public static Fin<PublishReceipt> Spooled(Seq<StampScope> scopes, Rasm.Numerics.Dimension copies, Op op) =>
             PublishReceipt.All(
                 slot: PublishSlot.Printed,
                 bodies: scopes.Map(scope => (PublishBody)new PublishBody.SpoolCase(Scope: scope, Copies: copies)),
@@ -955,7 +955,7 @@ public abstract partial record Landing {
     private Landing() { }
     public sealed record Raster(DocumentPath Target, RasterPolicy Policy, OutputPolicy Output) : Landing;
     public sealed record Vector(DocumentPath Target, OutputPolicy Output) : Landing;
-    public sealed record Printer(string PrinterName, Dimension Copies) : Landing;
+    public sealed record Printer(string PrinterName, Rasm.Numerics.Dimension Copies) : Landing;
     public sealed record Save(DocumentPath Target, OutputPolicy Output, FileCodec Codec) : Landing;
 }
 

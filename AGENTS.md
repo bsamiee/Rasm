@@ -20,11 +20,11 @@ Rows below bind the session and hold no other owner; every planning-corpus rule 
 
 ## [03]-[ROUTED]
 
-| [INDEX] | [QUESTION]                                                            | [OWNER]                                    |
-| :-----: | :-------------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | Design-page grammar, fence completeness, index-doc contracts          | `libs/.planning/README.md`                 |
-|  [02]   | Package independence, strata direction, the admission ladder          | `libs/.planning/ARCHITECTURE.md`           |
+| [INDEX] | [QUESTION]                                                             | [OWNER]                                        |
+| :-----: | :--------------------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | Design-page grammar, fence completeness, index-doc contracts           | `libs/.planning/README.md`                     |
+|  [02]   | Package independence, strata direction, the admission ladder           | `libs/.planning/ARCHITECTURE.md`               |
 |  [03]   | Manifest admission and its README, `.api/`, and `.csproj` counterparts | `docs/laws/topology.md` `[MANIFEST_ADMISSION]` |
-|  [04]   | Generated-output routing through owned stores                         | root `README.md` `[OUTPUT_ROUTING]`        |
-|  [05]   | Density, polymorphism, parameterization, and composition law          | `CLAUDE.md` `[02]-[IMPLEMENTATION_STANDARDS]` |
-|  [06]   | Formatter, gate, and CLI invocation shape                             | `CLAUDE.md` `[CLI_ESTATE]` + `[LANE_GATES]` |
+|  [04]   | Generated-output routing through owned stores                          | root `README.md` `[OUTPUT_ROUTING]`            |
+|  [05]   | Density, polymorphism, parameterization, and composition law           | `CLAUDE.md` `[02]-[IMPLEMENTATION_STANDARDS]`  |
+|  [06]   | Formatter, gate, and CLI invocation shape                              | `CLAUDE.md` `[CLI_ESTATE]` + `[LANE_GATES]`    |

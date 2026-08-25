@@ -15,7 +15,7 @@ One fold body serves all three budgets — a seeded held-state read, an in-memor
 ## [02]-[LANE_SPEC]
 
 - Owner: `Lane.Spec` — one `Fold.Plan` bound to one keyed relation under a `Live.Band`, carrying the state codec, stamp projection, event family, and batch engine; `Lane.at` realizes the per-cell `Fold.AsOf` coordinate from the relation's own position columns, and `Lane.Edit.fold` decodes each foreign `EntityEditWire` document once before folding content-addressed edits under the graph's redaction manifest.
-- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.decode`, `Wire.ElementGraph`, `Wire.EntityEdit`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/evolve.md` (`Payload.Column`, `Payload.json`); `read/query.md` (`Query.Relation`); `read/live.md` (`Live.Keys`).
+- Packages: `effect` (`Array`, `HashMap`, `HashSet`, `Match`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema.findOne`); `@rasm/core` (`Clock.Hlc`, `Fault.Class.family`, `Fault.Class.row`, `Fold.Plan`, `Format.Patch`, `Wire.decode`, `Wire.ElementGraph`, `Wire.EntityEdit`); `journal/append.md` (`Journal.Event`, `Journal.Sequence`); `journal/generation.md` (`Payload.Column`, `Payload.json`); `read/query.md` (`Query.Relation`); `read/live.md` (`Live.Keys`).
 - Entry: an owning lane declares one `Lane.Spec` beside its relation and hands it to `Lane.of`, which settles the coordinate read and the inline slot together.
 - Law: `Lane.Spec.name` mints through `Live.scope` at the composition, never as a bare literal — the band carries its scope discriminant by construction, so a lane declared under two scopes wakes apart and no spec author can spell an unqualified band.
 - Law: every projection row carries its own position — `sequence`, `stamp_physical`, and `stamp_logical` sit on the row, so `Fold.AsOf` reads what a caller already fetched and a staleness question costs no second relation.
@@ -33,7 +33,7 @@ import { Clock, Fault, Fold, Format, Wire } from "@rasm/core"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal } from "../journal/append.ts"
-import { Payload } from "../journal/evolve.ts"
+import { Payload } from "../journal/generation.ts"
 import { Batch } from "./batch.ts"
 import { Live } from "./live.ts"
 import { Query } from "./query.ts"
@@ -339,7 +339,7 @@ import { BigInt, Function, Layer, Metric, Option, type ParseResult, Request, Sch
 import { Machine, Reactivity } from "@effect/experimental"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import { Convention, Fault, Identity } from "@rasm/core"
-import { Payload } from "../journal/evolve.ts"
+import { Payload } from "../journal/generation.ts"
 
 declare namespace Lane {
   type Mark = _Mark
@@ -603,7 +603,7 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
 - Law: every scheduled statement carries the maintenance-plane posture — `_jobs` composes `Tenancy.sweepText` around each rendering, because a job runs in its own unpinned session and the FORCE policy answers it zero rows, a sweep that deletes nothing and reports success; the posture is the tenancy owner's one word, never text this plane re-spells, and the rebuild's drain composes the same posture as `Tenancy.sweep` because it re-folds the spine across every tenant.
 - Law: rebuilds serialize on the LANE, never on the relation — a session advisory lock keyed by lane name admits one rebuild across replicas, and session close releases it regardless, so an unlock miss is not evidence; a profile carrying no advisory-lock verb rests on its own single-writer posture instead, which is the honest degradation this pair states rather than a lock it cannot take.
 - Law: the swap is one transaction and the invalidation follows it — rename, rename, and drop commit together and the lane's whole band invalidates afterward, so no reader observes a half-swapped relation and every reader re-reads the fresh one.
-- Law: the shadow inherits what its dialect can copy — the pg arm carries constraints, defaults, and indexes through `INCLUDING ALL`, and the neutral arm copies columns alone, so a rebuilt relation off the spine re-earns its indexes from the lane's own ensure roster.
+- Law: the shadow mints from the lane's OWN ensure text under the shadow name, never a structural copy of the live relation — `AS SELECT … WHERE 0` keeps affinity names alone and drops the key, every `NOT NULL`, and every default, and `LIKE … INCLUDING ALL` renames what it copies and carries no policy — and a leftover shadow drops before the mint, because a projection holds zero authority and a rebuild starts from nothing; the ensure's `IF NOT EXISTS` is inert behind that drop.
 - Growth: a maintenance posture the database itself owns (a materialized view, an incremental-view-maintenance extension) is one row beside these, sharing the lane spec and the swap.
 - Boundary: the drain function is the caller's — this owner holds the lock, the shadow, the swap, and the invalidation, never the fold that fills the shadow.
 
@@ -624,13 +624,13 @@ const _SPECS = {
   quarantine: "45 4 * * *",
 } as const satisfies Record<Retain.Groomed, string>
 
-// The dialect is the INSTALLING plane's fact, threaded rather than assumed: the roster renders through the retention
+// Dialect is the INSTALLING plane's fact, threaded rather than assumed: the roster renders through the retention
 // owner's own age table, whose two arms spell different age predicates, so a job installed on an embedded profile that
 // received the spine's spelling dies on its first run. This plane holds no client at render time and elects nothing.
 const _jobs = (dialect: Retain.Dialect): ReadonlyArray<{ readonly name: string; readonly spec: string; readonly statement: string }> =>
   Array.flatMap(Record.toEntries(_SPECS), ([key, spec]) =>
     Array.map(Retain.groomText(key, dialect), (statement, index) =>
-      // The posture rides every job unit: a scheduled session is unpinned, and the FORCE policy answers an unpinned
+      // Posture rides every job unit: a scheduled session is unpinned, and the FORCE policy answers an unpinned
       // DELETE zero rows — success over nothing, forever — so the plane word prefixes the statement session-locally.
       ({ name: `groom_${key}_${index}`, spec, statement: Tenancy.sweepText(statement) })))
 
@@ -655,11 +655,16 @@ const _rebuild = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>,
         )
         const shadow = _shadowOf(`${spec.relation.table}_shadow`)
         const retired = _shadowOf(`${spec.relation.table}_retired`)
+        // Minting spells the lane's own relation under the shadow name: a structural copy of the live one carries
+        // neither its key nor its defaults on sqlite and renames what it copies on pg. Leftover shadows drop first,
+        // because a projection holds zero authority and a rebuild starts from nothing.
+        const minted = _ddl({ ...spec.relation, table: shadow })
+        yield* sql`DROP TABLE IF EXISTS ${sql(shadow)}`
         yield* sql.onDialectOrElse({
-          orElse: () => sql`CREATE TABLE IF NOT EXISTS ${sql(shadow)} AS SELECT * FROM ${sql(spec.relation.table)} WHERE 0`,
-          pg: () => sql`CREATE TABLE IF NOT EXISTS ${sql(shadow)} (LIKE ${sql(spec.relation.table)} INCLUDING ALL)`,
+          orElse: () => sql.unsafe(minted.sqlite),
+          pg: () => sql.unsafe(minted.pg),
         })
-        // The drain re-folds the spine across every tenant, so it runs under the maintenance-plane transaction —
+        // Draining re-folds the spine across every tenant, so it runs under the maintenance-plane transaction —
         // which is also the consistent snapshot a shadow fill wants; the swap below stays its own transaction.
         const folded = yield* Tenancy.sweep(sql)(drain(shadow))
         yield* sql.withTransaction(

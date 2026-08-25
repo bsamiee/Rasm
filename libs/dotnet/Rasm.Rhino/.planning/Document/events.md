@@ -1046,7 +1046,7 @@ internal sealed class ReceiptJournal {
     internal ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
         Watch = watch;
         Policy = policy;
-        ring = new Ring<Fact<StreamSlot, StreamBody>>(cap: Dimension.Create(value: policy.ReceiptCapacity));
+        ring = new Ring<Fact<StreamSlot, StreamBody>>(cap: Rasm.Numerics.Dimension.Create(value: policy.ReceiptCapacity));
     }
 
     internal WatchKey Watch { get; }
@@ -1238,7 +1238,7 @@ internal sealed class Emission {
             deferred: static (state, arm) => state.Op.Need(arm.Sink)
                 // The pump's loss callback posts the WATCH's own rows, so the generic pump stays journal-free.
                 .Bind(_ => IdlePump<EventOrigin>.Open(
-                    capacity: Dimension.Create(value: state.Journal.Policy.DeferredCapacity),
+                    capacity: Rasm.Numerics.Dimension.Create(value: state.Journal.Policy.DeferredCapacity),
                     lost: (loss, origin) => ignore(state.Journal.Post(
                         slot: loss == PumpLoss.Overflow ? StreamSlot.DeferredOverflow : StreamSlot.Cancelled,
                         body: new StreamBody.Dropped(Origin: origin))),

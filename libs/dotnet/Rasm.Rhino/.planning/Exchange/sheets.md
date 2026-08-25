@@ -956,23 +956,23 @@ public sealed partial class GroupPolicy {
 
 [ComplexValueObject]
 public sealed partial record SheetProgramBudget {
-    public Dimension Nodes { get; }
-    public Dimension Depth { get; }
+    public Rasm.Numerics.Dimension Nodes { get; }
+    public Rasm.Numerics.Dimension Depth { get; }
 
     // Sheet programs address pages and details, both bounded by what a document holds and a reader reviews:
     // 4096 charged nodes covers every page times its details in the largest hand-authored set, and 64 levels of
     // nesting exceeds any composed batch while keeping the charge fold inside the runtime stack it recurses on.
-    public static Dimension NodeCeiling { get; } = Dimension.Create(value: 4096);
+    public static Rasm.Numerics.Dimension NodeCeiling { get; } = Rasm.Numerics.Dimension.Create(value: 4096);
 
-    public static Dimension DepthCeiling { get; } = Dimension.Create(value: 64);
+    public static Rasm.Numerics.Dimension DepthCeiling { get; } = Rasm.Numerics.Dimension.Create(value: 64);
 
     public static SheetProgramBudget Standard { get; } = Create(nodes: NodeCeiling, depth: DepthCeiling);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref Dimension nodes,
-        ref Dimension depth) =>
+        ref Rasm.Numerics.Dimension nodes,
+        ref Rasm.Numerics.Dimension depth) =>
         validationError = nodes.Value <= 0 || depth.Value <= 0
             ? new ValidationError("Sheet program budget requires positive node and depth bounds.")
             : null;
@@ -1122,7 +1122,7 @@ public abstract partial record SheetRequest {
 // A sheet is an ISSUED PLOT POLICY, not a loose extent: `PlotPolicy` binds size, orientation, frame, nominal scale,
 // line group, plot-style table, posture, resolution, layer emission, and PDF conformance into one admitted value,
 // and `Volume` is the ISO 19650 container field that names the set this sheet belongs to (D1, D2, D26).
-public sealed record SheetSpec(string Name, Option<PlotPolicy> Plot, Option<SheetNumber> Volume, Option<Dimension> Ordinal);
+public sealed record SheetSpec(string Name, Option<PlotPolicy> Plot, Option<SheetNumber> Volume, Option<Rasm.Numerics.Dimension> Ordinal);
 
 internal sealed record NumberSeat(
     RhinoPageView Page,
@@ -1136,7 +1136,7 @@ internal sealed record NumberSeat(
 // The rule names the STANDARD its set is issued under and the field values that standard holds fixed across the
 // set; the numbering position is that standard's LAST sequenced field, so the ordinal advances the seat the grammar
 // already reserves for it and every rendered name is `SheetNumber.Text` (D22, D23).
-public sealed record NumberRule(NamingStandard Standard, Seq<(NamingField Field, string Value)> Fields, Dimension Start) {
+public sealed record NumberRule(NamingStandard Standard, Seq<(NamingField Field, string Value)> Fields, Rasm.Numerics.Dimension Start) {
     // Every seat parks on a name no authored page carries while the cascading rebinds settle; the prefix is this
     // page's own reservation, and the viewport id after it keeps two concurrent seats off one parking name.
     public static string TemporaryPrefix { get; } = "__rasm_sheet_";
@@ -1427,7 +1427,7 @@ public static class Sheets {
             ? (Width: extent.Height, Height: extent.Width)
             : extent;
 
-    private static Fin<int> PageNumber(RhinoDoc document, Option<Guid> owner, Dimension ordinal, Op op) =>
+    private static Fin<int> PageNumber(RhinoDoc document, Option<Guid> owner, Rasm.Numerics.Dimension ordinal, Op op) =>
         from _positive in guard(ordinal.Value > 0, op.InvalidInput()).ToFin()
         let number = ordinal.Value - 1
         from _available in guard(

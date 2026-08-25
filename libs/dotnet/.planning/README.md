@@ -101,7 +101,7 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `Grpc.Core.Api` — Method descriptors, marshallers, and the per-call server context every hosted service binds.
 - `Grpc.Net.Client` — Outbound gRPC channels with retry and hedging.
 - `Grpc.StatusProto` — `google.rpc.Status` carriage on the status trailer: `ToRpcException` at the producer, `GetRpcStatus` at the client.
-- `MessagePack` — Explicit primitive op-log envelope and branch-interior photo-to-PBR stage crossing; generated protobuf fills its raw CRDT slot.
+- `MessagePack` — Explicit primitive op-log envelope and snapshot codec; generated protobuf fills its raw CRDT slot.
 - `MessagePackAnalyzer` — Build-only source generator and `MsgPack###` contract gate under `PrivateAssets=all`.
 - `NodaTime.Serialization.Protobuf` — NodaTime instant and duration mapping onto the protobuf well-known types.
 - `Celly.Protovalidate` — Runtime evaluator of the `buf.validate` rules the emission embeds; one concurrent `Validator` at each branch admission.

@@ -6,6 +6,7 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
         <ProjectReference Include="../../contracts/Rasm.Contracts.csproj" />
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
     </ItemGroup>
@@ -148,6 +149,7 @@
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Celly.Protovalidate" />
         <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="Grpc.Core.Api" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
     </ItemGroup>

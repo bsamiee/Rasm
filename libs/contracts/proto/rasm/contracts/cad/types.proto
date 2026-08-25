@@ -3,8 +3,11 @@ syntax = "proto3";
 package rasm.contracts.cad;
 
 import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
 import "rasm/contracts/artifact/artifact.proto";
 import "rasm/contracts/spatial/vector.proto";
+
+// --- [EXCHANGE] -------------------------------------------------------------------------
 
 enum StepProtocol {
   STEP_PROTOCOL_UNSPECIFIED = 0;
@@ -12,6 +15,33 @@ enum StepProtocol {
   STEP_PROTOCOL_AP214 = 2;
   STEP_PROTOCOL_AP242 = 3;
 }
+
+// The neutral format an Execute reply seals its body into; STEP emits AP242 and IGES emits the manifold B-rep entity form.
+enum Emission {
+  EMISSION_UNSPECIFIED = 0;
+  EMISSION_STEP = 1;
+  EMISSION_IGES = 2;
+}
+
+// One sealed exact body by reference. The format arm names what the artifact octets declare: STEP carries its file-local
+// application protocol, IGES declares no application protocol and carries presence alone.
+message SealedBody {
+  reserved 1;
+  reserved "content";
+
+  oneof format {
+    option (buf.validate.oneof).required = true;
+
+    StepProtocol step = 2 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+    google.protobuf.Empty iges = 4;
+  }
+  rasm.contracts.artifact.ArtifactRef artifact = 3 [(buf.validate.field).required = true];
+}
+
+// --- [PROFILE] --------------------------------------------------------------------------
 
 message Point2 {
   reserved "x", "y";
@@ -77,16 +107,74 @@ message Profile {
   repeated ProfileRegion regions = 1 [(buf.validate.field).repeated.min_items = 1];
 }
 
-message SealedStep {
-  reserved 1;
-  reserved "content";
+// --- [SELECTION] ------------------------------------------------------------------------
 
-  StepProtocol protocol = 2 [(buf.validate.field).enum = {
+// Zero-based TopExp order inside the exact decoded source artifact. The provider proves every sealed artifact decodes
+// in one fixed order, so an ordinal is durable per artifact digest and the operation names the grain it indexes.
+message Indices {
+  repeated uint32 values = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    unique: true
+  }];
+}
+
+message Selection {
+  oneof selection {
+    option (buf.validate.oneof).required = true;
+
+    google.protobuf.Empty all = 1;
+    Indices indices = 2;
+  }
+}
+
+// --- [CORRESPONDENCE] -------------------------------------------------------------------
+
+// The sub-shape kinds a finished operator answers history for; shells and wires never answer and carry no member.
+enum Grain {
+  GRAIN_UNSPECIFIED = 0;
+  GRAIN_VERTEX = 1;
+  GRAIN_EDGE = 2;
+  GRAIN_FACE = 3;
+  GRAIN_SOLID = 4;
+}
+
+enum Relation {
+  RELATION_UNSPECIFIED = 0;
+  RELATION_DELETED = 1;
+  RELATION_GENERATED = 2;
+  RELATION_MODIFIED = 3;
+  RELATION_KEPT = 4;
+}
+
+// One image ordinal in the SEALED artifact's decoded order. Absent where the reseal could not name the image uniquely.
+message Image {
+  Grain grain = 1 [(buf.validate.field).enum = {
     defined_only: true
     not_in: [0]
   }];
-  rasm.contracts.artifact.ArtifactRef artifact = 3 [(buf.validate.field).required = true];
+  optional uint32 ordinal = 2;
 }
+
+message Trace {
+  Grain grain = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  uint32 operand = 2;
+  uint32 source = 3;
+  Relation relation = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  repeated Image images = 5;
+}
+
+message Correspondence {
+  repeated Trace traces = 1;
+  repeated Image section = 2;
+}
+
+// --- [MEASUREMENT] ----------------------------------------------------------------------
 
 message TopologyCensus {
   uint64 vertices = 1;
@@ -95,9 +183,38 @@ message TopologyCensus {
   uint64 solids = 4;
 }
 
-message BooleanProvenance {
-  bool modified = 1;
-  bool generated = 2;
+message Principal {
+  repeated double moments_m5 = 1 [(buf.validate.field).repeated = {
+    min_items: 3
+    max_items: 3
+    items: {
+      double: {finite: true}
+    }
+  }];
+  repeated rasm.contracts.spatial.UnitDirection3 axes = 2 [(buf.validate.field).repeated = {
+    min_items: 3
+    max_items: 3
+  }];
+  repeated double gyration_m = 3 [(buf.validate.field).repeated = {
+    min_items: 3
+    max_items: 3
+    items: {
+      double: {finite: true}
+    }
+  }];
+  bool symmetry_axis = 4;
+  bool symmetry_point = 5;
+}
+
+// Centroidal inertia at unit density in metres to the fifth; the principal frame diagonalizes it.
+message Inertia {
+  double ixx_m5 = 1 [(buf.validate.field).double.finite = true];
+  double iyy_m5 = 2 [(buf.validate.field).double.finite = true];
+  double izz_m5 = 3 [(buf.validate.field).double.finite = true];
+  double ixy_m5 = 4 [(buf.validate.field).double.finite = true];
+  double ixz_m5 = 5 [(buf.validate.field).double.finite = true];
+  double iyz_m5 = 6 [(buf.validate.field).double.finite = true];
+  Principal principal = 7 [(buf.validate.field).required = true];
 }
 
 message BrepKernelReceipt {
@@ -106,9 +223,14 @@ message BrepKernelReceipt {
     message: "volume delta is present exactly for watertight tessellations"
     expression: "has(this.volume_delta_m3) == (has(this.watertight) && this.watertight)"
   };
+  option (buf.validate.message).cel = {
+    id: "brep_kernel_receipt.inertia_presence"
+    message: "inertia is present exactly where the measured body carries a solid"
+    expression: "has(this.inertia) == (this.topology.solids > uint(0))"
+  };
 
-  reserved 1;
-  reserved "valid", "centroid_m";
+  reserved 1, 8;
+  reserved "valid", "centroid_m", "boolean_provenance";
   double volume_m3 = 2 [(buf.validate.field).double = {
     finite: true
     gte: 0
@@ -124,7 +246,58 @@ message BrepKernelReceipt {
     finite: true
     gte: 0
   }];
-  BooleanProvenance boolean_provenance = 8;
+  Inertia inertia = 9;
+}
+
+enum HealStepKind {
+  HEAL_STEP_KIND_UNSPECIFIED = 0;
+  HEAL_STEP_KIND_SEW = 1;
+  HEAL_STEP_KIND_UNIFY = 2;
+  HEAL_STEP_KIND_FIX = 3;
+  HEAL_STEP_KIND_SMALL_EDGES = 4;
+}
+
+message HealStepReceipt {
+  HealStepKind kind = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  bool changed = 2;
+}
+
+// What healing moved: the census, the maximum tolerance, and validity before and after, beside one row per step run.
+message HealingReceipt {
+  TopologyCensus before = 1 [(buf.validate.field).required = true];
+  TopologyCensus after = 2 [(buf.validate.field).required = true];
+  double tolerance_before_m = 3 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  double tolerance_after_m = 4 [(buf.validate.field).double = {
+    finite: true
+    gte: 0
+  }];
+  bool valid_before = 5;
+  bool valid_after = 6;
+  repeated HealStepReceipt steps = 7 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// --- [TESSELLATION] ---------------------------------------------------------------------
+
+// One emitted placement. `node` is the exact glTF node name the emitter wrote, so a consumer joins on the container's
+// own key; `label` is the XCAF entry of the instance, `product` the part name, `instance` the instance name where the
+// source spelled one, and `layers` the channel glTF drops and this roster therefore carries.
+message PartIdentity {
+  string node = 1 [(buf.validate.field).string.min_len = 1];
+  string label = 2 [(buf.validate.field).string.min_len = 1];
+  optional string product = 3 [(buf.validate.field).string.min_len = 1];
+  optional string instance = 4 [(buf.validate.field).string.min_len = 1];
+  repeated string layers = 5 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
 }
 
 message TessellateResponse {
@@ -135,4 +308,5 @@ message TessellateResponse {
   uint64 triangle_count = 3;
   BrepKernelReceipt kernel = 4 [(buf.validate.field).required = true];
   rasm.contracts.artifact.ArtifactRef artifact = 6 [(buf.validate.field).required = true];
+  repeated PartIdentity parts = 7 [(buf.validate.field).repeated.min_items = 1];
 }

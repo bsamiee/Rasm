@@ -1,19 +1,19 @@
 # [MATERIALS_INTERCHANGE]
 
-This page owns the generated appearance egress and the MaterialX node-graph interchange. `AppearanceEgress.Project` mints the full `Material`; `AppearanceEgress.Set` mints `Set.baked`; `AppearanceEgress.Ibl` mints `Set.environment.ibl`. The generated `appearance` siblings own product identity and storage metadata, while `AppearanceWireMap` keeps the C# material transcription complete. MaterialX remains a separate graph interchange over the admitted material graph, and the stage crossing remains branch-interior MessagePack because no peer runtime decodes it.
+This page owns the generated appearance egress and the MaterialX node-graph interchange. `AppearanceEgress.Project` mints the full `Material`; `AppearanceEgress.Set` mints `Set.baked`; `AppearanceEgress.Ibl` mints `Set.environment.ibl`. The generated `appearance` siblings own product identity and storage metadata, while `AppearanceWireMap` keeps the C# material transcription complete. MaterialX remains a separate graph interchange over the admitted material graph, and the photo-to-PBR stage crossing rides the generated `Rasm.Contracts.Stage` family through the `StageWire` pair.
 
 ## [01]-[INDEX]
 
 - [02]-[MATERIAL_WIRE]: the generated `Rasm.Contracts.Appearance` family as the wire, `AppearanceEgress` lowering a library row to the seam `AppearanceSummary`, minting `Material`, and descriptor-admitting the completed `Set`/`Ibl` behind the appearance key, `AppearanceWireMap` the ONE `[Mapper]` under the RMG completeness gate, and `WireVocabulary` the type-init-proved bridges onto the generated enums.
 - [03]-[MATERIALX_DOCUMENT]: `MtlxDocument`/`MtlxNode` shape the MaterialX 1.39 node graph, `NodeCategory` carries the per-category typed port, and `Mtlx` projects `AppearanceNode` over per-op category rows, source-typed edge polarities, probed constants, the texture-source binding, and the BAKED-FILENAME binding filling each image node's `file` slot from the set's own egress leaf, its `.mtlx` serialize/admit fold railing every unprojectable node.
-- [04]-[STAGE_CROSSING]: the branch-interior photo-to-PBR crossing — `StageRequestRow`/`StageResultRow` and their input, output, and score rows, the `StageCodec` MessagePack leg lawful because no peer decodes it, the `StageRoster` derived from the rows' own `[Key(n)]` attributes, and the `Checksum` fold the relaying root compares against Compute's.
+- [04]-[STAGE_CROSSING]: the photo-to-PBR crossing over the generated `Rasm.Contracts.Stage` family — `StageWire.Request` transcribing a planned `StageRequest` onto `StageRequestWire` through the `AppearanceWireMap` partial, `StageWire.Admit` lifting a returned `StageResultWire` onto the Materials rosters and through the `neural#STAGE_PLAN` registry gate, and the corpus `stage-crossing` case naming both fences.
 
 ## [02]-[MATERIAL_WIRE]
 
 - Owner: the generated `Rasm.Contracts.Appearance` family — `Material`, `Set`, and their appearance payloads — is the appearance wire; `Rasm.Contracts.Artifact.ArtifactRef` owns stored payload identity and extent inside every `PlaneRef`. `AppearanceEgress` owns the presence-sensitive material, provenance, set, and IBL projections; `AppearanceWireMap` owns reader-free transcriptions; `WireVocabulary` and `LicenceVocabulary` own enum admission, while the app spine's neutral `WireAdmission` owns the descriptor verdict.
 - Entry: `public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key)` lowers a library row to the SEAM `AppearanceSummary` through the seam-owned `AppearanceSummary.Of` factory — the neutral PBR scalars with the `AppearanceKey` the factory mints (the kernel seed-zero `XxHash128` over the canonical PBR bytes, the ONE hasher) on the factory's own `Fin` rail, since it gates every channel to the unit range and takes the `Op` key rather than a tolerance. It is the CONTRACTED entry `Projection/component#COMPONENT_SUBGRAPH` `ComponentSubgraph.Capture` composes and the SAME factory `Rasm.Bim` `Semantics/appearance#APPEARANCE_PROJECTION` composes; the channel triple crosses as the landed Element `[ComplexValueObject]` `AppearanceVector.Create(...)`, whose accumulated slot gate names every offending channel at once.
 - Entry: `AppearanceEgress.Project` mints the full OpenPBR material; `Set` projects an admitted baked surface into the generated `Set.baked` arm; `AppearanceEgress.Ibl` projects the resolved dome into `Set.environment.ibl`. Each completed document crosses `WireAdmission.Admit` once after its product is final.
-- Packages: Rasm.Contracts (project — the generated `rasm.contracts.appearance` messages), Rasm.AppHost (project — neutral `WireAdmission` over the one descriptor-root evaluator), Google.Protobuf (`ByteString`/`RepeatedField<T>`/`WellKnownTypes.Duration.FromTimeSpan`), `Rasm` (`ArtifactContent` the SHA-256-plus-extent coordinate, `ContentHash.Of` the independent stage checksum, `Op`), Riok.Mapperly (composed at rung 3 — ONE `[Mapper] static partial class` owning the whole appearance seam, every method `static partial`, per-TYPE `[UserMapping]` converters reached by `[MapProperty(Use = …)]`, the segment overload for nested generated paths, `[MapValue]` for the constant column, `[MapDerivedType]` refused with its reason stated, and `[assembly: MapperDefaults]` carrying the conversion posture; `PrivateAssets="all"`), Wacton.Unicolour, Rasm.Element (the SEAM `MaterialId`, `AppearanceVector`, `AppearanceSummary`, `ContentAddress`), `Rasm.Materials.Raster` (composed — `TextureSet`/`UdimSheet`/`TextureChannel`/`ChannelPack`/`ChannelPackPlane`/`EgressSlot`/`EgressVariant`/`TexturePyramid`/`PlaneFormat`/`PlaneTransfer`/`AlphaMode`/`MipPolicy`/`NormalConvention`/`LayerLaw`/`UdimTile`/`RasterFormat`/`BlockFormat`/`KtxPayload`/`PressReceipt`), `environment#ENVIRONMENT_LIGHT` (composed — `EnvironmentLight`/`EnvironmentBlobs`/`IblProducts`), `neural#MODEL_REGISTRY` (composed — `LicenseClass`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `Lazy<T>`).
+- Packages: Rasm.Contracts (project — the generated `rasm.contracts.appearance` messages), Rasm.AppHost (project — neutral `WireAdmission` over the one descriptor-root evaluator), Google.Protobuf (`ByteString`/`RepeatedField<T>`/`WellKnownTypes.Duration.FromTimeSpan`), `Rasm` (`ArtifactContent` the SHA-256-plus-extent coordinate, `ContentHash.Wire`/`ContentHash.Admit` the sixteen-byte content-key projection and its inverse, `Op`), Riok.Mapperly (composed at rung 3 — ONE `[Mapper] static partial class` owning the whole appearance seam, every method `static partial`, per-TYPE `[UserMapping]` converters reached by `[MapProperty(Use = …)]`, the segment overload for nested generated paths, `[MapValue]` for the constant column, `[MapDerivedType]` refused with its reason stated, and `[assembly: MapperDefaults]` carrying the conversion posture; `PrivateAssets="all"`), Wacton.Unicolour, Rasm.Element (the SEAM `MaterialId`, `AppearanceVector`, `AppearanceSummary`, `ContentAddress`), `Rasm.Materials.Raster` (composed — `TextureSet`/`UdimSheet`/`TextureChannel`/`ChannelPack`/`ChannelPackPlane`/`EgressSlot`/`EgressVariant`/`TexturePyramid`/`PlaneFormat`/`PlaneTransfer`/`AlphaMode`/`MipPolicy`/`NormalConvention`/`LayerLaw`/`UdimTile`/`RasterFormat`/`BlockFormat`/`KtxPayload`/`PressReceipt`), `environment#ENVIRONMENT_LIGHT` (composed — `EnvironmentLight`/`EnvironmentBlobs`/`IblProducts`), `neural#MODEL_REGISTRY` (composed — `LicenseClass`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`FrozenDictionary`, `Lazy<T>`).
 - Growth: a new appearance document is one message plus one `AppearanceEgress` fold; a new OpenPBR parameter lands beside its `OpenPbrSurface` column and breaks the Mapperly completeness gate until mapped. A new capture result shape is one `CaptureAssessment` and protobuf assessment case. Generated peers move through `assay contracts generate`, never a hand-maintained mirror.
 - Law: the generated message IS the wire vocabulary and C# is the baked/material producer. The `appearance` sibling set — shared vocabulary, environment products, set document, and material model — is the frozen corpus shape; peers consume generated bindings and keep no mirror.
 - Law: every closed vocabulary crosses as its GENERATED ENUM through ONE `WireVocabulary` bridge per roster (`LicenceVocabulary` for the one frontier roster a Raster page cannot name) — derived by parsing each row's own key against the enum's `OriginalName` spelling, so no hand row table exists to drift — and the derivation is PROVED at type init: a `[SmartEnum]` row with no enum member, or an enum value of zero, throws before the first egress. `RasterFormat`→`Container` is the one PARTIAL bridge (a non-wire container such as `jpeg` has no enum row) and answers on the `Fin` rail at the egress that asks, never a total map with a fabricated arm.
@@ -35,13 +35,11 @@ using System.Buffers;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Reflection;
 using Google.Protobuf;
 using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
-using MessagePack;
-using MessagePack.Resolvers;
+using NodaTime.Serialization.Protobuf;
 using Rasm.AppHost.Runtime;
 using Rasm.Domain;
 using Rasm.Element.Composition;
@@ -57,7 +55,6 @@ using Rasm.Materials.Raster;
 using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
-using Thinktecture.Formatters;
 using Wacton.Unicolour;
 using static LanguageExt.Prelude;
 // The generated namespace is never imported bare: `AlphaMode`, `MipPolicy`, `NormalConvention`, `PlaneFormat`,
@@ -65,6 +62,26 @@ using static LanguageExt.Prelude;
 // the alias one qualified hop from its domain counterpart — exactly the boundary the mapper crosses.
 using Wire = Rasm.Contracts.Appearance;
 using Artifact = Rasm.Contracts.Artifact;
+// The `rasm.contracts.stage` family serves [04]. Its MESSAGES already carry the `Wire` suffix in the proto and
+// alias to themselves; its nine ENUMS each spell a co-resident Materials roster (`PbrStage`, `LicenseClass`,
+// `InferenceProvider`, `TensorPrecision`, `PriorField`, `ScoreField`, `PadMode`, `PlaneTransfer`, `PlaneFormat`),
+// so each takes the `Wire` suffix and a bare namespace import is unspellable.
+using BucketWire = Rasm.Contracts.Stage.BucketWire;
+using StageInputWire = Rasm.Contracts.Stage.StageInputWire;
+using StageOutputWire = Rasm.Contracts.Stage.StageOutputWire;
+using StageProductWire = Rasm.Contracts.Stage.StageProductWire;
+using StageRequestWire = Rasm.Contracts.Stage.StageRequestWire;
+using StageResultWire = Rasm.Contracts.Stage.StageResultWire;
+using StageScoreWire = Rasm.Contracts.Stage.StageScoreWire;
+using InferenceProviderWire = Rasm.Contracts.Stage.InferenceProvider;
+using LicenseClassWire = Rasm.Contracts.Stage.LicenseClass;
+using PadModeWire = Rasm.Contracts.Stage.PadMode;
+using PbrStageWire = Rasm.Contracts.Stage.PbrStage;
+using PlaneFormatWire = Rasm.Contracts.Stage.PlaneFormat;
+using PlaneTransferWire = Rasm.Contracts.Stage.PlaneTransfer;
+using PriorFieldWire = Rasm.Contracts.Stage.PriorField;
+using ScoreFieldWire = Rasm.Contracts.Stage.ScoreField;
+using TensorPrecisionWire = Rasm.Contracts.Stage.TensorPrecision;
 
 // THE ASSEMBLY-WIDE MAPPER POSTURE, declared HERE because this page owns the assembly's heaviest wire seam and the
 // row is load-bearing rather than hygiene: with the default conversion set, Mapperly binds LanguageExt's THROWING
@@ -1093,201 +1110,272 @@ public static class Mtlx {
 
 ## [04]-[STAGE_CROSSING]
 
-- Owner: `StageRequestRow`/`StageResultRow` with `StageInputRow`/`StageOutputRow`/`StageScoreRow` the photo-to-PBR inference crossing's hand rows; `StageCodec` the MessagePack leg; `StageRoster` the `(slot, wire)` roster DERIVED once from each row's own `[Key(n)]` attributes with its soundness proof; `StageRequestRow.Checksum` the roster digest the relaying root compares; the `AppearanceWireMap` partial generating the request transcription.
-- Cases: the crossing is BRANCH-INTERIOR — `Rasm.Materials/Appearance/neural` ⇄ `Rasm.Compute/Model/inference` across the plugin firebreak, relayed by the app root as bytes. NO peer runtime decodes it, which is the wire-contract law's one discriminant admitting MessagePack: a proto family exists only where a peer decodes, so these rows are hand projections and take `Row`, never `Wire`. The card `STAGE_FAMILY` at `IDEAS.md` names the corpus family that retires this leg.
-- Entry: `public static StageRequestRow StageRequestRow.Of(StageRequest request)` and `public static Fin<StageResult> StageResultRow.Admit(StageResultRow row, ModelCard card, Op key)` are the two halves — Materials writes the request and re-admits the returned result through the `neural#MODEL_REGISTRY` gate rather than trusting an executor's bytes; `StageCodec.Encode`/`Decode` carry both under the one options profile; `StageRequestRow.Checksum` folds the roster the relaying root compares against Compute's `StageCrossing.Checksum` before moving a byte.
-- Law: the two ends agree by DIGEST, never by a boot probe over one end's own record. Each end folds its `(slot, wire)` roster through the kernel writer — `ContentHash.Of(roster, (r, w) => w.Sorted(r, row => row.Slot, Comparer<int>.Default, (row, x) => x.Ordinal(row.Slot).String(row.Wire)))` — and the relaying root compares `ContentHash.Hex` of both; this end's roster is DERIVED from the record's `[Key(n)]` attributes and the camelCase member name once at static init, where soundness proves unique slots and an arity equal to the record's constructor, so a column landing at one end alone moves the digest rather than a probe that compares one side to itself.
-- Packages: MessagePack (`[MessagePackObject]`/`[Key]` positional modeling, `[GeneratedMessagePackResolver]`, `Lz4BlockArray` + `WithCompressionMinLength`, `MessagePackSecurity.UntrustedData`; `MessagePackAnalyzer` enforces `[Key]` coverage at compile time), Thinktecture.Runtime.Extensions.MessagePack (`ThinktectureMessageFormatterResolver`), Riok.Mapperly (the `AppearanceWireMap` partial under `RequiredMappingStrategy.Both`), `Rasm` (`ContentHash.Of`/`CanonicalWriter.Sorted`/`Ordinal`/`String` the checksum fold), `neural#MODEL_REGISTRY` (composed — `StageRequest`/`StageResult`/`StageInput`/`StageOutput`/`StageScore`/`StageProduct`/`PbrStage`/`ModelCard`/`ModelCardId`/`LicenseClass`/`InferenceProvider`/`TensorPrecision`/`InferenceTiling`), Rasm.Element (the seam `ContentAddress` and its ONE `ToValue` spelling), BCL inbox (`System.Reflection` for the ONE static-init roster read), LanguageExt.Core.
-- Growth: a new stage column is one `StageRequestRow` slot with its trailing `[Key(n)]`, which the roster proof, the checksum, and the RMG diagnostics each force onto their owner in the same change — and the matching Compute slot, or the digests disagree at the relay. The family's growth past this page is the `STAGE_FAMILY` card: one `rasm.contracts.stage` proto retires every row here.
-- Boundary: this section PROJECTS and never decides. `neural#MODEL_REGISTRY` owns the stage, licence, provider, and precision vocabularies; every one crosses as its own row's KEY STRING, so an unknown key REFUSES at `Admit` rather than defaulting. It mints NO `libs/contracts/manifest.json` entry — a corpus entry for a branch-interior hop is the fabricated contract the cross-`libs/` ruling forecloses.
+- Owner: `StageWire` — the two-direction door onto the generated `rasm.contracts.stage` family, `Request` minting the message a planned `StageRequest` publishes and `Admit` lifting the returned `StageResultWire` back onto the Materials rosters; the `AppearanceWireMap` partial owns the request transcription and every enum, product, and input fold the two directions share.
+- Cases: the two generated roots `StageRequestWire` and `StageResultWire`, seated at `libs/contracts/manifest.json` as the `stage-crossing` case pair. The crossing is a SAME-LANGUAGE PROCESS hop — `Appearance/neural` ⇄ `dotnet:Rasm.Compute/Model/stage#STAGE_WIRE` across the plugin firebreak — so the relaying root moves proto-binary bytes and decodes none of them.
+- Entry: `public static Fin<StageRequestWire> Request(StageRequest request)` transcribes, fills the four columns no generated mapper may construct, and crosses `WireAdmission.Admit` once, keying every refusal on the request's own `Op`; `public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request, Op key)` admits the inbound message, proves the correlation echo, lifts every vocabulary onto its Materials row, and hands the reconstructed result to the `neural#STAGE_PLAN` `StageResult.Admit` registry gate.
+- Law: the GENERATED MESSAGES are the one vocabulary and no key string crosses for a closed roster. `defined_only` plus `not_in: [0]` refuse an undefined or unspecified ordinal inside `WireAdmission.Admit`, BEFORE any row lift runs, so the inbound `switch` over the generated enum answers a value the corpus already proved rostered and its `_` arm names a value only a generation skew can produce.
+- Law: the CHANNEL ROLE crosses as the appearance roster's own string spelling because that roster is Materials-owned and open to growth, where the stage, prior, and score rosters are corpus-closed. `TextureChannel.TryGet` is its admission and the `^[a-z][a-z0-9_]*$` field rule its shape gate, so a channel landing at `Raster/set#TEXTURE_CHANNEL` reaches this crossing with no proto edit while every closed roster still breaks the build when it grows.
+- Law: the two rosters the product oneof discriminates stay DISJOINT. `StageProduct.Parse` resolves CHANNELS first, so a key both rosters claim would make the prior unreachable at the specifying end and mis-tagged at the executing end's inverse; disjointness is the invariant that keeps one product key readable from either direction, and a `PriorField` or `ScoreField` row spelling an appearance channel is the declaration that breaks it.
+- Law: outbound and inbound read ONE correspondence in two directions and neither is a hand `(key, enum)` table. Row → wire enum is the row's generated total `Map`, one arm per row, so a new `PbrStage`, `LicenseClass`, `InferenceProvider`, or `TensorPrecision` row breaks THIS BUILD until the corpus enum carries its value; wire enum → row is one `switch` expression per roster refusing on the rail with the value named. The `[02]` `WireVocabulary.Total` derivation is deliberately not reached here: it answers a roster gap as a type-initializer throw, where this crossing's growth law demands a compile break in the same change as the corpus edit.
+- Law: no generated mapper is asked to construct a value whose construction can REFUSE. The optional artefact, the fixed bucket, the pad mode, and the input row set each lower by hand at `Request` — the first because proto3 `optional bytes` sits behind a null-rejecting setter that cannot spell absence, the second and third because they arrive as producer-interior strings the corpus types, and the fourth because a get-only `RepeatedField` fill is not an admitted conversion at `MappingConversionType.None`. `[MapperIgnoreSource]`/`[MapperIgnoreTarget]` name each at the mapper, so the RMG completeness gate still proves every remaining column.
+- Law: `Layout` never crosses. The tensor dimension order is the leased model card's fact at the executing end, so a request column carrying it could only ever contradict the lease; the waiver is a compiler-proved `[MapperIgnoreSource]` row rather than authored inventory, because no `[MapPropertyFromSource]` reader rides this mapping.
+- Law: identity crosses as BYTES and never as text. Every content key rides the sixteen big-endian bytes `ContentHash.Wire` publishes and re-enters through `ContentHash.Admit`, so the seam's `X32` rendering and the kernel's `x32` rendering never meet on this wire and a width other than sixteen refuses at the field rule.
+- Law: the correlation echo is proved BEFORE any vocabulary lift. The executor echoes `op` verbatim, so a result naming another request refuses at the first guard; without it the correlation column is write-only and a transposed result would be admitted against the wrong card.
+- Law: completeness, extent congruence, plane shape, partition bound, and the residual band are proved by their OWNER. `StageResult.Admit` at `neural#STAGE_PLAN` reads the card and the minting request; this cluster reconstructs the typed result and decides none of those, so a second copy of the gate cannot drift from the first.
+- Packages: Rasm.Contracts (project — the generated `rasm.contracts.stage` messages and enums), Google.Protobuf (`ByteString`, `RepeatedField<T>`, the generated `HasArtefact` presence pair, `KindOneofCase`/`RoleOneofCase`), Riok.Mapperly (the `AppearanceWireMap` partial under `RequiredMappingStrategy.Both` with `MappingConversionType.None`), Rasm.AppHost (project — `WireAdmission.Admit`, `WireBoundary`), `Rasm` (`ContentHash.Wire`/`ContentHash.Admit`, `Dimension`, `Op`), NodaTime.Serialization.Protobuf (`ToNodaDuration` on the elapsed span), `neural#MODEL_REGISTRY` and `neural#STAGE_PLAN` (composed — `StageRequest`/`StageResult`/`StageInput`/`StageOutput`/`StageScore`/`StageProduct`/`PbrStage`/`ModelCard`/`ModelCardId`/`LicenseClass`/`InferenceProvider`/`TensorPrecision`/`PriorField`/`ScoreField`/`InferenceTiling`), `Raster/plane#PLANE_FORMAT` (composed — `PlaneTransfer`/`PlaneFormat`), `Raster/set#TEXTURE_CHANNEL` (composed — `TextureChannel`), Rasm.Element (the seam `ContentAddress`), Thinktecture.Runtime.Extensions (the generated total `Map`/`Switch` over every roster and union), LanguageExt.Core.
+- Growth: a new stage COLUMN is one numbered proto field, regenerated at both ends, with the RMG completeness diagnostics forcing its transcription here and the peer's own mapper forcing the counterpart. A new stage, provider, or precision ROW is one enum value at the corpus, one `Map` arm outbound, and one `switch` arm inbound — each of the three a compile break rather than a runtime surprise. A new appearance channel is a `Raster/set#TEXTURE_CHANNEL` row alone.
+- Boundary: this cluster PROJECTS and never decides. `neural#MODEL_REGISTRY` owns the stage, licence, provider, precision, prior, and score vocabularies and `Raster/set#TEXTURE_CHANNEL` the channel roster; the relaying root moves proto-binary bytes with no `WireJson` rendering and no decode, so the only two surfaces reading a stage message are the two ends the manifest case names.
 
 ```csharp signature
 // (Continues the Rasm.Materials.Appearance.Interchange compilation unit — the [02] prelude is in scope.)
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// One consumed product on a request. An empty `stage` names the intent's own source plane; otherwise the executor
-// resolves the named producer's output from results it already holds, so a chained stage NEVER carries the source
-// blob and its albedo estimator cannot read the raw photograph the delighting stage exists to replace.
-[MessagePackObject]
-public readonly record struct StageInputRow(
-    [property: Key(0)] string Stage, [property: Key(1)] string Role, [property: Key(2)] string Key);
-
-// One produced plane. `role` is a canonical channel key or a prior key, and StageProduct.Parse resolves the CHANNEL
-// roster first, so a prior spelled as a channel is unreachable rather than ambiguous.
-[MessagePackObject]
-public readonly record struct StageOutputRow(
-    [property: Key(0)] string Role, [property: Key(1)] string BlobKey, [property: Key(2)] uint Width,
-    [property: Key(3)] uint Height, [property: Key(4)] string Transfer, [property: Key(5)] string Format);
-
-// One produced GRADE. Fields and grades ride separate collections for the same reason they ride separate result
-// collections: they are separate modalities, not one list with a small extent.
-[MessagePackObject]
-public readonly record struct StageScoreRow([property: Key(0)] string Role, [property: Key(1)] double Value);
-
-// THE INFERENCE REQUEST. Extent THREADS: a stage tiles against the extent its input carries and publishes
-// `inputWidth × scale`, so a chained stage never re-derives a grid. Eighteen slots — the producer's `Layout` is an
-// interior tensor-layout note the executor re-derives off its model card and never a wire column.
-[MessagePackObject]
-public sealed record StageRequestRow(
-    [property: Key(0)] string Stage,
-    [property: Key(1)] string ModelCardId,
-    [property: Key(2)] string LicenseClass,
-    [property: Key(3)] StageInputRow[] Inputs,
-    [property: Key(4)] uint InputWidth,
-    [property: Key(5)] uint InputHeight,
-    [property: Key(6)] uint OutputWidth,
-    [property: Key(7)] uint OutputHeight,
-    [property: Key(8)] int TileWidth,
-    [property: Key(9)] int TileHeight,
-    [property: Key(10)] int Overlap,
-    [property: Key(11)] string PadMode,
-    [property: Key(12)] string Bucket,
-    [property: Key(13)] string Provider,
-    [property: Key(14)] string Precision,
-    [property: Key(15)] ulong Seed,
-    [property: Key(16)] string Op,
-    [property: Key(17)] string Artefact) {
-
-    // neural#MODEL_REGISTRY StageRequest.Of already gated the request — a blocked licence has no request to project —
-    // so Of transcribes alone through the generated AppearanceWireMap.ToWire row set.
-    public static StageRequestRow Of(StageRequest request) => AppearanceWireMap.ToWire(request);
-
-    // The roster digest the relaying root compares: slot-sorted, each slot framed beside its camelCase wire name
-    // through the ONE kernel writer, so the producer and Compute fold byte-identical preimages from independently
-    // derived rosters.
-    public static UInt128 Checksum => ContentHash.Of(StageRoster.Request, static (roster, writer) =>
-        writer.Sorted(roster, static row => row.Slot, Comparer<int>.Default, static (row, slot) => slot.Ordinal(row.Slot).String(row.Wire)));
-}
-
-// THE INFERENCE RESULT. Artefact is the digest of the weight bytes the session loaded, so two revisions of one card
-// separate on the receipt rather than sharing an id a repository may re-publish.
-[MessagePackObject]
-public sealed record StageResultRow(
-    [property: Key(0)] string Stage,
-    [property: Key(1)] string ModelCardId,
-    [property: Key(2)] StageOutputRow[] Outputs,
-    [property: Key(3)] string ProviderUsed,
-    [property: Key(4)] int PartitionCount,
-    [property: Key(5)] double ElapsedMs,
-    [property: Key(6)] double GoldenDelta,
-    [property: Key(7)] int TilesEmitted,
-    [property: Key(8)] string Op,
-    [property: Key(9)] string Artefact,
-    [property: Key(10)] bool ParityFresh,
-    [property: Key(11)] float Coverage,
-    [property: Key(12)] StageScoreRow[] Scores) {
-
-    public static UInt128 Checksum => ContentHash.Of(StageRoster.Result, static (roster, writer) =>
-        writer.Sorted(roster, static row => row.Slot, Comparer<int>.Default, static (row, slot) => slot.Ordinal(row.Slot).String(row.Wire)));
-
-    // Ingestion re-admits through the OWNING gate rather than trusting the executor's bytes: every vocabulary key
-    // lifts back onto its own closed roster (an unknown stage, product, provider, transfer, or format REFUSES here)
-    // and the reconstructed result then crosses neural#MODEL_REGISTRY StageResult.Admit, so the physical-channel
-    // prohibition, the partition bound, the residual ceiling, and the output completeness are all proved by their
-    // owner. A decode that merely deserialized would let a peer publish a fabricated normal plane as measured.
-    public static Fin<StageResult> Admit(StageResultRow row, ModelCard card, Op key) =>
-        // The executor echoes the correlation key VERBATIM; a result whose echo names another request refuses
-        // before any vocabulary lift — without this guard the op correlation is write-only.
-        from _echo in guard(row.Op == key.ToString(), new MaterialFault.Parameter(key, $"<stage-op-echo:{row.Op}>"))
-        from stage in PbrStage.TryGet(row.Stage, out PbrStage? stageRow) ? Fin.Succ(stageRow!) : Refused<PbrStage>(key, "stage", row.Stage)
-        from provider in InferenceProvider.TryGet(row.ProviderUsed, out InferenceProvider? used) ? Fin.Succ(used!) : Refused<InferenceProvider>(key, "provider", row.ProviderUsed)
-        from outputs in toSeq(row.Outputs).Traverse(output => Output(output, key)).As()
-        from scores in toSeq(row.Scores).Traverse(score =>
-            StageProduct.Parse(score.Role).ToFin(Refused(key, "score", score.Role))
-                .Map(product => new StageScore(product, score.Value))).As()
-        from echoed in key.AcceptValidated<ModelCardId>(ModelCardId.Validate(row.ModelCardId, null, out ModelCardId id), id)
-        // The WIRE's own echo threads through, so the neural#STAGE_PLAN card-mismatch gate proves the result
-        // answers the card it claims; the artefact admits through the seam's own X32 validator.
-        from artefact in key.AcceptValidated<ContentAddress>(ContentAddress.Validate(row.Artefact, null, out ContentAddress? loaded), loaded!)
-        from admitted in StageResult.Admit(
-            new StageResult(stage, echoed, artefact, outputs, scores, provider, row.PartitionCount, row.ElapsedMs, row.GoldenDelta, row.ParityFresh, row.Coverage, row.TilesEmitted, key), card, key)
+// --- [OPERATIONS] --------------------------------------------------------------------------
+// The two-direction door. Both halves cross WireAdmission once — outbound after the message is final, inbound
+// before a single column is read — so the descriptor rules are the first and last thing this crossing evaluates.
+public static class StageWire {
+    // neural#STAGE_PLAN StageRequest.Of already gated the plan — a blocked licence has no request to project, a
+    // stochastic card at the zero seed has none either — so this half transcribes, fills the three columns no
+    // generated mapper may construct, and admits.
+    public static Fin<StageRequestWire> Request(StageRequest request) =>
+        from bucket in Bucket(request.Bucket, request.Op)
+        from pad in Pad(request.PadMode, request.Op)
+        let wire = Fill(AppearanceWireMap.ToWire(request), request, bucket, pad)
+        from admitted in WireAdmission.Admit(wire, WireBoundary.OutboundPayload, request.Op)
         select admitted;
 
-    static Fin<StageOutput> Output(StageOutputRow output, Op key) =>
-        from product in StageProduct.Parse(output.Role).ToFin(Refused(key, "product", output.Role))
-        from transfer in PlaneTransfer.TryGet(output.Transfer, out PlaneTransfer? band) ? Fin.Succ(band!) : Refused<PlaneTransfer>(key, "transfer", output.Transfer)
-        from format in PlaneFormat.TryGet(output.Format, out PlaneFormat? storage) ? Fin.Succ(storage!) : Refused<PlaneFormat>(key, "format", output.Format)
-        from blob in key.AcceptValidated<ContentAddress>(ContentAddress.Validate(output.BlobKey, null, out ContentAddress? address), address!)
-        select new StageOutput(product, blob.Value, Dimension.Create((int)output.Width), Dimension.Create((int)output.Height), transfer, format);
+    // FOUR columns write after construction and each names its reason. Bucket and pad because their
+    // producer-interior spelling types only here; the artefact because a proto3 `optional` sits behind a
+    // null-rejecting setter that cannot spell absence, and a card whose weights the caller supplies has no
+    // registry digest to name; the input rows because the mapper runs at `MappingConversionType.None`, where the
+    // generator's own collection fill is not an admitted conversion — a get-only `RepeatedField` takes the
+    // initializer spelling every other row set on this page already takes.
+    static StageRequestWire Fill(StageRequestWire wire, StageRequest request, BucketWire bucket, PadModeWire pad) {
+        wire.Bucket = bucket;
+        wire.Pad = pad;
+        wire.Inputs.AddRange(request.Inputs.Map(AppearanceWireMap.Input));
+        request.Artefact.Iter(digest => wire.Artefact = ContentHash.Wire(digest.Value));
+        return wire;
+    }
+
+    // The `WxH` spelling is the producer-interior form InferenceTiling carries; it types ONCE here, so a malformed
+    // spelling refuses at the mint rather than reaching the message CEL rule as a bucket-versus-tile disagreement
+    // whose message names the wrong fault.
+    static Fin<BucketWire> Bucket(string spelling, Op key) =>
+        spelling.Split('x') switch {
+            [var w, var h] when uint.TryParse(w, NumberStyles.None, CultureInfo.InvariantCulture, out uint width)
+                             && uint.TryParse(h, NumberStyles.None, CultureInfo.InvariantCulture, out uint height)
+                             && width > 0 && height > 0 =>
+                Fin.Succ(new BucketWire { Width = width, Height = height }),
+            _ => new MaterialFault.Parameter(key, $"<stage-bucket-unparsable:{spelling}>"),
+        };
+
+    // The generated roster is the pad vocabulary; the unspecified arm is refused HERE as well as by the field rule,
+    // because a zero ordinal reaching the message would be a pad nothing declared rather than a pad this producer
+    // pinned.
+    static Fin<PadModeWire> Pad(string spelling, Op key) =>
+        Enum.TryParse(spelling, ignoreCase: true, out PadModeWire pad) && pad is not PadModeWire.Unspecified
+            ? Fin.Succ(pad)
+            : new MaterialFault.Parameter(key, $"<stage-pad-unrostered:{spelling}>");
+
+    // Ingestion re-admits through the OWNING gate rather than trusting the executor's message: the descriptor rules
+    // run first, the correlation echo second, every vocabulary lifts back onto its own closed roster third, and the
+    // reconstructed result then crosses neural#STAGE_PLAN StageResult.Admit, so the physical-channel prohibition,
+    // the output completeness, the extent congruence, the plane-shape proof, the partition bound, and the residual
+    // ceiling are all proved by their owner. A decode that merely parsed would let a peer publish a fabricated
+    // normal plane as measured.
+    public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request, Op key) =>
+        from message in WireAdmission.Admit(wire, WireBoundary.InboundPayload, key)
+        // The executor echoes the correlation key VERBATIM; a result whose echo names another request refuses
+        // before any vocabulary lift — without this guard the op correlation is write-only.
+        from _echo in guard(message.Op == key.ToString(), new MaterialFault.Parameter(key, $"<stage-op-echo:{message.Op}>"))
+        from stage in Row(message.Stage, key)
+        from provider in Row(message.ProviderUsed, key)
+        from artefact in Address(message.Artefact, key)
+        from outputs in toSeq(message.Outputs).Traverse(output => Output(output, key)).As()
+        from scores in toSeq(message.Scores).Traverse(score =>
+            Product(score.Role, key).Map(product => new StageScore(product, score.Value))).As()
+        from echoed in key.AcceptValidated<ModelCardId>(ModelCardId.Validate(message.ModelCardId, null, out ModelCardId id), id)
+        from admitted in StageResult.Admit(
+            new StageResult(stage, echoed, artefact, outputs, scores, provider,
+                // The two tallies cross unsigned and land signed: every consumer downstream counts in `int`, and a
+                // count past `int.MaxValue` is a producer defect the checked narrowing surfaces rather than wraps.
+                checked((int)message.PartitionCount), message.Elapsed.ToNodaDuration().TotalMilliseconds,
+                message.GoldenDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted), key),
+            card, request, key)
+        select admitted;
+
+    static Fin<StageOutput> Output(StageOutputWire output, Op key) =>
+        from product in Product(output.Role, key)
+        from transfer in Row(output.Transfer, key)
+        from format in Row(output.Format, key)
+        from blob in Address(output.Blob, key)
+        select new StageOutput(product, blob, Dimension.Create(checked((int)output.Width)), Dimension.Create(checked((int)output.Height)), transfer, format);
+
+    // The union inverse: a channel key resolves against the Materials-owned roster and refuses on an unknown
+    // spelling, while the two corpus-closed rosters lift through their own switches. `RoleOneofCase.None` is
+    // refused by the oneof rule at admission and still answers on the rail, because a `_` arm throwing would put
+    // an exception where every sibling column already carries a typed refusal.
+    static Fin<StageProduct> Product(StageProductWire role, Op key) =>
+        role.RoleCase switch {
+            StageProductWire.RoleOneofCase.Channel =>
+                TextureChannel.TryGet(role.Channel, out TextureChannel? channel)
+                    ? Fin.Succ<StageProduct>(new StageProduct.Channel(channel!))
+                    : Refused<StageProduct>(key, "channel", role.Channel),
+            StageProductWire.RoleOneofCase.Prior => Row(role.Prior, key).Map(static field => (StageProduct)new StageProduct.Prior(field)),
+            StageProductWire.RoleOneofCase.Measure => Row(role.Measure, key).Map(static field => (StageProduct)new StageProduct.Measure(field)),
+            var absent => Refused<StageProduct>(key, "product", absent.ToString()),
+        };
+
+    // The sixteen-byte inverse: the field rule already fixed the width, and ContentHash.Admit refuses any other,
+    // so the seam address reconstructs from bytes and never from a rendered hex string neither end transmits.
+    static Fin<ContentAddress> Address(ByteString bytes, Op key) =>
+        ContentHash.Admit(bytes.Span, key).Map(ContentAddress.Of);
+
+    // ONE switch per inbound roster, every arm a declared row and the `_` arm refusing with the value named. The
+    // generated enum's own `Unspecified` member falls to that arm alongside a value from a newer generation, which
+    // is the whole reason the arm exists after `defined_only` already ran.
+    static Fin<PbrStage> Row(PbrStageWire wire, Op key) =>
+        wire switch {
+            PbrStageWire.Delight => PbrStage.Delight,
+            PbrStageWire.Albedo => PbrStage.Albedo,
+            PbrStageWire.Normals => PbrStage.Normals,
+            PbrStageWire.Depth => PbrStage.Depth,
+            PbrStageWire.Svbrdf => PbrStage.Svbrdf,
+            PbrStageWire.IntrinsicAppearance => PbrStage.IntrinsicAppearance,
+            PbrStageWire.SpectralReflectance => PbrStage.SpectralReflectance,
+            PbrStageWire.SuperResolve => PbrStage.SuperResolve,
+            PbrStageWire.Tileability => PbrStage.Tileability,
+            _ => Refused<PbrStage>(key, "stage", wire.ToString()),
+        };
+
+    static Fin<InferenceProvider> Row(InferenceProviderWire wire, Op key) =>
+        wire switch {
+            InferenceProviderWire.Cpu => InferenceProvider.Cpu,
+            InferenceProviderWire.CoreMl => InferenceProvider.CoreMl,
+            InferenceProviderWire.WebGpu => InferenceProvider.WebGpu,
+            _ => Refused<InferenceProvider>(key, "provider", wire.ToString()),
+        };
+
+    static Fin<PriorField> Row(PriorFieldWire wire, Op key) =>
+        wire switch {
+            PriorFieldWire.Delit => PriorField.Delit,
+            PriorFieldWire.Depth => PriorField.Depth,
+            PriorFieldWire.Spectral => PriorField.Spectral,
+            _ => Refused<PriorField>(key, "prior", wire.ToString()),
+        };
+
+    static Fin<ScoreField> Row(ScoreFieldWire wire, Op key) =>
+        wire switch {
+            ScoreFieldWire.Tileability => ScoreField.Tileability,
+            _ => Refused<ScoreField>(key, "score", wire.ToString()),
+        };
+
+    static Fin<PlaneTransfer> Row(PlaneTransferWire wire, Op key) =>
+        wire switch {
+            PlaneTransferWire.Linear => PlaneTransfer.Linear,
+            PlaneTransferWire.Srgb => PlaneTransfer.Srgb,
+            PlaneTransferWire.Raw => PlaneTransfer.Raw,
+            PlaneTransferWire.Pq => PlaneTransfer.Pq,
+            PlaneTransferWire.Hlg => PlaneTransfer.Hlg,
+            _ => Refused<PlaneTransfer>(key, "transfer", wire.ToString()),
+        };
+
+    static Fin<PlaneFormat> Row(PlaneFormatWire wire, Op key) =>
+        wire switch {
+            PlaneFormatWire.R8 => PlaneFormat.R8,
+            PlaneFormatWire.R16 => PlaneFormat.R16,
+            PlaneFormatWire.R16F => PlaneFormat.R16F,
+            PlaneFormatWire.R32F => PlaneFormat.R32F,
+            PlaneFormatWire.Rg8 => PlaneFormat.Rg8,
+            PlaneFormatWire.Rg16 => PlaneFormat.Rg16,
+            PlaneFormatWire.Rg16F => PlaneFormat.Rg16F,
+            PlaneFormatWire.Rg32F => PlaneFormat.Rg32F,
+            PlaneFormatWire.Rgba8 => PlaneFormat.Rgba8,
+            PlaneFormatWire.Rgba16 => PlaneFormat.Rgba16,
+            PlaneFormatWire.Rgba16F => PlaneFormat.Rgba16F,
+            PlaneFormatWire.Rgba32F => PlaneFormat.Rgba32F,
+            _ => Refused<PlaneFormat>(key, "format", wire.ToString()),
+        };
 
     static MaterialFault Refused(Op key, string axis, string value) => new MaterialFault.Graph(key, $"<stage-result-unknown-{axis}:{value}>");
+
     static Fin<T> Refused<T>(Op key, string axis, string value) => Fin.Fail<T>(Refused(key, axis, value));
 }
 
-// --- [TABLES] ------------------------------------------------------------------------------
-// The roster is DERIVED from the record's own `[Key(n)]` attributes — the ONE static-init reflection read on this
-// page, legitimate for a PROOF and never for runtime identity — so no hand `(slot, wire)` list exists to drift from
-// the record. Soundness proves at first touch: slots unique, and arity equal to the record's constructor, so a slot
-// landed on one end alone cannot pass as a roster the other end agrees with.
-internal static class StageRoster {
-    public static readonly Seq<(int Slot, string Wire)> Request = Derive<StageRequestRow>();
-    public static readonly Seq<(int Slot, string Wire)> Result = Derive<StageResultRow>();
-
-    static Seq<(int Slot, string Wire)> Derive<TRow>() {
-        Seq<(int Slot, string Wire)> rows = toSeq(typeof(TRow).GetProperties(BindingFlags.Public | BindingFlags.Instance))
-            .Choose(static property => Optional(property.GetCustomAttribute<KeyAttribute>())
-                .Map(attribute => (Slot: attribute.IntKey, Wire: string.Concat(char.ToLowerInvariant(property.Name[0]), property.Name.AsSpan(1)))));
-        int arity = typeof(TRow).GetConstructors().Max(static ctor => ctor.GetParameters().Length);
-        return rows.Map(static row => row.Slot).Distinct().Count == rows.Count && rows.Count == arity
-            ? rows
-            : throw new InvalidOperationException($"<stage-roster-unsound:{typeof(TRow).Name}:{rows.Count}:{arity}>");
-    }
-}
-
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// What lands here is the request transcription; the result re-admits by hand because every column lifts a key
-// onto a closed roster on the rail, which a mapper cannot express.
+// The REQUEST transcription and every fold both directions share. The result lifts by hand at StageWire.Admit
+// because each of its columns resolves a generated ordinal onto a closed roster ON THE RAIL, which no generated
+// mapping expresses.
 public static partial class AppearanceWireMap {
-    [MapProperty("Stage.Key", nameof(StageRequestRow.Stage))]
-    [MapProperty("ModelCardId.Value", nameof(StageRequestRow.ModelCardId))]
-    [MapProperty("LicenseClass.Key", nameof(StageRequestRow.LicenseClass))]
-    [MapProperty("InputWidth.Value", nameof(StageRequestRow.InputWidth), Use = nameof(Unsigned))]
-    [MapProperty("InputHeight.Value", nameof(StageRequestRow.InputHeight), Use = nameof(Unsigned))]
-    [MapProperty("OutputWidth.Value", nameof(StageRequestRow.OutputWidth), Use = nameof(Unsigned))]
-    [MapProperty("OutputHeight.Value", nameof(StageRequestRow.OutputHeight), Use = nameof(Unsigned))]
-    [MapProperty("Provider.Key", nameof(StageRequestRow.Provider))]
-    [MapProperty("Precision.Key", nameof(StageRequestRow.Precision))]
-    [MapProperty(nameof(StageRequest.Op), nameof(StageRequestRow.Op), Use = nameof(OpKey))]
-    [MapProperty(nameof(StageRequest.Artefact), nameof(StageRequestRow.Artefact), Use = nameof(AddressOrEmpty))]
-    [MapProperty(nameof(StageRequest.Inputs), nameof(StageRequestRow.Inputs), Use = nameof(InputRows))]
-    [MapperIgnoreSource(nameof(StageRequest.Layout))]  // interior tensor-layout note the executor re-derives, never a wire column
-    public static partial StageRequestRow ToWire(StageRequest request);
+    // --- [STAGE_REQUEST]
+    [MapProperty(nameof(StageRequest.Stage), nameof(StageRequestWire.Stage), Use = nameof(Stage))]
+    [MapProperty("ModelCardId.Value", nameof(StageRequestWire.ModelCardId))]
+    [MapProperty(nameof(StageRequest.LicenseClass), nameof(StageRequestWire.License), Use = nameof(Licence))]
+    [MapProperty("InputWidth.Value", nameof(StageRequestWire.InputWidth), Use = nameof(Unsigned))]
+    [MapProperty("InputHeight.Value", nameof(StageRequestWire.InputHeight), Use = nameof(Unsigned))]
+    [MapProperty("OutputWidth.Value", nameof(StageRequestWire.OutputWidth), Use = nameof(Unsigned))]
+    [MapProperty("OutputHeight.Value", nameof(StageRequestWire.OutputHeight), Use = nameof(Unsigned))]
+    [MapProperty(nameof(StageRequest.TileWidth), nameof(StageRequestWire.TileWidth), Use = nameof(Unsigned))]
+    [MapProperty(nameof(StageRequest.TileHeight), nameof(StageRequestWire.TileHeight), Use = nameof(Unsigned))]
+    [MapProperty(nameof(StageRequest.Overlap), nameof(StageRequestWire.Overlap), Use = nameof(Unsigned))]
+    [MapProperty(nameof(StageRequest.Provider), nameof(StageRequestWire.Provider), Use = nameof(Provider))]
+    [MapProperty(nameof(StageRequest.Precision), nameof(StageRequestWire.Precision), Use = nameof(Precision))]
+    [MapProperty(nameof(StageRequest.Op), nameof(StageRequestWire.Op), Use = nameof(OpKey))]
+    [MapperIgnoreSource(nameof(StageRequest.Inputs))]     // get-only RepeatedField: fills at StageWire.Fill, no admitted conversion
+    [MapperIgnoreSource(nameof(StageRequest.Artefact))]   // proto3 optional bytes: presence writes at StageWire.Fill
+    [MapperIgnoreSource(nameof(StageRequest.Bucket))]     // producer-interior `WxH`: types at StageWire.Bucket on the rail
+    [MapperIgnoreSource(nameof(StageRequest.PadMode))]    // producer-interior key: types at StageWire.Pad on the rail
+    [MapperIgnoreSource(nameof(StageRequest.Layout))]     // the leased card owns the dimension order; a wire column could only contradict it
+    [MapperIgnoreTarget(nameof(StageRequestWire.Inputs))]
+    [MapperIgnoreTarget(nameof(StageRequestWire.Artefact))]
+    [MapperIgnoreTarget(nameof(StageRequestWire.Bucket))]
+    [MapperIgnoreTarget(nameof(StageRequestWire.Pad))]
+    public static partial StageRequestWire ToWire(StageRequest request);
 
     static string OpKey(Op op) => op.ToString();
 
-    // Absence lowers to the empty string: a card whose weights the caller supplies has no registry digest, and
-    // ContentAddress.Validate refuses "" so the absent case can never round-trip into a fabricated address.
-    static string AddressOrEmpty(Option<ContentAddress> address) => address.Map(static digest => digest.ToValue()).IfNone(string.Empty);
+    // --- [STAGE_VOCABULARY]
+    // Each fold IS the row's generated total Map — one arm per row — so a roster gaining a row breaks THIS BUILD
+    // until the corpus enum carries its value, where a derived roster fold would answer the same gap as a
+    // type-initializer throw on the first egress.
+    [UserMapping] static PbrStageWire Stage(PbrStage row) => row.Map(
+        delight: PbrStageWire.Delight, albedo: PbrStageWire.Albedo, normals: PbrStageWire.Normals,
+        depth: PbrStageWire.Depth, svbrdf: PbrStageWire.Svbrdf, intrinsicAppearance: PbrStageWire.IntrinsicAppearance,
+        spectralReflectance: PbrStageWire.SpectralReflectance, superResolve: PbrStageWire.SuperResolve,
+        tileability: PbrStageWire.Tileability);
 
-    static StageInputRow InputRow(StageInput input) => new(input.Wire.Stage, input.Wire.Role, input.Wire.Key);
+    // The blocked arm is DECLARED and unreachable: StageRequest.Of refuses a blocked card before a request exists.
+    // Declaring it anyway is what keeps the fold total, so the licence roster and the corpus enum stay one shape.
+    [UserMapping] static LicenseClassWire Licence(LicenseClass row) => row.Map(
+        permissive: LicenseClassWire.Permissive, copyleft: LicenseClassWire.Copyleft, openRail: LicenseClassWire.OpenRail,
+        research: LicenseClassWire.Research, blocked: LicenseClassWire.Blocked);
 
-    static StageInputRow[] InputRows(Seq<StageInput> inputs) => [.. inputs.Map(InputRow)];
-}
+    [UserMapping] static InferenceProviderWire Provider(InferenceProvider row) => row.Map(
+        cpu: InferenceProviderWire.Cpu, coreMl: InferenceProviderWire.CoreMl, webGpu: InferenceProviderWire.WebGpu);
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
-// StageResolver resolves the [MessagePackObject] rows AOT source-generated — no IL-emit DynamicObjectResolver inside
-// a plugin AssemblyLoadContext, and an unannotated record is a FormatterNotRegisteredException at first use.
-[GeneratedMessagePackResolver]
-public sealed partial class StageResolver;
+    [UserMapping] static TensorPrecisionWire Precision(TensorPrecision row) => row.Map(
+        fp32: TensorPrecisionWire.Fp32, fp16: TensorPrecisionWire.Fp16);
 
-// UntrustedData hardening caps depth, caps the decompression size, and takes collision-resistant maps, because the
-// executor's bytes cross a process boundary. Resolver order: the source-generated rows, then any Thinktecture
-// generated key, then the standard primitive fallback. The codec surface is the synchronous bounded-payload pair —
-// framing and stream custody stay the relaying root's.
-public static class StageCodec {
-    public static readonly MessagePackSerializerOptions Options =
-        MessagePackSerializerOptions.Standard
-            .WithResolver(CompositeResolver.Create(StageResolver.Instance, ThinktectureMessageFormatterResolver.Instance, StandardResolver.Instance))
-            .WithCompression(MessagePackCompression.Lz4BlockArray)
-            .WithCompressionMinLength(512)
-            .WithSecurity(MessagePackSecurity.UntrustedData);
+    static PriorFieldWire Field(PriorField row) => row.Map(
+        delit: PriorFieldWire.Delit, depth: PriorFieldWire.Depth, spectral: PriorFieldWire.Spectral);
 
-    public static ReadOnlyMemory<byte> Encode<TRow>(TRow row) where TRow : class => MessagePackSerializer.Serialize(row, Options);
+    static ScoreFieldWire Grade(ScoreField row) => row.Map(tileability: ScoreFieldWire.Tileability);
 
-    // A null decode result is the documented return-contract refusal; thrown codec evidence stays exceptional.
-    public static Fin<TRow> Decode<TRow>(ReadOnlyMemory<byte> payload, Op key) where TRow : class =>
-        key.Catch(() => Fin.Succ(MessagePackSerializer.Deserialize<TRow>(payload, Options)))
-            .Bind(row => row is { } decoded ? Fin.Succ(decoded) : new MaterialFault.Graph(key, $"<{typeof(TRow).Name}-messagepack-null>"));
+    // --- [STAGE_PRODUCTS]
+    // An input names the intent's own plane by CONTENT KEY or names the producer and product an earlier stage
+    // emitted, which the executor resolves against results it already holds — so a chained stage never carries the
+    // source blob and its albedo estimator cannot read the raw photograph the delighting stage exists to replace.
+    public static StageInputWire Input(StageInput input) => input.Switch<StageInputWire>(
+        source: static row => new StageInputWire { Source = new StageInputWire.Types.Source { Key = ContentHash.Wire(row.Key.Value) } },
+        produced: static row => new StageInputWire {
+            Produced = new StageInputWire.Types.Produced { Stage = Stage(row.Stage), Product = Product(row.Product) },
+        });
+
+    // The channel arm crosses the roster's own key string; the two closed rosters cross typed. One union fold
+    // serves inputs and outputs alike, so an input row binds to its producer's output row without a translation.
+    static StageProductWire Product(StageProduct product) => product.Switch<StageProductWire>(
+        channel: static row => new StageProductWire { Channel = row.Field.Key },
+        prior: static row => new StageProductWire { Prior = Field(row.Field) },
+        measure: static row => new StageProductWire { Measure = Grade(row.Field) });
 }
 ```
 

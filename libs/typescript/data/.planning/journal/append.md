@@ -27,6 +27,8 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 - Law: `sequence` is bigint-safe end to end — the persisted model and every process-side read decode through `Journal.Sequence` (bigint, string, or number driver posture folds to `bigint`), because the global identity column grows unbounded across every stream and a `Number()` coercion past 2^53 silently corrupts checkpoints and joins; the STORED receipt rides `Schema.BigInt` alone, because that receipt round-trips through `Schema.parseJson` and the driver-posture union's identity member encodes `bigint` back out, which `JSON.stringify` refuses — one codec crosses a driver row, the other crosses a text column, and conflating them wedges the ledger settle on its first write.
 - Law: per-stream `version` stays number-valued because aggregate cardinality is provably bounded, and it decodes through `Journal.Version` — the number-or-string codec — because a BIGINT column crosses the wire as text on the spine driver and as number on the sqlite profiles.
 - Law: `recordedAt` is write time minted by `Model.DateTimeInsert` — domain time lives inside event payloads, and conflating the two is the named defect.
+- Law: `Journal.relation(name, spine)` is the relation's ONE DDL owner — the ensure the deploy plane plants idempotently and the mint a cutover runs once under the shadow name are two heads over one body, so the shadow is the log's own shape rather than a structural copy that carries neither its keys nor its policy; the stream unique's name derives from the relation's (`Journal.unique`), because pg index names are schema-wide and a shadow under the live name refuses to exist, and the guard reads the live derivation.
+- Law: the spine posture is the composition root's — `Journal.ddl(spine)` seats the ensure the root ships, and the partitioned spine carries no stream unique, because PostgreSQL refuses a unique constraint omitting the partition key; its OCC is the advisory lock and the head read alone, and the constraint-name re-spell arm sleeps there.
 - Boundary: the tenant column is what `Tenancy.rls("journal_event")` predicates over; `Model.makeRepository` is banned on this table — the journal issues neither `UPDATE` nor `DELETE` against events, and erasure is `journal/retain.md`'s key destruction.
 
 ```typescript signature
@@ -44,7 +46,7 @@ import { Carrier, Digest, Event, Fault, Identity, Tap } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 import { Tenant, Tenancy } from "../lane/tenant.ts"
 import { Live } from "../read/live.ts"
-import { Generation, Payload } from "./evolve.ts"
+import { Generation, Payload } from "./generation.ts"
 
 // `SqlClient.SafeIntegers` pins the BIGINT read posture per fiber, so `_safe` brackets every sequence-bearing statement
 // and the journal DECLARES what it reads under rather than discovering it. Union members below stay the honest degrade:
@@ -104,30 +106,78 @@ class _Row extends Model.Class<_Row>("JournalEvent")({
 // Named because the OCC re-spell binds to THIS constraint rather than to the class of every uniqueness refusal: one
 // spelling serves the DDL and the guard, so a second unique constraint landing on this relation cannot silently start
 // answering "version conflict" to a race that has nothing to do with stream version. The KEY roster is the second half
-// of that identity: no sqlite driver reports a constraint name, so the guard reads the columns SQLite prints instead,
-// and both halves are spelled from these two values the DDL itself interpolates.
-const _STREAM_UNIQUE = "journal_event_stream"
+// of that identity: no sqlite driver reports a constraint name, so the guard reads the columns SQLite prints instead.
+// Its name DERIVES from the relation's own, because pg index names are schema-wide: a cutover shadow minted beside
+// its live log under the live constraint name refuses to exist, and the guard reads the LIVE derivation.
+const _LOG = "journal_event"
 const _STREAM_KEY = ["app", "tenant", "aggregate", "version"] as const
+const _unique = (relation: string): string => `${relation}_stream`
+const _STREAM_UNIQUE = _unique(_LOG)
 
-const _journalDdl: Capability.Ensure = {
-  relation: "journal_event",
-  pg: `CREATE TABLE IF NOT EXISTS journal_event (
+declare namespace Journal {
+  // Spine names the pg partition posture: `partitioned` parents range on `sequence` and carry NO stream unique,
+  // because PostgreSQL refuses a unique constraint omitting the partition key, so their OCC rests on the advisory
+  // lock and the head read alone; `monolith` is the unpartitioned spine and every sqlite profile.
+  type Spine = keyof typeof _SPINES
+  type Relation = {
+    readonly ensure: Capability.Ensure
+    readonly mint: Pick<Capability.Ensure, "pg" | "sqlite">
+  }
+}
+
+// One row per spine posture, three pg fragments each: the unique the monolith carries, the range clause the
+// partitioned parent carries, and the DEFAULT child a MINTED partitioned parent needs before any row can land;
+// ensures omit the child because the partition manager owns children on the deploy plane.
+const _SPINES = {
+  monolith: {
+    unique: (relation: string) => `,
+    CONSTRAINT ${_unique(relation)} UNIQUE (${_STREAM_KEY.join(", ")})`,
+    range: "",
+    child: () => "",
+  },
+  partitioned: {
+    unique: () => "",
+    range: " PARTITION BY RANGE (sequence)",
+    child: (relation: string) => `
+  CREATE TABLE ${relation}_default PARTITION OF ${relation} DEFAULT;`,
+  },
+} as const
+
+// One body per dialect IS the relation; its two heads are its two postures. `ensure` is the idempotent text the
+// deploy plane plants and the capability census verifies; `mint` is the text a cutover runs ONCE under the shadow
+// name, refusing a leftover shadow instead of copying into it. A structural copy of the live relation — `AS SELECT
+// … WHERE 0`, `LIKE … INCLUDING ALL` — carries neither the keys nor the policy the log rests on, so no such copy
+// exists in this folder.
+const _relation = (relation: string, spine: Journal.Spine): Journal.Relation => {
+  const posture = _SPINES[spine]
+  const pg = `${relation} (
     sequence BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     app TEXT NOT NULL, tenant TEXT NOT NULL, aggregate TEXT NOT NULL,
     version BIGINT NOT NULL CHECK (version BETWEEN 1 AND 9007199254740991),
     tag TEXT NOT NULL,
     payload TEXT NOT NULL,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ${_STREAM_UNIQUE} UNIQUE (${_STREAM_KEY.join(", ")}));
-  ${Tenancy.rls("journal_event")}`,
-  sqlite: `CREATE TABLE IF NOT EXISTS journal_event (
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()${posture.unique(relation)})${posture.range};`
+  const sqlite = `${relation} (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
     app TEXT NOT NULL, tenant TEXT NOT NULL, aggregate TEXT NOT NULL,
     version INTEGER NOT NULL CHECK (version BETWEEN 1 AND 9007199254740991),
     tag TEXT NOT NULL,
     payload TEXT NOT NULL,
     recorded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    CONSTRAINT ${_STREAM_UNIQUE} UNIQUE (${_STREAM_KEY.join(", ")}));`,
+    CONSTRAINT ${_unique(relation)} UNIQUE (${_STREAM_KEY.join(", ")}));`
+  return {
+    ensure: {
+      relation,
+      pg: `CREATE TABLE IF NOT EXISTS ${pg}
+  ${Tenancy.rls(relation)}`,
+      sqlite: `CREATE TABLE IF NOT EXISTS ${sqlite}`,
+    },
+    mint: {
+      pg: `CREATE TABLE ${pg}${posture.child(relation)}
+  ${Tenancy.rls(relation)}`,
+      sqlite: `CREATE TABLE ${sqlite}`,
+    },
+  }
 }
 ```
 
@@ -143,11 +193,11 @@ const _journalDdl: Capability.Ensure = {
 - Law: `subject` mints at the write and never at the projection — `Digest.mint("content", …)` reads the encoded payload text this statement inserts, so the announced content key addresses the stored bytes rather than a re-encoding of them, and the parse-then-reserialize spelling that respells float forms, key order, and escapes has no site here.
 - Growth: a new write-side invariant is a guard inside `_append`, never a second append; a new event tag costs this page nothing — the union admits it and the family's own digest moves.
 - Owner: `Journal.signal` folds a driver fault onto the closed `conflicted`/`refused`/`transient` vocabulary every retry gate in the folder reads.
-- Law: concurrency is `Occ` — `Exact` fails as `VersionConflict` when the locked head disagrees, `None` demands version zero, `Any` serializes under the lock and appends at head; the advisory lock is `pg_advisory_xact_lock(hashtextextended(...))` on the spine and degrades to the single writer through `onDialectOrElse` — the unique constraint remains the structural backstop on every profile.
+- Law: concurrency is `Occ` — `Exact` fails as `VersionConflict` when the locked head disagrees, `None` demands version zero, `Any` serializes under the lock and appends at head; the advisory lock is `pg_advisory_xact_lock(hashtextextended(...))` on the spine and degrades to the single writer through `onDialectOrElse` — the unique constraint remains the structural backstop on the monolith spine and every sqlite profile, while the partitioned pg spine carries no stream unique at all (PostgreSQL refuses a unique constraint omitting the partition key) and rests on the lock and the head read, which already serialize every writer of one stream.
 - Law: the structural backstop re-spells onto the SAME typed conflict — one contention fact reaches the caller on one channel, because the locked head read and the `journal_event_stream` violation are the same race refused at two depths and a recovery predicate gated on `VersionConflict` alone is dead code exactly on the profiles carrying no advisory lock; the fold runs at the insert, so `expected` carries the head the transaction admitted against and `actual` stays `Option.none` rather than fabricating a value the aborted transaction can no longer read.
 - Law: the re-spell identifies the violated UNIQUE, never the code class alone — pg-wire carries the constraint name beside its SQLSTATE and the guard matches that name, while SQLite reports the violated index's COLUMNS and no sqlite driver carries a constraint field, so there the guard matches this relation's own key roster; either way a uniqueness refusal from another unique on this relation stays an ordinary fault instead of reaching a caller as a stream-version conflict it reload-fold-retries forever.
-- Law: the classifier reads TWO channels because the drivers carry two — a `code` field where one exists, the engine's own message where none survives. Node and libSQL raise the SQLite extended result-code NAMES, so those profiles resolve on the same lookup the SQLSTATE rows serve; the wasm build raises the C API's primary result code as a NUMBER that separates no constraint from another, its OPFS worker crosses a `postMessage` boundary carrying the message string alone, and D1 wraps that same text behind its own prefix. `sqlite3_errmsg` reaches all three, so the message rows are the total route rather than a convenience, and the code lookup runs first so a driver naming its refusal exactly is never re-read out of prose.
-- Law: [SPIKE] the message rows converge on live profile evidence — the sentences are engine-fixed, the wrapping around them is per-profile, and `bun:sqlite` ships inside its runtime with no package and no declaration this workspace resolves, so its field set stays unproven here and is enumerated nowhere. DETERMINISTIC FLOOR: the code table classifies every driver that names its refusal, containment matching survives an unknown wrapper, and an unrecognized fault on any profile still defaults to `transient` — patience the unbounded drain schedule already prices.
+- Law: the classifier reads TWO channels because the drivers carry two — a `code` field where one exists, the engine's own message where none survives. Node, bun, and libSQL raise the SQLite extended result-code NAMES (bun beside a numeric `errno`, libSQL beside a numeric `rawCode`), so those profiles resolve on the same lookup the SQLSTATE rows serve; the wasm build raises the C API's primary result code as a NUMBER that separates no constraint from another, its OPFS worker crosses a `postMessage` boundary carrying the message string alone, and D1 wraps that same text behind its own prefix. `sqlite3_errmsg` reaches all three, so the message rows are the total route rather than a convenience, and the code lookup runs first so a driver naming its refusal exactly is never re-read out of prose.
+- Law: the message rows are engine-fixed and the wrapping is per-profile — node and bun hand the engine sentence back bare, libSQL prefixes it with the extended result-code name, and D1 with its own tag — so containment matching survives every wrapper, the code table classifies every driver that names its refusal (node, bun, and libSQL carry the NAME; wasm the primary NUMBER, which the code lookup never matches), and an unrecognized fault on any profile still defaults to `transient` — patience the unbounded drain schedule already prices.
 - Law: the signal vocabulary is three-valued and its default is `transient` — `conflicted` names a uniqueness refusal, `refused` names the enumerated rejections no retry can change, and every unrecognized code stays retryable, so an unmapped driver degrades to patience rather than to data loss.
 - Law: the conflict carries evidence — `expected` and the optional read `actual` — so recovery is reload-fold-retry as data, and retrying rides a `Schedule` gated on the tag, never a loop.
 - Law: `VersionConflict` classifies `conflicted`; reload-fold-retry owns recovery.
@@ -1103,7 +1153,11 @@ const Journal = {
     _census(sql)(app),
   complete: (sql: SqlClient.SqlClient, held: Array.NonEmptyReadonlyArray<Journal.Held>) =>
     _safe(_complete(sql, held)), // the settle reads back two BIGINT columns, so it takes the claim's own pinned posture
-  ddl: [_journalDdl, _ledgerDdl, _outboxDdl],
+  log: _LOG, // the live relation's one name — the cutover derives its shadow and prior names from it
+  relation: _relation, // the relation's one DDL owner: the ensure the deploy plane plants, the mint a cutover runs
+  unique: _unique, // the stream unique's name derivation the OCC guard and the cutover's rename pair both read
+  ddl: (spine: Journal.Spine) => [_relation(_LOG, spine).ensure, _ledgerDdl, _outboxDdl], // the root names the spine it ships
+
   overlay: _overlay,
   Fence: _Fence, // the verdict every store-validated conditional write in the folder answers with
   Occ: _Occ,

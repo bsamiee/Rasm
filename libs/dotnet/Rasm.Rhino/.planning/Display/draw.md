@@ -556,7 +556,7 @@ public sealed record IsoBanding(
     Option<IsoGap> Gap,
     PerceptualColor From,
     PerceptualColor To,
-    Dimension Bands) {
+    Rasm.Numerics.Dimension Bands) {
     internal bool Valid => Mode is not null
         && Direction.IsValid
         && Anchor.IsValid
@@ -718,7 +718,7 @@ public abstract partial record WorldMark {
     public sealed record Draft(Mesh Value, PerceptualColor Colour) : WorldMark;
     // The retained-overlay fold: four cases the old `RetainedMark` union carried land here, drawable on BOTH the
     // pipeline and the retained overlay, so the parallel retained vocabulary deletes whole.
-    public sealed record Points(Seq<Point3d> Values, PerceptualColor Colour, PointUse Style, Dimension Radius) : WorldMark;
+    public sealed record Points(Seq<Point3d> Values, PerceptualColor Colour, PointUse Style, Rasm.Numerics.Dimension Radius) : WorldMark;
     public sealed record Vector(Point3d Anchor, Vector3d Span, PerceptualColor Colour, VectorTip Tip) : WorldMark;
     public sealed record Polygon(Seq<Point3d> Ring, PerceptualColor Fill, PerceptualColor Edge, PolygonPaint Paint) : WorldMark;
     public sealed record Label3d(Text3d Value, PerceptualColor Colour) : WorldMark;
@@ -806,7 +806,7 @@ public abstract partial record Canvas {
 // --- [MODELS] -------------------------------------------------------------------------------
 // Accountability, not narration: every mark lands in exactly one column, refusals carry their typed cause, and the
 // evidence fold is the EMPTY refusal set — a batch that skipped a mark cannot read valid.
-public readonly record struct DrawReceipt(Dimension Drawn, Dimension Culled, Seq<Error> Refused) : IValidityEvidence {
+public readonly record struct DrawReceipt(Rasm.Numerics.Dimension Drawn, Rasm.Numerics.Dimension Culled, Seq<Error> Refused) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Refused.IsEmpty);
 }
 
@@ -837,8 +837,8 @@ public static class Marks {
     private static Fin<DrawReceipt> Immediate(
         Seq<DisplayMark> marks, Op op, Func<DisplayMark, Fin<Either<Error, Outcome>>> arm) =>
         marks.TraverseM(arm).As().Map(outcomes => new DrawReceipt(
-            Drawn: Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Drawn))),
-            Culled: Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Culled))),
+            Drawn: Rasm.Numerics.Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Drawn))),
+            Culled: Rasm.Numerics.Dimension.Create(value: outcomes.Count(static row => row is Either.Right<Error, Outcome>(Outcome.Culled))),
             Refused: outcomes.Choose(static row => row.Match(Left: Some, Right: static _ => Option<Error>.None))));
 
     // The kernel owns the whole screen replay — draw, cull, stock, gauge — so the surface arms build one

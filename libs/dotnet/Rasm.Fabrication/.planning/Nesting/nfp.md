@@ -2,26 +2,34 @@
 
 `Nest` owns true-shape placement over heterogeneous material stock. One admitted `NestPolicy` compiles each search case into the shared candidate algebra, `NoFitPolygon` retains complete configuration-space topology, and exact arc-space collision and containment gate every emitted transform.
 
-`Nest.Solve` preserves the process seam, `Nest.Charts` preserves the atlas projection, and `NestPlan` remains the rectangular hand-off. `Stock.FromRemnant` re-enters the same inventory union, while `FabricationResult.Placement` carries the process projection.
+`Nest.Solve` preserves the process seam, `Nest.Charts` the atlas projection, `NestPlan` the rectangular hand-off, `Stock.FromRemnant` the inventory union, and `FabricationResult.Placement` the process projection. Placement legality stays the material's: each stock row carries the `MaterialSymmetry` its component projects at `Rasm.Materials/Component/component#COMPONENT_OWNER`, and moves derive from that law at `Rasm/Parametric/patternmap#PATTERNING`. Part rules carry kernel chirality — parity, congruence class, book-match link — admitted through `NestParts.Of`.
 
 ## [01]-[INDEX]
 
-- [02]-[DOMAIN]: Generated owners admit stock, part rules, constraints, search policy, and NFP evidence.
+- [02]-[DOMAIN]: Generated owners admit stock with its symmetry law, part rules with their parity, class, and mate, constraints, search policy, and NFP evidence, and one fold admits the kernel panel and pattern carriers into them.
 - [03]-[CONFIGURATION_SPACE]: Arc-witnessed Minkowski proposals, exact feasibility, and parallel pair materialization.
-- [04]-[SEARCH]: Constraint closure, candidate generation, parameterized search programs, and stock scheduling.
+- [04]-[SEARCH]: Constraint closure, law-gated move sets, candidate generation, parameterized search programs, and stock scheduling.
 - [05]-[DELIVERY]: Rectangular-plan honor, remnant minting, placement evidence, and content identity.
 
 ## [02]-[DOMAIN]
 
 - Owner: `Stock` closes physical inventory modalities while `StockBody` carries common material, topology, exclusion, piece-and-lot trace, and cost facts.
-- Owner: `NestPolicy` admits search, clearance, kerf, edge allowance, objective, candidate, constraint, evaluation budget, and batch policy once.
+- Owner: `NestPolicy` admits search, clearance, kerf, edge allowance, objective, candidate, constraint, evaluation budget, batch, and chiral-floor policy once.
+- Owner: `PartRule` carries the demand for one part — quantity, material, admitted angles, grain axis, priority — beside the three chirality columns the kernel measured: `Chirality` parity, congruence class, and book-match mate.
+- Owner: `NestParts` is the ONE admission from the kernel carriers into that vocabulary; input shape selects the arm, and a lane inferring parity from geometry it did not produce is the deleted form.
 - Cases: `PlacementMode` carries greedy, beam, evolutionary, annealed, Voronoi, and rectangular programs with case-local evidence; rectangular strategy count and depth remain explicit policy.
 - Cases: `PlacementConstraint` carries precedence, grouping, separation, adjacency, containment, stock eligibility, and keep-out facts, each occurrence carrying its own `ConstraintForce`.
-- Law: one `StockFacts` projection derives common body facts, and one `StockTraits` projection derives physicality, nestability, rectangular extent policy, gauge, and grain; a new modality answers remnant and stock consumers through one case arm.
+- Cases: `Chirality` carries `Straight` and `Mirrored` — `Mirrored` names the outline that IS the reflected member of its shape class, whose producer is `Rasm/Parametric/panelize#PANELIZATION` `PanelField.Flipped`.
+- Law: one `StockFacts` projection derives common body facts, and one `StockTraits` projection derives physicality, nestability, rectangular extent policy, gauge, grain, and the admitted symmetry law; a new modality answers remnant and stock consumers through one case arm.
+- Law: every planar modality carrying a grain axis carries the STOCK material's `MaterialSymmetry` beside it, read off `Component.Symmetry` at admission and never re-derived; an isotropic sheet passes `MaterialSymmetry.Free`, and a bar, tube, billet, or filament answers `Free` because no planar move exists to gate.
+- Law: the grain VECTOR the law refines IS the existing `GrainAxis` angle in the sheet plane — one spelling, one column, and a second direction column beside it is the deleted form.
+- Law: stock identity folds the law's `Fold` and `Mirror` keys immediately after the grain axis, so one sheet declared chiral and the same sheet declared reflective are two stocks — a stricter law admits a different move set and must address differently.
+- Law: a `Mate` names a part id in the roster and the naming is SYMMETRIC — the policy factory proves `a`'s mate is `b` exactly when `b`'s mate is `a`, refusing `nest:mate-asymmetric`, because a half pair obligates an adjacency no second row honours.
 - Law: `ConstraintForce.Required` rejects a candidate and fails delivery; `ConstraintForce.Preferred` admits the candidate and rides `NestObjective` as weighted penalty.
 - Law: six objective weights fan onto one comparable number and every term reaches it DIMENSIONLESS. `NestBasis` carries all three nondimensionalizers — the characteristic length the cut and shared-edge terms divide through, the currency reference the cost term does, and the violation ceiling the constraint term does — on the scoring INPUT, never on `NestEvidence`, because a derived reference on the carrier is a scoring input wearing an evidence column; the basis derives once per solve from the admitted inventory and policy and threads on `SearchState`.
-- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, and the `Chain` loop carrier; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` rail; `Thinktecture` supplies the generated stock, constraint, and mode families; `UnitsNet` supplies material quantities and the `Length` ratio the objective's characteristic-length nondimensionalization takes.
-- Growth: a stock modality, constraint, candidate source, objective, or search algorithm lands as one case or row consumed by the existing folds.
+- Packages: `Rasm` supplies `Deterministic` (the ONE draw owner), `ChartAtlas`/`UvIsland.Boundary`, the `Chain` loop carrier, and the `MaterialSymmetry`/`SymmetryFold`/`MirrorRight` legality algebra beside the `PanelResult` and `InstanceStream` carriers `NestParts` admits; the `Geometry2D` owner supplies morphology, Boolean, measure, and the cell diagram; `LanguageExt` supplies admission, traversal, and the `Fin` rail; `Thinktecture` supplies the generated stock, constraint, chirality, and mode families; `UnitsNet` supplies material quantities and the `Length` ratio the objective's characteristic-length nondimensionalization takes.
+- Growth: a stock modality, constraint, candidate source, objective, or search algorithm lands as one case or row consumed by the existing folds; a further kernel carrier of placed instances lands as one `NestParts.Of` arm over the same three chirality columns.
+- Boundary: the symmetry law arrives DERIVED from the material's own construction rows — this plane admits it, folds it into identity, and derives moves from it, and a caller-set legality knob beside a material that already models direction has no parameter to reach.
 
 ## [03]-[CONFIGURATION_SPACE]
 
@@ -42,22 +50,31 @@
 - Owner: `ConstraintGraph` proves precedence acyclic, derives closure for ordering, and precomputes the reduction rank the ordering fold reads.
 - Law: exactly TWO of the seven placement constraints mint precedence edges — `Precedes` orders its pair directly and `Inside` orders an outer part before the part it contains. The other five are ORDER-FREE by construction: `Together`, `Separate`, `Adjacent`, `StockOnly`, and `KeepOut` each constrain WHERE a candidate may sit, never when, so they gate at `Accept` against the placed set and a precedence edge for any of them would forbid a placement the geometry admits.
 - Law: the transitive CLOSURE and the transitive REDUCTION are both retained as receipt data on the graph — `InDegree` over the closure is the ordering's primary key and the reduction's own topological sort IS the `rank` column its tertiary key reads — so neither walk's output is computed and dropped.
+- Owner: `Nest.Moves` is the ONE move set — a `(Rotation, Mirrored)` roster DERIVED per part rule against the stock laws it is handed, so one stock answers that stock's admitted turns and flips and the whole inventory answers the union a genome may draw from. There is no move family and no legality flag: a free rotation roster and a caller-set flip switch are both the deleted form.
+- Law: a rotation survives when the stock's fold admits the part's grain RESIDUAL — the placed grain against the stock axis — under the stock's own angular cone, and `Nest.Fold` is the ONE place grain lowers onto the fold: a grain axis is a LINE, so a half-turn preserves it and a `Free`-fold stock still binds a grain-bearing part to `SymmetryFold.Half`, which is exactly the half-turn congruence the bare grain gate always ran.
+- Law: `Nest.Grain` is the ONE placed-grain fold both nesting lanes read — a mirror negates local X, so a direction at `g` leaves at `π − g` before the turn applies, and a lane spelling that reflection itself forks the alignment two consumers must agree on.
+- Law: a mirrored move exists only where the grant admits `MirrorRight.Place`; a `Refused` grant admits none, and the reflected loops are minted ONCE per part per parity rather than per candidate.
+- Law: under `MirrorRight.Merge` a variant salts its shape CLASS instead of its part ordinal, so two congruent parts cut from one mould present one pair identity and the NFP matrix collapses from parts onto classes — sound because `NestParts.Of` lands every panel ring in its own panel frame, so congruent panels present one canonical loop preimage. Where the law refuses the merge the part ordinal stays the salt, because two moulds are two shapes.
+- Law: under `MirrorRight.Pair` — the `Matched` grant — every `Mate` pair mints ONE `PlacementConstraint.Adjacent` row at `ConstraintForce.Required` on admission, so book-matched mates nest as adjacent units through the constraint graph the search already honours rather than through a second pairing mechanism. Its ceiling is the shared-cut gap — clearance and kerf under the boundary metric — because a book match that does not touch is two parts that merely landed near each other, and obligation mints where ANY admitted stock carries the right, since a match honoured on one sheet and abandoned on the next is not a match.
+- Law: `Nest.Admitted` is the ONE candidate gate, answering material, then grain, then symmetry in cost order. `Grain` names the ABSENT axis — a directional part against stock declaring no direction — and `Symmetry` names the refused MOVE: this turn's residual outside the fold's cone, or a flip the grant refuses. Per-axis booleans let a caller read one axis and forget the other, and neither names the move the law refused.
 - Owner: `CandidateSource` composes NFP vertices, inner-fit boundaries, arc-native contacts, stock extrema, and relaxed Voronoi centroids into one slot-keyed frontier; its `Absolute` column decides which rows can seed an empty stock.
 - Auto: `PlacementMode.Compile` emits one `SearchProgram`; `SearchOp` folds order, branch, breed, mutate, cool, relax, bound, and select steps over one `SearchState`.
 - Auto: `SearchState.Evidence.Evaluated` counts exact decisions across every active run, and `SearchOp.Bounded` halts the stochastic sub-program at `NestPolicy.EvaluationBudget`.
+- Auto: the genome carries a MOVE map rather than a rotation map, and every draw — seed, mutation, initial seat — reads `Moves`; a draw reaching `PartRule.Angles` directly proposes turns the stock law already refused and spends the evaluation budget grading them.
 - Auto: rectangular programs delegate every packer and heuristic axis to `StockNest.Pack`; `Nest` contains no second rectangle provider switch, and the honoured plan's own `Unplaced` roster carries the graded refusal each unseated instance earned, so the rectangular lane reaches this evidence naming material, extent, or grain rather than a blanket capacity claim.
 - Auto: one `PolygonScan` precomputes a branch's placed bounding envelopes once and every candidate position folds over that structure, so a disjoint position costs one bounds test; the arc-exact relation walk that names the colliding part runs only where the scan reports contact.
 - Packages: `Rasm` supplies the `Deterministic` lanes every genome, mutation, and cooling draw reads; the `Geometry2D` owner supplies `PolygonOp.Cells` for the relaxed free-space frontier and `PolygonScan` for the placement scan; `QuikGraph` supplies the constraint closure; `StockNest.Pack` owns every rectangular packer axis.
-- Boundary: exact containment, overlap, material, exclusion, and blocking-constraint verdicts gate a candidate before objective ranking.
+- Boundary: exact containment, overlap, material, grain, symmetry, exclusion, and blocking-constraint verdicts gate a candidate before objective ranking; pair identity folds the move's parity beside its rotation, so a shape and its reflection can never answer one NFP witness.
 
 ## [05]-[DELIVERY]
 
-- Law: the content preimage covers every `PartTransform` member including `Instance`, so two placements differing only by instance never collide on one key.
-- Law: the evidence digest covers what the artifact IS, never what the search measured about it. Columns DERIVED from geometry the placement key already covers — shared-edge overlap, pierce census, and the placement and remnant rosters `KeyOf` frames around the digest — and columns describing the run rather than the result — memo hit and miss counters, settling stamp — stay out of the preimage, so refining a measure, changing a cache tier, or re-running the same solve can never re-key a landed plan.
+- Law: the content preimage covers every `PartTransform` member including `Instance` and `Mirrored`, so two placements differing only by instance — or only by which face of the blank went up — never collide on one key.
+- Law: the evidence digest covers what the artifact IS, never what the search measured about it. Columns DERIVED from geometry the placement key already covers — shared-edge overlap, pierce census, and the placement and remnant rosters `KeyOf` frames around the digest — and columns describing the run rather than the result — memo hit and miss counters, the mould and chiral-floor census, settling stamp — stay out of the preimage, so refining a measure, changing a cache tier, or re-running the same solve can never re-key a landed plan.
+- Law: `Moulds` counts the DISTINCT cut outlines the plan pays for — two parts of one shape class share an outline where their parity agrees, or where the stock law merges the mirrored congruence and one blank turns; a classless part is its own mould. Read against the class count it prices the mould delta the layout absorbs, and `ChiralFloor` carries the split the panel law already made, so the two answer what the material choice cost and what it was always going to cost.
 - Entry: `Nest.Solve` admits profiles, inventory, policy, and the run's own `FabricationRuntime`, then dispatches resolved rectangular plans or true-shape search on one `Fin` rail. `FabricationRuntime` enters WHOLE because tap, memo, token, and settling clock are four columns of one value: the token threads the pair-memo lane into `HybridCache.GetOrCreateAsync` so an in-flight cancel surfaces on the kernel cancellation rail, and the clock stamps the settled receipt where it settles.
 - Entry: `NestBench.Workload` admits the `nfp-placement` measured workload — search lane, live inventory, part and budget floors — and `NestBench.Run` is the fold the corpus gate times against `FabricationBenchClaims.NfpPlacement`, taking the same runtime the spine hands the plane so the timed entry is the one a real run reaches; measurement and receipt projection stay the bench edge's under the AppHost claim-field map.
 - Entry: `Nest.Charts` admits atlas distortion and reconstructs every island boundary cycle. `Nest.Rings` is the ONE `Chain`-to-`Loop` termination in the package — `Forming/sheet` composes it rather than re-admitting the same kernel carrier, because the walk that produced the chain already owns winding and once-counted edges and a second termination forks the admitted context.
-- Receipt: `Receipt<NestEvidence>` is the settled lane output — the ONE settled-receipt carrier — so plane, key, ancestry, band, and stamp arrive from the spine and this plane declares `NestEvidence` alone. `Stamped` is the column the carrier ADDS: no nest output carried a settling instant before, and it stays outside the digest for the same reason the run spine's does, because a key moving with the wall clock addresses nothing. `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, the used-to-stock area basis, and the delivered placements and remnants; the settled evidence fires the `FabricationFact.Engine.Of` candidate, evaluated, rejected, memo-hit, and memo-miss rows through `Process/telemetry#FACT_PROJECTION` as kind `engine`.
+- Receipt: `Receipt<NestEvidence>` is the settled lane output — the ONE settled-receipt carrier — so plane, key, ancestry, band, and stamp arrive from the spine and this plane declares `NestEvidence` alone. `Stamped` is the column the carrier ADDS: no nest output carried a settling instant before, and it stays outside the digest for the same reason the run spine's does, because a key moving with the wall clock addresses nothing. `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, the used-to-stock area basis, the mould and chiral-floor census, and the delivered placements and remnants; the settled evidence fires the `FabricationFact.Engine.Of` candidate, evaluated, rejected, memo-hit, memo-miss, mould, and chiral-floor rows through `Process/telemetry#FACT_PROJECTION` as kind `engine`.
 - Receipt: `FabricationResult.Placement` projects transforms, utilization, unplaced count, remnants, and the evidence-derived content key.
 - Packages: `FabricationCanon` over the `Rasm.Element` `CanonicalWriter` is the ONE byte codec every preimage on this page composes — stock and pair identity, evidence digest, placement key — so a `-0.0`, a NaN payload, or a string boundary can never fork identity between two of them, and a `:R`/`:x32` text render of a scalar under a content key is the deleted form; `Rasm` supplies `ContentHash` for the memo key rendering and `UvIsland.Boundary` for the atlas projection; `Rasm.Fabrication.Process` supplies the fault taxonomy, the run runtime, the settled-receipt carrier, and the telemetry tap; `CommunityToolkit.HighPerformance` supplies the parallel pair fill.
 - Boundary: remnant difference uses true profiles and the combined clearance-and-kerf offset; feasibility uses the offset collision profiles; only consumed stock enters the area and cost denominators.
@@ -80,6 +97,7 @@ using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
 using Rasm.Numerics;
+using Rasm.Parametric;
 using Rasm.Processing;
 using Rhino.Geometry;
 using System.Collections.Frozen;
@@ -188,14 +206,16 @@ public sealed partial class NestObjective {
 // term does, and the violation ceiling the constraint term does. Derived ONCE per solve from the admitted
 // inventory and policy and threaded, never recomputed per candidate and never seated on the digested carrier.
 public readonly record struct NestBasis(UnitsNet.Length Reference, double Cost, double Constraint) {
-    public static NestBasis Of(Seq<Stock> inventory, NestPolicy policy) {
+    // Constraint rosters arrive from the ADMITTED graph rather than the policy, because the book-match
+    // adjacencies a `Pair` grant obligates are constraints the search grades and the ceiling must count them.
+    public static NestBasis Of(Seq<Stock> inventory, NestPolicy policy, Seq<PlacementConstraint> constraints) {
         double area = Math.Max(inventory.Sum(static stock => stock.Facts.AreaMm2), double.Epsilon);
         return new NestBasis(
             UnitsNet.Length.FromMillimeters(Math.Sqrt(area)),
             Math.Max(inventory.Sum(static stock => stock.Facts.Cost), double.Epsilon),
             // The penalty's own ceiling under unit force: every admitted constraint violated once, plus every
             // requested instance left unplaced by one.
-            Math.Max(policy.Constraints.Count + policy.Parts.Sum(static row => row.Quantity), 1));
+            Math.Max(constraints.Count + policy.Parts.Sum(static row => row.Quantity), 1));
     }
 }
 
@@ -225,23 +245,24 @@ public sealed partial class CandidateSource {
             .Find(PairTable.Key(row.Part, request.Variant, request.Policy)).ToSeq()
             .Bind(static polygon => polygon.Locus).Bind(static loop => toSeq(loop.Vertices))
             .Map(point => new Candidate(request.Part, row.Transform.SheetIndex, row.Stock.Identity,
-                point + new Vector3d(row.Transform.Tx, row.Transform.Ty, 0.0), request.Angle, 0.0)))));
+                point + new Vector3d(row.Transform.Tx, row.Transform.Ty, 0.0), request.Angle, request.Mirrored, 0.0)))));
     public static readonly CandidateSource Contact = new("contact", Absolute: false, static request =>
         Fin.Succ(request.Placed.Bind(row => Nest.Contacts(row, request.Variant)
             .Map(slot => new Candidate(request.Part, row.Transform.SheetIndex, row.Stock.Identity,
-                slot.Point, request.Angle, slot.Length)))));
+                slot.Point, request.Angle, request.Mirrored, slot.Length)))));
     public static readonly CandidateSource InnerFit = new("inner-fit", Absolute: true, static request =>
         Fin.Succ(request.Inventory.Map((stock, slot) => (stock, slot)).Bind(row => request.Pairs
             .Find(PairTable.InnerKey(request.Variant, row.stock, request.Policy)).ToSeq()
             .Bind(static polygon => polygon.Locus).Bind(static loop => toSeq(loop.Vertices))
-            .Map(point => new Candidate(request.Part, row.slot, row.stock.Identity, point, request.Angle, 0.0)))));
+            .Map(point => new Candidate(request.Part, row.slot, row.stock.Identity, point, request.Angle,
+                request.Mirrored, 0.0)))));
     public static readonly CandidateSource Extrema = new("extrema", Absolute: true, static request =>
         Fin.Succ(request.Inventory.Map((stock, slot) => (stock, slot)).Bind(row => row.stock.Region.Bind(loop => toSeq(loop.Vertices)
             .Map(point => new Candidate(request.Part, row.slot, row.stock.Identity,
-                point - (request.Variant.Rotated.Bound().Min - Point3d.Origin), request.Angle, 0.0))))));
+                point - (request.Variant.Seated.Bound().Min - Point3d.Origin), request.Angle, request.Mirrored, 0.0))))));
     public static readonly CandidateSource Voronoi = new("voronoi", Absolute: true, static request =>
-        Nest.VoronoiCandidates(request.Part, request.Variant, request.Angle, request.Placed, request.Inventory,
-            request.VoronoiIterations, request.VoronoiStrength));
+        Nest.VoronoiCandidates(request.Part, request.Variant, request.Angle, request.Mirrored, request.Placed,
+            request.Inventory, request.VoronoiIterations, request.VoronoiStrength));
 
     public bool Absolute { get; }
     internal Func<CandidateRequest, Fin<Seq<Candidate>>> Generate { get; }
@@ -324,6 +345,21 @@ public sealed partial class ProximityMetric {
         .Fold(double.PositiveInfinity, Math.Min);
 }
 
+// `Chirality` names the parity a part's outline CARRIES, never the parity a placement applies: `Mirrored` says
+// this outline is the reflected member of its shape class, so its straight sibling and it are ONE mould where the
+// stock law merges them and TWO where it refuses. `PartTransform.Mirrored` is the other fact — the move that turns
+// a blank over — and those two meet only in `Nest.Moves`.
+[SmartEnum<string>]
+public sealed partial class Chirality {
+    public static readonly Chirality Straight = new("straight", Reflected: false);
+    public static readonly Chirality Mirrored = new("mirrored", Reflected: true);
+
+    public bool Reflected { get; }
+}
+
+// Parity, class, and mate arrive MEASURED from the kernel through `NestParts.Of` — `PanelField.Flipped`,
+// `PanelField.ShapeClass`, and the `InstanceStream` `PairOf` link — so a free-form profile carries `Straight`, no
+// class, and no mate rather than a chirality this plane guessed off geometry it never produced.
 [ComplexValueObject]
 public sealed partial class PartRule {
     public int PartId { get; }
@@ -331,14 +367,24 @@ public sealed partial class PartRule {
     public Option<MaterialId> Material { get; }
     public Seq<double> Angles { get; }
     public Option<double> GrainAxis { get; }
+    public Chirality Parity { get; }
+    // `ShapeClass` keeps the kernel column's own name: `Class` would generate a keyword factory parameter, and a
+    // name that only survives escaped is a name that reads differently at every call site.
+    public Option<int> ShapeClass { get; }
+    public Option<int> Mate { get; }
     public int Priority { get; }
 
+    // Mate SYMMETRY spans the whole roster, so it proves at `NestPolicy` where the roster exists; this factory
+    // holds only what one row can answer about itself.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int partId, ref int quantity,
-        ref Option<MaterialId> material, ref Seq<double> angles, ref Option<double> grainAxis, ref int priority) =>
+        ref Option<MaterialId> material, ref Seq<double> angles, ref Option<double> grainAxis, ref Chirality parity,
+        ref Option<int> shapeClass, ref Option<int> mate, ref int priority) =>
         validationError = partId < 0 || quantity < 1 || angles.IsEmpty || angles.Exists(static angle => !double.IsFinite(angle))
             || angles.Distinct().Count != angles.Count
             || grainAxis.Exists(static angle => !double.IsFinite(angle))
+            || parity is null || shapeClass.Exists(static row => row < 0)
+            || mate.Exists(row => row < 0 || row == partId)
                 ? new ValidationError("nest:part-rule")
                 : null;
 }
@@ -395,16 +441,21 @@ public readonly record struct StockTraits(
     bool Nestable,
     RectangularExtentPolicy RectangularExtent,
     Option<double> GaugeMm,
-    Option<double> GrainAxis);
+    Option<double> GrainAxis,
+    MaterialSymmetry Law);
 
+// Grain rides ONE column, `GrainAxis`, the in-plane angle already carried, and `Law` is the point group that angle
+// sits in, read off `Component.Symmetry` at admission. Isotropic stock passes `MaterialSymmetry.Free`; a modality
+// with no nestable surface answers `Free` from its trait arm, because no planar move exists for a law to gate.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Stock {
     private Stock() { }
 
-    public sealed record Sheet(StockBody Body, double Thickness, Option<double> GrainAxis) : Stock;
-    public sealed record Plate(StockBody Body, double Thickness, Option<double> GrainAxis) : Stock;
-    public sealed record Roll(StockBody Body, double Width, double AvailableLength, Option<double> GrainAxis) : Stock;
-    public sealed record Coil(StockBody Body, double Width, double AvailableLength, double Thickness, Option<double> GrainAxis) : Stock;
+    public sealed record Sheet(StockBody Body, double Thickness, Option<double> GrainAxis, MaterialSymmetry Law) : Stock;
+    public sealed record Plate(StockBody Body, double Thickness, Option<double> GrainAxis, MaterialSymmetry Law) : Stock;
+    public sealed record Roll(StockBody Body, double Width, double AvailableLength, Option<double> GrainAxis, MaterialSymmetry Law) : Stock;
+    public sealed record Coil(StockBody Body, double Width, double AvailableLength, double Thickness, Option<double> GrainAxis,
+        MaterialSymmetry Law) : Stock;
     public sealed record BarStock(StockBody Body, double Diameter, double Length, double EndAllowance) : Stock;
     public sealed record TubeStock(StockBody Body, double OuterDiameter, double WallThickness, double Length, double SeamAllowance, double EndAllowance) : Stock;
     public sealed record Billet(StockBody Body, double Depth) : Stock;
@@ -421,6 +472,7 @@ public abstract partial record Stock {
     public RectangularExtentPolicy RectangularExtent => Traits.RectangularExtent;
     public Option<double> GaugeMm => Traits.GaugeMm;
     public Option<double> GrainAxis => Traits.GrainAxis;
+    public MaterialSymmetry Law => Traits.Law;
 
     StockFacts Facts => Switch(
         sheet: static row => StockFacts.Of(row.Body),
@@ -438,31 +490,31 @@ public abstract partial record Stock {
         state: Area,
         sheet: static (area, row) => TraitsOf(area,
             Positive(row.Thickness) && Axis(row.GrainAxis), true,
-            RectangularExtentPolicy.Region, Some(row.Thickness), row.GrainAxis),
+            RectangularExtentPolicy.Region, Some(row.Thickness), row.GrainAxis, row.Law),
         plate: static (area, row) => TraitsOf(area,
             Positive(row.Thickness) && Axis(row.GrainAxis), true,
-            RectangularExtentPolicy.Region, Some(row.Thickness), row.GrainAxis),
+            RectangularExtentPolicy.Region, Some(row.Thickness), row.GrainAxis, row.Law),
         roll: static (area, row) => TraitsOf(area,
             Positive(row.Width) && Positive(row.AvailableLength) && Axis(row.GrainAxis), true,
-            RectangularExtentPolicy.Bounded(row.Width, row.AvailableLength), None, row.GrainAxis),
+            RectangularExtentPolicy.Bounded(row.Width, row.AvailableLength), None, row.GrainAxis, row.Law),
         coil: static (area, row) => TraitsOf(area,
             Positive(row.Width) && Positive(row.AvailableLength) && Positive(row.Thickness) && Axis(row.GrainAxis), true,
-            RectangularExtentPolicy.Bounded(row.Width, row.AvailableLength), Some(row.Thickness), row.GrainAxis),
+            RectangularExtentPolicy.Bounded(row.Width, row.AvailableLength), Some(row.Thickness), row.GrainAxis, row.Law),
         barStock: static (area, row) => TraitsOf(area,
             Positive(row.Diameter) && Positive(row.Length) && Nonnegative(row.EndAllowance)
                 && (2.0 * row.EndAllowance) < row.Length,
-            false, RectangularExtentPolicy.Forbidden, None, None),
+            false, RectangularExtentPolicy.Forbidden, None, None, MaterialSymmetry.Free),
         tubeStock: static (area, row) => TraitsOf(area,
             Positive(row.OuterDiameter) && Positive(row.WallThickness)
                 && row.WallThickness < 0.5 * row.OuterDiameter && Positive(row.Length)
                 && Nonnegative(row.SeamAllowance) && Nonnegative(row.EndAllowance)
                 && (2.0 * row.EndAllowance) < row.Length,
-            false, RectangularExtentPolicy.Forbidden, Some(row.WallThickness), None),
+            false, RectangularExtentPolicy.Forbidden, Some(row.WallThickness), None, MaterialSymmetry.Free),
         billet: static (area, row) => TraitsOf(area, Positive(row.Depth), true,
-            RectangularExtentPolicy.Region, Some(row.Depth), None),
+            RectangularExtentPolicy.Region, Some(row.Depth), None, MaterialSymmetry.Free),
         filament: static (area, row) => TraitsOf(area,
             Positive(row.Diameter) && Positive(row.SpoolLength), false,
-            RectangularExtentPolicy.Forbidden, None, None),
+            RectangularExtentPolicy.Forbidden, None, None, MaterialSymmetry.Free),
         fromRemnant: static (area, row) => TraitsOf(area,
             !row.Remnant.Region.IsEmpty && Axis(row.Remnant.Profile.GrainAxisRadians)
                 && row.Remnant.Profile.GaugeMm.ForAll(static gauge => double.IsFinite(gauge) && gauge >= 0.0)
@@ -470,7 +522,7 @@ public abstract partial record Stock {
                 && row.Remnant.Profile.Exclusions.ForAll(exclusion => exclusion.Closed && exclusion.Count >= 3
                     && exclusion.Tolerance == row.Remnant.Boundary.Tolerance),
             true, RectangularExtentPolicy.Region, row.Remnant.Profile.GaugeMm,
-            row.Remnant.Profile.GrainAxisRadians));
+            row.Remnant.Profile.GrainAxisRadians, row.Remnant.Profile.Law));
 
     public double Area => Math.Max(0.0, Math.Abs(Region.Sum(static loop => loop.Area()))
         - Exclusions.Sum(static loop => Math.Abs(loop.Area())));
@@ -481,20 +533,25 @@ public abstract partial record Stock {
     static bool Nonnegative(double value) => double.IsFinite(value) && value >= 0.0;
     static bool Axis(Option<double> value) => value.ForAll(double.IsFinite);
     static StockTraits TraitsOf(double area, bool physical, bool nestable,
-        RectangularExtentPolicy rectangular, Option<double> gauge, Option<double> grain) =>
-        new(physical, physical && nestable && area > 0.0, rectangular, gauge, grain);
+        RectangularExtentPolicy rectangular, Option<double> gauge, Option<double> grain, MaterialSymmetry law) =>
+        new(physical, physical && nestable && area > 0.0, rectangular, gauge, grain, law);
 
-    // Each modality writes its bounded discriminator token then its own scalars through the codec; field ORDER is
-    // the page's and stays, while the hand-counted string lengths go — `String` already frames by UTF-8 byte count
-    // and `FabricationCanon.Maybe` already frames absence as a presence bit ahead of the payload.
+    // Each modality writes its bounded discriminator token then its own scalars through the codec; field ORDER
+    // is the page's and stays, while the hand-counted string lengths go — `String` already frames by UTF-8 byte
+    // count and `FabricationCanon.Maybe` already frames absence as a presence bit ahead of the payload. The law
+    // folds immediately after the grain axis it refines on every modality that HOLDS one: a stricter law admits a
+    // narrower move set, so the same sheet under two laws is two stocks and must address as two. The non-planar
+    // arms fold nothing, because their `Free` law is derived from the case and cannot vary.
     CanonicalWriter IdentitySalt(CanonicalWriter writer) => Switch(
         state: writer,
-        sheet: static (sink, row) => BodyKey(sink.String("sheet"), row.Body).Double(row.Thickness).Maybe(row.GrainAxis, Scalar),
-        plate: static (sink, row) => BodyKey(sink.String("plate"), row.Body).Double(row.Thickness).Maybe(row.GrainAxis, Scalar),
-        roll: static (sink, row) => BodyKey(sink.String("roll"), row.Body)
-            .Double(row.Width).Double(row.AvailableLength).Maybe(row.GrainAxis, Scalar),
-        coil: static (sink, row) => BodyKey(sink.String("coil"), row.Body)
-            .Double(row.Width).Double(row.AvailableLength).Double(row.Thickness).Maybe(row.GrainAxis, Scalar),
+        sheet: static (sink, row) => LawKey(BodyKey(sink.String("sheet"), row.Body)
+            .Double(row.Thickness).Maybe(row.GrainAxis, Scalar), row.Law),
+        plate: static (sink, row) => LawKey(BodyKey(sink.String("plate"), row.Body)
+            .Double(row.Thickness).Maybe(row.GrainAxis, Scalar), row.Law),
+        roll: static (sink, row) => LawKey(BodyKey(sink.String("roll"), row.Body)
+            .Double(row.Width).Double(row.AvailableLength).Maybe(row.GrainAxis, Scalar), row.Law),
+        coil: static (sink, row) => LawKey(BodyKey(sink.String("coil"), row.Body)
+            .Double(row.Width).Double(row.AvailableLength).Double(row.Thickness).Maybe(row.GrainAxis, Scalar), row.Law),
         barStock: static (sink, row) => BodyKey(sink.String("bar"), row.Body)
             .Double(row.Diameter).Double(row.Length).Double(row.EndAllowance),
         tubeStock: static (sink, row) => BodyKey(sink.String("tube"), row.Body)
@@ -503,15 +560,19 @@ public abstract partial record Stock {
         billet: static (sink, row) => BodyKey(sink.String("billet"), row.Body).Double(row.Depth),
         filament: static (sink, row) => BodyKey(sink.String("filament"), row.Body)
             .Double(row.Diameter).Double(row.SpoolLength),
-        fromRemnant: static (sink, row) => sink.String("remnant").U128(row.Remnant.Identity)
+        fromRemnant: static (sink, row) => LawKey(sink.String("remnant").U128(row.Remnant.Identity)
             .Maybe(row.Remnant.Profile.GaugeMm, Scalar)
-            .Maybe(row.Remnant.Profile.GrainAxisRadians, Scalar)
+            .Maybe(row.Remnant.Profile.GrainAxisRadians, Scalar), row.Remnant.Profile.Law)
             .Maybe(row.Remnant.Profile.CostPerSquareMillimeter, Scalar));
 
     static CanonicalWriter BodyKey(CanonicalWriter writer, StockBody body) => writer
         .String(body.Material.Value).String(body.Piece).String(body.Lot)
         .Maybe(body.Heat, static (held, heat) => held.String(heat))
         .Double(body.Cost);
+
+    // Two generated keys, each framed by the codec: the fold's crystallographic order and the grant's own token.
+    static CanonicalWriter LawKey(CanonicalWriter writer, MaterialSymmetry law) =>
+        writer.Ordinal(law.Fold.Key).String(law.Mirror.Key);
 
     static CanonicalWriter Scalar(CanonicalWriter writer, double value) => writer.Double(value);
 }
@@ -533,20 +594,31 @@ public sealed partial class NestPolicy {
     public int PairConcurrency { get; }
     public int EvaluationBudget { get; }
 
+    // `ChiralFloor` carries the mould split the panel law ALREADY made, arriving through `NestParts.Of` so the
+    // delivered mould census reads against a floor rather than against nothing; a free-form roster carries zero.
+    public int ChiralFloor { get; }
+
+    // Mate symmetry is a WHOLE-ROSTER law, so it proves here where the roster is: `a`'s mate is `b` exactly when
+    // `b`'s mate is `a`, and a half pair obligates an adjacency no second row honours.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PlacementMode mode, ref Seq<PartRule> parts,
         ref Seq<PlacementConstraint> constraints, ref FrozenSet<CandidateSource> candidates, ref CandidateOrder frontier,
         ref NestObjective objective,
         ref double clearance, ref double chordError, ref double kerf, ref double edgeAllowance,
-        ref double rectangleResolution, ref int pairBatchFloor, ref int pairConcurrency, ref int evaluationBudget) =>
+        ref double rectangleResolution, ref int pairBatchFloor, ref int pairConcurrency, ref int evaluationBudget,
+        ref int chiralFloor) {
+        Seq<PartRule> roster = parts;
+        bool paired = roster.ForAll(row => row.Mate.ForAll(mate => roster.Find(peer => peer.PartId == mate)
+            .Exists(peer => peer.Mate.Exists(back => back == row.PartId))));
         validationError = parts.IsEmpty || toSeq(parts.GroupBy(static row => row.PartId)).Exists(static group => group.Count() != 1)
             || candidates.Count == 0 || !double.IsFinite(clearance) || clearance < 0.0 || !double.IsFinite(chordError)
             || chordError <= 0.0 || !double.IsFinite(kerf) || kerf < 0.0 || !double.IsFinite(edgeAllowance)
             || edgeAllowance < 0.0 || !double.IsFinite(rectangleResolution) || rectangleResolution <= 0.0
-            || pairBatchFloor < 1 || pairConcurrency < 1 || evaluationBudget < 1 || !Admits(mode)
+            || pairBatchFloor < 1 || pairConcurrency < 1 || evaluationBudget < 1 || chiralFloor < 0 || !Admits(mode)
             || !candidates.Any(static source => source.Absolute)
                 ? new ValidationError("nest:nest-policy")
-                : null;
+                : paired ? null : new ValidationError("nest:mate-asymmetric");
+    }
 
     static bool Admits(PlacementMode mode) => mode.Switch(
         bottomLeft: static _ => true,
@@ -607,7 +679,11 @@ public abstract partial record UnplacedReason {
     private UnplacedReason() { }
 
     public sealed record Material(int PartId, int Instance, UInt128 Stock) : UnplacedReason;
+    // Grain names the ABSENT axis — a directional part against stock declaring no direction — while Symmetry
+    // names the refused MOVE: this turn outside the stock fold's cone, or a flip its grant refuses. Both
+    // address the part AND the stock row, because a directional refusal is a statement about the pair.
     public sealed record Grain(int PartId, int Instance, UInt128 Stock) : UnplacedReason;
+    public sealed record Symmetry(int PartId, int Instance, UInt128 Stock) : UnplacedReason;
     public sealed record Boundary(int PartId, int Instance, UInt128 Stock) : UnplacedReason;
     public sealed record Collision(int PartId, int Instance, int OtherPartId, int OtherInstance) : UnplacedReason;
     public sealed record Exclusion(int PartId, int Instance, UInt128 Stock) : UnplacedReason;
@@ -643,11 +719,13 @@ public abstract partial record ConstraintVerdict {
 // describing the search rather than the artifact; and `Placements`/`Remnants` are the delivered artifact itself,
 // which `KeyOf` already frames member-by-member around this digest, so writing them here folds one fact into the
 // key twice. Both ride the evidence because `Receipt<NestEvidence>` varies in `TEvidence` ALONE, and a placement
-// roster beside the carrier is a second lane output on a spine that publishes one.
+// roster beside the carrier is a second lane output on a spine that publishes one. `Moulds` and `ChiralFloor`
+// join the memo counters OUTSIDE the preimage under that same law: the mould census measures what this run cut
+// and the floor restates what the panel law already decided, so neither describes the artifact the key addresses.
 public sealed record NestEvidence(PlacementMode Mode, NestObjective Objective, Seq<UInt128> Stock, Seq<NfpWitness> Pairs,
     Seq<ConstraintVerdict> Constraints, Seq<UnplacedReason> Unplaced, int Candidates, int Evaluated, int Rejected,
     double UsedArea, double StockArea, double CutLength, double RemnantValue, double StockCost,
-    double SharedEdge = 0.0, int Pierces = 0, int MemoHits = 0, int MemoMisses = 0,
+    double SharedEdge = 0.0, int Pierces = 0, int MemoHits = 0, int MemoMisses = 0, int Moulds = 0, int ChiralFloor = 0,
     Seq<PartTransform> Placements = default, Seq<Remnant> Remnants = default) {
     public double Utilization => StockArea > 0.0 ? Math.Clamp(UsedArea / StockArea, 0.0, 1.0) : 0.0;
     public double ConstraintPenalty => Constraints.Sum(static row => row.Penalty)
@@ -655,18 +733,23 @@ public sealed record NestEvidence(PlacementMode Mode, NestObjective Objective, S
 }
 
 public readonly record struct PartInstance(int PartId, int Ordinal);
-internal sealed record Variant(int PartId, double Rotation, Loop True, Loop Rotated, Loop Collision, UInt128 Identity);
-internal sealed record Candidate(PartInstance Part, int StockSlot, UInt128 Stock, Point3d Point, double Rotation, double Contact);
+// `Variant` seats one part under ONE MOVE — turn and parity together — so `Seated` carries the
+// reflected-then-rotated outline and reflected loops mint once per part per parity rather than once per candidate.
+internal sealed record Variant(int PartId, double Rotation, bool Mirrored, Loop True, Loop Seated, Loop Collision, UInt128 Identity);
+internal sealed record Candidate(PartInstance Part, int StockSlot, UInt128 Stock, Point3d Point, double Rotation, bool Mirrored,
+    double Contact);
 internal sealed record Placed(PartInstance Instance, Variant Part, Stock Stock, PartTransform Transform, Loop Shape, Loop Envelope);
-internal sealed record CandidateRequest(PartInstance Part, Variant Variant, double Angle, Seq<Placed> Placed, Seq<Stock> Inventory,
-    HashMap<UInt128, NoFitPolygon> Pairs, NestPolicy Policy, int VoronoiIterations, double VoronoiStrength);
+internal sealed record CandidateRequest(PartInstance Part, Variant Variant, double Angle, bool Mirrored, Seq<Placed> Placed,
+    Seq<Stock> Inventory, HashMap<UInt128, NoFitPolygon> Pairs, NestPolicy Policy, int VoronoiIterations, double VoronoiStrength);
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PlacementDecision {
     private PlacementDecision() { }
     public sealed record Accepted(Placed Value, Seq<ConstraintVerdict> Constraints) : PlacementDecision;
     public sealed record Rejected(UnplacedReason Reason) : PlacementDecision;
 }
-internal sealed record Genome(Seq<PartInstance> Order, HashMap<PartInstance, double> Rotation);
+// `Genome` carries a MOVE per instance, never a bare rotation: a parity the search cannot encode is a parity the
+// search can never propose, so a mirror-bearing law would reach the candidate fold with nothing to place.
+internal sealed record Genome(Seq<PartInstance> Order, HashMap<PartInstance, (double Rotation, bool Mirrored)> Move);
 internal sealed record SearchRun(Seq<Placed> Placed, Seq<UnplacedReason> Unplaced, Seq<ConstraintVerdict> Constraints,
     int Candidates, int Evaluated, int Rejected);
 internal sealed record SearchState(Seq<Genome> Population, Seq<SearchRun> Runs, NestEvidence Evidence, NestBasis Basis,
@@ -680,6 +763,11 @@ public static class Nest {
     private const double HeatSeed = 0.0;
     private const int RelaxationSeed = 1;
     private const double StrengthSeed = 1.0;
+
+    // `Still` is the zero MOVE — no turn, no flip. Parts whose every move the inventory refuses still seat a
+    // genome, so search grades them through `Admitted` and answers `Symmetry` rather than failing the decode with
+    // no evidence.
+    private static readonly (double Rotation, bool Mirrored) Still = (0.0, false);
 
     // Tap, memo, token, and settling clock are FOUR columns of ONE runtime, so this entry takes that runtime
     // whole: a signature spelling them apart let a caller hand a live tap beside a foreign token, and no clock a
@@ -722,13 +810,15 @@ public static class Nest {
                     .Bind(chains => Rings(chains, tolerance))).As()
                 .Map(static regions => regions.Bind(static loops => loops).ToArr());
 
+    // Honoured plans carry the parity of every placement they seat, so each transform reads the plan's own move
+    // and the seated outline its offset measures against is the reflected one wherever the plan flipped a part.
     internal static Fin<FabricationResult> Honor(Arr<Loop> parts, NestPlan plan) =>
         plan.Placements.TraverseM(row =>
             row.PartId < 0 || row.PartId >= parts.Count
                 ? Fin.Fail<PartTransform>(new FabricationFault.NoFit(row.PartId, Seq<double>()))
-                : Rotated(parts[row.PartId], row.RotationRadians).Bind(part =>
+                : Seated(parts[row.PartId], row.RotationRadians, row.Mirrored).Bind(part =>
                     PartTransform.Admit(row.PartId, row.Instance, row.XMm - part.Bound().Min.X,
-                        row.YMm - part.Bound().Min.Y, row.RotationRadians, row.SheetIndex, mirrored: false))).As()
+                        row.YMm - part.Bound().Min.Y, row.RotationRadians, row.SheetIndex, row.Mirrored))).As()
             .Bind(placed => toSeq(parts).Head
                 .Filter(_ => !placed.IsEmpty)
                 .ToFin(new FabricationFault.StockOverflow(parts.Count, plan.Yield.SheetCount))
@@ -771,20 +861,37 @@ public static class Nest {
                 ? NfpMethod.ChordProjected
                 : NfpMethod.ArcExact;
 
+    // Book-match adjacencies join the constraint roster HERE, ahead of graph admission, so the graph that
+    // proves acyclicity, gates every candidate, and seeds the evidence verdicts owns ONE roster — a pair row minted
+    // past that admission would be honoured by the fold that reads the graph and invisible to the fold that
+    // reads the policy.
     static ValueTask<Fin<Receipt<NestEvidence>>> Place(
         Arr<Loop> parts, Seq<Stock> inventory, NestPolicy policy, FabricationRuntime runtime) {
-        Fin<(ConstraintGraph Graph, HashMap<(int PartId, long Angle), Variant> Variants)> prepared =
+        Fin<(ConstraintGraph Graph, HashMap<(int PartId, long Angle, bool Mirrored), Variant> Variants)> prepared =
             from _ in policy.Parts.Count != parts.Count
                 || policy.Parts.Exists(rule => rule.PartId < 0 || rule.PartId >= parts.Count)
                 ? Fin.Fail<Unit>(new KernelFault.InvalidValue("nfp", "nest:part-rule-profile"))
                 : Fin.Succ(unit)
-            from graph in ConstraintGraph.Admit(parts.Count, policy.Constraints)
-            from variants in Variants(parts, policy)
+            from graph in ConstraintGraph.Admit(parts.Count, policy.Constraints.Concat(Mates(policy, inventory)))
+            from variants in Variants(parts, inventory, policy)
             select (graph, variants);
         return prepared.Match(
             Succ: scope => Search(parts, inventory, policy, runtime, scope.Graph, scope.Variants),
             Fail: static error => ValueTask.FromResult(Fin.Fail<Receipt<NestEvidence>>(error)));
     }
+
+    // `MirrorRight.Pair` OBLIGATES book-matched mates as one placement unit, so each pair mints ONE required
+    // adjacency and the search seats them through the constraint graph it already honours rather than a second
+    // pairing mechanism. Its ceiling is the shared-cut gap itself — a book match that does not touch is two parts
+    // that merely landed near each other — and each pair folds to one row on the lower ordinal because the roster
+    // proved the naming symmetric. Obligation mints where ANY admitted stock carries the right: a match honoured
+    // on one sheet and abandoned on the next is not a match.
+    static Seq<PlacementConstraint> Mates(NestPolicy policy, Seq<Stock> inventory) =>
+        inventory.Exists(static stock => stock.Law.Mirror.Rights.Admits(MirrorRight.Pair))
+            ? policy.Parts.Choose(rule => rule.Mate.Filter(mate => rule.PartId < mate)
+                .Map(mate => (PlacementConstraint)new PlacementConstraint.Adjacent(rule.PartId, mate,
+                    policy.Clearance + policy.Kerf, ProximityMetric.Boundary, ConstraintForce.Required)))
+            : Seq<PlacementConstraint>();
 
     static async ValueTask<Fin<Receipt<NestEvidence>>> Search(
         Arr<Loop> parts,
@@ -792,7 +899,7 @@ public static class Nest {
         NestPolicy policy,
         FabricationRuntime runtime,
         ConstraintGraph graph,
-        HashMap<(int PartId, long Angle), Variant> variants) {
+        HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants) {
         Option<PairMemo> memo = runtime.Memo.Map(static cache => new PairMemo(cache));
         Fin<HashMap<UInt128, NoFitPolygon>> built =
             await PairTable.Build(variants, inventory, policy, memo, runtime.Cancel).ConfigureAwait(false);
@@ -810,16 +917,16 @@ public static class Nest {
     }
 
     static Fin<SearchState> Apply(SearchOp operation, SearchState state, Arr<Loop> parts, Seq<Stock> inventory,
-        HashMap<(int PartId, long Angle), Variant> variants, HashMap<UInt128, NoFitPolygon> pairs,
+        HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants, HashMap<UInt128, NoFitPolygon> pairs,
         NestPolicy policy, ConstraintGraph graph) => operation.Switch(
             state: (state, parts, inventory, variants, pairs, policy, graph),
             ordered: static (scope, _) => Fin.Succ(scope.state with { Population = scope.state.Population.Map(genome =>
                 genome with { Order = scope.graph.Order(genome.Order, scope.policy.Parts) }) }),
-            seeded: static (scope, row) => Fin.Succ(Seed(scope.state, scope.policy.Parts, row.Population, row.Seed)),
+            seeded: static (scope, row) => Fin.Succ(Seed(scope.state, scope.policy.Parts, scope.inventory, row.Population, row.Seed)),
             branched: static (scope, row) => Decode(scope.state, scope.parts, scope.inventory, scope.variants, scope.pairs,
                 scope.policy, scope.graph, row.Width),
             bred: static (scope, _) => Fin.Succ(Breed(scope.state)),
-            mutated: static (scope, row) => Fin.Succ(Mutate(scope.state, row.Rate, scope.policy.Parts)),
+            mutated: static (scope, row) => Fin.Succ(Mutate(scope.state, row.Rate, scope.policy.Parts, scope.inventory)),
             cooled: static (scope, row) => Fin.Succ(Cool(scope.state, row.Temperature, row.Factor, scope.policy.Objective)),
             relaxed: static (scope, row) => Relax(scope.state, row.Iterations, row.Strength),
             selected: static (scope, row) => Fin.Succ(Select(scope.state, scope.policy.Objective, row.Width)),
@@ -842,7 +949,7 @@ public static class Nest {
                 .Bind(StockNest.Pack).Bind(plan => FromPlan(scope.state, scope.parts, plan)));
 
     static Fin<SearchState> Decode(SearchState state, Arr<Loop> parts, Seq<Stock> inventory,
-        HashMap<(int PartId, long Angle), Variant> variants, HashMap<UInt128, NoFitPolygon> pairs,
+        HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants, HashMap<UInt128, NoFitPolygon> pairs,
         NestPolicy policy, ConstraintGraph graph, int width) =>
         state.Population.FoldM<Fin, (Seq<SearchRun> Runs, int Evaluated)>(
             (Seq<SearchRun>(), state.Evidence.Evaluated),
@@ -864,7 +971,7 @@ public static class Nest {
         PartInstance part,
         Genome genome,
         Seq<Stock> inventory,
-        HashMap<(int PartId, long Angle), Variant> variants,
+        HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants,
         HashMap<UInt128, NoFitPolygon> pairs,
         NestPolicy policy,
         ConstraintGraph graph,
@@ -930,15 +1037,20 @@ public static class Nest {
                 Op.Of(name: nameof(Scanning)));
 
     static Fin<PlacementDecision> Exact(Candidate candidate, Seq<Placed> placed, Option<PolygonScan> scan,
-        Seq<Stock> inventory, HashMap<(int PartId, long Angle), Variant> variants, NestPolicy policy, ConstraintGraph graph) =>
+        Seq<Stock> inventory, HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants, NestPolicy policy,
+        ConstraintGraph graph) =>
         candidate.StockSlot >= 0 && candidate.StockSlot < inventory.Count
         && inventory[candidate.StockSlot].Identity == candidate.Stock
-            ? variants.Find((candidate.Part.PartId, BitConverter.DoubleToInt64Bits(candidate.Rotation)))
+            ? variants.Find((candidate.Part.PartId, BitConverter.DoubleToInt64Bits(candidate.Rotation), candidate.Mirrored))
                 .ToFin(new KernelFault.InvalidValue("nfp", "nest:variant-key"))
                 .Map(found => (Stock: inventory[candidate.StockSlot], Index: candidate.StockSlot, Variant: found))
+            // Candidate MOVES reach the placement transform whole, because `Variant.True` is the raw admitted profile
+            // and this transform is what turns and reflects it. Its envelope transform stays a pure TRANSLATION at
+            // both columns: `Variant.Collision` is already seated under that same move, so re-spelling the parity
+            // here reflects the clearance envelope a second time and proves a shape nothing cuts.
             .Bind(scope =>
                 from transform in PartTransform.Admit(scope.Variant.PartId, candidate.Part.Ordinal,
-                    candidate.Point.X, candidate.Point.Y, candidate.Rotation, scope.Index, mirrored: false)
+                    candidate.Point.X, candidate.Point.Y, candidate.Rotation, scope.Index, candidate.Mirrored)
                 from shape in transform.Apply(scope.Variant.True)
                 from envelopeTransform in PartTransform.Admit(scope.Variant.PartId, candidate.Part.Ordinal,
                     candidate.Point.X, candidate.Point.Y, rotationRadians: 0.0, sheetIndex: scope.Index, mirrored: false)
@@ -962,12 +1074,7 @@ public static class Nest {
                     && stockRelations.Filter(static row => row.region.Winding() == Sign.Negative)
                         .ForAll(static row => row.relation == ArcRelation.Disjoint)
                 let rejected = Seq<Option<UnplacedReason>>(
-                    MaterialAccepted(candidate, scope.Stock, policy.Parts)
-                        ? None : Some<UnplacedReason>(new UnplacedReason.Material(
-                            candidate.Part.PartId, candidate.Part.Ordinal, scope.Stock.Identity)),
-                    GrainAccepted(candidate, scope.Stock, policy.Parts)
-                        ? None : Some<UnplacedReason>(new UnplacedReason.Grain(
-                            candidate.Part.PartId, candidate.Part.Ordinal, scope.Stock.Identity)),
+                    Admitted(candidate, scope.Stock, policy.Parts),
                     boundary ? None : Some<UnplacedReason>(new UnplacedReason.Boundary(
                         candidate.Part.PartId, candidate.Part.Ordinal, scope.Stock.Identity)),
                     overlaps.Find(static row => row.relation != ArcRelation.Disjoint).Map<UnplacedReason>(row =>
@@ -987,27 +1094,27 @@ public static class Nest {
             : Fin.Fail<PlacementDecision>(new KernelFault.InvalidValue("nfp", "nest:stock-slot"));
 
     static Fin<Seq<Candidate>> Candidates(PartInstance part, Genome genome, Seq<Placed> placed, Seq<Stock> inventory,
-        HashMap<(int PartId, long Angle), Variant> variants, HashMap<UInt128, NoFitPolygon> pairs,
+        HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants, HashMap<UInt128, NoFitPolygon> pairs,
         NestPolicy policy, int voronoiIterations, double voronoiStrength) =>
-        genome.Rotation.Find(part).ToFin(new KernelFault.InvalidValue("nfp", "nest:rotation-key")).Bind(angle =>
-            variants.Find((part.PartId, BitConverter.DoubleToInt64Bits(angle)))
+        genome.Move.Find(part).ToFin(new KernelFault.InvalidValue("nfp", "nest:move-key")).Bind(move =>
+            variants.Find((part.PartId, BitConverter.DoubleToInt64Bits(move.Rotation), move.Mirrored))
                 .ToFin(new KernelFault.InvalidValue("nfp", "nest:variant-key"))
                 .Bind(variant => toSeq(policy.Candidates.OrderBy(static source => source.Key))
-                    .TraverseM(source => source.Generate(new CandidateRequest(part, variant, angle, placed, inventory,
-                        pairs, policy, voronoiIterations, voronoiStrength))).As())
+                    .TraverseM(source => source.Generate(new CandidateRequest(part, variant, move.Rotation, move.Mirrored,
+                        placed, inventory, pairs, policy, voronoiIterations, voronoiStrength))).As())
                 .Map(static rows => toSeq(rows.Bind(identity)
-                    .DistinctBy(static row => (row.StockSlot, row.Point.X, row.Point.Y, row.Rotation)))));
+                    .DistinctBy(static row => (row.StockSlot, row.Point.X, row.Point.Y, row.Rotation, row.Mirrored)))));
 
     // Free-space seeds are the relaxed cell centroids of the stock outline and everything already placed on it —
     // one `PolygonOp.Cells` request per sheet, the outline its own clip ring, so this lane mints no diagram.
-    internal static Fin<Seq<Candidate>> VoronoiCandidates(PartInstance part, Variant variant, double angle,
+    internal static Fin<Seq<Candidate>> VoronoiCandidates(PartInstance part, Variant variant, double angle, bool mirrored,
         Seq<Placed> placed, Seq<Stock> inventory, int iterations, double strength) =>
         inventory.Map(static (stock, slot) => (stock, slot)).TraverseM(row => {
             Seq<Point3d> points = toSeq(row.stock.Region.Bind(static loop => toSeq(loop.Vertices))
                 .Concat(placed.Filter(placedRow => placedRow.Transform.SheetIndex == row.slot)
                     .Bind(static placedRow => toSeq(placedRow.Shape.Vertices)))
                 .DistinctBy(static point => (point.X, point.Y)));
-            Vector3d anchor = variant.Rotated.Bound().Center - Point3d.Origin;
+            Vector3d anchor = variant.Seated.Bound().Center - Point3d.Origin;
             return points.Count < 3 || row.stock.Region.IsEmpty
                 ? Fin.Succ(Seq<Candidate>())
                 : PolygonAlgebra.Apply(
@@ -1019,7 +1126,7 @@ public static class Nest {
                     .Bind(trace => trace
                         .Diagram(new KernelFault.InvalidValue("nfp", "nest:cell-trace"))
                         .Map(diagram => diagram.Cells.ToSeq().Map(cell => new Candidate(
-                            part, row.slot, row.stock.Identity, cell.Centroid - anchor, angle, 0.0))));
+                            part, row.slot, row.stock.Identity, cell.Centroid - anchor, angle, mirrored, 0.0))));
         }).As().Map(static rows => rows.Bind(identity));
 
     static Fin<SearchState> Relax(SearchState state, int iterations, double strength) =>
@@ -1027,18 +1134,20 @@ public static class Nest {
             ? Fin.Fail<SearchState>(new KernelFault.InvalidValue("nfp", "nest:relax-policy"))
             : Fin.Succ(state with { VoronoiIterations = iterations, VoronoiStrength = strength });
 
-    static SearchState Seed(SearchState state, Seq<PartRule> rules, int population, int seed) {
+    static SearchState Seed(SearchState state, Seq<PartRule> rules, Seq<Stock> inventory, int population, int seed) {
         Seq<PartInstance> canonical = toSeq(rules.OrderByDescending(static row => row.Priority)
             .SelectMany(row => Enumerable.Range(0, row.Quantity).Select(ordinal => new PartInstance(row.PartId, ordinal))));
         // Every genome draw is a LANE, not a packed key: (seed+index, partId, ordinal) enters the kernel stream
-        // whole, so neighbouring part pairs cannot collide the way a shifted-XOR pack of the same fields does.
+        // whole, so neighbouring part pairs cannot collide the way a shifted-XOR pack of the same fields does. The
+        // draw reads the law-gated MOVE roster, so a seed genome never proposes a turn or a flip the inventory
+        // already refuses and the evaluation budget never grades one.
         Seq<Genome> genomes = toSeq(Enumerable.Range(0, population)).Map(index => new Genome(
             index == 0 ? canonical : toSeq(canonical.OrderBy(part => Deterministic.Stream(
                 lanes: [part.PartId, part.Ordinal], seed: seed + index))),
             toHashMap(canonical.Map(part => {
                 ulong stream = Deterministic.Stream(lanes: [part.PartId, part.Ordinal], seed: seed + index);
-                return (part, rules.Find(row => row.PartId == part.PartId)
-                    .Map(row => row.Angles[Deterministic.NextBelow(ref stream, row.Angles.Count)]).IfNone(0.0));
+                Seq<(double Rotation, bool Mirrored)> moves = Roster(rules, part.PartId, inventory);
+                return (part, moves.IsEmpty ? Still : moves[Deterministic.NextBelow(ref stream, moves.Count)]);
             }))));
         return state with { Population = genomes, Random = Deterministic.Stream(lanes: [seed]) };
     }
@@ -1049,19 +1158,23 @@ public static class Nest {
         }),
     };
 
-    static SearchState Mutate(SearchState state, double rate, Seq<PartRule> rules) => state with {
+    static SearchState Mutate(SearchState state, double rate, Seq<PartRule> rules, Seq<Stock> inventory) => state with {
         // Mutation gates read a unit draw directly rather than dividing a raw word by ulong.MaxValue, which
-        // loses the low bits; every index pick threads ONE state through NextBelow, so a non-power-of-two angle or
-        // order count carries no modulo bias.
+        // loses the low bits; every index pick threads ONE state through NextBelow, so a non-power-of-two move or
+        // order count carries no modulo bias. The move draw reads the law-gated roster, never
+        // `PartRule.Angles`: an angle the stock law refuses is a mutation the budget pays to grade and the gate
+        // always rejects.
         Population = state.Population.Map((genome, index) => {
             ulong stream = Deterministic.Stream(lanes: [index], seed: (long)state.Random);
             if (Deterministic.Unit(lanes: [index, 0L], seed: (long)state.Random) >= rate || genome.Order.Count < 2) return genome;
             int left = Deterministic.NextBelow(ref stream, genome.Order.Count);
             int right = Deterministic.NextBelow(ref stream, genome.Order.Count);
             Seq<PartInstance> order = genome.Order.Map((part, at) => at == left ? genome.Order[right] : at == right ? genome.Order[left] : part);
-            double rotation = rules.Find(row => row.PartId == order[left].PartId)
-                .Map(rule => rule.Angles[Deterministic.NextBelow(ref stream, rule.Angles.Count)]).IfNone(0.0);
-            return genome with { Order = order, Rotation = genome.Rotation.SetItem(order[left], rotation) };
+            Seq<(double Rotation, bool Mirrored)> moves = Roster(rules, order[left].PartId, inventory);
+            (double Rotation, bool Mirrored) move = moves.IsEmpty
+                ? Still
+                : moves[Deterministic.NextBelow(ref stream, moves.Count)];
+            return genome with { Order = order, Move = genome.Move.SetItem(order[left], move) };
         }), Random = Deterministic.Stream(lanes: [state.Population.Count], seed: (long)state.Random),
     };
 
@@ -1091,25 +1204,29 @@ public static class Nest {
         Runs = toSeq(state.Runs.OrderByDescending(run => objective.Score(Evidence(run, state.Evidence), state.Basis)).Take(width)),
     };
 
+    // Verdict seed, scoring ceiling, and initial genome all read the ADMITTED constraint roster off the graph, so
+    // book-match adjacencies a `Pair` grant obligated are graded, penalized, and normalized exactly like every
+    // authored row. `ChiralFloor` carries in from the policy because the panel law already measured it.
     static Fin<SearchState> Initial(Seq<Stock> inventory, NestPolicy policy, ConstraintGraph graph) {
         Seq<PartInstance> requested = policy.Parts.Bind(row => toSeq(Enumerable.Range(0, row.Quantity))
             .Map(ordinal => new PartInstance(row.PartId, ordinal)));
         Seq<PartInstance> order = graph.Order(requested, policy.Parts);
-        Genome genome = new(order, toHashMap(order.Map(part => (part, policy.Parts.Find(row => row.PartId == part.PartId)
-            .Bind(static row => row.Angles.Head).IfNone(0.0)))));
+        Genome genome = new(order, toHashMap(order.Map(part =>
+            (part, Roster(policy.Parts, part.PartId, inventory).Head.IfNone(Still)))));
         NestEvidence evidence = new(policy.Mode, policy.Objective, inventory.Map(static stock => stock.Identity), Seq<NfpWitness>(),
-            policy.Constraints.Map(static rule => (ConstraintVerdict)new ConstraintVerdict.Satisfied(rule)), Seq<UnplacedReason>(), 0, 0, 0,
-            0.0, 0.0, 0.0, 0.0, 0.0);
+            graph.Constraints.Map(static rule => (ConstraintVerdict)new ConstraintVerdict.Satisfied(rule)), Seq<UnplacedReason>(), 0, 0, 0,
+            0.0, 0.0, 0.0, 0.0, 0.0) with { ChiralFloor = policy.ChiralFloor };
         // Seeds are the search's own zero: no draw consumed, no annealing heat, one relaxation pass, and full
         // relaxation strength — the program's own `Cool` and `Relax` steps move every one of them from here.
-        return Fin.Succ(new SearchState(Seq(genome), Seq<SearchRun>(), evidence, NestBasis.Of(inventory, policy),
+        return Fin.Succ(new SearchState(Seq(genome), Seq<SearchRun>(), evidence,
+            NestBasis.Of(inventory, policy, graph.Constraints),
             Random: DrawSeed, Temperature: HeatSeed, VoronoiIterations: RelaxationSeed, VoronoiStrength: StrengthSeed));
     }
 
     static Fin<SearchState> FromPlan(SearchState state, Arr<Loop> parts, NestPlan plan) =>
-        plan.Placements.TraverseM(row => Rotated(parts[row.PartId], row.RotationRadians).Bind(shape =>
+        plan.Placements.TraverseM(row => Seated(parts[row.PartId], row.RotationRadians, row.Mirrored).Bind(shape =>
             PartTransform.Admit(row.PartId, row.Instance, row.XMm - shape.Bound().Min.X, row.YMm - shape.Bound().Min.Y,
-                row.RotationRadians, row.SheetIndex, mirrored: false).Map(transform => FromPlanPlacement(row, shape, transform, plan.Stock[row.SheetIndex])))).As()
+                row.RotationRadians, row.SheetIndex, row.Mirrored).Map(transform => FromPlanPlacement(row, shape, transform, plan.Stock[row.SheetIndex])))).As()
             // Rectangular packing GRADES its own refusals, so an honoured plan's roster arrives already naming
             // material, extent, or grain and only the residual reads `Capacity`. Re-deriving a blanket capacity
             // reason here threw that grading away at the one seam that carries it.
@@ -1121,7 +1238,7 @@ public static class Nest {
             }});
 
     static Placed FromPlanPlacement(NestPlacement row, Loop shape, PartTransform transform, Stock stock) {
-        Variant variant = new(row.PartId, row.RotationRadians, shape, shape, shape,
+        Variant variant = new(row.PartId, row.RotationRadians, row.Mirrored, shape, shape, shape,
             Identity(Seq(shape), shape.Tolerance, salt => salt.String("plan").Ordinal(row.PartId).Ordinal(row.Instance)));
         return new Placed(new PartInstance(row.PartId, row.Instance), variant, stock, transform, shape, shape);
     }
@@ -1155,9 +1272,13 @@ public static class Nest {
                         .ToFin(new KernelFault.InvalidValue("nfp", "nest:placed-head"))
                         .Bind(head => {
                             Seq<PartTransform> transforms = best.Placed.Map(static row => row.Transform);
+                            // Mould counting settles HERE and nowhere else: it measures the delivered plan, not a
+                            // candidate branch, so the per-branch scoring fold never pays for a count no objective
+                            // term reads.
                             NestEvidence evidence = Evidence(best, state.Evidence) with {
                                 Constraints = verdicts,
                                 RemnantValue = remnants.Sum(static row => Math.Abs(row.Region.Sum(static loop => loop.Area()))),
+                                Moulds = MouldsOf(best, policy.Parts),
                                 Placements = transforms,
                                 Remnants = remnants,
                             };
@@ -1264,6 +1385,7 @@ public static class Nest {
         state: writer,
         material: static (w, row) => w.String("material").Ordinal(row.PartId).Ordinal(row.Instance).U128(row.Stock),
         grain: static (w, row) => w.String("grain").Ordinal(row.PartId).Ordinal(row.Instance).U128(row.Stock),
+        symmetry: static (w, row) => w.String("symmetry").Ordinal(row.PartId).Ordinal(row.Instance).U128(row.Stock),
         boundary: static (w, row) => w.String("boundary").Ordinal(row.PartId).Ordinal(row.Instance).U128(row.Stock),
         collision: static (w, row) => w.String("collision").Ordinal(row.PartId).Ordinal(row.Instance)
             .Ordinal(row.OtherPartId).Ordinal(row.OtherInstance),
@@ -1281,9 +1403,9 @@ public static class Nest {
             .Rows(
                 toSeq(placed.OrderBy(static row => row.SheetIndex).ThenBy(static row => row.PartId)
                     .ThenBy(static row => row.Instance).ThenBy(static row => row.Tx).ThenBy(static row => row.Ty)
-                    .ThenBy(static row => row.RotationRadians)),
+                    .ThenBy(static row => row.RotationRadians).ThenBy(static row => row.Mirrored)),
                 static (held, row) => held.Ordinal(row.PartId).Ordinal(row.Instance).Ordinal(row.SheetIndex)
-                    .Double(row.Tx).Double(row.Ty).Double(row.RotationRadians))
+                    .Double(row.Tx).Double(row.Ty).Double(row.RotationRadians).Bool(row.Mirrored))
             .Rows(toSeq(remnants.OrderBy(static row => row.Identity)), static (held, row) => held.U128(row.Identity)),
             PlacementOp);
 
@@ -1296,24 +1418,51 @@ public static class Nest {
                 ? Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Polyline, index, $"nest:profile:{index}"))
                 : Fin.Succ(loop.AsCcw());
 
-    static Fin<HashMap<(int PartId, long Angle), Variant>> Variants(Arr<Loop> parts, NestPolicy policy) =>
-        policy.Parts.Bind(rule => rule.Angles.Map(angle => (rule.PartId, Angle: angle)))
-            .TraverseM(row => Rotated(parts[row.PartId], row.Angle)
-                .Bind(shape => ArcShapeOffset(Seq(shape), 0.5 * (policy.Clearance + policy.Kerf)))
+    // Variants are minted per part per ANGLE per PARITY, and the reflected family mints only where some admitted
+    // stock can place a mirror at all — an inventory whose every grant refuses the flip mints no reflected loop and
+    // pays no pair row for one.
+    static Fin<HashMap<(int PartId, long Angle, bool Mirrored), Variant>> Variants(
+        Arr<Loop> parts, Seq<Stock> inventory, NestPolicy policy) =>
+        policy.Parts.Bind(rule => rule.Angles.Bind(angle => Parities(inventory)
+                .Map(mirrored => (Rule: rule, Angle: angle, Mirrored: mirrored))))
+            .TraverseM(row => Seated(parts[row.Rule.PartId], row.Angle, row.Mirrored)
+                .Bind(shape => ArcShapeOffset(Seq(shape), 0.5 * (policy.Clearance + policy.Kerf))
                 .Bind(collision => collision.Count == 1 ? collision.Head.Match(
-                    Some: envelope => Fin.Succ(new Variant(row.PartId, row.Angle, parts[row.PartId], shape, envelope,
-                        Identity(collision, parts[row.PartId].Tolerance,
-                            salt => salt.Ordinal(row.PartId).Double(row.Angle)))),
+                    Some: envelope => Fin.Succ(new Variant(row.Rule.PartId, row.Angle, row.Mirrored,
+                        parts[row.Rule.PartId], shape, envelope,
+                        Identity(collision, parts[row.Rule.PartId].Tolerance,
+                            salt => Mould(salt, row.Rule, inventory).Double(row.Angle).Bool(row.Mirrored)))),
                     None: () => Fin.Fail<Variant>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:clearance-topology")))
-                    : Fin.Fail<Variant>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:clearance-topology")))).As()
+                    : Fin.Fail<Variant>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "nest:clearance-topology"))))).As()
             .Map(rows => toHashMap(rows.Map(static row =>
-                ((row.PartId, BitConverter.DoubleToInt64Bits(row.Rotation)), row))));
+                ((row.PartId, BitConverter.DoubleToInt64Bits(row.Rotation), row.Mirrored), row))));
 
-    static Fin<Loop> Rotated(Loop part, double radians) {
+    static Seq<bool> Parities(Seq<Stock> inventory) =>
+        inventory.Exists(static stock => stock.Law.Mirror.Rights.Admits(MirrorRight.Place))
+            ? Seq(false, true)
+            : Seq(false);
+
+    // Where every admitted law MERGES a mirrored congruence, two panels of one shape class come off ONE mould,
+    // so the variant salts its CLASS and the pair matrix collapses from parts onto classes — sound because
+    // `NestParts.Of` lands each panel ring in its OWN panel frame, so congruent panels present one canonical loop
+    // preimage. Classless parts and refused merges keep the part ordinal, because two moulds are two shapes.
+    static CanonicalWriter Mould(CanonicalWriter writer, PartRule rule, Seq<Stock> inventory) =>
+        rule.ShapeClass
+            .Filter(_ => inventory.ForAll(static stock => stock.Law.Mirror.Rights.Admits(MirrorRight.Merge)))
+            .Match(
+                Some: shapeClass => writer.String("class").Ordinal(shapeClass),
+                None: () => writer.Ordinal(rule.PartId));
+
+    // One MOVE applied to an admitted profile: the reflection negates local X and inverts every bulge sign with the
+    // point map, exactly as `PartTransform.Apply` does, so a variant and the transform that seats it agree on arc
+    // sense rather than agreeing only on vertices.
+    internal static Fin<Loop> Seated(Loop part, double radians, bool mirrored) {
         double cosine = Math.Cos(radians), sine = Math.Sin(radians);
-        return Loop.Admit(part.Vertices.Map(point => new Point3d(
-            (point.X * cosine) - (point.Y * sine), (point.X * sine) + (point.Y * cosine), point.Z)).ToArr(),
-            part.Closed, part.Bulges, part.Tolerance);
+        return Loop.Admit(part.Vertices.Map(point => {
+                double x = mirrored ? -point.X : point.X;
+                return new Point3d((x * cosine) - (point.Y * sine), (x * sine) + (point.Y * cosine), point.Z);
+            }).ToArr(),
+            part.Closed, mirrored ? part.Bulges.Map(static bulge => -bulge) : part.Bulges, part.Tolerance);
     }
 
     internal static Fin<Seq<Loop>> ArcShapeOffset(Seq<Loop> loops, double distance) =>
@@ -1336,13 +1485,68 @@ public static class Nest {
             .Lowering(new KernelFault.InvalidValue("nfp", "nest:arc-projection-trace"))
             .Map(static evidence => evidence.Result));
 
-    static bool MaterialAccepted(Candidate candidate, Stock stock, Seq<PartRule> rules) => rules
-        .Find(rule => rule.PartId == candidate.Part.PartId).ForAll(rule => rule.Material.ForAll(material => material == stock.Material));
+    // Grain lowers onto the fold HERE and nowhere else: a grain axis is a LINE, so a half-turn preserves it, and
+    // isotropic stock therefore still binds a grain-bearing part to `Half` rather than admitting every turn its own
+    // `Free` law does — exactly the half-turn congruence the bare grain gate always ran.
+    internal static SymmetryFold Fold(Option<double> grain, MaterialSymmetry law) =>
+        law.Fold == SymmetryFold.Free && grain.IsSome ? SymmetryFold.Half : law.Fold;
 
-    static bool GrainAccepted(Candidate candidate, Stock stock, Seq<PartRule> rules) => rules
-        .Find(rule => rule.PartId == candidate.Part.PartId).ForAll(rule => rule.GrainAxis.ForAll(grain => stock.GrainAxis
-            .Exists(axis => Math.Abs(Math.IEEERemainder((grain + candidate.Rotation) - axis, Math.PI))
-                <= stock.Tolerance.Angle.Value)));
+    // Placed grain reads through one move: a mirror negates local X, so a direction at `g` leaves at `π − g`
+    // before the turn applies. Both nesting lanes read this fold, because a lane spelling the reflection itself
+    // forks the alignment the two must agree on.
+    internal static double Grain(double axis, double rotation, bool mirrored) =>
+        (mirrored ? Math.PI - axis : axis) + rotation;
+
+    // Moves are DATA derived from the laws the caller hands: one stock answers that stock's admitted turns and
+    // flips, the whole inventory answers the union a genome may draw from. Every turn survives where the stock's
+    // fold admits the part's grain RESIDUAL under that stock's own angular cone — a grain-free part carries no
+    // residual, so every turn survives — and a flip exists only where the grant admits placing one at all.
+    internal static Seq<(double Rotation, bool Mirrored)> Moves(PartRule rule, Seq<Stock> inventory) =>
+        inventory.Bind(stock => {
+            SymmetryFold fold = Fold(rule.GrainAxis, stock.Law);
+            double cone = stock.Tolerance.Angle.Value;
+            Seq<(double Rotation, bool Mirrored)> straight = rule.Angles.Map(static angle => (Rotation: angle, Mirrored: false));
+            return (stock.Law.Mirror.Rights.Admits(MirrorRight.Place)
+                    ? straight.Concat(rule.Angles.Map(static angle => (Rotation: angle, Mirrored: true)))
+                    : straight)
+                .Filter(move => rule.GrainAxis.ForAll(axis => stock.GrainAxis
+                    .Exists(grain => fold.Admits(Grain(axis, move.Rotation, move.Mirrored) - grain, cone))));
+        }).Distinct();
+
+    // Roster answers the law-gated moves for one part against the whole inventory — the ONE thing a genome may
+    // seat, so seed, mutation, and initial draw all propose from it and never from `PartRule.Angles`.
+    static Seq<(double Rotation, bool Mirrored)> Roster(Seq<PartRule> rules, int partId, Seq<Stock> inventory) =>
+        rules.Find(row => row.PartId == partId).Map(rule => Moves(rule, inventory))
+            .IfNone(Seq<(double Rotation, bool Mirrored)>());
+
+    // `Admitted` is the ONE candidate gate, answering material, then grain, then symmetry in COST ORDER — an
+    // identity comparison before a presence test before a modular fold — so the axis a consumer reads is the
+    // cheapest true explanation. `Grain` names the ABSENT axis, a directional part against stock declaring no
+    // direction; `Symmetry` names the refused MOVE, this turn's residual outside the fold's cone or a flip the
+    // grant refuses. Per-axis booleans let a caller read one axis and forget the other, and neither names the move.
+    static Option<UnplacedReason> Admitted(Candidate candidate, Stock stock, Seq<PartRule> rules) =>
+        rules.Find(rule => rule.PartId == candidate.Part.PartId).Bind(rule =>
+            !rule.Material.ForAll(material => material == stock.Material)
+                ? Some<UnplacedReason>(new UnplacedReason.Material(
+                    candidate.Part.PartId, candidate.Part.Ordinal, stock.Identity))
+                : rule.GrainAxis.IsSome && stock.GrainAxis.IsNone
+                    ? Some<UnplacedReason>(new UnplacedReason.Grain(
+                        candidate.Part.PartId, candidate.Part.Ordinal, stock.Identity))
+                    : Moves(rule, Seq(stock)).Contains((candidate.Rotation, candidate.Mirrored))
+                        ? Option<UnplacedReason>.None
+                        : Some<UnplacedReason>(new UnplacedReason.Symmetry(
+                            candidate.Part.PartId, candidate.Part.Ordinal, stock.Identity)));
+
+    // Mould census counts DISTINCT cut outlines the delivered plan pays for: two parts of one shape class share an
+    // outline where their parity agrees, or where the stock they seat on merges the mirrored congruence and one
+    // blank turns; a classless part is its own mould and keys on its own ordinal. Read against the class count it
+    // prices the mould delta the layout absorbed.
+    static int MouldsOf(SearchRun run, Seq<PartRule> rules) => run.Placed
+        .Choose(row => rules.Find(rule => rule.PartId == row.Part.PartId).Map(rule => (
+            Class: rule.ShapeClass,
+            Part: rule.ShapeClass.IsSome ? Option<int>.None : Some(rule.PartId),
+            Parity: row.Stock.Law.Mirror.Rights.Admits(MirrorRight.Merge) ? Chirality.Straight : rule.Parity)))
+        .Distinct().Count;
 
     internal static Seq<(Point3d Point, double Length)> Contacts(Placed placed, Variant orbiting) =>
         toSeq(Enumerable.Range(0, placed.Envelope.Count)).Bind(left => {
@@ -1378,6 +1582,87 @@ public static class Nest {
         chains.TraverseM(chain => Loop.Admit(
             toSeq(chain.Points).ToArr(), chain.Closed, Arr<double>(), tolerance)).As();
 
+}
+
+// `NestParts` is the ONE admission from the kernel's placed-instance carriers into this plane's part vocabulary.
+// Parity, congruence class, and book-match pairing arrive MEASURED — `PanelField.Flipped`, `PanelField.ShapeClass`,
+// and the `InstanceStream` `PairOf` link — so the search reads columns the kernel produced rather than inferring
+// chirality from geometry it never produced. Input shape selects the arm, so a further kernel carrier lands as one
+// more `Of` over the same three columns and mints no second entry family.
+public static class NestParts {
+    // One motif is one shape class, and the ordinal is the class rather than a per-site number, so every instance
+    // of a pattern reuses one mould wherever the law merges.
+    private const int MotifClass = 0;
+
+    // Each panel's ring lands in its OWN frame — origin, field-aligned x, and y = z × x — so two congruent panels
+    // present ONE canonical loop preimage and the class-salted variant collapse is sound. `ChiralSplit` carries in
+    // as the chiral floor: the mould delta the panel law already priced, against which the delivered mould census
+    // reads. Material demand and grain axis stay absent because they are the NEST's facts, not the panel field's.
+    public static Fin<(Arr<Loop> Profiles, Seq<PartRule> Rules, int ChiralFloor)> Of(
+        PanelResult panels, MaterialSymmetry stockLaw, Seq<double> angles, Context tolerance) =>
+        Placeable(panels.Field.Flipped, stockLaw)
+            .Bind(_ => toSeq(Enumerable.Range(0, panels.Field.Flipped.Count))
+                .TraverseM(panel =>
+                    from loop in Outline(panels.Field, panel, tolerance)
+                    from rule in Rule(panel, angles, panels.Field.Flipped[panel],
+                        Some(panels.Field.ShapeClass[panel]), Option<int>.None)
+                    select (loop, rule)).As())
+            .Map(rows => (rows.Map(static row => row.loop).ToArr(), rows.Map(static row => row.rule),
+                panels.Receipt.ChiralSplit));
+
+    // Nesting is PLANAR, so a mapped stream's world origin, landing face, and frame evidence drop here and only
+    // spin, parity, and pairing cross — where a site sits on a surface says nothing about where its blank lies on a
+    // sheet. Each instance seats the motif under its OWN spin as that rule's single admitted angle, and a mirrored
+    // instance carries the REFLECTED motif, which is the outline a `Mirrored` parity names. The book-match link
+    // crosses only under a `Pair` grant, because a mate column no law obligates buys an adjacency for nothing.
+    public static Fin<(Arr<Loop> Profiles, Seq<PartRule> Rules, int ChiralFloor)> Of(
+        InstanceStream stream, Loop motif, MaterialSymmetry stockLaw) {
+        (Arr<double> Spin, Arr<bool> Mirrored, Arr<Option<int>> PairOf) columns = Columns(stream);
+        bool pairs = stockLaw.Mirror.Rights.Admits(MirrorRight.Pair);
+        return Placeable(columns.Mirrored, stockLaw)
+            .Bind(_ => toSeq(Enumerable.Range(0, columns.Spin.Count))
+                .TraverseM(site =>
+                    from loop in Nest.Seated(motif, radians: 0.0, columns.Mirrored[site])
+                    from rule in Rule(site, Seq(columns.Spin[site]), columns.Mirrored[site], Some(MotifClass),
+                        pairs ? columns.PairOf[site] : Option<int>.None)
+                    select (loop, rule)).As())
+            .Map(rows => (rows.Map(static row => row.loop).ToArr(), rows.Map(static row => row.rule),
+                Split(columns.Mirrored, stockLaw)));
+    }
+
+    static (Arr<double> Spin, Arr<bool> Mirrored, Arr<Option<int>> PairOf) Columns(InstanceStream stream) => stream.Switch(
+        planar: static row => (row.Spin, row.Mirrored, row.PairOf),
+        mapped: static row => (row.Spin, row.Mirrored, row.PairOf));
+
+    // `MirrorGrant.Refused` cannot cut a reflected member at all, so a carrier bearing one refuses HERE rather
+    // than reaching a search that grades every flipped part unplaced and delivers a layout missing half its roster.
+    static Fin<Unit> Placeable(Arr<bool> mirrored, MaterialSymmetry law) =>
+        law.Mirror.Rights.Admits(MirrorRight.Place) || !mirrored.Exists(identity)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new KernelFault.InvalidValue("nfp", "nest:mirror-refused"));
+
+    // One motif is one class, so the floor is the SECOND mould a refused merge forces: a stream carrying a reflected
+    // instance under a law that will not merge it cuts two outlines where an unconstrained law cuts one.
+    static int Split(Arr<bool> mirrored, MaterialSymmetry law) =>
+        !law.Mirror.Rights.Admits(MirrorRight.Merge) && mirrored.Exists(identity) ? 1 : 0;
+
+    // Each ring reads through its panel's own frame: every corner offsets from the panel origin and resolves
+    // onto the field-aligned x and the derived y, so the outline arrives in the plane the cut runs in with no
+    // third column.
+    static Fin<Loop> Outline(PanelField field, int panel, Context tolerance) {
+        Vector3d x = field.XAxis[panel], y = Vector3d.CrossProduct(field.ZAxis[panel], field.XAxis[panel]);
+        Point3d origin = field.Origin[panel];
+        return Loop.Admit(
+            toSeq(Enumerable.Range(field.CornerOffsets[panel], field.CornerOffsets[panel + 1] - field.CornerOffsets[panel]))
+                .Map(slot => field.Vertices[field.Corners[slot]] - origin)
+                .Map(offset => new Point3d(offset * x, offset * y, 0.0)).ToArr(),
+            closed: true, Arr<double>(), tolerance);
+    }
+
+    static Fin<PartRule> Rule(int partId, Seq<double> angles, bool flipped, Option<int> shapeClass, Option<int> mate) =>
+        PartRule.Validate(partId, quantity: 1, Option<MaterialId>.None, angles, Option<double>.None,
+                flipped ? Chirality.Mirrored : Chirality.Straight, shapeClass, mate, priority: 0, out PartRule rule)
+            .Admitted(rule);
 }
 
 // The nfp-placement measuring case for the FabricationBenchClaims.NfpPlacement no-regression claim: the
@@ -1452,12 +1737,13 @@ internal sealed class PairMemo(HybridCache cache) {
 
 internal static class PairTable {
     public static async ValueTask<Fin<HashMap<UInt128, NoFitPolygon>>> Build(
-        HashMap<(int PartId, long Angle), Variant> variants,
+        HashMap<(int PartId, long Angle, bool Mirrored), Variant> variants,
         Seq<Stock> inventory,
         NestPolicy policy,
         Option<PairMemo> memo = default,
         CancellationToken cancel = default) {
-        Variant[] rows = variants.Values.OrderBy(static row => row.PartId).ThenBy(static row => row.Rotation).ToArray();
+        Variant[] rows = variants.Values.OrderBy(static row => row.PartId).ThenBy(static row => row.Rotation)
+            .ThenBy(static row => row.Mirrored).ToArray();
         return (await Op.Of(name: "nest:pair-table").Catch(
                 async execution => Fin.Succ(await memo.Match(
                     Some: cache => Cached(rows, policy, cache, execution),
@@ -1575,6 +1861,11 @@ internal sealed class ConstraintGraph {
 
     ConstraintGraph(BidirectionalGraph<int, SEdge<int>> closure, HashMap<int, int> rank,
         Seq<PlacementConstraint> constraints) => (this.closure, this.rank, this.constraints) = (closure, rank, constraints);
+
+    // `Constraints` answers the ADMITTED roster — authored rows beside the book-match adjacencies a `Pair` grant
+    // obligated. Verdict seed and scoring ceiling read it here rather than off the policy, because a roster the
+    // graph gates and a roster the evidence counts must be one roster.
+    public Seq<PlacementConstraint> Constraints => constraints;
 
     public static Fin<ConstraintGraph> Admit(int partCount, Seq<PlacementConstraint> constraints) {
         if (partCount < 1 || constraints.Exists(rule => !Valid(rule, partCount)))

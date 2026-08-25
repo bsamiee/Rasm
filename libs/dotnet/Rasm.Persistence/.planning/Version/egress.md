@@ -854,18 +854,18 @@ Recovery coordinates — where a re-drive resumes, what bounds in-flight work, t
 
 `[RETRY_OWNER]` earns a column because leaving a client's own attempt count unnamed grants no single owner — it grants two, the second reading a package default no page declared. `[BOUND]` names a PRODUCER-side member alone, since a consume-side prefetch or pause verb standing there bounds a leg that never consumes.
 
-| [INDEX] | [BINDING]    | [REPLAY]                       | [BOUND]                       | [REFUSE]           | [RETRY_OWNER]         |
-| :-----: | :----------- | :----------------------------- | :---------------------------- | :----------------- | :-------------------- |
-|  [01]   | `http`       | none; receiver `(source,id)`   | pg_net queue + window         | value              | held cursor           |
-|  [02]   | `nats`       | `DeliverPolicy`/`GetDirect`    | `MaxAckPending` + channel     | value/throw/event  | `RetryAttempts` = 1   |
-|  [03]   | `kafka`      | `Seek`/`OffsetsForTimes`       | `QueueBufferingMax*`          | throw/value/report | `MessageTimeoutMs`    |
-|  [04]   | `rabbitmq`   | none — queue head only         | passed limiter, else UNBOUND  | throw + event      | held cursor           |
-|  [05]   | `amqp`       | none; receiver `(source,id)`   | the `inflight` window         | throw + event      | held cursor           |
-|  [06]   | `pulsar`     | `MessageId` cursorless read    | `MaxPendingMessages`          | throw + state      | `ExceptionHandler`    |
-|  [07]   | `wirenative` | receiver `(source,id)`         | hop admission row             | `RpcException`     | `OutboundHop`         |
-|  [08]   | `redis`      | `StreamIdempotentId`           | trim by acknowledgement       | throw              | held cursor           |
-|  [09]   | `clickhouse` | `insert_deduplication_token`   | pooled insert                 | throw              | held cursor           |
-|  [10]   | `mqtt`       | session state; `(source,id)`   | NONE — the caller bounds it   | value only         | held cursor           |
+| [INDEX] | [BINDING]    | [REPLAY]                     | [BOUND]                      | [REFUSE]           | [RETRY_OWNER]       |
+| :-----: | :----------- | :--------------------------- | :--------------------------- | :----------------- | :------------------ |
+|  [01]   | `http`       | none; receiver `(source,id)` | pg_net queue + window        | value              | held cursor         |
+|  [02]   | `nats`       | `DeliverPolicy`/`GetDirect`  | `MaxAckPending` + channel    | value/throw/event  | `RetryAttempts` = 1 |
+|  [03]   | `kafka`      | `Seek`/`OffsetsForTimes`     | `QueueBufferingMax*`         | throw/value/report | `MessageTimeoutMs`  |
+|  [04]   | `rabbitmq`   | none — queue head only       | passed limiter, else UNBOUND | throw + event      | held cursor         |
+|  [05]   | `amqp`       | none; receiver `(source,id)` | the `inflight` window        | throw + event      | held cursor         |
+|  [06]   | `pulsar`     | `MessageId` cursorless read  | `MaxPendingMessages`         | throw + state      | `ExceptionHandler`  |
+|  [07]   | `wirenative` | receiver `(source,id)`       | hop admission row            | `RpcException`     | `OutboundHop`       |
+|  [08]   | `redis`      | `StreamIdempotentId`         | trim by acknowledgement      | throw              | held cursor         |
+|  [09]   | `clickhouse` | `insert_deduplication_token` | pooled insert                | throw              | held cursor         |
+|  [10]   | `mqtt`       | session state; `(source,id)` | NONE — the caller bounds it  | value only         | held cursor         |
 
 ## [04]-[SUBSCRIPTION_FILTER]
 

@@ -23,7 +23,7 @@ Shape vocabulary and replicated-state vocabulary bind every branch alike, so one
     - [NOT]: CQRS read-model projection, one instance rather than this definition, and geometric projection, which the drawing owners spell in full.
 - `statechart`: Declares a hierarchical transition system as data — nodes, guards, ordered transitions — whose macrostep folds that declaration.
 - `free frontier`: Marks a fault band's next unallocated code offset, so a new case appends there and a landed offset never reallocates.
-- `seal`: Seals a stored parcel with the generation its writer declared, so a decode under another generation refuses on content and never on the key.
+- `seal`: Binds a stored parcel to its writer's generation, so another generation refuses by content rather than key.
     - [NOT]: `sealed` class modifiers and cryptographic seals; only the generation-carrying stored envelope carries this word.
 - `residue`: Holds a stored payload the current shape does not admit, so evidence survives a decode the schema refuses.
     - [NOT]: Solver residuals, which the compute owners spell in full.

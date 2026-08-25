@@ -51,7 +51,8 @@
 - Provide the layer on the `./server` subpath at the app root only; neutral rows yield `SqlClient`.
 - `url`/`authToken`/`encryptionKey` ride `Config.redacted`; sync cadence rides a `Config` duration.
 - libsql is contract-compatible with sqlite, not byte-compatible with the C `sqlite3` engine; the lane degradation table records every divergence.
-- `SqlError.cause` is `LibsqlError { code: string; rawCode?: number }`, and its `code` carries two vocabularies: the local path re-wraps the driver's own `SQLITE_*` code while the hrana path carries the server's response code verbatim, so a classifier reading one field answers whichever transport served the statement.
+- `SqlError.cause` is `LibsqlError { code: string; rawCode?: number }`, and its `code` carries two vocabularies: the local path re-wraps the driver's own `SQLITE_*` code while the hrana path carries the server's response code verbatim, so a classifier reading one field answers whichever transport served the statement; on the local path `rawCode` is the extended numeric code and `message` prefixes the engine sentence with the code name, so containment matching still reaches the column roster.
+- Local-replica DDL rides `withTransaction` atomically as on the C engine — a minted shadow and its `sqlite_sequence` row roll back together, `ALTER TABLE … RENAME` carries the counter row under the new name, and `CREATE TABLE … AS SELECT` drops every key, constraint, default, and `NOT NULL` — so `journal/evolve`'s own-DDL mint and its `INSERT INTO sqlite_sequence … SELECT` seed run unchanged on this profile.
 
 [RAIL_LAW]:
 - Package: `@effect/sql-libsql`

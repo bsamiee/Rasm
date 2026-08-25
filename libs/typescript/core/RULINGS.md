@@ -68,7 +68,7 @@
 - Generic and Rasm events preserve descriptor-validated `dataref`; residence, resolution, and parity belong downstream.
 - `Event.address` is the one tagged, length-framed `(source,id)` digest consumed by ingress and transport deduplication.
 - `Invoke.Dial` is the ONE Connect selector — its adapter family admits the supported web and Node pairs, and no other pair has a type arm.
-- Connect GET carries no knob — no service this branch binds declares `NO_SIDE_EFFECTS`, so `useHttpGet` and a protocol `httpGet` column stay deleted.
+- Connect GET routes unary alone — `ProgressService.Watch`, the one `NO_SIDE_EFFECTS` method bound here, streams, so `useHttpGet` stays deleted.
 - `Wire.Texture` derives every roster from the generated `appearance` enums — columns close on defined members; a token roster is the twin.
 - Caller-defined magnitudes ride the wide event, never a metric row — a summed series folds disparate units into a code no UCUM row spells.
 - `Convention` families with a caller-keyed remainder declare ONE rendered payload row — nested shapes and instants flatten into no closed roster.
@@ -93,7 +93,7 @@
 - `Wire` and `Convention` columns deriving wholly from a sibling collapse into that derivation — a roster survives where a consumer spends its order.
 - `Fault.Class`, `Fault.Budget`, and `Fault.Degrade` stay distinct families on one machinery — a fold erases which axis a consumer dispatches on.
 - `Fault.Degrade` compiles local liveness policy and `Evidence.Availability` decodes peer evidence — a fold grades peer claims on a local ladder.
-- `Evidence.Tally` counts done-against-total over an operation tree — the producer phase frame is `ProgressUpdateWire` and the two share no column.
+- `Evidence.Tally` counts done-against-total over an operation tree — the generated `WatchResponse` `Invoke.Progress` lands shares no column.
 
 ## [04]-[STRUCTURE]
 

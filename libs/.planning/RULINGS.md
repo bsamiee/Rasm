@@ -15,7 +15,7 @@
 ## [02]-[SHAPE]
 
 - Infrastructure planes take shape from the category algebra, never the first consumer — the occasioning domain enters as a ROW like every later one.
-- Branch-interior wires mint no `manifest.json` case — the `[WIRE]` pair at both folder `[03]-[SEAMS]` maps is the whole registration.
+- Process crossings seat their generated family in `manifest.json`, same-language included; one process keeps its seam on mirrored `[WIRE]` edges.
 - Branch prose states its own domain and never a peer's ceiling — a graduation rail names what crosses and leaves policy to whoever reads it.
 - PostgreSQL extension rosters stay branch-owned deployment state — no corpus entry defines the set, so a parity demand manufactures meaning.
 - Backend artifact dependency validation homes at each branch's projection funnel, never its sort — artifact key order is the whole wire order.
@@ -109,7 +109,7 @@
 - SPIKE owner-state tracking does NOT re-enter — a SPIKE marker rides its design page beside the deterministic floor, never a state registry.
 - Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
 - `libs/contracts/` is the ONE cross-language estate — definitions, conformance corpus, and every generated binding; a branch folder mints none.
-- Generated-bindings trees are admitted IMPORT ROOTS, never strata — each branch imports its `libs/contracts/gen/<lang>` root and seats no rank on it.
+- Generated-binding trees enter each branch through `libs/contracts/gen/<lang>` as import roots outside the strata ranks.
 - Python and TypeScript packages carry FLAT layouts — the importable directory at project root and entries at package root, a `src/` level refusing.
 - Import-shadow risk repairs at the `sys.path` entry, never by nesting — a `src/` level buys isolation that entry already decides.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.

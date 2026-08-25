@@ -27,7 +27,7 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Providers.cs       # ExecutionProvider rows select registration through host-gated discovery over one frozen runtime snapshot
 │   ├── Run.cs             # RunOps over one shared session with bracketed native ownership; BatchGate, CacheOps
 │   ├── Tiling.cs          # TilePlan binds TileProduct rows to PadMode/TileBlend/TileLayout kernels; TileMosaic the sole arena release
-│   ├── Stage.cs           # Stage-execution wire — decode-only Materials mirror, StagePorts, plan construction
+│   ├── Stage.cs           # Stage-execution wire — generated-family admission, StagePorts, plan construction
 │   ├── Embedding.cs       # VectorEncoding axis, VectorScore metric axis, and the content-keyed EmbeddingVector over SIMD primitives
 │   ├── Generative.cs      # One polymorphic GenerationEvent stream — Piece, ToolInvoked, terminal Completed with the run tally
 │   └── Extension.cs       # CustomOps folds registration into session admission and reads the non-tensor model boundary
@@ -53,12 +53,12 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 ├── Runtime/               # Admit-to-receipt boundary
 │   ├── Admission.cs       # ComputeIntent union under the spine Spec policy; the Substrate axis routes with total dispatch
 │   ├── Scheduling.cs      # Bounded WorkLane channel rows behind one LaneRuntime capsule; drops emit correlated Backpressure receipts
-│   ├── Progress.cs        # Monotonic ProgressPhase family; ProgressCell commits marks under rank and terminal-dominance guards
+│   ├── Progress.cs        # Monotonic ProgressPhase family; ProgressCell commits under rank guards; ProgressStream serves Watch
 │   ├── Receipts.cs        # ComputeReceipt the only fact vocabulary — payload spine, telemetry projection, folds
 │   ├── Claims.cs          # BenchmarkInput admits, BenchDistribution measures, ProfileArtifact addresses, BenchmarkClaim binds, HostClaims forecasts
 │   ├── Ledger.cs          # CostVector the per-axis monoid, CostPolicy the admitted rate table proving substrate coverage, ChargebackDataset
 │   ├── Board.cs           # FactSelector samples facts, ComputeObjective binds a kernel indicator, PanelRow/ComputeDescriptors and ComputeHookRail
-│   ├── Wire.cs            # Proto vocabulary, ParseGuard admission, the stage crossing, and the client fault rail over Rasm.Contracts
+│   ├── Wire.cs            # Proto vocabulary, ParseGuard admission, the WireKeys lowering, and the client fault rail over Rasm.Contracts
 │   ├── Channels.cs        # RemoteTransport dial axis warmed by its row's WarmProbe; one GrpcChannelPolicy; WireLimits and the artifact-frame law
 │   ├── Ingest.cs          # BrokerBinding carries MQTT 5.0 and NATS whole; CaptureAdmission fans each delivery two ways; BsddTransport the REST leg
 │   ├── Observation.cs     # ObservationLane accumulates and flushes per binding; SensorBinding custody, SensorQuality flags, ObservationSink ports
@@ -145,7 +145,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-`Rasm.Materials` owns the `StageResult` wire record whole: the key roster, the measured `ParityFresh` and `Coverage` columns, and the `InferGolden` tap seat at the Materials end, so `Model/inference` transcribes and executes the record, adding no column of its own.
+`libs/contracts` owns generated `StageResultWire`: `Model/stage#STAGE_WIRE` mints it from Compute measurements, and `Rasm.Materials` admits it through its registry gate. Materials owns the `ParityFresh`, `Coverage`, and `InferGolden` columns; Compute adds none.
 
 ```mermaid
 ---
@@ -209,8 +209,8 @@ flowchart LR
     Element e35@-->|"[SHAPE]: AssemblyAggregator"| Analysis
     Materials e36@-->|"[WIRE]: MaterialPropertySet"| Analysis
     Materials e37@-->|"[WIRE]: SectionCapacity"| Analysis
-    Materials e38@-->|"[WIRE]: StageRequest"| Model
-    Model e39@-->|"[WIRE]: StageResult"| Materials
+    Materials e38@-->|"[WIRE]: StageRequestWire"| Model
+    Model e39@-->|"[WIRE]: StageResultWire"| Materials
     Fabrication e40@-->|"[PROJECTION]: NestYield"| Analysis
     Bim e41@<-->|"[TESSELLATION]: TessellationOutcome"| Runtime
     Bim e43@-->|"[CONTENT_KEY]: RepresentationContentHash"| Runtime
@@ -331,7 +331,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
 - `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
 - C# owns inference and classical fit; Python compute owns offline-learned models exchanged by content key over graduation evidence.
-- `Rasm.Materials` SPECIFIES photo-to-PBR inference and `Model/inference` EXECUTES it; the branch-interior wire mints no corpus contract entry.
+- `Rasm.Materials` SPECIFIES photo-to-PBR inference and `Model/inference` EXECUTES it; the stage crossing is the corpus `stage-crossing` case.
 - Stage, model-card, and role identities cross as opaque keys this side dispatches on none of.
 - Licence spellings resolve here to a grant verdict on the Compute-owned roster, fail-closed on an unrostered spelling.
 - Strata forbid a reference in either direction; admitting a model at the specifying end moves no Compute surface.

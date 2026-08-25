@@ -180,9 +180,10 @@ config:
 ---
 flowchart LR
     accTitle: Rasm.Rhino kernel-boundary seams
-    accDescr: Which frozen-name kernel contracts the Rhino boundary consumes, one edge per contract family, and which wires its bands emit to peers.
+    accDescr: Which kernel owner hands which frozen-name contracts to each Rhino sub-domain, and which wires the boundary emits to peers.
     subgraph rhino[RASM.RHINO]
         Document[Document substrate]
+        Persistence[Persistence custody]
         Objects[Object rails]
         Commands[Command lifecycle]
         Blocks[Block domain]
@@ -195,50 +196,82 @@ flowchart LR
         HostUi[HostUi shell]
         Plugin[Plugin binding]
     end
-    Rasm([Rasm])
+    subgraph rasm[RASM]
+        Domain([Domain floor])
+        Numerics([Numerics floor])
+        Spatial([Spatial fields])
+        Meshing([Mesh lattice])
+        Parametric([Parametric producers])
+        Processing([Processing rail])
+        Drawing([Drawing producers])
+        Analysis([Analysis entry])
+        Interaction([Interaction plane])
+    end
     PyData([python:data])
     PyGeometry([python:geometry])
     TsData([typescript:data])
-    Rasm e1@-->|"[BOUNDARY]: ModelUnit"| Document
-    Rasm e2@-->|"[BOUNDARY]: Context"| Document
-    Rasm e3@-->|"[BOUNDARY]: AnalysisQuery"| Document
-    Rasm e4@-->|"[BOUNDARY]: Placement"| Document
-    Rasm e5@-->|"[BOUNDARY]: Requirement"| Document
-    Rasm e6@-->|"[BOUNDARY]: Lease"| Document
-    Rasm e7@-->|"[BOUNDARY]: HookRail"| Document
-    Rasm e8@-->|"[BOUNDARY]: InstrumentSpec"| Document
-    Rasm e9@-->|"[BOUNDARY]: Dimension"| Document
-    Rasm e10@-->|"[BOUNDARY]: PerceptualColor"| Document
-    Rasm e11@-->|"[BOUNDARY]: LayerName"| Document
-    Rasm e12@-->|"[BOUNDARY]: VectorFrame"| Viewport
-    Rasm e13@-->|"[BOUNDARY]: AnalysisQuery"| Commands
-    Rasm e14@-->|"[BOUNDARY]: UiDispatch + ControlSpec + IntentTable"| HostUi
-    Rasm e15@-->|"[BOUNDARY]: MonotonicTimeline"| Viewport
-    Rasm e16@-->|"[BOUNDARY]: MotionDrive"| Viewport
-    Rasm e17@-->|"[BOUNDARY]: SheetSize"| Exchange
-    Rasm e18@-->|"[BOUNDARY]: VectorIntent"| Viewport
-    Rasm e19@-->|"[BOUNDARY]: Context"| Modeling
-    Rasm e20@-->|"[BOUNDARY]: ContentHash"| Blocks
-    Rasm e21@-->|"[BOUNDARY]: PerceptualColor"| Display
-    Rasm e22@-->|"[BOUNDARY]: AnalysisQuery"| Display
-    Rasm e23@-->|"[BOUNDARY]: PerceptualColor"| Render
-    Rasm e24@-->|"[BOUNDARY]: PerceptualColor + Context + ViewPose"| Viewport
-    Rasm e25@-->|"[BOUNDARY]: PerceptualColor + ModelUnit + Lease"| Annotation
-    Rasm e26@-->|"[BOUNDARY]: LineWidth"| Annotation
-    Rasm e27@-->|"[BOUNDARY]: Context"| Blocks
-    Rasm e28@-->|"[BOUNDARY]: ModelUnit + ContentHash + Dimension + UnitInterval + PerceptualColor + EpsilonPolicy"| Exchange
-    Rasm e29@-->|"[BOUNDARY]: Lease"| Plugin
-    Rasm e30@-->|"[WIRE]: EncodedGeometry"| Display
-    Rasm e31@-->|"[WIRE]: MeshSpace"| Display
-    Rasm e32@-->|"[CONTENT_KEY]: GeometryHash"| Display
-    Rasm e33@-->|"[BOUNDARY]: PerceptualColor + VectorCone + UnitInterval + Lease + Context + ContentHash"| Objects
-    Document e34@-->|"[WIRE]: Organization"| PyData
-    Document e35@-->|"[WIRE]: Organization"| TsData
-    Objects e36@-->|"[WIRE]: rasm.contracts.scene"| PyGeometry
+    Domain e1@-->|"[BOUNDARY]: ContentHash + Context + Lease + ModelUnit + Requirement"| Document
+    Domain e2@-->|"[PORT]: InstrumentSpec"| Document
+    Domain e3@-->|"[BOUNDARY]: Lease"| Persistence
+    Domain e4@-->|"[BOUNDARY]: ContentHash + Context + Lease + ModelUnit"| Objects
+    Domain e5@-->|"[BOUNDARY]: HookRail + Lease + ModelUnit"| Commands
+    Domain e6@-->|"[BOUNDARY]: ContentHash + Context + Lease + ModelUnit"| Blocks
+    Domain e7@-->|"[BOUNDARY]: Context + Lease"| Modeling
+    Domain e8@-->|"[BOUNDARY]: Context + Lease + ModelUnit + Requirement"| Annotation
+    Domain e9@-->|"[BOUNDARY]: Context + Lease + ModelUnit"| Viewport
+    Domain e10@-->|"[BOUNDARY]: ContentHash + Context + Lease + ModelUnit"| Display
+    Domain e11@-->|"[BOUNDARY]: Lease + ModelUnit"| Render
+    Domain e12@-->|"[BOUNDARY]: ContentHash + Lease + ModelUnit"| Exchange
+    Domain e13@-->|"[BOUNDARY]: Lease + ModelUnit"| HostUi
+    Domain e14@-->|"[BOUNDARY]: Lease"| Plugin
+    Numerics e15@-->|"[BOUNDARY]: Dimension + PerceptualColor + Placement + UnitInterval"| Document
+    Numerics e16@-->|"[BOUNDARY]: Dimension + PerceptualColor"| Persistence
+    Numerics e17@-->|"[BOUNDARY]: PerceptualColor + UnitInterval + VectorCone"| Objects
+    Numerics e18@-->|"[BOUNDARY]: Dimension + PerceptualColor"| Commands
+    Numerics e19@-->|"[BOUNDARY]: Dimension"| Blocks
+    Numerics e20@-->|"[BOUNDARY]: Placement"| Modeling
+    Numerics e21@-->|"[BOUNDARY]: Dimension + PerceptualColor"| Annotation
+    Numerics e22@-->|"[BOUNDARY]: Dimension + UnitInterval + VectorFrame"| Viewport
+    Numerics e23@-->|"[BOUNDARY]: Dimension + PerceptualColor + UnitInterval"| Display
+    Numerics e24@-->|"[BOUNDARY]: Dimension + PerceptualColor"| Render
+    Numerics e25@-->|"[BOUNDARY]: Dimension + EpsilonPolicy + PerceptualColor + UnitInterval"| Exchange
+    Numerics e26@-->|"[BOUNDARY]: Dimension + PerceptualColor + UnitInterval"| HostUi
+    Numerics e27@-->|"[BOUNDARY]: Dimension"| Plugin
+    Spatial e28@-->|"[CONTENT_KEY]: GeometryHash"| Display
+    Meshing e29@-->|"[WIRE]: MeshSpace"| Display
+    Parametric e30@-->|"[BOUNDARY]: MonotonicTimeline"| Modeling
+    Parametric e31@-->|"[BOUNDARY]: MonotonicTimeline + MotionDrive"| Viewport
+    Parametric e32@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline"| Display
+    Parametric e33@-->|"[BOUNDARY]: MonotonicTimeline"| Exchange
+    Parametric e34@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline"| HostUi
+    Parametric e35@-->|"[BOUNDARY]: MonotonicTimeline"| Plugin
+    Processing e36@-->|"[BOUNDARY]: VectorIntent"| Viewport
+    Drawing e37@-->|"[BOUNDARY]: LayerName + LineWidth"| Document
+    Drawing e38@-->|"[BOUNDARY]: LineWidth + SheetSize"| Annotation
+    Drawing e39@-->|"[BOUNDARY]: LineWidth + SheetSize + ViewPose"| Viewport
+    Drawing e40@-->|"[BOUNDARY]: LineWidth + SheetSize"| Exchange
+    Drawing e41@-->|"[WIRE]: EncodedGeometry"| Display
+    Analysis e42@-->|"[BOUNDARY]: AnalysisQuery"| Document
+    Analysis e43@-->|"[BOUNDARY]: AnalysisQuery"| Commands
+    Analysis e44@-->|"[BOUNDARY]: AnalysisQuery"| Display
+    Interaction e45@-->|"[BOUNDARY]: UiDispatch"| Document
+    Interaction e46@-->|"[BOUNDARY]: UiDispatch"| Viewport
+    Interaction e47@-->|"[BOUNDARY]: Mark + PaintProgram"| Display
+    Interaction e48@-->|"[BOUNDARY]: AssetOrigin + ControlSpec + IntentTable"| HostUi
+    Interaction e49@-->|"[BOUNDARY]: AssetOrigin + UiDispatch"| Plugin
+    Document e50@-->|"[WIRE]: Organization"| PyData
+    Document e51@-->|"[WIRE]: Organization"| TsData
+    Objects e52@-->|"[WIRE]: rasm.contracts.scene"| PyGeometry
 ```
 
-Every kernel contract is a frozen-name value type the host binds and never re-mints: each `[BOUNDARY]` edge names the members its consuming sub-domain spells at its own fences, so a kernel shape reached only as a case payload of an already-registered carrier rides that carrier's edge and mints none of its own. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction, and the kernel seam registry mirrors each edge from its producing side.
+Every kernel contract is a frozen-name value type the host binds and never re-mints, so a kernel shape reached only as a case payload of an already-registered carrier rides that carrier's edge and mints none of its own. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction.
 
+Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically. Kernel-end edges fold this fence per owner, boundary, and kind, so a member added or retired here moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row.
+
+- `Op` is the rail key every fence takes and rides no seam edge, as on every other kernel seam; `Lease<T>` and `HookRail` cross as declared shapes.
+- `Dimension` here is `Rasm.Numerics.Dimension` spelled in full; the bare host `Rhino.Geometry.Dimension` on the Annotation pages is no crossing.
+- Seam `Placement` names the kernel transform builder reached through `Placement.Build`; `Blocks/model` owns its separate block-instance union.
+- `InstrumentSpec` rides `[PORT]` because the boundary DECLARES rows the app root mounts; every other kernel member crosses as a bound value.
 - `AnalysisQuery` rides the Document, Commands, and Display rails — `AnalysisOverlay` drives false-colour off `Analyze.In(...).Run`.
 - `PerceptualColor` is the one colour crossing on every rail carrying it — `System.Drawing.Color` admits through `OfRgb` and leaves through `ToRgb`.
 - `Document/layers#ORGANIZATION_PROJECTION` emits the recursive `organization.Organization` forest folded by Python and TypeScript data peers.

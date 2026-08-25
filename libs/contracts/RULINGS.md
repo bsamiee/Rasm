@@ -62,6 +62,8 @@
 - `disable_builtin` never stands in for a carve — it grades a module against nothing and WARNs on every run while the exit code reads clean.
 - Definitions and corpora no branch reaches as client surface seat under `vendor/` as frozen publisher bytes — a transcription grades its own copy.
 - `manifest.json` seats a contract only where a peer PROCESS decodes it, same-language included — a single-process golden homes at its branch tests.
+- Process separation seats a same-language crossing from both branch fences; one process keeps its seam branch-local.
+- Actor coordinates and message names match the anchored cluster body; renaming a fence re-lands its registry case in the same pass.
 - Gate-derived projections alone carry a schema, earned by a verified document its consumer evaluates; a hand-authored one defines no seam.
 - Estate protos carry in-situ field law and `// --- [SECTION]` banners alone — narrative, drift, or snapshot prose restates a moving owner.
 - Module documentation seats `buf.md` at the estate module root — absent it the BSR renders the repo README to every external consumer.

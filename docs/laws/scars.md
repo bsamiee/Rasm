@@ -95,6 +95,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Boundary: Construction and call sites on disk prove a producer; a declaration, census row, or exported type never does.
 - Boundary: Wire-complete chains prove at the owning evaluator's read — a column that evaluator never reads passes every producer census inert.
 - Boundary: Resolution proves by reverse census — each site walks back to the row seating its type, since page-local reads pass with no producer.
+- Boundary: Corpus sources prove generated symbols; a fence binding an undeclared `_pb` schema or `Rasm.Contracts` type has no producer.
 
 [SEEDED_FROM_STRING_HASH]:
 - Law: Reproducible lanes derive their seed from a declared ordinal, index, or literal — never a runtime hash of a name.
@@ -134,7 +135,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Trigger: Guards pass on the read value while the gated write lands on a value another writer moved, and receipts report stale read beside success.
 - Boundary: This scar spans every engine separating guard evaluation from its write — sibling data-modifying CTEs, any pre-read a later compare rode.
 - Boundary: Per-row re-check is per-ROW: a vector write commits every passing row, and set-wide all-or-nothing rides the transaction's undo.
-- Boundary: Grain cuts both ways — a message-scoped verdict hoists above the fan, since per-leg evaluation lets the first leg answer for its siblings.
+- Boundary: Grain cuts both ways; message-scoped verdicts hoist above the fan so no delivery leg answers for its siblings.
 - Boundary: Refutation lands at the generating clause — a doctrine row recommending the chained form without the visibility law re-derives it.
 
 [REFUTED_MECHANISM_RECORD]:
@@ -213,7 +214,7 @@ Gaining a real owner — a gate, a doctrine page, a skill — moves a scar there
 - Law: Generated out roots hold generated files alone; manifests, `py.typed`, `__init__.py`, and READMEs sit above the sweep.
 - Trigger: Hand-patched generated files survive every lane they are excluded from while a stamp or pin certifies them fresh.
 - Boundary: Type checkers stay ON the tree, and a red there convicts the upstream generator: carve the narrowest row and name the issue.
-- Boundary: Formatter reds convict the emitter too — relieve the cell where it is written, since carving the gate freezes the defect as configuration.
+- Boundary: Formatter failures convict the emitter; repair the writing cell because carving the gate freezes its defect.
 
 [INVARIANT_OUTSIDE_ITS_GATE]:
 - Law: Invariants relocated to a more expressive layer state the coverage their old gate drops and land the replacement proof at the new layer.

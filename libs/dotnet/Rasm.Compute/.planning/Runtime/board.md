@@ -10,7 +10,7 @@ The hook rail lives here too, because a hook point is an evidence surface a boar
 - [03]-[OBJECTIVES]: `ComputeObjective` — one objective binding a kernel indicator to a population/breach selector pair minted off ONE type argument.
 - [04]-[PANEL_PROJECTION]: `PanelRow`, `ComputeDescriptors` — the pack derived from the instrument roster and the objective roster, and its wire projection.
 - [05]-[HOOK_POINTS]: `ConvergenceMark`, `ComputeHookRail` — the five-point compute hook roster on the kernel capsule, its fire sites, and its isolation-cell reading.
-- [06]-[TS_PROJECTION]: the pack crosses as a generated message the corpus mints, never a hand TS mirror.
+- [06]-[TS_PROJECTION]: `BoardWireMap` — the generated `rasm.contracts.board` binding the pack crosses as, and its one `ComputeDescriptors` door.
 
 ## [02]-[FACT_SELECTION]
 
@@ -86,7 +86,7 @@ public sealed record ComputeObjective {
 - Growth: a new panel is the instrument row it derives from; a panel wanting a non-default widget or a narrower break set overrides on its own `PanelSpec` row; zero new surface.
 - Law: a ladder crosses WITH its unit. `Buckets` carries the UCUM unit its boundaries measure and the kernel proves that unit against the declaring row's own, so the panel row carries the ladder ROW rather than a bare boundary array a renderer would have to guess the quantity of.
 - Law: `Objective.Create` throws on a malformed row, and every row here is a `static readonly` roster entry — so a bad name, target, or window breaks at TYPE INITIALIZATION, which is the compile-adjacent proof a rail-typed factory over a fixed roster could not give.
-- Boundary: descriptor rows emit during the descriptor build under the suite schema hash beside `ReceiptSurface.Kinds` and cross only as the generated message `[06]-[TS_PROJECTION]` names; the ts-iac compile leg (`typescript:iac` `[0014]`) owns turning rows into Foundation-SDK dashboards and rule groups — Compute owns no IaC surface and renders nothing.
+- Boundary: descriptor rows emit during the descriptor build under the suite schema hash beside `ReceiptSurface.Kinds` and cross only as the generated message `[06]-[TS_PROJECTION]` names; the ts-iac compile leg (`typescript:iac/operate/observe#BOARD_APPLY`) owns turning rows into Foundation-SDK dashboards and rule groups — Compute owns no IaC surface and renders nothing.
 - Boundary: `BoardPack.Admit` carries every claim this pack owes — panel widgets and break keys, indicator series and partition keys, and objective-name distinctness across the alert namespace — so an alert can never name a series the meter never mounts, a panel can never break on a key its row never declares, and a folder-local probe restating any of them is the deleted form. Two further proofs are STRUCTURAL and probing them tests nothing: `FactSelector.Of` resolves its kind through the frozen registry so an objective naming an unregistered case has no construction path, and `ComputeObjective.Of` mints the population-and-breach pair off ONE type argument behind a private constructor so a pair spanning two cases has none either.
 - Boundary: omitting the window canonicalizes it at the kernel to the estate compliance default, so no calendar literal lands in a descriptor row and a shortened window still refuses below the longest burn row; a hand-typed window, factor, or severity beside the kernel table is the forked form that silently diverges from every sibling descriptor plane on the next tuning.
 
@@ -134,6 +134,10 @@ public static class ComputeDescriptors {
         Descriptors.Map(static entry => new PanelRow(
             entry.Panel.Title, entry.Panel.Instrument, entry.Row.Unit, entry.Row.Kind,
             entry.Panel.Widget.IfNone(PanelKind.For(entry.Row.Kind)), entry.Panel.By, entry.Row.Bounds)).Strict();
+
+    // The ONE cross-process door: the policy half and the instrument half are two reads of `Descriptors`, so the
+    // wire message composes from both here rather than at a composing root holding one of them.
+    public static BoardPackWire Wire => BoardWireMap.ToWire(Board, Panels);
 
     // The scored case is the ONE type argument every row states, so the objective's two selectors cannot name two
     // cases; the window stays `default` so the kernel canonicalizes it to the estate compliance default.
@@ -201,7 +205,137 @@ public sealed record ComputeHookRail(
 
 ## [06]-[TS_PROJECTION]
 
-- Law: the board pack crosses to the deploy plane ONLY as a generated message the corpus mints — no hand TS interface, literal union, or method shape lives on this page, and the hand indicator, alert, and panel mirror that once stood here is retired with its arm-for-arm census. The corpus carries no `rasm.contracts.board` family today, so `ComputeDescriptors.Board` leaves the process as the kernel `BoardPack` value on the contributor port alone, and the descriptor-to-dashboard compile leg (`typescript:iac/operate/observe#BOARD_APPLY`) reads the generated schema the day the family lands — IDEAS `BOARD_PACK_FAMILY` names that corpus ripple. NAMED LOSS: no cross-language board wire exists until the family mints. Witness: the retired mirror had zero TS readers (`typescript:core/observe/board#PACKS` encodes packs in-process and names no wire type), so nothing decoded it.
+- Owner: `BoardWireMap` — the ONE `[Mapper]` seam projecting the pack onto the generated `rasm.contracts.board.BoardPackWire`; `ComputeDescriptors.Wire` is the one door that composes it, and no hand TS interface, literal union, or JSON shape lives anywhere on this page.
+- Entry: `BoardWireMap.ToWire(BoardPack pack, Seq<PanelRow> panels)` takes BOTH halves because the kernel `PanelSpec` on the pack carries the policy half alone — which instrument, broken on which keys, under which widget — while the wire panel carries the instrument facts a renderer resolves nothing for; `ComputeDescriptors.Wire` is the composition of the two reads the descriptor fold already mints.
+- Auto: each row-to-enum fold IS the kernel row's generated total `Switch`, so a kernel row landed without its proto enum value breaks THIS mapper at compile time and a hand `(key, enum)` table has nowhere to live; the mapper runs `RequiredMappingStrategy.Both`, so a wire column no source member fills and a source member no column reads each break the build rather than crossing empty.
+- Law: the projection is the LAST step. `BoardPack.Admit` proves panel widgets, break keys, indicator series, partition keys, and objective-name distinctness against the roster BEFORE the pack reaches this owner, so the mapper never re-proves a claim and never refuses — an unadmitted pack has no path to the wire.
+- Law: the pack crosses as ProtoJSON and this owner formats nothing — the composing root writes `WireJson.Write(ComputeDescriptors.Wire, sink)` at the one AppHost codec door, so the descriptor build emits one document under the suite schema hash and no second serializer stands beside it.
+- Law: factor, windows, and hold do NOT cross. `burn` and `severity` ride the generated enums, and each consumer reads factor, long window, short window, dwell, and routing posture off ITS OWN burn and severity rows keyed by that enum — a tuned kernel factor moves every plane with no wire edit, where crossing the derived numbers would freeze one branch's tuning into the other's rules.
+- Law: alerts derive from `BoardPack.Alerts` — the pack's own `Objectives.Bind(Slo.Specs)` — and the objective each names rides `Slo.ObjectiveSlot` on the spec's own annotations, so the wire's `objective` column reads the kernel annotation rather than splitting a slug; a spec reaching here without that row carries its slug instead, whose colon fails the column's own pattern at admission.
+- Packages: Rasm.Contracts (project — generated `board` family), Riok.Mapperly, Google.Protobuf, NodaTime.Serialization.Protobuf, Rasm.AppHost (project — `WireJson`), Rasm (kernel signal capsule), LanguageExt.Core
+- Growth: a sixth indicator shape is one kernel `Sli` case, one proto oneof arm, and one `Switch` arm here; a ninth panel row or a fifth burn row is one enum value beside its kernel row, and every consumer re-derives.
+- Boundary: the consumer fence is `typescript:core/observe/board#PACK_WIRE`, which lands `BoardPackWire` through the branch's one ProtoJSON arm and folds it into the value `typescript:iac/operate/observe#BOARD_APPLY` ingests; `compute.receipt` is the pack's FIRST column at both ends, so the provenance key and the pack are one value and no consumer tier originates a key its producer cannot stamp.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// The generated board vocabulary collides with the kernel's on five enum names, so each takes the `Wire` alias
+// suffix; the messages carry the suffix in the proto and alias to break the namespace import, never to rename.
+using NodaTime.Serialization.Protobuf;
+using Riok.Mapperly.Abstractions;
+using AlertSeverityWire = Rasm.Contracts.Board.AlertSeverity;
+using AlertWire = Rasm.Contracts.Board.AlertWire;
+using BoardPackWire = Rasm.Contracts.Board.BoardPackWire;
+using BucketsWire = Rasm.Contracts.Board.BucketsWire;
+using BurnRowWire = Rasm.Contracts.Board.BurnRow;
+using DurationWire = Google.Protobuf.WellKnownTypes.Duration;
+using InstrumentKindWire = Rasm.Contracts.Board.InstrumentKind;
+using LevelBreachWire = Rasm.Contracts.Board.LevelBreach;
+using ObjectiveWire = Rasm.Contracts.Board.ObjectiveWire;
+using PanelKindWire = Rasm.Contracts.Board.PanelKind;
+using PanelWire = Rasm.Contracts.Board.PanelWire;
+using SliWire = Rasm.Contracts.Board.SliWire;
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
+public static partial class BoardWireMap {
+    // Repeated fields are generated read-only, so the entry seeds the message and appends; the three collections
+    // are the pack's own three rosters and nothing else on the message is settable.
+    public static BoardPackWire ToWire(BoardPack pack, Seq<PanelRow> panels) {
+        BoardPackWire wire = new() { Wire = pack.Wire };
+        wire.Panels.AddRange(panels.Map(Panel));
+        wire.Objectives.AddRange(pack.Objectives.Map(Objective));
+        wire.Alerts.AddRange(pack.Alerts.Map(static spec => Alert(spec, Named(spec))));
+        return wire;
+    }
+
+    [MapProperty(nameof(PanelRow.Panel), nameof(PanelWire.Widget))]
+    private static partial PanelWire Panel(PanelRow row);
+
+    [MapperIgnoreSource(nameof(Objective.Budget))]
+    private static partial ObjectiveWire Objective(Objective objective);
+
+    // Every derived column the severity and burn rows already own is ignored BY NAME, so the mapper states the
+    // no-cross decision as a compiler-checked row rather than leaving it to a silent absence.
+    [MapperIgnoreSource(nameof(AlertSpec.Hold))]
+    [MapperIgnoreSource(nameof(AlertSpec.Sli))]
+    [MapperIgnoreSource(nameof(AlertSpec.Target))]
+    [MapperIgnoreSource(nameof(AlertSpec.Annotations))]
+    private static partial AlertWire Alert(AlertSpec spec, string objective);
+
+    // The union's generated total switch IS the oneof arm table: a sixth kernel case breaks here before it can
+    // reach a peer as an unset oneof the required rule refuses at admission.
+    [UserMapping]
+    private static SliWire Sli(Sli sli) => sli.Switch(
+        ratio: static row => new SliWire { Ratio = new SliWire.Types.Ratio { Good = row.Good, Total = row.Total } },
+        partition: static row => new SliWire {
+            Partition = new SliWire.Types.Partition { Metric = row.Metric, By = row.By, Good = { row.Good } },
+        },
+        latency: static row => new SliWire {
+            Latency = new SliWire.Types.Latency {
+                Metric = row.Metric, Ceiling = row.Ceiling.ToProtobufDuration(), Quantile = row.Quantile,
+            },
+        },
+        saturation: static row => new SliWire {
+            Saturation = new SliWire.Types.Saturation { Metric = row.Metric, Bound = row.Bound, Breach = Breach(row.Breach) },
+        },
+        freshness: static row => new SliWire {
+            Freshness = new SliWire.Types.Freshness { Metric = row.Metric, Horizon = row.Horizon.ToProtobufDuration() },
+        });
+
+    // A ladder crosses WITH the unit its boundaries measure, because the kernel proved that unit against the
+    // declaring instrument row and a bare boundary array leaves a renderer guessing the quantity.
+    [UserMapping]
+    private static BucketsWire? Ladder(Option<Buckets> ladder) => ladder.Match(
+        Some: static row => new BucketsWire { Unit = row.Unit, Bounds = { row.Bounds } },
+        None: static () => (BucketsWire?)null);
+
+    [UserMapping]
+    private static DurationWire Span(Duration span) => span.ToProtobufDuration();
+
+    [UserMapping]
+    private static PanelKindWire Widget(PanelKind panel) => panel.Switch(
+        timeseries: static () => PanelKindWire.Timeseries,
+        stat: static () => PanelKindWire.Stat,
+        gauge: static () => PanelKindWire.Gauge,
+        heatmap: static () => PanelKindWire.Heatmap,
+        logs: static () => PanelKindWire.Logs,
+        table: static () => PanelKindWire.Table,
+        geomap: static () => PanelKindWire.Geomap,
+        nodes: static () => PanelKindWire.Nodes);
+
+    [UserMapping]
+    private static InstrumentKindWire Measure(InstrumentKind kind) => kind.Switch(
+        count: static () => InstrumentKindWire.Count,
+        delta: static () => InstrumentKindWire.Delta,
+        distribution: static () => InstrumentKindWire.Distribution,
+        reading: static () => InstrumentKindWire.Reading,
+        total: static () => InstrumentKindWire.Total,
+        balance: static () => InstrumentKindWire.Balance,
+        level: static () => InstrumentKindWire.Level,
+        levels: static () => InstrumentKindWire.Levels);
+
+    [UserMapping]
+    private static AlertSeverityWire Severity(AlertSeverity severity) => severity.Switch(
+        ticket: static () => AlertSeverityWire.Ticket,
+        page: static () => AlertSeverityWire.Page);
+
+    [UserMapping]
+    private static BurnRowWire Burn(BurnRow row) => row.Switch(
+        pageFast: static () => BurnRowWire.PageFast,
+        pageSlow: static () => BurnRowWire.PageSlow,
+        ticketFast: static () => BurnRowWire.TicketFast,
+        ticketSlow: static () => BurnRowWire.TicketSlow);
+
+    [UserMapping]
+    private static LevelBreachWire Breach(LevelBreach breach) => breach.Switch(
+        ceiling: static () => LevelBreachWire.Ceiling,
+        floor: static () => LevelBreachWire.Floor);
+
+    private static string Named(AlertSpec spec) =>
+        spec.Annotations.Find(static row => string.Equals(row.Key, Slo.ObjectiveSlot, StringComparison.Ordinal))
+            .Map(static row => row.Value).IfNone(spec.Slug);
+}
+```
 
 ## [07]-[RESEARCH]
 

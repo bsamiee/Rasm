@@ -17,9 +17,10 @@ The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns th
 
 - Owner: the sheet EXTENT is `Rasm/Drawing/sheet`'s `SheetSize` `[Union]` composed whole; the FRAME is that owner's `SheetFrame` with its extent bands, `ZoneGrid`, and `ZoneRef`; the TITLE BLOCK is its `TitleBlock` record, `TitleField` roster, `TitleBlockLayout` rectangle, and `SheetOfGrammar` count spelling; the NORTH convention is its `NorthPosture`; this page mints none of them. `DraftUnits` the sheet's readout posture; `SheetRegion` the placed view frame carrying its source view, crop rect, layer context, and north; `Sheet` the single sheet with its frames and cards; `SheetSet` the emitted drawing set carrying the one paper size and the derived sheet numbering.
 - Cases: `SheetSize` is the kernel union's own case set — every `SheetSeries` seat inside its declared range (`a0`…`a10`, `b`/`c` likewise, `ansi-a`…`ansi-f`, `arch-a`…`arch-e1`, `jis-b0`…`jis-b10`) and the `Custom` caller extent — reached through `SheetSize.Of(series, index)` or the `[ObjectFactory<string>]` wire parse, so the sizes a drawing set admits are a kernel range and never an AppUi roster.
-- Entry: `public static Fin<Sheet> Compose(string key, SheetSize size, DraftUnits units, TitleBlock title, Seq<SheetRegion> regions, Seq<SheetCard> cards, Seq<(string Region, DraftDimension Value)> dimensions, Seq<Annotation> annotations)` — three INDEPENDENT admissions accumulate through one `Validation`, so a sheet with two off-page frames and an orphaned dimension reports all three; `public static Fin<SheetSet> Of(string key, Seq<Sheet> sheets, Op? op = null)` seals the emitted set — refusing an empty set and naming every divergent extent, then restamping the ordinal and count onto each block through the kernel's own `TitleBlock.Of` admission; `public static DraftUnits For(SheetStandard standard)` elects the readout posture off the standard the sheet is issued under.
+- Entry: `public static Fin<Sheet> Compose(string key, SheetSize size, DraftUnits units, TitleBlock title, Seq<SheetRegion> regions, Seq<SheetCard> cards, Seq<(string Region, DraftDimension Value)> dimensions, Seq<Annotation> annotations)` — three INDEPENDENT admissions accumulate through one `Validation`, so a sheet with two off-page frames and an orphaned dimension reports all three, and the dimension admission itself carries two sequenced rungs; `public static Fin<SheetSet> Of(string key, Seq<Sheet> sheets, Op? op = null)` seals the emitted set — refusing an empty set and naming every divergent extent, then restamping the ordinal and count onto each block through the kernel's own `TitleBlock.Of` admission; `public static DraftUnits For(SheetStandard standard)` elects the readout posture off the standard the sheet is issued under.
 - Auto: `SheetSize.Standard` selects the frame, the zone module, the title-block rectangle, the scale ladder, the line group, and the lettering floor through the kernel's own `For(standard)` reads, each resolving a family that publishes no convention of its own onto the family it `Defers` to, so the US architectural series draws the ASME block with zero AppUi identity tests; `DraftEmit.TitleLayout` is one templating fold over `SheetFrame` bands, `ZoneGrid` divisions, `ZoneRef` designators, and `TitleBlockLayout.Rows`, its cell pitch the layout row's own `Pitch`, so an added field re-spaces every standard; each `TitleField` row READS its value off the typed block, so a project rename, a revision bump, and an inserted sheet all re-render the whole set from facts they already moved.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Validation` applicative, `Fin`, `Seq.Traverse`), UnitsNet (`Length`, `LengthUnit`, `AngleUnit`, `IQuantity`), Rasm (project — `Rasm/Drawing/sheet`: `SheetSize`, `SheetSeries`, `SheetStandard`, `SheetFrame`, `SheetMargin`, `SheetOrientation`, `ZoneGrid`, `ZoneRef`, `TitleBlock`, `TitleField`, `TitleBlockLayout`, `SheetOfGrammar`, `DrawingUnits`, `NorthPosture`; `Rasm/Domain/context`: `UnitSystem`; `Rasm/Domain/rails`: `Op`), Rasm.AppUi `Theme/locale` (`MeasureRole`, `MeasurePolicy`, `UnitPosture`, `ResolvedLocale`), BCL inbox
+- Law: a balloon anchor seats ONLY on the region whose basis projected it. `HiddenLineSeam` raises each region's `ProjectionView` under that region's own key, so `BalloonAnchor.View` and the row's region name one identity; an anchor solved in a neighbouring view carries real ordinates in the wrong plane and places at a plausible seat no reader can tell from a correct one, which is why the divergence refuses at COMPOSITION as `DraftFault.AnchorForeignView` naming both keys rather than reaching a sheet. Dispatch is the closed seven-arm `Switch` over `DraftDimension`, so the next case declares its own anchor law or breaks the gate at compile time.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Validation` applicative, `Fin`, `Seq.Traverse`), UnitsNet (`Length`, `LengthUnit`, `AngleUnit`, `IQuantity`), Rasm (project — `Rasm/Drawing/sheet`: `SheetSize`, `SheetSeries`, `SheetStandard`, `SheetFrame`, `SheetMargin`, `SheetOrientation`, `ZoneGrid`, `ZoneRef`, `TitleBlock`, `TitleField`, `TitleBlockLayout`, `SheetOfGrammar`, `DrawingUnits`, `NorthPosture`; `Rasm/Domain/context`: `UnitSystem`; `Rasm/Domain/rails`: `Op`), Rasm.Fabrication (project — `ViewKey` off `Documentation/projection`, the identity a balloon anchor's own view names), Rasm.AppUi `Theme/locale` (`MeasureRole`, `MeasurePolicy`, `UnitPosture`, `ResolvedLocale`), BCL inbox
 - Growth: a new sheet size, frame convention, title-block layout, data field, count spelling, or north convention is one row at `Rasm/Drawing/sheet` and costs this page nothing; a new placement roster is one column on `Sheet` and one claim in the compose gate; zero new surface.
 - Boundary: sheet dimensions, frame margins, zone modules, and block rectangles are the kernel owner's — the fifteen-row millimetre twin, the three-row `TitleBlockStandard` with its own margin and zone literals, the eleven-row `TitleField` roster with free-string cells, and the `72/25.4` points constant are all the deleted form, and the millimetre-to-point scale is the kernel unit projection off the sheet's own extent; a title-block cell is a kernel ROW that reads a TYPED column, so an authored `string Scale` a projection can contradict, an authored `string DrawingNumber` no grammar admits, and an authored revision letter the ASME sequence skips are the three deleted forms; field labels and formats ride `ResolvedLocale` so a `CultureInfo.CurrentCulture` read is the rejected form, while the elected UNIT is the drawing's own standard rather than the reader's locale (`RULINGS.md:106`); sheet frames and cards are placement rectangles in Y-down sheet millimetre space sharing one bounds predicate, and a placement outside the sheet bounds faults at compose, never at render; the set is size-uniform by construction because one exported document opens at ONE page extent and one CAD model space lays its sheets on one pitch, so a mixed-size set refuses at `Of` naming every divergent extent rather than the first; the sheet composes as precomposed vector page folds on the capture vector-print arm (a flow REPORT rides `Document/export#FLOW_REPORT`) so the document-pagination concern stays the export owner and the drafting page mints no second pagination.
 
@@ -127,20 +128,44 @@ public sealed record Sheet(
         .Apply((_, _, _) => new Sheet(key, size, units, title, regions, cards, dimensions, annotations))
         .As().ToFin();
 
+    // One seated verdict every claim on this gate answers with, so the applicative's success value is minted
+    // once rather than re-spelled at each of the ten arms that reach it.
+    private static readonly Validation<Error, Unit> Seated = Validation<Error, Unit>.Success(unit);
+
     private static Validation<Error, Unit> Placed(
         SheetSize size, Seq<(string Key, double X, double Y, double Width, double Height)> boxes) =>
         boxes.Traverse(box =>
                 box.X >= 0d && box.Y >= 0d
                 && box.X + box.Width <= size.Width.Millimeters && box.Y + box.Height <= size.Height.Millimeters
-                    ? Validation<Error, Unit>.Success(unit)
+                    ? Seated
                     : Validation<Error, Unit>.Fail((Error)new DraftFault.RegionOutOfBounds(box.Key)))
             .As().Map(static _ => unit);
 
+    // TWO RUNGS per row, and the second is the balloon's alone. Every dimension names the region it draws in;
+    // a balloon additionally names the VIEW its anchor was solved in, and the seam raises each region's
+    // projection under that region's own key, so the two identities are one — an anchor carried over from a
+    // neighbouring view places at a plausible seat on this region with nothing to read it as wrong. The rungs
+    // SEQUENCE because the second means nothing until the first holds: a view claim against a region the sheet
+    // does not carry names no basis. Dispatch is the CLOSED seven-arm `Switch` rather than a `Balloon` type
+    // test over a catch-all — a catch-all answers the next case's claim silently, which is exactly how a
+    // foreign-anchor seat grows back — so six arms answering the shared verdict is what closure costs.
     private static Validation<Error, Unit> Anchored(
         string key, Seq<SheetRegion> regions, Seq<(string Region, DraftDimension Value)> dimensions) =>
         dimensions.Traverse(row =>
                 regions.Exists(region => string.Equals(region.Key, row.Region, StringComparison.Ordinal))
-                    ? Validation<Error, Unit>.Success(unit)
+                    ? row.Value.Switch(
+                        state: row.Region,
+                        linear:    static (_, _) => Seated,
+                        aligned:   static (_, _) => Seated,
+                        angular:   static (_, _) => Seated,
+                        radial:    static (_, _) => Seated,
+                        diametric: static (_, _) => Seated,
+                        ordinate:  static (_, _) => Seated,
+                        balloon:   static (region, callout) =>
+                            string.Equals(callout.Anchor.View.Value, region, StringComparison.Ordinal)
+                                ? Seated
+                                : Validation<Error, Unit>.Fail(
+                                    (Error)new DraftFault.AnchorForeignView(region, callout.Anchor.View.Value)))
                     : Validation<Error, Unit>.Fail((Error)new DraftFault.RegionOutOfBounds($"{key}/dimension:{row.Region}")))
             .As().Map(static _ => unit);
 }
@@ -442,12 +467,12 @@ public sealed record Viewport2D(SheetRegion Region, HiddenLineSeam Hlr, VectorAn
 ## [04]-[DIMENSIONING]
 
 - Owner: `DraftDimension` `[Union]` the dimension vocabulary; `ToleranceForm` `[Union]` the tolerance limbs as a closed family; `Annotation` `[Union]` the GD&T and text annotation vocabulary; `GdtFrame` the feature-control frame as the specification's own compartment rows; `MarkMetrics` the one lettering-and-annotation metrics value every mark builder reads.
-- Cases: `DraftDimension` = Linear | Aligned | Angular | Radial | Diametric | Ordinate under the locked kind literals; `ToleranceForm` = Absent | Symmetric | Asymmetric; `Annotation` = Text | Leader | Datum | FeatureControl | SurfaceFinish | Weld under the locked kind literals.
-- Entry: `public IQuantity Measure(DraftUnits units)` — the one measure read, a `Length` on the five length cases and an `Angle` on the angular one, minted in the sheet's own unit; `public Fin<Seq<SheetEntity>> Entities(Func<(double X, double Y, double Z), (double X, double Y)> project, ResolvedLocale locale, DraftUnits units, MarkMetrics mark)` — the ONE dimension-to-entity projection: sheet-space extension lines, the offset dimension line, terminators, arcs, and the role-rendered quantity as a `TextRun`, consumed identically by every emit format; `Annotation.Entities(ResolvedLocale, DraftUnits, MarkMetrics)` is the sibling projection for the annotation family; `public static Fin<MarkMetrics> For(SheetSize size, LetteringForm form, Terminator terminator, Op? key = null)` resolves the sheet's lettering height, its line group, and every proportion the standards derive from them.
-- Auto: each dimension carries its anchor points alone and derives its measure from them, so the drawn geometry and the printed number resolve from one pair of points under the region's own projection and a stored scalar serving as both a model measure and a sheet length is the deleted form; `Entities` builds the extension lines, dimension line, terminators, and text from the dimension kind — a linear or aligned dimension spans its projected anchors under its offset, an angular dimension sweeps an arc at the vertex with both legs, a radial and a diametric draw the centre-to-rim ray in SHEET space with the `R`/`⌀` prefix beside the feature's own kernel-sized centre mark on the `EdgeStyle.Centerline` row, and an ordinate draws the datum elbow; the GD&T feature-control frame folds the specification's compartment rows left to right into ISO 1101 boxes at the kernel's own `2h` frame height, each compartment boxed to its own symbol run; every measure and tolerance crosses the measurement edge as a UnitsNet quantity under the readout ROLE its case names, so the unit abbreviation is the quantity's own, the precision and grammar are the role's, the elected system is the SHEET's posture, and a label states no unit the value does not carry — the `±` symmetric and `+/-` asymmetric spellings deriving from the `ToleranceForm` case rather than from two predicates over a pair of stored limbs.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, UnitsNet (`Length`, `Angle`, `LengthUnit`, `AngleUnit`, `IQuantity`), Rasm (project — `Rasm/Drawing/sheet`: `TextHeight`, `LetteringForm`, `DraftingMetrics`, `Terminator`, `DatumDesignator`, `LineGroup`, `LineWidth`, `SheetSize`; `Rasm/Numerics/atoms`: `EpsilonPolicy`), Rasm.Fabrication (project — `FrameSymbolRow`/`FrameCompartment` off `Spec/tolerance` `FeatureFrame.Annotation`, republished per view on the projection anchor), Rasm.AppUi `Theme/locale` (`MeasureRole`, `MeasurePolicy`, `UnitPosture`), Rasm.AppUi `Theme/typography` (`TypographyRole`), BCL inbox
-- Growth: a new dimension kind is one `DraftDimension` case; a new annotation kind is one `Annotation` case; a new terminator is a kernel `Terminator` row that reaches every mark with zero edits here; a new GD&T characteristic is a `Rasm.Fabrication` `Spec/tolerance` `FeatureCharacteristic` row at that owner; zero new surface.
-- Boundary: every lettering and annotation proportion is the kernel's — `TextHeight.For(size)` is the ISO 3098-1 §5.2 floor for the sheet's own extent and `DraftingMetrics` derives d, the `2h` feature-control frame, the h/2 clear inside it, the ISO 129-1 projection-line gap and overshoot, the ISO 128-22 centre-mark arm, and the ISO 1302 surface-texture legs, so the eleven bare millimetre literals this page carried (`3d` ×7, `2.5d`, `6d`, `1.5d`, `0.7d`) and the two centre-mark constants beside them are the deleted form and a 1:5 detail letters at the same figure a plan does only because the standard says so; the dimension TERMINATOR is a kernel `Terminator` row whose length ratio and half-angle size every arm, so the hardcoded 45° 1.2 mm architectural tick becomes `Terminator.ObliqueStroke` — a policy row beside four the standard also publishes — and one body draws an oblique tick, a closed arrowhead, an open arrowhead, and a dot from the row's own two columns; dimension geometry is built in sheet-space from the projected anchor points so a dimension follows its view, and each dimension names its owning region so emission resolves the projection basis its anchors ride; the GD&T frame's CONTENT is the specification's — `Rasm.Fabrication` `Spec/tolerance` `FeatureFrame.Annotation` publishes the ISO 1101 compartments as layout-free `FrameSymbolRow` values this plane places, sizes, and boxes without re-deciding one glyph, so a second characteristic vocabulary here is the deleted form; dimension and annotation text lands as `SheetEntity.TextRun`/`Glyph` cases carrying a kernel `TextHeight` and a typed `TypographyRole`, rendered through the `ShapedTextSeam` shaping column, so a raw `DrawText` loop and a free-string role are both the rejected form; every measure and tolerance limb rides UnitsNet through `DraftUnits.Text`, which takes `IQuantity` and a `MeasureRole` and nothing else, so a bare double has no path to a label and a role whose family the quantity does not match is a typed refusal; two carve-outs are stated rather than inferred — surface roughness renders in its authored unit under the locale's number formats because Ra states micrometres on a millimetre drawing by convention, and a feature-control compartment renders the specification's own spelling because a tolerance zone re-elected into a display unit would no longer be the zone the inspection program measures; the SI-scalar wire law still binds outward, so no UnitsNet type reaches an emit payload and the CAD arms consume the projected `SheetEntity` run alone. REFUSED: one `MarkPlan` roster folding the four leader builders — a span carries two ends and an offset, a wedge a vertex and two legs, a ray a centre and a rim, and an elbow a datum and a point, so one row shape forces an anchor bag with dead slots per row where the closed `DraftDimension` case already carries exactly its own anchors under a total dispatch.
+- Cases: `DraftDimension` = Linear | Aligned | Angular | Radial | Diametric | Ordinate | Balloon under the locked kind literals; `ToleranceForm` = Absent | Symmetric | Asymmetric; `Annotation` = Text | Leader | Datum | FeatureControl | SurfaceFinish | Weld under the locked kind literals.
+- Entry: `public IQuantity Measure(DraftUnits units)` — the one measure read, a `Length` on the six length cases and an `Angle` on the angular one, minted in the sheet's own unit; `public Fin<Seq<SheetEntity>> Entities(SheetRegion region, ResolvedLocale locale, DraftUnits units, MarkMetrics mark)` — the ONE dimension-to-entity projection: sheet-space extension lines, the offset dimension line, terminators, arcs, the parts-list callout circle, and the role-rendered quantity as a `TextRun`, consumed identically by every emit format; `Annotation.Entities(ResolvedLocale, DraftUnits, MarkMetrics)` is the sibling projection for the annotation family; `public static Fin<MarkMetrics> For(SheetSize size, LetteringForm form, Terminator terminator, Op? key = null)` resolves the sheet's lettering height, its line group, and every proportion the standards derive from them.
+- Auto: each dimension carries its anchor points alone and derives its measure from them, so the drawn geometry and the printed number resolve from one pair of points under the region's own projection and a stored scalar serving as both a model measure and a sheet length is the deleted form; `Entities` builds the extension lines, dimension line, terminators, and text from the dimension kind — a linear or aligned dimension spans its projected anchors under its offset, an angular dimension sweeps an arc at the vertex with both legs, a radial and a diametric draw the centre-to-rim ray in SHEET space with the `R`/`⌀` prefix beside the feature's own kernel-sized centre mark on the `EdgeStyle.Centerline` row, an ordinate draws the datum elbow, and a balloon stands its ISO 6433 circle off the anchor along one oblique bearing with the leader running back to the outline under a closed arrowhead; the region arrives WHOLE rather than as a projection lambda, because its correspondence carries two entries at two altitudes — `Map` for a world anchor no camera has touched, `Place` for the kernel's own projection-plane evidence — and a balloon anchored on a solved run driven back through the camera basis draws a plausible figure at the wrong scale with no fault to read; the GD&T feature-control frame folds the specification's compartment rows left to right into ISO 1101 boxes at the kernel's own `2h` frame height, each compartment boxed to its own symbol run; every measure and tolerance crosses the measurement edge as a UnitsNet quantity under the readout ROLE its case names, so the unit abbreviation is the quantity's own, the precision and grammar are the role's, the elected system is the SHEET's posture, and a label states no unit the value does not carry — the `±` symmetric and `+/-` asymmetric spellings deriving from the `ToleranceForm` case rather than from two predicates over a pair of stored limbs.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, UnitsNet (`Length`, `Angle`, `LengthUnit`, `AngleUnit`, `IQuantity`), Rasm (project — `Rasm/Drawing/sheet`: `TextHeight`, `LetteringForm`, `DraftingMetrics`, `Terminator`, `DatumDesignator`, `LineGroup`, `LineWidth`, `SheetSize`; `Rasm/Numerics/atoms`: `EpsilonPolicy`), Rasm.Fabrication (project — `FrameSymbolRow`/`FrameCompartment` off `Spec/tolerance` `FeatureFrame.Annotation`, republished per view on the projection anchor; `BalloonAnchor` off `Documentation/projection` `ProjectionEvidence.Balloons`, the per-part parts-list anchor the same evidence publishes), Rasm.AppUi `Theme/locale` (`MeasureRole`, `MeasurePolicy`, `UnitPosture`), Rasm.AppUi `Theme/typography` (`TypographyRole`), BCL inbox (`CultureInfo`)
+- Growth: a new dimension kind is one `DraftDimension` case — the parts-list callout was exactly that, one case over Fabrication's own anchor and the list's own ordinal with no builder roster, no page-local run search, and no second projection; a new annotation kind is one `Annotation` case; a new terminator is a kernel `Terminator` row that reaches every mark with zero edits here; a new GD&T characteristic is a `Rasm.Fabrication` `Spec/tolerance` `FeatureCharacteristic` row at that owner; zero new surface.
+- Boundary: every lettering and annotation proportion is the kernel's — `TextHeight.For(size)` is the ISO 3098-1 §5.2 floor for the sheet's own extent and `DraftingMetrics` derives d, the `2h` feature-control frame, the h/2 clear inside it, the ISO 129-1 projection-line gap and overshoot, the ISO 128-22 centre-mark arm, and the ISO 1302 surface-texture legs, so the eleven bare millimetre literals this page carried (`3d` ×7, `2.5d`, `6d`, `1.5d`, `0.7d`) and the two centre-mark constants beside them are the deleted form and a 1:5 detail letters at the same figure a plan does only because the standard says so; the dimension TERMINATOR is a kernel `Terminator` row whose length ratio and half-angle size every arm, so the hardcoded 45° 1.2 mm architectural tick becomes `Terminator.ObliqueStroke` — a policy row beside four the standard also publishes — and one body draws an oblique tick, a closed arrowhead, an open arrowhead, and a dot from the row's own two columns; dimension geometry is built in sheet-space from the projected anchor points so a dimension follows its view, and each dimension names its owning region so emission resolves the projection basis its anchors ride; the GD&T frame's CONTENT is the specification's — `Rasm.Fabrication` `Spec/tolerance` `FeatureFrame.Annotation` publishes the ISO 1101 compartments as layout-free `FrameSymbolRow` values this plane places, sizes, and boxes without re-deciding one glyph, so a second characteristic vocabulary here is the deleted form; a parts-list callout's ANCHOR is the same evidence — `Documentation/projection` derives the arc-length midpoint of each part's longest visible run inside the solve, so a longest-run search on this plane is a second projection authority over one figure — and its circle DIAMETER is the kernel `DraftingMetrics.ItemReferenceDiameter` row under ISO 6433 §4.2 a), so the one diameter a drawing may carry is decided where every other drafting proportion is and never as a literal here; dimension and annotation text lands as `SheetEntity.TextRun`/`Glyph` cases carrying a kernel `TextHeight` and a typed `TypographyRole`, rendered through the `ShapedTextSeam` shaping column, so a raw `DrawText` loop and a free-string role are both the rejected form; every measure and tolerance limb rides UnitsNet through `DraftUnits.Text`, which takes `IQuantity` and a `MeasureRole` and nothing else, so a bare double has no path to a label and a role whose family the quantity does not match is a typed refusal; two carve-outs are stated rather than inferred — surface roughness renders in its authored unit under the locale's number formats because Ra states micrometres on a millimetre drawing by convention, and a feature-control compartment renders the specification's own spelling because a tolerance zone re-elected into a display unit would no longer be the zone the inspection program measures; the SI-scalar wire law still binds outward, so no UnitsNet type reaches an emit payload and the CAD arms consume the projected `SheetEntity` run alone. REFUSED: one `MarkPlan` roster folding the five leader builders — a span carries two ends and an offset, a wedge a vertex and two legs, a ray a centre and a rim, an elbow a datum and a point, and a callout one already-projected anchor and an ordinal — so one row shape forces an anchor bag with dead slots per row where the closed `DraftDimension` case already carries exactly its own anchors under a total dispatch.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -524,8 +549,15 @@ public abstract partial record DraftDimension {
     public sealed record Radial((double X, double Y, double Z) Center, (double X, double Y, double Z) Rim) : DraftDimension;
     public sealed record Diametric((double X, double Y, double Z) Center, (double X, double Y, double Z) Rim) : DraftDimension;
     public sealed record Ordinate((double X, double Y, double Z) Datum, (double X, double Y, double Z) Point) : DraftDimension;
+    // Parts-list callout. The ANCHOR is `Rasm.Fabrication`'s own settled evidence — the arc-length midpoint
+    // of this part's longest visible run in the region's own view — and the ITEM is the parts-list ordinal the
+    // row the sheet composes already holds. Neither is derived here: a page-local longest-run search would make
+    // this plane a second projection authority over one figure, and an ordinal minted here drifts from the list
+    // it indexes. The anchor is a projection-PLANE point where every sibling case anchors in the world, so the
+    // region PLACES it rather than mapping it.
+    public sealed record Balloon(BalloonAnchor Anchor, int Item) : DraftDimension;
 
-    // The measure is a QUANTITY and which family it belongs to is the case's own fact — five length cases beside
+    // The measure is a QUANTITY and which family it belongs to is the case's own fact — six length cases beside
     // one angle case — so the erased face is the honest common return, each arm mints through the sheet's unit
     // frame, and a consumer that formats, compares, or exports reads one value rather than a scalar it has to
     // re-unit from the case it happens to know.
@@ -536,7 +568,12 @@ public abstract partial record DraftDimension {
         angular: static (u, a) => u.Arc(Subtended(a.Vertex, a.A, a.B)),
         radial: static (u, r) => u.Span(Distance(r.Center, r.Rim)),
         diametric: static (u, d) => u.Span(Distance(d.Center, d.Rim) * 2d),
-        ordinate: static (u, o) => u.Span(Distance(o.Datum, o.Point)));
+        ordinate: static (u, o) => u.Span(Distance(o.Datum, o.Point)),
+        // Callouts measure no feature. What one carries instead is the DRAWN length of the run its leader
+        // terminates on — the figure a crowding audit compares across callouts and the one a shortest-leader
+        // pass ranks by — so this arm is the only one whose millimetres are already sheet millimetres, because
+        // the anchor is the kernel's projection-plane evidence and the drawing scale has already run on it.
+        balloon: static (u, b) => u.Span(b.Anchor.RunLength));
 
     // The ONE dimension-to-entity projection every emit format consumes. Every label reads the SAME `Measure` a
     // consumer reads, so the value drawn and the value exported can never diverge, and the angular arm spells no
@@ -544,22 +581,33 @@ public abstract partial record DraftDimension {
     // the readout role its quantity belongs to and the measurement policy refuses a role whose family does not
     // match — a roleless render left the elected unit to whichever posture the UI locale happened to hold, so
     // the same sheet printed differently for two users.
+    // The REGION arrives whole rather than as a projection lambda, because its correspondence carries two
+    // entries at two altitudes and this family now anchors at both: a world anchor takes `Map`, and the
+    // balloon's kernel-solved locus takes `Place`, the placement alone. Handing one closed lambda would force
+    // the callout's already-projected point back through the camera basis, which draws a plausible figure at
+    // the wrong scale and skew with no fault to read. The region is the ORIENTED one, so the sheet's north
+    // posture reaches every anchor through the same basis the kernel solved under.
     public Fin<Seq<SheetEntity>> Entities(
-        Func<(double X, double Y, double Z), (double X, double Y)> project,
-        ResolvedLocale locale, DraftUnits units, MarkMetrics mark) => Switch(
-        state: (Project: project, Locale: locale, Units: units, Mark: mark),
+        SheetRegion region, ResolvedLocale locale, DraftUnits units, MarkMetrics mark) => Switch(
+        state: (Region: region, Locale: locale, Units: units, Mark: mark),
         linear:    static (ctx, l) => Label(l.Measure(ctx.Units), l.Tolerance, ctx.Units, ctx.Locale)
-            .Map(label => Span(ctx.Project(l.A), ctx.Project(l.B), l.Offset, label, ctx.Mark)),
+            .Map(label => Span(ctx.Region.Map(l.A), ctx.Region.Map(l.B), l.Offset, label, ctx.Mark)),
         aligned:   static (ctx, a) => Label(a.Measure(ctx.Units), a.Tolerance, ctx.Units, ctx.Locale)
-            .Map(label => Span(ctx.Project(a.A), ctx.Project(a.B), a.Offset, label, ctx.Mark)),
+            .Map(label => Span(ctx.Region.Map(a.A), ctx.Region.Map(a.B), a.Offset, label, ctx.Mark)),
         angular:   static (ctx, a) => ctx.Units.Text(ctx.Locale, a.Measure(ctx.Units), MeasureRole.Angle)
-            .Map(label => Wedge(ctx.Project(a.Vertex), ctx.Project(a.A), ctx.Project(a.B), label, ctx.Mark)),
+            .Map(label => Wedge(ctx.Region.Map(a.Vertex), ctx.Region.Map(a.A), ctx.Region.Map(a.B), label, ctx.Mark)),
         radial:    static (ctx, r) => ctx.Units.Text(ctx.Locale, r.Measure(ctx.Units), MeasureRole.Distance)
-            .Map(label => Ray(ctx.Project(r.Center), ctx.Project(r.Rim), $"R{label}", ctx.Mark)),
+            .Map(label => Ray(ctx.Region.Map(r.Center), ctx.Region.Map(r.Rim), $"R{label}", ctx.Mark)),
         diametric: static (ctx, d) => ctx.Units.Text(ctx.Locale, d.Measure(ctx.Units), MeasureRole.Distance)
-            .Map(label => Ray(ctx.Project(d.Center), ctx.Project(d.Rim), $"⌀{label}", ctx.Mark)),
+            .Map(label => Ray(ctx.Region.Map(d.Center), ctx.Region.Map(d.Rim), $"⌀{label}", ctx.Mark)),
         ordinate:  static (ctx, o) => ctx.Units.Text(ctx.Locale, o.Measure(ctx.Units), MeasureRole.Distance)
-            .Map(label => Elbow(ctx.Project(o.Datum), ctx.Project(o.Point), label, ctx.Mark)));
+            .Map(label => Elbow(ctx.Region.Map(o.Datum), ctx.Region.Map(o.Point), label, ctx.Mark)),
+        // Item numbers are ORDINALS, not measures, so one renders invariantly and never crosses
+        // `DraftUnits.Text` — a locale that groups thousands spells item 1000 as `1,000` inside a circle ISO
+        // 6433 caps at three characters.
+        balloon:   static (ctx, b) => Fin.Succ(Callout(
+            ctx.Region.Place((b.Anchor.ScreenLocus.X, b.Anchor.ScreenLocus.Y)),
+            b.Item.ToString(CultureInfo.InvariantCulture), ctx.Mark)));
 
     // Both limbs render through the SAME sheet-posture election the measure does, and the tolerance CASE decides
     // the spelling: absence renders nothing extra, symmetry one limb behind `±`, asymmetry both. Electing the
@@ -635,6 +683,35 @@ public abstract partial record DraftDimension {
         new SheetEntity.Stroke(EdgeStyle.Marking, datum, (point.X, datum.Y)),
         new SheetEntity.Stroke(EdgeStyle.Marking, (point.X, datum.Y), point),
         new SheetEntity.TextRun(label, point, mark.Letter, TypographyRole.Numeric));
+
+    // ISO 6433 §4.4 asks for a leader drawn AT AN ANGLE to its reference, and the bearing is the one place a
+    // callout's direction is decided: the anchor publishes a locus and no side, so an outward normal off the
+    // run would need a facing the projection does not carry. Thirty degrees is the standard's own fifteen-degree
+    // increment convention, far enough off both axes that a leader never reads as linework. Sheet space is
+    // Y-DOWN, so the rise negates and the callout climbs the page.
+    private const double LeaderBearing = Math.PI / 6d;
+
+    // The parts-list callout, whole: the circle stands off from the anchor along the bearing, the leader runs
+    // from the anchor to the RIM on that same line — §4.4 directs an encircled reference's leader at the circle
+    // CENTRE, so rim and centre are collinear with the anchor and the reference sits clear of the part's own
+    // outlines — and the number letters at the sheet's own height inside a narrow continuous circle, which is
+    // ISO 6433 §4.2 a)'s distinguishing method. The stand-off is TWICE the diameter, the one figure this page
+    // decides, because the standard asks only that leaders stay as short as practicable. The terminator is a
+    // CLOSED ARROWHEAD rather than the sheet's dimension row: ISO 128-22 gives the arrowhead to a leader ending
+    // at a line representing an outline and reserves the dot for one ending WITHIN an outline, and this anchor
+    // sits on a visible run by construction. The row rides in on the metrics value, so the substitution is a
+    // column swap rather than a second terminator body.
+    private static Seq<SheetEntity> Callout((double X, double Y) at, string item, MarkMetrics mark) {
+        double diameter = mark.Metrics.ItemReferenceDiameter.Millimeters;
+        (double ux, double uy) = (Math.Cos(LeaderBearing), -Math.Sin(LeaderBearing));
+        (double X, double Y) centre = (at.X + (ux * diameter * 2d), at.Y + (uy * diameter * 2d));
+        return Seq<SheetEntity>(
+            new SheetEntity.Stroke(EdgeStyle.Marking, at,
+                (centre.X - (ux * diameter * 0.5d), centre.Y - (uy * diameter * 0.5d))),
+            new SheetEntity.Sweep(EdgeStyle.Marking, centre, diameter * 0.5d, 0d, 360d),
+            new SheetEntity.TextRun(item, centre, mark.Letter, TypographyRole.Numeric))
+            + (mark with { Terminator = Terminator.ClosedArrow }).Terminate(at, -ux, -uy);
+    }
 
     private static double Hypot((double X, double Y) a, (double X, double Y) b) =>
         Math.Sqrt(Math.Pow(b.X - a.X, 2) + Math.Pow(b.Y - a.Y, 2));
@@ -742,7 +819,7 @@ public abstract partial record Annotation {
 ## [05]-[DRAFT_EMIT]
 
 - Owner: `DraftFault` the direct generated `[Union]` with one `[FaultCase]` leaf per drafting failure; `DraftFormat` the emit-format axis; `SheetEntity` the drawn-primitive vocabulary; `ShapedTextSeam` the composition-bound shaping column; `DraftPolicy` the plot/lettering/version/declination policy value; `DraftSeams` the composition-bound seam bundle carrying the kernel timeline; `DraftEmit` the multi-format emit dispatch with its public `Page` projection, `Paints` mint, and `Raster` canvas fold.
-- Cases: `SheetEntity` = Stroke | Sweep | TextRun | Glyph | Fill; `DraftFormat` = pdf · svg · dwg · dxf; `DraftFault` = RegionOutOfBounds | EmptyView | EmptySet | SheetSizeMismatch.
+- Cases: `SheetEntity` = Stroke | Sweep | TextRun | Glyph | Fill; `DraftFormat` = pdf · svg · dwg · dxf; `DraftFault` = RegionOutOfBounds | EmptyView | EmptySet | SheetSizeMismatch | AnchorForeignView.
 - Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, SheetSet set, DraftFormat format, DraftPolicy policy, DraftSeams seams, VisualDestination destination)` — `IO` rail; each sheet projects ONCE through `Page` into its complete `SheetEntity` run — per-frame hidden-line strokes under the frame's own layer context and north, stat-card frames and figures, frame-projected dimensions, annotations, and the title-block layout — then every format arm renders the set's page runs into ONE artifact and delivers it; `public static Fin<Seq<PaintSpec>> Paints(SheetSize size, DraftPolicy policy, PlotCanvas canvas, Op? key = null)` is the page's contribution to the one `PaintCatalog` resolve — its pigment elected by the plot posture's own ink plan, its width the sheet's kernel line group, and its dash the ISO 128-2 rhythm of that width; `public static Fin<Unit> Raster(SKCanvas canvas, Seq<SheetEntity> entities, DraftSeams seams)` is the canvas fold both the PDF arm and the plot preview consume.
 - Auto: PDF folds the set's page runs through one `VisualExport` open, one `SKDocument` page per sheet; SVG, DWG, and DXF hand the identical page runs to the `Render/cadwrite#CAD_WRITE` writer row for their format, each write GAUGED on the kernel timeline so an over-budget artifact carries its own overrun rather than an unbounded wait. `Stroke`, `Sweep`, `TextRun`, `Glyph`, and `Fill` project once into the CAD entity graph; every `EdgeStyle` row owns a kernel `LayerName` and an ISO 128-2 line type under the SAME projection its frozen raster paint keys on — a model-edge stroke carrying its kernel `Part` splits onto that row's part field, so parts toggle independently in any CAD host and a fill layer toggles the whole pattern. Every emit seals one drawing `RenderReceipt` with format, elapsed duration, and delivered destination.
 - Receipt: one `RenderReceipt` of kind drawing per emit, sealed through the visuals encode receipt sink; the fan projects it as the `Render` evidence case, so this page declares no instrument of its own and writes none.
@@ -790,6 +867,12 @@ public abstract partial record DraftFault : Fault {
     public sealed partial record EmptySet(string Detail)          : DraftFault(Detail);
     [FaultCase(3)]
     public sealed partial record SheetSizeMismatch(string Detail) : DraftFault(Detail);
+    // Two KEYS, not one line: the region that rejected the anchor and the view that produced it are the two
+    // facts an author corrects from, so the leaf carries both as columns and derives its detail rather than
+    // interpolating a sentence a reader has to split back apart.
+    [FaultCase(4)]
+    public sealed partial record AnchorForeignView(string Region, string View)
+        : DraftFault($"{Region}: balloon anchor solved in view {View}");
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -938,8 +1021,8 @@ public static class DraftEmit {
         select receipt;
 
     // The ONE sheet-to-entity projection: per-region hidden-line strokes (each region its OWN basis and model
-    // reference), region-projected dimension anchors reading the region's own Map, sheet-space annotations, and
-    // the title-block layout — every format consumes this complete fold, so a dropped drawing axis is
+    // reference), region-seated dimensions and parts-list callouts reading that region's own correspondence,
+    // sheet-space annotations, and the title-block layout — every format consumes this complete fold, so a dropped drawing axis is
     // unrepresentable. The lettering metrics resolve ONCE per sheet off the sheet's own extent and reach every
     // mark, so no builder carries a millimetre of its own. The rail is the viewport seam's `IO`, so the
     // asynchronous kernel solve stays asynchronous the whole way to the destination write, and the label
@@ -956,8 +1039,12 @@ public static class DraftEmit {
         from dimensioned in sheet.Dimensions.TraverseM(row => sheet.Regions
             .Find(region => string.Equals(region.Key, row.Region, StringComparison.Ordinal))
             .Match(
+                // Regions hand their whole correspondence to the fold, seated on the ORIENTED basis: the north
+                // posture belongs to the sheet, so both of the region's entries — the world map a dimension
+                // anchor takes and the placement a solved balloon anchor takes — reach the marks through the
+                // one basis the kernel already solved under.
                 Some: region => IO.lift(() => row.Value.Entities(
-                    world => region.Oriented(policy.Declination) switch { var oriented => region.Place(oriented.Map(world)) },
+                    region with { Basis = region.Oriented(policy.Declination) },
                     policy.Locale, sheet.Units, mark)),
                 None: () => IO.fail<Seq<SheetEntity>>(
                     new DraftFault.EmptyView($"dimension region {row.Region} unresolved")))).As()
@@ -1308,6 +1395,9 @@ public static class SheetComposer {
 
 - [PACKAGE_ENTRY]: `Fabrication.Run` is the package's sole public entry and the seam's one bound producer — the internal solver behind it is unreachable from AppUi, so binding it by name is unspellable, not merely discouraged. Visibility there is EXACT ANALYTIC and no depth-sorted or space-partitioning structure participates: `Predicate.Orient3D` signs the eye against each face for the silhouette locus, the Appel quantitative-invisibility count resolves over an exact crossing lattice, and QuikGraph `ConnectedComponents` labels the candidate components the two-stage seeding culls.
 - [SETTLED_BEFORE_PLACEMENT]: `HiddenLineSeam` binds `MeshSpace` and `ProjectionBasis` into that entry — the basis becoming the run's own `ProjectionPolicy` `Views` row and `Plot` policy, so ONE basis governs both ends — reads `RunEvidence.Result` as `FabricationResult.HiddenLineResult`, and hands back the run's `DrawingProjection` segments beside its `Option<HatchResult>`. Each `ProjectedSegment` already publishes `Edge` for the silhouette locus and the Appel-derived `State` for visibility, so `EdgeStyle.For` is a column read and no AppUi fold re-partitions what the emission already decided; `Part` rides each styled stroke into the CAD layer field while `SourceFace` stays the receipt's attribution column. AppUi is left the PLACEMENT alone: the kernel emitted its ordinates already projected and already scaled, so a sheet-side re-projection would make the page a second view authority over the same figure. The rail is `IO` end to end because the entry is asynchronous.
+- [SETTLED_CALLOUT_ANCHORS]: `ProjectionEvidence.Balloons` settles the parts-list anchors inside that same solve — one `BalloonAnchor` per part per view at the arc-length midpoint of that part's longest visible chain, none at all for a part the view drew nothing of. AppUi PLACES that anchor and derives no run: no longest-run search, no second projection, no operator pre-pass; `RunLength`, `Segments`, and `Depth` feed a crowding or leader-shortening pass rather than a re-walk.
+- [ANCHOR_MEETS_ORDINAL]: `DraftDimension.Balloon` carries an anchor onto the sheet the sheet composer raises it on, exactly as `FeatureFrame.Annotation`'s symbol rows reach a `GdtFrame`. Segments and hatch stay the seam carrier's whole payload, because a balloon column there carries no item ordinal and the plane holding the parts list is the plane pairing anchor to item.
+- [FOREIGN_VIEW_REFUSED]: `Sheet.Compose` gates that pairing — `Anchored` binds `BalloonAnchor.View` to the row's own region across the closed `DraftDimension` dispatch, so an anchor solved in another view refuses as `DraftFault.AnchorForeignView` naming both keys rather than drawing at a plausible seat.
 
 ## [08]-[RESEARCH]
 

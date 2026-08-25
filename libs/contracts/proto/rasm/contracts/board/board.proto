@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package rasm.contracts.board;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+
+// --- [VOCABULARIES] -----------------------------------------------------------------------
+
+// The visualization a panel renders; a deploy plane compiles each value onto its own builder.
+enum PanelKind {
+  PANEL_KIND_UNSPECIFIED = 0;
+  PANEL_KIND_TIMESERIES = 1;
+  PANEL_KIND_STAT = 2;
+  PANEL_KIND_GAUGE = 3;
+  PANEL_KIND_HEATMAP = 4;
+  PANEL_KIND_LOGS = 5;
+  PANEL_KIND_TABLE = 6;
+  PANEL_KIND_GEOMAP = 7;
+  PANEL_KIND_NODES = 8;
+}
+
+// The instrument family a panel's series is declared as; pulled families read at scrape time, pushed ones at write.
+enum InstrumentKind {
+  INSTRUMENT_KIND_UNSPECIFIED = 0;
+  INSTRUMENT_KIND_COUNT = 1;
+  INSTRUMENT_KIND_DELTA = 2;
+  INSTRUMENT_KIND_DISTRIBUTION = 3;
+  INSTRUMENT_KIND_READING = 4;
+  INSTRUMENT_KIND_TOTAL = 5;
+  INSTRUMENT_KIND_BALANCE = 6;
+  INSTRUMENT_KIND_LEVEL = 7;
+  INSTRUMENT_KIND_LEVELS = 8;
+}
+
+// Which side of a saturation bound counts as breached.
+enum LevelBreach {
+  LEVEL_BREACH_UNSPECIFIED = 0;
+  LEVEL_BREACH_CEILING = 1;
+  LEVEL_BREACH_FLOOR = 2;
+}
+
+// Routing severity a contact row keys on; rank ascends with urgency.
+enum AlertSeverity {
+  ALERT_SEVERITY_UNSPECIFIED = 0;
+  ALERT_SEVERITY_TICKET = 1;
+  ALERT_SEVERITY_PAGE = 2;
+}
+
+// The multi-window burn row an alert derives from; the factor, long window, and short window are the row's own
+// columns at every consumer and never cross beside the key.
+enum BurnRow {
+  BURN_ROW_UNSPECIFIED = 0;
+  BURN_ROW_PAGE_FAST = 1;
+  BURN_ROW_PAGE_SLOW = 2;
+  BURN_ROW_TICKET_FAST = 3;
+  BURN_ROW_TICKET_SLOW = 4;
+}
+
+// --- [INDICATORS] -------------------------------------------------------------------------
+
+// One service-level indicator over the producing package's own mounted instrument names.
+message SliWire {
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    Ratio ratio = 1;
+    Partition partition = 2;
+    Latency latency = 3;
+    Saturation saturation = 4;
+    Freshness freshness = 5;
+  }
+
+  message Ratio {
+    option (buf.validate.message).cel = {
+      id: "sli.ratio.distinct"
+      message: "the good and total series must differ"
+      expression: "this.good != this.total"
+    };
+
+    string good = 1 [(buf.validate.field).string.min_len = 1];
+    string total = 2 [(buf.validate.field).string.min_len = 1];
+  }
+
+  message Partition {
+    string metric = 1 [(buf.validate.field).string.min_len = 1];
+    string by = 2 [(buf.validate.field).string.min_len = 1];
+    repeated string good = 3 [(buf.validate.field).repeated = {
+      min_items: 1
+      unique: true
+      items: {
+        string: {min_len: 1}
+      }
+    }];
+  }
+
+  message Latency {
+    string metric = 1 [(buf.validate.field).string.min_len = 1];
+    google.protobuf.Duration ceiling = 2 [
+      (buf.validate.field).required = true,
+      (buf.validate.field).duration.gt = {}
+    ];
+    double quantile = 3 [(buf.validate.field).double = {
+      gt: 0
+      lt: 1
+    }];
+  }
+
+  message Saturation {
+    string metric = 1 [(buf.validate.field).string.min_len = 1];
+    double bound = 2 [(buf.validate.field).double.finite = true];
+    LevelBreach breach = 3 [(buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }];
+  }
+
+  message Freshness {
+    string metric = 1 [(buf.validate.field).string.min_len = 1];
+    google.protobuf.Duration horizon = 2 [
+      (buf.validate.field).required = true,
+      (buf.validate.field).duration.gt = {}
+    ];
+  }
+}
+
+// --- [PANELS] -----------------------------------------------------------------------------
+
+// Explicit histogram boundaries beside the UCUM unit they measure in.
+message BucketsWire {
+  string unit = 1 [(buf.validate.field).string.min_len = 1];
+  repeated double bounds = 2 [(buf.validate.field).repeated = {
+    min_items: 1
+    items: {
+      double: {finite: true}
+    }
+  }];
+}
+
+// One board panel over one declared instrument, broken on that instrument's own dimension keys.
+message PanelWire {
+  string title = 1 [(buf.validate.field).string.min_len = 1];
+  string instrument = 2 [(buf.validate.field).string.min_len = 1];
+  string unit = 3 [(buf.validate.field).string.min_len = 1];
+  InstrumentKind measure = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  PanelKind widget = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  repeated string by = 6 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
+  optional BucketsWire ladder = 7;
+}
+
+// --- [OBJECTIVES] -------------------------------------------------------------------------
+
+// One objective binding an indicator to its target ratio over a compliance window.
+message ObjectiveWire {
+  string name = 1 [(buf.validate.field).string.pattern = "^[a-z0-9.-]+$"];
+  SliWire sli = 2 [(buf.validate.field).required = true];
+  double target = 3 [(buf.validate.field).double = {
+    gt: 0
+    lt: 1
+  }];
+  google.protobuf.Duration window = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).duration.gt = {}
+  ];
+}
+
+// One compiled alert row: the objective it derives from by name, the burn row and severity that fire it, and the
+// budget share that row spends. Factor, windows, and hold read off the burn and severity rows at every consumer.
+message AlertWire {
+  string slug = 1 [(buf.validate.field).string.min_len = 1];
+  string objective = 2 [(buf.validate.field).string.pattern = "^[a-z0-9.-]+$"];
+  BurnRow burn = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  AlertSeverity severity = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  double spend = 5 [(buf.validate.field).double = {
+    finite: true
+    gt: 0
+  }];
+}
+
+// --- [PACK] -------------------------------------------------------------------------------
+
+// The per-producer dashboard-and-reliability pack: its provenance key, its panels, its objectives, and the alert
+// rows derived from them. Every alert names an objective this pack carries and every objective name is unique.
+message BoardPackWire {
+  option (buf.validate.message).cel = {
+    id: "board.objectives.unique"
+    message: "objective names must be unique within a pack"
+    expression: "this.objectives.map(o, o.name).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "board.alerts.resolve"
+    message: "every alert must name an objective the pack carries"
+    expression: "this.alerts.all(a, this.objectives.exists(o, o.name == a.objective))"
+  };
+
+  string wire = 1 [(buf.validate.field).string.pattern = "^[a-z]+\\.[a-z]+$"];
+  repeated PanelWire panels = 2 [(buf.validate.field).repeated.max_items = 4096];
+  repeated ObjectiveWire objectives = 3 [(buf.validate.field).repeated.max_items = 4096];
+  repeated AlertWire alerts = 4 [(buf.validate.field).repeated.max_items = 16384];
+}

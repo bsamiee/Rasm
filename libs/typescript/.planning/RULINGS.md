@@ -49,7 +49,7 @@
 - Moderation verdicts never borrow the transport reason — transport bands `transient`, a verdict `denied`, so one shared cell re-drives the refusal.
 - `MachinePrincipal.credential` is the HTTP presentation alone — SASL and NATS CONNECT carry the bare `token`, so the prefixed form double-prefixes.
 - `dpop`-scheme principals present only through security's proved call — `DPoPHandle` publishes `calculateThumbprint()` alone, so other wires refuse.
-- `DateTime.distanceDuration` is ABSOLUTE and `distanceDurationEither` lands an equal pair `Left` — deadline gates read signed `distance` or `isPast`.
+- `DateTime.distanceDuration` is absolute; `distanceDurationEither` returns equal instants as `Left`, while deadline gates read signed `distance`.
 - `Schema.partialWith` drops the record's node annotation — a closed key domain piped through it re-seats its posture outside or silently reopens.
 - Security's `Intake` names the held-octet verify boundary alone — serve's webhook spells `Inbound`, since a borrowed Tag name forks one seam word.
 - Queue durability is the SKIP-LOCKED outbox — `data` owns the outbox relation and `runtime` the relay, so no broker deployment enters `iac`.

@@ -611,7 +611,7 @@ public static class StructuralMerge {
 |  [06]   | content key           | seam `ContentAddress.Of` over `ToCanonicalBytes`                              |
 |  [07]   | subtree prune         | kernel `ContentHash.Of` over `U128`/`Ordinal`/`String`/`Rows`                 |
 |  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                     |
-|  [09]   | edit egress           | `Tombstone \| Members` lowered onto `Element.EntityEditWire` by `EditWire` |
+|  [09]   | edit egress           | `Tombstone \| Members` lowered onto `Element.EntityEditWire` by `EditWire`    |
 |  [10]   | conflict receipt      | `Version/ledger#MERGE_LAW` `ConflictReceipt`                                  |
 |  [11]   | reconciliation seam   | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
 |  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |

@@ -145,6 +145,7 @@ flowchart LR
         AppHost[Rasm.AppHost]
         Compute[Rasm.Compute]
         Persistence[Rasm.Persistence]
+        Rhino[Rasm.Rhino]
     end
     PyRuntime{{python:runtime}}
     PyGeometry{{python:geometry}}
@@ -168,6 +169,8 @@ flowchart LR
     Compute e15@-->|"[CONTAINER]: FieldContainer"| PyData
     Compute e16@<-->|"[CONTAINER]: SparseExchange"| PyCompute
     PyCompute e17@-->|"[CONTAINER]: GraduationEnvelope"| Compute
+    Rhino e18@-->|"[WIRE]: organization.Organization"| PyData
+    Rhino e19@-->|"[WIRE]: scene.SceneDescriptor"| PyGeometry
 ```
 
 ```mermaid
@@ -190,6 +193,7 @@ flowchart LR
         Compute[Rasm.Compute]
         AppUi[Rasm.AppUi]
         AppHost[Rasm.AppHost]
+        Rhino[Rasm.Rhino]
     end
     TsCore{{typescript:core}}
     TsData{{typescript:data}}
@@ -206,6 +210,7 @@ flowchart LR
     Persistence e10@<-->|"[CONTRACT]: parity.Backend"| TsData
     AppHost e11@-->|"[TRANSPORT]: OtelExport"| TsRuntime
     Compute e12@-->|"[WIRE]: fault.FaultDetail"| TsCore
+    Rhino e13@-->|"[WIRE]: organization.Organization"| TsData
 ```
 
 ## [04]-[INTERNAL]

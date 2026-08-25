@@ -97,12 +97,12 @@ Full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` family
 
 Specs reach these as globals (vitest env) or off a `Window` instance; the catalog owners are the entry `Window`/`Browser` and the two utility owners below.
 
-| [INDEX] | [SYMBOL]                                   | [CAPABILITY]                                                                 |
-| :-----: | :----------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `VirtualConsole` / `VirtualConsolePrinter` | console capture; `printer.readAll()` drains for assertion                    |
-|  [02]   | `DOMParser` / `XMLSerializer`              | HTML/XML ↔ document round-trip; the `libs/contracts/` golden byte assertion  |
-|  [03]   | `BrowserErrorCaptureEnum`                  | vocabulary `settings.errorCapture` selects                                   |
-|  [04]   | `BrowserNavigationCrossOriginPolicyEnum`   | vocabulary `navigation.crossOriginPolicy` selects                            |
+| [INDEX] | [SYMBOL]                                   | [CAPABILITY]                                                                |
+| :-----: | :----------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `VirtualConsole` / `VirtualConsolePrinter` | console capture; `printer.readAll()` drains for assertion                   |
+|  [02]   | `DOMParser` / `XMLSerializer`              | HTML/XML ↔ document round-trip; the `libs/contracts/` golden byte assertion |
+|  [03]   | `BrowserErrorCaptureEnum`                  | vocabulary `settings.errorCapture` selects                                  |
+|  [04]   | `BrowserNavigationCrossOriginPolicyEnum`   | vocabulary `navigation.crossOriginPolicy` selects                           |
 
 ## [05]-[INTEGRATION]
 

@@ -430,7 +430,7 @@ internal static class Cases {
 // One declared cap for every long-lived display fault cell — host-activated owners admit no injected policy, and a
 // per-owner cap beside this one is the fork. The clock feeds the cell's fault stamps alone.
 internal static class DisplayFaults {
-    internal static readonly Dimension Cap = Dimension.Create(value: 256);
+    internal static readonly Rasm.Numerics.Dimension Cap = Rasm.Numerics.Dimension.Create(value: 256);
     internal static FaultCell Cell() => new(cap: Cap, clock: TimeProvider.System);
 }
 
@@ -834,7 +834,7 @@ public abstract partial record RetainedRequest {
         inspect: static _ => true);
 }
 
-public readonly record struct RetainedReceipt(OverlayVisibility Visibility, Dimension Marks);
+public readonly record struct RetainedReceipt(OverlayVisibility Visibility, Rasm.Numerics.Dimension Marks);
 
 public sealed class RetainedOverlay : IDisposable {
     private readonly CustomDisplay display;
@@ -876,7 +876,7 @@ public sealed class RetainedOverlay : IDisposable {
                                 ? Fin.Succ((ctx.Self.journal = prior + row.Marks,
                                     new RetainedReceipt(
                                         ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
-                                        Dimension.Create(value: ctx.Self.journal.Count))).Item2)
+                                        Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)
                                 : Fin.Fail<RetainedReceipt>(receipt.Refused.Fold(Errors.None, static (folded, cause) => folded + cause)))
                             .BindFail(failure => ctx.Self.Restore(prior, ctx.Op).Match(
                                 Succ: _ => Fin.Fail<RetainedReceipt>(failure),
@@ -884,16 +884,16 @@ public sealed class RetainedOverlay : IDisposable {
                     },
                     visibility: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ((
                         ctx.Self.display.Enabled = row.Value.Key,
-                        new RetainedReceipt(row.Value, Dimension.Create(value: ctx.Self.journal.Count))).Item2)),
+                        new RetainedReceipt(row.Value, Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count))).Item2)),
                     clear: static (ctx, _) => ctx.Op.Catch(() => Fin.Succ((
                         Op.Side(ctx.Self.display.Clear),
                         ctx.Self.journal = Seq<WorldMark>(),
                         new RetainedReceipt(
                             ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
-                            Dimension.Create(value: 0))).Item3)),
+                            Rasm.Numerics.Dimension.Create(value: 0))).Item3)),
                     inspect: static (ctx, _) => Fin.Succ(new RetainedReceipt(
                         ctx.Self.display.Enabled ? OverlayVisibility.Shown : OverlayVisibility.Hidden,
-                        Dimension.Create(value: ctx.Self.journal.Count)))));
+                        Rasm.Numerics.Dimension.Create(value: ctx.Self.journal.Count)))));
         }
     }
 

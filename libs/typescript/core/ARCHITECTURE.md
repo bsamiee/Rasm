@@ -150,7 +150,8 @@ flowchart LR
     AppHost([Rasm.AppHost])
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Digest
-    Compute e2@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail"| Wire
+    Compute e2@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail + BoardPackWire"| Wire
+    Compute e21@-->|"[WIRE]: ProgressService.Watch"| Invoke
     Element e3@<-->|"[WIRE]: rasm.contracts.element"| Wire
     Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.CrdtOpWire)"| Wire
     Bim e6@-->|"[WIRE]: IfcWire"| Frame
@@ -237,6 +238,7 @@ flowchart LR
     Presence e35@-->|"[SHAPE]: Presence.State"| Ui
     Data e36@-->|"[SHAPE]: Board.Query.Target"| Board
     Iac e37@-->|"[SHAPE]: Board.Query.Target"| Board
+    Board e38@-->|"[PROJECTION]: Board.Pack"| Iac
 ```
 
 Each sibling edge collapses every contract between its endpoints at its labeled kind: the `Wire`, `Tap`, and `Presence` edges toward `ui` and `security` carry representative shapes, and the consuming folder's own seam registry enumerates the full family.
@@ -275,7 +277,7 @@ Exact delegating sites and per-owner wiring live on the owning implementation pa
 ## [05]-[BOUNDARIES]
 
 - Core imports nothing from the branch and nothing host-bound; every module runs identically under node, bun, and the browser.
-- Core composes the generated `contracts/` bindings by module path; one registry encodes or decodes each wire family for every later-stratum consumer.
-- Every cross-language primitive admits and brands at one seam; parity proves against the frozen corpus — bytes on map-free wires, semantic elsewhere.
+- Core composes generated contract bindings by module path; one registry encodes and decodes each wire family for every later stratum.
+- Each cross-language primitive admits and brands at one seam; corpus parity compares map-free bytes and semantic values elsewhere.
 - Secret derivation is the security folder's concern; the digest engine here is content identity only.
 - Persistence, serving, transport hosting, rendering, and exporters are later-wave concerns; core defines the shapes they carry and nothing they run.

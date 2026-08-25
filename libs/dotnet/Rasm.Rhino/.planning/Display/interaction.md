@@ -105,7 +105,7 @@ public sealed partial class PointerOverflow {
     public static readonly PointerOverflow Newest = new(1, BoundedChannelFullMode.DropNewest);
     public static readonly PointerOverflow Incoming = new(2, BoundedChannelFullMode.DropWrite);
     internal BoundedChannelFullMode Native { get; }
-    internal Channel<T> Bounded<T>(Dimension capacity, Atom<long> rejected) =>
+    internal Channel<T> Bounded<T>(Rasm.Numerics.Dimension capacity, Atom<long> rejected) =>
         Channel.CreateBounded<T>(new BoundedChannelOptions(capacity.Value) {
             FullMode = Native,
             SingleReader = false,
@@ -116,7 +116,7 @@ public sealed partial class PointerOverflow {
 // The ONE bounded-channel triple both display grants admit: capacity is an admitted `Dimension`, so a non-positive
 // bound is unrepresentable and the entry admission it replaced is gone. The widget point's ask IS this plan — only the
 // pointer seam vetoes, so only its request carries a responder beside the plan.
-public sealed record ChannelPlan(Dimension Capacity, PointerOverflow Overflow, TimeSpan SettleWithin);
+public sealed record ChannelPlan(Rasm.Numerics.Dimension Capacity, PointerOverflow Overflow, TimeSpan SettleWithin);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PointerRequest {

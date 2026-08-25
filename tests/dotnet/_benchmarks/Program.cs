@@ -34,7 +34,7 @@ internal static class Program {
             Console.Error.WriteLine(value: "gate: at least one BDN *-report-full.json path is required");
             return 1;
         }
-        // Corpus admission is report-independent: a declared slug with no committed fixture (or a fixture no roster declares) breaches the gate, so declarations never float free of fixtures.
+        // Corpus admission is report-independent: a declared slug with no committed fixture, a fixture no roster declares, a slug the corpus- prefix cannot realize, or a fixture over the ceiling breaches the gate as its own typed CORPUS row, so declarations never float free of fixtures.
         Seq<Error> corpus = BenchCorpus.Admit()
             .Match(Succ: static _ => Seq<Error>(), Fail: static error => error switch { ManyErrors many => toSeq(many.Errors), _ => Seq(error) });
         _ = corpus.AsIterable().Iter(error => Console.WriteLine(value: $"CORPUS   {error.Message}"));

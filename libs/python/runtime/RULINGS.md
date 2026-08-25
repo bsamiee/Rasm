@@ -6,7 +6,7 @@
 
 Sub-modules admit or refuse on their module-scope side effects, never the distribution.
 
-- Broker client legs ADMIT here — a branch carrying the message envelope owner dials it, and Speckle and OPC-UA terminate .NET-side on SDK reach alone.
+- Broker clients land here for the branch message-envelope owner; Speckle and OPC-UA remain .NET boundaries selected by SDK reach.
 - `confluent-kafka` is the one Kafka client — librdkafka is the engine the C# and TypeScript legs dial, so a pure-Python client forks that floor.
 - `cloudevents.core` is the admitted family and `cloudevents.v1` refuses — `v1.http.CloudEvent` checks a required-NAME subset and mutates past it.
 - `pika` KEEP against its transitive `asyncio` — the eager adapter roster DEFINES a class and creates no loop, the ban governing module scope here.
@@ -157,7 +157,7 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `output` hands native producers a helper-owned path they seal and publish uncopied; `stage(Path)` copies caller-owned mutable paths before proof.
 - Spool proof is one `hashlib.file_digest` SHA-256 pass over the written spool, minting the canonical `ArtifactRef`; no route keeps a hash loop.
 - `references` walks set fields in descriptor order, repeated values in element order, maps by key, refuses `Any`, and collapses on extent coherence.
-- `references` walks an explicit ancestry frontier because message nesting is caller-scaled depth; native recursion there forfeits at the frame limit.
+- `references` walks an explicit ancestry frontier because callers scale message depth beyond the native recursion limit.
 - One `ArtifactSink.seal` folds every custody route — native, staged, framed — through one single-use latch, one spool proof, and one stated claim.
 - Custody is a closed two-state family, never a sealed flag; a refused seal leaves it open so a caller corrects its claim and retries.
 - One `ArtifactStream` parameterized by an envelope row serves bare frames, Fetch responses, and Put requests, and one inverse unwraps those rows.

@@ -66,7 +66,7 @@ Portable operational behavior binds every branch a rail crosses.
 
 [LANE_CARVE]:
 - Binds: All branches.
-- Law: Lanes declare their carve set in their own config, so a lane admitted later states its exemptions or sweeps the carved tree with every sibling.
+- Law: Each lane declares its carve set in its own config, so a later lane states exemptions or sweeps the carved tree with its peers.
 
 ## [03]-[TENANCY]
 

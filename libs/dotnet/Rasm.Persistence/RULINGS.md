@@ -11,7 +11,7 @@
 - `Apache.Arrow.Flight.AspNetCore` moves in lockstep with `Apache.Arrow.Flight` — it alone holds the `InternalsVisibleTo` grant reaching the adapter.
 - `RocksDbException` exposes no stable typed status — preserve its exact exceptional `Error`; message text cannot govern recovery.
 - `Azure.Storage.Blobs.Batch` tracks its OWN version line — it lags the blobs line by design, so pinning them equal resolves nothing.
-- `MPXJ.Net` compiles its Maven closure cold once per artifacts scope and configuration — the IKVM cache key folds reference paths and debug metadata, so a warm local build proves nothing about the cold lane, and `Directory.Build.props` carves `IKVM0100`/`IKVM0101`/`IKVM0109` from promotion because the closure is the packed POM's, not a manifest row's.
+- `MPXJ.Net` compiles its Maven closure per artifact scope and configuration; packed-POM warnings stay carved from cold-lane promotion.
 
 ## [02]-[SHAPE]
 
@@ -129,6 +129,8 @@
 - `StoreRedrivePort.Carry` is a generic METHOD, not a delegate column — an attempt's value crosses per pass and C# forbids a generic field.
 - `Coordinate.Verified` is this rail's `verifySucceeded` probe — an unverified re-drive mints a second lease generation and double-decrements.
 - `CoordinationFault.Lift` seats at the OUTER strategy edge — a strategy composed beneath it receives a `Fin` value and has nothing left to classify.
+- Generated `SyncService` owns cross-store sync: `SyncEndpoint` serves, `SyncWire` dials through AppHost, and `bytes` carries op-log frames.
+- `assessment_rows` carries facet arity in one `List(Utf8)` column; its `value` column owns the fact projected by scalar columns.
 
 ## [03]-[COLLAPSE]
 

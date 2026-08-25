@@ -749,7 +749,7 @@ public abstract partial record CaptureArtifact : IDetachedDocumentResult {
 
     public sealed record RasterCase(Lease<System.Drawing.Bitmap> Pixels, Size2i Extent, AlphaLayout Coverage) : CaptureArtifact;
     public sealed record VectorCase(System.Xml.XmlDocument Svg) : CaptureArtifact;
-    public sealed record PrintedCase(Dimension Pages) : CaptureArtifact;
+    public sealed record PrintedCase(Rasm.Numerics.Dimension Pages) : CaptureArtifact;
     public sealed record DepthCase(DepthField Field) : CaptureArtifact;
     public sealed record SequenceCase(SequenceReceipt Receipt) : CaptureArtifact;
 
@@ -775,13 +775,13 @@ public sealed record TransparentCaptureSpec(
     ViewportTarget Target,
     Size2i Extent,
     CapabilitySet<CaptureFeature> Features,
-    Option<Dimension> RealtimePasses) {
+    Option<Rasm.Numerics.Dimension> RealtimePasses) {
 
     public static Fin<TransparentCaptureSpec> Of(
         ViewportTarget target,
         Size2i extent,
         Option<CapabilitySet<CaptureFeature>> features = default,
-        Option<Dimension> realtimePasses = default,
+        Option<Rasm.Numerics.Dimension> realtimePasses = default,
         Op? key = null) {
         Op op = key.OrDefault();
         return from address in TargetReach.View.Admit(target: target, key: op)
@@ -1087,7 +1087,7 @@ public sealed record SequenceOutput(DocumentPath Folder, string Extension, strin
 
 public sealed record FrameSequenceSpec(
     SequenceKind Kind,
-    Dimension Frames,
+    Rasm.Numerics.Dimension Frames,
     ViewportTarget Target,
     Option<ResourceId> Mode,
     Option<SequenceOutput> Output,
@@ -1095,7 +1095,7 @@ public sealed record FrameSequenceSpec(
 
     public static Fin<FrameSequenceSpec> Of(
         SequenceKind kind,
-        Dimension frames,
+        Rasm.Numerics.Dimension frames,
         ViewportTarget target,
         Option<Guid> mode = default,
         Option<SequenceOutput> output = default,

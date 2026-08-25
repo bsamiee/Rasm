@@ -39,6 +39,11 @@
 - Data hook ports answer `Tap.Verdict` whole — collapsing it to an option erases fan arity, delivery census, and the unrostered arm.
 - Digest-preimage payload columns are TEXT in EVERY dialect — JSONB respells bytes off the minted key; json survives where no digest addresses it.
 - Journal shape change RE-MINTS the log whole under a custody receipt — one generation answers every read, so no entry versions and no reader lifts.
+- Cutover shadows derive from each relation's DDL owner; PostgreSQL and SQLite rows preserve shape without copying conflicting names or policies.
+- Cutover carries the prior log's identity ledger; PostgreSQL and SQLite seed their native counters before copied rows can allocate ids.
+- `sqlite_sequence` seeds by `INSERT` before copy; `UPDATE` can miss an absent row and replacement can mint an ungoverned duplicate.
+- Partitioned PostgreSQL journals range on `sequence`; advisory locking plus the head read owns OCC where partition keys preclude stream uniqueness.
+- D1 logs cut over by export, server-profile replacement, and import because the platform exposes no transaction for in-place re-minting.
 - Relay envelopes carry the subject-bound journal JSON as exact UTF-8 `data`; no reserialization or `dataref` twin exists.
 - `Dataref` confines claim-check references to one HTTPS root and proves subject, resident, and dual-carriage byte equality.
 - Cross-tenant planes compose the `Tenancy.sweep` maintenance posture, never a bare client — FORCE RLS answers zero rows to an unpinned session.
@@ -57,11 +62,11 @@
 - `CacheLane.lease` owns the pool's ONE held-level series — a second row publishes the cache lane's lease under a name only its minter reads.
 - Driver divergence stays a ROW on `_DRIVERS` — result grain, bind vocabulary, and execution members ride columns, so no arm branches on a driver.
 - One re-runnable subject slice serves the resume rail — tus finalize and the preservation port take one landing, so no coordinate drifts.
-- Journal-stratum SQL seals relation literals at `_GROOMS` — `Query.Relation` sits on the read stratum, so a journal hoist onto it inverts the strata.
+- `_GROOMS` seals journal relation literals; importing read-stratum `Query.Relation` into the journal would invert dependency direction.
 
 ## [04]-[STRUCTURE]
 
-- (none)
+- `journal/generation` seats payload, generation identity, and guards below `append` and `evolve`, preventing a write-owner cycle.
 
 ## [05]-[PROCESS]
 

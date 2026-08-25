@@ -421,15 +421,15 @@ public sealed partial class PumpLoss {
 internal sealed class IdlePump<TTag> : IDisposable {
     private readonly Atom<Seq<PumpWork>> pending = Atom(Seq<PumpWork>());
     private readonly Atom<bool> open = Atom(true);
-    private readonly Dimension capacity;
+    private readonly Rasm.Numerics.Dimension capacity;
     private readonly Action<PumpLoss, TTag> lost;
     private readonly Op key;
     private Subscription? subscription;
 
-    private IdlePump(Dimension capacity, Action<PumpLoss, TTag> lost, Op key) =>
+    private IdlePump(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost, Op key) =>
         (this.capacity, this.lost, this.key) = (capacity, lost, key);
 
-    internal static Fin<IdlePump<TTag>> Open(Dimension capacity, Action<PumpLoss, TTag> lost, Op key) {
+    internal static Fin<IdlePump<TTag>> Open(Rasm.Numerics.Dimension capacity, Action<PumpLoss, TTag> lost, Op key) {
         IdlePump<TTag> pump = new(capacity: capacity, lost: lost, key: key);
         return Subscription.Attach<EventHandler>(
                 subscribe: handler => RhinoApp.Idle += handler,

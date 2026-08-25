@@ -152,5 +152,5 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [WIRE_CODEGEN]:
 - `protobuf-py`
 - `connectrpc`
-- `rasm.contracts` — Generated messages and RPCs off the `libs/contracts/gen/python` import root; `transport/serve` serves health and dials discovery.
+- `rasm.contracts` — Generated messages and RPCs; `transport/serve` serves health and dials discovery through the shared import root.
 - `protobuf` — Google message runtime the OTLP exporters compose beneath the wire rail.

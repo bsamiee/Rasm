@@ -20,12 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[SEAM_FENCE_COLLAPSE]-[QUEUED]: the Grasshopper kernel-boundary fence collapses to one edge per owner-kind pair and re-homes every mis-attributed member.
-- Capability: each edge names the sub-domain whose own fences spell the member, so a reader reaches the consuming signature in one hop.
-- Shape: `ARCHITECTURE.md` `[03]-[SEAMS]` — the kernel fence re-derived and its `e<N>@` pool renumbered once the collapse lands.
-- Unlocks: `IDEAS.md [SEAM_FENCE_AS_CENSUS]` — a mirrored registry a later pass diffs against the kernel end instead of re-censusing members.
-- Anchors: `Platform/layers.md` `SprungCase` holds the only `SpringShape` signature and `Platform`/`Shell` the only `MonotonicStamp` ones.
-- Ripple: mirrors `Rasm.Rhino` `[SEAM_FENCE_COLLAPSE]`; the kernel end is frozen, so a retired label routes as a kernel-side card.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -33,6 +28,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[SEAM_FENCE_COLLAPSE]-[COMPLETE]: the fence re-derived by grep census over kernel declarations and boundary code fences, collapsed to one edge per owner, sub-domain, and kind with the `e<N>@` pool renumbered, the kernel end's host-UI fence re-folded in the same pass (no kernel-side card — those edges were this pass's to move), and `Canvas/paint.md` `GhPaint.Runs` landed so the `PaintProgram` crossing the prose claimed is spelled in code; realizes `IDEAS.md [SEAM_FENCE_AS_CENSUS]`.
 [HYBRID_CACHE_ROOT]-[COMPLETE]: superseded by deletion — W2 proved the whole cache estate (`PlatformCache`/`CacheSlot`/`SessionCache`/`DocumentToken`/`SlotPolicy`) zero-consumer and deleted it with the `Microsoft.Extensions.Caching.Hybrid` manifest row; the re-mint obligations survive as `Platform/composition.md`'s cache-boundary law, and a future cached carrier re-enters under folder RULINGS `[01]`.
 [SHELL_LOG_CLASSIFY]-[COMPLETE]: classification attributes landed on every `[LoggerMessage]` method with the taxonomy clause and coverage law on `Shell/telemetry.md`; W2 retired `UiEventsLog`/`RuntimeLog` with their absorbed owners (live roster `PaintLog`/`InteractionLog`/`JournalLog`/`NativeLog`/`CaptureLog`) and the attributes now derive from kernel `Sensitivity` rows; realizes IDEAS `[LOG_CLASSIFICATION_SWEEP]`.
 [PLUGIN_IDENTITY_ADMISSION]-[COMPLETE]: `PlatformTelemetry.Open`, `GhTelemetry.Of`, and `GhInstruments.Of` re-typed `string plugin` to `Shell/hooks.md` `HookScope`; the inline trim/nonblank re-derivations are deleted, the default-struct hole gates at every scope-taking entry, and the `RULINGS.md` single-typed row holds with zero raw-string plugin surfaces.

@@ -10,8 +10,8 @@
 
 - `_Separation` carries the Kubernetes tenant boundary and `tenancy` keeps its own roster — one name spelling both vocabularies forks each.
 - `Schema`-admitting entries type their parameter as the ENCODED row — the decoded shape refuses omissions the defaults exist to fill.
-- `_assetsUnder` proves every declared leaf present under the built directory at graph construction — an unjoined address is a dead published address.
-- Helm chart rows pin `fullnameOverride` at the nesting the chart's helper invokes AND the rendered Service — name arithmetic re-opens dead addresses.
+- `_assetsUnder` proves every declared leaf under the built directory during graph construction, so each published address joins a file.
+- Helm rows pin `fullnameOverride` at the helper's nesting and the rendered Service, keeping every published address literal.
 - Rules evaluate on the store row's evaluator or fall back inline on `degrade` — `RecordingRule` arms remote-write, the door the estate shuts.
 - Columnar ingest at the collector carries logs and traces alone — a TSDB answers alerting, and `signals` censuses holdings, not exporter routes.
 - Residence rows carry `signals` and the `exporter` column's `routes` apart — one column serving both leaves a two-writer gateway plane unspellable.

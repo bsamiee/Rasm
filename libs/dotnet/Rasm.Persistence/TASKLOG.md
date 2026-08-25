@@ -20,12 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[ASSESSMENT_ROW_RESIDENCE]-[QUEUED]: Neutral analysis result rows seat as a queryable custodian dataset instead of dying on an unbound egress leg.
-- Capability: a producer-handed typed result stream seats as a first-class dataset, so a discipline's row estate answers what the blob lane cannot.
-- Shape: `libs/dotnet/Rasm.Persistence/.planning/Query/datasets.md` — a fourth declared dataset beside the Series, Fleet, and receipt rosters.
-- Unlocks: the `Rasm.Compute` `Analysis/dispatch#DISPATCH_WRITEBACK` `AssessmentSink.Rows` leg binds a landing rather than the refusing `None`.
-- Anchors: `Query/residence#SEAM_ADMISSION` `AnalyticsSeam.Admit`/`Seat`, `Query/serving#SERVING_PLANE` `ResidenceLanding.Stage`, the Series roster.
-- Tension: `Facets` arity is per-discipline while a residence fixes its columns once — one wide facet path or a per-discipline row is the bet.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -33,6 +28,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[ASSESSMENT_ROW_RESIDENCE]-[COMPLETE]: landed as `Query/datasets#ASSESSMENT_ROWS` — `AssessmentDataset` declares the fourth custodian dataset `assessment_rows` (key, discipline, ordered `List(Utf8)` facet path, fact name and kind, the scalar projections, and the whole fact through the seam codec as truth) and `AssessmentLane` provisions, ingests, batches, scans, and rehydrates it over the five fact coordinates the producer projects, so the Compute `Analysis/dispatch#DISPATCH_WRITEBACK` `AssessmentSink.Rows` leg binds a landing; the Tension resolved to one wide facet path.
 [OUTBOX_HOST_WIRE]-[COMPLETE]: generated fault observations persist once; egress projects host dead-letter and replay messages directly.
 [ONE_ALPHABET_PREIMAGES]-[COMPLETE]: every Persistence preimage streams the kernel `CanonicalWriter` — `CommitGraph.Fields`, `VersionVector.CanonicalBytes`, `Hlc.CanonicalBytes`, `OperationId.CanonicalBytes` at ONE eight-byte counter width, the `MerkleRange` peer digest on `Streaming`, the attested chain and Merkle pair, the checkpoint `ChainHash`, the merge `GeometryDigest`/`Seal`, and the `EnvelopeAad` SHA-256 over retained writer bytes; the page-local preimage writer, every hand `WriteTo`, and every LE word layout deleted, the parity corpus minting through `Retaining`/`ToBytes` on the rail.
 [BINARY_MEMBER_PATCH]-[COMPLETE]: `Version/merge` member patches are `MemberPatch(FieldMask, Prior, Successor)` over the binary `NodeWire` — `MemberDiff` walks the descriptor, `IsValid` gates, `Merge` under replace-all options applies — and `EditWire` lowers `EntityEdit` onto the generated `Element.EntityEditWire` with one `PatchOp` per mask path, `Add`/`Replace`/`Remove` derived from which side renders the member; the ProtoJSON document diff, the pointer escaper, and the STJ patch-document dependency deleted.

@@ -4,7 +4,7 @@ Nine `OutboundHop` cases bind to frozen `HopPolicy` rows on the runtime spine, e
 
 Settled composition: `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `CapabilityLaw<TCapability>` arrive from `Rasm/Domain/validation#CAPABILITY`; `Retriability`, `RedrivePolicy`, and `Redrive` from `Rasm/Domain/rails#REDRIVE`; `Transition<TState>` and `Cell.Claim` from `Rasm/Domain/rails#TRANSITION`; `FaultBand.Hop` from `Rasm/Domain/rails#FAULT_BAND`; `MonotonicTimeline` and `GaugedSpan<TLane>` from `Rasm/Parametric/projections#TIMELINE`; `ReceiptSinkPort`, `ReceiptEnvelope`, `TelemetrySource`, and `TenantContext` from `Rasm/Domain/frame`.
 
-In-folder composition: `Faculty` and `DegradationLevel` from `Observability/health#DEGRADATION_RAIL`; `ReceiptKind` from `Observability/instruments#RECEIPT_PROJECTION`; `AppHostPoint`/`AppHostFact` and `HookRail` from `Observability/hooks#HOOK_ROSTER`; `ClockPolicy` and `DeadlineClass` from `Runtime/time`; `DedupeWindow` from `Runtime/resources#DEDUPE_WINDOW`.
+In-folder composition: `Faculty` and `DegradationLevel` from `Observability/health#DEGRADATION_RAIL`; `ReceiptKind` from `Observability/instruments#RECEIPT_PROJECTION`; `AppHostPoint`/`AppHostFact` and `HookRail` from `Observability/hooks#HOOK_ROSTER`; `ClockPolicy` and `DeadlineClass` from `Runtime/time`; `DedupeWindow` from `Runtime/resources#DEDUPE_WINDOW`; the live bearer read from `Agent/identity#CREDENTIAL_FLOW` `LeaseRoster.Bearer`, which this spine consumes as an arrow and never as a token.
 
 Owned surfaces: the hop axis, both pipeline registries, the ownership law over the Polly, Http.Resilience, and Grpc.Net.Client spine, the transport chaos posture `Runtime/determinism#ADVERSARIAL_PROBE` records as `ChaosDecision` entries, and the discovery manifest, UDS attach, contract-generation gate, and companion-spawn lifecycle seating the `LocalIpc` hop case.
 
@@ -260,6 +260,18 @@ public abstract partial record HopFault : Fault {
 
     [FaultCase(13)]
     public sealed partial record Empty : HopFault { public Empty() : base("<empty-outcome>") { } }
+
+    // An ADMISSION arm at the family tail rather than beside `Excluded`/`Fenced`: the case ordinal is frozen
+    // registry identity, so a new arm appends wherever it belongs semantically. The deployment DECLARED a
+    // credential for this authority and its lease is dead, which is a pre-flight refusal — carrying both the
+    // hop key and the registration, because the repair is at the lease and the report is at the hop.
+    [FaultCase(14)]
+    public sealed partial record Unauthenticated : HopFault {
+        public Unauthenticated(string key, string registration)
+            : base($"<unauthenticated:{key}:{registration}>") => (Key, Registration) = (key, registration);
+        public string Key { get; }
+        public string Registration { get; }
+    }
 }
 
 // --- [POLICIES] -----------------------------------------------------------------------------
@@ -358,14 +370,38 @@ public static class HopRows {
 
 ## [03]-[HTTP_PIPELINES]
 
-- Owner: `HttpLane` — one registration fold for the `SocketsHttpHandler`-borne rows (HttpApi, WebhookPost, UpdateCheck).
-- Entry: `Wire(IServiceCollection services, IConfiguration configuration, OutboundHop hop, Func<DeadlineClass, TimeSpan> allotted, params ReadOnlySpan<WeightedUriEndpoint> routes)` returns `Fin<IServiceCollection>` — rails on the hop's own `Authority`, then the `Hedges` capability read selects hedging over standard.
+- Owner: `HttpLane` — one registration fold for the `SocketsHttpHandler`-borne rows (HttpApi, WebhookPost, UpdateCheck); `BearerHandler` — the one authorization link on those clients, reading the bearer arrow per send.
+- Entry: `Wire(IServiceCollection services, IConfiguration configuration, OutboundHop hop, Func<DeadlineClass, TimeSpan> allotted, Func<Uri, Option<string>> bearer, params ReadOnlySpan<WeightedUriEndpoint> routes)` returns `Fin<IServiceCollection>` — rails on the hop's own `Authority`, installs the bearer link, then the `Hedges` capability read selects hedging over standard.
 - Auto: `AddStandardResilienceHandler` and `AddStandardHedgingHandler` each call `EnableReloads` on their own options name inside the registration, so a section edit re-materializes the pipeline with in-flight executions finishing under the old generation and no reload member on this fence; package-generated validators prove attempt ≤ total, sampling ≥ 2× attempt, and the cumulative hedging plan at startup with the misconfigured client named; the handler sets `HttpClient.Timeout` infinite so the pipeline owns the seam's only deadline; registering any resilience handler installs the HTTP metrics enricher stamping `error.type` with the status code.
 - Packages: Microsoft.Extensions.Http.Resilience, Microsoft.Extensions.Http.Diagnostics, Microsoft.Extensions.Telemetry.Abstractions, LanguageExt.Core, BCL inbox
 - Growth: one options row per pipeline key under the `Outbound` section root; a new HTTP-borne hop is one `Wire` call over its row; a multi-region target is one weighted-endpoint span, never a second pipeline — zero new surface.
-- Boundary: `AddStandardResilienceHandler` binds rate limiter, total timeout, retry, breaker, and attempt timeout as one options record, and every slot the row decides is set FROM the row's `HopAllotment` before the `Outbound:{key}` section binds over it, so an operator edits a posture the derivation already made coherent; hedging admits the `Replayable` capability alone, since `HopRows.Admitted` already refused that capability on any row whose idempotency is weaker than `Idempotent` — a hedged attempt replays the body concurrently and the request snapshot refuses a stream body at construction; routes ride the call as `WeightedUriEndpoint` values with `WeightedGroupSelectionMode.EveryAttempt` above one group and `InitialAttempt` at one, so load-spread against primary-with-failover is a route count, never a config toggle; the standard handler owns the closed transient set (408, 429, status ≥ 500, `HttpRequestException`, `TimeoutRejectedException`), so this lane declares no predicate of its own and `HttpClientResiliencePredicates.IsTransient` stays the reuse point a custom pipeline takes; `DisableForUnsafeHttpMethods` is the method-derived guard and already covers DELETE, POST, PUT, CONNECT, and PATCH, so a `DisableFor(HttpMethod.Patch)` beside it decorates a filter the set holds — its declaring `HttpRetryStrategyOptionsExtensions` carries `EXTEXP0001`, so the guard rides one centrally pinned acknowledgment and never a call-site pragma; `SelectPipelineByAuthority` mints one breaker, limiter, and deadline state per scheme-host-port from ONE declaration, so a flapping webhook target darkens only itself while `pipeline.instance` cardinality tracks the live target set, and the authority provider demands an absolute request URI so a webhook send crosses absolute; a custom `DelayGenerator` on the retry slot silently replaces the `Retry-After` header generator, so the header parse composes INSIDE any generator this lane later takes; `Configure(IConfigurationSection)` binds with unknown-key errors and refuses an empty section as a wiring defect, so the bind rides an existence gate; the hedging family binds under the client name with no suffix and carries a different options shape, so a posture flip rewrites the section rather than moving it; one `IDownstreamDependencyMetadata` row (`DependencyName`, `UniqueHostNameSuffixes`, `RequestMetadata` route set) declares each dependency route once through `HttpDiagnosticsServiceCollectionExtensions.AddDownstreamDependencyMetadata`, so spans carry the route with no per-call literal and the ambient `IOutgoingRequestContext.SetRequestMetadata` slot stays unused — a hop's route is its row, never per-call variance; the named-client `AddHttpClient` arrives through the Microsoft.Extensions.Http transitive closure, never a direct pin; a finite `client.Timeout` beside the `BaseAddress` assignment is the deleted form that re-mints a second untyped deadline surfacing as bare cancellation.
+- Boundary: `AddStandardResilienceHandler` binds rate limiter, total timeout, retry, breaker, and attempt timeout as one options record, and every slot the row decides is set FROM the row's `HopAllotment` before the `Outbound:{key}` section binds over it, so an operator edits a posture the derivation already made coherent; hedging admits the `Replayable` capability alone, since `HopRows.Admitted` already refused that capability on any row whose idempotency is weaker than `Idempotent` — a hedged attempt replays the body concurrently and the request snapshot refuses a stream body at construction; routes ride the call as `WeightedUriEndpoint` values with `WeightedGroupSelectionMode.EveryAttempt` above one group and `InitialAttempt` at one, so load-spread against primary-with-failover is a route count, never a config toggle; the standard handler owns the closed transient set (408, 429, status ≥ 500, `HttpRequestException`, `TimeoutRejectedException`), so this lane declares no predicate of its own and `HttpClientResiliencePredicates.IsTransient` stays the reuse point a custom pipeline takes; `DisableForUnsafeHttpMethods` is the method-derived guard and already covers DELETE, POST, PUT, CONNECT, and PATCH, so a `DisableFor(HttpMethod.Patch)` beside it decorates a filter the set holds — its declaring `HttpRetryStrategyOptionsExtensions` carries `EXTEXP0001`, so the guard rides one centrally pinned acknowledgment and never a call-site pragma; `SelectPipelineByAuthority` mints one breaker, limiter, and deadline state per scheme-host-port from ONE declaration, so a flapping webhook target darkens only itself while `pipeline.instance` cardinality tracks the live target set, and the authority provider demands an absolute request URI so a webhook send crosses absolute; a custom `DelayGenerator` on the retry slot silently replaces the `Retry-After` header generator, so the header parse composes INSIDE any generator this lane later takes; `Configure(IConfigurationSection)` binds with unknown-key errors and refuses an empty section as a wiring defect, so the bind rides an existence gate; the hedging family binds under the client name with no suffix and carries a different options shape, so a posture flip rewrites the section rather than moving it; one `IDownstreamDependencyMetadata` row (`DependencyName`, `UniqueHostNameSuffixes`, `RequestMetadata` route set) declares each dependency route once through `HttpDiagnosticsServiceCollectionExtensions.AddDownstreamDependencyMetadata`, so spans carry the route with no per-call literal and the ambient `IOutgoingRequestContext.SetRequestMetadata` slot stays unused — a hop's route is its row, never per-call variance; the named-client `AddHttpClient` and its `AddHttpMessageHandler` link both arrive through the Microsoft.Extensions.Http transitive closure, never a direct pin; the bearer is a PER-SEND read off the `Agent/identity#CREDENTIAL_FLOW` lease cell — a token captured at registration into a client default or a closed-over header is the deleted form, because the first renewal replaces the cell and leaves that copy authenticating nothing, and `OutboundSurface.Admit` refuses a DECLARED credential whose lease is dead before the pipeline runs at all; an authority the deployment declared no credential for sends bare, so anonymous is a declaration rather than an omission; a finite `client.Timeout` beside the `BaseAddress` assignment is the deleted form that re-mints a second untyped deadline surfacing as bare cancellation.
 
 ```csharp signature
+// --- [SERVICES] -----------------------------------------------------------------------------
+// The arrow is read PER SEND, never captured at registration: a refreshed lease reaches the very next attempt
+// with no re-registration, and the deleted form is a token drawn once into a client default or a header the
+// registration closed over. The resilience handler seats OUTERMOST by the package's own insertion, so this
+// link runs inside the retry and hedge loops and stamps every attempt rather than only the first. Both send
+// legs override and route to one core, because `Send` and `SendAsync` never delegate to each other and a
+// one-leg link passes the other half of the traffic through unstamped. The authority read is total because
+// `SelectPipelineByAuthority` already demands an absolute request URI on every hop this lane registers.
+public sealed class BearerHandler(Func<Uri, Option<string>> bearer) : DelegatingHandler {
+    protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken token) =>
+        base.Send(Seated(request), token);
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) =>
+        base.SendAsync(Seated(request), token);
+
+    HttpRequestMessage Seated(HttpRequestMessage request) =>
+        bearer(new Uri(request.RequestUri!.GetLeftPart(UriPartial.Authority))).Match(
+            Some: drawn => {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", drawn);
+                return request;
+            },
+            None: () => request);
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class HttpLane {
     public const string SectionRoot = "Outbound";
@@ -374,23 +410,26 @@ public static class HttpLane {
     // registering a client whose base address nothing can fill.
     public static Fin<IServiceCollection> Wire(
         IServiceCollection services, IConfiguration configuration, OutboundHop hop,
-        Func<DeadlineClass, TimeSpan> allotted, params ReadOnlySpan<WeightedUriEndpoint> routes) =>
+        Func<DeadlineClass, TimeSpan> allotted, Func<Uri, Option<string>> bearer,
+        params ReadOnlySpan<WeightedUriEndpoint> routes) =>
         hop.Authority.Map(authority => Bind(
-            services, configuration, hop.Policy, hop.Policy.Allot(allotted), authority, toSeq(routes.ToArray())));
+            services, configuration, hop.Policy, hop.Policy.Allot(allotted), authority, bearer, toSeq(routes.ToArray())));
 
     static IServiceCollection Bind(
         IServiceCollection services, IConfiguration configuration, HopPolicy row, HopAllotment allot,
-        Uri authority, Seq<WeightedUriEndpoint> routes) =>
+        Uri authority, Func<Uri, Option<string>> bearer, Seq<WeightedUriEndpoint> routes) =>
         row.Hedges
-            ? (Hedged(services, configuration, row, allot, authority, routes), services).Item2
-            : (Standard(services, configuration, row, allot, authority), services).Item2;
+            ? (Hedged(services, configuration, row, allot, authority, bearer, routes), services).Item2
+            : (Standard(services, configuration, row, allot, authority, bearer), services).Item2;
 
     // Slot edits land BEFORE the section bind, so config overrides a coherent derivation rather than the
     // package defaults; the order reverses and an operator's partial section reverts every unnamed slot.
     static IHttpStandardResiliencePipelineBuilder Standard(
-        IServiceCollection services, IConfiguration configuration, HopPolicy row, HopAllotment allot, Uri authority) =>
+        IServiceCollection services, IConfiguration configuration, HopPolicy row, HopAllotment allot,
+        Uri authority, Func<Uri, Option<string>> bearer) =>
         Sectioned(
             services.AddHttpClient(row.Key.Value, client => client.BaseAddress = authority)
+                .AddHttpMessageHandler(() => new BearerHandler(bearer))
                 .AddStandardResilienceHandler(options => {
                     options.TotalRequestTimeout.Timeout = allot.Total;
                     options.AttemptTimeout.Timeout = allot.Attempt;
@@ -411,9 +450,10 @@ public static class HttpLane {
 
     static IStandardHedgingHandlerBuilder Hedged(
         IServiceCollection services, IConfiguration configuration, HopPolicy row, HopAllotment allot,
-        Uri authority, Seq<WeightedUriEndpoint> routes) =>
+        Uri authority, Func<Uri, Option<string>> bearer, Seq<WeightedUriEndpoint> routes) =>
         Sectioned(
             services.AddHttpClient(row.Key.Value, client => client.BaseAddress = authority)
+                .AddHttpMessageHandler(() => new BearerHandler(bearer))
                 .AddStandardHedgingHandler(route => Route(route, routes))
                 .Configure(options => {
                     options.TotalRequestTimeout.Timeout = allot.Total;
@@ -755,13 +795,13 @@ public static class KeyedLane {
 
 ## [05]-[OWNERSHIP_LAW]
 
-- Owner: `OutboundSurface` — admission, dispatch, conflict evidence, in-process re-drive, and enforcement over one runtime record; `RetryOwner` `[SmartEnum<string>]` the two-row claim vocabulary; `OutboundRuntime` capability record; `HopClaim` the retry-owner cell value; `HopOutcome` `[Union]`; `HopDial` the measured half of a hop; `HopReceipt` the stable native evidence; `HopSettled<T>` the receipt beside the typed carried rail.
-- Cases: Delivered, Refused, Faulted — Refused carries pre-flight admission faults, Faulted carries in-flight pipeline rejection; two `RetryOwner` rows — `Pipeline`, `Schedule`.
+- Owner: `OutboundSurface` — admission, dispatch, conflict evidence, in-process re-drive, and enforcement over one runtime record; `RetryOwner` `[SmartEnum<string>]` the two-row claim vocabulary; `OutboundRuntime` capability record, carrying the authority-to-registration credential map and the live bearer arrow beside the pipeline provider; `HopClaim` the retry-owner cell value; `HopOutcome` `[Union]`; `HopDial` the measured half of a hop; `HopReceipt` the stable native evidence; `HopSettled<T>` the receipt beside the typed carried rail.
+- Cases: Delivered, Refused, Faulted — Refused carries pre-flight admission faults (exclusion, degradation fence, dead declared credential, owner conflict), Faulted carries in-flight pipeline rejection; two `RetryOwner` rows — `Pipeline`, `Schedule`.
 - Entry: `Seat(OutboundRuntime runtime)` returns `Fin<Unit>` — the boot gate proving every row's conditional corner, claiming every row for the pipeline owner, and proving every piped row materialized; `Dispatch<T>(OutboundRuntime runtime, OutboundHop hop, Func<CancellationToken, Task<(HopOutcome, T)>> send, Option<ILatencyContext> latency = default)` is the ONE hop run, answering `IO<HopSettled<T>>` that never fails — the value rides its typed `Fin<T>` beside the native receipt that timed it; `Run(...)` is its `Unit` projection returning `IO<HopReceipt>`, the shape a write-only hop takes; `Redriven<T>(OutboundRuntime runtime, HopPolicy row, RedrivePolicy policy, IO<T> work)` claims the schedule owner and re-drives in process where the pipeline provably holds no retry row. Every exit is a receipt, never a throw.
 - Receipt: native `HopReceipt` — typed registry key and verdict, one optional attempt/duration measurement, optional breaker state, and optional kernel `FaultObservation`; `HopDial` stays an execution-local measured pair only long enough to mint the stable receipt. Every hop exit fans that receipt under `ReceiptKind.Hop` through `SuiteContracts.Host`; no protobuf or parallel STJ carrier exists for this same-process evidence.
 - Packages: Polly.Core, Rasm (kernel `Redrive`/`Cell`/`GaugedSpan`/`FaultObservation`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one outcome case per new terminal kind; one `HopFault` rejection arm per new pipeline termination verb, seated ahead of `Foreign`; zero new surface.
-- Boundary: a hop body that produces a value carries it out on the settlement the same run timed, so the reported value and the receipt describe ONE transport call — a hop run for its outcome followed by a second raw call for its value is the deleted form, since that second frame rides no pipeline, no retry, and no breaker while the receipt attributes its timing to the first; the value rides the execution's own `ResilienceContext` rather than a cell captured beside the run, so a retried attempt cannot leave a stale value behind an outcome the next attempt settled, and `HopSettled` makes the delivered-with-no-value corner one `Fin` refusal at the owner rather than a fall-through arm at every caller; exactly one retry owner per hop, claimed at COMPOSITION through `Seat` and read by `Admit` — a per-dispatch claim swap re-decides a boot fact on every frame and leaves an unregistered key admitting until its first dial throws; the claim is a `Cell.Claim` first-writer transition, so the seater and the finder are distinguishable and the loser's own policy reference survives on the conflict; domain rails retry through `RedrivePolicy`, transport hops retry through the keyed or HTTP pipeline, never both on one seam, since a schedule of m over a pipeline of n multiplies attempts invisibly and inflates the idempotency window by m — `Redriven` is the ONE lawful in-process re-drive and it is lawful exactly because `Retries` is false for the row it serves: a `SingleShot` row takes no retry strategy at all, so the schedule claim cannot stack on a pipeline loop that does not exist, and a claim conflict degrades to a single pass carrying its conflict receipt rather than stacking one; the remote object store and the wide-column store seat on THIS owner because `[LAYER_SPLIT]` row `[02]` reads the process seam alone and a `HopOutcome` is transport-neutral by construction, while the embedded and coordination bands answer rows `[03]` and `[01]` at the Persistence side, so a store call has exactly one retry owner and which one is a seam fact rather than a package preference; `Dispatch` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` acquired and released by `IO.Bracket`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` with no exception-as-control-flow round-trip and the release arm runs on the raise path the hand `finally` covered; the lease fixes `OperationKey` to the hop's own `IdempotencyKey`, so the dedup identity reaches every attempt and lands as `operation.key` on every resilience event, and `HopContext.Window` carries the allotment span through `context.Properties` BEFORE the pipeline runs while `HopContext.Attempts` carries the ordinal the retry row writes during it — never ambient state, and never a key minted inside the retried callback that changes per attempt; the total-outcome fold happens exactly ONCE at this seam over a taxonomy ordered child-before-parent, `IsolatedCircuitException` ahead of its `BrokenCircuitException` base so operator-forced darkness never masquerades as a dependency open, and a caller re-folding the rail re-opens the vocabulary the seam retired; `Enforce` sweeps the per-faculty manual breakers from the effective degradation level and runs once at boot against the resolved level, so a pipeline materializing lazily under a pinned isolation comes up dark rather than serving one undegraded call; `BreakerState` answers `None` for a row whose breaker lives inside the HTTP handler's per-authority instances, because a receipt claiming `Closed` from an unattached provider reads as a measurement to every consumer; an admission refusal answers `Measure: None` for the same reason — a zero attempt count beside a zero span is a forged measurement of a dial that never happened, and absence is the honest carrier; the hop's latency checkpoint records through `LatencySpine.Mark(ILatencyContext, CheckpointToken)` in the bracket's release arm, so a faulted or rejected hop is measured exactly like a delivered one and the span on the receipt is never the recorder's only source; `HopReceipt.Of` classifies the execution once and projects errors through the kernel `FaultObservation`, while `SuiteContracts.Host` owns the sole local JSON crossing; the runtime record and its issued `CheckpointToken` are constructed once at the composition root.
+- Boundary: a hop body that produces a value carries it out on the settlement the same run timed, so the reported value and the receipt describe ONE transport call — a hop run for its outcome followed by a second raw call for its value is the deleted form, since that second frame rides no pipeline, no retry, and no breaker while the receipt attributes its timing to the first; the value rides the execution's own `ResilienceContext` rather than a cell captured beside the run, so a retried attempt cannot leave a stale value behind an outcome the next attempt settled, and `HopSettled` makes the delivered-with-no-value corner one `Fin` refusal at the owner rather than a fall-through arm at every caller; exactly one retry owner per hop, claimed at COMPOSITION through `Seat` and read by `Admit` — a per-dispatch claim swap re-decides a boot fact on every frame and leaves an unregistered key admitting until its first dial throws; credential liveness joins the admission rail rather than the transport, because a dead DECLARED credential is knowable before the dial and a 401 read after it has already spent an attempt, a breaker sample, and a retry schedule to learn the same thing — the runtime holds the registration-keyed arrow and the authority map, never a token, so a lease renewed on its own occurrence reaches this seam and the HTTP lane's per-send link with no re-binding at either, and an authority carrying no `Credentials` row admits anonymously by declaration; the claim is a `Cell.Claim` first-writer transition, so the seater and the finder are distinguishable and the loser's own policy reference survives on the conflict; domain rails retry through `RedrivePolicy`, transport hops retry through the keyed or HTTP pipeline, never both on one seam, since a schedule of m over a pipeline of n multiplies attempts invisibly and inflates the idempotency window by m — `Redriven` is the ONE lawful in-process re-drive and it is lawful exactly because `Retries` is false for the row it serves: a `SingleShot` row takes no retry strategy at all, so the schedule claim cannot stack on a pipeline loop that does not exist, and a claim conflict degrades to a single pass carrying its conflict receipt rather than stacking one; the remote object store and the wide-column store seat on THIS owner because `[LAYER_SPLIT]` row `[02]` reads the process seam alone and a `HopOutcome` is transport-neutral by construction, while the embedded and coordination bands answer rows `[03]` and `[01]` at the Persistence side, so a store call has exactly one retry owner and which one is a seam fact rather than a package preference; `Dispatch` runs the hop through `ExecuteOutcomeAsync` over a pooled `ResilienceContext` acquired and released by `IO.Bracket`, so a pipeline rejection surfaces as a captured `Outcome<HopOutcome>.Exception` with no exception-as-control-flow round-trip and the release arm runs on the raise path the hand `finally` covered; the lease fixes `OperationKey` to the hop's own `IdempotencyKey`, so the dedup identity reaches every attempt and lands as `operation.key` on every resilience event, and `HopContext.Window` carries the allotment span through `context.Properties` BEFORE the pipeline runs while `HopContext.Attempts` carries the ordinal the retry row writes during it — never ambient state, and never a key minted inside the retried callback that changes per attempt; the total-outcome fold happens exactly ONCE at this seam over a taxonomy ordered child-before-parent, `IsolatedCircuitException` ahead of its `BrokenCircuitException` base so operator-forced darkness never masquerades as a dependency open, and a caller re-folding the rail re-opens the vocabulary the seam retired; `Enforce` sweeps the per-faculty manual breakers from the effective degradation level and runs once at boot against the resolved level, so a pipeline materializing lazily under a pinned isolation comes up dark rather than serving one undegraded call; `BreakerState` answers `None` for a row whose breaker lives inside the HTTP handler's per-authority instances, because a receipt claiming `Closed` from an unattached provider reads as a measurement to every consumer; an admission refusal answers `Measure: None` for the same reason — a zero attempt count beside a zero span is a forged measurement of a dial that never happened, and absence is the honest carrier; the hop's latency checkpoint records through `LatencySpine.Mark(ILatencyContext, CheckpointToken)` in the bracket's release arm, so a faulted or rejected hop is measured exactly like a delivered one and the span on the receipt is never the recorder's only source; `HopReceipt.Of` classifies the execution once and projects errors through the kernel `FaultObservation`, while `SuiteContracts.Host` owns the sole local JSON crossing; the runtime record and its issued `CheckpointToken` are constructed once at the composition root.
 
 ```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -834,12 +874,19 @@ public sealed record HopClaim(RetryOwner Owner, HopKey Row);
 // One spelling per wire key: the projection below and every reliability objective partitioning the hop and
 // delivery counters on their outcome dimension read the same const.
 // --- [SERVICES] -----------------------------------------------------------------------------
+// `Credentials` maps a dialed authority to the registration id whose lease authenticates hops to it, and
+// `Bearer` is `Agent/identity#CREDENTIAL_FLOW` `LeaseRoster.Bearer` bound whole: the runtime holds the ARROW
+// and never a token, so a refreshed lease reaches this seam with no re-binding. The HTTP lane installs the
+// authority-keyed projection of these same two columns, so the pre-flight guard and every send read ONE
+// custody; an authority absent from the map dials anonymous by declaration rather than by omission.
 public sealed record OutboundRuntime(
     ResiliencePipelineProvider<string> Pipelines,
     ConsumptionProfile Profile,
     ClockPolicy Clocks,
     Func<DeadlineClass, TimeSpan> Allotted,
     Func<DegradationLevel> Level,
+    HashMap<Uri, string> Credentials,
+    Func<string, Instant, Option<string>> Bearer,
     HopEvidence Evidence,
     Atom<HashMap<HopKey, HopClaim>> RetryOwners,
     CheckpointToken Checkpoint,
@@ -894,6 +941,14 @@ public static class OutboundSurface {
             row.Held.Admits(HopCapability.SelfLaunching) && runtime.Profile.Attach == HostAttach.Foreign,
             new HopFault.Excluded(row.Key.Value))
         from _fenced in guard(runtime.Level().Retains.Admits(row.Needs), new HopFault.Fenced(row.Key.Value))
+        // A DECLARED credential whose lease is dead refuses PRE-FLIGHT: the same fact arrives from the callee
+        // as a 401 one round trip later, having spent an attempt, a breaker sample, and a retry schedule to
+        // learn it. An undeclared authority is not a refusal — it is an anonymous hop the deployment chose.
+        from _bearer in hop.Authority.ToOption().Bind(authority => runtime.Credentials.Find(authority)).Match(
+            Some: id => runtime.Bearer(id, runtime.Clocks.Now)
+                .ToFin((Error)new HopFault.Unauthenticated(row.Key.Value, id))
+                .Map(static _ => unit),
+            None: static () => Fin.Succ(unit))
         from _owner in runtime.RetryOwners.Value.Find(row.Key)
             .Filter(static held => held.Owner == RetryOwner.Pipeline)
             .ToFin(new HopFault.OwnerConflict(row.Key, RetryOwner.Schedule, RetryOwner.Pipeline))

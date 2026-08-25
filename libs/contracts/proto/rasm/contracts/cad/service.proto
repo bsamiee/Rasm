@@ -3,18 +3,15 @@ syntax = "proto3";
 package rasm.contracts.cad;
 
 import "buf/validate/validate.proto";
-import "rasm/contracts/artifact/artifact.proto";
 import "rasm/contracts/cad/operations.proto";
 import "rasm/contracts/cad/types.proto";
 import "rasm/contracts/geometry/tessellation.proto";
 
 message TessellateRequest {
-  oneof source {
-    option (buf.validate.oneof).required = true;
+  reserved 1, 2;
+  reserved "step", "iges";
 
-    SealedStep step = 1;
-    rasm.contracts.artifact.ArtifactRef iges = 2;
-  }
+  SealedBody source = 4 [(buf.validate.field).required = true];
   rasm.contracts.geometry.TessellationPolicy policy = 3 [(buf.validate.field).required = true];
 }
 

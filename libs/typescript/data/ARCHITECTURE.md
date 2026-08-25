@@ -16,8 +16,9 @@ data/
     │   └── tenant.ts     # Tenancy write path pinning the session-coordinate GUCs across RLS, schema, and database cases
     ├── journal/          # Record of truth: atomic writes, evolution, facts, lawful aging
     │   ├── append.ts     # One atomic write owner and the outbox relay claim seam
-    │   ├── evolve.ts     # Journal generation identity, the whole-log re-mint, snapshot as a projection
+    │   ├── evolve.ts     # Evolution re-mints the whole log under a custody receipt and projects snapshots
     │   ├── fact.ts       # AuditFact and MeterFact rows draining into one stream-discriminated table
+    │   ├── generation.ts # Floor mint: payload coordinate, generation identity, custody ledger, transaction guard
     │   └── retain.ts     # Retention classes, crypto-shredding, and DSAR portability folds
     ├── object/           # Content-addressed object plane over one Digest.Key
     │   ├── asset.ts      # Category-blind spine, entry pair, and receipts; the GPU glTF/KTX2 family is the first row set
@@ -36,10 +37,10 @@ data/
 ## [02]-[STRATA]
 
 - S0 floor — independent mints, none importing a data sibling; `capability` is the fail-closed rail fed by argument, never import.
-- S0 split — `journal/evolve`, `read/live`, and `lane/cache` seat on the floor apart from their folders: each is a mint no sibling feeds.
+- S0 split — `journal/generation`, `read/live`, and `lane/cache` seat on the floor apart from their folders: each is a mint no sibling feeds.
 - S1 `lane/tenant` — pins the tenancy write path, mints the maintenance-plane posture, and projects its scope key into `Live`'s coordinate alphabet.
 - S1 `lane/sqlite` — degrades the `Pg` contract through the grant-key type read, harvesting query evidence into `Pg.Profile` — its one value read.
-- S2 `journal` — `append` is the stratum's one write owner; `retain` ages and `fact` meters inside the stratum.
+- S2 `journal` — `append` is the stratum's one write owner; `evolve` re-mints and snapshots, `retain` ages, and `fact` meters inside the stratum.
 - S2 `append` mints the CloudEvents relay message envelope and owns the core-brand `Hook` vocabulary; `retain` fans its erase tombstone through it.
 - S3 `object` — byte planes bind `Journal` custody under one content identity; `remote` alone binds none, reaching only the latency lane.
 - S3 merge — `asset` rides the object node composing `file`'s derive plane inside the stratum; the merge hides no cross-rank edge.
@@ -66,7 +67,7 @@ flowchart TB
         Remote[remote]
     end
     subgraph S2["S2 JOURNAL"]
-        Journal["append · retain · fact"]
+        Journal["append · evolve · retain · fact"]
     end
     subgraph S1["S1 TENANT + SQLITE"]
         Tenant[tenant]
@@ -75,7 +76,7 @@ flowchart TB
     subgraph S0["S0 FLOOR"]
         Postgres[postgres]
         Capability[capability]
-        Evolve[evolve]
+        Generation[generation]
         Live[live]
         Cache[cache]
     end
@@ -83,7 +84,7 @@ flowchart TB
     Tenant e2@-->|"[IMPORT]: Pg"| Postgres
     Tenant e3@-->|"[IMPORT]: Live"| Live
     Journal e4@-->|"[IMPORT]: Tenancy"| Tenant
-    Journal e5@-->|"[IMPORT]: Generation"| Evolve
+    Journal e5@-->|"[IMPORT]: Generation"| Generation
     Journal e6@-->|"[IMPORT]: Live"| Live
     Journal e7@-->|"[IMPORT]: Capability"| Capability
     Object e8@-->|"[IMPORT]: Journal"| Journal
@@ -93,7 +94,7 @@ flowchart TB
     Read e12@-->|"[IMPORT]: Journal"| Journal
     Read e13@-->|"[IMPORT]: Live"| Live
     Read e14@-->|"[IMPORT]: Capability"| Capability
-    Read e15@-->|"[IMPORT]: Snapshot"| Evolve
+    Read e15@-->|"[IMPORT]: Snapshot"| Journal
     Olap e16@-->|"[IMPORT]: ObjectStore"| Object
     Olap e17@-->|"[IMPORT]: Pg"| Postgres
     Sqlite e18@-->|"[IMPORT]: Pg"| Postgres
@@ -115,7 +116,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package seam registry
-    accDescr: Data exchanges custody, tenancy, hook, backend, and Board.Query contracts with branch peers and Rasm.Persistence.
+    accDescr: Data exchanges custody, tenancy, hook, backend, and Board.Query contracts with branch peers and Rasm.Persistence, and folds the organization wire Rasm.Rhino produces.
     subgraph data[DATA]
         Fold[Projection fold]
         Store[Object store]
@@ -138,7 +139,7 @@ flowchart LR
     Runtime{{runtime}}
     Iac{{iac}}
     Persistence[(Rasm.Persistence)]
-    Rhino[(Rasm.Rhino)]
+    Rhino([Rasm.Rhino])
     Core e1@-->|"[SHAPE]: Fold.Plan"| Fold
     Core e2@-->|"[CONTENT_KEY]: Digest.Key&lt;&quot;content&quot;&gt;"| Store
     Core e3@-->|"[SHAPE]: Identity.Tenant"| Tenant
@@ -181,6 +182,7 @@ flowchart LR
     Core e40@-->|"[EVENT]: Event.rasm.Fact"| Append
     Append e41@-->|"[PORT]: EventLogServer.Storage"| Runtime
     Store e42@-->|"[PORT]: Dataref"| Runtime
+    Rhino e43@-->|"[WIRE]: organization.Organization"| Fold
 ```
 
 ## [04]-[INTERNAL]

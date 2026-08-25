@@ -499,12 +499,12 @@ public static class BimTelemetry {
 ## [04]-[BENCH_RECEIPTS]
 
 - Owner: `BimBenchClaims` the folder claim roster — `static readonly` kernel `BenchClaim` rows per the kernel law that claim rows live BESIDE the lanes they gate on their owning pages; every Rasm.Bim performance claim names its row and a folder-local claim type is the deleted form. `BimBenchReceipt` carries the typed run evidence a bench run mints per claim.
-- Cases: claim rows — `ImportGlb`, `ImportIfc`, `ImportDwg`, `ImportPly`, `ImportScene`, `ImportUsd`, `ImportDotbim` (foreign-bytes decode per `BimIo` codec arm), `EgressReauthor` (IFC re-author over an admitted graph), `QueryMedium`/`QueryLarge` (element-set predicate folds at the two corpus graph scales), `GeoVectorRead`/`GeoRasterRead` (geospatial-seam ingest), `TessellationRoundTrip` (tessellation-bridge companion round trip) — each row carrying its `Corpus` slug, the estate corpus artifact whose content fingerprint the receipt stamps. Row keys never equal their lane owner's type name, so the `nameof` derivation resolves the type rather than the field beside it.
+- Cases: claim rows — `ImportGlb`, `ImportIfc`, `ImportDwg`, `ImportPly`, `ImportFbx`, `ImportUsd`, `ImportDotbim` (`Import(format)` over the `Exchange/format#FORMAT_AXIS` row the claim decodes — the GeometryGym row measures `BimIo.ImportIfc` because its carrier is the live `DatabaseIfc`, every other import-capable row `BimIo.ImportGeometry`, and a row without the import capability is a static construction defect), `EgressReauthor` (IFC re-author over an admitted graph), `QueryL`/`QueryXL` (`Query(grade)` over the `Rasm.Element/Graph/corpus#CORPUS_ROSTER` grades `L` and `XL`, the two that page reserves for benchmark hosts while `S` and `M` stay unit and property lanes), `GeoVectorRead` (`Vector(source)` over the `Semantics/vector#VECTOR_SOURCE` row `GeoVector.Read` takes), `GeoRasterRead` (`Raster(format)` — the raster front sniffs bare bytes, so the GeoTIFF format row names the fixture alone), `TessellationRoundTrip` (tessellation-bridge companion round trip) — every row's claim key and `Corpus` binding derive from the roster row it binds and no slug literal survives here: `Slug` spells `corpus-<Key>` off the format or source row, the committed fixture the tests manifest discovers under that exact name, and `Query` spells `forge-<Key>` off the grade, the Element model the bench mints through `CorpusGate.Mint` at setup and fingerprints through `CorpusModel.Snapshot`; the prefix is the realization discriminant, so a graph scale binds a claim without a committed file and a decoded format never mints in memory. Row keys never equal their lane owner's type name, so the `nameof` derivation resolves the type rather than the field beside it.
 - Entry: the bench project constructs `BimBenchReceipt` rows at its edge — one per claim per run — and the corpus-gate admission row below is the ONE path a receipt becomes a standing claim.
 - Auto: `CorpusFingerprint` derives through the one kernel content hasher over the corpus artifact bytes, so a claim binds to the exact input it measured and a corpus revision invalidates every dependent claim structurally, never by prose; a corpus-bound claim discharges `BenchLedger.Unproven` only through a proof pair whose fingerprint is present.
 - Receipt: `BimBenchReceipt` — claim, corpus fingerprint, median / p95 / interquartile wall duration, allocated bytes, operation count, instant; the spans fold through the app-tier `BenchMeasurement.Of` into one exact distribution, so a receipt lands whole rather than defaulting a spread the gate reads. Distribution truth, no verdict field — judging is the gate fold's, not the receipt's.
 - Packages: LanguageExt.Core, NodaTime, Rasm, BCL inbox.
-- Growth: a new measured operation is one `BenchClaim` row on `BimBenchClaims`; a new measured axis is one field on the receipt breaking the gate mapping at compile time.
+- Growth: a new measured decode is one `Import(InterchangeFormat.<Row>)` field, a new vector source one `Vector(GeoVectorSource.<Row>)` field, a new graph scale one `Query(CorpusGrade.<Row>)` field — each spelling its claim key and corpus binding off the row, so the tests manifest's missing-fixture row is the whole landing signal; a lane outside those rosters is one `Regression` field over a `Slug` call; a new measured axis is one field on the receipt breaking the gate mapping at compile time.
 - Boundary: corpus-gate admission — a speed or allocation claim on any Rasm.Bim page resolves to a `BimBenchReceipt` the estate BenchmarkDotNet corpus gate stamped: the branch bench project folds each receipt into the app-tier benchmark envelope (suite `rasm.bim`, case the claim key) and the AppHost `BenchmarkGate.Judge` fold owns pass-or-regress under the host-evidence and budget law; BenchmarkDotNet binds in the branch test and benchmark projects per the Test Stack manifest tier, never `Rasm.Bim.csproj`, so no benchmark type crosses into this package; a hand-rolled kernel is admitted only after its receipt defeats the library route under that gate.
 
 ```csharp signature
@@ -512,6 +512,7 @@ public static class BimTelemetry {
 using LanguageExt;
 using NodaTime;
 using Rasm.Domain;
+using Rasm.Element.Graph;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
@@ -522,35 +523,60 @@ namespace Rasm.Bim.Model;
 // its own prior stamped receipt on the same corpus — so Regression folds the kernel row's two lane columns onto
 // ONE spelling at the no-regression 1.0 floor, and the spelling is nameof-DERIVED at the measured member so a
 // rename breaks this roster at compile time where a literal strands the gate against a lane it can no longer
-// bind. The Corpus column DECLARES the fixture roster — the tests-estate benchmark corpus manifest realizes each
-// slug as its CorpusEntry.RelativePath row under the corpus BENCHMARK_CLAIM contract, and the receipt stamps the
-// MEASURED CorpusEntry.Key at run — so no fingerprint pins here, a divergent realization fails the corpus-gate
-// admission rather than this page, and the declaration is the authority the manifest transcribes.
+// bind. The Corpus column DECLARES the corpus roster — a corpus- slug the tests-estate benchmark manifest realizes
+// as its CorpusEntry.RelativePath row under the corpus BENCHMARK_CLAIM contract with the receipt stamping the
+// MEASURED CorpusEntry.Key at run, or a forge- grade the bench mints through CorpusGate.Mint with the receipt
+// stamping CorpusModel.Snapshot — so no fingerprint pins here, a divergent realization fails the corpus-gate
+// admission rather than this page, and the declaration is the authority the manifest transcribes. Every claim key
+// and every slug derive off the roster row the claim binds, so this class spells no slug literal at all.
 public static class BimBenchClaims {
     private static readonly string Decode = $"{nameof(BimIo)}.{nameof(BimIo.ImportGeometry)}";
     private static readonly string DecodeIfc = $"{nameof(BimIo)}.{nameof(BimIo.ImportIfc)}";
     private static readonly string Reauthor = $"{nameof(BimExport)}.{nameof(BimExport.ExportIfc)}";
     private static readonly string Select = $"{nameof(ElementQuery)}.{nameof(ElementQuery.Query)}";
-    private static readonly string Vector = $"{nameof(GeoVector)}.{nameof(GeoVector.Read)}";
-    private static readonly string Raster = $"{nameof(GeoRaster)}.{nameof(GeoRaster.Read)}";
+    private static readonly string VectorRead = $"{nameof(GeoVector)}.{nameof(GeoVector.Read)}";
+    private static readonly string RasterRead = $"{nameof(GeoRaster)}.{nameof(GeoRaster.Read)}";
     private static readonly string Tessellate = $"{nameof(TessellationRequest)}.{nameof(TessellationRequest.Plan)}";
 
-    public static readonly BenchClaim ImportGlb = Regression("import-glb", Decode, "corpus-scene-glb");
-    public static readonly BenchClaim ImportIfc = Regression("import-ifc", DecodeIfc, "corpus-model-ifc");
-    public static readonly BenchClaim ImportDwg = Regression("import-dwg", Decode, "corpus-drawing-dwg");
-    public static readonly BenchClaim ImportPly = Regression("import-ply", Decode, "corpus-mesh-ply");
-    public static readonly BenchClaim ImportScene = Regression("import-scene", Decode, "corpus-scene-fbx");
-    public static readonly BenchClaim ImportUsd = Regression("import-usd", Decode, "corpus-stage-usd");
-    public static readonly BenchClaim ImportDotbim = Regression("import-dotbim", Decode, "corpus-model-bim");
-    public static readonly BenchClaim EgressReauthor = Regression("egress-reauthor", Reauthor, "corpus-model-ifc");
-    public static readonly BenchClaim QueryMedium = Regression("query-medium", Select, "corpus-graph-100k");
-    public static readonly BenchClaim QueryLarge = Regression("query-large", Select, "corpus-graph-1m");
-    public static readonly BenchClaim GeoVectorRead = Regression("geo-vector", Vector, "corpus-geo-gpkg");
-    public static readonly BenchClaim GeoRasterRead = Regression("geo-raster", Raster, "corpus-geo-cog");
-    public static readonly BenchClaim TessellationRoundTrip = Regression("tessellation-roundtrip", Tessellate, "corpus-model-ifc");
+    public static readonly BenchClaim ImportGlb = Import(InterchangeFormat.Glb);
+    public static readonly BenchClaim ImportIfc = Import(InterchangeFormat.Ifc);
+    public static readonly BenchClaim ImportDwg = Import(InterchangeFormat.Dwg);
+    public static readonly BenchClaim ImportPly = Import(InterchangeFormat.Ply);
+    public static readonly BenchClaim ImportFbx = Import(InterchangeFormat.Fbx);
+    public static readonly BenchClaim ImportUsd = Import(InterchangeFormat.Usd);
+    public static readonly BenchClaim ImportDotbim = Import(InterchangeFormat.DotBim);
+    public static readonly BenchClaim EgressReauthor = Regression("egress-reauthor", Reauthor, Slug(InterchangeFormat.Ifc));
+    public static readonly BenchClaim QueryL = Query(CorpusGrade.L);
+    public static readonly BenchClaim QueryXL = Query(CorpusGrade.XL);
+    public static readonly BenchClaim GeoVectorRead = Vector(GeoVectorSource.GeoPackage);
+    public static readonly BenchClaim GeoRasterRead = Raster(InterchangeFormat.GeoTiff);
+    public static readonly BenchClaim TessellationRoundTrip = Regression("tessellation-roundtrip", Tessellate, Slug(InterchangeFormat.Ifc));
 
     private static BenchClaim Regression(string claim, string lane, string corpus) =>
         new(Op.Of(name: claim), lane, lane, 1.0, Some(corpus));
+
+    // Prefix IS the realization discriminant the tests manifest reads: corpus- rows discover a committed fixture named for the roster
+    // row's own key, forge- rows mint the Element grade in memory at bench setup. Each mint spells the claim key AND the corpus binding
+    // off one row, so a row rename lands as the manifest's missing-fixture refusal or a compile break — never a literal detached from
+    // the row it once named.
+    private static string Slug(InterchangeFormat format) => $"corpus-{format.Key}";
+
+    private static string Slug(GeoVectorSource source) => $"corpus-{source.Key}";
+
+    // The format row's codec elects the decode entrypoint — the GeometryGym row's carrier is the live DatabaseIfc, so it measures
+    // ImportIfc; every other import-capable row measures ImportGeometry. A row without the import capability is a roster literal
+    // defect and refuses at static construction, the same posture the Element grade roster takes on a failed profile literal.
+    private static BenchClaim Import(InterchangeFormat format) =>
+        format.Capabilities.Admits(InterchangeCapability.Import)
+            ? Regression($"import-{format.Key}", format.Codec == InterchangeCodec.GeometryGym ? DecodeIfc : Decode, Slug(format))
+            : throw new InvalidOperationException($"<bench-claim:{format.Key}:import-capability-absent>");
+
+    private static BenchClaim Vector(GeoVectorSource source) => Regression($"geo-{source.Key}", VectorRead, Slug(source));
+
+    // The raster front sniffs bare bytes and takes no source row, so the GeoTIFF format row names the fixture alone.
+    private static BenchClaim Raster(InterchangeFormat format) => Regression($"geo-{format.Key}", RasterRead, Slug(format));
+
+    private static BenchClaim Query(CorpusGrade grade) => Regression($"query-{grade.Key}", Select, $"forge-{grade.Key}");
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_CANVAS_PAINT]
 
-Painting at the Grasshopper boundary is the kernel paint estate composed inside the host's own paint fences: `Rasm/Interaction/paint.md` owns the mark vocabulary, the spec-to-resource stock, the receipt, the probe, and the colour crossing, and this page owns what only the host can — the eight GH2 paint-event fences, the event-scoped scene capability, the four Grasshopper2-drawn mark cases no kernel case can express, and the CoreAnimation overlay projection. Planner receives snapshot data and returns a `GhPlan`; the executor batches its kernel runs through `PaintProgram.Replay`, draws its host cases through GH2's own renderers, and settles one gauged receipt.
+Grasshopper painting composes the kernel paint estate inside the host's own paint fences: `Rasm/Interaction/paint.md` owns the mark vocabulary, stock, receipt, probe, and colour crossing; this page owns what only the host can — the eight GH2 paint-event fences, the event-scoped scene capability, the four Grasshopper2-drawn mark cases no kernel case expresses, and the CoreAnimation overlay projection. Planner receives snapshot data and returns a `GhPlan`; the executor batches kernel runs through `PaintProgram.Replay`, draws host cases through GH2's own renderers, and settles one gauged receipt.
 
 Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSpec`, `TypeFace`, `BlockSpec`, `Mark`, `PaintLifetime`, `PaintStock`, `PaintPlan`, `PaintReceipt`, `Pigment`, `ChromeRole` — is DELETED onto the kernel owners; GH's case sets were the richer half on `PathSpec`, `FillSource`, and the stock, and the kernel took them, so the deletion loses nothing and gains Rhino's `TypeRole` roster, the `Dash` value family, `GlyphBlock` retained shaping, and the identity-keyed redundant-swap skip.
 
@@ -208,7 +208,11 @@ public readonly record struct PassReceipt(PaintReceipt Tally, Seq<Error> Refused
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class GhPaint {
-    // One fold: maximal Kernel runs replay as ONE kernel program each (stock, cull, tally, identity skip all the
+    // `Runs` is the batching fold: each maximal `Kernel` run mints ONE `PaintProgram.Of(marks, key)` and every host
+    // case rides between them in plan order, so `Execute` replays each program once and draws each host case once.
+    internal static Fin<Seq<Either<PaintProgram, GhMark>>> Runs(GhPlan plan, Op key);
+
+    // One fold over `Runs`: programs replay through the kernel executor (stock, cull, tally, identity skip all the
     // kernel's); host cases draw per-case with conservative culls and contained raises; the whole pass gauges once.
     internal static Fin<PassReceipt> Execute(
         PaintScene scene, GhPlan plan, MonotonicTimeline clock, FaultCell faults, Op key);

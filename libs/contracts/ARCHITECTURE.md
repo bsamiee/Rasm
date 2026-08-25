@@ -25,7 +25,8 @@ contracts/
 │       ├── cad/                  # CadService execute and tessellate over exact-modeling operations and types · python
 │       ├── capability/           # DescriptorPinWire cost estimates and the discovery request-response pair · dotnet python typescript
 │       ├── clock/                # Hlc hybrid logical stamp every stamped family imports · dotnet python typescript
-│       ├── compute/              # ComputeService tessellate beside ControlService degradation and drain · dotnet python typescript
+│       ├── board/                # BoardPackWire dashboard-and-reliability pack with its indicator, panel, burn, and severity enums · dotnet typescript
+│       ├── compute/              # ComputeService tessellate, ControlService degradation and drain, ProgressService watch stream · dotnet python typescript
 │       ├── crdt/                 # CrdtOpWire register, set, counter, sequence, and presence operation arms · dotnet python typescript
 │       ├── credential/           # CredentialPublicWire public half carrying its certificate chain · dotnet typescript
 │       ├── declaration/          # DeclarationRecord EPD registry, module, and impact-cell vocabulary · dotnet python typescript
@@ -43,10 +44,12 @@ contracts/
 │       ├── scan/                 # GaussianSplatScan splat capture with its format vocabulary · dotnet python
 │       ├── scene/                # SceneDescriptor sited sun, photometry, and shading state for a lit scene · dotnet python
 │       ├── spatial/              # Point, direction, frame, and curve primitives every geometric family imports · dotnet python typescript
+│       ├── stage/                # StageRequestWire and StageResultWire photo-to-PBR inference crossing with its stage, grant, provider, and plane enums · dotnet
+│       ├── sync/                 # SyncService pull, push, transfer-set, and checkout over op-log frames beside the SyncCursorWire pair · dotnet
 │       └── ui/                   # Command gate, control posture, layout program, evidence timeline · dotnet typescript
 ├── vendor/<publisher>/           # Frozen publisher bytes — proto module, license, conformance corpus — byte-identical under every lane
 ├── conformance/<seam>/           # Proof VECTORS a verified case fingerprints: specimens, expected facts, native containers
-└── gen/                          # The whole generated half: buf emissions and gate-projected distributions, swept every run
+└── gen/                          # Buf and the gate sweep every generated emission and projected distribution on each run
     ├── dotnet/<Family>/          # protocolbuffers/csharp and grpc/csharp under base_namespace=Rasm.Contracts; family is the directory
     ├── python/rasm/contracts/    # protoc-gen-py and protoc-gen-connectrpc at package and proto path; py.typed and avsc projected
     └── typescript/               # protoc-gen-es at <proto path>_pb.ts; cloudevents_avro.ts projected beside its descriptor
@@ -84,6 +87,7 @@ flowchart TB
         Receipt[receipt]
         Render[render]
         Scene[scene]
+        Sync[sync]
     end
     subgraph S0["S0 PRIMITIVES"]
         Artifact[artifact]
@@ -112,6 +116,7 @@ flowchart TB
     Element e17@-->|"[IMPORT]: PatchOp"| Patch
     Fault e18@-->|"[IMPORT]: Hlc"| Clock
     Receipt e19@-->|"[IMPORT]: Hlc"| Clock
+    Sync e25@-->|"[IMPORT]: Hlc"| Clock
     Render e20@-->|"[IMPORT]: ArtifactRef"| Artifact
     Render e21@-->|"[IMPORT]: Point3"| Spatial
     Scene e22@-->|"[IMPORT]: ArtifactRef"| Artifact
@@ -122,7 +127,7 @@ flowchart TB
 
 - S0 primitives — `artifact`, `clock`, `declaration`, `geometry`, `patch`, and `spatial` import no estate family and ground every rank above.
 - S0 law — `clock` and `spatial` carry the widest fan-in, so a field-number move on either re-emits most of every lane's tree at once.
-- S0 free-standing — `benchmark`, `capability`, `credential`, `event`, `fabrication`, `feature`, `organization`, `parity`, `scan` carry no edge.
+- S0: `benchmark`, `board`, `capability`, `credential`, `event`, `fabrication`, `feature`, `organization`, `parity`, `scan`, `stage` import none.
 - S1 composed — every S1 family reaches exactly one rank down, and `cad` is the one family a single lane emits.
 - S1 law — `cad`, `compute`, and `scene` pull `TessellationPolicy` from `geometry`, so tolerance vocabulary keeps one owner and no caller copy forms.
 - S2 composed — `availability`, `bim`, `binding`, and `ui` reach S0 only through an S1 owner, never directly.
@@ -170,11 +175,11 @@ flowchart LR
     Dotnet e4@-->|"[BOUNDARY]: Validator.Validate"| Protovalidate
     Dotnet e5@-->|"[BOUNDARY]: google.rpc + google.type"| CommonProtos
     Dotnet e6@-->|"[CONTRACT]: NodeWire"| Element
-    Dotnet e7@-->|"[CONTRACT]: EntityEditWire"| Persistence
+    Dotnet e7@-->|"[CONTRACT]: EntityEditWire + SyncService"| Persistence
     Dotnet e8@-->|"[CONTRACT]: ControlService + FaultDetail"| AppHost
-    Dotnet e9@-->|"[CONTRACT]: ComputeService"| Compute
+    Dotnet e9@-->|"[CONTRACT]: ComputeService + ProgressService + StageResultWire + BoardPackWire"| Compute
     Dotnet e10@-->|"[CONTRACT]: EvidenceReceiptWire"| AppUi
-    Dotnet e11@-->|"[CONTRACT]: Set + Material"| Materials
+    Dotnet e11@-->|"[CONTRACT]: Set + Material + StageRequestWire"| Materials
     Dotnet e12@-->|"[CONTRACT]: BcfTopicWire"| Bim
     Dotnet e13@-->|"[CONTRACT]: FeatureControl"| Fabrication
     Dotnet e14@-->|"[CONTRACT]: SceneDescriptor"| Rhino
@@ -238,7 +243,7 @@ flowchart LR
     Npm([npm consumer])
     Proto e1@-->|"[CONTRACT]: rasm.contracts.<family>"| Ts
     Vendor e2@-->|"[CONTRACT]: io.cloudevents.v1"| Ts
-    Ts e3@-->|"[CONTRACT]: FaultDetailSchema"| Core
+    Ts e3@-->|"[CONTRACT]: FaultDetailSchema + BoardPackWireSchema + ProgressService"| Core
     Ts e4@-->|"[FAULT]: RetryInfoSchema"| Core
     Ts e5@-->|"[SHAPE]: DateSchema"| Core
     Ts e6@-->|"[EVENT]: CloudEventSchema"| Core
@@ -388,6 +393,7 @@ flowchart LR
 - Each lane declares its own root set, so a family exists in a lane only where that lane's emitter lists a root reaching it.
 - `cad` is the standing witness one way: Python carries `CadService` and its operation vocabulary, and no C# or TypeScript directory exists for it.
 - `ControlService` runs the other way — degradation and drain are C#-only roots — and `grpc.health.v1` generates for Python alone.
+- C# and TypeScript elect `ProgressService`; C# alone elects `SyncService` and `stage` for its same-branch process crossings.
 - Roots elected in two lanes land the same closure in both, so a shape two lanes emit meets its peer only through the manifest case that binds it.
 - Generated trees bind the corpus proto path as their import path in every lane, so a source move re-spells every consumer's import in one pass.
 - Descriptors travel with the symbols, which is what lets a consumer evaluate corpus-authored rules without holding the corpus.

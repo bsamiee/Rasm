@@ -66,7 +66,7 @@ class Board extends Model.Class<Board>("Board")({
 - Receipt: the four return contracts are the arity vocabulary — `findAll` a decoded array, `findOne` an `Option`, `single` exactly-one-or-typed-failure, `void` no result decode; a caller distinguishing zero-from-many reads the contract, never a length probe.
 - Growth: a new read shape is one accessor with its own `Request`/`Result` pair — the statement varies, the law never does; a request axis (window, filter) is a `Request` field, never a sibling accessor.
 - Law: both edges decode — the `Request` schema proves input before the statement binds, the `Result` schema proves every `Connection.Row` before domain code sees it, and both misses ride `ParseError` on the one admission rail; a `String(row["col"])`/`Number(...)` cast beside a statement is the untyped read this family deletes.
-- Law: the `Result` schema of a model-backed read is the model itself or a projection re-anchored on the model's `.fields` — never a hand-declared row struct restating columns; a JSON column inside a non-model `Result` composes `journal/evolve.md`'s `Payload.json(shape)` so the parse-if-string dialect difference stays one codec folder-wide.
+- Law: the `Result` schema of a model-backed read is the model itself or a projection re-anchored on the model's `.fields` — never a hand-declared row struct restating columns; a JSON column inside a non-model `Result` composes `journal/generation.md`'s `Payload.json(shape)` so the parse-if-string dialect difference stays one codec folder-wide.
 - Law: each request key composes its owner schema; an unbranded string cannot address a keyed relation.
 
 ```typescript signature

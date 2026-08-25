@@ -270,6 +270,7 @@ flowchart LR
     Numerics e3@-->|"[SHAPE]: Predicate + SpectralArena + CellLattice"| Fabrication
     Meshing e4@-->|"[WIRE]: MeshSpace + SliceStack + CurveSkeleton"| Fabrication
     Parametric e5@-->|"[WIRE]: ParametricOp + DevelopOp + DevelopmentResult"| Fabrication
+    Parametric e12@-->|"[SHAPE]: MaterialSymmetry + PanelField + InstanceStream"| Fabrication
     Processing e6@-->|"[WIRE]: VectorIntent"| Fabrication
     Processing e7@-->|"[PROJECTION]: ChartAtlas"| Fabrication
     Solving e8@-->|"[SHAPE]: ObjectiveSense"| Fabrication
@@ -302,22 +303,25 @@ flowchart LR
     end
     Rhino([Rasm.Rhino])
     Grasshopper([Rasm.Grasshopper])
-    Domain e1@-->|"[BOUNDARY]: Context + ContentHash + ModelUnit + Lease + InstrumentSpec + Requirement + HookRail"| Rhino
-    Domain e2@-->|"[BOUNDARY]: Context"| Grasshopper
-    Domain e3@-->|"[PORT]: Op + Lease + HookRail + InstrumentSpec"| Grasshopper
-    Numerics e4@-->|"[BOUNDARY]: PerceptualColor + VectorFrame + Dimension + EpsilonPolicy + Placement + UnitInterval + VectorCone"| Rhino
-    Numerics e5@-->|"[BOUNDARY]: PerceptualColor"| Grasshopper
-    Spatial e6@-->|"[CONTENT_KEY]: GeometryHash"| Rhino
-    Meshing e7@-->|"[WIRE]: MeshSpace"| Rhino
-    Parametric e8@-->|"[BOUNDARY]: MonotonicTimeline + MotionDrive"| Rhino
-    Parametric e9@-->|"[BOUNDARY]: MonotonicTimeline + MonotonicStamp + MotionDrive + SpringShape"| Grasshopper
-    Processing e10@-->|"[BOUNDARY]: VectorIntent"| Rhino
-    Drawing e11@-->|"[BOUNDARY]: ViewPose + LayerName + LineWidth + SheetSize"| Rhino
-    Drawing e12@-->|"[WIRE]: EncodedGeometry"| Rhino
-    Analysis e13@-->|"[BOUNDARY]: AnalysisQuery"| Rhino
-    Interaction e14@-->|"[BOUNDARY]: UiDispatch + ControlSpec + IntentTable"| Rhino
-    Interaction e15@-->|"[BOUNDARY]: UiDispatch + IntentTable + AssetOrigin + Mark + PaintProgram"| Grasshopper
+    Domain e1@-->|"[BOUNDARY]: ContentHash + Context + HookRail + Lease + ModelUnit + Requirement"| Rhino
+    Domain e2@-->|"[PORT]: InstrumentSpec"| Rhino
+    Domain e3@-->|"[BOUNDARY]: Context + HookRail + Lease"| Grasshopper
+    Domain e4@-->|"[PORT]: InstrumentSpec"| Grasshopper
+    Numerics e5@-->|"[BOUNDARY]: Dimension + EpsilonPolicy + PerceptualColor + Placement + UnitInterval + VectorCone + VectorFrame"| Rhino
+    Numerics e6@-->|"[BOUNDARY]: Dimension + PerceptualColor + UnitInterval"| Grasshopper
+    Spatial e7@-->|"[CONTENT_KEY]: GeometryHash"| Rhino
+    Meshing e8@-->|"[WIRE]: MeshSpace"| Rhino
+    Parametric e9@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline + MotionDrive"| Rhino
+    Parametric e10@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline + MotionDrive + SpringShape"| Grasshopper
+    Processing e11@-->|"[BOUNDARY]: VectorIntent"| Rhino
+    Drawing e12@-->|"[BOUNDARY]: LayerName + LineWidth + SheetSize + ViewPose"| Rhino
+    Drawing e13@-->|"[WIRE]: EncodedGeometry"| Rhino
+    Analysis e14@-->|"[BOUNDARY]: AnalysisQuery"| Rhino
+    Interaction e15@-->|"[BOUNDARY]: AssetOrigin + ControlSpec + IntentTable + Mark + PaintProgram + UiDispatch"| Rhino
+    Interaction e16@-->|"[BOUNDARY]: AssetOrigin + ControlSpec + IntentTable + Mark + PaintProgram + UiDispatch"| Grasshopper
 ```
+
+Host-boundary edges fold each boundary's own seam census: one edge per kernel owner, boundary, and kind, its members the alphabetical join of every sub-domain edge that boundary draws, so a member moves one edge at each end.
 
 Semantic content-key edges federate kernel `ContentHash` while stored payloads take kernel `ArtifactContent` SHA-256 with extent, and neither identity substitutes for the other.
 

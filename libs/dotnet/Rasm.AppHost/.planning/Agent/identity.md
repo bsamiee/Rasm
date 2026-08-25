@@ -1,13 +1,13 @@
 # [APPHOST_IDENTITY_AND_TRUST]
 
-One authentication boundary for the runtime spine: a per-issuer OIDC trust anchor folds discovery, rotating JWKS, and the issuer's own claim dialect into the validation policy, an inbound-token rail validates a compact JWT to one canonical `Principal` whose tenant RESOLVES against the boot-minted roster, a flow-discriminated acquisition surface obtains machine-to-machine and device credentials over the relying-party client under one expiry/refresh custody, and a claims-policy gate evaluates a `Principal` against an `AuthorizationPolicy` with no HTTP pipeline. This page produces the one validated `Principal` whose `TenantContext` the `Agent/capability#GRANT_BROKER` `ConsentOf` reads — authentication owns *who*, the grant broker owns *what* and *how much* — and it owns the issuer-trust registry, the token-validation rail, the credential-acquisition flow family, the relying-party registration that flow consumes, and the policy gate. Owned axes also cover the `#PRINCIPAL` ambient slot every in-process caller reads, the `TokenLease` expiry/refresh custody over the acquired bundle, the provider-side revocation read, and the `PolicyDescriptor` `[SmartEnum]` naming every authorization requirement as a row. It consumes `TenantContext`, `CorrelationId`, `ClockPolicy`, `ReceiptSinkPort`, `DataClassification`, the resilient `HttpClient` seam from `Wire/outbound`, and the `CredentialMaterial` DER `Runtime/secrets#CREDENTIAL_PEM` admits under the `Runtime/secrets#SECRET_LEASE` custody, minting no eighth port. `Microsoft.IdentityModel.JsonWebTokens` owns the JWT engine, `Microsoft.IdentityModel.Tokens` the validation contract and key hierarchy, `Microsoft.IdentityModel.Protocols.OpenIdConnect` the discovery leg, `OpenIddict.Client` the acquisition leg, and `Microsoft.AspNetCore.Authorization` the ABAC evaluation core; Thinktecture owns the vocabularies and LanguageExt the rails.
+One authentication boundary for the runtime spine: a per-issuer OIDC trust anchor folds discovery, rotating JWKS, and the issuer's own claim dialect into the validation policy, an inbound-token rail validates a compact JWT to one canonical `Principal` whose tenant RESOLVES against the boot-minted roster, a flow-discriminated acquisition surface obtains machine-to-machine and device credentials over the relying-party client under one expiry/refresh custody, and a claims-policy gate evaluates a `Principal` against an `AuthorizationPolicy` with no HTTP pipeline. This page produces the one validated `Principal` whose `TenantContext` the `Agent/capability#GRANT_BROKER` `ConsentOf` reads — authentication owns *who*, the grant broker owns *what* and *how much* — and it owns the issuer-trust registry, the token-validation rail, the credential-acquisition flow family, the relying-party registration that flow consumes, and the policy gate. Owned axes also cover the `#PRINCIPAL` ambient slot every in-process caller reads, the `TokenLease` CELL custody a renewable credential takes, the `LeaseRoster` holder table each outbound hop and authenticated probe dereferences per send, the provider-side revocation read, and the `PolicyDescriptor` `[SmartEnum]` naming every authorization requirement as a row. It consumes `TenantContext`, `CorrelationId`, `ClockPolicy`, `ReceiptSinkPort`, `DataClassification`, the resilient `HttpClient` seam from `Wire/outbound`, and the `CredentialMaterial` DER `Runtime/secrets#CREDENTIAL_PEM` admits under the `Runtime/secrets#SECRET_LEASE` custody, minting no eighth port. `Microsoft.IdentityModel.JsonWebTokens` owns the JWT engine, `Microsoft.IdentityModel.Tokens` the validation contract and key hierarchy, `Microsoft.IdentityModel.Protocols.OpenIdConnect` the discovery leg, `OpenIddict.Client` the acquisition leg, and `Microsoft.AspNetCore.Authorization` the ABAC evaluation core; Thinktecture owns the vocabularies and LanguageExt the rails.
 
 ## [01]-[INDEX]
 
 - [02]-[ISSUER_TRUST]: Per-issuer OIDC discovery anchor — refreshing JWKS configuration, last-known-good fallback, and protocol-invariant validation.
 - [03]-[TOKEN_VALIDATION]: Inbound JWT validation rail folding one handler result to the canonical `Principal`.
 - [04]-[PRINCIPAL]: One validated identity record and its ambient slot every in-process caller reads.
-- [05]-[CREDENTIAL_FLOW]: Flow-discriminated token acquisition and the `TokenLease` expiry/refresh custody.
+- [05]-[CREDENTIAL_FLOW]: Flow-discriminated token acquisition and the `TokenLease` cell custody every bearer read dereferences.
 - [06]-[POLICY_GATE]: `PolicyDescriptor` rows over the standalone ABAC core, and the `ConsentRoster` the grant broker's disposition resolver binds to.
 
 ## [02]-[ISSUER_TRUST]
@@ -134,7 +134,7 @@ public static class IssuerAnchor {
 ## [03]-[TOKEN_VALIDATION]
 
 - Owner: `IdentityRuntime` the one dependency record every entry on this page threads; `Principal` the validated identity record interiors read; `IdentityFault` `[Union]` the closed fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.HostIdentity`); `IdentityReceipt` `[Union]` the closed two-case per-validation evidence family — the admitted arm carries the principal projection, the refused arm the fault codes alone; `TokenValidation` the static admit-once validation rail over `JsonWebTokenHandler.ValidateTokenAsync`; one shared thread-safe `JsonWebTokenHandler` per runtime.
-- Cases: `IdentityFault` = Untrusted | Malformed | Expired | SignatureRejected | ClaimMissing | TenantUnknown | ProtocolRejected | AcquisitionFailed | PolicyDenied — one case per admission-rejection cause, each breaking every consumer arm.
+- Cases: `IdentityFault` = Untrusted | Malformed | Expired | SignatureRejected | ClaimMissing | TenantUnknown | ProtocolRejected | AcquisitionFailed | PolicyDenied | RefreshUnavailable | RefreshContended — one case per admission-rejection or renewal-refusal cause, each breaking every consumer arm.
 - Entry: `Validate(IdentityRuntime runtime, string token, CorrelationId correlation)` returns `IO<Validation<Error, Principal>>` — parses the token ONCE under typed malformed capture, reads its unverified issuer, resolves the `IssuerTrust`, folds the parsed-token `ValidateTokenAsync(parsed, anchor.Validation)` overload, branches on `TokenValidationResult.IsValid`, RESOLVES the claimed tenant against the boot-minted roster, and fans one `IdentityReceipt` on either arm; `Interactive(IssuerTrust anchor, ProtocolContext context, Principal principal)` returns `Validation<Error, Principal>` chaining `OpenIdConnectProtocolValidator.ValidateAuthenticationResponse` after the base validation for an interactive-flow id-token, seating the access token and the authorization code so the `at_hash` and `c_hash` bindings are checked rather than skipped.
 - Auto: the raw token is admitted EXACTLY ONCE at this rail — `Validate` is the boundary, it parses once and threads the parsed token through issuer resolution, validation, and projection rather than re-reading it per branch, and every interior reads the resulting `Principal`, never re-parsing a token or re-checking a signature; the handler is the modern `JsonWebTokenHandler`, never the legacy `JwtSecurityTokenHandler`, and the parsed-token `ValidateTokenAsync` overload is the async-first path whose `TokenValidationResult` carries `IsValid`/`ClaimsIdentity`/`Exception` so a validation failure lands on `Exception`; `MapInboundClaims = false` preserves provider claims for projection, while `Principal.Claims` rebuilds the normalized policy scope claims; the claims project through the typed `JsonWebToken` registered properties (`Subject`, `Audiences`, `ValidTo`, `Issuer`) and the NON-throwing `TryGetPayloadValue<T>`, never a string-keyed enumeration and never the throwing read — a typed read for a shape the token does not carry raises out of a rail whose whole contract is not to; the tenant claim RESOLVES against the boot-minted tenant roster and never constructs a tenancy, because the roster is the admitted set and a claim naming a tenant outside it is exactly the refusal this boundary exists to make — a projection that mints a `TenantContext` from claim text admits every tenant any trusted issuer cares to name; the scopes read through the anchor's own `ScopeShape`, so one host federating a conforming provider and a divergent one reads both correctly from one fold; `ValidTo` seats `Principal.Expiry` as a NodaTime `Instant` so expiry is one comparable stamp on the `ClockPolicy` axis; every validation — admitted or refused — marks once and fans one `IdentityReceipt` through `ReceiptSinkPort.Send`, so a refused admission is evidence rather than a silence.
 - Receipt: `IdentityReceipt` — a closed two-case family: `Admitted` carries subject, issuer, tenant, scope-set hash, expiry `Instant`, elapsed `Duration`, and correlation; `Refused` carries elapsed, correlation, and the generated fault codes ALONE — fanned through `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key, one arm per outcome, so absence is structural and a refusal never fills principal slots with sentinels under the root tenant.
@@ -171,7 +171,9 @@ public abstract partial record IdentityReceipt {
 // `Runtime/time#SCHEDULE_PORT` registration arrow the lease custody registers its refresh on — the same
 // shape `SecretRuntime` and `OrchestrationRuntime` carry — and the clock and sink every receipt on the
 // page needs. Four entries that each grew their own positional dependency list drift apart one parameter
-// at a time.
+// at a time. `Correlation` is the COMPOSITION's own id, which is what an occurrence-driven renewal has:
+// a refresh fires off the schedule port with no caller frame to inherit one from, while `Validate` keeps
+// its per-call parameter because an inbound admission belongs to the request that carried the token.
 public sealed record IdentityRuntime(
     TrustRegistry Trust,
     JsonWebTokenHandler Handler,
@@ -181,6 +183,7 @@ public sealed record IdentityRuntime(
     Func<ScheduleEntry, IO<Unit>> Schedule,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
+    CorrelationId Correlation,
     JsonSerializerOptions Wire);
 
 // --- [ERRORS] ---------------------------------------------------------------------------
@@ -220,6 +223,26 @@ public abstract partial record IdentityFault : Fault {
     public sealed partial record AcquisitionFailed : IdentityFault { public AcquisitionFailed(string detail) : base(detail) { } }
     [FaultCase(8)]
     public sealed partial record PolicyDenied : IdentityFault { public PolicyDenied(string detail) : base(detail) { } }
+    // Exhaustion, not rejection: the origin grant admits no second run and the provider issued no refresh
+    // token, so no grant remains to draw with — a renewal attempted anyway spends a round trip to learn what
+    // the origin case already states, and reports it under the provider's cause instead of this one.
+    [FaultCase(9)]
+    public sealed partial record RefreshUnavailable : IdentityFault {
+        public RefreshUnavailable(string registrationId)
+            : base($"{registrationId}: origin admits no re-draw and no refresh token was issued") =>
+            RegistrationId = registrationId;
+        public string RegistrationId { get; }
+    }
+    // The re-draw SUCCEEDED and the seat did not: the cell moved under every CAS round, so the renewed bundle
+    // has nowhere to land and the prior one stays live — a distinct fact from a provider that refused.
+    [FaultCase(10)]
+    public sealed partial record RefreshContended : IdentityFault {
+        public RefreshContended(string registrationId, int rounds)
+            : base($"{registrationId}: refresh lost {rounds} commit rounds") =>
+            (RegistrationId, Rounds) = (registrationId, rounds);
+        public string RegistrationId { get; }
+        public int Rounds { get; }
+    }
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -376,15 +399,17 @@ public static class IdentityPrincipal {
 
 ## [05]-[CREDENTIAL_FLOW]
 
-- Owner: `GrantFlow` `[Union]` the acquisition-flow family discriminating the credential request; `TokenBundle` the acquired-token record interiors carry; `TokenLease` the expiry/refresh custody over the bundle — acquire-hold-refresh-retire as one lifecycle, the identity mirror of the `Runtime/secrets#SECRET_LEASE` custody; `DeviceChallenge` the device-flow challenge handle; `Acquisition` the static surface over the one resolved `OpenIddictClientService`, owning the acquisition, the lease that holds it, the provider-side revocation read, and the relying-party registration all three ride.
-- Cases: `GrantFlow` = ClientCredentials | Device | Refresh | Exchange — the machine-to-machine grant, the headless device-enrollment grant, the refresh grant, and the RFC 8693 delegation grant; device alone is a challenge-then-poll pair, the rest single-call.
-- Entry: `Acquire(IdentityRuntime runtime, GrantFlow flow)` returns `IO<Validation<Error, TokenLease>>` — the fold maps each flow case to its `AuthenticateWith*Async` verb on the one client service, projects the result bundle, HOLDS it as the lease carrying its own refresh schedule, and REGISTERS that schedule on the runtime's bound `Schedule` arrow, so an acquired credential is never a bare bundle a caller renews by hand and never a lease whose renewal entry nothing armed; `Challenge(IdentityRuntime runtime, string registrationId)` returns `IO<Validation<Error, DeviceChallenge>>` — runs `ChallengeUsingDeviceAsync` to the user/device code and verification URI the operator presents before `Acquire(GrantFlow.Device)` polls; `Active(IdentityRuntime runtime, string registrationId, string token)` returns `IO<Validation<Error, bool>>` — the provider-side revocation read.
-- Auto: every verb on the relying-party client signals rejection by RAISING rather than answering a negative result, so each call brackets into the typed rail at ONE seat and no arm reads a result the provider never produced — an unconditionally successful projection over a throwing call reports every provider refusal as an exception escaping a rail whose whole contract is to carry it; the acquisition is one polymorphic fold over the flow case, never a per-flow service — `ClientCredentials` runs `AuthenticateWithClientCredentialsAsync`, `Device` runs `AuthenticateWithDeviceAsync` honoring the challenge `Interval`/`Timeout`, `Refresh` runs `AuthenticateWithRefreshTokenAsync`, and `Exchange` runs `AuthenticateWithTokenExchangeAsync`, each discriminating the registration by `RegistrationId`; PKCE, DPoP/mTLS token binding, and pushed authorization are negotiated automatically from the per-`OpenIddictClientRegistration` capability sets read off the discovery document, so the page sets no `CodeChallengeMethod` override in normal use; each flow arm projects its OWN result members into the one `TokenDraw` row the bundle folds — three arms name their product `AccessToken`/`AccessTokenExpirationDate` and the exchange arm names its `IssuedToken`/`IssuedTokenExpirationDate`, so a shared accessor asserted across the four reads a member three of them never declare — and the GRANTED scope set reads off the raw `OpenIddictResponse`, the only surface carrying it and the only way a provider narrowing the request is visible at all; the client-assertion `SigningCredentials` the registration carries map from the `Runtime/secrets#CREDENTIAL_PEM` `CredentialMaterial` chain the host admits once under the `SECRET_LEASE` custody, never re-loaded here; the relying-party registration DECLARES here and the `Runtime/modules#MODULE_LEDGER` composition root is what folds it, so the flows resolve a service one declared ledger row bound rather than one a control host was said to own.
-- Receipt: an acquired lease logs one `SpineLog` event carrying the registration id and the grant type; `Acquire` registers the lease's refresh `ScheduleEntry` on the runtime's `Runtime/time#SCHEDULE_PORT` arrow at a policy fraction of the bundle lifetime — the seat and the registration are one bind — so a near-expiry bundle re-acquires through the `Refresh` flow ahead of expiry, each re-acquisition arming its successor's entry, never a reactive 401-retry loop — and a lease past its expiry answers `Expired` to `Live` before any hop carries its bearer.
-- Packages: OpenIddict.Client, Microsoft.IdentityModel.Tokens, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
-- Growth: one grant is one `GrantFlow` case breaking every acquire arm; a new bound-token method is one negotiated registration capability, never a page flag; a new signing algorithm is one `SigningCredentials` row on the registration; a custom grant is one `GrantFlow.Exchange`-shaped case over `AuthenticateWithCustomGrantAsync`; zero new surface.
-- Boundary: `TokenLease` is TWO-FORMED with `Rasm.Rhino/HostUi/shell.md [09]-[ACCOUNTS]`'s row of the same name and stays so — this one holds an OIDC relying-party bundle under a `ScheduleEntry` refresh cadence for the runtime spine, that one confines a Rhino `SecretKey` inside `ExecuteProtectedCodeAsync` and emits detached `OpenIdEvidence`, and neither ever reads the other's carrier. `Acquisition` likewise names a credential FLOW here and a material-appearance capture at `Rasm.Materials/Appearance/acquisition.md`; both names keep their folders and a shared spelling across two strata with no seam between them is a collision only a reader crossing both can make.
-- Boundary: the acquisition surface is the suite's only credential-flow owner — a hand-rolled authorization-URL/PKCE/DPoP construction, a direct token-endpoint HTTP call, and a per-flow service are the deleted forms; the `OpenIddictClientService` is the single resolved service every flow discriminates by request record, and THIS page owns the registration that binds it — no other surface in the suite declares an OpenIddict composition, so a registration named at a control host exists in no fence and the flows would consume a service nothing configured; the seat is `AddSigningCredentials` and never `AddSigningKey`, because that overload resolves its algorithm through a closed `RS256`/`HS256`/`ES256`/`ES384`/`ES512` ladder and refuses everything outside it, which makes the unchecked credentials overload the only door a post-quantum key enters through — and `MlDsaSecurityKey` and the `MlDsa44`/`MlDsa65`/`MlDsa87` algorithm constants ship on the pinned tokens package, so the arm is a real fence row rather than a forward-looking note; a key's live private half reads through `PrivateKeyStatus`, the obsolete boolean having been replaced; the acquired `TokenBundle.AccessToken` is the bearer the `Wire/outbound` hops carry and the `AspNetCore.HealthChecks.Uris` probe's `AddCustomHeader` bearer reads, so the host's outbound calls and authenticated health probes carry one acquired credential, never a re-acquired token per call site; introspection and revocation (`IntrospectTokenAsync`/`RevokeTokenAsync`) ride the same client service as the acquisition audit and logout legs, never a second OAuth surface, and the active read comes off `IntrospectionResult.IntrospectionResponse` rather than the result's `Principal` — that principal is documented empty for an inactive token, so a principal-shaped read reports every revoked token as merely claimless and the revocation check silently inverts; the device flow's verification URI crosses to the operator through the `Wire/companion` control service, never an AppHost-owned console.
+- Owner: `GrantFlow` `[Union]` the acquisition-flow family discriminating the credential request and deriving its own renewal grant; `TokenBundle` the acquired-token record interiors carry; `TokenLease` the CELL VALUE the custody commits — bundle, renewal verdict, and refresh occurrence as one row, the identity mirror of the `Runtime/secrets#SECRET_LEASE` custody; `LeaseRoster` the registration-keyed cell table every bearer read dereferences; `LeaseEvent` `[Union]` the lifecycle vocabulary; `LeaseReceipt` the per-transition evidence; `DeviceChallenge` the device-flow challenge handle; `Acquisition` the static surface over the one resolved `OpenIddictClientService`, owning the acquisition, the cell that holds it, the renewal that commits into it, the provider-side revocation read, and the relying-party registration all of them ride.
+- Cases: `GrantFlow` = ClientCredentials | Device | Refresh | Exchange — the machine-to-machine grant, the headless device-enrollment grant, the refresh grant, and the RFC 8693 delegation grant; device alone is a challenge-then-poll pair, the rest single-call. `LeaseEvent` = Acquired | Refreshed | Refused.
+- Law: a renewable credential is a COMMITTED CELL, never a held value. `TokenLease.Bearer` is the page's one bearer read and it reads through `Atom<TokenLease>.Value`, so a refreshed bundle reaches every holder with no re-registration and no holder can carry a token the cell has already replaced.
+- Exemption: the knot at `Seat` is earned exactly as `Runtime/secrets#SECRET_LEASE` states it — the renewal occurrence's `Work` must close over the cell the seat has not yet finished minting, so the handle assigns after construction and `Acquire` is that seat's only caller.
+- Entry: `Acquire(IdentityRuntime runtime, GrantFlow flow)` returns `IO<Validation<Error, Atom<TokenLease>>>` — the fold maps each flow case to its `AuthenticateWith*Async` verb on the one client service, projects the result bundle, SEATS it as the cell carrying its own refresh occurrence, and REGISTERS that occurrence on the runtime's bound `Schedule` arrow, so an acquired credential is never a bare bundle a caller renews by hand and never a cell whose renewal entry nothing armed; `Refresh(IdentityRuntime runtime, Atom<TokenLease> cell)` returns `IO<Unit>` — the renewal occurrence's `Work` binding, committing the re-draw through kernel `Cell.Commit`; `Challenge(IdentityRuntime runtime, string registrationId)` returns `IO<Validation<Error, DeviceChallenge>>` — runs `ChallengeUsingDeviceAsync` to the user/device code and verification URI the operator presents before `Acquire(GrantFlow.Device)` polls; `Active(IdentityRuntime runtime, string registrationId, string token)` returns `IO<Validation<Error, bool>>` — the provider-side revocation read.
+- Auto: every verb on the relying-party client signals rejection by RAISING rather than answering a negative result, so each call brackets into the typed rail at ONE seat and no arm reads a result the provider never produced — an unconditionally successful projection over a throwing call reports every provider refusal as an exception escaping a rail whose whole contract is to carry it; the acquisition is one polymorphic fold over the flow case, never a per-flow service — `ClientCredentials` runs `AuthenticateWithClientCredentialsAsync`, `Device` runs `AuthenticateWithDeviceAsync` honoring the challenge `Interval`/`Timeout`, `Refresh` runs `AuthenticateWithRefreshTokenAsync`, and `Exchange` runs `AuthenticateWithTokenExchangeAsync`, each discriminating the registration by `RegistrationId`; the RENEWAL grant derives from the origin case rather than from a caller's choice — a refresh token re-draws every origin, and with none issued only the two re-runnable grants (`ClientCredentials`, `Exchange`) answer themselves while a consumed device code and a spent refresh token answer no grant at all, so a credential that cannot renew refuses on the typed rail instead of spending a round trip to be told so; PKCE, DPoP/mTLS token binding, and pushed authorization are negotiated automatically from the per-`OpenIddictClientRegistration` capability sets read off the discovery document, so the page sets no `CodeChallengeMethod` override in normal use; each flow arm projects its OWN result members into the one `TokenDraw` row the bundle folds — three arms name their product `AccessToken`/`AccessTokenExpirationDate` and the exchange arm names its `IssuedToken`/`IssuedTokenExpirationDate`, so a shared accessor asserted across the four reads a member three of them never declare — and the GRANTED scope set reads off the raw `OpenIddictResponse`, the only surface carrying it and the only way a provider narrowing the request is visible at all; the client-assertion `SigningCredentials` the registration carries map from the `Runtime/secrets#CREDENTIAL_PEM` `CredentialMaterial` chain the host admits once under the `SECRET_LEASE` custody, never re-loaded here; the relying-party registration DECLARES here and the `Runtime/modules#MODULE_LEDGER` composition root is what folds it, so the flows resolve a service one declared ledger row bound rather than one a control host was said to own.
+- Receipt: `LeaseReceipt` carries the registration id, the origin grant's case name, the transition key, the committed bundle's expiry, and an optional canonical ProtoJSON refusal — never the bearer itself; every transition fans through `ReceiptSinkPort.Send` under `ReceiptKind.Identity`, the same kind the validation rail's `IdentityReceipt` rides, so identity evidence leaves this host under one key. `Acquire` registers the cell's refresh `ScheduleEntry` on the runtime's `Runtime/time#SCHEDULE_PORT` arrow at a policy fraction of the bundle lifetime — seat and registration are one bind — and a committed renewal re-registers the renewed entry under the SAME key, so the port replaces the row and the cadence re-derives off the NEW expiry rather than compounding one occurrence per renewal.
+- Packages: OpenIddict.Client, Rasm (kernel `Cell`/`Transition`), Microsoft.IdentityModel.Tokens, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
+- Growth: one grant is one `GrantFlow` case breaking every acquire arm AND its `Renewal` arm; one lifecycle transition is one `LeaseEvent` case; one renewal refusal is one `IdentityFault` case whose ordinal fits the kernel band's live span; a new bound-token method is one negotiated registration capability, never a page flag; a new signing algorithm is one `SigningCredentials` row on the registration; a custom grant is one `GrantFlow.Exchange`-shaped case over `AuthenticateWithCustomGrantAsync`; zero new surface.
+- Boundary: `TokenLease` is TWO-FORMED with `Rasm.Rhino/HostUi/shell.md [09]-[ACCOUNTS]`'s row of the same name and stays so — this one is an OIDC relying-party bundle committed into a kernel cell under a `ScheduleEntry` refresh cadence for the runtime spine, that one confines a Rhino `SecretKey` inside `ExecuteProtectedCodeAsync` and emits detached `OpenIdEvidence`, and neither ever reads the other's carrier. `Acquisition` likewise names a credential FLOW here and a material-appearance capture at `Rasm.Materials/Appearance/acquisition.md`; both names keep their folders and a shared spelling across two strata with no seam between them is a collision only a reader crossing both can make.
+- Boundary: the acquisition surface is the suite's only credential-flow owner — a hand-rolled authorization-URL/PKCE/DPoP construction, a direct token-endpoint HTTP call, and a per-flow service are the deleted forms; the `OpenIddictClientService` is the single resolved service every flow discriminates by request record, and THIS page owns the registration that binds it — no other surface in the suite declares an OpenIddict composition, so a registration named at a control host exists in no fence and leaves every flow resolving a service nothing configured; the seat is `AddSigningCredentials` and never `AddSigningKey`, because that overload resolves its algorithm through a closed `RS256`/`HS256`/`ES256`/`ES384`/`ES512` ladder and refuses everything outside it, which makes the unchecked credentials overload the only door a post-quantum key enters through — and `MlDsaSecurityKey` and the `MlDsa44`/`MlDsa65`/`MlDsa87` algorithm constants ship on the pinned tokens package, so the arm is a real fence row rather than a forward-looking note; a key's live private half reads through `PrivateKeyStatus`, the obsolete boolean having been replaced; `LeaseRoster` is the ONE holder table — `Wire/outbound#OWNERSHIP_LAW` binds its `Bearer` as the arrow every HTTP hop reads per send and the `Runtime/modules#MODULE_LEDGER` `membership` probe reads per probe, so a caller copying `TokenBundle.AccessToken` out of a cell into a captured header, a client default, or a second roster is the deleted form and the reason the bundle's access token has exactly one reader; the renewal verdict rides the SWAPPED value (`docs/laws/scars.md` `[DECISION_UNDERIVABLE_FROM_STATE]`) — a refused re-draw commits the PRIOR lease carrying its `Refusal`, so the prior bundle stays LIVE until its own `ExpiresAt` and `Bearer` answers `None` only past that instant, while the refusal is readable off the cell rather than derived from a level nothing published; the commit rides kernel `Cell.Commit`, so a lost CAS reports `Contended` and fans `RefreshContended` carrying the spent rounds instead of publishing as success; introspection and revocation (`IntrospectTokenAsync`/`RevokeTokenAsync`) ride the same client service as the acquisition audit and logout legs, never a second OAuth surface, and the active read comes off `IntrospectionResult.IntrospectionResponse` rather than the result's `Principal` — that principal is documented empty for an inactive token, so a principal-shaped read reports every revoked token as merely claimless and the revocation check silently inverts; the device flow's verification URI crosses to the operator through the `Wire/companion` control service, never an AppHost-owned console.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -403,6 +428,36 @@ public abstract partial record GrantFlow {
         device: static f => f.RegistrationId,
         refresh: static f => f.RegistrationId,
         exchange: static f => f.RegistrationId);
+
+    // The refresh token dominates the origin, so the presence read runs FIRST and the four-case dispatch
+    // decides only the token-less corner: a client-credentials or exchange grant re-runs its own request
+    // unchanged, while a device code is spent by the poll that redeemed it and a refresh token by the draw
+    // that consumed it — both answer no grant at all, which is what makes the renewal refusal a typed fact
+    // here instead of a provider rejection read one round trip later.
+    public Option<GrantFlow> Renewal(Option<string> refreshToken) =>
+        refreshToken.Match(
+            Some: token => Some<GrantFlow>(new Refresh(RegistrationId, token)),
+            None: () => this.Match(
+                clientCredentials: static f => Some<GrantFlow>(f),
+                device: static _ => Option<GrantFlow>.None,
+                refresh: static _ => Option<GrantFlow>.None,
+                exchange: static f => Some<GrantFlow>(f)));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record LeaseEvent {
+    private LeaseEvent() { }
+
+    public sealed record Acquired : LeaseEvent;
+    public sealed record Refreshed : LeaseEvent;
+    public sealed record Refused : LeaseEvent;
+
+    // ONE key spelling per case: the receipt column reads this rather than a runtime type name, so a case
+    // rename moves every reader at compile time instead of silently re-labelling a live stream.
+    public string Key => Map(
+        acquired: nameof(Acquired),
+        refreshed: nameof(Refreshed),
+        refused: nameof(Refused));
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -421,18 +476,37 @@ public sealed record DeviceChallenge(string UserCode, string DeviceCode, Uri Ver
 // along because the granted scope set is a typed member on none of them and lives only there.
 public readonly record struct TokenDraw(string Access, string? Refresh, DateTimeOffset? Expires, OpenIddictResponse Response);
 
-// Expiry and refresh take one custody: each registration's lease holds the live bundle, its refresh
-// ScheduleEntry, and the refresh flow that re-acquires ahead of expiry. RefreshFraction is the
-// policy value (refresh at 80% of lifetime); DPoP binding is the recorded growth line.
-public sealed record TokenLease(string RegistrationId, TokenBundle Bundle, ScheduleEntry Refresh) {
+public sealed record LeaseReceipt(
+    string RegistrationId,
+    string Grant,
+    string Transition,
+    Instant ExpiresAt,
+    Option<JsonElement> Refusal,
+    Instant At);
+
+// The lease is a CELL VALUE. `Origin` rides it because renewal is the origin grant's own property, and
+// `Refusal` is the renewal verdict riding the SWAPPED value: a re-draw that failed commits the PRIOR lease
+// carrying its cause, so the refusal reads off the cell rather than off a level nothing published, and the
+// prior bundle stays live to its own expiry instead of being blanked by the attempt to replace it.
+public sealed record TokenLease(
+    string RegistrationId,
+    GrantFlow Origin,
+    TokenBundle Bundle,
+    Option<Error> Refusal,
+    ScheduleEntry Refresh) {
     public const double RefreshFraction = 0.8d;
 
     // Read BEFORE any hop carries the bearer: a lease past its expiry answers dead rather than handing a
     // stale credential to an outbound call that would learn the same fact from a 401 one round trip later.
     public bool Live(Instant now) => now < Bundle.ExpiresAt;
 
-    public static TokenLease Hold(string registrationId, TokenBundle bundle, ClockPolicy clocks, Func<IO<Unit>> refresh) =>
-        new(registrationId, bundle,
+    // THE bearer read on this page. Absence is the shape of a dead lease, so the token has exactly one door
+    // and no consumer can hold a `string` copied out of the cell past the window the cell already closed.
+    public Option<string> Bearer(Instant now) => Live(now) ? Some(Bundle.AccessToken) : None;
+
+    public static TokenLease Hold(
+        string registrationId, GrantFlow origin, TokenBundle bundle, ClockPolicy clocks, Func<IO<Unit>> refresh) =>
+        new(registrationId, origin, bundle, None,
             new ScheduleEntry(
                 Key: $"token-refresh:{registrationId}",
                 Spec: new OccurrenceSpec.Every((bundle.ExpiresAt - clocks.Now) * RefreshFraction),
@@ -442,24 +516,101 @@ public sealed record TokenLease(string RegistrationId, TokenBundle Bundle, Sched
                 Work: refresh));
 }
 
+// The ONE holder table: boot-declared and runtime-acquired cells under one registration key, dereferenced per
+// send by the outbound bearer arrow and per probe by the membership check. `HashMap.Values` answers
+// `Iterable<Atom<TokenLease>>` and the map's own `ToSeq` folds values alone, so the occurrence projection
+// never reaches for the key it is not keyed on.
+public sealed record LeaseRoster(HashMap<string, Atom<TokenLease>> Cells) {
+    public Option<string> Bearer(string registrationId, Instant now) =>
+        Cells.Find(registrationId).Bind(cell => cell.Value.Bearer(now));
+
+    public Seq<ScheduleEntry> Refreshes => Cells.Values.ToSeq().Map(static cell => cell.Value.Refresh);
+}
+
 // --- [OPERATIONS] -----------------------------------------------------------------------
 public static class Acquisition {
-    // Acquire hands back the LEASE, never a bare bundle: expiry and refresh are the acquired credential's own
-    // lifecycle, and a caller handed the bundle alone must remember a renewal the credential itself knows the
-    // deadline for. The held refresh closure re-enters this same entry under the Refresh flow, so one path
-    // acquires and renews — and each re-entry REGISTERS the fresh lease's own entry, so the chain outlives
-    // the first window. Acquire registers the occurrence it constructs on the runtime's bound `Schedule`
-    // arrow — the seat and the registration are one bind, mirroring `Runtime/secrets#SECRET_LEASE`, so a
-    // returned lease is always a refreshing lease and a constructed-but-unregistered entry never escapes;
-    // the registration rides the IO rail OUTSIDE the `Validation`, because a refused draw has no entry.
-    public static IO<Validation<Error, TokenLease>> Acquire(IdentityRuntime runtime, GrantFlow flow) =>
+    // Acquire hands back the CELL, never a lease value: a renewable credential's holder must read the live
+    // bundle, and the deleted closure that re-entered this entry and discarded the re-acquired lease is what
+    // made every holder's copy go stale at the first renewal. The seat REGISTERS the occurrence it constructs
+    // — seat and registration are one bind, mirroring `Runtime/secrets#SECRET_LEASE` — so a returned cell is
+    // always a refreshing cell and a constructed-but-unregistered entry never escapes; the registration rides
+    // the IO rail OUTSIDE the `Validation`, because a refused draw has no entry to arm.
+    public static IO<Validation<Error, Atom<TokenLease>>> Acquire(IdentityRuntime runtime, GrantFlow flow) =>
+        Draw(runtime, flow).Bind(drawn => drawn.Match(
+            Succ: bundle => Seat(runtime, flow, bundle).Bind(cell =>
+                runtime.Schedule(cell.Value.Refresh).Map(_ => Success<Error, Atom<TokenLease>>(cell))),
+            Fail: static errors => IO.pure(Validation<Error, Atom<TokenLease>>.Fail(Error.Many(errors)))));
+
+    // The draw alone, so the renewal leg re-enters the provider without re-entering the seat: a renewal that
+    // re-enters `Acquire` instead mints a second cell for a registration that already owns one.
+    static IO<Validation<Error, TokenBundle>> Draw(IdentityRuntime runtime, GrantFlow flow) =>
         IO.liftAsync(() => Bracket(flow.RegistrationId, () => Drawn(runtime, flow)))
-            .Map(drawn => drawn
-                .Bind(raw => Bundle(flow.RegistrationId, raw))
-                .Bind(bundle => Held(runtime, flow.RegistrationId, bundle)))
-            .Bind(held => held.Match(
-                Succ: lease => runtime.Schedule(lease.Refresh).Map(_ => held),
-                Fail: _ => IO.pure(held)));
+            .Map(drawn => drawn.Bind(raw => Bundle(flow.RegistrationId, raw)));
+
+    // Exemption: the renewal occurrence's `Work` closes over the very cell this seat is minting, so the handle
+    // is assigned after construction — a knot no expression form unties, and `Acquire` is its only caller.
+    static IO<Atom<TokenLease>> Seat(IdentityRuntime runtime, GrantFlow origin, TokenBundle bundle) {
+        Atom<TokenLease>? cell = null;
+        TokenLease held = TokenLease.Hold(
+            origin.RegistrationId, origin, bundle, runtime.Clocks, () => Refresh(runtime, cell!));
+        return Emit(runtime, held, new LeaseEvent.Acquired()).Map(seated => cell = Atom(seated));
+    }
+
+    // The occurrence IS the renewal: `Renew` re-draws on the origin's own renewal grant, the kernel commit
+    // publishes the outcome — a fresh lease on success, the prior lease carrying its refusal on failure — and
+    // a committed success re-registers the renewed entry under the SAME schedule key, so the port replaces the
+    // row it already holds and the next cadence derives off the NEW expiry rather than stacking a second loop.
+    public static IO<Unit> Refresh(IdentityRuntime runtime, Atom<TokenLease> cell) =>
+        IO.lift(() => cell.Value).Bind(prior => Renew(runtime, prior, cell).Bind(outcome =>
+            Cell.Commit(cell, held => outcome.Match(
+                    Succ: static renewed => renewed,
+                    Fail: errors => held with { Refusal = Some(Error.Many(errors)) }))
+                .Switch(
+                    committed: row => outcome.Match(
+                        Succ: _ => runtime.Schedule(row.State.Refresh)
+                            .Bind(_ => Emit(runtime, row.State, new LeaseEvent.Refreshed())),
+                        Fail: _ => Emit(runtime, row.State, new LeaseEvent.Refused())),
+                    // `Cell.Commit` answers only Committed or Contended; the two seat-and-step cases below are
+                    // unreachable here and stay spelled so a widened kernel family breaks this dispatch.
+                    ceded: static row => IO.pure(row.State),
+                    refused: static row => IO.pure(row.State),
+                    contended: row => Emit(
+                        runtime,
+                        row.State with { Refusal = Some((Error)new IdentityFault.RefreshContended(
+                            row.State.RegistrationId, row.Attempts.Value)) },
+                        new LeaseEvent.Refused()))
+                .Map(static _ => unit)));
+
+    // No knot here — the cell is in hand, so the renewed lease's occurrence closes over the same handle the
+    // prior one did and one registration key serves the whole chain.
+    static IO<Validation<Error, TokenLease>> Renew(IdentityRuntime runtime, TokenLease prior, Atom<TokenLease> cell) =>
+        prior.Origin.Renewal(prior.Bundle.RefreshToken).Match(
+            Some: flow => Draw(runtime, flow).Map(drawn => drawn.Map(bundle => TokenLease.Hold(
+                prior.RegistrationId, prior.Origin, bundle, runtime.Clocks, () => Refresh(runtime, cell)))),
+            None: () => IO.pure(Fail<Error, TokenLease>(
+                new IdentityFault.RefreshUnavailable(prior.RegistrationId))));
+
+    // ONE fan site, and the effect is RETURNED rather than run-and-discarded: an `ignore(...Run())` shape drops
+    // every send fault on the floor and makes the receipt stream a claim nothing proved. The bearer never
+    // crosses: the expiry is the fact an operator acts on, and a receipt carrying the token republishes the
+    // credential to every sink the envelope reaches.
+    static IO<TokenLease> Emit(IdentityRuntime runtime, TokenLease lease, LeaseEvent transition) =>
+        runtime.Sink.Send(
+                runtime.Correlation, TenantContext.Current, TelemetrySource.AppHost, ReceiptKind.Identity.Key,
+                JsonSerializer.SerializeToElement(
+                    new LeaseReceipt(
+                        RegistrationId: lease.RegistrationId,
+                        Grant: lease.Origin.Match(
+                            clientCredentials: static _ => nameof(GrantFlow.ClientCredentials),
+                            device: static _ => nameof(GrantFlow.Device),
+                            refresh: static _ => nameof(GrantFlow.Refresh),
+                            exchange: static _ => nameof(GrantFlow.Exchange)),
+                        Transition: transition.Key,
+                        ExpiresAt: lease.Bundle.ExpiresAt,
+                        Refusal: lease.Refusal.Map(error => WireJson.Element(FaultWire.Observe(error))),
+                        At: runtime.Clocks.Now),
+                    runtime.Wire))
+            .Map(_ => lease);
 
     // One polymorphic fold over the flow case, each arm reading the verb and the result members its own
     // request/result pair declares. The exchange arm states its subject-token type because the request member
@@ -528,12 +679,6 @@ public static class Acquisition {
                 $"{registrationId}: {ex.Message}", Error.New(ex.Message, (Exception)ex)));
         }
     }
-
-    static Validation<Error, TokenLease> Held(IdentityRuntime runtime, string registrationId, TokenBundle bundle) =>
-        Success<Error, TokenLease>(TokenLease.Hold(registrationId, bundle, runtime.Clocks,
-            () => bundle.RefreshToken.Match(
-                Some: refresh => Acquire(runtime, new GrantFlow.Refresh(registrationId, refresh)).Map(static _ => unit),
-                None: () => IO.pure(unit))));
 
     // An empty access token is an acquisition FAILURE, not a bundle: an unconditionally successful projection
     // leaves the declared failure case unreachable and hands every hop a bearer with nothing in it.
@@ -656,7 +801,7 @@ config:
 flowchart LR
     accTitle: One identity boundary feeding the capability metering
     accDescr: Acquisition obtains a bearer; inbound validation against the rotating-JWKS issuer anchor produces one Principal; the policy gate evaluates claims; the validated Principal's tenant feeds the grant broker.
-    Acquire["Acquisition.Acquire (OpenIddict flow)"] --> Bearer["TokenBundle.AccessToken"]
+    Acquire["Acquisition.Acquire (OpenIddict flow)"] --> Bearer["LeaseRoster.Bearer (live cell read)"]
     Inbound["TokenValidation.Validate"] --> Anchor["IssuerTrust: ConfigurationManager JWKS"]
     Anchor --> Principal["Principal (tenant + scopes)"]
     Principal --> Gate["PolicyGate.Authorize"]

@@ -85,6 +85,7 @@
 - `<Surface>Faults` is the boundary's ledger DECLARATION, never a fault family — each named surface bounds exactly one `Ring<Error>`.
 - Package rows cite a member's DECLARING page — `Lease<T>` is kernel `Domain/rails` and `Placement.Build` kernel `Numerics/atoms`.
 - `Placement` is twice-carried — the kernel builds transforms, `Blocks/model` unions block instances, and every citation qualifies which.
+- Kernel `Dimension` spells `Rasm.Numerics.Dimension` in full at every site — host `Rhino.Geometry.Dimension` reads bare, no alias electing a winner.
 
 ## [05]-[PROCESS]
 

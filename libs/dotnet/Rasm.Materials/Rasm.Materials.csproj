@@ -49,7 +49,6 @@
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
@@ -61,8 +60,6 @@
 
     <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="MessagePack" />
-        <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>
 

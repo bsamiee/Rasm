@@ -13,7 +13,7 @@
 - Owner: `SecretLease` the live credential row extending `ConfigSource.SecretsStore`; `RotationBand` the admitted cadence pair; `SecretRuntime` the boundary capsule; `LeaseTransition` `[Union]` lifecycle vocabulary; `SecretFault` `[Union]` fault family riding the kernel `[FaultCase]`/`Fault` floor (`[FaultCase]` realizes the registry over `FaultBand.Secret`); `SecretReceipt` the redacted rotation evidence; `SecretLeaseOps` the acquire-rotate-zeroize fold.
 - Cases: `LeaseTransition` = Acquired | Renewed | Refused | Zeroized; `SecretFault` = AcquireRejected | RenewMissed | RotationUnbanded.
 - Entry: `Acquire(SecretRuntime runtime, string keyId)` returns `IO<Fin<Atom<SecretLease>>>` — the store read seats the LIVE lease cell and registers that cell's renewal occurrence on `SecretRuntime.Schedule` in one bind, so a returned cell is always a rotating cell; `Rotate(SecretRuntime runtime, Atom<SecretLease> cell)` returns `IO<Unit>` — the renewal occurrence's `Work` binding, committing the re-pull through kernel `Cell.Commit`; `Renew(SecretRuntime runtime, SecretLease lease)` returns `IO<Fin<SecretLease>>`, re-pulling inside the live window with no disposal of its own — the retiring buffer wipes at `Rotate`'s commit site once the replacement is seated; `Zeroize(SecretRuntime runtime, SecretLease lease)` returns `IO<Unit>`, the drain-forced terminal.
-- Auto: `RotationBand.Of` reads the credential's lifetime row AND that row's own `Escalation` skew off the `Runtime/time#DEADLINE_TAXONOMY` roster, so the renewal period is `Life - Skew` and derives — a cadence equal to the lifetime fires the re-pull exactly at expiry, which is the shape under which every occurrence read `RenewMissed` and the lease silently died under prose promising rotation ahead of expiry; a lifetime row declaring no skew refuses at composition as `RotationUnbanded` rather than seating a rotation that cannot succeed. `Acquire` registers one `ScheduleEntry` on the bound `Runtime/time#SCHEDULE_PORT` delegate carrying the entry's own `RedrivePolicy` and a `LeasePolicy` whose `CrashStaleness` outlives the renewal window, so one occurrence row drives every credential with no per-secret timer. The rotation commit rides kernel `Cell.Commit`, so a lost CAS reports `Contended` instead of publishing as success, and the renewal verdict rides the SWAPPED value: a refused re-pull commits the prior lease carrying its `Refusal`, which `Observability/health#HEALTH_FOLD` reads on its `ContributorTag.Store`-tagged row and `DegradationPolicy.Derive` maps to `DegradationLevel.ReadOnly` — a level nothing produced while the refusal lived only in a discarded fan. Zeroization registers as one `Runtime/lifecycle#DRAIN_CONDUCTOR` `DrainBand.Stores` participant row under the drain-forced token, so a hung renewal never strands a live secret; the credential bytes carry `DataClassification.Secret` so `Observability/telemetry#REDACTION_TAXONOMY` erases them at every egress.
+- Auto: `RotationBand.Of` reads the credential's lifetime row AND that row's own `Escalation` skew off the `Runtime/time#DEADLINE_TAXONOMY` roster, so the renewal period is `Life - Skew` and derives — a cadence equal to the lifetime fires the re-pull exactly at expiry, which is the shape under which every occurrence read `RenewMissed` and the lease silently died under prose promising rotation ahead of expiry; a lifetime row declaring no skew refuses at composition as `RotationUnbanded` rather than seating a rotation that cannot succeed. `Acquire` registers one `ScheduleEntry` on the bound `Runtime/time#SCHEDULE_PORT` delegate carrying the entry's own `RedrivePolicy` and a `LeasePolicy` whose `CrashStaleness` outlives the renewal window, so one occurrence row drives every credential with no per-secret timer. Rotation commits ride kernel `Cell.Commit`, so a lost CAS reports `Contended` instead of publishing as success, and the renewal verdict rides the SWAPPED value: a refused re-pull commits the prior lease carrying its `Refusal`, which `Observability/health#HEALTH_FOLD` reads on its `ContributorTag.Store`-tagged row and `DegradationPolicy.Derive` maps to `DegradationLevel.ReadOnly` — a level nothing produced while the refusal lived only in a discarded fan. Zeroization registers as one `Runtime/lifecycle#DRAIN_CONDUCTOR` `DrainBand.Stores` participant row under the drain-forced token, so a hung renewal never strands a live secret; the credential bytes carry `DataClassification.Secret` so `Observability/telemetry#REDACTION_TAXONOMY` erases them at every egress.
 - Receipt: `SecretReceipt` carries the transition key, lease window, kernel content digest, redacted credential id, and an optional canonical ProtoJSON fault element — never secret bytes or a raw key id; every transition fans through `ReceiptSinkPort.Send` under `ReceiptKind.Secret`, partitioned by tenant.
 - Packages: Rasm.Contracts, Google.Protobuf, Rasm (kernel `CanonicalWriter`/`ContentHash`, `Cell`/`Transition`), Microsoft.Extensions.Configuration.UserSecrets, Microsoft.Extensions.Compliance.Redaction, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one lifecycle transition is one `LeaseTransition` case; one refusal is one `SecretFault` case; a new credential class is one `DeadlineClass` lifetime row with its skew escalation, admitted through the same `RotationBand.Of`; a new credential source is one `SecretsSource` provider value on the existing `ConfigLayer`, never a second lease owner; zero new surface.
@@ -67,7 +67,7 @@ public abstract partial record SecretFault : Fault {
         public RenewMissed(string redacted, string detail) : base($"{redacted}: {detail}") => Redacted = redacted;
         public string Redacted { get; }
     }
-    // The cadence refusal is a COMPOSITION fault, not a runtime one: a lifetime row carrying no escalation skew
+    // `RotationUnbanded` is a COMPOSITION fault, not a runtime one: a lifetime row carrying no escalation skew
     // can only seat a renewal that fires at expiry, so the band refuses before any credential is read.
     [FaultCase(2)]
     public sealed partial record RotationUnbanded : SecretFault {
@@ -77,7 +77,7 @@ public abstract partial record SecretFault : Fault {
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-// The cadence is a PAIR of roster rows, never two literals: `Life` is the credential's declared lifetime bound
+// `RotationBand` is a PAIR of roster rows, never two literals: `Life` is the credential's declared lifetime bound
 // and `Skew` its own declared escalation, so `Period` DERIVES and no call site can seat a renewal landing at
 // expiry. `Window` is the one lease-interval mint — `ClockPolicy` carries no radius-window member to borrow.
 public readonly record struct RotationBand(DeadlineClass Life, DeadlineClass Skew) {
@@ -164,7 +164,7 @@ public static class SecretLeaseOps {
             .Map(seated => cell = Atom(seated));
     }
 
-    // The occurrence IS the rotation: `Renew` re-pulls inside the live window, the kernel commit publishes the
+    // `Rotate` IS the occurrence's work: `Renew` re-pulls inside the live window, the kernel commit publishes the
     // outcome — a fresh lease on success, the prior lease carrying its refusal on failure, and a `Contended`
     // transition where a discarded `Swap` reported a lost CAS as success — and the retiring buffer wipes only
     // AFTER `Cell.Commit` seats its replacement: a refused re-pull and a lost CAS both keep the live window's
@@ -367,4 +367,4 @@ export type { CertificateChain, CredentialPublicWire } from "@rasm\/contracts/ra
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-- [SPKI_ADMISSION]-[OPEN]: does `libs/dotnet/.api/api-bcl-cryptography.md` register `PublicKey`, its `CreateFromSubjectPublicKeyInfo(ReadOnlySpan<byte>, out int)` factory, and the `X509Certificate2.PublicKey` property `[03]-[CREDENTIAL_PEM]` admits bare keys through; resolve each against the pinned net10.0 assembly and land the rows at that catalog, whose `[STACKING]` entry still names this page's retired armor axis.
+(none)

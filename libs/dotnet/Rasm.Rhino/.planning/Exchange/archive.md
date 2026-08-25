@@ -378,7 +378,7 @@ public sealed record ArchiveMetadata(
     Option<GeoPoint> Anchor,
     Option<Seq<(string Name, Guid Id)>> Layouts,
     int DimensionStyles,
-    Option<(Dimension Width, Dimension Height)> Preview) {
+    Option<(Rasm.Numerics.Dimension Width, Rasm.Numerics.Dimension Height)> Preview) {
     // The anchor arrives SETTLED because its admission is fallible; every other field is a lazy per-ingress reader,
     // so the two ingresses share one presence rule per column and cannot drift.
     internal static ArchiveMetadata Of(
@@ -389,7 +389,7 @@ public sealed record ArchiveMetadata(
         Option<GeoPoint> anchor,
         Func<Option<Seq<(string Name, Guid Id)>>> layouts,
         Func<int> dimensionStyles,
-        Func<Option<(Dimension Width, Dimension Height)>> preview) =>
+        Func<Option<(Rasm.Numerics.Dimension Width, Rasm.Numerics.Dimension Height)>> preview) =>
         new(Notes: notes(),
             ArchiveVersion: archiveVersion(),
             Revision: revision(),
@@ -411,12 +411,12 @@ public sealed record ArchiveMetadata(
 
     // The host hands the caller an owned bitmap; the extent is read and the bitmap released inside one window, so
     // presence and size answer together and no live GDI handle rides the detached header.
-    internal static Option<(Dimension Width, Dimension Height)> Previewed(System.Drawing.Bitmap? bitmap) =>
+    internal static Option<(Rasm.Numerics.Dimension Width, Rasm.Numerics.Dimension Height)> Previewed(System.Drawing.Bitmap? bitmap) =>
         Optional(bitmap).Bind(static held => {
             using System.Drawing.Bitmap preview = held;
             return preview is { Width: > 0, Height: > 0 }
-                ? Some((Width: Dimension.Create(value: preview.Width), Height: Dimension.Create(value: preview.Height)))
-                : Option<(Dimension, Dimension)>.None;
+                ? Some((Width: Rasm.Numerics.Dimension.Create(value: preview.Width), Height: Rasm.Numerics.Dimension.Create(value: preview.Height)))
+                : Option<(Rasm.Numerics.Dimension, Rasm.Numerics.Dimension)>.None;
         });
 }
 

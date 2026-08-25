@@ -925,7 +925,7 @@ public sealed partial class HudGesture {
 public abstract partial record HudSignal {
     private HudSignal() { }
     public sealed record TouchCase(HudControl Control, HudGesture Gesture) : HudSignal;
-    public sealed record MaxPassesCase(Dimension Passes) : HudSignal;
+    public sealed record MaxPassesCase(Rasm.Numerics.Dimension Passes) : HudSignal;
 }
 
 // The engine's four declared participation axes. `FastDraw` and `DeferAttributes` are the two the page formerly
@@ -994,8 +994,8 @@ internal abstract partial record RealtimeLifecycle {
     private RealtimeLifecycle() { }
     internal sealed record Idle : RealtimeLifecycle;
     internal sealed record Priming(SpriteSheet Sprites, RealtimePort Pixels) : RealtimeLifecycle;
-    internal sealed record Live(SpriteSheet Sprites, RealtimePort Pixels, Dimension Pass) : RealtimeLifecycle;
-    internal sealed record Settled(Dimension Pass) : RealtimeLifecycle;
+    internal sealed record Live(SpriteSheet Sprites, RealtimePort Pixels, Rasm.Numerics.Dimension Pass) : RealtimeLifecycle;
+    internal sealed record Settled(Rasm.Numerics.Dimension Pass) : RealtimeLifecycle;
 
     internal Option<(SpriteSheet Sprites, RealtimePort Pixels)> Held => Switch(
         idle: static _ => Option<(SpriteSheet, RealtimePort)>.None,
@@ -1003,9 +1003,9 @@ internal abstract partial record RealtimeLifecycle {
         live: static row => Some((row.Sprites, row.Pixels)),
         settled: static _ => Option<(SpriteSheet, RealtimePort)>.None);
 
-    internal Dimension Pass => Switch(
-        idle: static _ => Dimension.Create(value: 0),
-        priming: static _ => Dimension.Create(value: 0),
+    internal Rasm.Numerics.Dimension Pass => Switch(
+        idle: static _ => Rasm.Numerics.Dimension.Create(value: 0),
+        priming: static _ => Rasm.Numerics.Dimension.Create(value: 0),
         live: static row => row.Pass,
         settled: static row => row.Pass);
 }
@@ -1032,17 +1032,17 @@ public abstract partial record RenderFault : Fault {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record RealtimePassPolicy {
-    private RealtimePassPolicy(Dimension maxPasses, CapabilitySet<RealtimeFeature> features, GpuTechnology technology) =>
+    private RealtimePassPolicy(Rasm.Numerics.Dimension maxPasses, CapabilitySet<RealtimeFeature> features, GpuTechnology technology) =>
         (MaxPasses, Features, Technology) = (maxPasses, features, technology);
 
-    public Dimension MaxPasses { get; }
+    public Rasm.Numerics.Dimension MaxPasses { get; }
     public CapabilitySet<RealtimeFeature> Features { get; }
     // The descriptor's `RequiredDisplayTechnology` column: an engine demanding Metal states it here, and the class-info
     // reads it back rather than defaulting to `None` and letting the host pick.
     public GpuTechnology Technology { get; }
 
     public static Fin<RealtimePassPolicy> Of(
-        Dimension maxPasses,
+        Rasm.Numerics.Dimension maxPasses,
         CapabilitySet<RealtimeFeature> features,
         Option<GpuTechnology> technology = default,
         Op? key = null) {
@@ -1120,7 +1120,7 @@ public sealed record RealtimeEnginePlan(
 public sealed record LightSolo(
     Func<DocKey, Guid, SwitchState, Fin<Unit>> Set,
     Func<DocKey, Guid, Fin<SwitchState>> Get,
-    Func<DocKey, Fin<Dimension>> Count);
+    Func<DocKey, Fin<Rasm.Numerics.Dimension>> Count);
 
 // Every hook answers a VERDICT: the three host `bool` returns this program used to mirror conflated "answered no"
 // with "the rail refused", so the host scalar is now PROJECTED from a settled rail instead of standing in for one.
@@ -1177,16 +1177,16 @@ public sealed class RealtimePort {
 // polled out of the program instead of driven into the engine that answers the host for them.
 public sealed class RealtimeSignal {
     private readonly Func<Fin<Unit>> redraw;
-    private readonly Func<Option<Dimension>, Transition<RealtimeLifecycle>> step;
+    private readonly Func<Option<Rasm.Numerics.Dimension>, Transition<RealtimeLifecycle>> step;
 
-    internal RealtimeSignal(Func<Fin<Unit>> redraw, Func<Option<Dimension>, Transition<RealtimeLifecycle>> step) =>
+    internal RealtimeSignal(Func<Fin<Unit>> redraw, Func<Option<Rasm.Numerics.Dimension>, Transition<RealtimeLifecycle>> step) =>
         (this.redraw, this.step) = (redraw, step);
 
     public Fin<Unit> Redraw() => redraw();
 
-    public Transition<RealtimeLifecycle> Pass(Dimension ordinal) => step(Some(ordinal));
+    public Transition<RealtimeLifecycle> Pass(Rasm.Numerics.Dimension ordinal) => step(Some(ordinal));
 
-    public Transition<RealtimeLifecycle> Settle() => step(Option<Dimension>.None);
+    public Transition<RealtimeLifecycle> Settle() => step(Option<Rasm.Numerics.Dimension>.None);
 }
 
 // ONE process-static claim table, instantiated twice. `Claim` seats the payload through the kernel `Cell.Claim`
@@ -1337,7 +1337,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         SetUseDrawOpenGl(plan.Policy.Features.Admits(RealtimeFeature.OpenGl));
         OnInitFramebuffer += (_, e) => ignore(Project(plan, e.Pipeline, ConduitPhase.Framebuffer, plan.Program.InitFramebuffer)
             .Iter(_ => ignore(Step(static held => held is RealtimeLifecycle.Priming row
-                ? Some<RealtimeLifecycle>(new RealtimeLifecycle.Live(row.Sprites, row.Pixels, Dimension.Create(value: 0)))
+                ? Some<RealtimeLifecycle>(new RealtimeLifecycle.Live(row.Sprites, row.Pixels, Rasm.Numerics.Dimension.Create(value: 0)))
                 : Option<RealtimeLifecycle>.None))));
         OnDrawMiddleground += (_, e) => ignore(Project(plan, e.Pipeline, ConduitPhase.Middleground, plan.Program.DrawMiddleground));
         OnDisplayPipelineSettingsChanged += (_, e) => ignore(Observe(
@@ -1384,7 +1384,7 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         _ = Control(HudControl.PostEffectsOff, None,
             h => HudPostEffectsOffButtonLeftClicked += h, h => HudPostEffectsOffButtonRightClicked += h, h => HudPostEffectsOffButtonDoubleClicked += h);
         MaxPassesChanged += (_, e) => ignore(Observe(key.Catch(() =>
-            signal(new HudSignal.MaxPassesCase(Passes: Dimension.Create(value: e.MaxPasses))))));
+            signal(new HudSignal.MaxPassesCase(Passes: Rasm.Numerics.Dimension.Create(value: e.MaxPasses))))));
         return unit;
     }
 
@@ -1899,8 +1899,8 @@ public abstract partial record EffectValue {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GpuHandle {
     private GpuHandle() { }
-    public sealed record OpenGlCase(uint Texture, Size2i Extent, Dimension PixelSize) : GpuHandle;
-    public sealed record MetalCase(nint Texture, Size2i Extent, Dimension PixelSize) : GpuHandle;
+    public sealed record OpenGlCase(uint Texture, Size2i Extent, Rasm.Numerics.Dimension PixelSize) : GpuHandle;
+    public sealed record MetalCase(nint Texture, Size2i Extent, Rasm.Numerics.Dimension PixelSize) : GpuHandle;
     public sealed record UnbackedCase(GpuTechnology Technology) : GpuHandle;
 }
 
@@ -2039,7 +2039,7 @@ public sealed record EffectProgram(
 public abstract partial record TextureBake : IValidityEvidence {
     private TextureBake() { }
     public sealed record LiveCase(ContentRef Texture, CapabilitySet<TextureEvaluation> Suppressed) : TextureBake;
-    public sealed record BakedCase(ContentRef Texture, TextureGenerationUse Generation, Dimension Size, Guid Subject) : TextureBake;
+    public sealed record BakedCase(ContentRef Texture, TextureGenerationUse Generation, Rasm.Numerics.Dimension Size, Guid Subject) : TextureBake;
 
     public bool IsValid => Switch(
         liveCase: static row => ValidityClaim.All(row.Texture is not null),
@@ -2236,7 +2236,7 @@ public sealed class EffectPass {
                 return Optional(texture).ToFin(Fail: op.InvalidResult()).Bind(held =>
                     from technology in op.Row<Rhino.Display.DisplayTechnology, GpuTechnology>(candidate: held.DisplayTechnology)
                     from extent in Size2i.Of(width: held.Width(), height: held.Height(), key: op)
-                    let size = Dimension.Create(value: checked((int)held.PixelSize()))
+                    let size = Rasm.Numerics.Dimension.Create(value: checked((int)held.PixelSize()))
                     from taken in borrow(technology.Key switch {
                         Rhino.Display.DisplayTechnology.OpenGL =>
                             (GpuHandle)new GpuHandle.OpenGlCase(Texture: held.TextureHandleOpenGL(), Extent: extent, PixelSize: size),
@@ -2266,7 +2266,7 @@ public sealed class EffectPass {
 
     // Host truth: the progress report is the cancellation channel — a refused report is the user's cancel and halts
     // the pixel loop through the rail.
-    public Fin<Unit> Advance(Dimension rows, Op? key = null) {
+    public Fin<Unit> Advance(Rasm.Numerics.Dimension rows, Op? key = null) {
         Op op = key ?? this.key;
         return op.Catch(() => Op.Side(() => ((IProgress<int>)pipeline).Report(value: rows.Value)));
     }
@@ -2485,7 +2485,7 @@ public sealed class ChannelEffect() : EffectHost(program: Program) {
                     .Traverse(column => Offset2i.Of(column, row)
                         .Bind(at => view.Read(at).Bind(pixel => sink.Write(at, pixel))))
                     .As()
-                    .Bind(_ => pass.Advance(rows: Dimension.Create(value: 1))))
+                    .Bind(_ => pass.Advance(rows: Rasm.Numerics.Dimension.Create(value: 1))))
                 .As()
                 .Map(static _ => unit))),
         Read: static bag => bag.Read<double>(Gain).Map(static _ => unit),
@@ -2621,40 +2621,40 @@ public readonly record struct ContentDigest(ContentRef Content, HashProbe Probe,
 
 public sealed record QueuePolicy {
     private QueuePolicy(
-        Dimension capacity,
+        Rasm.Numerics.Dimension capacity,
         CapabilitySet<BakeAxis> baking,
         CapabilitySet<QueueTrait> traits,
         Option<PackPolicy> residency,
-        Option<Func<BakeDemand, Fin<Dimension>>> bakeSize,
+        Option<Func<BakeDemand, Fin<Rasm.Numerics.Dimension>>> bakeSize,
         Option<Func<ContentDigest, Fin<uint>>> contentDigest) =>
         (Capacity, Baking, Traits, Residency, BakeSize, ContentDigest) =
         (capacity, baking, traits, residency, bakeSize, contentDigest);
 
-    public Dimension Capacity { get; }
+    public Rasm.Numerics.Dimension Capacity { get; }
     public CapabilitySet<BakeAxis> Baking { get; }
     public CapabilitySet<QueueTrait> Traits { get; }
     public Option<PackPolicy> Residency { get; }
-    public Option<Func<BakeDemand, Fin<Dimension>>> BakeSize { get; }
+    public Option<Func<BakeDemand, Fin<Rasm.Numerics.Dimension>>> BakeSize { get; }
     public Option<Func<ContentDigest, Fin<uint>>> ContentDigest { get; }
 
     // The two canonical postures: a live viewport queue announces its changes and reads the original objects its
     // consumer needs, a preview queue neither notifies nor respects the display pipeline it never draws through.
-    public static QueuePolicy Live(Dimension capacity) => new(
+    public static QueuePolicy Live(Rasm.Numerics.Dimension capacity) => new(
         capacity,
         CapabilitySet<BakeAxis>.None,
         CapabilitySet<QueueTrait>.Of(QueueTrait.NotifyChanges, QueueTrait.OriginalObjects),
         Option<PackPolicy>.None, default, default);
 
-    public static QueuePolicy Preview(Dimension capacity) => new(
+    public static QueuePolicy Preview(Rasm.Numerics.Dimension capacity) => new(
         capacity, CapabilitySet<BakeAxis>.None, CapabilitySet<QueueTrait>.None,
         Option<PackPolicy>.None, default, default);
 
     public static Fin<QueuePolicy> Of(
-        Dimension capacity,
+        Rasm.Numerics.Dimension capacity,
         CapabilitySet<BakeAxis> baking,
         CapabilitySet<QueueTrait> traits,
         Option<PackPolicy> residency = default,
-        Option<Func<BakeDemand, Fin<Dimension>>> bakeSize = default,
+        Option<Func<BakeDemand, Fin<Rasm.Numerics.Dimension>>> bakeSize = default,
         Option<Func<ContentDigest, Fin<uint>>> contentDigest = default,
         Op? key = null) =>
         guard(capacity.Value > 0, key.OrDefault().InvalidInput(axis: nameof(capacity))).ToFin()
@@ -2777,7 +2777,7 @@ public sealed class SceneBatch : IDisposable {
     // A PUBLIC detached result carries the regime its world-space geometry, altitudes, and bounds were measured in
     // (branch RULINGS `[02]`) — a consumer rescaling without it relabels rather than converts.
     public ModelUnit Units { get; }
-    public Dimension Count => Dimension.Create(value: deltas.Count);
+    public Rasm.Numerics.Dimension Count => Rasm.Numerics.Dimension.Create(value: deltas.Count);
 
     // The borrow EXCLUDES release: the one-shot is a stepped transition, so a use after release reads a declined step
     // rather than racing a flag, and a second release strands nothing twice.
@@ -2796,7 +2796,7 @@ public sealed class SceneBatch : IDisposable {
     public void Dispose() => ignore(Release());
 }
 
-public readonly record struct QueueLoss(Option<MonotonicStamp> At, Dimension Deltas);
+public readonly record struct QueueLoss(Option<MonotonicStamp> At, Rasm.Numerics.Dimension Deltas);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 // The generated host-payload projections: every pure-shape detach is one mapper row, so the hand copy bodies that
@@ -2967,12 +2967,12 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     // Every batch the reader held runs: a refused apply releases its own batch and its cause ACCUMULATES, so a
     // residue sweep sees every outcome instead of halting on the first and stranding the rest with no owner. The
     // whole drain is gauged, so a consumer that cannot keep up reads a breached span rather than a growing channel.
-    public Fin<Dimension> Drain(Func<SceneBatch, Fin<Unit>> take, Option<Env> env = default, Op? key = null) {
+    public Fin<Rasm.Numerics.Dimension> Drain(Func<SceneBatch, Fin<Unit>> take, Option<Env> env = default, Op? key = null) {
         Op op = key.OrDefault();
         SceneQueue self = this;
         return from body in op.Need(take)
                from _ in Live(op)
-               from measured in timeline.Gauged<Dimension, DispatchLane>(
+               from measured in timeline.Gauged<Rasm.Numerics.Dimension, DispatchLane>(
                    lane: DispatchLane.Deferred,
                    work: op,
                    body: () => self.Apply(self.Taken(), body, env, op),
@@ -3214,19 +3214,19 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                 .Map(done.Add)
                 .Rollback(done, release, key)));
 
-    private Fin<Dimension> Apply(Seq<SceneBatch> batches, Func<SceneBatch, Fin<Unit>> take, Option<Env> env, Op op) {
-        (Seq<Error> refused, Seq<Dimension> applied) = batches
+    private Fin<Rasm.Numerics.Dimension> Apply(Seq<SceneBatch> batches, Func<SceneBatch, Fin<Unit>> take, Option<Env> env, Op op) {
+        (Seq<Error> refused, Seq<Rasm.Numerics.Dimension> applied) = batches
             .Map(batch => env.Map(static held => held.Cancellation.IsCancellationRequested).IfNone(false)
-                ? batch.Release().Bind(_ => Fin.Fail<Dimension>(Errors.Cancelled))
+                ? batch.Release().Bind(_ => Fin.Fail<Rasm.Numerics.Dimension>(Errors.Cancelled))
                 : op.Catch(() => take(batch)).Match(
                     Succ: _ => Fin.Succ(batch.Count),
                     Fail: cause => batch.Release().Match(
-                        Succ: _ => Fin.Fail<Dimension>(cause),
-                        Fail: cleanup => Fin.Fail<Dimension>(cause + cleanup))))
+                        Succ: _ => Fin.Fail<Rasm.Numerics.Dimension>(cause),
+                        Fail: cleanup => Fin.Fail<Rasm.Numerics.Dimension>(cause + cleanup))))
             .Partition();
         return refused.IsEmpty
-            ? Fin.Succ(Dimension.Create(value: applied.Sum(static row => row.Value)))
-            : Fin.Fail<Dimension>(Error.Many(refused));
+            ? Fin.Succ(Rasm.Numerics.Dimension.Create(value: applied.Sum(static row => row.Value)))
+            : Fin.Fail<Rasm.Numerics.Dimension>(Error.Many(refused));
     }
 
     private Seq<SceneBatch> Taken() {
@@ -3246,7 +3246,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
 
     private Fin<Unit> Stranded(Seq<SceneDelta> rows, Op op) => rows.IsEmpty
         ? Fin.Succ(unit)
-        : (losses.Park(item: new QueueLoss(At: timeline.Capture(key: op).ToOption(), Deltas: Dimension.Create(value: rows.Count))),
+        : (losses.Park(item: new QueueLoss(At: timeline.Capture(key: op).ToOption(), Deltas: Rasm.Numerics.Dimension.Create(value: rows.Count))),
            Custody.Release(rows, delta => delta.Release(op), op)).Item2;
 
     private MaterialTouch Touch(uint material, uint instance) => new(

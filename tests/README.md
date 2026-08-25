@@ -111,6 +111,7 @@ Every new suite, kit capability, fixture, or corpus asset has exactly one home; 
 |  [12]   | TS e2e suite                | `tests/typescript/e2e`                                                                   |
 |  [13]   | TS architecture gauge       | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
 |  [14]   | TS dev-tool API catalog     | `tests/typescript/.api/`, one catalog per dev-plane package                              |
+|  [15]   | C# benchmark corpus fixture | `tests/dotnet/_benchmarks/corpus/` — one extensionless LFS pointer per declared slug     |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/dotnet/libs` mirror `libs/dotnet`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 

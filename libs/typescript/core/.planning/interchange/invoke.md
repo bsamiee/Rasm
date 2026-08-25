@@ -8,6 +8,7 @@
 - [03]-[DIAL_AXIS]: typed client lanes and execution plan; `Invoke.Dial`.
 - [04]-[CAPABILITY_BIND]: descriptor-gated SDK derivation; `Invoke.Capability`.
 - [05]-[COMMAND_GATEWAY]: table-derived invocation, dispatch, and framed serving; `Invoke.Gateway`.
+- [06]-[PROGRESS_WATCH]: compute progress marks off the admitted pin; `Invoke.Progress`.
 
 ## [02]-[TRANSPORT_FAULT]
 
@@ -110,7 +111,7 @@ const Transport: {
 - Law: unary failover uses `ExecutionPlan`; server streams never retry after an emitted value.
 - Law: remote recovery retries only in place; transport connectivity, deadline, or ceiling may advance the execution plan; malformed detail stops.
 - Law: carrier headers, tenant scope, HLC, deadlines, and telemetry remain typed Effect context.
-- Boundary: the root supplies browser/Bun `fetch`, the optional scoped Node adapter, and the interceptor chain. GET routing is foreclosed because no service this branch binds declares `NO_SIDE_EFFECTS`, so no `useHttpGet` knob exists to misread.
+- Boundary: the root supplies browser/Bun `fetch`, the optional scoped Node adapter, and the interceptor chain. GET routing is foreclosed at the METHOD KIND, never at idempotency: Connect routes GET for unary calls alone, and `ProgressService.Watch` — the one method this branch binds that declares `NO_SIDE_EFFECTS` — is server-streaming, so every stream rides POST and no `useHttpGet` knob exists to misread.
 
 ```typescript signature
 const _webProtocols = ["connect", "grpc-web"] as const
@@ -833,12 +834,152 @@ const Gateway: {
   Invocation: CommandInvocation,
   make: _make,
 }
+```
+
+## [06]-[PROGRESS_WATCH]
+
+- Owner: `Invoke.Progress` is the branch's ONE compute-progress dial — `Progress.watch` derives `ProgressService` off an admitted pin and lands every `WatchResponse` as a `Progress.Mark`.
+- Law: this owner is the whole client fence of the corpus `compute-rpc` `watch-request` and `watch-response` cases; the serving half is the Compute stream and no second reader of that stream exists here.
+- Law: `Evidence.Tally` at `state/evidence#PROGRESS_FOLD` counts done units against a total over an operation tree and shares NO column with this frame — phase, fraction, and segment count are this stream's axes alone.
+- Law: the phase correspondence is derived from the generated enum, never paired by hand — rows key on every defined member lowered and each cell carries that member's own ordinal, so a tenth corpus member and a mis-paired cell both break at the table's contract.
+- Law: an arriving ordinal no row names refuses on the parse rail naming the value; `defined_only` and `not_in: [0]` already refuse it at the peer, so this arm answers the type's remainder rather than gating a second time.
+- Law: `fraction` and `segments` lift the generated presence posture — protoc-gen-es v2 emits `fraction?: number | undefined` and `segments?: bigint | undefined` — through `Option.fromNullable` at ONE seat, so a zero stays the measurement the producer sent.
+- Law: the `[0, 1]` fraction bound and the sixteen-byte correlation width are corpus rules proved at `Format.proto.message`; a branch filter restating either is the deleted form.
+- Law: `correlation` lands as the same unbranded sixteen-byte carrier `Wire.RemoteDetail.correlation` and the `EvidenceTimelineWire` landing carry, so the request argument and the mark column read one spelling.
+- Law: `at` crosses through the shipped `timestampMs` bridge and admits through `DateTime.make`, so a stamp outside the branch clock's domain refuses instead of folding to a finite number that means nothing.
+- Law: the stream ends when the peer completes it on the terminal mark; no rank ladder, phase comparison, or terminal predicate here re-derives the producer's own monotone law.
+- Law: retry posture is the derived member's own — `Stream.withExecutionPlan(dial.plan, { preventFallbackOnPartialStream: true })` at `[04]-[CAPABILITY_BIND]` — so a stream never retries after an emitted value and this owner stacks no second plan.
+- Law: the census, span, and fault evidence are that member's `_observedStream` aspect over `invoke/ProgressService/watch`; this owner mounts no instrument beside it.
+- Boundary: marks arrive already decoded off the Connect codec, so no `Wire` census row, arm, or parity obligation is owed and none is minted.
+- Boundary: derivation refusals — divergent contract identity, an unbindable method kind, a request the corpus rule refuses — ride the stream's own channel beside `Wire.InvokeFault` under their own tags, so a caller opens the watch in one act and never pre-derives an sdk.
+- Packages: `@rasm/contracts` (`progress_pb`), `@connectrpc/connect` (`createClient` through `Dial.sdk`), `@bufbuild/protobuf` (`create` through `Format.proto.create`), `effect` (`Stream`, `Schema`, `Option`, `DateTime`).
+- Growth: a new mark axis is one field on `Progress.Mark` plus one column read; a second Compute stream is one derived member off the same admitted pin.
+
+```typescript signature
+import type { MessageShape } from "@bufbuild/protobuf"
+import { timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt"
+import { ProgressPhase, ProgressService, WatchRequestSchema, WatchResponseSchema } from "@rasm\/contracts/rasm/contracts/compute/progress_pb"
+import { DateTime } from "effect"
+
+// The GENERATED enum is the primary correspondence and this table its ONE branch projection. `_Defined` drops the
+// zero member the corpus rule already refuses; `_OrdinalOf` resolves a lowered member name back to that member's own
+// ordinal; the contract then forces exactly one row per surviving member carrying exactly that ordinal. A tenth
+// `ProgressPhase` member fails at this declaration and a mis-paired cell fails beside it, so no hand (word, ordinal)
+// pairing survives anywhere — the rows are transcription and runtime, never the correspondence.
+type _Defined = Exclude<keyof typeof ProgressPhase, "UNSPECIFIED">
+type _OrdinalOf<Word extends string> = {
+  [Member in _Defined]: Lowercase<Member> extends Word ? (typeof ProgressPhase)[Member] : never
+}[_Defined]
+
+const _phases = {
+  queued: ProgressPhase.QUEUED,
+  selected: ProgressPhase.SELECTED,
+  staged: ProgressPhase.STAGED,
+  running: ProgressPhase.RUNNING,
+  streaming: ProgressPhase.STREAMING,
+  finalizing: ProgressPhase.FINALIZING,
+  completed: ProgressPhase.COMPLETED,
+  cancelled: ProgressPhase.CANCELLED,
+  faulted: ProgressPhase.FAULTED,
+} as const satisfies { readonly [Word in Lowercase<_Defined>]: _OrdinalOf<Word> }
+
+// Both directions read the one table: the word schema off its keys, the inbound narrowing off its entries. Ordinal
+// ascent IS the producer's rank ladder, so declaration order carries rank and no rank column restates it here.
+const _PhaseWord: Schema.Schema<Progress.Phase> = Schema.Literal(...Record.keys(_phases))
+const _worded = (ordinal: ProgressPhase): Option.Option<Progress.Phase> =>
+  Option.map(Array.findFirst(Record.toEntries(_phases), ([, member]) => member === ordinal), ([word]) => word)
+
+// The mark carries the producer's five columns and nothing beside them. Absence rides `Option` at construction, so
+// no consumer reads `undefined` and no fabricated zero makes an unmeasured phase look measured.
+class ProgressMark extends Schema.Class<ProgressMark>("Progress.Mark")({
+  phase: _PhaseWord,
+  fraction: Schema.OptionFromSelf(Schema.Number),
+  segments: Schema.OptionFromSelf(Schema.BigIntFromSelf),
+  at: Schema.DateTimeUtcFromSelf,
+  correlation: Schema.Uint8ArrayFromSelf,
+}) {}
+
+// ONE bidirectional owner over the generated response. `Format.proto.message` runs the corpus rules first — defined
+// non-zero phase, the `[0, 1]` fraction bound, the sixteen-byte correlation, the required stamp — so this transform
+// lifts columns and re-judges none of them; `valid_types=protovalidate_required` is why `at` reads present without a
+// nullish arm. The encode arm exists so a loopback or fixture mints a response through the same declaration the live
+// peer's frames land through, rather than through a second shape a test writes by hand.
+const _MarkFromWire: Schema.Schema<Progress.Mark, MessageShape<typeof WatchResponseSchema>> = Schema.transformOrFail(
+  Format.proto.message(WatchResponseSchema),
+  ProgressMark,
+  {
+    strict: true,
+    decode: (wire, _options, ast) =>
+      Either.map(
+        Either.all({
+          phase: Either.fromOption(
+            _worded(wire.phase),
+            () => new ParseResult.Type(ast, wire, `<phase-undefined:${wire.phase}>`),
+          ),
+          at: Either.fromOption(
+            DateTime.make(timestampMs(wire.at)),
+            () => new ParseResult.Type(ast, wire, "<stamp-range>"),
+          ),
+        }),
+        ({ at, phase }) =>
+          new ProgressMark({
+            phase,
+            fraction: Option.fromNullable(wire.fraction),
+            segments: Option.fromNullable(wire.segments),
+            at,
+            correlation: wire.correlation,
+          }),
+      ),
+    encode: (mark) =>
+      Either.right(Format.proto.create(WatchResponseSchema, {
+        phase: _phases[mark.phase],
+        fraction: Option.getOrUndefined(mark.fraction),
+        segments: Option.getOrUndefined(mark.segments),
+        at: timestampFromMs(DateTime.toEpochMillis(mark.at)),
+        correlation: mark.correlation,
+      })),
+  },
+)
+
+// `admitted` rides first for the reason `Dial.sdk` takes it first: the pin is the precondition, not a decoration.
+// Derivation happens INSIDE the stream's own scope, so opening a watch is one act — the alternative hands every
+// composition root an sdk mint to sequence, and a caller that forgets it holds a descriptor that met no peer. The
+// request is minted and admitted through the generated descriptor's own rule, so the sixteen-byte width refuses on
+// the parse rail before a transport is touched rather than at the peer after a round trip.
+const _watch = (
+  admitted: Capability.Admitted,
+  correlation: Uint8Array,
+): Stream.Stream<Progress.Mark, ParseResult.ParseError | Wire.Fault | Wire.InvokeFault, Dial> =>
+  Stream.unwrap(Effect.gen(function* () {
+    const request = yield* Schema.decode(Format.proto.message(WatchRequestSchema))(
+      Format.proto.create(WatchRequestSchema, { correlation }),
+    )
+    const sdk = yield* Dial.sdk(admitted, ProgressService)
+    return Stream.mapEffect(sdk.watch(request), Schema.decode(_MarkFromWire))
+  }))
+
+const Progress: {
+  readonly Mark: typeof ProgressMark
+  readonly watch: typeof _watch
+} = {
+  Mark: ProgressMark,
+  watch: _watch,
+}
+
+declare namespace Progress {
+  type Mark = ProgressMark
+  type Phase = keyof typeof _phases
+}
+
+type _ProgressMark = Progress.Mark
+type _ProgressPhase = Progress.Phase
 
 const Invoke = {
   Transport,
   Dial,
   Capability,
   Gateway,
+  Progress,
   AvailabilityGate,
   Support: {
     Capture: SupportCapture,
@@ -855,6 +996,10 @@ declare namespace Invoke {
     type Policy = _DialPolicy
     type Seam = _DialSeam
   }
+  namespace Progress {
+    type Mark = _ProgressMark
+    type Phase = _ProgressPhase
+  }
   type Payload = CommandPayload
   type Invocation = CommandInvocation
 }
@@ -864,7 +1009,7 @@ declare namespace Invoke {
 export { Invoke }
 ```
 
-## [06]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

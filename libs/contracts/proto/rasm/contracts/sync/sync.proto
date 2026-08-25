@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package rasm.contracts.sync;
+
+import "buf/validate/validate.proto";
+import "rasm/contracts/clock/hlc.proto";
+
+// --- [CURSORS] ----------------------------------------------------------------------------
+
+// A position in ONE store's changefeed: the origin store, its sequence, and the stamp of the entry at that
+// position. A pull cursor and a push acknowledgement live in two sequence spaces and never substitute.
+message SyncCursorWire {
+  bytes origin_store = 1 [(buf.validate.field).bytes.len = 16];
+  uint64 sequence = 2;
+  rasm.contracts.clock.Hlc stamp = 3 [(buf.validate.field).required = true];
+}
+
+// --- [DELTA] ------------------------------------------------------------------------------
+
+// Pull the peer's feed past the caller's position in it. `page_size` bounds the frames one reply carries.
+message PullRequest {
+  SyncCursorWire cursor = 1 [(buf.validate.field).required = true];
+  uint32 page_size = 2 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 4096
+  }];
+}
+
+// Each frame is one op-log entry in its thirteen-slot MessagePack envelope, opaque to this service; the
+// schema fingerprint is the peer's, and a caller whose own fingerprint differs applies nothing.
+message PullResponse {
+  uint64 schema_fingerprint = 1;
+  repeated bytes frames = 2 [(buf.validate.field).repeated = {
+    max_items: 4096
+    items: {
+      bytes: {
+        min_len: 1
+        max_len: 16777216
+      }
+    }
+  }];
+  SyncCursorWire cursor = 3 [(buf.validate.field).required = true];
+}
+
+message PushRequest {
+  uint64 schema_fingerprint = 1;
+  repeated bytes frames = 2 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 4096
+    items: {
+      bytes: {
+        min_len: 1
+        max_len: 16777216
+      }
+    }
+  }];
+}
+
+// The peer's confirmed position in the CALLER's feed.
+message PushResponse {
+  SyncCursorWire acked = 1 [(buf.validate.field).required = true];
+}
+
+// --- [CHECKOUT] ---------------------------------------------------------------------------
+
+// The geometry-blob manifest one root entry's closure needs beyond what the caller already holds.
+message TransferSetRequest {
+  bytes root = 1 [(buf.validate.field).bytes.len = 16];
+  repeated bytes held = 2 [(buf.validate.field).repeated = {
+    max_items: 65536
+    unique: true
+    items: {
+      bytes: {len: 16}
+    }
+  }];
+}
+
+message TransferSetResponse {
+  repeated bytes missing = 1 [(buf.validate.field).repeated = {
+    max_items: 65536
+    unique: true
+    items: {
+      bytes: {len: 16}
+    }
+  }];
+}
+
+// Stream the root entry and every entry its closure names, root first, each in the op-log envelope.
+message CheckoutRequest {
+  bytes root = 1 [(buf.validate.field).bytes.len = 16];
+}
+
+message CheckoutResponse {
+  uint64 schema_fingerprint = 1;
+  bytes frame = 2 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 16777216
+  }];
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+
+service SyncService {
+  rpc Pull(PullRequest) returns (PullResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc Push(PushRequest) returns (PushResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc TransferSet(TransferSetRequest) returns (TransferSetResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc Checkout(CheckoutRequest) returns (stream CheckoutResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

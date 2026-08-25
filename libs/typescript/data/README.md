@@ -14,23 +14,24 @@
 
 [JOURNAL]:
 - [07]-[APPEND](.planning/journal/append.md): Journal, outbox, and idempotency settling atomically — a replay returns its stored receipt.
-- [08]-[EVOLVE](.planning/journal/evolve.md): One generation per log — a shape change re-mints it whole under a custody receipt.
+- [08]-[EVOLVE](.planning/journal/evolve.md): One shape change re-mints the log whole under a custody receipt; snapshots as discardable projections.
 - [09]-[FACT](.planning/journal/fact.md): Audit evidence and usage metering as one polymorphic fact family on one buffered rail.
-- [10]-[RETAIN](.planning/journal/retain.md): Lawful aging — the log never rewrites; windows expire ledgers, shredding folds reads to redaction.
+- [10]-[GENERATION](.planning/journal/generation.md): Floor mint — payload coordinate, generation identity, custody ledger, transaction guard.
+- [11]-[RETAIN](.planning/journal/retain.md): Lawful aging — the log never rewrites; windows expire ledgers, shredding folds reads to redaction.
 
 [OBJECT]:
-- [11]-[ASSET](.planning/object/asset.md): Delivered-asset admission — a category is a row with its own transforms and derive plane.
-- [12]-[FILE](.planning/object/file.md): Filesystem and derivative planes on one spine — open, admit, emit, mint, store, refer.
-- [13]-[REMOTE](.planning/object/remote.md): Every non-local byte tree behind one origin-addressed surface — SFTP, FTP, WebDAV, object peers.
-- [14]-[STORE](.planning/object/store.md): Verified object custody, confined event `dataref` residence, grants, lifecycle, and GC.
-- [15]-[STREAM](.planning/object/stream.md): Resumable content-addressed intake — bounded chunks, verified offsets, one identity to the key.
+- [12]-[ASSET](.planning/object/asset.md): Delivered-asset admission — a category is a row with its own transforms and derive plane.
+- [13]-[FILE](.planning/object/file.md): Filesystem and derivative planes on one spine — open, admit, emit, mint, store, refer.
+- [14]-[REMOTE](.planning/object/remote.md): Every non-local byte tree behind one origin-addressed surface — SFTP, FTP, WebDAV, object peers.
+- [15]-[STORE](.planning/object/store.md): Verified object custody, confined event `dataref` residence, grants, lifecycle, and GC.
+- [16]-[STREAM](.planning/object/stream.md): Resumable content-addressed intake — bounded chunks, verified offsets, one identity to the key.
 
 [READ]:
-- [16]-[BATCH](.planning/read/batch.md): Request families declared once — structural dedup folding N identical lookups into one windowed resolver.
-- [17]-[FOLD](.planning/read/fold.md): Durable projections — one plan bound to one keyed relation at three staleness budgets.
-- [18]-[LIVE](.planning/read/live.md): Read-your-writes as a coordinate vocabulary written at the mutation and consumed at the query.
-- [19]-[QUERY](.planning/read/query.md): Typed CRUD — every row leaves decoded, every request proves against a schema first.
-- [20]-[SEARCH](.planning/read/search.md): FTS, trigram, phonetic, fuzzy, and semantic rows ranked and joined by one fusion fold.
+- [17]-[BATCH](.planning/read/batch.md): Request families declared once — structural dedup folding N identical lookups into one windowed resolver.
+- [18]-[FOLD](.planning/read/fold.md): Durable projections — one plan bound to one keyed relation at three staleness budgets.
+- [19]-[LIVE](.planning/read/live.md): Read-your-writes as a coordinate vocabulary written at the mutation and consumed at the query.
+- [20]-[QUERY](.planning/read/query.md): Typed CRUD — every row leaves decoded, every request proves against a schema first.
+- [21]-[SEARCH](.planning/read/search.md): FTS, trigram, phonetic, fuzzy, and semantic rows ranked and joined by one fusion fold.
 
 ## [02]-[DOMAIN_PACKAGES]
 

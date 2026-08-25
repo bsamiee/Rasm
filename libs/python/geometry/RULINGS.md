@@ -10,7 +10,7 @@
 - STEP protocol admission belongs to the isolated `cad` provider; geometry consumes generated `SealedStep` and never reads exchange headers.
 - `Spill` and `SplatFormat` cross as corpus enums.
 - Generated `Semantic` mints from the kernel's schema/project evidence; the source index stores its protobuf bytes and the receipt carries it whole.
-- `ArtifactFrame` carries one nested `ArtifactRef` and payload — Connect orders messages, runtime `transport/artifact` owning extent and identity proof.
+- `ArtifactFrame` carries one `ArtifactRef` plus payload; Connect orders frames while runtime `transport/artifact` proves extent and identity.
 - `ArtifactService.Fetch` and `Put` share the daemon's one repository; generated request and response shapes never double as commands.
 
 ## [02]-[SHAPE]

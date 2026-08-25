@@ -92,7 +92,6 @@ Generator and analyzer both read the `[MessagePackObject]` contract attributes `
 [STACKING]:
 - `MessagePack`(`api-messagepack.md`): the generated formatters and the `GeneratedMessagePackResolver` partial back each folder's composed resolver chain, so every serialize-time contract fault surfaces at compile instead.
 - Persistence consumer anchor: the `PersistenceResolver` chain (`InstantFormatter.Instance` → `ThinktectureMessageFormatterResolver.Instance` → `SourceGeneratedFormatterResolver.Instance` → `StandardResolver.Instance`) that `Element/codec` binds rides these generated assets; `MsgPack008`/`011`/`012`/`016` prove the AOT-generated resolver constructs every formatter, so the codec bytes the `Version/timetravel` fold and the Redis/NATS snapshot wire replay read are constructible under published AOT before any store profile writes them.
-- Materials consumer anchor: the analyzer is the build-only proof of `[Key]` coverage on every stage-crossing row, gating the `[GeneratedMessagePackResolver]` chain `Appearance/interchange#TEXTURE_EGRESS` `StageCodec` composes.
 
 [LOCAL_ADMISSION]:
 - Wire owners declare `[MessagePackObject]` records over `[Key(int)]` array keys, so `MsgPack003`/`004`/`005` reject an unattributed or unkeyed type at build before a resolver chain binds it.

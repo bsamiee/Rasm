@@ -27,16 +27,16 @@
 
 [ENTRYPOINT_SCOPE]: shared validation and structured violation projection
 
-| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                                      |
-| :-----: | :---------------------------------------------------------- | :------- | :---------------------------------------------------------------- |
-|  [01]   | `validate(message, *, fail_fast=False)`                     | static   | validate through the shared cached engine; return on admission    |
-|  [02]   | `collect_violations(message, *, fail_fast=False)`           | static   | return every `Violation` without raising a constraint refusal     |
-|  [03]   | `Validator(registry=None)`                                  | ctor     | construct an isolated engine over an optional extension registry  |
-|  [04]   | `Validator.validate(message, *, fail_fast=False)`           | instance | validate through the owned engine                                 |
-|  [05]   | `Validator.collect_violations(message, *, fail_fast=False)` | instance | return violations through the owned engine                        |
-|  [06]   | `ValidationError.to_proto() -> Violations`                  | instance | project the refusal into a protobuf message fit for error details |
-|  [07]   | `ValidationError.violations`                                | property | read the typed violation sequence                                 |
-|  [08]   | `Violation.proto`                                           | property | read one `buf.validate.Violation` protobuf                        |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                                   |
+| :-----: | :---------------------------------------------------------- | :------- | :------------------------------------------------------------- |
+|  [01]   | `validate(message, *, fail_fast=False)`                     | static   | validate through the shared cached engine; return on admission |
+|  [02]   | `collect_violations(message, *, fail_fast=False)`           | static   | return every `Violation` without raising a constraint refusal  |
+|  [03]   | `Validator(registry=None)`                                  | ctor     | construct isolated engine over optional extension registry     |
+|  [04]   | `Validator.validate(message, *, fail_fast=False)`           | instance | validate through the owned engine                              |
+|  [05]   | `Validator.collect_violations(message, *, fail_fast=False)` | instance | return violations through the owned engine                     |
+|  [06]   | `ValidationError.to_proto() -> Violations`                  | instance | return `buf.validate.Violations`                               |
+|  [07]   | `ValidationError.violations`                                | property | read the typed violation sequence                              |
+|  [08]   | `Violation.proto`                                           | property | read one `buf.validate.Violation` protobuf                     |
 
 - `validate`: admits both `protobuf-py` and `google.protobuf` messages; this branch passes generated `protobuf-py` classes alone.
 - `ValidationError.to_proto`: returns a `protobuf-py` `buf.validate.Violations` message that `ConnectError.details` packs without translation.

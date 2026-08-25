@@ -1009,19 +1009,19 @@ public static class EmbeddedStore {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                 | [BINDING]                                             |
-| :-----: | :---------------- | :-------------------------------------- | :---------------------------------------------------- |
-|  [01]   | open ritual       | one idempotent fold                     | bootstrap/recovery/steady-state are one path          |
-|  [02]   | pragma residency  | per-connection rows only                | file-persistent rows are the materialization gate's         |
-|  [03]   | hardening         | `sqlite3_db_config` defensive + DQS off | connection policy via `Handle`, not connection-string |
-|  [04]   | capability scope  | connection-instance registration        | grants apply per physical open, never persisted       |
-|  [05]   | materialization gate    | first-opener IMMEDIATE transaction      | losers observe the bumped epoch; no leader election   |
-|  [06]   | write transaction | IMMEDIATE begin                         | a deferred-then-write burns the busy budget           |
-|  [07]   | engine sweep      | closed (PostgreSQL + SQLite only)       | a new embedded engine row is the named defect         |
-|  [08]   | sidecar unit      | `-wal`/`-shm` set                       | a main file without its sidecars is silent corruption |
-|  [09]   | cipher floor      | `e_sqlite3mc` + KMS-unwrapped DEK       | `sqlite3_key` first crossing; `sqlite3_rekey` rotates |
-|  [10]   | key custody       | `KMS_CUSTODY` envelope algebra          | plaintext zeroized after bind; never persisted        |
-|  [11]   | lane admission    | `StoreProfile.Admits` + `Degrade`       | absence states at admission on BOTH engines           |
+| [INDEX] | [POLICY]             | [VALUE]                                 | [BINDING]                                             |
+| :-----: | :------------------- | :-------------------------------------- | :---------------------------------------------------- |
+|  [01]   | open ritual          | one idempotent fold                     | bootstrap/recovery/steady-state are one path          |
+|  [02]   | pragma residency     | per-connection rows only                | file-persistent rows are the materialization gate's   |
+|  [03]   | hardening            | `sqlite3_db_config` defensive + DQS off | connection policy via `Handle`, not connection-string |
+|  [04]   | capability scope     | connection-instance registration        | grants apply per physical open, never persisted       |
+|  [05]   | materialization gate | first-opener IMMEDIATE transaction      | losers observe the bumped epoch; no leader election   |
+|  [06]   | write transaction    | IMMEDIATE begin                         | a deferred-then-write burns the busy budget           |
+|  [07]   | engine sweep         | closed (PostgreSQL + SQLite only)       | a new embedded engine row is the named defect         |
+|  [08]   | sidecar unit         | `-wal`/`-shm` set                       | a main file without its sidecars is silent corruption |
+|  [09]   | cipher floor         | `e_sqlite3mc` + KMS-unwrapped DEK       | `sqlite3_key` first crossing; `sqlite3_rekey` rotates |
+|  [10]   | key custody          | `KMS_CUSTODY` envelope algebra          | plaintext zeroized after bind; never persisted        |
+|  [11]   | lane admission       | `StoreProfile.Admits` + `Degrade`       | absence states at admission on BOTH engines           |
 
 ## [04]-[ENGINE_OPERATIONS]
 

@@ -141,7 +141,7 @@ public sealed record PanelFact(
 public abstract class HostPanel : Panel, IPanel {
     // One panel tears down once; anything past this is a shed count a reader takes rather than a ledger that grows
     // with a host that keeps raising after the close it already reported.
-    private static readonly Dimension FaultCap = Dimension.Create(value: 32);
+    private static readonly Rasm.Numerics.Dimension FaultCap = Rasm.Numerics.Dimension.Create(value: 32);
 
     private readonly Fin<PluginKey> owner;
     private readonly Fin<PanelKey> identity;
@@ -404,7 +404,7 @@ public abstract partial record PanelMount<TPanel> where TPanel : HostPanel {
     public sealed record Settled(PanelKey Panel, PanelVerb Verb) : PanelMount<TPanel>;
     public sealed record Opened(PanelPresence Presence) : PanelMount<TPanel>;
     public sealed record Probed(PanelPresence Presence) : PanelMount<TPanel>;
-    public sealed record Found(PanelSeat Seat, Dimension Live) : PanelMount<TPanel>;
+    public sealed record Found(PanelSeat Seat, Rasm.Numerics.Dimension Live) : PanelMount<TPanel>;
     public sealed record DockBar(DockBarKey Id, DockBarUse Use) : PanelMount<TPanel>;
 }
 
@@ -458,7 +458,7 @@ public static class PanelHost {
                        plugin: held.Plugin,
                        scope: work.Scope,
                        body: (seat, live) => Fin.Succ<PanelMount<TPanel>>(value: new PanelMount<TPanel>.Found(
-                           Seat: seat, Live: Dimension.Create(value: live.Count))),
+                           Seat: seat, Live: Rasm.Numerics.Dimension.Create(value: live.Count))),
                        key: held.Op),
                    rebadge: static (held, work) => Badged<TPanel>(
                        origin: work.Icon,
@@ -864,8 +864,8 @@ public sealed record RuiSnapshot(
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RuiReceipt {
     private RuiReceipt() { }
-    public sealed record Completed(RuiSnapshot Snapshot, Dimension Applied) : RuiReceipt;
-    public sealed record Partial(RuiSnapshot Snapshot, Dimension Applied, Error Fault) : RuiReceipt;
+    public sealed record Completed(RuiSnapshot Snapshot, Rasm.Numerics.Dimension Applied) : RuiReceipt;
+    public sealed record Partial(RuiSnapshot Snapshot, Rasm.Numerics.Dimension Applied, Error Fault) : RuiReceipt;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -897,9 +897,9 @@ public static class Rui {
             commands);
         return Census(op: op).Map(snapshot => state.Fault.Match<RuiReceipt>(
             Some: fault => new RuiReceipt.Partial(
-                Snapshot: snapshot, Applied: Dimension.Create(value: state.Applied), Fault: fault),
+                Snapshot: snapshot, Applied: Rasm.Numerics.Dimension.Create(value: state.Applied), Fault: fault),
             None: () => new RuiReceipt.Completed(
-                Snapshot: snapshot, Applied: Dimension.Create(value: state.Applied))));
+                Snapshot: snapshot, Applied: Rasm.Numerics.Dimension.Create(value: state.Applied))));
     }
 
     private static Fin<Unit> Apply(RuiCommand command, Op op) => command.Switch(
@@ -1101,7 +1101,7 @@ public abstract partial record PanelSectionSignal {
 public sealed partial class PanelSectionSpec {
     public HostText Caption { get; }
     public ControlSpec Body { get; }
-    public Dimension Height { get; }
+    public Rasm.Numerics.Dimension Height { get; }
     public CapabilitySet<PanelSectionFeature> Features { get; }
     public Option<HostText> CommandOption { get; }
     public Option<Func<PanelSectionSignal, Fin<Unit>>> Life { get; }
@@ -1113,7 +1113,7 @@ public sealed partial class PanelSectionSpec {
         ref ValidationError? validationError,
         ref HostText caption,
         ref ControlSpec body,
-        ref Dimension height,
+        ref Rasm.Numerics.Dimension height,
         ref CapabilitySet<PanelSectionFeature> features,
         ref Option<HostText> commandOption,
         ref Option<Func<PanelSectionSignal, Fin<Unit>>> life) =>
@@ -1207,7 +1207,7 @@ public sealed class PanelSectionMount : IDisposable {
 public static class PanelSections {
     // One holder's sections and their lifecycle hooks raise inside one panel's lifetime, so the ring is sized to
     // that and its shed count reads rather than a ledger that grows with every refresh the host raises.
-    private static readonly Dimension FaultCap = Dimension.Create(value: 64);
+    private static readonly Rasm.Numerics.Dimension FaultCap = Rasm.Numerics.Dimension.Create(value: 64);
 
     public static Fin<PanelSectionMount> Mount(
         Seq<PanelSectionSpec> sections,
@@ -1386,7 +1386,7 @@ public sealed partial class UnitSpan {
     public double Minimum { get; }
     public double Maximum { get; }
     public PositiveMagnitude Increment { get; }
-    public Dimension Decimals { get; }
+    public Rasm.Numerics.Dimension Decimals { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -1395,7 +1395,7 @@ public sealed partial class UnitSpan {
         ref double minimum,
         ref double maximum,
         ref PositiveMagnitude increment,
-        ref Dimension decimals) =>
+        ref Rasm.Numerics.Dimension decimals) =>
         validationError = double.IsFinite(value) && double.IsFinite(minimum) && double.IsFinite(maximum)
             && minimum <= value && value <= maximum
             ? null

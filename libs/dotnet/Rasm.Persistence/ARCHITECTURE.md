@@ -108,7 +108,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-`Rasm.Compute`'s analysis rail hands two typed row streams over one shape seam. `SeriesLane.Ingest` lands the temporal leg — this package's own `Query/datasets#SERIES_ROSTER` `SeriesPoint` — under the `SeriesKind.Assessment` row, while the neutral `AssessmentRow` result estate stays Compute-owned vocabulary crossing as producer-handed row data, so this package declares no result-row twin.
+`Rasm.Compute`'s analysis rail hands two typed row streams over one shape seam. `SeriesLane.Ingest` lands the temporal leg — this package's own `Query/datasets#SERIES_ROSTER` `SeriesPoint` — under the `SeriesKind.Assessment` row, while the neutral `AssessmentRow` result estate stays Compute-owned vocabulary crossing as producer-handed row data onto the `Query/datasets#ASSESSMENT_ROWS` dataset this custodian declares — a landing, never a twin.
 
 ```mermaid
 ---
@@ -189,6 +189,7 @@ flowchart LR
     Runtime{{python:runtime}}
     Data{{python:data}}
     Artifacts([python:artifacts])
+    Peer[(Rasm.Persistence peer)]
     Version e2@-->|"[WIRE]: CrdtOpWire"| Core
     Version e3@<-->|"[WIRE]: OpLogEntry"| Runtime
     Artifacts e4@-->|"[CONTENT_KEY]: SignedArtifact"| Version
@@ -214,6 +215,7 @@ flowchart LR
     AppUi e22@-->|"[PROJECTION]: ReplayWindow"| Version
     AppUi e23@-->|"[CONTENT_KEY]: CollabSnapshot"| Store
     Query e24@-->|"[RECEIPT]: resident ReceiptEnvelope"| AppUi
+    Version e27@<-->|"[WIRE]: SyncService"| Peer
 ```
 
 ## [04]-[INTERNAL]
@@ -274,3 +276,4 @@ Each sink cursor carries one optional deferred head, and the first terminal row 
 - AppHost owns scheduling, drain, hop retry, correlation, and the cache port; Persistence contributes rows, never reversing the dependency.
 - AppHost maps its terminal outbox delegate directly to Persistence `Coordinate.QuarantineAndAdvance`.
 - Database retry stays outside the AppHost hop law; the relational rows own it.
+- Cross-store sync is the one peer RPC: `SyncService` binds two processes of this package, and every dial rides the AppHost hop pipeline.

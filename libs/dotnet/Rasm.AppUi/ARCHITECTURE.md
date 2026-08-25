@@ -187,19 +187,20 @@ flowchart LR
     Rasm e8@-->|"[WIRE]: SpatialIndex"| Render
     Rasm e9@-->|"[BOUNDARY]: SpringShape"| Theme
     Rasm e10@-->|"[SHAPE]: SunPosition + CellLattice"| Analysis
-    Bim e11@-->|"[SHAPE]: GeoTiles"| Charts
-    Bim e12@-->|"[RECEIPT]: CostSchedule"| Charts
-    Bim e13@-->|"[RECEIPT]: ScheduleNetwork"| Charts
-    Bim e14@-->|"[RECEIPT]: EnergyResults"| Charts
-    Persistence e15@-->|"[PROJECTION]: SeriesBucket"| Charts
-    Persistence e16@-->|"[RECEIPT]: resident ReceiptEnvelope"| Diagnostics
-    Bim e17@-->|"[PORT]: IssueBoard"| Collab
-    Collab e18@-->|"[PROJECTION]: ReplayWindow"| Persistence
-    Collab e19@-->|"[CONTENT_KEY]: CollabSnapshot"| Persistence
-    Persistence e20@-->|"[WIRE]: DocumentQuery + DocumentHit"| Document
-    Bim e21@-->|"[RECEIPT]: ConstructionState"| Render
-    Bim e22@-->|"[BOUNDARY]: BcfViewpoint"| Render
-    Bim e23@-->|"[SHAPE]: GeoReference"| Render
+    Rasm e11@-->|"[SHAPE]: SunPosition"| Charts
+    Bim e12@-->|"[SHAPE]: GeoTiles"| Charts
+    Bim e13@-->|"[RECEIPT]: CostSchedule"| Charts
+    Bim e14@-->|"[RECEIPT]: ScheduleNetwork"| Charts
+    Bim e15@-->|"[RECEIPT]: EnergyResults"| Charts
+    Persistence e16@-->|"[PROJECTION]: SeriesBucket"| Charts
+    Persistence e17@-->|"[RECEIPT]: resident ReceiptEnvelope"| Diagnostics
+    Bim e18@-->|"[PORT]: IssueBoard"| Collab
+    Collab e19@-->|"[PROJECTION]: ReplayWindow"| Persistence
+    Collab e20@-->|"[CONTENT_KEY]: CollabSnapshot"| Persistence
+    Persistence e21@-->|"[WIRE]: DocumentQuery + DocumentHit"| Document
+    Bim e22@-->|"[RECEIPT]: ConstructionState"| Render
+    Bim e23@-->|"[BOUNDARY]: BcfViewpoint"| Render
+    Bim e24@-->|"[SHAPE]: GeoReference"| Render
 ```
 
 ```mermaid
@@ -245,6 +246,7 @@ flowchart LR
 - `[RECEIPT]: ConstructionState` — `SchedulePlayback.FromSchedule` reads `ConstructionState.At` and `TaskKind` as Bim-owned 4D schedule values.
 - `[RECEIPT]: resident ReceiptEnvelope` — `EvidenceSource.Resident` hands back the envelopes the live sink held, so join and accrual stay one fold.
 - `[SHAPE]: SunPosition + CellLattice` — `BudgetMeter` hands the cell ceiling to `CellLattice.Of`, so the previewed lattice IS the solved one.
+- `[SHAPE]: SunPosition` — `Charts/climate` projects kernel angles into its analysis carrier without re-solving the ephemeris.
 - Profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
 - `[PORT]: DeterminismContext` — AppHost composes its runtime port spine at app composition, and `CapabilityPin` anchors it.
 - `[PORT]: ReceiptSinkPort + InstrumentSpec + Slo` — facts PROJECT through `TelemetryContributorPort` onto the `TelemetrySource.AppUi` meter.

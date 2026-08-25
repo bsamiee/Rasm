@@ -1,15 +1,16 @@
 # [PERSISTENCE_QUERY_DATASETS]
 
-Rasm.Persistence declares THREE datasets for itself here, distinct from every dataset a producer hands across a seam: the Series hypertable roster this custodian provisions and reads, the Fleet op-log row vocabulary both ends of the `Version/egress` seam read, and the receipt evidence plane the kernel's message-envelope stream lands in. Each is one `AnalyticsSchema` value, so the DDL that plants its relation, the plan that reads it, the COPY that lands it, and the `RecordBatch` a cold-tail generation carries all derive from one declaration.
+Rasm.Persistence declares FOUR datasets for itself here, distinct from every dataset a producer hands across a seam: the Series hypertable roster this custodian provisions and reads, the Fleet op-log row vocabulary both ends of the `Version/egress` seam read, the receipt evidence plane the kernel's message-envelope stream lands in, and the assessment-fact plane the analysis rail's typed result stream lands on. Each is one `AnalyticsSchema` value, so the DDL that plants its relation, the plan that reads it, the COPY that lands it, and the `RecordBatch` a cold-tail generation carries all derive from one declaration.
 
-Producer-handed datasets cross elsewhere and stay elsewhere — `Rasm.Element` hands its catalogue datasets across the `[WIRE]: AnalyticsSchema` seam and `Rasm.Materials` hands its catalogue and texture generations across the `[WIRE]: MaterialsDataset` seam, two named wires over ONE admitted vocabulary `Query/residence#SEAM_ADMISSION` gates. This page declares no seam of its own: a custodian-owned dataset is admitted by construction.
+Producer-handed DECLARATIONS cross elsewhere and stay elsewhere — `Rasm.Element` hands its catalogue datasets across the `[WIRE]: AnalyticsSchema` seam and `Rasm.Materials` hands its catalogue and texture generations across the `[WIRE]: MaterialsDataset` seam, two named wires over ONE admitted vocabulary `Query/residence#SEAM_ADMISSION` gates. Producer-handed ROWS are the other crossing and land on a dataset declared here, which is why this page declares no seam of its own: a custodian-owned dataset is admitted by construction and a producer that hands rows onto it hands data, never a declaration.
 
 ## [01]-[INDEX]
 
 - [02]-[SERIES_ROSTER]: `SeriesKind` derives each hypertable family's whole provisioning set from one row, `SeriesPoint` is the ingest value, `SeriesSelector` names a stream by key or by facet, and `SeriesLane` is the family's landing arm beside its three reads.
 - [03]-[WAREHOUSE_OPLOG]: `WarehouseSchema` declares the Fleet op-log dataset and `WarehouseOpRow` is the row both ends of the egress seam read.
 - [04]-[RECEIPT_EVIDENCE]: `ReceiptResidence` folds the kernel receipt stream into wide-event rows, projects its numeric leaves onto the Telemetry hypertable, builds the cold-tail batch, and serves the resident message-envelope read.
-- [05]-[RESEARCH]: open verification debts and their routes.
+- [05]-[ASSESSMENT_ROWS]: `AssessmentDataset` declares the analysis rail's typed fact plane and `AssessmentLane` derives its provisioning, lands its rows and its cold-tail batch, and serves the content-addressed read.
+- [06]-[RESEARCH]: open verification debts and their routes.
 
 ## [02]-[SERIES_ROSTER]
 
@@ -443,6 +444,237 @@ public static class ReceiptResidence {
 }
 ```
 
+## [05]-[ASSESSMENT_ROWS]
+
+- Owner: `AssessmentDataset` is the ONE `AnalyticsSchema` value the analysis rail's typed result stream lands on, beside the `ResidencePolicy` its whole provisioning set derives from and the column identifiers every derivation reads; `AssessmentLane` is that dataset's provisioning derivation, its two landing arms, its named plan, and its resident read, with `Cells` the ONE cell fold both landings share and `Shape` its reader inverse.
+- Cases: the fourteen `PropertyValue` arms are ONE `kind` column carrying the union's own case token, and each arm answers the scalar face the `Face` projection seats — a `Measure` its SI magnitude and unit, a `Number` its magnitude, an `Integer` its magnitude when the double holds the value exactly, a `Boolean`/present `Logical` its flag, a `Bounded` its three SI bounds under the one unit its members share, a `Text`/`Enumerated` its canonical render, and the remaining arms the all-absent face the `value` column already carries whole.
+- Entry: `AssessmentLane.Provision()` derives the whole ordered statement set through the one residence emitter; `Ingest(NpgsqlDataSource, Seq<TRow>, Func<TRow, FactRow>, ProjectionContext)` is the relational arm of the one landing and `Batch(Seq<TRow>, Func<TRow, FactRow>, ProjectionContext, metadata)` its cold-tail record batch, both over the producer's OWN row type through one projection; `Scan(UInt128, Option<Discipline>)` is the named plan and `Resident(reach, scope, key, discipline, mint)` the durable read, handing each row's five coordinates to a mint the caller supplies.
+- Auto: a fact kind gaining a scalar face is ONE `ColumnRow` beside its slot in the `Face` projection, and a kind with no scalar face still lands whole because `value` carries the entire fact through the seam's own codec; the DDL, the COPY roster, the record batch, the plan's projected names, and the reader's ordinals all derive from `AssessmentDataset.Schema`, so a column insert moves every one of them together and no literal index or hand column list survives beside it. The dataset declares NO measure, so the Series arm provisions hypertable, columnstore, and retention and emits no continuous aggregate — a fact stream is not a scalar series, and the numeric rollup a discipline wants rides `SeriesKind.Assessment` through the producer's own temporal leg.
+- Receipt: provisioning, ingest, and the read ride the residence slots `Query/residence#RESIDENCE_FAMILY` declares — `store.columnar.residence.provision`, `.ingest`, and `.read`; this dataset declares no slot of its own.
+- Packages: Npgsql (`NpgsqlDataSource`), Apache.Arrow (`RecordBatch`), Rasm (`Domain/identity#CONTENT_KEY` `ContentHash.Hex` — the key text a content-addressed narrowing carries, `Domain/rails#OPERATION_KEY` `Op` and its `AcceptValidated` admission), Rasm.Element (`Classification/classification#DISCIPLINE_AXIS` `Discipline`, `Properties/property#PROPERTY_VALUE` `PropertyName`/`PropertyValue`, `Properties/quantity#MEASURE_VALUE` `MeasureValue`, `Graph/wire#NODE_CODEC` `ElementWire` — the one public door onto the seam's `PropertyValue` codec), Rasm.Persistence (`Query/residence#COLUMN_VOCABULARY` `AnalyticsSchema`/`ColumnRow`/`ColumnShape`/`ColumnType`/`ColumnCell`/`TimeSpine`/`ArrowLanding`, `#RESIDENCE_FAMILY` `Residence`/`ResidencePolicy`, `#SEAM_ADMISSION` `AnalyticsSeam.LandedColumn`, `#PROVISIONING` `ResidenceDdl`/`ProvisionStep`, `Query/serving#READ_PLAN` `ResidencePlan`/`ResidenceFold`/`ResidenceScope`, `#SERVING_PLANE` `ResidenceRead`/`ResidenceLanding`/`ResidenceRow`/`ResidenceReach`, `Element/graph#PROJECTION_FRAME` `ProjectionContext`), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new scalar face is one `ColumnRow` beside one `Face` slot; a new consumer of the plane is one `Resident` mint at that consumer; zero new surface — a per-discipline relation, a second cell fold, a hand `SELECT`, a literal reader ordinal, or a record mirroring the producer's row is the deleted form.
+- Law: facet arity is ROW DATA, never schema — a discipline's facet path rides the `ColumnShape.List` container the vocabulary already generates, so an energy row's `(measure, fuel, end-use)` triple and a daylight row's single sensor id land in one column and one relation. A per-discipline table would be a residence per producer, which is the custodian law this page exists to hold. The `value` column is the TRUTH and every scalar column its projection: the whole fact crosses through the seam's one canonical `PropertyValue` codec, so a case with no scalar face rehydrates losslessly and a scalar column is a query accelerator a read never inverts. Tenancy is ROUTING, not a column — the whole batch lands under the ingesting frame's tenant and every read scopes by it. The retention extent matches `SeriesKind.Assessment`'s, so a board resolving a temporal point to its typed rows never lands on rows already dropped.
+- Boundary: `Rasm.Compute` sits ABOVE this custodian and references it, so the producer's `AssessmentRow` record is unnameable here and a mirror of it would be a strata inversion wearing a convenience — the arms take the producer's row type as a TYPE PARAMETER beside one projection onto the five coordinates a fact carries, every one of them `Rasm.Element` or BCL vocabulary this package already references, so neither end holds the other's record. Producer-handed rows LAND: this custodian derives nothing from the fact, re-measures nothing, and admits by construction, while a JSON-only row that no filter can narrow and a scalar-only row that silently drops a `Table`, a `Complex`, or a `Binary` payload are both the deleted form. An empty facet path is an EMPTY RUN, never absence — `ColumnRow.Admits` refuses an absent cell on a container by declaration, and a discipline emitting one unfaceted fact per assessment is the ordinary case.
+
+```csharp signature
+using Apache.Arrow;
+using LanguageExt;
+using NodaTime;
+using Npgsql;
+using Rasm.Domain;                                // ContentHash.Hex, Op — the key text and the operation key
+using Rasm.Element.Classification;                // Discipline — the producer's own roster, read as a row
+using Rasm.Element.Graph;                         // ElementWire — the public door onto the seam's PropertyValue codec
+using Rasm.Element.Properties;                    // PropertyName/PropertyValue/MeasureValue — the fact's typed vocabulary
+using System.Numerics;                            // BigInteger — the Integer arm's exact-magnitude test
+using static LanguageExt.Prelude;
+using static Rasm.Domain.AdmissionSlots;
+
+// The five coordinates a fact row carries, aliased rather than declared: `Rasm.Compute` owns the `AssessmentRow`
+// record and sits ABOVE this custodian, so a record here would be its unreachable twin, while a tuple alias mints no
+// type at all and every coordinate is vocabulary this package already references.
+using FactRow = (System.UInt128 Key, Rasm.Element.Classification.Discipline Discipline,
+    LanguageExt.Seq<string> Facets, Rasm.Element.Properties.PropertyName Name,
+    Rasm.Element.Properties.PropertyValue Value);
+
+// --- [TYPES] ------------------------------------------------------------------------------
+// Assessment FACT plane: one row per (assessment, discipline, facet path, fact name). The column set is the fact's
+// own algebra — an identity head, the queryable scalar face each `PropertyValue` arm answers, and the whole fact as
+// the seam's canonical text — so a filter narrows on columns while a reader rehydrates the typed value.
+public static class AssessmentDataset {
+    // Column identifiers LEAD the declarations: a static field initializer runs in DECLARATION order, so `Schema`
+    // reading an identifier declared below it would capture an uninitialized value and mount a nameless column.
+    public static readonly Identifier KeyColumn = Identifier.Create("key");
+    public static readonly Identifier DisciplineColumn = Identifier.Create("discipline");
+    public static readonly Identifier FacetsColumn = Identifier.Create("facets");
+    public static readonly Identifier NameColumn = Identifier.Create("name");
+    public static readonly Identifier KindColumn = Identifier.Create("kind");
+    public static readonly Identifier MagnitudeColumn = Identifier.Create("magnitude");
+    public static readonly Identifier UnitColumn = Identifier.Create("unit");
+    public static readonly Identifier LowerColumn = Identifier.Create("lower");
+    public static readonly Identifier UpperColumn = Identifier.Create("upper");
+    public static readonly Identifier SetPointColumn = Identifier.Create("setpoint");
+    public static readonly Identifier FlagColumn = Identifier.Create("flag");
+    public static readonly Identifier TextColumn = Identifier.Create("text");
+    public static readonly Identifier ValueColumn = Identifier.Create("value");
+
+    // Retention matches the `SeriesKind.Assessment` window so a stream and its typed rows expire together. `Grain`
+    // and `Backfill` are the continuous-aggregate coordinates a MEASURE-FREE dataset never emits: the row states them
+    // because the policy value is total, and the rollup steps that would read them are absent by declaration.
+    public static readonly ResidencePolicy Policy = new(
+        Retain: Duration.FromDays(365), Grain: Duration.FromDays(1), Chunk: Duration.FromDays(7),
+        Backfill: Duration.FromDays(30), Root: StorePath.Create("assessment_rows"));
+
+    // LANDING spine: a fact carries no observation clock of its own — its instant is the assessment's, already held
+    // by the payload the analysis rail write-backs — so this custodian stamps admission and the seam's own landing
+    // column trails the roster, which is exactly the order `ResidenceLanding.Stage` writes.
+    // The key runs `(key, discipline, name, facets)`: the facet path closes row identity, and ordering on it
+    // co-locates every row sharing a path, which is the run the columnstore compresses. `discipline` and `name` are
+    // the bounded text the segment list carries; `key` and `facets` order inside a segment.
+    public static readonly AnalyticsSchema Schema = new("assessment_rows",
+        Seq(KeyColumn, DisciplineColumn, NameColumn, FacetsColumn),
+        Seq(new ColumnRow(KeyColumn, ColumnType.KeyHex, Nullable: false),
+            new ColumnRow(DisciplineColumn, ColumnType.Utf8, Nullable: false),
+            // The ordered facet path is POSITION-SIGNIFICANT and its arity is the discipline's, so it rides the
+            // container the vocabulary already generates rather than a fixed column set no roster can answer.
+            new ColumnRow(FacetsColumn, new ColumnShape.List(ColumnType.Utf8), Nullable: false),
+            new ColumnRow(NameColumn, ColumnType.Utf8, Nullable: false),
+            new ColumnRow(KindColumn, ColumnType.Utf8, Nullable: false),
+            new ColumnRow(MagnitudeColumn, ColumnType.Float64, Nullable: true),
+            new ColumnRow(UnitColumn, ColumnType.Utf8, Nullable: true),
+            new ColumnRow(LowerColumn, ColumnType.Float64, Nullable: true),
+            new ColumnRow(UpperColumn, ColumnType.Float64, Nullable: true),
+            new ColumnRow(SetPointColumn, ColumnType.Float64, Nullable: true),
+            new ColumnRow(FlagColumn, ColumnType.Bool, Nullable: true),
+            new ColumnRow(TextColumn, ColumnType.Utf8, Nullable: true),
+            // NOT NULL by declaration: the whole fact rides here and a row whose value column is empty is a fact
+            // nothing can rehydrate, which the scalar face would then misreport as a measurement.
+            new ColumnRow(ValueColumn, ColumnType.Utf8, Nullable: false),
+            new ColumnRow(AnalyticsSeam.LandedColumn, ColumnType.Timestamp, Nullable: false)),
+        Time: AnalyticsSeam.LandedColumn, Spine: TimeSpine.Landing, Measure: None);
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class AssessmentLane {
+    // Provisioning rides the one residence emitter over the declaration and its own policy, so this page assembles
+    // no relation, spells no extension name, and writes no SQL.
+    public static Fin<Seq<ProvisionStep>> Provision() =>
+        ResidenceDdl.Provision(Residence.Series, AssessmentDataset.Schema, AssessmentDataset.Policy);
+
+    // RELATIONAL arm of the one landing, generic over the PRODUCER's row: the projection hands the five coordinates
+    // and this owner keeps the cell order, the value codec, and the accumulation, so a producer spells no column
+    // position and no record crosses the strata. `ResidenceLanding.Stage` owns the copy loop, the tenancy lead, and
+    // the landing stamp, so a column add moves the declaration alone.
+    public static IO<Fin<ResidenceIngestReceipt>> Ingest<TRow>(
+        NpgsqlDataSource store, Seq<TRow> rows, Func<TRow, FactRow> fact, ProjectionContext frame) =>
+        Staged(rows, fact).Match(
+            Succ: staged => ResidenceLanding.Stage(store, AssessmentDataset.Schema, staged, frame),
+            Fail: error => IO.pure(Fin<ResidenceIngestReceipt>.Fail(error)));
+
+    // COLD-TAIL arm over the same projection: a batch carries EVERY declared column including the landing stamp the
+    // COPY roster excludes, so the stamp appends here from the frame's own clock, read ONCE per batch exactly as the
+    // relational landing reads it — two arms over one generation cannot then date the same rows apart.
+    public static Fin<RecordBatch> Batch<TRow>(
+        Seq<TRow> rows, Func<TRow, FactRow> fact, ProjectionContext frame, Seq<(string Key, string Value)> metadata) {
+        ColumnCell stamp = new ColumnCell.Moment(frame.Now());
+        return Staged(rows, fact).Bind(staged =>
+            ArrowLanding.Build(AssessmentDataset.Schema, staged, cells => cells + Seq(stamp), metadata));
+    }
+
+    // ONE named question over the plane, composed on the family's own plan builder: a consumer names the assessment
+    // it holds and optionally the discipline, and takes the plan. Scope — tenant and window — rides the read frame.
+    // The key column carries no Substrait literal at all, so its narrowing falls to the residence's own `bytea`
+    // spelling through the builder's key fold; the discipline narrows as the roster row's own text.
+    public static Fin<Plan> Scan(UInt128 key, Option<Discipline> discipline) =>
+        ResidencePlan.Scan(AssessmentDataset.Schema,
+            Seq((AssessmentDataset.KeyColumn, ContentHash.Hex(key)))
+            + discipline.Map(static row => (AssessmentDataset.DisciplineColumn, row.Key)).ToSeq());
+
+    // DURABLE read handing each row to the CALLER's own mint: `Rasm.Compute` re-mints its `AssessmentRow`, a board
+    // mints a tile row, and this custodian keeps the ordinals and the codec while no consumer's record lands here.
+    public static IO<Fin<ResidenceResult<T>>> Resident<T>(
+        ResidenceReach reach, ResidenceScope scope, UInt128 key, Option<Discipline> discipline, Func<FactRow, T> mint) =>
+        Scan(key, discipline).Match(
+            Succ: plan => ResidenceRead.Read(reach, plan, scope, ResidenceProjection.Point,
+                row => Shape(scope, row).Map(mint)),
+            Fail: error => IO.pure(Fin<ResidenceResult<T>>.Fail(error)));
+
+    // --- [FACT_PROJECTION]
+    // ONE cell fold both landings read, FALLIBLE because the value column carries the whole fact through the seam's
+    // codec and a value that codec refuses has no text to land. Declaration order IS the cell order: identity head,
+    // the arm's own scalar face, then the canonical text.
+    public static Validation<Error, Seq<ColumnCell>> Cells(FactRow row) =>
+        ElementWire.Encode(row.Value, Op.Of()).ToValidation<Error>().Map(json =>
+            Seq<ColumnCell>(new ColumnCell.Key(row.Key),
+                new ColumnCell.Text(row.Discipline.Key),
+                new ColumnCell.Items(ColumnType.Utf8, row.Facets),
+                new ColumnCell.Text(row.Name.Value),
+                // The union's OWN case token, minted at its owner: `[Union]` emits `Switch`/`Map` dispatch and no
+                // per-case name, ordinal, or discriminator member, so a token spelled at this consumer would answer
+                // a stale name the moment an arm is renamed.
+                new ColumnCell.Text(row.Value.Kind))
+            + Face(row.Value)
+            + Seq<ColumnCell>(new ColumnCell.Text(json)));
+
+    // Refusals ACCUMULATE across the batch, so a producer handing one generation learns every unencodable fact at
+    // once rather than paying a round trip per row over a batch it already folded.
+    static Fin<Seq<Seq<ColumnCell>>> Staged<TRow>(Seq<TRow> rows, Func<TRow, FactRow> fact) =>
+        rows.Map(fact).Traverse(Cells).As().ToFin();
+
+    // ONE total projection over the fourteen arms: each case answers the WHOLE scalar face as the seven-cell run the
+    // declaration seats between `kind` and `value`, so a new arm lands one row here instead of one arm inside each of
+    // seven per-column folds that could disagree about which case carries which face. A `Bounded` reads its unit off
+    // the first present bound because the seam's own admission already proved all three share one `QuantityType`.
+    static Seq<ColumnCell> Face(PropertyValue value) => value.Switch(
+        text:       static v => Scalars(text: Some(v.Render())),
+        measure:    static v => Scalars(magnitude: Some(v.Value.Si), unit: v.Value.CanonicalUnit),
+        boolean:    static v => Scalars(flag: Some(v.Value)),
+        logical:    static v => Scalars(flag: v.Value),
+        integer:    static v => Scalars(magnitude: Exact(v.Value)),
+        number:     static v => Scalars(magnitude: Some(v.Value)),
+        binary:     static _ => Scalars(),
+        enumerated: static v => Scalars(text: Some(v.Render())),
+        reference:  static _ => Scalars(),
+        bounded:    static v => Scalars(
+            unit: Seq(v.Lower, v.Upper, v.SetPoint).Choose(static bound => bound).Head.Bind(static m => m.CanonicalUnit),
+            lower: v.Lower.Map(static m => m.Si), upper: v.Upper.Map(static m => m.Si),
+            setpoint: v.SetPoint.Map(static m => m.Si)),
+        list:       static _ => Scalars(),
+        table:      static _ => Scalars(),
+        complex:    static _ => Scalars(),
+        temporal:   static _ => Scalars());
+
+    // Named coordinates each defaulting to the ABSENT option its column admits, so an arm names only the columns it
+    // fills and the run's order is this one body's — the declaration, the DDL, and the reader cannot then disagree
+    // on which cell a face slot lands in.
+    static Seq<ColumnCell> Scalars(
+        Option<double> magnitude = default, Option<string> unit = default,
+        Option<double> lower = default, Option<double> upper = default, Option<double> setpoint = default,
+        Option<bool> flag = default, Option<string> text = default) =>
+        Seq(Cell(magnitude, static held => new ColumnCell.Real(held)),
+            Cell(unit, static held => new ColumnCell.Text(held)),
+            Cell(lower, static held => new ColumnCell.Real(held)),
+            Cell(upper, static held => new ColumnCell.Real(held)),
+            Cell(setpoint, static held => new ColumnCell.Real(held)),
+            Cell(flag, static held => new ColumnCell.Flag(held)),
+            Cell(text, static held => new ColumnCell.Text(held)));
+
+    // Absence spells the ONE landing cell the vocabulary carries and proves against the column's own `Nullable`, so a
+    // zero magnitude, an empty unit, or a `false` flag standing in for an unfilled face is unrepresentable here — the
+    // three sentinels a board renders indistinguishably from a measured reading.
+    static ColumnCell Cell<T>(Option<T> value, Func<T, ColumnCell> present) =>
+        value.Match(Some: present, None: static () => (ColumnCell)new ColumnCell.Absent());
+
+    // An `Integer` past the double's exactly-representable range lands ABSENT rather than rounded: a magnitude a
+    // filter compares against must BE the value, and the `value` column carries the integer whole either way.
+    static Option<double> Exact(BigInteger value) =>
+        (double)value is var magnitude && double.IsFinite(magnitude) && new BigInteger(magnitude) == value
+            ? Some(magnitude)
+            : None;
+
+    // --- [FACT_INVERSE]
+    // Reader inverse over the one row surface. Ordinals resolve through the DECLARATION's own name projection rather
+    // than as literals, so a column insert moves the DDL, the cell fold, and this reader together and the plan's root
+    // relation emits its columns under exactly these names. The five reads ACCUMULATE, so a corrupt row names every
+    // offending column at once. The SCALAR columns are never read back — they are the query projection, and inverting
+    // them would mint a second, lossy truth beside the codec that already rehydrates every arm.
+    public static Fin<FactRow> Shape(ResidenceScope scope, ResidenceRow row) {
+        AnalyticsSchema declaration = AssessmentDataset.Schema;
+        Op key = Op.Of();
+        return (row.Key(scope.Residence, declaration.Ordinal(AssessmentDataset.KeyColumn)).ToValidation<Error>(),
+                row.Text(scope.Residence, declaration.Ordinal(AssessmentDataset.DisciplineColumn))
+                    .Bind(token => Discipline.Parse(token, key)).ToValidation<Error>(),
+                row.Items(scope.Residence, declaration.Ordinal(AssessmentDataset.FacetsColumn)).ToValidation<Error>(),
+                row.Text(scope.Residence, declaration.Ordinal(AssessmentDataset.NameColumn))
+                    .Bind(token => key.AcceptValidated<PropertyName>(token)).ToValidation<Error>(),
+                row.Text(scope.Residence, declaration.Ordinal(AssessmentDataset.ValueColumn))
+                    .Bind(json => ElementWire.Decode(json, key)).ToValidation<Error>())
+            .Apply(static (content, discipline, facets, name, value) =>
+                (Key: content, Discipline: discipline, Facets: facets, Name: name, Value: value))
+            .As().ToFin();
+    }
+}
+```
+
 | [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                         |
 | :-----: | :------------------ | :---------------------------------------- | :---------------------------------------------------------------- |
 |  [01]   | series provisioning | derived from the `SeriesKind` row         | one emitter, generation-carried, verdict-gated                    |
@@ -453,7 +685,10 @@ public static class ReceiptResidence {
 |  [06]   | measure projection  | numeric leaves under a facet triple       | text facets name a stream; a hash names nothing                   |
 |  [07]   | batch handoff       | `ArrowLanding.Build` over the declaration | metadata is required; never a schema built beside the dataset     |
 |  [08]   | fleet leg           | READ row over one declared op-log dataset | the egress sink owns landing; never a second SoR                  |
+|  [09]   | facet path          | one `List(Utf8)` column, position-bearing | arity is row data; never a relation per discipline                |
+|  [10]   | fact truth          | the whole value through the seam's codec  | scalars are the projection; never a second, lossy truth           |
+|  [11]   | producer row        | a type parameter beside one projection    | Compute sits above; never a record mirrored across the strata     |
 
-## [05]-[RESEARCH]
+## [06]-[RESEARCH]
 
 (none)

@@ -192,9 +192,10 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [WIRE_CODEGEN]:
 - `Celly.Protovalidate` — Validates completed generated event extensions and CRDT operation payloads at authoring and ingress boundaries.
 - `Google.Protobuf` — Field masks, bounded parsing, foreign Substrait descriptors, and generated CRDT payload runtime.
+- `Grpc.Core.Api` — `SyncService.SyncServiceBase`, `SyncServiceClient`, `CallInvoker`, `IServerStreamWriter<T>`, `ServerCallContext`; both ends.
 - `MessagePack` — Snapshot codec and the uncompressed thirteen-slot op-log envelope; generated protobuf fills `[Key(6)] Payload` alone.
 - `MessagePackAnalyzer` — Build-only generator and `MsgPack###` gate behind the AOT resolver chain.
-- `Rasm.Contracts` — Generated host edits and outbox messages, fault observations/HLC, CRDT operations, and event extensions.
+- `Rasm.Contracts` — Host edits, outbox, fault observations/HLC, CRDT ops, event extensions, and the `SyncService` request/response/cursor family.
 
 [HOST_SERVICES]:
 - `Microsoft.Extensions.Caching.Hybrid` — L2-store and serializer half of the AppHost-owned two-tier cache.

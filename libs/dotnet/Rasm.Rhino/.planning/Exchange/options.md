@@ -205,20 +205,20 @@ public sealed partial class CsvColumn : ICapability<CsvColumn> {
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct DracoDial {
-    public Dimension Level { get; }
-    public Dimension PositionBits { get; }
-    public Dimension NormalBits { get; }
-    public Dimension TextureBits { get; }
+    public Rasm.Numerics.Dimension Level { get; }
+    public Rasm.Numerics.Dimension PositionBits { get; }
+    public Rasm.Numerics.Dimension NormalBits { get; }
+    public Rasm.Numerics.Dimension TextureBits { get; }
 
     // Each band refuses on its OWN scalar, so a caller learns which quantization axis it broke rather than reading
     // one collapsed message across four columns.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref Dimension level,
-        ref Dimension positionBits,
-        ref Dimension normalBits,
-        ref Dimension textureBits) =>
+        ref Rasm.Numerics.Dimension level,
+        ref Rasm.Numerics.Dimension positionBits,
+        ref Rasm.Numerics.Dimension normalBits,
+        ref Rasm.Numerics.Dimension textureBits) =>
         validationError = Banded(label: nameof(Level), value: level.Value, floor: 1, ceiling: 10)
             ?? Banded(label: nameof(PositionBits), value: positionBits.Value, floor: 8, ceiling: 32)
             ?? Banded(label: nameof(NormalBits), value: normalBits.Value, floor: 8, ceiling: 32)
@@ -233,10 +233,10 @@ public readonly partial struct DracoDial {
     public static Fin<DracoDial> Of(int level, int positionBits, int normalBits, int textureBits, Op? key = null) =>
         key.OrDefault().AcceptValidated<DracoDial>(
             fault: Validate(
-                level: Dimension.Create(value: level),
-                positionBits: Dimension.Create(value: positionBits),
-                normalBits: Dimension.Create(value: normalBits),
-                textureBits: Dimension.Create(value: textureBits),
+                level: Rasm.Numerics.Dimension.Create(value: level),
+                positionBits: Rasm.Numerics.Dimension.Create(value: positionBits),
+                normalBits: Rasm.Numerics.Dimension.Create(value: normalBits),
+                textureBits: Rasm.Numerics.Dimension.Create(value: textureBits),
                 item: out DracoDial value),
             value: value);
 }
@@ -246,7 +246,7 @@ public readonly partial struct DracoDial {
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ObjNgonDial {
     public FileObjWriteOptions.NGons Mode { get; }
-    public Dimension MinFaces { get; }
+    public Rasm.Numerics.Dimension MinFaces { get; }
     public bool IncludeUnweldedEdges { get; }
     public bool CullInteriorVertexes { get; }
 
@@ -254,7 +254,7 @@ public readonly partial struct ObjNgonDial {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref FileObjWriteOptions.NGons mode,
-        ref Dimension minFaces,
+        ref Rasm.Numerics.Dimension minFaces,
         ref bool includeUnweldedEdges,
         ref bool cullInteriorVertexes) =>
         validationError = !Enum.IsDefined(value: mode)
@@ -272,7 +272,7 @@ public readonly partial struct ObjNgonDial {
         key.OrDefault().AcceptValidated<ObjNgonDial>(
             fault: Validate(
                 mode: mode,
-                minFaces: Dimension.Create(value: minFaces),
+                minFaces: Rasm.Numerics.Dimension.Create(value: minFaces),
                 includeUnweldedEdges: includeUnweldedEdges,
                 cullInteriorVertexes: cullInteriorVertexes,
                 item: out ObjNgonDial value),
@@ -404,7 +404,7 @@ internal static partial class PolicyMap {
     public static partial void Apply(ObjNgonDial ngons, [MappingTarget] FileObjWriteOptions host);
 
     [UserMapping(Default = true)]
-    private static int Native(Dimension value) => value.Value;
+    private static int Native(Rasm.Numerics.Dimension value) => value.Value;
 }
 ```
 
@@ -551,14 +551,14 @@ public abstract partial record FormatDial {
         Option<FileObjWriteOptions.PolylineExportType> Polylines = default,
         Option<FileObjWriteOptions.VertexWelding> Welding = default,
         Option<SubDForm> SubD = default,
-        Option<Dimension> SubDDensity = default,
+        Option<Rasm.Numerics.Dimension> SubDDensity = default,
         Option<CapabilitySet<MeshEmission>> Emission = default,
         Option<bool> DisplayColorMaterial = default,
         Option<bool> RenderMeshes = default,
         Option<bool> SortGroups = default,
         Option<bool> MergeNestedGroups = default,
         Option<AxisConvention> Axes = default,
-        Option<Dimension> Digits = default,
+        Option<Rasm.Numerics.Dimension> Digits = default,
         Option<bool> WrapLongLines = default,
         Option<bool> Triangulate = default,
         Option<bool> UnderbarMaterialNames = default,
@@ -855,7 +855,7 @@ public abstract partial record FormatDial {
 
     public sealed record StpReadCase(
         Option<bool> JoinSurfaces = default,
-        Option<FieldOverride<Dimension>> FaceCap = default) : FormatDial(FileCodec.Stp, CodecPhase.Import) {
+        Option<FieldOverride<Rasm.Numerics.Dimension>> FaceCap = default) : FormatDial(FileCodec.Stp, CodecPhase.Import) {
         internal FileStpReadOptions Mint() {
             FileStpReadOptions host = new() { JoinSurfaces = JoinSurfaces.IfNone(true) };
             _ = FaceCap.Iter(field => field.Through(
@@ -957,7 +957,7 @@ public abstract partial record FormatDial {
         Option<bool> DoublesUseE = default,
         Option<bool> NoZerosInTSection = default,
         Option<bool> RenderColorAsIgesColor = default,
-        Option<(Dimension Version, double Tolsize)> Catia = default) : FormatDial(FileCodec.Igs, CodecPhase.Export) {
+        Option<(Rasm.Numerics.Dimension Version, double Tolsize)> Catia = default) : FormatDial(FileCodec.Igs, CodecPhase.Export) {
         internal FileIgsWriteOptions Mint() {
             IgesIdentity identity = Identity.IfNone(IgesIdentity.Standard);
             IgesFitPolicy curves = Curves.IfNone(IgesFitPolicy.Standard);
@@ -1197,7 +1197,7 @@ public abstract partial record FormatDial {
     public sealed record TxtWriteCase(
         Option<FileTxtWriteOptions.DelimiterMode> Delimiter = default,
         Option<char> Custom = default,
-        Option<Dimension> Precision = default,
+        Option<Rasm.Numerics.Dimension> Precision = default,
         Option<bool> VertexColors = default,
         Option<bool> Quoted = default) : FormatDial(FileCodec.Txt, CodecPhase.Export) {
         internal FileTxtWriteOptions Mint(CodecTune tune) => new() {
@@ -1242,7 +1242,7 @@ public abstract partial record FormatDial {
         Option<bool> CullBackfaces = default,
         Option<bool> DisplayColorForUnsetMaterials = default,
         Option<SubDForm> SubD = default,
-        Option<Dimension> SubDDensity = default,
+        Option<Rasm.Numerics.Dimension> SubDDensity = default,
         Option<CapabilitySet<MeshEmission>> Emission = default,
         Option<bool> Layers = default,
         Option<FieldOverride<DracoDial>> Draco = default) : FormatDial(FileCodec.Gltf, CodecPhase.Export) {

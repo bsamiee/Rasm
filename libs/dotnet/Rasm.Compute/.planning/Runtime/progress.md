@@ -1,22 +1,23 @@
 # [COMPUTE_CELL]
 
-Rasm.Compute observation is one monotonic `ProgressPhase` family, one Atom-backed `ProgressCell` capsule committing `ProgressMark` structs under rank and terminal-dominance guards, one delivery gate applying the spine-declared `SubscriptionPolicy` cadence thresholds to consecutive marks, and one seam fold projecting the identical family onto AppUi presentation, the wire, the mounted instrument set, and an aggregate parent cell. This owner holds the phase vocabulary, the cadence predicate, read-side throughput and ETA derivations, aggregate roll-up, observation seams, and progress wire shape.
+Rasm.Compute observation is one monotonic `ProgressPhase` family, one Atom-backed `ProgressCell` capsule committing `ProgressMark` structs under rank and terminal-dominance guards, one delivery gate applying the spine-declared `SubscriptionPolicy` cadence thresholds to consecutive marks, and one seam fold projecting the identical family onto AppUi presentation, the served progress stream, the mounted instrument set, and an aggregate parent cell. This owner holds the phase vocabulary, the cadence predicate, read-side throughput and ETA derivations, aggregate roll-up, the observation seams, and the `ProgressService.Watch` server this branch is the sole producer of.
 
-Correlation identity, cancellation provenance, `IClock`, the scheduler marshal delegate, the mounted `InstrumentSet`, and the `PhaseSubscription` LIFO detacher composite arrive settled at composition; `SubscriptionPolicy` and its three cadence rows arrive settled from `Rasm.AppHost` `Agent/capability`, and the `ComparerAccessors.StringOrdinal` accessor and the `AdmittedIntent` progress option arrive from `Runtime/admission`.
+Correlation identity, cancellation provenance, `IClock`, the scheduler marshal delegate, the mounted `InstrumentSet`, and the `PhaseSubscription` LIFO detacher composite arrive settled at composition; `SubscriptionPolicy` and its three cadence rows arrive settled from `Rasm.AppHost` `Agent/capability`, `FaultWire`/`FaultContext`/`HostWire` from `Rasm.AppHost` `Runtime/ports#WIRE_LAW`, the `ComputeInstrument` rows and their dimension slots from `Runtime/receipts#RECEIPT_UNION`, the bounded generated-message admission from `Runtime/wire#PROTO_VOCABULARY`, and the `ComparerAccessors.StringOrdinal` accessor and the `AdmittedIntent` progress option from `Runtime/admission`.
 
 ## [01]-[INDEX]
 
 - [02]-[PHASE_FAMILY]: monotonic phase rows with rank and terminal columns; the aggregate bottleneck resolver.
 - [03]-[PROGRESS_CELL]: atom-backed capsule; CAS rank guard; the `Due` cadence gate over the spine-declared policy; throughput/ETA derivation; child roll-up.
-- [04]-[OBSERVATION_SEAMS]: AppUi marshal seam; wire mirror seam; instrument tap; sink-edge receipt law.
-- [05]-[TS_PROJECTION]: progress wire shape consumed as connect-es server-stream.
+- [04]-[OBSERVATION_SEAMS]: AppUi marshal seam; instrument tap; the `ProgressWireMap` transcription and the `ProgressStream` server-stream this branch serves; sink-edge receipt law.
+- [05]-[TS_PROJECTION]: the browser's `ProgressService.Watch` dial over the generated `WatchResponse` schema.
 
 ## [02]-[PHASE_FAMILY]
 
 - Owner: `ProgressPhase` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor, carrying the monotonic rank column, the terminal column, the terminal-precedence `Dominance` column, and the `Resolve` bottleneck fold the aggregate cell reads.
 - Cases: queued, selected, staged, running, streaming, finalizing, completed, cancelled, faulted.
+- Law: the wire vocabulary is AUTHORED at `libs/contracts/proto/rasm/contracts/compute/progress.proto` as `ProgressPhase`, not generated off this roster, and the correspondence proves at the generated total `Map` in `[04]-[OBSERVATION_SEAMS]` — a tenth row here breaks that projection until its enum value lands at the corpus, so neither end can drift and no key roster stands between them.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one phase row with its rank and terminal column values; zero new surface.
+- Growth: one phase row with its rank and terminal column values, landing beside its `progress.proto` enum value in the same change; zero new surface.
 - Boundary: rank order is the page law — the guard compares rank, never adjacency, so forward jumps are admitted; running carries the fraction field and streaming the segment count, both lane-written through `Advance` and never mutating rank; cancelled and faulted stay single terminal rows, their evidence riding the fault rail and joining observers through the correlation, never extra phase rows; the shipped `ComparerAccessors.StringOrdinal` accessor is shared with `WorkLane`/`JobState`, so a second ordinal string accessor for the phase key never arises; `Resolve` folds a child phase set to one parent by the terminal `Dominance` column — the highest-`Dominance` fault-like terminal (Faulted over Cancelled) locks the aggregate, Completed requires unanimity, an otherwise-live set falls to the least-advanced non-terminal rank — so a new fault terminal lands as one `Dominance` row untouched by prior consumers, and an aggregate never reports completed while a part runs nor a rank ahead of its slowest part.
 
 ```csharp signature
@@ -39,10 +40,6 @@ public sealed partial class ProgressPhase {
     public bool Terminal { get; }
 
     public int Dominance { get; }
-
-    // The proto phase enum generates off this set, so it is built ONCE at type init: an expression-bodied property
-    // rebuilt the frozen set on every read, and a codegen path reading it per member paid that rebuild per member.
-    public static readonly FrozenSet<string> Keys = Items.Select(static row => row.Key).ToFrozenSet(StringComparer.Ordinal);
 
     // Three tiers of terminal precedence resolved in ONE traversal: the highest-Dominance terminal locks (Faulted
     // over Cancelled), unanimous completion answers Completed, otherwise the least-advanced live rank. The prior
@@ -97,7 +94,7 @@ flowchart LR
 - Auto: range and sign refuse at CONSTRUCTION — `UnitInterval` and `SegmentCount` carry them — so `ProgressMark.Accept` holds the two relational refusals alone, rank regression and a terminal write that is not a dominance upgrade; same-phase fractions and all segment counts rise monotonically through one `Rising` fold serving both columns, absence never overwriting a measurement, timestamps never move backward, correlation stays cell-owned, and a higher-`Dominance` terminal can replace a lower terminal under a concurrent race. Each observer gate applies the same order through `Due`; a failed observer effect stores its first `Error` in `LatestFailure` and advances the cell to `Faulted`. `Aggregate` subscribes before its initial child fold, then re-folds `Roll` on change, so no advance can fall between snapshot and registration; an empty child set returns `None` rather than minting an unrequested parent. DAG-wide aggregation rides Wire-cadence coalescing — `Runtime/scheduling#JOB_GRAPH` binds every part cell at `SubscriptionPolicy.Wire`, so a wide fan re-folds off the coalesced stream and `Immediate` re-folding never serves one. `Roll` averages the fractions of the parts that MEASURED one, unweighted, and sums their segments exactly: a part carries no cost column, so a weighted mean rests on a per-part share nothing measured — the honest aggregate reports equal parts and the phase resolver carries the truth a mean cannot, which is why `Resolve` and not the fraction decides what the parent says. A sum exceeding the 64-bit carrier reports ABSENT rather than saturating at `long.MaxValue`, because a saturated total is a fabricated count a consumer reads as measured.
 - Receipt: none minted here — every mark carries the intent correlation that keys receipt evidence at the sink edge, so terminal marks join observers to evidence in one hop.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, Rasm (project — kernel `Cell`/`Transition` the branch's ONE lock-free transition mechanism, and the `UnitInterval` atom), Rasm.AppHost (project), BCL inbox
-- Growth: a new cadence row or threshold column lands at the spine's `SubscriptionPolicy` and reaches `Due` as one more clause on the one predicate; a new observed axis is one field on `ProgressMark` mirrored by one wire member; the aggregate reuses `Subscribe`/`Advance`/`Roll` with zero new surface.
+- Growth: a new cadence row or threshold column lands at the spine's `SubscriptionPolicy` and reaches `Due` as one more clause on the one predicate; a new observed axis is one field on `ProgressMark` mirrored by one numbered `WatchResponse` field; the aggregate reuses `Subscribe`/`Advance`/`Roll` with zero new surface.
 - Boundary: `ProgressCell` is the boundary capsule for subscription wiring and event registration. Its constructor is private; `Mint` is the only leaf factory and reads the admitted intent's `Spec.Progress` column — the spine-declared `Option<SubscriptionPolicy>` the capability descriptor stamped and the command algebra carried onto the intent verbatim, so a `None` row structurally has no cell for its producer to advance and no cadence is ever re-derived at dispatch — while `Aggregate` is the only parent factory. `Subscribe` accepts an effectful observer, so UI marshal and wire-write failures remain on `Fin` and terminate the cell instead of disappearing behind `ignore`. `IProgress<T>` plumbing, null checks, and consumer-side reminting never arise. `Advance` builds a candidate ONCE before the transition, because a compare-and-swap body re-runs on every contended retry and a candidate minted inside one would stamp a fresh instant per attempt. `Rate` and `Eta` derive from a mark pair and BOTH answer `Option`: no interval or no measurement on either side is absence, and a zero throughput is a measured stall riding `Some(0)` — one absence spelling across the pair, where a `0d` rate beside an `Option` ETA made an unmeasurable interval and a stalled producer indistinguishable. Producers are FOREIGN-THREAD by contract: a native search worker, a companion pump, or a lane task all publish through `Advance`, so the Atom commit IS the concurrency contract and the cell holds no affinity — `Change` then fans every subscriber on that producer's own thread, which is why each seam marshals or writes non-blockingly and never re-enters the cell. `Fail` is the ONE sanctioned re-entry, bounded by its own terminal probe: it advances to `Faulted` from inside a `Change` handler, the second pass reads the terminal phase and stops, so an observer failing under a foreign producer terminates once instead of recursing. Observer cancellation rides `CancelScope`; composite jobs reuse the identical `ProgressMark` and observation seams. `IClock` supplies the semantic stamp and kernel `MonotonicTimeline` the mark/elapsed pair a phase transition reads, both threaded directly because App-owned `ClockPolicy` never crosses into this owner.
 
 ```csharp signature
@@ -308,16 +305,33 @@ public sealed class ProgressCell {
 
 ## [04]-[OBSERVATION_SEAMS]
 
-- Owner: `ProgressSeams` extension fold over `ProgressCell` — one member per observation seam, each binding one cadence row to one observer shape.
-- Entry: `public PhaseSubscription Observe(UiSchedulerPort scheduler, SubscriptionPolicy cadence, Action<ProgressMark> render)` and `public PhaseSubscription Instrument(InstrumentSet set, SubscriptionPolicy cadence)` — the two members that ADD to `Subscribe`, each taking its cadence as an argument; the returned detacher composite disposes LIFO. A wire seam is `cell.Subscribe(SubscriptionPolicy.Wire, write)` directly, because a member adding only a frozen cadence argument is a rename with a hop in it.
-- Packages: Riok.Mapperly (`ProgressUpdateMapper` under `RequiredMappingStrategy.Both`; the SmartEnum key crossing via `StaticConvertMethods`), NodaTime.Serialization.Protobuf, LanguageExt.Core, BCL inbox
-- Growth: one seam member binding a cadence row to one observer shape; zero new surface.
-- Boundary: every seam body runs on the PRODUCER's thread — the `Change` fan is synchronous, so a native solver worker, a companion pump, or a lane task carries each observer to completion before its own `Advance` returns; AppUi presentation therefore marshals through the port delegate so no Compute type touches a UI thread, `Instrument` writes through thread-safe meter handles, and a seam that blocks or fans out is the deleted form the `HANDOFF_DRAIN` channel owns. the ComputeService server-stream at app roots subscribes `SubscriptionPolicy.Wire` directly, since a seam member adding only that frozen argument resolves nothing a call site cannot, and every seam returns `IO<Unit>` into `ProgressCell.Subscribe`; a readback consumer polling `Latest` for a terminal mark composes its own cadence as one more `SubscriptionPolicy` value on the spine's carrier — cadence growth is a spine row, never a seam member here, and the in-flight ceiling it reads against is `Runtime/scheduling#SOLVE_GUARD`-owned; the proto phase enum generates from `ProgressPhase.Keys`, so a second wire vocabulary is the named defect. Aggregate parents use these identical seams because their rolled value is a `ProgressMark`. Receipts materialize only at the sink edge. `Instrument` writes the two `rasm.compute.progress.*` rows through the `Runtime/receipts` mounted `InstrumentSet` — the marks counter per delivered mark, the cadence histogram per consecutive-mark interval, both tagged by phase — so progress telemetry is one more subscriber under the identical cadence gate and the cell never touches a meter; the prior-mark register reads before it swaps and advances only once both writes land, so no instrument write runs inside the CAS body and a refused row never becomes observable history, and the writer returns the kernel rail so that refusal raises on the subscription's own error channel rather than vanishing at the seam.
+- Owner: `ProgressSeams` extension fold over `ProgressCell` — one member per in-process observation seam, each binding one cadence row to one observer shape; `ProgressWireMap` the ONE `[Mapper]` lowering `ProgressMark` onto the generated `WatchResponse`; `ProgressPorts` the two composition-bound legs the served endpoint reads — the correlation-to-cell resolver and the producer fault evidence; `ProgressStream` the generated `ProgressService.ProgressServiceBase` override this branch serves.
+- Entry: `public PhaseSubscription Observe(UiSchedulerPort scheduler, SubscriptionPolicy cadence, Action<ProgressMark> render)` and `public PhaseSubscription Instrument(InstrumentSet set, SubscriptionPolicy cadence)` — the two members that ADD to `Subscribe`, each taking its cadence as an argument; the returned detacher composite disposes LIFO. `public override Task Watch(WatchRequest request, IServerStreamWriter<WatchResponse> responseStream, ServerCallContext context)` is the served entry, and it composes `Subscribe` at the frozen `SubscriptionPolicy.Wire` directly rather than through a seam member that would add only that argument.
+- Law: the served endpoint's whole admission is `Runtime/wire#PROTO_VOCABULARY` — `ParseGuard.Validated` proves the request against the rostered descriptor set and its protovalidate rules, `HostWire.Correlation` admits the 16-byte RFC 4122 form, and the resolver answers `Option<ProgressCell>`; a correlation naming no live cell leaves through AppHost `FaultWire.Raise` on the kernel `InvalidContext` refusal, which the ONE producer status table answers as `FailedPrecondition`. No second validator, correlation parser, or status spelling exists here.
+- Law: the phase correspondence is the SmartEnum's generated total `Map` — one arm per `ProgressPhase` row, so a tenth row fails this build until its value lands at `progress.proto`. Compute never reads the wire enum inbound, so this family carries the outbound half alone and no `(key, enum)` table stands between the two rosters.
+- Exemption: `ProgressStream.Watch` and the two presence writes in `ProgressWireMap.ToWire` are platform-forced statement seams. gRPC hands a writer plus a completion `Task` and forbids two `WriteAsync` calls in flight, so the stream's lifetime IS the override's body; and a proto3 `optional` scalar target is a nullable-oblivious `Has*`/`Clear*` pair behind a null-rejecting setter, so an `Option`-to-nullable carrier draws RMG007 and the presence write stays a hand `IfSome`. Every decision on both seams still leaves as a value — admission is a `Fin`, the resolve an `Option`, the pump's latest mark a register read.
+- Packages: Riok.Mapperly (`[Mapper]` under `RequiredMappingStrategy.Both`, `[UserMapping]`, `[MapperIgnoreSource]`, `[MapperIgnoreTarget]`, `[UseStaticMapper]`), Rasm.Contracts (project — `ProgressService`, `WatchRequest`, `WatchResponse`, `ProgressPhase`), Grpc.Core.Api (`ServerCallContext`, `IServerStreamWriter<T>`), Rasm.AppHost (project — `HostWire`, `FaultWire`, `FaultContext`, `PhaseSubscription`, `SubscriptionPolicy`), NodaTime.Serialization.Protobuf (`NodaExtensions.ToTimestamp`), LanguageExt.Core, BCL inbox
+- Growth: one seam member binding a cadence row to one observer shape; one numbered `WatchResponse` field beside the `ProgressMark` column it transcribes, which `RequiredMappingStrategy.Both` then forces; zero new surface.
+- Boundary: every in-process seam body runs on the PRODUCER's thread — the `Change` fan is synchronous, so a native solver worker, a companion pump, or a lane task carries each observer to completion before its own `Advance` returns; AppUi presentation therefore marshals through the port delegate so no Compute type touches a UI thread, `Instrument` writes through thread-safe meter handles, and a seam that blocks or fans out is the deleted form the `docs/stacks/csharp/boundaries#HANDOFF_DRAIN` law owns. `ProgressStream` obeys that law rather than excepting itself: the subscription SEATS the latest mark in a register, releases a re-armed completion gate, and returns, while the override's own pump reads the register and owns every `WriteAsync` — so no producer thread ever blocks on a socket, no two writes overlap on one writer, and the cell is never re-entered. That register is the correct carrier because the wire consumer is a latest-value reader: the phase ladder is monotone and each column rises, so a mark superseded before the pump reached it carries nothing the successor does not. NAMED LOSS: intermediate marks coalesce onto the newest under a slow peer, and the witness is the terminal guarantee — a terminal mark is always the newest, so the stream's final frame is the verdict and never a stale one. Every seam returns `IO<Unit>` into `ProgressCell.Subscribe`; a readback consumer polling `Latest` for a terminal mark composes its own cadence as one more `SubscriptionPolicy` value on the spine's carrier — cadence growth is a spine row, never a seam member here, and the in-flight ceiling it reads against is `Runtime/scheduling#SOLVE_GUARD`-owned. The stream ends on the terminal mark or on `ServerCallContext.CancellationToken`, and an intent whose own `CancelScope` cancels reaches a `Cancelled` terminal that ends it through the same door, so no token linking is composed. Aggregate parents use these identical seams because their rolled value is a `ProgressMark`. Receipts materialize only at the sink edge. `Instrument` writes the two `rasm.compute.progress.*` rows through the `Runtime/receipts#RECEIPT_UNION` mounted `InstrumentSet` — `ComputeInstrument.ProgressMarks` per delivered mark, `ComputeInstrument.ProgressCadence` per consecutive-mark interval, both tagged on `ComputeInstrument.PhaseSlot` — so progress telemetry is one more subscriber under the identical cadence gate and the cell never touches a meter; the prior-mark register reads before it swaps and advances only once both writes land, so no instrument write runs inside the CAS body and a refused row never becomes observable history, and the writer returns the kernel rail so that refusal raises on the subscription's own error channel rather than vanishing at the seam.
 
 ```csharp signature
+using ProgressPhaseWire = Rasm.Contracts.Compute.ProgressPhase;
+using ProgressService = Rasm.Contracts.Compute.ProgressService;
+using WatchRequest = Rasm.Contracts.Compute.WatchRequest;
+using WatchResponse = Rasm.Contracts.Compute.WatchResponse;
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+// The served endpoint holds NO registry: the composing root already owns the live intent map and the one HLC mint
+// the fault evidence stamps, so both arrive as legs. A cell registry declared here would be a second seat for a
+// correspondence `Runtime/scheduling#JOB_GRAPH` already keeps.
+public sealed record ProgressPorts(
+    Func<CorrelationId, Option<ProgressCell>> Resolve,
+    Func<FaultContext> Evidence);
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
 // A seam member earns its name by ADDING something to `Subscribe`: the UI arm adds the marshal, the instrument
-// arm adds the write register. A wire arm added only a frozen cadence argument, so a caller now spells
-// `cell.Subscribe(SubscriptionPolicy.Wire, write)` — one hop, and the cadence reads at the call site instead of
+// arm adds the write register. A wire arm added only a frozen cadence argument, so the served endpoint spells
+// `cell.Subscribe(SubscriptionPolicy.Wire, seat)` — one hop, and the cadence reads at the call site instead of
 // hiding inside a rename. Both survivors take their cadence as an argument, so the arity disagreement that let
 // two members freeze a row while a third took one is gone.
 public static class ProgressSeams {
@@ -342,55 +356,137 @@ public static class ProgressSeams {
     // last mark that actually recorded and the next interval spans the real gap instead of dropping it.
     static Fin<Unit> Written(InstrumentSet set, Atom<Option<ProgressMark>> prior, ProgressMark mark) {
         Option<ProgressMark> held = prior.Value;
-        TagList phase = InstrumentSet.Tags((ReceiptSurface.PhaseSlot, mark.Phase.Key));
-        return set.Write(ReceiptSurface.ProgressMarks, 1L, phase)
+        TagList phase = InstrumentSet.Tags((ComputeInstrument.PhaseSlot, mark.Phase.Key));
+        return set.Write(ComputeInstrument.ProgressMarks.Row, 1L, phase)
             .Bind(_ => held.Match(
-                Some: previous => set.Write(ReceiptSurface.ProgressCadence, (mark.At - previous.At).TotalSeconds, phase),
+                Some: previous => set.Write(ComputeInstrument.ProgressCadence.Row, (mark.At - previous.At).TotalSeconds, phase),
                 None: () => Fin.Succ(unit)))
             .Map(_ => ignore(prior.Swap(_ => Some(mark))));
     }
 }
 
-// The wire transcription is GENERATED: a mark lowers onto the ProgressUpdate frame under
-// RequiredMappingStrategy.Both, so a new capsule field with no wire member fails the build — the mirror the
-// Growth law demands is compiler-held. The phase crosses by its GENERATED KEY: StaticConvertMethods resolves
-// the SmartEnum's own static Get inbound and the conversion operator outbound, so the proto enum stays
-// generated from ProgressPhase.Keys and no hand mirror exists.
+// --- [BOUNDARIES] -------------------------------------------------------------------------
+// `RequiredMappingStrategy.Both` makes the mirror COMPILER-HELD on every column Mapperly can carry: a capsule
+// field with no wire member and a wire member with no capsule field each fail this build. The two `optional`
+// scalars are the columns it cannot carry — a proto3 `optional` scalar target is a nullable-oblivious presence
+// pair behind a null-rejecting setter, so the shell names both sides in its ignore rosters and writes presence by
+// hand. The mapping stays READER-FREE, which is what keeps that source-side roster compiler-proved inventory
+// rather than an authored list (`libs/dotnet/.api/api-mapperly.md`).
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 [UseStaticMapper(typeof(NodaExtensions))]
-public static partial class ProgressUpdateMapper {
-    [MapProperty(nameof(ProgressMark.Correlation), nameof(ProgressUpdate.Correlation), Use = nameof(CorrelationText))]
-    public static partial ProgressUpdate ToWire(ProgressMark mark);
+[UseStaticMapper(typeof(HostWire))]
+public static partial class ProgressWireMap {
+    [UserMapping(Default = true)]
+    public static WatchResponse ToWire(ProgressMark mark) {
+        WatchResponse wire = Projected(mark);
+        mark.Fraction.Iter(fraction => wire.Fraction = fraction.Value);
+        // `SegmentCount` refuses a negative at construction, so the widening to the wire's `uint64` is total.
+        mark.Segments.Iter(segments => wire.Segments = (ulong)segments.Value);
+        return wire;
+    }
 
-    [NamedMapping("correlation-text")]
-    private static string CorrelationText(CorrelationId correlation) => correlation.ToString();
+    // `Rank` derives from `Phase` and does not cross, so it is named here rather than mirrored as a column a peer
+    // could publish contradicting its own phase row.
+    [MapperIgnoreSource(nameof(ProgressMark.Rank))]
+    [MapperIgnoreSource(nameof(ProgressMark.Fraction))]
+    [MapperIgnoreSource(nameof(ProgressMark.Segments))]
+    [MapperIgnoreTarget(nameof(WatchResponse.Fraction))]
+    [MapperIgnoreTarget(nameof(WatchResponse.Segments))]
+    private static partial WatchResponse Projected(ProgressMark mark);
+
+    // The row's GENERATED total projection is the whole correspondence: one arm per row, discovered by Mapperly on
+    // the unique `ProgressPhase` → `ProgressPhaseWire` pair, so a tenth row breaks HERE until its enum value lands
+    // at `progress.proto`. `At` crosses through the registered `NodaExtensions.ToTimestamp` and `Correlation`
+    // through the registered `HostWire.Correlation`, so neither column carries a per-member configuration.
+    [UserMapping]
+    private static ProgressPhaseWire Phase(ProgressPhase row) => row.Map(
+        queued: ProgressPhaseWire.Queued,
+        selected: ProgressPhaseWire.Selected,
+        staged: ProgressPhaseWire.Staged,
+        running: ProgressPhaseWire.Running,
+        streaming: ProgressPhaseWire.Streaming,
+        finalizing: ProgressPhaseWire.Finalizing,
+        completed: ProgressPhaseWire.Completed,
+        cancelled: ProgressPhaseWire.Cancelled,
+        faulted: ProgressPhaseWire.Faulted);
+}
+
+// --- [ENTRY] ------------------------------------------------------------------------------
+// The one Compute-served endpoint. The app root maps it beside `Rasm.AppHost/Wire/companion#CONTROL_SERVICE`
+// `ControlServiceImpl` and binds both legs; the peer client is `typescript:core/interchange/invoke#PROGRESS_WATCH`.
+public sealed class ProgressStream(ProgressPorts ports) : ProgressService.ProgressServiceBase {
+    public override Task Watch(WatchRequest request, IServerStreamWriter<WatchResponse> responseStream, ServerCallContext context) =>
+        Admit(request, Op.Of(context.Method)).Match(
+            Succ: cell => Pump(cell, responseStream, context.CancellationToken),
+            Fail: error => throw FaultWire.Raise(error, ports.Evidence()));
+
+    // Three refusals on ONE rail: an unrostered or rule-breaking message, a correlation that is not the 16-byte
+    // RFC 4122 form, and a correlation naming no live cell. The producer status table carries no `NotFound` arm,
+    // so the third answers the kernel `InvalidContext` — a watched intent whose cell has been released is a
+    // live-state gate, and the peer reads `FailedPrecondition` with the detail the one fault wire packed.
+    private Fin<ProgressCell> Admit(WatchRequest request, Op key) =>
+        from message in ParseGuard.Validated(request)
+        from correlation in HostWire.Correlation(message.Correlation, key)
+        from cell in ports.Resolve(correlation).ToFin(Fail: key.InvalidContext())
+        select cell;
+
+    // The gate re-arms BEFORE the register is read, so a mark landing in that window completes the gate the pump
+    // is about to await rather than being lost between the two reads; the equality test then absorbs the one
+    // redundant pass that ordering buys. A terminal mark is written and ENDS the stream, because the phase family
+    // admits no advance past a dominance upgrade the peer would still be waiting on.
+    private static async Task Pump(ProgressCell cell, IServerStreamWriter<WatchResponse> writer, CancellationToken token) {
+        Atom<ProgressMark> register = Atom(cell.Latest);
+        Atom<TaskCompletionSource> gate = Atom(Armed());
+        using PhaseSubscription subscription = cell.Subscribe(
+            SubscriptionPolicy.Wire,
+            mark => IO.lift(() => Seat(register, gate, mark)));
+
+        Option<ProgressMark> written = None;
+        while (true) {
+            Task next = gate.Swap(static _ => Armed()).Task;
+            ProgressMark mark = register.Value;
+            if (written != Some(mark)) {
+                await writer.WriteAsync(ProgressWireMap.ToWire(mark), token).ConfigureAwait(false);
+                if (mark.Phase.Terminal) { return; }
+                written = Some(mark);
+            }
+
+            await next.WaitAsync(token).ConfigureAwait(false);
+        }
+    }
+
+    // Submit-and-return on the producer's own thread: seat the latest mark, release the pump, touch neither the
+    // socket nor the cell. `RunContinuationsAsynchronously` keeps the pump's continuation off that thread, which
+    // is the whole point of the hand-off — without it the awaiting write would resume inline on the solver worker.
+    private static Unit Seat(Atom<ProgressMark> register, Atom<TaskCompletionSource> gate, ProgressMark mark) {
+        ignore(register.Swap(_ => mark));
+        return ignore(gate.Value.TrySetResult());
+    }
+
+    private static TaskCompletionSource Armed() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 }
 ```
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `ProgressPhaseKey`, `ProgressUpdateWire` — the progress stream shape the dashboard and companion consume.
-- Packages: BCL inbox
-- Growth: one key-literal row per new phase and one wire member per new capsule field; zero new surface.
-- Law: `ProgressUpdateWire` names the wire message `ProgressUpdateMapper` writes, never the `ProgressMark` capsule it transcribes. Spelling the mirror off the domain capsule collides against the TypeScript branch's own `Evidence.Tally` fold subject, which counts done-against-total over an operation tree and shares no axis with this phase frame.
-- Boundary: the stream rides connect-es server-stream for-await over the binary transport; phase crosses as its declared key from generated `ProgressPhase.Keys`, fraction and segments cross OPTIONAL so an unmeasured phase publishes absence rather than a zero a chart reads as a stall, the instant crosses as a round-trip pattern string, and correlation crosses as a guid string; rank does NOT cross, because it derives from the phase row through the vocabulary both ends already generate and a denormalized column can contradict the key beside it. Aggregate marks cross the identical shape. Consumer cadence stays observer-side policy, while throughput and ETA derive from consecutive marks.
+- Law: the browser dials `ProgressService.Watch` at `typescript:core/interchange/invoke#PROGRESS_WATCH` and reads the generated `WatchResponseSchema` over the connect-es server-stream for-await; this page mints no TS interface, alias, or key roster. `phase` crosses as the generated `ProgressPhase` enum — nine members mirroring the `[02]-[PHASE_FAMILY]` rows, and a row added at that owner lands its enum value at `progress.proto` in the same change because the `Map` arm in `[04]-[OBSERVATION_SEAMS]` breaks the build until it does.
+- Boundary: `fraction` and `segments` cross OPTIONAL so an unmeasured phase publishes absence rather than a zero a chart reads as a stall; `at` crosses as `google.protobuf.Timestamp` and `correlation` as the 16-byte RFC 4122 form the request echoed; `rank` does NOT cross, because it derives from the phase row through the vocabulary both ends generate and a denormalized column can contradict the key beside it. Aggregate marks cross the identical message, since a rolled value IS a `ProgressMark`. Consumer cadence stays observer-side policy, while throughput and ETA derive from consecutive frames.
 
-```ts signature
-// The nine keys mirror `ProgressPhase.Keys`, which is also the proto enum's codegen source — so this literal
-// union DERIVES from the emitted descriptor rather than standing as a second hand vocabulary, and a phase row
-// added at the owner reaches here through the generated enum with no edit.
-type ProgressPhaseKey = (typeof RasmComputeV1.ProgressPhase)[keyof typeof RasmComputeV1.ProgressPhase];
-
-// Optional payload crosses as an ABSENT field, never a zero: a `queued` update measured neither, and a wire zero
-// is a measurement a consumer charts as a stalled producer. `rank` does not cross — it derives from `phase`
-// through the same generated vocabulary both ends share, so a denormalized ordering column would let a peer
-// publish a rank its own phase row contradicts.
-interface ProgressUpdateWire {
-  readonly phase: ProgressPhaseKey;
-  readonly fraction?: number;
-  readonly segments?: bigint;
-  readonly at: string;
-  readonly correlation: string;
+```proto signature
+// Transcribed verbatim from `libs/contracts/proto/rasm/contracts/compute/progress.proto`; the rules are the
+// corpus source's own and a hand mirror of them here forks what it transcribes.
+message WatchResponse {
+  ProgressPhase phase = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  optional double fraction = 2 [(buf.validate.field).double = {
+    gte: 0
+    lte: 1
+  }];
+  optional uint64 segments = 3;
+  google.protobuf.Timestamp at = 4 [(buf.validate.field).required = true];
+  bytes correlation = 5 [(buf.validate.field).bytes.len = 16];
 }
 ```
 

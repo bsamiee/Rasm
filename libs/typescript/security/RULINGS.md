@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGES]
 
-- `arctic` rejected — `openid-client` custodies browser ceremony and machine grants under one `Configuration`, so a second client forks provider rows.
+- `arctic` rejected — `openid-client` owns browser ceremony and machine grants under one `Configuration`, preserving one provider roster.
 - `@otplib/totp` rejected — it prices a package for the two modulo lines `_PERIOD` owns, where `otplib` omits `getRemainingTime`/`getTimeStepUsed`.
 - `@oslojs/crypto` rejected — `@noble/hashes` and WebCrypto own its whole surface; `@oslojs/encoding` stays the wire codec.
 

@@ -205,12 +205,14 @@ public sealed record ResidencyPolicy(
     // prior key vector broke: three of twelve columns folded, so two payloads built at different cluster budgets,
     // codec levels, or attribute weights keyed IDENTICALLY and the Persistence dedup index served one for the
     // other. The build ROW is a scalar here too — a cone-weighted and a cut-minimizing partition of one mesh emit
-    // different bytes — and it folds as its kernel ordinal so the roster's own order is the key's order.
-    public ReadOnlySpan<double> Vector => [
+    // different bytes — and it folds as its kernel ordinal so the roster's own order is the key's order. The carrier
+    // is memory-shaped by CAPTURE, never preference: `Runtime/codecs#CONTENT_ADDRESSING` folds the vector inside a
+    // static closure state, and no closure captures a span, so a span member here cannot reach the entry.
+    public ReadOnlyMemory<double> Vector => new double[] {
         Cluster.Kernel, MaxVertices, MinTriangles, MaxTriangles,
         ConeWeight, SplitFactor, FillWeight, QuantizationBits,
         CodecLevel, CodecVersion, SimplifyTarget, AttributeWeight,
-    ];
+    };
 }
 
 // Cluster-LOD chain columns: Error is object-space simplification error (level 0 = 0); a ROOT carries no parent
@@ -682,10 +684,10 @@ public static class Residency {
 
     // The ONE payload mint. Each draft resolves its `(kind, stream)` form off the table, so an arm supplying a
     // stream that kind does not emit refuses here instead of encoding under a guessed mode. The content key binds
-    // the LANDED `InterchangeIdentity.Key(string, ReadOnlySpan<byte>, ReadOnlySpan<double>)` declaration — three
-    // parameters, the policy span not a scalar tail — and folds `policy.Vector`, every output-affecting column in
-    // owner order, where three loose scalars against that three-parameter member both mis-bound the arity and let
-    // two payloads at different cluster budgets key identically.
+    // the landed `InterchangeIdentity.Key(string, ReadOnlyMemory<byte>, ReadOnlyMemory<double>)` declaration —
+    // three parameters, the policy vector the memory-shaped carrier that entry admits — and folds `policy.Vector`,
+    // every output-affecting column in owner order, where three loose scalars against that three-parameter member
+    // both mis-bound the arity and let two payloads at different cluster budgets key identically.
     static Fin<ResidencyPayload> Assemble(ResidencyKind kind, string formatKey, Seq<StreamDraft> streams,
         Seq<ResidencyMeshlet> clusters, int residentCount, (Vector3 Center, float Radius) bounds, int harmonicDegree, ResidencyPolicy policy) {
         Seq<StreamDraft> unformed = streams.Filter(draft => !Forms.Value.ContainsKey((kind, draft.Stream)));

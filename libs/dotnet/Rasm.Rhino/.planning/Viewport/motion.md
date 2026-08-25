@@ -416,7 +416,7 @@ public static class MotionPump {
         Atom<MotionScript> plan = Atom(script);
         Atom<Option<MotionSample>> last = Atom(Option<MotionSample>.None);
         Atom<Option<MotionAttachment>> mounted = Atom(Option<MotionAttachment>.None);
-        FaultCell faults = new(cap: Dimension.Create(value: 16), clock: TimeProvider.System);
+        FaultCell faults = new(cap: Rasm.Numerics.Dimension.Create(value: 16), clock: TimeProvider.System);
         return from cadence in key.AcceptValidated<PositiveMagnitude>(candidate: clock.Pace.Period.TotalSeconds)
                from origin in timeline.Capture(key: key)
                let seed = Atom((BeatSeed)origin)

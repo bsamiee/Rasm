@@ -50,23 +50,6 @@
         "resolved": "6.0.0-beta2",
         "contentHash": "ew55vr5MqCEokG0jRsndoRSPNxdDvSgGwhWyxEFhzc8EuGn3TNtSGKRppCcpHnwXtjFiUvFBN+BBo75yrdKOrQ=="
       },
-      "MessagePack": {
-        "type": "Direct",
-        "requested": "[3.1.8, )",
-        "resolved": "3.1.8",
-        "contentHash": "Qk2q+9FVxnMSp+NQ9y3SLz3HqWe7Rg3KRMHhBX28FkKUoOeP9YIU86mA4pFOxDDjUIRA9e7Ssbxs/LwWUcAzPw==",
-        "dependencies": {
-          "MessagePack.Annotations": "3.1.8",
-          "MessagePackAnalyzer": "3.1.8",
-          "Microsoft.NET.StringTools": "17.11.4"
-        }
-      },
-      "MessagePackAnalyzer": {
-        "type": "Direct",
-        "requested": "[3.1.8, )",
-        "resolved": "3.1.8",
-        "contentHash": "Vm4g0cR4YRKRchEOmMJ0uVFU6yxdg7cJa2KHv3SUAHEsdYKvMpHMF5A1hZfsix89ymD5cmuzRnw9a6dKMcvq+Q=="
-      },
       "Meziantou.Analyzer": {
         "type": "Direct",
         "requested": "[3.0.138, )",
@@ -201,16 +184,6 @@
         "resolved": "10.4.0",
         "contentHash": "0P4ImGMK/C1B2LxVd2BHjl4DdRCCohIdQaP7tYVnYrvn07on1M6jmUMjA4VrfRaXvRUynSNWNeDolPWra+l0Ug==",
         "dependencies": {
-          "Thinktecture.Runtime.Extensions": "10.4.0"
-        }
-      },
-      "Thinktecture.Runtime.Extensions.MessagePack": {
-        "type": "Direct",
-        "requested": "[10.4.0, )",
-        "resolved": "10.4.0",
-        "contentHash": "zrcnVlLxtNAzqmGFq7wyj0wme1UOhtHPHPg1vcsv1z7ecKcgWRUxq6On5BwZucZrbnO9bzP5v1h6G5pMmfYmZg==",
-        "dependencies": {
-          "MessagePack": "2.5.302",
           "Thinktecture.Runtime.Extensions": "10.4.0"
         }
       },
@@ -401,11 +374,6 @@
         "type": "Transitive",
         "resolved": "14.16.0",
         "contentHash": "ddBX/Zb0sCsX4agqHdHeqUx+grfw8I7GFU+lgut3mtNl7roxbxemSQFGLIJXtzwPuAHxbaMtkXA+ijVl02EUhQ=="
-      },
-      "MessagePack.Annotations": {
-        "type": "Transitive",
-        "resolved": "3.1.8",
-        "contentHash": "SitOtZ4tOlAZZPF7p52M7143F+Cuz7o/aU0MrtAXX0+ZkPXzDNroOFhzzE2ogMFThsoEW/E6akXVVcBFM9ZKaw=="
       },
       "Microsoft.AspNetCore.Metadata": {
         "type": "Transitive",
@@ -1956,12 +1924,6 @@
           "Microsoft.Bcl.Memory": "9.0.4",
           "Microsoft.ML.Tokenizers": "2.0.0"
         }
-      },
-      "Microsoft.NET.StringTools": {
-        "type": "CentralTransitive",
-        "requested": "[18.8.2, )",
-        "resolved": "18.8.2",
-        "contentHash": "TWyg687GoiC9dhj85CagUfYFKYtxRX2jv5raO+zolLVmvKIS1k5WXYh8IMvyiPP5f9r9/snpmTZioyCO5zh+ww=="
       },
       "ModelContextProtocol": {
         "type": "CentralTransitive",

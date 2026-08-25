@@ -20,42 +20,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[OCP_CATALOG_ROWS]-[ACTIVE]: every OCCT member a landed fence transcribes resolves to a catalogue row, so no page carries an unverified spelling.
-- Capability: fence spellings become catalogue-backed rather than author-recalled, closing the gap where a page transcribes a member the catalogue never rostered.
-- Shape: `libs/python/cad/.api/cadquery-ocp.md` entrypoint tables, one row per member, each verified against the installed distribution first.
-- Unlocks: `IDEAS.md [DURABLE_SELECTION]` — the correspondence work cannot leave research state while the history members it reads carry no rows.
-- Anchors: `docs/laws/topology.md` `[CATALOG_MEMBER]`, ruling that a verifying member lands its row in the same pass and that claimed absence proves by a failed live resolve.
-- Route: import each member from the workspace interpreter, read its real signature, then seat the row under the scope that owns it.
-- Atomic: one member roster across the sewing, fillet-diagnostic, topology-map, and Boolean-history families.
-
-[LANE_CUSTODY_OWNER]-[QUEUED]: one owner decides native parallelism and both consumers read that decision rather than each spelling a constant.
-- Capability: whole-lane custody becomes a value the lane mints and hands down, so no page asserts a right to the machine's cores on its own.
-- Shape: `libs/python/cad/.planning/service/lane.md` mints the custody value; `brep/boolean.md` and `tessellation/mesh.md` take it as an argument instead of a module constant.
-- Unlocks: honest concurrency under the one-slot lane, where two pages each hardcode a parallel flag only the lane can justify.
-- Anchors: the catalogued law that the mesher's parallel control is a boolean rather than a thread count, so a bounded caller claims whole-lane custody before enabling it; the single-slot capacity limiter the lane already owns.
-- Tension: OCCT's own internal parallelism is what the one-slot lane exists to permit, so the custody value must express a grant the lane makes rather than a preference a kernel page holds.
-
-[PARTIAL_PRIMITIVES]-[QUEUED]: angle-bounded primitives reach the wire, so a caller asks for the wedge the kernel already builds.
-- Capability: primitive construction spans the kernel's full parameter space rather than the subset the first request shape happened to carry.
-- Shape: `cad/v1` primitive operation messages grow their angular bounds, and `libs/python/cad/.planning/brep/solid.md` widens its roster rows to admit them.
-- Unlocks: `IDEAS.md [EXCHANGE_SYMMETRY]` — modeling reaches parity with the kernel, removing a class of shapes a caller builds by Boolean subtraction instead.
-- Anchors: the catalogue's record that the sphere, cylinder, cone, and torus constructors take full or partial angular extents, against a wire that carries radius and height alone.
-- Atomic: one bounded field set per primitive message with its matching roster rows.
-
-[FACE_SELECTION]-[QUEUED]: faces are selectable the way edges already are, so face-scoped operations stop being unspellable.
-- Capability: sub-topology selection generalizes across topology kinds instead of privileging the one kind the first feature needed.
-- Shape: `cad/v1` grows the selection message beside the edge one, and `libs/python/cad/.planning/brep/feature.md` widens its selection owner to discriminate on kind.
-- Unlocks: shelling, face-scoped offsets, and draft, none of which can name their target; the thickness arm thickens a profile rather than hollowing a solid.
-- Anchors: the existing edge selection with its zero-based wire and one-based kernel-map regime, which the face case reproduces exactly over a different topology map.
-- Ripple: precedes `IDEAS.md [EXACT_HEALING]` — repair operations select faces before they repair them.
-
-[GLTF_METADATA]-[QUEUED]: emitted glTF carries the identity its STEP counterpart already carries, or the empty map retires with its loss stated.
-- Capability: artifact identity holds across both emitted formats rather than stopping at the exact one, so a tessellated body is as reproducible as a sealed one.
-- Shape: `libs/python/cad/.planning/tessellation/emission.md` fills the file-info map it passes empty, reading the canonical values `exchange/identity` already owns.
-- Unlocks: `IDEAS.md [PART_IDENTITY]` — per-part identity needs a metadata channel on the emitted container before it can carry anything.
-- Anchors: the empty string map the writer takes as a required positional argument; the canonical header policy the exchange band already applies to STEP.
-- Route: write a file with a populated map, read the container back, and confirm whether the values survive into the asset record before designing the policy.
-- Tension: per-run metadata reintroduces the byte instability STEP canonicalization exists to remove, so every written field stays canonical or absent.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -63,6 +28,11 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[OCP_CATALOG_ROWS]-[COMPLETE]: every member the fences transcribe resolved by import, signature, and bind-and-invoke on the installed distribution and landed as a row on `.api/cadquery-ocp.md`; the sweep refuted every `TopoDS.*_s` downcast spelling (the namespace binds as a submodule of plain functions), the list iterator class, `HasErrors` on `BRepAlgoAPI_*`, and the chamfer contour census, and each refutation rides the catalog beside the surviving spelling.
+[LANE_CUSTODY_OWNER]-[COMPLETE]: `Custody` moved to `brep/regime#CUSTODY`, the lane mints `WHOLE_LANE` where it holds the one slot and hands it to every kernel, and both `boolean#TOLERANCE` and `mesh#MESHER` read the grant as an argument; the `PARALLEL` constant is gone.
+[PARTIAL_PRIMITIVES]-[COMPLETE]: `SphereBounds`, `TorusBounds`, the cylinder and cone `sweep_rad`, and `WedgeOp` landed on the wire with every primitive seated on a `Frame3`; `solid#PRIMITIVES` folds an absent bound onto the full-revolution values the five-argument constructors reproduce exactly, and the invalid half-tube torus refuses through the shared admission probe.
+[FACE_SELECTION]-[COMPLETE]: `Selection` generalized grain-free with `Indices` for face operations, and `feature#FEATURE` grew shell, draft, offset, and defeature rows beside fillet and chamfer — the radius law and the skew and angle chamfer forms with their face-adjacency proof — every row shipping a correspondence off its builder's history.
+[GLTF_METADATA]-[COMPLETE]: the writer's `fileInfo` map lands verbatim in `asset.extras` and trimesh never reads it; `emission#EMISSION` fills it with the canonical product identity `exchange/identity#CANONICAL` already pins for STEP, so both emitted formats carry one identity, and the map's first-wins duplicate law rides the catalog.
 [RAIL_REBUILD]-[COMPLETE]: every owner across the five sub-domains returns `CadRail` and the seventy-nine raise statements are gone, with a raise surviving only at the two seams that name themselves — the worker pickle crossing and the serve edge's terminal Connect collapse.
 [SPLIT_ENGINE_ADMITTED]-[COMPLETE]: `networkx` landed as direct closure after the per-body closure verdict was proved dead — `Trimesh.split` dispatches to a graph engine and neither was installed, so the census raised `ImportError` inside a worker no caller observes; the split now runs and is proved on a two-body scene.
 [HEADER_CANONICALIZATION]-[COMPLETE]: STEP identity canonicalization landed across the FILE_NAME slots after a live write proved the indexed setters take only once `Transfer` has sized the aggregate, and proved the preprocessor slot carries the OCCT version, so an unpinned slot moves emitted bytes on every kernel upgrade.

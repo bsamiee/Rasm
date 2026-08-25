@@ -1506,7 +1506,7 @@ public sealed class AmbientWatch : IDisposable {
 
     public static Fin<AmbientWatch> Of(
         Seq<AmbientPulse> pulses,
-        Dimension cap,
+        Rasm.Numerics.Dimension cap,
         Func<AmbientFact, Fin<Unit>> sink,
         Op? key = null) {
         Op op = key.OrDefault();

@@ -59,6 +59,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - `FabricationPoint.EgressMint` is refusal-only — `ContentKey` addresses its own bytes, so rewriting an admitted key forges an unproduced identity.
 - `FabricationRuntime` enters a plane WHOLE — tap, memo, token, and clock are columns of one value a split signature lets a caller mismatch.
 - Nesting admission is GRADED — a rectangular refusal names material, extent, or grain onto `UnplacedReason`, so `Capacity` means only the residual.
+- Nesting moves derive from stock `MaterialSymmetry`; the fold owns grain, mirror, and pairing legality, so callers supply no parallel move policy.
 - Cut ordering is PRECEDENCE-owned, so no tour search seats here — containment forbids the reordering a travel optimizer needs left free.
 - `Toolpath/link` keeps its own beam search and exchange — QuikGraph `TSP` holds no precedence and reads `PositiveInfinity` until a tour closes.
 - Tour refinement exchanges a station pair and never reverses a span — reversal assumes a corridor symmetry directed keepout routes lack.
@@ -77,6 +78,7 @@ Challengers displace an admitted package only by owning the full concern under t
 - `Toolpath/partition` retains `Geometry2D/algebra` `SiteEdge` whole — the dual edge derives midpoint and length, so a twin spells one fact twice.
 - Validity folds compose kernel `ValidityClaim` under `IValidityEvidence` — a scalar predicate beside the claim vocabulary states one fact twice.
 - `ToleranceLane` owns every band it derives and the admitting `Context` is the READ — a policy column beside a lane is a copy that drifts from it.
+- `Admitted` is the ONE candidate gate answering material, grain, and symmetry in cost order — the per-axis boolean pair is the deleted form.
 
 ## [04]-[STRUCTURE]
 

@@ -50,6 +50,7 @@ const _families = [
   "FlagVerdictWire", "AppUiSurfaceProgram", "CommandGateWire", "EvidenceTimelineWire",
   "BcfTopicWire", "BcfViewpointWire", "ModelDiffWire",
   "Material", "Set",
+  "BoardPackWire",
 ] as const
 
 const _wireLiteral = Schema.Literal(..._families)
@@ -2011,6 +2012,9 @@ const _schema = {
   ModelDiffWire: Format.proto.frame(Format.proto.suite.ModelDiffWire, "json"),
   Material: Format.proto.frame(Format.proto.suite.Material),
   Set: Format.proto.family(Format.proto.suite.Set, _AppearanceSet),
+  // The board owner is a DIRECT owner of its generated descriptor — a producer pack resolves no `Any` and carries no
+  // trailer detail, so it takes no registry seat and the census row binds the one schema that owner already publishes.
+  BoardPackWire: Board.Pack.Landed,
 } as const
 
 // Parity obligations split on WHEN they are owed, because two unlike checks were riding one column. A `frame` row
@@ -2091,6 +2095,7 @@ const _rows = {
   ModelDiffWire: _proto("ModelDiffWire"),
   Material: _proto("Material"),
   Set: _proto("Set"),
+  BoardPackWire: _row("decode", "proto", _schema.BoardPackWire),
 } as const
 
 const _family = Shape.vocabulary(_families, _rows)

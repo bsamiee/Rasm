@@ -19,12 +19,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[SEAM_FENCE_AS_CENSUS]-[QUEUED]: the kernel-boundary seam registry reads as a derived census of proved crossings, never a hand-kept roster.
-- Capability: one edge per home owner, counterpart, kind, and direction, each member declared at the kernel and spelled at a fence here.
-- Shape: `ARCHITECTURE.md` `[03]-[SEAMS]`, where seven separate kernel-to-`Canvas` boundary edges stand and several name the wrong home owner.
-- Unlocks: a member added or retired at either end moves one edge, so the producing kernel fence and this consuming fence stay provably mirrored.
-- Anchors: the branch collapse and declared-shape rulings; `libs/dotnet/Rasm/ARCHITECTURE.md`'s frozen host-UI fence as the producing end.
-- Tension: collapse at the one `Rasm` node overruns the column bound at 154, so the node splits by kernel sub-domain or the bound moves.
+(none)
 
 ## [02]-[CLOSED]
 
@@ -32,6 +27,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[SEAM_FENCE_AS_CENSUS]-[COMPLETE]: `[03]-[SEAMS]` reads as a census — the kernel end split by owning sub-domain, one edge per owner, consuming sub-domain, and kind, each member proved at both fences; `MonotonicStamp` and `SpringShape` re-homed off `Canvas` onto `Platform` and `Shell`, `Dimension`, `UnitInterval`, `ControlSpec`, `UiDispatch`, and `PerceptualColor` seats added, `Op` retired from the `[PORT]` edge, `PaintProgram` spelled in code as `GhPaint.Runs`; the kernel end folds it identically under the branch `[04]-[STRUCTURE]` derivation row, closing the column Tension.
 [LOG_CLASSIFICATION_SWEEP]-[COMPLETE]: the classification sweep landed and W2 re-seated its taxonomy — `GhSensitivity` deleted onto kernel `Sensitivity` rows (`Shell/telemetry.md` derives the `[LoggerMessage]` attach attributes from kernel rows and the contributor port stamps `Sensitivity.Values`); every payload parameter stays classified, parity with Rhino's discipline holds.
 [LAYER_OVERLAY_CONSUMER]-[COMPLETE]: `Canvas/paint.md` `[04]-[OVERLAY]` landed `OverlayNode`/`CanvasOverlay` over `Platform/layers.md`'s `LayerPaint`/`Glides` estate with per-ordinal glide, halt, and re-frame; the zero-paint-pass claim is live-proven (mounted sublayer animates compositor-side with zero canvas paint events), the canvas backing layer's 8-bit format routes wide colour onto the overlay layer's own contents, and spring motion rides `GlidePlan.SprungCase`'s kernel `SpringShape` projection.
 [GH_TELEMETRY_FAN]-[COMPLETE]: `Shell/telemetry.md` landed `GhTelemetry`/`GhInstruments`/`GhEvidence` — the typed fold ahead of the message envelope, under per-ALC custody; the app root mints the string-scoped kernel `TelemetryContributorPort` and admits the `Rasm.Grasshopper` meter by name, so no app-root adapter member exists.

@@ -19,7 +19,7 @@
 - Explicit-bucket fallback takes two seats — a `ViewOptions` re-arm reaches raw-provider instruments, so `rasm.*` fixes bounds at its Effect mint.
 - Metric governance rides `otel/emit#GOVERNANCE` — Effect's bridge takes a `MetricProducer` and no `MeterProvider`, so reader knobs govern nothing.
 - Cumulative rail tallies reach counters as DELTAS against one held sample — a counter set to a running total re-counts every prior interval.
-- `otel/vital` owns Core Web Vitals — ONE `web-vitals` accounting per kind per document, graded on `*Thresholds`; a second capture or cutoff forks it.
+- `otel/vital` owns one Core Web Vitals accounting per kind and document, graded on `*Thresholds`; any second capture forks the measure.
 - `long-animation-frame` supersedes the bare `longtask` entry wherever both ship — the richer family carries script attribution the bare one cannot.
 - Seams closing verdicts over domain classes declare the store channel — a decoding discharge fails `SqlError` beside `ParseError`, never the cause.
 - Every dispatch row elects its own re-drive class — a table with no class column re-drives one arm's host crossing on the budget its sibling earned.

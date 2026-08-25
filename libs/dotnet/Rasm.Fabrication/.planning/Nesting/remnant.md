@@ -157,7 +157,8 @@ public abstract partial record RemnantOp {
 
 ## [03]-[INVENTORY]
 
-- Owner: `RemnantProfile` carries traceability, gauge, grain, cost, and exclusion facts; `RemnantRow` is one inventory line with its state, condition, revision, claim census, and optional lease; `RemnantInventory` owns one material lane; `RemnantPlan` is the settled reconciliation receipt.
+- Owner: `RemnantProfile` carries traceability, gauge, grain, the inherited symmetry law, cost, and exclusion facts; `RemnantRow` is one inventory line with its state, condition, revision, claim census, and optional lease; `RemnantInventory` owns one material lane; `RemnantPlan` is the settled reconciliation receipt.
+- Law: an offcut is the SAME substance as the stock it came off, so its placement legality travels with the geometry and `Stock.FromRemnant` projects the profile's `Law` straight back into inventory — a re-read from appearance at re-entry would let one sheet's offcut nest under a law its parent refused.
 - Law: a row's identity IS its content key — `Row.Key.Digest == Remnant.Identity` is an admitted invariant, so an inventory keyed by anything else cannot exist and the batch dedup threads ONE seen-set rather than re-digesting each prior remnant per candidate. `Remnant.Key` is an ADMITTED COLUMN minted once on the `Keyed` rail and re-derived by the validator as its proof, never a property re-folding the canonical preimage on every `Identity` read.
 - Law: `ReusePolicy` carries typed measures — `Length`, `Area`, `Ratio`, `Duration` — and reads its arc and grain budgets off the admitted `Context` lanes, because `ToleranceLane` owns every band it derives; a tolerance column beside a lane is a copy that drifts from it. Only the salvage floor stays a bare double, and it says so: a shop currency has no admitted dimension.
 - Law: lineage is a forest by construction — single-parent edges plus acyclicity — so transitive closure and reduction prove nothing here and are refused by name; the load-bearing law is generation succession and root-stock agreement along every retained parent edge, checked against the resolved parent row.
@@ -177,6 +178,7 @@ using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
 using Rasm.Numerics;
+using Rasm.Parametric;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
@@ -263,15 +265,20 @@ public readonly partial struct RemnantLocation {
     }
 }
 
+// `Law` is the offcut's inherited placement legality — the point group the parent stock's material declared,
+// beside the grain axis it refines. An offcut is the same substance as the sheet it came off, so the law travels
+// with the geometry and `Stock.FromRemnant` projects it back into inventory unchanged; a re-read from appearance at
+// re-entry is the deleted form. An untraceable profile carries `Free`, which under-grants and never over-grants.
 public sealed record RemnantProfile(
     Option<double> GaugeMm,
     Option<double> GrainAxisRadians,
+    MaterialSymmetry Law,
     Seq<Loop> Exclusions,
     Option<RemnantLocation> Location,
     Option<string> Lot,
     Option<string> Heat,
     Option<double> CostPerSquareMillimeter) {
-    public static readonly RemnantProfile Empty = new(None, None, Seq<Loop>(), None, None, None, None);
+    public static readonly RemnantProfile Empty = new(None, None, MaterialSymmetry.Free, Seq<Loop>(), None, None, None, None);
 }
 
 public readonly record struct RemnantOrigin(UInt128 Stock, Option<UInt128> Parent, int Generation);
@@ -420,6 +427,7 @@ using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
 using Rasm.Numerics;
+using Rasm.Parametric;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
@@ -521,19 +529,22 @@ public static class Remnants {
         _ => new RemnantOrigin(stock.Identity, None, 0),
     };
 
+    // Law reaches every arm through the stock's OWN projection rather than each case's column, so a modality
+    // deriving `Free` structurally and one carrying a declared law answer this fold identically.
     private static RemnantProfile Profile(Stock stock) => stock.Switch(
-        sheet: static source => Profile(source.Body, Some(source.Thickness), source.GrainAxis),
-        plate: static source => Profile(source.Body, Some(source.Thickness), source.GrainAxis),
-        roll: static source => Profile(source.Body, None, source.GrainAxis),
-        coil: static source => Profile(source.Body, Some(source.Thickness), source.GrainAxis),
-        barStock: static source => Profile(source.Body, None, None),
-        tubeStock: static source => Profile(source.Body, Some(source.WallThickness), None),
-        billet: static source => Profile(source.Body, Some(source.Depth), None),
-        filament: static source => Profile(source.Body, None, None),
+        sheet: source => Profile(source.Body, Some(source.Thickness), source.GrainAxis, stock.Law),
+        plate: source => Profile(source.Body, Some(source.Thickness), source.GrainAxis, stock.Law),
+        roll: source => Profile(source.Body, None, source.GrainAxis, stock.Law),
+        coil: source => Profile(source.Body, Some(source.Thickness), source.GrainAxis, stock.Law),
+        barStock: source => Profile(source.Body, None, None, stock.Law),
+        tubeStock: source => Profile(source.Body, Some(source.WallThickness), None, stock.Law),
+        billet: source => Profile(source.Body, Some(source.Depth), None, stock.Law),
+        filament: source => Profile(source.Body, None, None, stock.Law),
         fromRemnant: static source => source.Remnant.Profile);
 
-    private static RemnantProfile Profile(StockBody body, Option<double> gauge, Option<double> grainAxis) =>
-        new(gauge, grainAxis, body.Exclusions, None, Some(body.Lot), body.Heat,
+    private static RemnantProfile Profile(StockBody body, Option<double> gauge, Option<double> grainAxis,
+        MaterialSymmetry law) =>
+        new(gauge, grainAxis, law, body.Exclusions, None, Some(body.Lot), body.Heat,
             CostRate(body));
 
     private static Option<double> CostRate(StockBody body) {

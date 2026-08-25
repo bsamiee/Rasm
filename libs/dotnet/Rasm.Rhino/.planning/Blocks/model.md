@@ -575,10 +575,10 @@ public sealed partial class PreviewDecoration {
 // The allocation policy this consumer states over the kernel extent: the max raster edge seeds the kernel
 // `MaxDimension` column and the pixel budget admits at the frame, so a preview request past either refuses
 // before any host bitmap allocates. One declared row — a second budget beside it is two ceilings for one buffer.
-public sealed record PreviewBudget(Dimension MaxEdge, long MaxPixels) {
+public sealed record PreviewBudget(Rasm.Numerics.Dimension MaxEdge, long MaxPixels) {
     public static PreviewBudget Default => Seed.Value;
     private static readonly Lazy<PreviewBudget> Seed = new(static () => new(
-        MaxEdge: Dimension.Create(value: 4096), MaxPixels: 4096L * 4096L));
+        MaxEdge: Rasm.Numerics.Dimension.Create(value: 4096), MaxPixels: 4096L * 4096L));
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------

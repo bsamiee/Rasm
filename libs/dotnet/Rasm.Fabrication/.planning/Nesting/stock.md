@@ -7,17 +7,18 @@
 ## [01]-[INDEX]
 
 - [02]-[DOMAIN]: generated strategy, part, stock-frame, cut, receipt, and run owners.
-- [03]-[ADMISSION]: profile expansion, quarter-turn orientation, stock-frame derivation, and eligibility graph.
+- [03]-[ADMISSION]: profile expansion, quarter-turn orientation, law-carrying stock-frame derivation, and the four-grade eligibility graph.
 - [04]-[PACKING]: bounded strategy evaluation over every `RectangleBinPack.CSharp` provider.
 - [05]-[PROOF]: containment, overlap, cardinality, area, cut-pattern, and content-identity receipts.
 
 ## [02]-[DOMAIN]
 
 - Owner: `NestRun` admits expanded parts, finite inventory, a bounded materialized strategy family, sheet budget, orientation budget, kerf, and edge allowance once.
-- Owner: `StockFrame` retains stock identity, source index, coordinate origin, integer provider extent, true area, material, grain, and cost.
+- Owner: `StockFrame` retains stock identity, source index, coordinate origin, integer provider extent, true area, material, grain, the admitted symmetry law, and cost.
+- Law: the symmetry law is the STOCK's and rides the frame alone — a part row declares where it wants its grain, and the material declares which turns of the blank leave it looking the same, so a law column beside the part states the material's fact at the wrong owner.
 - Cases: `NestStrategy` carries maximal-rectangle, skyline, guillotine, shelf, homogeneous mass-cut, and parameterized sweep policies.
 - Law: `CutAxis` and `CutProof` carry the ordinal every digest and validator reads, so no consumer re-derives a discriminant by case test.
-- Packages: `Thinktecture` supplies the generated strategy, axis, and proof families; `LanguageExt` supplies admission and the `Fin` rail; `UnitsNet` supplies material quantities; `Rasm` supplies `ContentHash` for the snapshot digest.
+- Packages: `Thinktecture` supplies the generated strategy, axis, grade, and proof families; `LanguageExt` supplies admission and the `Fin` rail; `UnitsNet` supplies material quantities; `Rasm` supplies `ContentHash` for the snapshot digest and the `MaterialSymmetry`/`SymmetryFold` legality algebra each frame carries.
 - Growth: a rectangular provider or heuristic lands as one `NestStrategy` case consumed by `Evaluate`; a stock modality remains a `Stock` case consumed by `Frame`.
 
 ## [03]-[ADMISSION]
@@ -25,7 +26,9 @@
 - Law: `NestRun.ResolutionMm` floors stock frames and ceils each kerf-bearing part's bounding envelope once; placement egress restores physical coordinates, extents, origins, and rotations.
 - Law: `StockNest.Frames` admits rectangular frames before applying `StockLimit`, so the budget never buys frames the packer rejects.
 - Law: `EligibilityGraph` joins each part instance only to stock frames satisfying material, extent, grain, and exclusion policy, then refuses any component whose part-area demand exceeds its reachable stock supply — Hall's condition BY AREA, exact for a relation where one frame carries many parts. `MaximumBipartiteMatchingAlgorithm` is refused by name: a matching saturates a one-to-one assignment, so on this relation it is vacuous where the area bound is decisive; the graph's own `AdjacentDegree` answers the orphan question the part-by-orientation cross-product re-derived, and supply indexes by component once.
-- Law: admission is a GRADE, not a verdict — `EligibilityGrade` names the axis a frame refused a part on and carries the arrow onto the `UnplacedReason` case the true-shape lane already publishes, so a rectangular miss reaches a consumer as material, extent, or grain rather than a blanket capacity claim. Measurement runs ONCE per instance-rotation-frame triple inside the relation walk: admitting rows become edges, refusing rows become the retained diagnosis, and no consumer re-measures an axis the relation already decided.
+- Law: admission is a GRADE, not a verdict — `EligibilityGrade` names the axis a frame refused a part on and carries the arrow onto the `UnplacedReason` case the true-shape lane already publishes, so a rectangular miss reaches a consumer as material, extent, grain, or symmetry rather than a blanket capacity claim. Measurement runs ONCE per instance-rotation-frame triple inside the relation walk: admitting rows become edges, refusing rows become the retained diagnosis, and no consumer re-measures an axis the relation already decided.
+- Law: `Grain` names the ABSENT axis — a directional part against stock declaring no direction — and `Symmetry` names the refused TURN, a quarter-turn whose grain residual falls outside the stock fold's cone under the effective fold. Both readings and both folds are `Nesting/nfp`'s own, so this lane GRADES exactly what that lane GATES and a second alignment algebra never exists to disagree.
+- Law: a rectangle envelope is ACHIRAL, so no provider in the family inserts a reflected part and this lane mints no flip move at all — the grade reads the straight parity because that is the only parity it can produce, while `NestPlacement` still carries the column because `Nest.Honor` transcribes plans this packer did not author.
 - Entry: `NestRun.FromProfiles` expands every `PartRule.Quantity` into stable `(PartId, Instance)` identities, clamps the stock budget to real inventory, and narrows each rotation family to its quarter-turn subset; `RectangularBudget` and `RectangularGrid` carry the eight ceilings and grid scalars as two admitted values, so no caller transposes two adjacent positional ints.
 - Packages: `QuikGraph` supplies the eligibility components; `LanguageExt` supplies the applicative admission and traversal; the `Geometry2D` owner supplies the profile measure every part bounding envelope reads.
 - Boundary: nonrectangular regions, interior exclusions, exhausted roll or coil length, unsupported stock modalities, oblique-only rotation families, orphan parts, and strategy expansion beyond its count or depth budget remain typed failures; the bounded queue walk is the strategy-materialization kernel.
@@ -46,7 +49,7 @@
 
 - Owner: `CutPattern` projects stock-local cut spans, provider-feasibility posture, and free rectangles without inventing a provider cut tree or claiming true-shape feasibility; `NestPlan.Unplaced` projects the graded refusal each unseated instance earned, with `Capacity` as the residual no grade explains.
 - Law: `CutAxis` rows own the trim projection, so `Pattern` generates every span and `NestPlan.Validate` re-proves it through one correspondence.
-- Law: `NestPlan.Validate` proves unique instance subset coverage, source containment, pairwise non-overlap, stock eligibility, finite coordinates, yield cardinality, the stock-minus-placement area balance, and that every retained refusal addresses a requested instance no placement seated; provider free rectangles remain bounded evidence, not an exact complement claim.
+- Law: `NestPlan.Validate` proves unique instance subset coverage, source containment, pairwise non-overlap, stock eligibility under the placement's own MOVE, finite coordinates, yield cardinality, the stock-minus-placement area balance, and that every retained refusal addresses a requested instance no placement seated; provider free rectangles remain bounded evidence, not an exact complement claim.
 - Output: `NestPlan.Evidence` retains the `StockSnapshot` kind beside the digest over canonical placements, indexed stock identities, cut spans, free rectangles, run policy, and yield scalars; process-random hashes never enter identity, and `NestPlan.Unplaced` stays outside that digest because a plan keyed on its own diagnosis re-addresses itself the day a grade order is refined.
 - Packages: `FabricationCanon` supplies both preimage closes over the one `Rasm.Element` `CanonicalWriter` — the retaining `Keyed` for the plan address, the streaming `Ordered` for a strategy's own total order; `Thinktecture` supplies the generated proof and grade families; `LanguageExt` supplies the validation applicative.
 - Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against. Rectangular area reads the packer's own placed set wherever every used sheet publishes one, and `NestPlan.Validate` re-derives it from the projected placements, so the two sources disagreeing is an admission failure rather than a silent drift.
@@ -65,6 +68,7 @@ using Rasm.Element.Projection;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
+using Rasm.Parametric;
 using RectangleBinPacking;
 using Rhino.Geometry;
 using System.Collections.Frozen;
@@ -349,8 +353,11 @@ public sealed partial class NestRun {
     }
 }
 
+// Symmetry law belongs to the STOCK, so the frame carries it off `Source.Law` and the part row carries none: a
+// part declares where it wants its grain, and the material declares which turns of the blank leave it unchanged.
 internal sealed record StockFrame(int Index, Stock Source, double OriginX, double OriginY, int Width, int Height,
-    double Resolution, double TrueArea, MaterialId Material, Option<double> GrainAxis, double Cost) {
+    double Resolution, double TrueArea, MaterialId Material, Option<double> GrainAxis, MaterialSymmetry Law,
+    double Cost) {
     public UInt128 Identity => Source.Identity;
     public Rect Bounds => new(0, 0, Width, Height);
 }
@@ -366,8 +373,12 @@ internal sealed record ProviderPlacement(PartInstance Instance, int StockIndex, 
 // frame that constructed it, so a receipt read from it cannot disagree with the placement that produced it.
 internal sealed record ProviderSheet(int Stock, Option<Seq<Rect>> Free, Option<Seq<Rect>> Placed);
 internal sealed record ProviderRun(NestStrategy Strategy, Seq<ProviderPlacement> Placements, Seq<ProviderSheet> Sheets);
+// Every placement carries its MOVE whole — turn and parity — because `Nest.Honor` transcribes a plan that need
+// not be this packer's: a shop-authored layout can flip a blank, and a plan unable to spell that forces the honour
+// fold to assume a parity it was never handed. This packer writes `false` on every row, since the integer envelope
+// it inserts is achiral and no provider in the family reflects one.
 public sealed record NestPlacement(int PartId, int Instance, int SheetIndex, double XMm, double YMm,
-    double RotationRadians, double WidthMm, double HeightMm);
+    double RotationRadians, bool Mirrored, double WidthMm, double HeightMm);
 public sealed record CutSpan(int PlacementIndex, CutAxis Axis, double CoordinateMm, double StartMm, double EndMm, double KerfMm);
 public sealed record CutPattern(int SheetIndex, NestStrategy Strategy, CutProof Proof, Seq<CutSpan> Spans,
     Option<Seq<(double X, double Y, double Width, double Height)>> Free);
@@ -410,11 +421,15 @@ public sealed partial class NestPlan {
             && row.SheetIndex >= 0 && row.SheetIndex < stock.Count && double.IsFinite(row.XMm) && double.IsFinite(row.YMm)
             && double.IsFinite(row.RotationRadians) && double.IsFinite(row.WidthMm) && row.WidthMm > 0.0
             && double.IsFinite(row.HeightMm) && row.HeightMm > 0.0);
+        // Plans reaching this validator carry parities this packer never mints, so the alignment proof reads each
+        // row's own MOVE through the `Nesting/nfp` folds — a mirror reflects the part's grain with its outline, and
+        // re-proving that here under a straight-parity assumption passes a layout whose grain runs the wrong way.
         bool eligible = inventory && indexed && placements.ForAll(row => {
             CutPart part = parts[new PartInstance(row.PartId, row.Instance)]; Stock source = frames[row.SheetIndex].Source;
             return part.Material.ForAll(material => material == source.Material)
-                && part.GrainAxis.ForAll(grain => source.GrainAxis.Exists(axis =>
-                    Math.Abs(Math.IEEERemainder((grain + row.RotationRadians) - axis, Math.PI)) <= part.AngularTolerance));
+                && part.GrainAxis.ForAll(axis => source.GrainAxis.Exists(grain =>
+                    Nest.Fold(part.GrainAxis, source.Law)
+                        .Admits(Nest.Grain(axis, row.RotationRadians, row.Mirrored) - grain, part.AngularTolerance)));
         });
         bool envelopes = indexed && placements.ForAll(row => {
             CutPart part = parts[new PartInstance(row.PartId, row.Instance)];
@@ -489,6 +504,7 @@ public sealed partial class NestPlan {
     static PartInstance Instance(UnplacedReason reason) => reason.Switch(
         material: static row => new PartInstance(row.PartId, row.Instance),
         grain: static row => new PartInstance(row.PartId, row.Instance),
+        symmetry: static row => new PartInstance(row.PartId, row.Instance),
         boundary: static row => new PartInstance(row.PartId, row.Instance),
         collision: static row => new PartInstance(row.PartId, row.Instance),
         exclusion: static row => new PartInstance(row.PartId, row.Instance),
@@ -525,12 +541,12 @@ internal abstract partial record EligibilityNode {
     public sealed record Stock(int Index) : EligibilityNode;
 }
 
-// Admission is GRADED, never a bare yes: the three axes a frame refuses a part on are the three the true-shape
-// lane already names as `UnplacedReason` cases, so the grade IS the arrow between them. A bool answered "no" and
+// Admission is GRADED, never a bare yes: the four axes a frame refuses a part on are four the true-shape lane
+// already names as `UnplacedReason` cases, so the grade IS the arrow between them. A bool answered "no" and
 // threw the axis away, which is why every rectangular miss reached `Nesting/nfp` as a blanket `Capacity` — a
 // shop reading that receipt could not tell a wrong-alloy part from one that simply ran out of sheet. `Admitted`
 // carries no reason because nothing needs explaining, and refusing rows order as the eligibility walk tests them:
-// material before extent before grain, cheapest test first.
+// material before extent before grain before symmetry, cheapest test first.
 [SmartEnum<string>]
 public sealed partial class EligibilityGrade {
     public static readonly EligibilityGrade Admitted = new("admitted",
@@ -541,6 +557,8 @@ public sealed partial class EligibilityGrade {
         static (part, stock) => Some<UnplacedReason>(new UnplacedReason.Boundary(part.PartId, part.Ordinal, stock)));
     public static readonly EligibilityGrade Grain = new("grain",
         static (part, stock) => Some<UnplacedReason>(new UnplacedReason.Grain(part.PartId, part.Ordinal, stock)));
+    public static readonly EligibilityGrade Symmetry = new("symmetry",
+        static (part, stock) => Some<UnplacedReason>(new UnplacedReason.Symmetry(part.PartId, part.Ordinal, stock)));
 
     public bool Admits => this == Admitted;
 
@@ -593,7 +611,8 @@ public static class StockNest {
             return columnCount is < 1.0 or > int.MaxValue || rowCount is < 1.0 or > int.MaxValue
                 ? None
                 : Some(new StockFrame(index, stock, box.Min.X + allowance, box.Min.Y + allowance,
-                    (int)columnCount, (int)rowCount, resolution, Math.Abs(region.Area()), stock.Material, stock.GrainAxis, stock.Cost));
+                    (int)columnCount, (int)rowCount, resolution, Math.Abs(region.Area()), stock.Material,
+                    stock.GrainAxis, stock.Law, stock.Cost));
         });
     }
 
@@ -745,7 +764,7 @@ public static class StockNest {
             StockFrame frame = frames[row.StockIndex];
             return new NestPlacement(row.Instance.PartId, row.Instance.Ordinal, row.StockIndex,
                 frame.OriginX + (row.Rect.X * run.ResolutionMm), frame.OriginY + (row.Rect.Y * run.ResolutionMm),
-                row.Rotation, row.Rect.Width * run.ResolutionMm, row.Rect.Height * run.ResolutionMm);
+                row.Rotation, Mirrored: false, row.Rect.Width * run.ResolutionMm, row.Rect.Height * run.ResolutionMm);
         });
         Seq<int> used = provider.Placements.Map(static row => row.StockIndex).Distinct();
         NestYield yield = YieldOf(run, frames, placements, provider.Sheets);
@@ -863,7 +882,7 @@ public static class StockNest {
                     .ThenBy(static row => row.Instance)),
                 static (held, row) => held
                     .Ordinal(row.PartId).Ordinal(row.Instance).Ordinal(row.SheetIndex)
-                    .Double(row.XMm).Double(row.YMm).Double(row.RotationRadians)
+                    .Double(row.XMm).Double(row.YMm).Double(row.RotationRadians).Bool(row.Mirrored)
                     .Double(row.WidthMm).Double(row.HeightMm))
             .Rows(stock, static (held, item) => held.U128(item.Identity))
             .Rows(toSeq(patterns.OrderBy(static row => row.SheetIndex)), static (held, pattern) => held
@@ -1010,15 +1029,22 @@ internal sealed class EligibilityGraph {
     }
 
     // First refusal wins and the order is the cost order — an alloy comparison before an integer extent before a
-    // modular-angle fold — so the grade a consumer reads is the cheapest true explanation, not the last one tested.
+    // presence test before a modular-angle fold — so the grade a consumer reads is the cheapest true explanation,
+    // not the last one tested. `Grain` names the ABSENT axis, a directional part against stock declaring no
+    // direction, and `Symmetry` names the refused TURN, a quarter-turn whose grain residual falls outside the
+    // stock fold's cone; both readings and both folds are `Nesting/nfp`'s, so this lane grades what that lane
+    // gates. A rectangle envelope is ACHIRAL, so no packer inserts a reflected part and this lane mints no flip
+    // move: the grade reads the straight parity because that is the only parity it can produce.
     static EligibilityGrade Fits(CutPart part, StockFrame stock, double kerf, double rotation) {
         (int Width, int Height) extent = StockNest.Envelope(part, stock.Resolution, kerf, rotation);
+        SymmetryFold fold = Nest.Fold(part.GrainAxis, stock.Law);
         return !part.Material.ForAll(material => material == stock.Material) ? EligibilityGrade.Material
             : extent.Width > stock.Width || extent.Height > stock.Height ? EligibilityGrade.Extent
-            : !part.GrainAxis.ForAll(grain => stock.GrainAxis.Exists(axis =>
-                Math.Abs(Math.IEEERemainder((grain + rotation) - axis, Math.PI)) <= part.AngularTolerance))
-                    ? EligibilityGrade.Grain
-                    : EligibilityGrade.Admitted;
+            : part.GrainAxis.IsSome && stock.GrainAxis.IsNone ? EligibilityGrade.Grain
+            : part.GrainAxis.ForAll(axis => stock.GrainAxis.Exists(grain =>
+                fold.Admits(Nest.Grain(axis, rotation, mirrored: false) - grain, part.AngularTolerance)))
+                    ? EligibilityGrade.Admitted
+                    : EligibilityGrade.Symmetry;
     }
 }
 ```

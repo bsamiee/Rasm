@@ -102,6 +102,8 @@ public sealed partial class EnginePhase {
     public static readonly EnginePhase CandidatesRejected = new("candidates-rejected", FabricationEngine.Nest);
     public static readonly EnginePhase MemoHits = new("memo-hits", FabricationEngine.Nest);
     public static readonly EnginePhase MemoMisses = new("memo-misses", FabricationEngine.Nest);
+    public static readonly EnginePhase Moulds = new("moulds", FabricationEngine.Nest);
+    public static readonly EnginePhase ChiralFloor = new("chiral-floor", FabricationEngine.Nest);
     public static readonly EnginePhase Nodes = new("nodes", FabricationEngine.Skeleton);
     public static readonly EnginePhase Arcs = new("arcs", FabricationEngine.Skeleton);
     public static readonly EnginePhase Passes = new("passes", FabricationEngine.Skeleton);
@@ -355,12 +357,17 @@ public abstract partial record FabricationFact {
     // per-iteration write inside an allocation-free fold. The owning solver rides the phase row, so the
     // fact stores one discriminant and the arm derives the second.
     public sealed record Engine(EnginePhase Phase, long Count) : FabricationFact {
+        // Mould census and chiral floor are solver-lane COUNTS like the rest: the delivered plan's distinct cut
+        // outlines, and the split the panel law had already made before the nest ran. Shops reading the pair read
+        // what the directional material cost against what it was always going to cost.
         public static Seq<Engine> Of(NestEvidence evidence) => Rows(
             (EnginePhase.Candidates, evidence.Candidates),
             (EnginePhase.Evaluated, evidence.Evaluated),
             (EnginePhase.CandidatesRejected, evidence.Rejected),
             (EnginePhase.MemoHits, evidence.MemoHits),
-            (EnginePhase.MemoMisses, evidence.MemoMisses));
+            (EnginePhase.MemoMisses, evidence.MemoMisses),
+            (EnginePhase.Moulds, evidence.Moulds),
+            (EnginePhase.ChiralFloor, evidence.ChiralFloor));
 
         public static Seq<Engine> Of(SkeletonWalk receipt) => Rows(
             (EnginePhase.Nodes, receipt.NodeCount),

@@ -63,7 +63,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [44]-[CLAIMS](.planning/Runtime/claims.md): Measured gate on every performance-motivated route — a winning claim whose fingerprint and class match.
 - [45]-[LEDGER](.planning/Runtime/ledger.md): Cost algebra, rate policy, and the tenant chargeback egress.
 - [46]-[BOARD](.planning/Runtime/board.md): One dashboard-and-reliability pack travelling to the composing root as data rows, never as rendered JSON.
-- [47]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, stage crossing, and fault projection over the `Rasm.Contracts` bindings.
+- [47]-[WIRE](.planning/Runtime/wire.md): Proto vocabulary, `ParseGuard` admission, the served progress stream, and the client fault rail.
 - [48]-[CHANNELS](.planning/Runtime/channels.md): Channel mechanics — transport rows, call policy, and the artifact-frame law.
 - [49]-[INGEST](.planning/Runtime/ingest.md): Foreign-delivery boundary for sensor and dictionary material — bytes this process never controls.
 - [50]-[OBSERVATION](.planning/Runtime/observation.md): Durable half of the sensor wire — metered streams as graph evidence, sole reach to `Node`.
@@ -178,7 +178,7 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `MQTTnet` — MQTT v5 carrier beneath the branch-owned MQTT binding the sensor ingest decodes through.
 
 [WIRE_CODEGEN]:
-- `Rasm.Contracts` — Generated compute RPC messages and `event.Extensions` for broker admission.
+- `Rasm.Contracts` — Generated compute, progress, stage, artifact, control, scan, and event families; `ProgressService` is served here.
 - `Google.Protobuf`
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore.Server`

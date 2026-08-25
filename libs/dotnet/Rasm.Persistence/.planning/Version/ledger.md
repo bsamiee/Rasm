@@ -1,19 +1,19 @@
 # [PERSISTENCE_VERSION_LEDGER]
 
-`Rasm.Persistence.Version` projects Marten events into one durable `OpLogEntry` feed and owns every convergence decision over that feed. `ColumnFamily` binds payload codec and merge stance; `ReplayWindow` parameterizes every bounded read; `SyncMerge` folds scalar, first-writer, and CRDT entries through one closed fault rail; `SyncTransport` carries cross-store exchange; `Awareness` owns ephemeral collaboration. `ProjectionContext` supplies time, correlation, and tenant evidence, while `ContentHash.Of` supplies payload identity.
+`Rasm.Persistence.Version` projects Marten events into one durable `OpLogEntry` feed and owns every convergence decision over that feed. `ColumnFamily` binds payload codec and merge stance; `ReplayWindow` parameterizes every bounded read; `SyncMerge` folds scalar, first-writer, and CRDT entries through one closed fault rail; `SyncTransport` carries cross-store exchange over the generated `rasm.contracts.sync.SyncService` both processes bind; `Awareness` owns ephemeral collaboration. `ProjectionContext` supplies time, correlation, and tenant evidence, while `ContentHash.Of` supplies payload identity.
 
 ## [01]-[INDEX]
 
 - [02]-[CHANGEFEED]: `OpLogEntry` projects Marten events, with the `OpSlot` sign boundary, HLC stamping, the trace slot, the closure manifest, and the `ReplayWindow` windowed read.
 - [03]-[MERGE_LAW]: LWW adjudication, conflict receipts, the idempotent apply fold, CRDT dispatch, and the conservation invariant.
-- [04]-[SYNC_TRANSPORTS]: `SyncTransport` closes the transport family over its `SyncFlow` capability set, the subtree checkout over `OpLog.TransferSet`, and the Speckle marshal seam.
+- [04]-[SYNC_TRANSPORTS]: `SyncTransport` closes the transport family over its `SyncFlow` capability set, `SyncWire` and `SyncEndpoint` bind the two ends of the generated `SyncService`, and the Speckle marshal keeps its SDK seam.
 - [05]-[PRESENCE]: ephemeral presence rows, the lossy awareness lane, and the working-set checkout.
 
 ## [02]-[CHANGEFEED]
 
 - Owner: `SyncCapability` the write-verb capability vocabulary and `SyncOps` its legal corners; `SyncOpKind` the write-verb axis carrying its capability set and its `Fact` announcement spelling; `OpCapability`/`OpLaws` and `OpLaw` the estate's one commutation vocabulary; `ColumnFamily` the merge-lane axis carrying `MergeStance` AND `SnapshotCodec` as one row, so the lane selects adjudication algebra and payload codec together; `TraceSlot` the changefeed W3C trace-id carrier; `OpSlot` the ONE sign boundary between the `long` version-vector slot space and the `ulong` dot space; `OperationId` the dot-plus-frontier operation identity; `DotSource` the store's one dot minter; `EventFacts` the admitted Marten-event evidence; `OpLogMapper` the generated `EventFacts`→`OpLogEntry` transcription; `OpLogEntry` the interior changefeed record; `OpLogEntryWire` and `OpLogWire` the explicit primitive thirteen-slot MessagePack boundary; `ReplayWindow` the one windowed-read parameterization; `ChangefeedSubscription` the `SubscriptionBase` batched drain; the `OpLog` project-stamp-replay surface.
 - Cases: `SyncOpKind` is `Upsert | Delete | Truncate | Presence`, each carrying its past-tense `Fact` and its held `SyncCapability` set — `{}`, `{Tombstone}`, `{Tombstone, WholeRelation}` are the three legal corners, so a whole-relation verb that is not a tombstone is unrepresentable rather than merely unwritten. `OpLaw` is `Ordered | Commutative | Semilattice`, the same triple `Version/commits#CRDT_ALGEBRA` `Crdt.Law` returns and `typescript:core/state/merge` `Merge.Law` spells, each row holding its `OpCapability` corner. `MergeStance` is `Lww(Ordered) | Crdt(Semilattice) | FirstWriter(Ordered)` and derives `Convergent` off the law. `ColumnFamily` closes at `Scalar | Crdt | Geometry | Presence | Commit | Branch | Attest`, each carrying stance, codec, and durability, so a consumer dispatches on the row and never a string compare.
-- Entry: `ProcessEventsAsync` reserves a range's dots once, projects the whole delivered range, and drains it once. `DotSource.Reserve(count)` is the one identity mint for projection and authoring. `OpLog.Project(dots, events)` accumulates admissions; `Replay(feed, window)` owns windowed reads; `Stamp(sink, dots, frame, build)` owns authoring; `OpLogWire.Encode` and `OpLogWire.Decode` own the native thirteen-slot MessagePack boundary; `TransferSet(entry, holds)` projects closure-minus-held keys.
+- Entry: `ProcessEventsAsync` reserves a range's dots once, projects the whole delivered range, and drains it once. `DotSource.Reserve(count)` is the one identity mint for projection and authoring. `OpLog.Project(dots, events)` accumulates admissions; `Replay(feed, window)` owns windowed reads; `Stamp(sink, dots, frame, build)` owns authoring; `OpLogWire.Encode` and `OpLogWire.Decode` own the native thirteen-slot MessagePack boundary in singular and frame-accumulating plural form, and `OpLogWire.Uuid`/`OpLogWire.I63` own the store-id byte form and the `ulong`→`long` gate every sync crossing composes; `TransferSet(entry, holds)` projects closure-minus-held keys.
 - Auto: a Marten async subscription projects each committed model event into the one feed; triggers, secondary op-log tables, and per-payload records are inadmissible (`H11`). Every connected `GraphEvent` producer is a structural `geometry`-lane change carrying the codec-encoded `GraphDelta`, adjudicated by `(Hlc, OriginStoreId)` LWW. `Closure` carries descendant geometry content keys, so transfer is set difference rather than a tree walk. Every foreign column of a Marten event admits ONCE into `EventFacts` — stream key, actor header, correlation, and stream version each on the `Validation` rail — so a malformed event reports every bad column at once and the generated mapper builds the entry from evidence alone.
 - Receipt: changefeed position and queue depth ride `SyncApplyReceipt`; the projected-segment evidence rides `ReceiptSinkPort`.
 - Packages: Marten owns event-range subscription; MessagePack owns the explicit primitive op-log envelope; Rasm.Element supplies native `GraphDelta.Address`, `Node`, and representation keys; Rasm supplies content hashing, capabilities, and faults; Mapperly supplies admitted entry transcription; NodaTime, LanguageExt.Core, Thinktecture.Runtime.Extensions, DiagnosticSource, and BCL inbox complete the substrate.
@@ -317,6 +317,16 @@ public static class OpLogWire {
             .Bind(Admit)
             .MapFail(static error => new SyncFault.TransferDecode("oplog", error));
 
+    // The plural forms ACCUMULATE: a peer offering a hundred frames with two bad ones learns both, where a
+    // short-circuiting traverse names the first and hides the rest behind a re-send that fails the same way.
+    // Every frame-bearing crossing — the delta exchange, the push handler, the checkout stream — takes these.
+    public static Fin<Seq<ReadOnlyMemory<byte>>> Encode(Seq<OpLogEntry> entries) =>
+        entries.Traverse(static entry => Encode(entry).ToValidation()).As().ToFin()
+            .Map(static frames => frames.Map(static frame => (ReadOnlyMemory<byte>)frame));
+
+    public static Fin<Seq<OpLogEntry>> Decode(Seq<ReadOnlyMemory<byte>> frames) =>
+        frames.Traverse(static frame => Decode(frame).ToValidation()).As().ToFin();
+
     static OpLogEntryWire Project(OpLogEntry entry) => new(
         checked((ulong)entry.Sequence),
         new OperationIdWire(
@@ -390,7 +400,9 @@ public static class OpLogWire {
             : Fin.Fail<Unit>(Error.New("<oplog-envelope-contract>"));
     }
 
-    static Fin<long> I63(ulong value, string field) => value <= (ulong)long.MaxValue
+    // The ONE `ulong` → `long` gate on this feed: the envelope's own columns and the generated cursor's drain
+    // position both cross here, so a second width check beside it cannot admit what this one refuses.
+    public static Fin<long> I63(ulong value, string field) => value <= (ulong)long.MaxValue
         ? Fin.Succ((long)value)
         : Fin.Fail<long>(Error.New($"<oplog-{field}-unsigned:{value}>"));
 
@@ -406,13 +418,16 @@ public static class OpLogWire {
         toSeq(SyncOpKind.Items).Find(row => string.Equals(row.Key, key, StringComparison.Ordinal))
             .ToFin(Error.New($"<oplog-kind:{key}>"));
 
-    static byte[] Uuid(Guid value) {
+    // The ONE 16-byte big-endian store-id correspondence this feed publishes. The MessagePack envelope and the
+    // generated `SyncCursorWire` both fill from here, so a peer reads one origin spelling off either carrier;
+    // the span inverse serves an array column and a `ByteString.Span` with no copy between them.
+    public static byte[] Uuid(Guid value) {
         byte[] bytes = new byte[Fixed];
         value.TryWriteBytes(bytes, bigEndian: true, out _);
         return bytes;
     }
 
-    static Guid Uuid(byte[] value) => new(value, bigEndian: true);
+    public static Guid Uuid(ReadOnlySpan<byte> value) => new(value, bigEndian: true);
     static byte[] Wide(UInt128 value) { byte[] bytes = new byte[Fixed]; BinaryPrimitives.WriteUInt128BigEndian(bytes, value); return bytes; }
 }
 
@@ -581,7 +596,7 @@ public static class OpLog {
 
 - Owner: `ConflictReceipt` with option-carried `ConflictSide` evidence; `ConflictVerdict`; `ConflictResult`; `SyncApplyReceipt` the `IValidityEvidence` conservation receipt; `SyncFault` the closed `[Union]` deriving from the KERNEL `Rasm.Domain.Fault` in the 825x band; `SyncSession` the one session capsule carrying the injected `ProjectionContext` frame with its delegate rows; `SyncMerge` the fold surface routing each entry by its `ColumnFamily.Stance` — `Lww`/`FirstWriter` through `Adjudicate`, `Crdt` into `Crdt.Apply`, a winning whole-relation entry through the `Truncate` delegate.
 - Cases: four verdict rows — `LocalWin | RemoteWin | Merged | Rejected` — collapse into one `ConflictResult(Verdict, Receipt, Conflicted, Held)` where `Conflicted` separates a genuine divergence from an idempotent-replay `LocalWin` or a fresh `Merged`, and `Held` carries the held content key the fork fault reads without a second lookup. `Rejected` is reachable only on an equal `(stamp, origin)` over divergent content — the causal fork `Apply` lifts to `SyncFault.Forked` and halts on — never a soft conflict bucket. Faults close at `SchemaMismatch | ReplicationFaulted | SpeckleMarshal | TransferDecode | TransferEncode | Unconserved | Forked | Unobserved | SlotOutOfSpace`; the last pair carries a compaction whose minter never observed its horizon and a vector slot outside the dot space, while transfer directions remain distinct.
-- Entry: `SyncMerge.Apply(session, incoming)` skips only an identity already applied, refuses a non-redelivery whose causal context the advancing frontier does not dominate, and then dispatches merge. Its receipt proves applied, skipped, conflicted, converged, and pushed counts under `IValidityEvidence`; `Converged(entry, apply)` retains the outer dot through generated-protobuf admission and the state fold.
+- Entry: `SyncMerge.Apply(session, incoming)` skips only an identity already applied, refuses a non-redelivery whose causal context the advancing frontier does not dominate, and then dispatches merge. Its receipt proves applied, skipped, conflicted, converged, and pushed counts under `IValidityEvidence`; `Converged(entry, apply)` retains the outer dot through generated-protobuf admission and the state fold; `Settled(session, incoming)` is that same fold with its IO rail captured onto the value channel, the one shape a gRPC handler binds.
 - Receipt: `ConflictReceipt` is the typed fork evidence the `Forked` halt carries and the inspector projects; `SyncApplyReceipt` is the per-run apply evidence, self-attesting through the kernel `ValidityClaim.All` fold over its own carried `Batch` — the parameterized `Conserves(long)` knob and a hand `&&` chain are the deleted forms, since the receipt reconstructs the check from its own fields.
 - Packages: Rasm (`Rasm.Domain` `Fault` — the federation fault base; `IValidityEvidence`/`ValidityClaim` — the receipt-validity floor; `FaultBand`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new merge stance is one `MergeStance` row carrying its `OpLaw`; a fifth `ConflictVerdict` row is the named defect; a new fault cause is one `SyncFault` case; a new replicated data type is a `Version/commits#CRDT_ALGEBRA` `CrdtField` case with its `Crdt.Law` row, dispatched by this fold, never a fifth scalar arm.
@@ -664,15 +679,22 @@ public readonly record struct SyncApplyReceipt(
 // Sessions take the injected `Element/graph#STORE_RAIL` frame, carrying clock, correlation, and tenant as VALUES.
 // `Cursor`/`Acked` are TWO cursor spaces — our position in the PEER's feed, and the peer's confirmed position in OURS
 // — and one slot carrying both skips or re-pulls remote entries. `Spool`/`Unspool`/`LocalHas` bind the durable KV
-// floor, because a session whose pending rows live only in memory loses the buffer on process exit.
+// floor, because a session whose pending rows live only in memory loses the buffer on process exit. The four DIALED
+// ports carry `Fin` inside the effect because a hop SETTLES rather than throws: the composition root fills each with
+// the matching `SyncWire` method group, so the transport verdict and its value arrive as one value the pump collapses
+// once and no second port set exists beside the generated client. `Fetch` stays the LOCAL entry resolver — the
+// in-process cross-session graft reads it, never the peer-facing checkout.
 public sealed record SyncSession(
     ProjectionContext Frame, ReceiptSinkPort Sink, Guid StoreId, ulong SchemaFingerprint, SyncCursor Cursor, SyncCursor Acked, CancellationToken Token,
     Func<VersionVector> Frontier,
     Func<UInt128, bool> Holds, Func<OpLogEntry, Option<OpLogEntry>> Held, Func<OpLogEntry, IO<Unit>> Commit, Func<OpLogEntry, IO<Unit>> Truncate, Func<OpLogEntry, IO<ConflictResult>> Converge,
     Func<SyncCursor, Seq<OpLogEntry>> Pending, Func<long> QueueDepth, Func<UInt128, IO<OpLogEntry>> Fetch,
     Func<Seq<OpLogEntry>, IO<Unit>> Spool, Func<ulong, IO<(ulong Head, Seq<OpLogEntry> Entries)>> Unspool, Func<UInt128, IO<bool>> LocalHas,
-    Func<string, SyncCursor, IO<(ulong SchemaFingerprint, Seq<ReadOnlyMemory<byte>> Frames, SyncCursor Cursor)>> Pull,
-    Func<string, Seq<ReadOnlyMemory<byte>>, IO<SyncCursor>> Push, Func<string, Seq<UInt128>, IO<Seq<UInt128>>> HasObjects,
+    Func<string, SyncCursor, IO<Fin<(ulong SchemaFingerprint, Seq<ReadOnlyMemory<byte>> Frames, SyncCursor Cursor)>>> Pull,
+    Func<string, Seq<ReadOnlyMemory<byte>>, IO<Fin<SyncCursor>>> Push,
+    Func<string, UInt128, Seq<UInt128>, IO<Fin<Seq<UInt128>>>> Missing,
+    Func<string, UInt128, IO<Fin<Seq<ReadOnlyMemory<byte>>>>> Checkout,
+    Func<string, Seq<UInt128>, IO<Seq<UInt128>>> HasObjects,
     Func<string, Seq<OpLogEntry>, IO<(UInt128 RootContentKey, long ConvertedReferences)>> SpeckleSend,
     Func<string, UInt128, IO<Seq<OpLogEntry>>> SpeckleReceive);
 
@@ -742,6 +764,16 @@ public static class SyncMerge {
             .Bind(receipt => receipt.IsValid ? IO.pure(receipt) : IO.fail<SyncApplyReceipt>(new SyncFault.Unconserved(receipt.Batch, receipt.Settled)))
             .As();
 
+    // The ONE capture of the fold's IO rail onto the value channel. A gRPC handler answers every refusal as a
+    // status, so the push arm binds THIS method group and the fold keeps its own rail untouched — a second
+    // capture at each override, or a merge that returns `Fin` to every in-process caller, are the two forms
+    // this seat deletes.
+    public static IO<Fin<SyncApplyReceipt>> Settled(SyncSession session, Seq<OpLogEntry> incoming) =>
+        Apply(session, incoming).Map(static receipt => Fin.Succ(receipt)).Bracket(
+            Use: static answered => IO.pure(answered),
+            Catch: static error => IO.pure(Fin.Fail<SyncApplyReceipt>(error)),
+            Fin: static _ => IO.pure(unit));
+
     // Only a non-convergent applying verdict reaches `Commit`/`Truncate`: `Converge` already landed its own merge.
     static IO<Counts> Landed(SyncSession session, OpLogEntry entry, ConflictResult result, Counts counts) =>
         result.Verdict == ConflictVerdict.Rejected
@@ -773,17 +805,33 @@ public static class SyncMerge {
 
 ## [04]-[SYNC_TRANSPORTS]
 
-- Owner: `FlowCapability`/`SyncFlows` the exchange-direction vocabulary and `SyncFlow` its keyless disposition; `SyncTransport` the closed transport family; the `SyncPump` dispatch surface with the `Checkout` graph-checkout bridge and the `Offer` Speckle-diff arm; `OpLog.TransferSet` the ONE set-difference algebra both dial.
-- Cases: three transport cases — `HttpDelta`, `SpeckleLikeDiff`, `SubtreeCheckout` — widened by the one `SyncFlow` field whose capability set the `Exchange` fold reads; fan-in, fan-out, and bidirectional are `SyncFlow` rows, never new transport cases, and the empty corner is barred because a transport that neither pulls nor pushes exchanges nothing.
-- Entry: `SyncPump.Run(session, transport)` is one total state-threaded dispatch; `OpLog.TransferSet(root, holds)` projects the missing geometry-BLOB-key manifest — the closure with the root payload key, minus held; `Checkout(source, target, root)` fetches the root entry, applies it onto the target, and accounts the blob manifest on the receipt.
-- Auto: intra-cluster replication is Marten's own daemon over the shared PostgreSQL, so this axis is the CROSS-store and offline lane — a disconnected editor, a Speckle hub, a peer holding a subgraph — never a re-implementation of single-cluster replication. `HttpDelta` pulls a cursor-bounded segment of the peer's feed and pushes the pending set past the peer-acked frontier; `SubtreeCheckout` fetches the root entry, APPLIES it, and accounts its closure as the blob-transfer set; `SpeckleLikeDiff` folds the pending set through `OpLog.TransferSet` over the peer's membership answer and hands the missing set to the marshal.
-- Receipt: every transport run yields one `SyncApplyReceipt`; the subtree-checkout transfer count rides the same receipt.
-- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm (`CapabilitySet`/`CapabilityLaw`), NodaTime, Speckle.Sdk (companion, outside-Rhino), BCL inbox.
-- Growth: a new transport is one case with one dispatch arm; a new exchange direction is one `SyncFlows` corner; a new graph-checkout shape is one entry over `OpLog.TransferSet`, never a second diff algebra.
-- Boundary: `HttpDelta` rides the AppHost `OutboundHop` keyed pipeline, so retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law. Its injected transport exchanges MessagePack frames and admits every frame through `OpLogWire.Decode` after pull and `OpLogWire.Encode` before push; typed entries never cross that boundary. `OpLog.TransferSet` is the ONE set-difference algebra — the closure GEOMETRY-blob manifest with the root payload key, minus what the target holds — and it is the BLOB-transfer set the content-addressed store moves, NOT an op-log-entry fetch input; feeding that manifest to `Fetch`, which resolves an entry and never a geometry blob, or running a second walk-and-diff, is the deleted form. No corpus RPC is claimed: transport remains an injected application port until a real RPC owner binds it.
-- Boundary: the two cursor SPACES thread the exchange — the pull leg advances this store's position in the PEER's feed and the push leg the peer-returned confirmation in OURS — and overwriting one with the other resumes the next pull from this store's push frontier inside the PEER's sequence space, silently skipping every entry between. Speckle's wire leg lives OUTSIDE-RHINO on the companion target, so the in-Rhino assembly composes only the case and the marshal delegate slot and never references the SDK; the DI-resolved INSTANCE `IOperations.Send` returns a root id that projects onto the offered root `ContentKey` with zero second identity, and a drift between the two faults the run.
+- Owner: `FlowCapability`/`SyncFlows` the exchange-direction vocabulary and `SyncFlow` its keyless disposition; `SyncTransport` the closed transport family; the `SyncPump` dispatch surface with the `Materialize` checkout bridge and the `Offer` Speckle-diff arm; `SyncPeer` the authority-and-client seat; `SyncWire` the generated `SyncService.SyncServiceClient` binding filling the session's four dialed ports; `SyncWireMap` the one `SyncCursor` ⇄ `SyncCursorWire` seam; `SyncRuntime` the server's dependency record; `SyncEndpoint : SyncService.SyncServiceBase` the four server overrides; `OpLog.TransferSet` the ONE set-difference algebra both ends dial.
+- Cases: three transport cases — `HttpDelta`, `SpeckleLikeDiff`, `SubtreeCheckout` — widened by the one `SyncFlow` field whose capability set the `Exchange` fold reads; fan-in, fan-out, and bidirectional are `SyncFlow` rows, never new transport cases, and the empty corner is barred because a transport that neither pulls nor pushes exchanges nothing. Four rpcs close the service — `SyncService.Pull`, `SyncService.Push`, `SyncService.TransferSet`, `SyncService.Checkout` — over `PullRequest`/`PullResponse`, `PushRequest`/`PushResponse`, `TransferSetRequest`/`TransferSetResponse`, and `CheckoutRequest`/`CheckoutResponse`, with `SyncCursorWire` the one position carrier all four share.
+- Law: cross-store sync is a PROCESS crossing between two instances of THIS package, so the client half (`SyncWire.Pull`, `SyncWire.Push`, `SyncWire.TransferSet`, `SyncWire.Checkout`) and the server half (`SyncEndpoint.Pull`, `SyncEndpoint.Push`, `SyncEndpoint.TransferSet`, `SyncEndpoint.Checkout`) seat on this one page and the corpus `libs/contracts/manifest.json` `sync-rpc` seam names both anchors. Frames stay the thirteen-slot MessagePack envelope inside the `bytes` columns, opaque to the service, so the generated messages carry POSITION and GENERATION while `OpLogWire` keeps entry identity.
+- Exemption: three statement seams, each platform-forced and each stated at its site — the `IAsyncStreamReader<T>` pump (the `ReadAllAsync` drain ships in `Grpc.Net.Common`, a package this folder does not admit), the `IServerStreamWriter<T>` per-message write, and the `FaultWire.Raise` throw inside the generated override, where the typed refusal is sealed on the rail first and the exception is the transport's egress form.
+- Entry: `SyncPump.Run(session, transport)` is one total state-threaded dispatch; `SyncWire.Pull|Push|TransferSet|Checkout` each answer `IO<Fin<…>>` shaped as the session port they fill; `SyncEndpoint.Pull|Push|TransferSet|Checkout` answer the four rpcs; `OpLog.TransferSet(root, holds)` projects the missing geometry-BLOB-key manifest — the closure with the root payload key, minus held; `SyncPump.Checkout(source, target, root)` is the IN-PROCESS cross-session graft over the local `Fetch`, never a dial.
+- Auto: intra-cluster replication is Marten's own daemon over the shared PostgreSQL, so this axis is the CROSS-store and offline lane — a disconnected editor, a Speckle hub, a peer holding a subgraph — never a re-implementation of single-cluster replication. `HttpDelta` dials `Pull` for a cursor-bounded segment of the peer's feed and `Push` for the pending set past the peer-acked frontier; `SubtreeCheckout` dials `Checkout` for the root envelope and its closure, applies them, and dials `TransferSet` for the blob manifest the receipt accounts; `SpeckleLikeDiff` folds the pending set through `OpLog.TransferSet` over the peer's membership answer and hands the missing set to the SDK marshal.
+- Receipt: every transport run yields one `SyncApplyReceipt`; the subtree-checkout transfer count rides the same receipt. Each dial also fans one AppHost `HopReceipt` from `OutboundSurface.Dispatch`, so transport evidence and merge evidence stay two records neither end re-derives.
+- Packages: Rasm.Contracts (project — generated `SyncService`, `PullRequest`/`PullResponse`, `PushRequest`/`PushResponse`, `TransferSetRequest`/`TransferSetResponse`, `CheckoutRequest`/`CheckoutResponse`, `SyncCursorWire`, `Clock.Hlc`), Grpc.Core.Api (`SyncService.SyncServiceBase`, `SyncService.SyncServiceClient`, `CallInvoker`, `CallOptions`, `IAsyncStreamReader<T>.MoveNext`, `IServerStreamWriter<T>.WriteAsync`, `ServerCallContext`), Google.Protobuf (`ByteString.CopyFrom`/`Span`/`Memory`, `RepeatedField<T>`, `IMessage<T>`), Rasm.AppHost (project — `WireAdmission.Admit`, `WireBoundary`, `HostWire.Stamp`, `FaultWire.Raise`, `FaultContext`, `OutboundSurface.Dispatch`, `OutboundRuntime`, `OutboundHop`, `HopOutcome`, `HopSettled<T>`), Riok.Mapperly, Rasm (`ContentHash.Wire`/`Admit`, `CapabilitySet`/`CapabilityLaw`, `ReceiptSinkPort`), LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, Speckle.Sdk (companion, outside-Rhino), BCL inbox.
+- Growth: a new transport is one case with one dispatch arm; a new exchange direction is one `SyncFlows` corner; a new rpc is one row on the corpus service with its `SyncWire` method, its `SyncEndpoint` override, and its `sync-rpc` manifest case landing together — a service-only or client-only declaration is deleted rather than padded with an unused adapter; a new graph-checkout shape is one entry over `OpLog.TransferSet`, never a second diff algebra.
+- Boundary: every dial rides the AppHost `OutboundHop` keyed pipeline — the three unary rpcs on `OutboundHop.Grpc` under a per-call idempotency key, the checkout stream on `OutboundHop.ServerStream` — so retry, backoff, breaker, rate limit, and hop deadlines are owned there and the database stays excluded from the hop law. `SyncWire` holds NO channel: the composition root mints one per peer and hands the intercepted `CallInvoker` the generated client binds, so a raw `GrpcChannel` here would ride no pipeline and no interceptor. Every reply admits through AppHost `WireAdmission.Admit(reply, WireBoundary.InboundPayload, Op.Of())` — this package holds no `ParseGuard`, and a second validator beside the host's would evaluate one rule graph twice.
+- Boundary: `OpLog.TransferSet` is the ONE set-difference algebra — the closure GEOMETRY-blob manifest with the root payload key, minus what the target holds — and it is the BLOB-transfer set the content-addressed store moves, NOT an op-log-entry fetch input; running a second walk-and-diff on the calling side is the deleted form, which is exactly why the manifest is ASKED for: the peer holds the stored root's whole closure where the caller sees only the frames the stream handed it. The checkout stream carries op-log ENVELOPES alone and resolves the root's closure ONE level, because `Closure` is already the transitive descendant set the projection sealed; the blob BYTES those envelopes reference ride the content-addressed store under the `TransferSet` answer and never this stream.
+- Boundary: the two cursor SPACES thread the exchange — the pull leg advances this store's position in the PEER's feed and the push leg the peer-returned confirmation in OURS — and overwriting one with the other resumes the next pull from this store's push frontier inside the PEER's sequence space, silently skipping every entry between. `SyncCursorWire.origin_store` names WHICH feed a position lives in, so `SyncEndpoint.Pull` refuses a cursor naming another store rather than slicing a foreign origin out of this feed, and genesis is the one origin-free spelling a first pull carries. A pulled or streamed generation that differs from this store's stays `SyncFault.SchemaMismatch`, the same refusal on both the segment and the per-frame arm.
+- Boundary: Speckle's wire leg lives OUTSIDE-RHINO on the companion target, so the in-Rhino assembly composes only the case and the marshal delegate slot and never references the SDK; the DI-resolved INSTANCE `IOperations.Send` returns a root id that projects onto the offered root `ContentKey` with zero second identity, and a drift between the two faults the run. `SpeckleLikeDiff` keeps `HasObjects` and `SpeckleSend` as SDK-shaped ports precisely because a hub's membership answer is not this service's `TransferSet`, and collapsing the two would make one row's marshal answer for the other's rpc.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+using System.Globalization;
+using Google.Protobuf;
+using Grpc.Core;
+using Rasm.AppHost.Runtime;
+using Rasm.AppHost.Wire;
+using Rasm.Contracts.Sync;
+using Riok.Mapperly.Abstractions;
+using Clock = Rasm.Contracts.Clock;
+
+namespace Rasm.Persistence.Version;
+
 // --- [TYPES] -----------------------------------------------------------------------------
 // Barring the EMPTY corner is the law here: a transport holding neither capability exchanges nothing, which two bools
 // could spell.
@@ -824,6 +872,279 @@ public abstract partial record SyncTransport {
     public sealed record SubtreeCheckout(string Peer, UInt128 Root, SyncFlow Flow) : SyncTransport(Flow);
 }
 
+// A peer is an AUTHORITY paired with the client bound to it. The hop row admits, credentials, and rate-limits by
+// authority, so a client dialed under another peer's row spends a stranger's budget and reads its breaker; the root
+// seats one entry per configured peer and an unnamed peer refuses on the rail rather than dialing a fabricated host.
+public sealed record SyncPeer(Uri Address, SyncService.SyncServiceClient Client);
+
+// The server's dependency record, filled by the composition root exactly as `SyncSession` is: values and delegates
+// alone, so the endpoint holds no container, no store handle, and no clock of its own. Every EFFECTFUL column arrives
+// RAILED, because a handler answers every refusal as a status and the capture belongs at the one binding rather than
+// at four overrides: the root binds `Apply` to `SyncMerge.Settled` closed over the SERVER's own session, and `Fetch`
+// to the store resolver under the same capture. `PageCap` is what THIS store will read, distinct from the page a peer
+// may state; `Feed` stays pure because `OpLog.Replay` windows a row source and refuses nothing.
+public sealed record SyncRuntime(
+    ProjectionContext Frame, ReceiptSinkPort Sink, Guid StoreId, ulong SchemaFingerprint, int PageCap,
+    Func<Seq<OpLogEntry>> Feed, Func<UInt128, IO<Fin<OpLogEntry>>> Fetch,
+    Func<Seq<OpLogEntry>, IO<Fin<SyncApplyReceipt>>> Apply) {
+    // Producer evidence off the ONE frame: the correlation the session carries, the stamp the sink's own HLC mint
+    // last issued, and the tenant that frame admitted — never a second clock read at the throw site.
+    public FaultContext Context() => FaultContext.Of(Frame.Correlation, Sink.Hlc.Value, Frame.Tenant);
+}
+
+// --- [BOUNDARIES] ------------------------------------------------------------------------
+// The ONE cursor correspondence. Mapperly owns the OUTBOUND half whole; the inbound half rails, because origin width,
+// drain position, and stamp are three foreign columns that refuse independently and a peer sending a malformed cursor
+// learns every bad column at once.
+[Mapper]
+[MapperRequiredMapping(RequiredMappingStrategy.Both)]
+public static partial class SyncWireMap {
+    // A whole-source reader is the only shape that folds `Physical` and `Logical` into one `Hlc` member, and any
+    // `[MapPropertyFromSource(Use = …)]` suppresses RMG020 for EVERY source member — so the two ignore rows are
+    // authored inventory, not compiler proof, and a new `SyncCursor` column obligates a row here by inspection.
+    [MapProperty(nameof(SyncCursor.OriginStoreId), nameof(SyncCursorWire.OriginStore))]
+    [MapPropertyFromSource(nameof(SyncCursorWire.Stamp), Use = nameof(Cell))]
+    [MapperIgnoreSource(nameof(SyncCursor.Physical))]
+    [MapperIgnoreSource(nameof(SyncCursor.Logical))]
+    public static partial SyncCursorWire ToWire(SyncCursor cursor);
+
+    [UserMapping] private static ByteString Origin(Guid store) => ByteString.CopyFrom(OpLogWire.Uuid(store));
+
+    // The drain position crosses the SAME sign boundary every dot takes. A negative is unrepresentable at every
+    // producer — Marten's own sequence, `Genesis`, and this seam's own admission — so the refusing arm answers
+    // GENESIS. NAMED LOSS: a corrupted position re-pulls the peer's feed from its head, the at-least-once cost this
+    // transport already pays, where the unchecked cast it replaces wrapped past the peer's head and skipped the whole
+    // tail while reading as a successful resume.
+    [UserMapping]
+    private static ulong Position(long sequence) =>
+        OpSlot.Of(sequence).Match(Succ: static slot => slot.Value, Fail: static _ => OpSlot.Zero.Value);
+
+    private static Clock.Hlc Cell(SyncCursor cursor) => HostWire.Stamp((cursor.Physical, cursor.Logical));
+
+    // `required = true` on both message members already refuses absence at `WireAdmission.Admit`, so the option arms
+    // here collapse the nullable reference the generated getter forces and state no second rule.
+    public static Fin<SyncCursor> Admit(SyncCursorWire? wire, Op key) =>
+        Optional(wire).ToFin(key.InvalidInput(nameof(SyncCursorWire))).Bind(stated =>
+            (Store(stated.OriginStore, key).ToValidation(),
+             OpLogWire.I63(stated.Sequence, "cursor").ToValidation(),
+             Optional(stated.Stamp).ToFin(key.InvalidInput(nameof(Clock.Hlc)))
+                 .Bind(held => HostWire.Stamp(held, key)).ToValidation())
+                .Apply(static (origin, sequence, stamp) => new SyncCursor(origin, sequence, stamp.Physical, stamp.Logical))
+                .As().ToFin());
+
+    private static Fin<Guid> Store(ByteString origin, Op key) =>
+        origin.Length == 16
+            ? Fin.Succ(OpLogWire.Uuid(origin.Span))
+            : Fin.Fail<Guid>(key.InvalidInput(axis: "cursor-origin-width"));
+
+    // Content keys cross as the kernel's own sixteen big-endian bytes in BOTH directions, so no width, order, or
+    // hex spelling exists on this page beside `ContentHash`.
+    public static Fin<Seq<UInt128>> Keys(IEnumerable<ByteString> wire, Op key) =>
+        toSeq(wire).Traverse(row => ContentHash.Admit(row.Span, key).ToValidation()).As().ToFin();
+}
+
+// --- [SERVICES] --------------------------------------------------------------------------
+// The generated client bound to the AppHost hop law: every rpc leaves through `OutboundSurface.Dispatch`, so retry,
+// breaker, rate limit, deadline, and the hop receipt belong to the pipeline and this record owns none of them. The
+// three unary verbs take `OutboundHop.Grpc` under a per-call idempotency key; the checkout takes the streaming row —
+// the discriminant is the call shape itself, never a knob.
+public sealed record SyncWire(
+    OutboundRuntime Runtime, ulong SchemaFingerprint, uint PageSize, Func<string, Fin<SyncPeer>> Peers) {
+    public IO<Fin<(ulong SchemaFingerprint, Seq<ReadOnlyMemory<byte>> Frames, SyncCursor Cursor)>> Pull(
+        string peer, SyncCursor cursor) =>
+        Dial(peer, string.Create(CultureInfo.InvariantCulture, $"pull:{cursor.OriginStoreId:N}.{cursor.Sequence}"),
+            (client, options) => client
+                .PullAsync(new PullRequest { Cursor = SyncWireMap.ToWire(cursor), PageSize = PageSize }, options)
+                .ResponseAsync,
+            static reply => SyncWireMap.Admit(reply.Cursor, Op.Of()).Map(next =>
+                (reply.SchemaFingerprint, toSeq(reply.Frames).Map(static frame => frame.Memory), next)));
+
+    // The batch identity is its extent and its terminal frame: the pump always offers a contiguous run past `Acked`,
+    // so that pair names the batch exactly and a re-drive dedups where the next batch does not.
+    public IO<Fin<SyncCursor>> Push(string peer, Seq<ReadOnlyMemory<byte>> frames) =>
+        Dial(peer, string.Create(CultureInfo.InvariantCulture,
+                $"push:{frames.Count}.{ContentHash.Hex(frames.Last.Map(static frame => ContentHash.Of(frame.Span)).IfNone(UInt128.Zero))}"),
+            (client, options) => client.PushAsync(new PushRequest {
+                SchemaFingerprint = SchemaFingerprint,
+                Frames = { frames.Map(static frame => ByteString.CopyFrom(frame.Span)) },
+            }, options).ResponseAsync,
+            static reply => SyncWireMap.Admit(reply.Acked, Op.Of()));
+
+    public IO<Fin<Seq<UInt128>>> TransferSet(string peer, UInt128 root, Seq<UInt128> held) =>
+        Dial(peer, string.Create(CultureInfo.InvariantCulture, $"transfer-set:{ContentHash.Hex(root)}.{held.Count}"),
+            (client, options) => client.TransferSetAsync(new TransferSetRequest {
+                Root = ContentHash.Wire(root),
+                Held = { held.Map(static key => ContentHash.Wire(key)) },
+            }, options).ResponseAsync,
+            static reply => SyncWireMap.Keys(reply.Missing, Op.Of()));
+
+    // The streaming row, not the keyed one: a checkout is repeat-safe and its body cannot replay concurrently, which
+    // is exactly the guarantee `OutboundHop.ServerStream` states.
+    public IO<Fin<Seq<ReadOnlyMemory<byte>>>> Checkout(string peer, UInt128 root) =>
+        Peers(peer).Match(
+            Succ: seat => OutboundSurface.Dispatch<Fin<Seq<ReadOnlyMemory<byte>>>>(
+                    Runtime,
+                    new OutboundHop.ServerStream(seat.Address),
+                    async token => Stated(await Drain(
+                        seat.Client
+                            .Checkout(new CheckoutRequest { Root = ContentHash.Wire(root) }, new CallOptions(cancellationToken: token))
+                            .ResponseStream,
+                        SchemaFingerprint, token).ConfigureAwait(false)))
+                .Map(static settled => settled.Carried.Bind(static held => held)),
+            Fail: static error => IO.pure(Fin.Fail<Seq<ReadOnlyMemory<byte>>>(error)));
+
+    // ONE dial shape for the unary trio: the hop STATES its own outcome from the ADMITTED reply, so a reply the rule
+    // graph refuses is a hop fact rather than a delivered frame, and the carried value leaves on the settlement the
+    // same run timed — a hop run for its outcome followed by a raw call for its value is the deleted form.
+    private IO<Fin<T>> Dial<TReply, T>(
+        string peer, string key,
+        Func<SyncService.SyncServiceClient, CallOptions, Task<TReply>> call,
+        Func<TReply, Fin<T>> admit) where TReply : IMessage<TReply> =>
+        Peers(peer).Match(
+            Succ: seat => OutboundSurface.Dispatch<Fin<T>>(
+                    Runtime,
+                    new OutboundHop.Grpc(seat.Address, key),
+                    async token => Stated(WireAdmission.Admit(
+                            await call(seat.Client, new CallOptions(cancellationToken: token)).ConfigureAwait(false),
+                            WireBoundary.InboundPayload, Op.Of())
+                        .Bind(admit)))
+                .Map(static settled => settled.Carried.Bind(static held => held)),
+            Fail: static error => IO.pure(Fin.Fail<T>(error)));
+
+    // The rail IS the hop outcome, folded once: a refusal rides `Faulted` so the pipeline's own transient predicate
+    // reads the fault's kernel `Retriability`, and the same value leaves beside it so no caller re-folds the verdict.
+    private static (HopOutcome Outcome, Fin<T> Value) Stated<T>(Fin<T> admitted) => (
+        admitted.Match(
+            Succ: static _ => (HopOutcome)new HopOutcome.Delivered(),
+            Fail: static error => new HopOutcome.Faulted(error)),
+        admitted);
+
+    // Exemption: `IAsyncStreamReader<T>` is a `Task<bool>` pump and the `ReadAllAsync` drain ships in
+    // `Grpc.Net.Common`, a package this folder does not admit — so this is the one client statement body. Frames read
+    // whole before they admit, and the refusals then ACCUMULATE, so one malformed checkout names every bad frame.
+    private static async Task<Fin<Seq<ReadOnlyMemory<byte>>>> Drain(
+        IAsyncStreamReader<CheckoutResponse> stream, ulong fingerprint, CancellationToken token) {
+        Seq<CheckoutResponse> read = Seq<CheckoutResponse>();
+        while (await stream.MoveNext(token).ConfigureAwait(false)) { read = read.Add(stream.Current); }
+        return read.Traverse(frame => Frame(frame, fingerprint).ToValidation()).As().ToFin();
+    }
+
+    // Every streamed frame carries the peer's generation, so a stream switching generations mid-checkout refuses on
+    // the SAME `SchemaMismatch` a pulled segment takes rather than splicing two schemas into one closure.
+    private static Fin<ReadOnlyMemory<byte>> Frame(CheckoutResponse response, ulong fingerprint) =>
+        WireAdmission.Admit(response, WireBoundary.InboundPayload, Op.Of())
+            .Bind(admitted => admitted.SchemaFingerprint == fingerprint
+                ? Fin.Succ(admitted.Frame.Memory)
+                : Fin.Fail<ReadOnlyMemory<byte>>(new SyncFault.SchemaMismatch(fingerprint, admitted.SchemaFingerprint)));
+}
+
+// The server half of the same service. Every arm seals its answer on the rail before the platform sees it, and the
+// dependencies arrive on `SyncRuntime`, so a handler holds no session, no store, and no clock.
+public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceBase {
+    public override Task<PullResponse> Pull(PullRequest request, ServerCallContext context) =>
+        Answer(context, Segment(request));
+
+    public override Task<PushResponse> Push(PushRequest request, ServerCallContext context) =>
+        Answer(context, Landed(request));
+
+    public override Task<TransferSetResponse> TransferSet(TransferSetRequest request, ServerCallContext context) =>
+        Answer(context, Manifest(request));
+
+    // Exemption: `IServerStreamWriter<T>.WriteAsync` is the platform's per-message write, so the emission is one
+    // sequential await. The closure resolves and encodes WHOLE on the rail first, so a refusal mid-resolution leaves
+    // the peer with nothing rather than a spliced partial subtree.
+    public override async Task Checkout(
+        CheckoutRequest request, IServerStreamWriter<CheckoutResponse> responseStream, ServerCallContext context) {
+        foreach (ReadOnlyMemory<byte> frame in await Answer(context, Subtree(request)).ConfigureAwait(false)) {
+            await responseStream.WriteAsync(new CheckoutResponse {
+                SchemaFingerprint = runtime.SchemaFingerprint,
+                Frame = ByteString.CopyFrom(frame.Span),
+            }).ConfigureAwait(false);
+        }
+    }
+
+    // Exemption, stated ONCE for the four overrides: the generated base answers `Task<T>` and gRPC reads a refusal as
+    // a THROW, so `FaultWire.Raise` is the one egress on this class and the typed fault is sealed on the rail before
+    // it — the transport's egress form, never control flow.
+    private async Task<T> Answer<T>(ServerCallContext context, IO<Fin<T>> answered) =>
+        (await answered.RunAsync(EnvIO.New(token: context.CancellationToken)).ConfigureAwait(false))
+            .Match(Succ: static held => held, Fail: error => throw FaultWire.Raise(error, runtime.Context()));
+
+    // `IO.lift` over a `Fin`-returning thunk resolves to the RAILED overload and lands `IO<T>` with the failure folded
+    // onto the error channel, so every pure arm here spells its type argument to carry the `Fin` as its VALUE.
+    private IO<Fin<PullResponse>> Segment(PullRequest request) =>
+        IO.lift<Fin<PullResponse>>(() => Admitted(request)
+            .Bind(stated => Position(stated.Cursor).Map(cursor => (Cursor: cursor, Page: OpLog.Replay(
+                runtime.Feed(), ReplayWindow.ForOrigin(runtime.StoreId, cursor.Sequence, Bounded(stated.PageSize))))))
+            .Bind(read => OpLogWire.Encode(read.Page).Map(frames => new PullResponse {
+                SchemaFingerprint = runtime.SchemaFingerprint,
+                Frames = { frames.Map(static frame => ByteString.CopyFrom(frame.Span)) },
+                Cursor = SyncWireMap.ToWire(read.Page.Last
+                    .Map(last => new SyncCursor(runtime.StoreId, last.Sequence, last.Physical, last.Logical))
+                    .IfNone(read.Cursor)),
+            })));
+
+    // The acked cursor sits at the last APPLIED entry's real coordinates in the CALLER's own space — its origin, its
+    // sequence, its stamp — never a count added to the position the caller stated.
+    private IO<Fin<PushResponse>> Landed(PushRequest request) =>
+        IO.lift<Fin<Seq<OpLogEntry>>>(() => Admitted(request).Bind(stated =>
+                stated.SchemaFingerprint == runtime.SchemaFingerprint
+                    ? OpLogWire.Decode(toSeq(stated.Frames).Map(static frame => frame.Memory))
+                    : Fin.Fail<Seq<OpLogEntry>>(
+                        new SyncFault.SchemaMismatch(runtime.SchemaFingerprint, stated.SchemaFingerprint))))
+            .Bind(decoded => decoded.Match(
+                Succ: entries => runtime.Apply(entries).Map(applied => applied.Map(_ => new PushResponse {
+                    Acked = SyncWireMap.ToWire(entries.Last
+                        .Map(static last => new SyncCursor(last.OriginStoreId, last.Sequence, last.Physical, last.Logical))
+                        .IfNone(SyncCursor.Genesis)),
+                })),
+                Fail: static error => IO.pure(Fin.Fail<PushResponse>(error))));
+
+    // The peer resolves the root and runs the ONE set difference against the keys the caller states it holds, so the
+    // algebra runs at the end holding the whole closure and never twice on both sides of the wire.
+    private IO<Fin<TransferSetResponse>> Manifest(TransferSetRequest request) =>
+        IO.lift<Fin<(UInt128 Root, Seq<UInt128> Held)>>(() => Admitted(request).Bind(stated =>
+                (ContentHash.Admit(stated.Root.Span, Op.Of()).ToValidation(),
+                 SyncWireMap.Keys(stated.Held, Op.Of()).ToValidation())
+                    .Apply(static (root, held) => (root, held)).As().ToFin()))
+            .Bind(stated => stated.Match(
+                Succ: asked => runtime.Fetch(asked.Root).Map(fetched => fetched.Map(entry => new TransferSetResponse {
+                    Missing = { OpLog.TransferSet(entry, asked.Held.Contains).Map(static key => ContentHash.Wire(key)) },
+                })),
+                Fail: static error => IO.pure(Fin.Fail<TransferSetResponse>(error))));
+
+    // Root first, then the entries its closure resolves — ONE level, because `Closure` is already the transitive
+    // descendant set the projection sealed and a recursive walk would re-derive what the entry carries. Unresolved
+    // keys ACCUMULATE, so a peer whose root outran its own store learns every missing coordinate in one answer.
+    private IO<Fin<Seq<ReadOnlyMemory<byte>>>> Subtree(CheckoutRequest request) =>
+        IO.lift<Fin<UInt128>>(() => Admitted(request).Bind(stated => ContentHash.Admit(stated.Root.Span, Op.Of())))
+            .Bind(root => root.Match(
+                Succ: key => runtime.Fetch(key).Bind(fetched => fetched.Match(
+                    Succ: entry => entry.Closure.Traverse(runtime.Fetch).As().Map(rows =>
+                        rows.Traverse(static row => row.ToValidation()).As().ToFin()
+                            .Bind(descendants => OpLogWire.Encode(Seq(entry) + descendants))),
+                    Fail: static error => IO.pure(Fin.Fail<Seq<ReadOnlyMemory<byte>>>(error)))),
+                Fail: static error => IO.pure(Fin.Fail<Seq<ReadOnlyMemory<byte>>>(error))));
+
+    // ONE admission seat for the four overrides: the boundary row and the op key are stated here and nowhere else,
+    // so no arm can admit a request under a different captured-codec site.
+    private static Fin<T> Admitted<T>(T request) where T : IMessage =>
+        WireAdmission.Admit(request, WireBoundary.InboundPayload, Op.Of());
+
+    // The peer STATES a page and the server CAPS it: the wire rule bounds the request at four thousand ninety-six and
+    // this row bounds what this store will read, so a peer cannot size the server's window.
+    private int Bounded(uint stated) => (int)Math.Min(stated, (uint)runtime.PageCap);
+
+    // The cursor names WHICH feed the position lives in, so a cursor naming another store would slice a foreign
+    // origin out of this feed; genesis is the one origin-free spelling a first pull carries.
+    private Fin<SyncCursor> Position(SyncCursorWire? wire) =>
+        SyncWireMap.Admit(wire, Op.Of()).Bind(cursor =>
+            cursor.OriginStoreId == runtime.StoreId || cursor.OriginStoreId == Guid.Empty
+                ? Fin.Succ(cursor)
+                : Fin.Fail<SyncCursor>(new SyncFault.ReplicationFaulted(
+                    "sync-pull-origin", Error.New($"<foreign-origin:{cursor.OriginStoreId:N}>"))));
+}
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 public static class SyncPump {
     public static IO<SyncApplyReceipt> Run(SyncSession session, SyncTransport transport) =>
@@ -831,38 +1152,50 @@ public static class SyncPump {
             state: session,
             httpDelta: static (s, row) => Exchange(s, row),
             speckleLikeDiff: static (s, row) => Offer(s, row),
-            // Deltas ARE the change, so the root entry APPLIES; its closure blobs ride the content-keyed store, and
-            // feeding that manifest to `Fetch` — the ENTRY resolver — would resolve nothing.
-            subtreeCheckout: static (s, row) => s.Fetch(row.Root).Bind(entry =>
-                SyncMerge.Apply(s, Seq(entry)).Map(receipt => receipt with { Pushed = OpLog.TransferSet(entry, s.Holds).Count })));
+            subtreeCheckout: static (s, row) => Materialize(s, row));
 
     // Cross-session checkout: the root entry applies onto the target and the transfer set accounts on the receipt.
-    // `OpLog.TransferSet` is dialed directly — a forwarding static under a second name was the deleted alias.
+    // `OpLog.TransferSet` is dialed directly — a forwarding static under a second name was the deleted alias. This
+    // arm is IN-PROCESS and reads the LOCAL `Fetch`; the peer-facing shape is `Materialize`.
     public static IO<SyncApplyReceipt> Checkout(SyncSession source, SyncSession target, UInt128 root) =>
         source.Fetch(root).Bind(entry =>
             SyncMerge.Apply(target, Seq(entry)).Map(receipt => receipt with { Pushed = OpLog.TransferSet(entry, target.Holds).Count }));
 
     static IO<SyncApplyReceipt> Exchange(SyncSession s, SyncTransport.HttpDelta row) =>
         from pulled in row.Flow.Pulls
-            ? s.Pull(row.Peer, s.Cursor).Bind(segment => segment.SchemaFingerprint == s.SchemaFingerprint
-                ? DecodeFrames(segment.Frames).Bind(entries => SyncMerge.Apply(s, entries))
+            ? Dialed(s.Pull(row.Peer, s.Cursor)).Bind(segment => segment.SchemaFingerprint == s.SchemaFingerprint
+                ? Railed(OpLogWire.Decode(segment.Frames)).Bind(entries => SyncMerge.Apply(s, entries))
                     .Map(receipt => receipt with { Cursor = segment.Cursor })
                 : IO.fail<SyncApplyReceipt>(new SyncFault.SchemaMismatch(s.SchemaFingerprint, segment.SchemaFingerprint)))
             : IO.pure(Idle(s))
         let pending = s.Pending(s.Acked)
         from receipt in row.Flow.Pushes
-            ? EncodeFrames(pending).Bind(frames => s.Push(row.Peer, frames))
+            ? Railed(OpLogWire.Encode(pending)).Bind(frames => Dialed(s.Push(row.Peer, frames)))
                 .Map(acked => pulled with { Pushed = pending.Count, Acked = acked })
             : IO.pure(pulled)
         select receipt;
 
-    static IO<Seq<OpLogEntry>> DecodeFrames(Seq<ReadOnlyMemory<byte>> frames) =>
-        frames.Traverse(OpLogWire.Decode).Match(Succ: IO.pure, Fail: IO.fail<Seq<OpLogEntry>>);
+    // The peer streams the envelopes and the caller applies them; the blob manifest then comes from the PEER, whose
+    // stored root carries the whole closure where this side sees only the frames the stream handed it — so the
+    // manifest is asked for rather than re-derived from a partial view.
+    static IO<SyncApplyReceipt> Materialize(SyncSession s, SyncTransport.SubtreeCheckout row) =>
+        from frames in Dialed(s.Checkout(row.Peer, row.Root))
+        from entries in Railed(OpLogWire.Decode(frames))
+        from receipt in SyncMerge.Apply(s, entries)
+        from missing in Dialed(s.Missing(row.Peer, row.Root, Holdings(s, entries)))
+        select receipt with { Pushed = missing.Count };
 
-    static IO<Seq<ReadOnlyMemory<byte>>> EncodeFrames(Seq<OpLogEntry> entries) =>
-        entries.Traverse(OpLogWire.Encode)
-            .Map(static frames => frames.Map(static frame => (ReadOnlyMemory<byte>)frame))
-            .Match(Succ: IO.pure, Fail: IO.fail<Seq<ReadOnlyMemory<byte>>>);
+    // What this store already holds among the keys the applied frames name, ordered and distinct as the wire rule
+    // demands. An empty statement is a caller holding none of the closure, never a caller declining to answer.
+    static Seq<UInt128> Holdings(SyncSession s, Seq<OpLogEntry> entries) =>
+        toSeq(entries.Fold(Seq<UInt128>(), static (set, entry) => set + entry.Closure.Add(entry.ContentKey))
+            .Distinct().Filter(s.Holds).OrderBy(static key => key));
+
+    // A hop SETTLES rather than throws, so the dialed value carries its own `Fin`; this is the ONE place the pump
+    // collapses it back onto the effect rail, and `Railed` is the same collapse for the frame codec.
+    static IO<T> Dialed<T>(IO<Fin<T>> dialed) => dialed.Bind(static held => Railed(held));
+
+    static IO<T> Railed<T>(Fin<T> held) => held.Match(Succ: IO.pure, Fail: IO.fail<T>);
 
     // `Acked` advances to the LAST offered entry's real coordinates, never a `Sequence + count` advance.
     static IO<SyncApplyReceipt> Offer(SyncSession s, SyncTransport.SpeckleLikeDiff row) =>
@@ -883,21 +1216,24 @@ public static class SyncPump {
 }
 ```
 
-| [INDEX] | [POLICY]                  | [VALUE]                                         | [BINDING]                                               |
-| :-----: | :------------------------ | :---------------------------------------------- | :------------------------------------------------------ |
-|  [01]   | intra-cluster replication | Marten daemon `HotCold`                         | this axis is the cross-store/offline lane only          |
-|  [02]   | graph checkout            | fetch+apply root; `TransferSet` is the manifest | closure set via the blob store, not an op-log `Fetch`   |
-|  [03]   | Speckle marshal           | DI-resolved instance `IOperations`              | outside-Rhino; `rootObjId` → `ContentKey`; drift faults |
-|  [04]   | http delta                | AppHost `OutboundHop` pipeline                  | database excluded from the hop law                      |
-|  [05]   | exchange direction        | `CapabilitySet<FlowCapability>` under its law   | the empty corner is barred, never merely unwritten      |
+| [INDEX] | [POLICY]                  | [VALUE]                                           | [BINDING]                                               |
+| :-----: | :------------------------ | :------------------------------------------------ | :------------------------------------------------------ |
+|  [01]   | intra-cluster replication | Marten daemon `HotCold`                           | this axis is the cross-store/offline lane only          |
+|  [02]   | graph checkout            | fetch+apply root; `TransferSet` is the manifest   | closure set via the blob store, not an op-log `Fetch`   |
+|  [03]   | Speckle marshal           | DI-resolved instance `IOperations`                | outside-Rhino; `rootObjId` → `ContentKey`; drift faults |
+|  [04]   | http delta                | `SyncServiceClient` through AppHost `OutboundHop` | database excluded from the hop law                      |
+|  [05]   | exchange direction        | `CapabilitySet<FlowCapability>` under its law     | the empty corner is barred, never merely unwritten      |
+|  [06]   | reply admission           | AppHost `WireAdmission.Admit`                     | one rule graph; this package holds no `ParseGuard`      |
+|  [07]   | handler refusal           | AppHost `FaultWire.Raise(fault, FaultContext)`    | the one throw; the typed fault seals on the rail first  |
+|  [08]   | server page bound         | `min(PullRequest.page_size, SyncRuntime.PageCap)` | a peer states a page; the store caps what it reads      |
 
-Per-transport descriptor: the sentence a row is chosen on, its guarantee, and what settles a leg. `admit` is `SyncPump.Run` for all three and `tenancy` is the peer identity the session carries, so both stay uniform and only the differing coordinates earn columns.
+Per-transport descriptor: the sentence a row is chosen on, the rpcs it dials, its guarantee, and what settles a leg. `admit` is `SyncPump.Run` for all three and `tenancy` is the peer identity the session carries, so both stay uniform and only the differing coordinates earn columns.
 
-| [INDEX] | [TRANSPORT]       | [FITS]                              | [DELIVER]                           | [SETTLE]                          |
-| :-----: | :---------------- | :---------------------------------- | :---------------------------------- | :-------------------------------- |
-|  [01]   | `HttpDelta`       | a peer holding its own feed         | at-least-once past `Acked`          | peer-returned push ack            |
-|  [02]   | `SpeckleLikeDiff` | a hub deduplicating by object graph | at-least-once past `Acked`          | `rootObjId` matching the head key |
-|  [03]   | `SubtreeCheckout` | a peer materializing one subgraph   | one entry, blobs by content address | applied entry + blob manifest     |
+| [INDEX] | [TRANSPORT]       | [FITS]               | [DIALS]                     | [DELIVER]                  | [SETTLE]                          |
+| :-----: | :---------------- | :------------------- | :-------------------------- | :------------------------- | :-------------------------------- |
+|  [01]   | `HttpDelta`       | feed-owning peer     | `SyncService.Pull` + `Push` | at-least-once past `Acked` | peer-returned push ack            |
+|  [02]   | `SpeckleLikeDiff` | object-graph hub     | Speckle SDK marshal         | at-least-once past `Acked` | `rootObjId` matching the head key |
+|  [03]   | `SubtreeCheckout` | single-subgraph peer | `Checkout` + `TransferSet`  | content-addressed closure  | applied entries + blob manifest   |
 
 Where a re-drive resumes, and the honest give-up clause each row carries.
 

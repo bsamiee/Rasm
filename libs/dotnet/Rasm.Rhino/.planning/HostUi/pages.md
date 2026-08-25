@@ -123,7 +123,7 @@ public sealed partial class StackedIdentity {
 public sealed partial class ObjectIdentity {
     public HostText Caption { get; }
     public string IconResource { get; }
-    public Dimension Index { get; }
+    public Rasm.Numerics.Dimension Index { get; }
     public ObjectPageSeat Seat { get; }
 
     // The index and the page kind carry their own invariants, so the one clause left is the embedded resource name
@@ -133,7 +133,7 @@ public sealed partial class ObjectIdentity {
         ref ValidationError? validationError,
         ref HostText caption,
         ref string iconResource,
-        ref Dimension index,
+        ref Rasm.Numerics.Dimension index,
         ref ObjectPageSeat seat) {
         iconResource = iconResource?.Trim() ?? string.Empty;
         validationError = iconResource.Length > 0
@@ -226,7 +226,7 @@ public abstract partial record PageSignal {
     // The handle is the host's for exactly this callback's duration; the case reports it and this boundary retains
     // nothing, because a stored parent handle outlives the window the host is about to destroy.
     public sealed record ParentCreated(nint Handle) : PageSignal;
-    public sealed record ParentSized(Dimension Width, Dimension Height) : PageSignal;
+    public sealed record ParentSized(Rasm.Numerics.Dimension Width, Rasm.Numerics.Dimension Height) : PageSignal;
     public sealed record SelectionShown(SelectionEvidence Evidence) : PageSignal;
     public sealed record SelectionUpdated(SelectionEvidence Evidence) : PageSignal;
     public sealed record Refused(Error Fault) : PageSignal;
@@ -234,8 +234,8 @@ public abstract partial record PageSignal {
     // The one parent-extent admission, reached by both leaves: the host publishes two raw pixel counts on an
     // override that cannot refuse, so the refusal lands here and the signal carries admitted extents.
     internal static Fin<PageSignal> Sized(int width, int height, Op op) =>
-        from measured in op.AcceptValidated<Dimension>(width)
-        from tall in op.AcceptValidated<Dimension>(height)
+        from measured in op.AcceptValidated<Rasm.Numerics.Dimension>(width)
+        from tall in op.AcceptValidated<Rasm.Numerics.Dimension>(height)
         select (PageSignal)new ParentSized(Width: measured, Height: tall);
 }
 
@@ -246,7 +246,7 @@ public abstract partial record PageSignal {
 public sealed partial record SelectionEvidence(
     Option<DocKey> Document,
     uint EventOrdinal,
-    Dimension Count,
+    Rasm.Numerics.Dimension Count,
     [property: OrderedEquality] Seq<Guid> Objects,
     Option<uint> View,
     Option<Guid> Viewport);
@@ -307,14 +307,14 @@ internal abstract partial record PageOwner {
 internal abstract partial record PageCustody {
     private PageCustody() { }
     internal sealed record Live(
-        Option<Dimension> Active, Seq<IMount> Children, MountPhase Phase) : PageCustody;
+        Option<Rasm.Numerics.Dimension> Active, Seq<IMount> Children, MountPhase Phase) : PageCustody;
     internal sealed record Released : PageCustody;
 
     internal Option<PageCustody> Entered() => Switch(
         live: static row => row.Phase.Closes
             ? Option<PageCustody>.None
             : Some<PageCustody>(row with {
-                Active = Some(Dimension.Create(value: row.Active.Map(static held => held.Value).IfNone(0) + 1)),
+                Active = Some(Rasm.Numerics.Dimension.Create(value: row.Active.Map(static held => held.Value).IfNone(0) + 1)),
             }),
         released: static _ => Option<PageCustody>.None);
 
@@ -328,7 +328,7 @@ internal abstract partial record PageCustody {
                     ? Fin.Succ(((PageCustody)new Released(), Some(row.Children)))
                     : Fin.Succ(((PageCustody)(row with { Active = None }), Option<Seq<IMount>>.None))
                 : Fin.Succ((
-                    (PageCustody)(row with { Active = Some(Dimension.Create(value: held.Value - 1)) }),
+                    (PageCustody)(row with { Active = Some(Rasm.Numerics.Dimension.Create(value: held.Value - 1)) }),
                     Option<Seq<IMount>>.None)),
             None: () => Fin.Fail<(PageCustody, Option<Seq<IMount>>)>(new UiFault.Released(Key: op))),
         released: static (op, _) => Fin.Fail<(PageCustody, Option<Seq<IMount>>)>(new UiFault.Released(Key: op)));
@@ -351,7 +351,7 @@ internal abstract partial record PageCustody {
 public sealed class HostPage : IMount, IDisposable {
     // A page tears down once and its children with it, so the ring holds the refusals of one teardown; anything
     // past that is a shed count the composing root reads rather than a sequence growing without a bound.
-    private static readonly Dimension TeardownCap = Dimension.Create(value: 32);
+    private static readonly Rasm.Numerics.Dimension TeardownCap = Rasm.Numerics.Dimension.Create(value: 32);
 
     private readonly PagePlan plan;
     private readonly PageLeaf leaf;
@@ -657,7 +657,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
         op.Catch(() => Evidence(e).Bind(body));
 
     private Fin<SelectionEvidence> Evidence(ObjectPropertiesPageEventArgs e) =>
-        from count in op.AcceptValidated<Dimension>(e.ObjectCount)
+        from count in op.AcceptValidated<Rasm.Numerics.Dimension>(e.ObjectCount)
         select new SelectionEvidence(
             Document: DocumentOf(e),
             EventOrdinal: e.EventRuntimeSerialNumber,
@@ -810,14 +810,14 @@ internal sealed record PageLanding(HostPage Page, Action Add, Option<Func<Fin<Un
 public sealed class PageMountReceipt : IDisposable {
     private readonly PageMountLease lease;
 
-    internal PageMountReceipt(Dimension releasable, Dimension permanent, Option<Error> fault, PageMountLease lease) =>
+    internal PageMountReceipt(Rasm.Numerics.Dimension releasable, Rasm.Numerics.Dimension permanent, Option<Error> fault, PageMountLease lease) =>
         (this.lease, Releasable, Permanent, Fault) = (lease, releasable, permanent, fault);
 
     // What `Release` will actually reach, beside what it cannot: the object-properties collection publishes no
     // removal member, so a permanent registration is counted and named rather than silently no-opping.
-    public Dimension Releasable { get; }
-    public Dimension Permanent { get; }
-    public Dimension Applied => Dimension.Create(value: Releasable.Value + Permanent.Value);
+    public Rasm.Numerics.Dimension Releasable { get; }
+    public Rasm.Numerics.Dimension Permanent { get; }
+    public Rasm.Numerics.Dimension Applied => Rasm.Numerics.Dimension.Create(value: Releasable.Value + Permanent.Value);
 
     public Option<Error> Fault { get; }
 
@@ -859,7 +859,7 @@ internal sealed class PageMountLease {
 
     internal PageMountLease(Seq<PageRegistration> registrations) => this.registrations = registrations;
 
-    internal Dimension LiveCount => Dimension.Create(value: registrations.Count(static row => row.IsLive));
+    internal Rasm.Numerics.Dimension LiveCount => Rasm.Numerics.Dimension.Create(value: registrations.Count(static row => row.IsLive));
 
     internal Fin<Unit> Unclaim(Op op) => Drain(close: registration => registration.Unclaim(op), op: op);
 
@@ -926,20 +926,20 @@ public static class PageMount {
     private static Fin<PageMountReceipt> Commit(Seq<PageLanding> landings, Guid token, Op op) {
         // The halting fold IS the operator: the predicate reads the fault the last step produced, and the pending
         // set is what the landed counts have not reached — a stored remaining column mirrors the same position.
-        (Dimension Releasable, Dimension Permanent, Seq<PageRegistration> Registrations, Option<Error> Fault) seed = (
-            Releasable: Dimension.Create(value: 0),
-            Permanent: Dimension.Create(value: 0),
+        (Rasm.Numerics.Dimension Releasable, Rasm.Numerics.Dimension Permanent, Seq<PageRegistration> Registrations, Option<Error> Fault) seed = (
+            Releasable: Rasm.Numerics.Dimension.Create(value: 0),
+            Permanent: Rasm.Numerics.Dimension.Create(value: 0),
             Registrations: Seq<PageRegistration>(),
             Fault: None);
         var state = foldWhile(
             (held, landing) => op.Catch(() => Fin.Succ(value: Op.Side(landing.Add))).Match(
                 Succ: _ => landing.Remove.Match(
                     Some: remove => held with {
-                        Releasable = Dimension.Create(value: held.Releasable.Value + 1),
+                        Releasable = Rasm.Numerics.Dimension.Create(value: held.Releasable.Value + 1),
                         Registrations = held.Registrations.Add(new PageRegistration(landing.Page, token, remove)),
                     },
                     None: () => (landing.Page.TransferMount(token), held with {
-                        Permanent = Dimension.Create(value: held.Permanent.Value + 1),
+                        Permanent = Rasm.Numerics.Dimension.Create(value: held.Permanent.Value + 1),
                     }).Item2),
                 Fail: fault => held with { Fault = Some(fault) }),
             static step => step.State.Fault.IsNone,

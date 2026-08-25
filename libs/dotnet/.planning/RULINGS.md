@@ -9,7 +9,7 @@
 - Duplicate full type names alias the package the product does NOT name via `PackageReference` — aliasing the pinned one rebinds every mention.
 - `Grpc.Tools` refused — a per-csproj `<Protobuf>` item re-emits one contract per consumer at its own `GrpcServices` mode; bindings generate once.
 - `Grpc.AspNetCore.Server` is the server-rail admission — the `Grpc.AspNetCore` metapackage ships no assembly and drags in `Grpc.Tools`.
-- `libs/contracts/gen/dotnet` is the SOLE C# emission — the `Rasm.Contracts` assembly reached by `ProjectReference`; a second emission forks the type.
+- `libs/contracts/gen/dotnet` emits the sole `Rasm.Contracts` assembly; every workspace consumer reaches it by `ProjectReference`.
 - `Rasm.Contracts` consumers keep a direct `Google.Protobuf` row only where their pages name that API — transitive reach is never a manifest row.
 - `libs/dotnet` projects design as if PUBLISHED tomorrow — pack metadata rides the root estate behind `IsPackable=false`, one flip from a package.
 
@@ -128,8 +128,9 @@
 - Kernel `FieldNoise` and Materials `ProceduralNoise` stay two-formed — differentiability-gating versus byte-parity is the whole discriminant.
 - `ImportedGeometry` is the ONE decoded-geometry carrier at the seam — an absent lane is a missing descriptor, never an empty buffer.
 - Colour vocabulary has ONE branch owner — `Configuration` short-circuits on reference equality; space, hue, and view ride THREE axes, not a product.
-- `UInt128` lane extraction composes the kernel `ContentHash.Half` and wire bytes `ContentHash.Wire`/`Admit` — no seam spells a byte order of its own.
+- `UInt128` extraction composes `ContentHash.Half` with `ContentHash.Wire` and `Admit`; those owners fix byte order for every seam.
 - Folder claim rosters stay plural under one `BenchmarkGate` — folding them into a parameterized row erases each closed-roster guard.
+- `BenchClaim.Corpus` spells realization by prefix — `corpus-<row.Key>` a committed fixture, `forge-<grade.Key>` a minted Element grade; no literal.
 - Perceptual colour has ONE interaction owner, the kernel `Interaction/paint` band — each boundary quantizes to its host colour type at its own edge.
 - `Rasm` `FaultBand` is the sole band ledger; `Disjoint` forces inside `FaultId` construction, and rows exist only for realized fault families.
 - `CanonicalWriter` at `Rasm/Domain/identity` is the ONE preimage writer — peers compose it and re-export nothing, so one framing keys the estate.
@@ -142,7 +143,7 @@
 - ONE producer leg crosses a fault — `Rasm.AppHost` `FaultWire.Raise` over `Grpc.StatusProto`; a folder-local `Error → StatusCode` switch forks it.
 - ONE ProtoJSON edge serves the branch — `Rasm.AppHost` `WireJson` with the registry over every `<File>Reflection`; `.Default` is the deleted form.
 - Every cross-language C# wire is a generated `Rasm.Contracts` message or a publisher type — a record mirroring one under any codec is the twin.
-- MessagePack frames the explicit primitive op-log envelope and branch-interior stage crossing; generated `crdt.CrdtOpWire` owns its raw slot.
+- MessagePack frames the op-log envelope; its `crdt` slot carries generated `CrdtOpWire` across the registered process seam.
 - Fault families carry no category mirror — the union case IS the identity, and a parallel roster publishes a second discriminant per family.
 - Family-local `Semigroup`/`Aggregate`/`Combine` folds collapse to `Error.Many` — two accumulation paradigms disagree on flattening and on posture.
 - Generic text faults collapse into typed cases — a leaf carrying only `Detail` states no identity, and its string is presentation, never routed.
@@ -164,6 +165,7 @@
 - Seam edges collapse to ONE per home owner, counterpart, kind, and direction — members join ` + `; a both-ends mint keeps its own arrow.
 - Seam labels name shapes DECLARED at the producing package's own fences — a substrate or BCL type sharing the spelling rides no seam edge.
 - Seam labels name a member the CONSUMING package spells at its own fence too — a producer declaration alone registers reach, never a crossing.
+- Host-boundary seam ends DERIVE — the boundary end keys (kernel owner, sub-domain, kind) and the kernel end joins those members alphabetically.
 - Band base and span never mirror into an attribute, constant, additional file, or manifest — a mirror mints a second allocation authority.
 - Fault ordinals are explicit and unique within the current family — spec-stage deletions compact the unshipped plane instead of preserving gaps.
 - Per-family fault registries do NOT re-enter — `[FaultCase]` ordinals generate the one numeric plane a consumer reads.

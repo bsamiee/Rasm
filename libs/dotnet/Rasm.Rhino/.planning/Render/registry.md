@@ -314,7 +314,7 @@ public sealed record SerializerProgram(
     Option<Func<string, Fin<ContentTransfer>>> Read,
     Option<Func<string, RenderContent, CreatePreviewEventArgs, Fin<Unit>>> Write,
     Option<Func<RhinoDoc, Seq<string>, ContentKind, LoadPolicy, Fin<Seq<SerializerReport>>>> LoadMultiple,
-    Dimension JournalCap,
+    Rasm.Numerics.Dimension JournalCap,
     string EnglishDescription,
     string LocalDescription);
 
@@ -1988,7 +1988,7 @@ public sealed record ContentStreamFailure(ContentFact Fact, Error Fault) : IDisp
 
 public sealed record ContentObservation {
     private ContentObservation(
-        EventScope scope, Seq<ContentPulse> pulses, PulseFilter filter, Dimension journalCap,
+        EventScope scope, Seq<ContentPulse> pulses, PulseFilter filter, Rasm.Numerics.Dimension journalCap,
         TimeSpan settleWithin, Func<ContentFact, Fin<Unit>> sink) =>
         (Scope, Pulses, Filter, JournalCap, SettleWithin, Sink) =
             (scope, pulses, filter, journalCap, settleWithin, sink);
@@ -1996,7 +1996,7 @@ public sealed record ContentObservation {
     internal EventScope Scope { get; }
     internal Seq<ContentPulse> Pulses { get; }
     internal PulseFilter Filter { get; }
-    internal Dimension JournalCap { get; }
+    internal Rasm.Numerics.Dimension JournalCap { get; }
     internal TimeSpan SettleWithin { get; }
     internal Func<ContentFact, Fin<Unit>> Sink { get; }
 
@@ -2005,7 +2005,7 @@ public sealed record ContentObservation {
         EventScope scope,
         Seq<ContentPulse> pulses,
         PulseFilter filter,
-        Dimension journalCap,
+        Rasm.Numerics.Dimension journalCap,
         TimeSpan settleWithin,
         Func<ContentFact, Fin<Unit>> sink,
         Op? key = null) {
@@ -2075,7 +2075,7 @@ public sealed class ContentStream : IDisposable {
         // is therefore a release rail, never permission to retry or dispose the newly parked failure.
         private readonly Ring<ContentStreamFailure> failures;
 
-        internal ContentStreamState(LifecycleGate gate, Dimension cap) {
+        internal ContentStreamState(LifecycleGate gate, Rasm.Numerics.Dimension cap) {
             this.gate = gate;
             failures = new Ring<ContentStreamFailure>(cap: cap);
         }

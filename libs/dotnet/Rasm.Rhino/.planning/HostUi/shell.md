@@ -81,7 +81,7 @@ namespace Rasm.Rhino.HostUi;
 // The ONE cap every long-lived owner on this boundary rings under — each is host-activated, capsule-seated, or
 // process-static and no policy reaches its constructor, so a per-owner cap beside this one is the fork.
 internal static class ShellFaults {
-    internal static readonly Dimension Cap = Dimension.Create(value: 256);
+    internal static readonly Rasm.Numerics.Dimension Cap = Rasm.Numerics.Dimension.Create(value: 256);
     internal static Ring<Error> Ring() => new(cap: Cap);
     internal static FaultCell Cell() => new(cap: Cap, clock: TimeProvider.System);
 }

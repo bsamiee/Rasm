@@ -100,7 +100,9 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts, minting receipts and drives home-side. `Interaction` crosses on the same rails: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, and `AssetOrigin` names every icon. Command receipts seal home-side from an injected timeline, so no contract flows back down.
+Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts. `Interaction` crosses on the same rails: `UiDispatch` carries every UI-thread marshal, `MotionDrive` samples every paced drive, `Mark` spells every draw primitive the `GhMark.Kernel` case carries, `PaintProgram` batches every kernel draw run, `IntentTable` resolves every menu node, `ControlSpec` seats every chrome pane, and `AssetOrigin` names every icon. Command receipts seal home-side from an injected timeline, so no contract flows back down.
+
+Fence law is census, never roster: one edge per kernel owner, consuming sub-domain, and kind, each member DECLARED at that kernel owner's fences and SPELLED in the sub-domain's code fences, joined ` + ` alphabetically; kernel-end edges fold it per owner, boundary, and kind, so a member moves exactly one edge at each end under the branch `[04]-[STRUCTURE]` derivation row. `Op` is the rail key every fence takes and rides no seam edge; `InstrumentSpec` rides `[PORT]` because `GhInstruments` DECLARES rows the app root mounts, while every other member crosses as a bound value.
 
 `GhTelemetry` admits the app root's `IMeterFactory` and `ILoggerFactory` the same way: capability in, `rasm.grasshopper.*` instrument writes out, zero provider reference inside the boundary.
 
@@ -116,35 +118,43 @@ config:
 ---
 flowchart LR
     accTitle: Grasshopper host-boundary kernel seams
-    accDescr: Which kernel contracts the Grasshopper boundary admits, one edge per contract family labeled by kind.
+    accDescr: Which kernel owner hands which frozen-name contracts to each Grasshopper sub-domain, one edge per owner, sub-domain, and kind.
     subgraph grasshopper[RASM.GRASSHOPPER]
         Canvas[Canvas boundary]
+        Components[Component authoring]
         Document[Document gates]
         Eto[Eto runtime]
-        Shell[Shell session]
         Platform[Platform native]
-        Components[Component authoring]
+        Shell[Shell session]
     end
-    Rasm([Rasm])
-    Rasm e1@-->|"[BOUNDARY]: Context"| Components
-    Rasm e2@-->|"[BOUNDARY]: MonotonicTimeline"| Canvas
-    Rasm e3@-->|"[BOUNDARY]: MonotonicStamp"| Canvas
-    Rasm e4@-->|"[BOUNDARY]: SpringShape"| Canvas
-    Rasm e5@-->|"[BOUNDARY]: MotionDrive"| Canvas
-    Rasm e6@-->|"[BOUNDARY]: PerceptualColor"| Canvas
-    Rasm e7@-->|"[BOUNDARY]: PaintProgram + Mark"| Canvas
-    Rasm e8@-->|"[BOUNDARY]: IntentTable"| Canvas
-    Rasm e9@-->|"[BOUNDARY]: MonotonicTimeline"| Document
-    Rasm e10@-->|"[BOUNDARY]: MonotonicTimeline"| Eto
-    Rasm e11@-->|"[BOUNDARY]: MonotonicTimeline"| Shell
-    Rasm e12@-->|"[BOUNDARY]: PerceptualColor"| Shell
-    Rasm e13@-->|"[BOUNDARY]: UiDispatch"| Shell
-    Rasm e14@-->|"[BOUNDARY]: AssetOrigin"| Shell
-    Rasm e15@-->|"[PORT]: Op + Lease + HookRail + InstrumentSpec"| Shell
-    Rasm e16@-->|"[BOUNDARY]: MonotonicTimeline"| Platform
-    Rasm e17@-->|"[BOUNDARY]: PerceptualColor"| Platform
-    Rasm e18@-->|"[BOUNDARY]: MotionDrive"| Platform
-    Rasm e19@-->|"[BOUNDARY]: UiDispatch"| Platform
+    subgraph rasm[RASM]
+        Domain([Domain floor])
+        Numerics([Numerics floor])
+        Parametric([Parametric producers])
+        Interaction([Interaction plane])
+    end
+    Domain e1@-->|"[BOUNDARY]: Context + HookRail + Lease"| Canvas
+    Domain e2@-->|"[BOUNDARY]: Context + Lease"| Components
+    Domain e3@-->|"[BOUNDARY]: HookRail + Lease"| Document
+    Domain e4@-->|"[BOUNDARY]: Lease"| Eto
+    Domain e5@-->|"[BOUNDARY]: Lease"| Platform
+    Domain e6@-->|"[BOUNDARY]: HookRail + Lease"| Shell
+    Domain e7@-->|"[PORT]: InstrumentSpec"| Shell
+    Numerics e8@-->|"[BOUNDARY]: Dimension + PerceptualColor + UnitInterval"| Canvas
+    Numerics e9@-->|"[BOUNDARY]: PerceptualColor"| Components
+    Numerics e10@-->|"[BOUNDARY]: PerceptualColor"| Document
+    Numerics e11@-->|"[BOUNDARY]: Dimension + PerceptualColor"| Platform
+    Numerics e12@-->|"[BOUNDARY]: PerceptualColor"| Shell
+    Parametric e13@-->|"[BOUNDARY]: MonotonicTimeline + MotionDrive"| Canvas
+    Parametric e14@-->|"[BOUNDARY]: MonotonicTimeline"| Document
+    Parametric e15@-->|"[BOUNDARY]: MonotonicTimeline"| Eto
+    Parametric e16@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline + MotionDrive + SpringShape"| Platform
+    Parametric e17@-->|"[BOUNDARY]: MonotonicStamp + MonotonicTimeline"| Shell
+    Interaction e18@-->|"[BOUNDARY]: IntentTable + Mark + PaintProgram + UiDispatch"| Canvas
+    Interaction e19@-->|"[BOUNDARY]: UiDispatch"| Document
+    Interaction e20@-->|"[BOUNDARY]: UiDispatch"| Eto
+    Interaction e21@-->|"[BOUNDARY]: UiDispatch"| Platform
+    Interaction e22@-->|"[BOUNDARY]: AssetOrigin + ControlSpec + UiDispatch"| Shell
 ```
 
 ## [04]-[INTERNAL]

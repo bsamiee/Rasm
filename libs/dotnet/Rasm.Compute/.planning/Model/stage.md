@@ -2,24 +2,27 @@
 
 `StageRun` executes the photo-to-PBR wire: a dependency-ordered request sequence folds into results, each request resolving every consumed plane against a producer already held or against its own blob key, stacking them along the channel axis into one bound tensor, leasing a session at a parity-graded acceleration decision, building one `Model/tiling#TILE_PLAN` grid, synthesizing the seeded latent the graph declares, running that grid once through `Model/tiling#TILE_FOLD`, and writing every produced plane back through the injected port while every grade crosses by value.
 
-`StageRequest` and `StageResult` transcribe the frozen `Rasm.Materials` wire as LOWERED PRIMITIVES — opaque keys and content addresses cross injected ports with no strata reference in either direction. Parity measures the candidate against a full-precision floor ONCE per acceleration decision, memoizes the verdict across the process and across restarts under one key, and DEMOTES a run whose measured residual leaves its card's live band.
+`StageWireMap` crosses the corpus `rasm.contracts.stage` family against `StageRequest`/`StageResult`, this end's LOWERED PRIMITIVES — opaque keys and content addresses cross injected ports with no strata reference in either direction. Parity measures the candidate against a full-precision floor ONCE per acceleration decision, memoizes the verdict across the process and across restarts under one key, and DEMOTES a run whose measured residual leaves its card's live band.
 
 ## [01]-[INDEX]
 
-- [02]-[STAGE_WIRE]: the lowered-primitive request and result records over a grant gate, the licence, residual, and latent mirrors, the accumulating decode admission, the executor-synthesized deterministic latent draw, the layout-memoized channel stack, and the port set the app root binds.
+- [02]-[STAGE_WIRE]: the `StageWireMap` crossing against the corpus stage family, the lowered-primitive request and result records over a grant gate, the licence, residual, and latent mirrors, the accumulating decode admission, the executor-synthesized deterministic latent draw, the layout-memoized channel stack, and the port set the app root binds.
 - [03]-[STAGE_FOLD]: dependency-ordered execution with a per-row producer-extent gate at resolution, a single-construction tile plan, lease-side artefact and latent gates, an accumulating attempt admission, and a one-demotion band gate inside the lease that reads the card's live envelope.
 - [04]-[PARITY]: a horizon-bounded, capacity-capped, decision-keyed floor-provider residual memo over one lock-free keyed cell that survives a restart through its artifact port.
 - [05]-[RESEARCH]: open questions.
 
 ## [02]-[STAGE_WIRE]
 
-- Owner: `StageRequest`/`StageInput`/`StageOutput`/`StageScore`/`StageResult` transcribe the frozen wire records; `LicenseClass` enforces the grant vocabulary; `GridProduct` carries one executed grid's own field set beside its grade set; `ResidualBand` carries the card's parity band and `LatentInput`/`LatentDraw` its declared and synthesized seed tensor; `StageDraw` declares the reproducible draw lane the kernel `Deterministic` owner keys on; `PlaneStack` folds the channel sum once and memoizes the stacked bound tensor per layout row across every lease one stage takes; `StageSession` carries the model-derived facts a request cannot know; `StagePorts` carries the plane read, plane write, output-description, session-open, and parity-custody legs the app root binds; `StageRefusal` names this owner's shared contract refusals without a string-key roster.
+- Owner: `StageRequest`/`StageInput`/`StageOutput`/`StageScore`/`StageResult` are this end's lowered-primitive interior shapes; `StageWireMap` is the ONE `[Mapper]` crossing them against the corpus `rasm.contracts.stage` family; `TileBucket` carries the request's fixed bucket as a typed pair; `LicenseClass` enforces the grant vocabulary; `GridProduct` carries one executed grid's own field set beside its grade set; `ResidualBand` carries the card's parity band and `LatentInput`/`LatentDraw` its declared and synthesized seed tensor; `StageDraw` declares the reproducible draw lane the kernel `Deterministic` owner keys on; `PlaneStack` folds the channel sum once and memoizes the stacked bound tensor per layout row across every lease one stage takes; `StageSession` carries the model-derived facts a request cannot know; `StagePorts` carries the plane read, plane write, output-description, session-open, and parity-custody legs the app root binds; `StageRefusal` names this owner's shared contract refusals without a string-key roster.
 - Cases: `LicenseClass` rows `permissive`, `copyleft`, `openRail`, `research`, `blocked`; `StageInput` an empty-stage source row or a named-producer chained row; the two `TileProduct` modalities the lease reports.
-- Entry: `public static Fin<StageRequest> Admit(StageRequest request)` is the decode gate and `public Fin<TilePlan> Plan(int sourceChannels, Seq<TileProduct> products, TileAdmission admission, TileBlend blend, TileLayout layout)` the one plan construction.
-- Law: this end binds LOWERED PRIMITIVES alone. Specifying ends author the wire in their own types; the strata forbid naming one of them here, so every column lands as the value the codec wrote — an enum as its roster string resolved through the roster THIS package owns, a content address as its hex32 string, a correlation key as a string echoed verbatim, an extent as the `int` every tile derivation and span index downstream already runs in (the wire's `uint32` widens losslessly and a negative never crosses). Opaque-key erasure is the deliberate consumer shape: a resolution that fails REFUSES rather than degrading, so a licence spelling this roster cannot honour never runs under a typo, and re-minting a rich value from a key is the drift a second vocabulary opens.
-- Law: the DECODE-ONLY MIRROR is complete at 18 request columns and 13 result columns, and the producing roster is authoritative. Each record mirrors its `Rasm.Materials` `Appearance/interchange` `StageRequestRow`/`StageResultRow` counterpart column for column — declaration order diverges only on `Artefact`, which the crossing's slot-sorted checksum makes lawful — and a column the producer carries lands here in the SAME change as its `Runtime/wire#STAGE_CROSSING` slot row, whose static-init soundness proof (unique slots, arity equal to this record's primary constructor) then forces the pair. The relaying root compares `StageCrossing.Checksum` against the producing end's identical fold before it moves a byte, so a column landed at one end alone refuses at the checksum rather than misdecoding at its slot; a layout column never rides the wire, because the leased model card is the only authority on the dimension order its graph emits.
+- Entry: `public static Fin<StageRequest> StageWireMap.Admit(ReadOnlySequence<byte> payload)` is the wire door — size gate, bounded parse, corpus rules, lowering, then the constraint fold — and `public static Fin<StageResultWire> StageWireMap.Result(StageResult result)` mints the answer; `public static Fin<StageRequest> StageRequest.Admit(StageRequest request)` is the accumulating constraint fold and `public Fin<TilePlan> Plan(int sourceChannels, Seq<TileProduct> products, TileAdmission admission, TileBlend blend, TileLayout layout)` the one plan construction.
+- Law: this end binds LOWERED PRIMITIVES alone. The corpus family is the wire vocabulary and the specifying end authors the rich records; the strata forbid naming one of them here, so every column lands as the value THIS package can read — a closed roster as its camelCase key string resolved through the roster this package owns, a content key as its hex32 string, a correlation key as a string echoed verbatim, an extent as the `int` every tile derivation and span index downstream already runs in. Opaque-key erasure is the deliberate consumer shape: a resolution that fails REFUSES rather than degrading, so a licence spelling this roster cannot honour never runs under a typo, and re-minting a rich value from a key is the drift a second vocabulary opens.
+- Law: the corpus roster is AUTHORITATIVE and the transcription is compiler-proved. `StageWireMap` runs under `RequiredMappingStrategy.Both`, so a field landing on `stage.proto` breaks THIS BUILD until it lands a column here, and a column here with no field breaks the same way; the `manifest.json` `stage-crossing` case names both fences, and `Rasm.Materials/Appearance/interchange#STAGE_CROSSING` holds the opposite pair. No slot roster, digest, or boot probe stands between the two ends — the descriptor IS the agreement and `ParseGuard.Read` is where it is enforced.
+- Law: enum columns lower through ONE fold. `Runtime/wire#PROTO_VOCABULARY` `WireKeys.Camel` is the single derivation from a generated enum member to this end's key string, so `Stage`, `License`, `Provider`, `Precision`, and `Pad` all read one rule and no `(enum, key)` table exists to drift. The outbound direction inverts by NAME under `IgnoreCase`, which is exact because every key this end publishes differs from its generated member only in casing.
+- Law: `uint32` widens into `int` losslessly for every extent a grid can address, and the one value that cannot refuses. The checked fold overflows past `int.MaxValue` and `Admit` captures it onto the rail, where an unchecked narrowing would hand every downstream span index a negative extent it reads as legal.
+- Law: identity crosses as SIXTEEN BYTES and this end renders it once. `ContentHash.Wire`/`ContentHash.Admit` are the byte projection and its inverse, and `ContentHash.Hex` the lowercase spelling every `StagePorts` blob key carries — one alphabet in both directions, so a key read inbound and written back outbound is byte-identical and `ContentHash.Admit` refusing uppercase is the proof no second spelling entered through the port. The absent artefact is the EMPTY string: the `bytes.len = 16` field rule refuses a present-but-empty column, so emptiness is absence and never a fabricated digest.
 - Law: Materials SPECIFIES and Compute EXECUTES. Stage, model-card, and role identities cross as OPAQUE KEYS and this end dispatches on none of them, so admitting a model, a stage, or an intermediate at the specifying end moves no surface here.
-- Law: `Scale` DERIVES from the extents, never a column. Wire records thread both extents while a stage publishes `inputWidth × scale`, so a carried scale only ever contradicts them; `StageRequest.Scale` answers `None` for a fractional or anisotropic ratio and admission refuses there rather than at a bind reporting a shape mismatch it cannot explain.
+- Law: `Scale` DERIVES from the extents, never a column. Wire records thread both extents while a stage publishes `inputWidth × scale`, so a carried scale only ever contradicts them; `StageRequest.Scale` answers `None` for a fractional or anisotropic ratio and admission refuses there rather than at a bind reporting a shape mismatch it cannot explain. The corpus proves the same isotropy as a message CEL rule, and the domain check stays because `Scale` is DERIVED here and every later gate reads the derivation rather than the rule.
 - Law: decode admission ACCUMULATES. Five independent columns — grant spelling, grant verdict, precision spelling, the frozen pad pin, and the bucket-versus-tile agreement — each carry their own constraint, so a request breaking three of them names three where an abort-first ternary ladder named the first and left the caller to re-submit twice.
 - Law: the EXECUTOR synthesizes the latent; nothing upstream produces it. `StageSession.Latent` carries the card's own declaration — the graph's second input tensor, the channel depth of the draw, and the factor its extent divides the tile by — and this end mints the standard-normal tensor from the request's `Seed` at session bind, because a diffusion export cannot bake its latent into an initializer without freezing every pass to one draw.
 - Law: the draw is the kernel's, and the collapse is a CORRECTNESS FIX rather than thrift. The mixer this page transcribed was a verbatim copy of `Rasm/Domain/identity#DETERMINISTIC_DERIVATION` `Deterministic`'s private splitmix64 finalizer differing in ONE place — the unit projection, which subtracted a reconstructed mantissa where the owner takes the top 53 bits and clamps to the open interval — so the two produced DIFFERENT doubles from the same state and a replay across the two spellings diverged. Composing the owner's lane-keyed draw makes `(seed, index, dimension)` the whole determinant, keeps Box-Muller here where no kernel member covers it, and puts the lane on a DECLARED ordinal so a row rename never silently re-keys a stored campaign.
@@ -27,17 +30,56 @@
 - Law: the LEASE binds tensor lanes to ROLE keys. Requests carry no output roster; the leased session reports one `TileProduct` row per card binding — the graph's own output tensor, the component lane inside it, and the opaque role key the product publishes under — so a PACKED export naming one tensor for several products lands each lane under its own role, and the executor never reads a role off a tensor's name.
 - Law: a tiling plan has ONE construction. `StageRequest.Plan` folds the request's own extent, bucket, overlap, pad, and derived scale columns into `TilePlan`, whose gate roster alone spells the fixed-bucket law, and that same value then seats the bound flow and drives the fold.
 - Law: a GRADE leaves as a value, never as a blob. A `Measure` product is rank-0 — no content address, no plane write, no mosaic arena — so it crosses on `StageResult.Scores` beside the plane outputs and never enters the produced-output map, because nothing downstream samples a grade and a stage binding one would be binding a number as a tensor. Writing four bytes through the plane port to hand back one float mints a blob the specifying end must fetch to read a value the result already holds.
-- Auto: `Admit` proves everything provable WITHOUT a model — extent, bucket, and pad legality prove here so a malformed request never reaches a session lease, while the plan itself builds after the lease because only the model names its own products and its own layout. The stacked bound tensor memoizes per LAYOUT ROW on one lock-free keyed cell, because layout is the only property of a lease the placement reads and one stage holds up to three leases whose layouts may differ; a single-source stage fills the bound buffer directly and a multi-source stage hands each filler to the layout's own stack row, so a planar plane lands in its contiguous slice with no intermediate and a fill failure rides the rail out with no torn entry seatable.
-- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Domain.Deterministic`/`Domain.IDrawLane`)
-- Growth: a new stage column is one record field here landing in the same change as its `Runtime/wire#STAGE_CROSSING` slot row, whose soundness proof then forces the pair; a new grant posture is one `LicenseClass` row; a new decode invariant is one `IConstraint<StageRequest>` conformance the accumulating fold already reads; a further reproducible draw is one `StageDraw` row carrying its own declared lane; a new wire column is one record field transcribed from the frozen roster at both ends in one change; a further execution backend is one `Model/providers#EP_AXIS` row declaring one `WireKey`, never a translation table here and never a second stage owner.
-- Boundary: `StagePorts` is the ONLY route to a plane and the only route to durable parity custody. Compute holds no blob store, no artifact index, no codec, and no channel vocabulary — it reads and writes float planes and parity verdicts through injected legs the app root binds against the Persistence object and artifact lanes, exactly as `Model/sessions#SESSION_CAPSULE` binds its warm-artifact leg; the read leg is the index-keyed span filler and the change is Compute-local by construction — the port is Compute-declared, the strata forbid a reference either way, and the filler is a delegate the ROOT binds (a blob copy, or a `Runtime/archive#HDF_ARCHIVE` hyperslab fill for an archive-resident plane), so an archive-resident chained input re-enters without rehydrating whole and no PureHDF member lands on a Compute signature; the parity legs carry no rail outward because the root that owns the artifact write also owns the evidence cell its refusal parks on, and a read answering nothing degrades to the cold measurement the process memo already prices. Provider and precision spellings resolve at `Model/providers#EP_AXIS`, whose rows carry their own wire keys, so this record holds no translation table and a roster landing there crosses without an edit here. `StageSession.Flow` takes the built plan and the synthesized draw, so the bound shapes, the bound draw, and the fold's shapes have one source and the root binds bytes rather than re-deriving a distribution. `GridProduct` is NOT a wire mirror: the specifying end's `StageProduct` is an emission `[Union]` naming the role type on its own output rows, and this carrier is an internal per-grid field-and-grade pair — genuinely distinct concepts, so this end keeps a distinct name rather than a same-named twin reaching one S4 consumer. This wire mints no `libs/contracts/manifest.json` entry — it never leaves the C# runtime.
+- Auto: `Admit` proves everything provable WITHOUT a model — the descriptor rules first, then extent, bucket, and pad legality — so a malformed request never reaches a session lease, while the plan itself builds after the lease because only the model names its own products and its own layout. The stacked bound tensor memoizes per LAYOUT ROW on one lock-free keyed cell, because layout is the only property of a lease the placement reads and one stage holds up to three leases whose layouts may differ; a single-source stage fills the bound buffer directly and a multi-source stage hands each filler to the layout's own stack row, so a planar plane lands in its contiguous slice with no intermediate and a fill failure rides the rail out with no torn entry seatable.
+- Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, NodaTime.Serialization.Protobuf (`ToProtobufDuration`/`ToNodaDuration` on the elapsed span), Rasm.Contracts (project — the generated `rasm.contracts.stage` messages and enums), Google.Protobuf (`ByteString`, `RepeatedField<T>`, `KindOneofCase`/`RoleOneofCase`), Riok.Mapperly (the ONE `[Mapper]` on this crossing), `Runtime/wire#PROTO_VOCABULARY` (composed — `ParseGuard.Read`, `WireKeys.Camel`), `Runtime/channels#ARTIFACT_FRAMES` (composed — `WireLimits.Inbound`), Rasm (project, `Domain.ContentHash`, `Domain.Deterministic`/`Domain.IDrawLane`)
+- Growth: a new stage COLUMN is one numbered field on `stage.proto` and one record column here, which the RMG completeness diagnostics force in the same change at both ends; a new grant posture is one `LicenseClass` row beside its corpus enum value; a new decode invariant is one `IConstraint<StageRequest>` conformance the accumulating fold already reads; a further reproducible draw is one `StageDraw` row carrying its own declared lane; a further execution backend is one `Model/providers#EP_AXIS` row declaring one `WireKey` beside one corpus enum value, never a translation table here and never a second stage owner.
+- Boundary: `StagePorts` is the ONLY route to a plane and the only route to durable parity custody. Compute holds no blob store, no artifact index, no codec, and no channel vocabulary — it reads and writes float planes and parity verdicts through injected legs the app root binds against the Persistence object and artifact lanes, exactly as `Model/sessions#SESSION_CAPSULE` binds its warm-artifact leg; the read leg is the index-keyed span filler and the change is Compute-local by construction — the port is Compute-declared, the strata forbid a reference either way, and the filler is a delegate the ROOT binds (a blob copy, or a `Runtime/archive#HDF_ARCHIVE` hyperslab fill for an archive-resident plane), so an archive-resident chained input re-enters without rehydrating whole and no PureHDF member lands on a Compute signature; the parity legs carry no rail outward because the root that owns the artifact write also owns the evidence cell its refusal parks on, and a read answering nothing degrades to the cold measurement the process memo already prices. Every blob key the port answers is the kernel `ContentHash.Hex` spelling, since the outbound half re-admits it through `ContentHash.Admit`. Provider and precision spellings resolve at `Model/providers#EP_AXIS`, whose rows carry their own wire keys, so this record holds no translation table and a roster landing there crosses without an edit here. `StageSession.Flow` takes the built plan and the synthesized draw, so the bound shapes, the bound draw, and the fold's shapes have one source and the root binds bytes rather than re-deriving a distribution. `GridProduct` is NOT a wire mirror: the specifying end's `StageProduct` is an emission `[Union]` naming the role type on its own output rows, and this carrier is an internal per-grid field-and-grade pair — genuinely distinct concepts, so this end keeps a distinct name rather than a same-named twin reaching one S4 consumer. The channel half of a role key stays an opaque string BOTH ways: the appearance channel roster is Materials-owned and open, so this end tags a key it cannot resolve as `channel` and the specifying end admits it through `TextureChannel.TryGet`.
 
 ```csharp signature
+// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Buffers;
+using System.Diagnostics;
+using Google.Protobuf;
+using Google.Protobuf.Collections;
+using LanguageExt;
+using LanguageExt.Common;
+using NodaTime;
+using NodaTime.Serialization.Protobuf;
+using Rasm.Compute.Runtime;
+using Rasm.Domain;
+using Riok.Mapperly.Abstractions;
+using Thinktecture;
+using static LanguageExt.Prelude;
+// `LicenseClass` and `PadMode` each spell a Compute roster AND a generated enum, so every generated stage type
+// rides an explicit alias rather than a bare namespace import — one rule for the family instead of two colliders
+// carved out of an import that silently shadows.
+using BucketWire = Rasm.Contracts.Stage.BucketWire;
+using StageInputWire = Rasm.Contracts.Stage.StageInputWire;
+using StageOutputWire = Rasm.Contracts.Stage.StageOutputWire;
+using StageProductWire = Rasm.Contracts.Stage.StageProductWire;
+using StageRequestWire = Rasm.Contracts.Stage.StageRequestWire;
+using StageResultWire = Rasm.Contracts.Stage.StageResultWire;
+using StageScoreWire = Rasm.Contracts.Stage.StageScoreWire;
+using InferenceProviderWire = Rasm.Contracts.Stage.InferenceProvider;
+using LicenseClassWire = Rasm.Contracts.Stage.LicenseClass;
+using PadModeWire = Rasm.Contracts.Stage.PadMode;
+using PbrStageWire = Rasm.Contracts.Stage.PbrStage;
+using PlaneFormatWire = Rasm.Contracts.Stage.PlaneFormat;
+using PlaneTransferWire = Rasm.Contracts.Stage.PlaneTransfer;
+using PriorFieldWire = Rasm.Contracts.Stage.PriorField;
+using ScoreFieldWire = Rasm.Contracts.Stage.ScoreField;
+using TensorPrecisionWire = Rasm.Contracts.Stage.TensorPrecision;
+// The elapsed span crosses as the well-known message while every interior duration stays NodaTime's, so the
+// projection names both rather than letting a `using` decide which `Duration` a signature meant.
+using WireDuration = Google.Protobuf.WellKnownTypes.Duration;
+
+namespace Rasm.Compute.Model;
+
 // --- [TYPES] -------------------------------------------------------------------------------
-// This roster and the specifying registry's licence table are BOTH transcriptions of the frozen five-key
-// vocabulary — cross-branch equality tests the wire key, the strata forbid sharing the type, and each end carries
-// only the columns its own dispatch reads (a grant verdict here, an admission rank there); a merged shape is
-// exactly the strata reference this wire exists to avoid.
+// This roster and the specifying registry's licence table are BOTH transcriptions of the corpus enum — cross-branch
+// equality tests the wire key, the strata forbid sharing the type, and each end carries only the columns its own
+// dispatch reads (a grant verdict here, an admission rank there); a merged shape is exactly the strata reference
+// this wire exists to avoid.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -76,6 +118,12 @@ public sealed partial class StageDraw : IDrawLane<StageDraw> {
 }
 
 // --- [MODELS] ------------------------------------------------------------------------------
+// The request's fixed ONNX bucket as a TYPED PAIR, so the bucket-versus-tile agreement is a record comparison
+// rather than two renderings of one grammar compared as text. The name carries the `Tile` prefix because a member
+// spelled `Bucket` inside `StageRequest` would SHADOW a type spelled `Bucket` at every static use — the same
+// interior-versus-wire collision `Pad` and `License` already take, closed here at the type instead.
+public readonly record struct TileBucket(int Width, int Height);
+
 // One consumed product. An empty Stage names the intent's own plane and carries the blob key; a named Stage names
 // its producer and role, whose already-held output the fold resolves.
 public readonly record struct StageInput(string Stage, string Role, string Key);
@@ -89,17 +137,15 @@ public readonly record struct StageOutput(string Role, string BlobKey, int Width
 // holds instead of fetching four bytes out of a store.
 public readonly record struct StageScore(string Role, double Value);
 
-// Every column is the LOWERED primitive the codec wrote: the producer's own types name none of this record, the
-// vocabulary keys resolve through the rosters THIS package owns, and `Op` is a correlation string echoed verbatim
-// onto the result rather than a value re-minted from a key. Extents land `int` because every grid derivation and
-// span index downstream runs in that domain and the wire's `uint32` widens losslessly. Eighteen columns mirror
-// the producing record's eighteen; declaration order diverges on `Artefact` alone, which the crossing's
-// slot-sorted checksum makes lawful. No layout column: the dimension order a graph emits is the leased model
-// card's fact (`StageSession.Layout`), and a request carrying one could only ever contradict it.
+// Every column is the LOWERED primitive `StageWireMap` writes: the producer's own types name none of this record,
+// the vocabulary keys resolve through the rosters THIS package owns, and `Op` is a correlation string echoed
+// verbatim onto the result rather than a value re-minted from a key. Extents land `int` because every grid
+// derivation and span index downstream runs in that domain. No layout column: the dimension order a graph emits is
+// the leased model card's fact (`StageSession.Layout`), and a request carrying one could only ever contradict it.
 public sealed record StageRequest(
     string Stage, string ModelCardId, string License, Seq<StageInput> Inputs,
     int InputWidth, int InputHeight, int OutputWidth, int OutputHeight,
-    int TileWidth, int TileHeight, int Overlap, string Pad, string Bucket,
+    int TileWidth, int TileHeight, int Overlap, string Pad, TileBucket Bucket,
     string Provider, string Precision, ulong Seed, string Op, string Artefact) {
 
     // Wire spellings resolve at the ROSTER that owns the rows, so this record holds no translation table and a
@@ -107,7 +153,7 @@ public sealed record StageRequest(
     // substituted provider is reported on `ProviderUsed`, a substituted precision or grant is reported nowhere, so
     // one degrades and the other two refuse. The interior column shortens to `License` because a `LicenseClass`
     // member would SHADOW the `LicenseClass` type inside this record exactly as `PadMode` would — the same
-    // interior-versus-wire split every other flat column takes, and the wire projection restores `licenseClass`.
+    // interior-versus-wire split every other flat column takes, and the wire projection restores `license`.
     // PROVIDER resolution is deliberately NOT a property here: it answers what this host can run, which is a
     // property of the runtime rather than of the request, so the executor resolves it once against the frozen
     // provider census and threads that answer — a per-read property invites two reads of one decision.
@@ -117,6 +163,7 @@ public sealed record StageRequest(
 
     // Scale is DERIVED from the extents the wire already threads: a stage publishes `inputWidth × scale`, so a
     // carried column could only ever contradict them, and a fractional or anisotropic ratio is a grid nothing builds.
+    // The corpus proves the same isotropy as a message rule; this derivation is what every later gate reads.
     public Option<int> Scale =>
         InputWidth > 0 && InputHeight > 0
         && OutputWidth % InputWidth is 0 && OutputHeight % InputHeight is 0
@@ -127,10 +174,9 @@ public sealed record StageRequest(
     // ONE plan construction lives here. Extent, bucket, overlap, pad, and scale come off this record; channels,
     // roster, layout, and blend come off the leased session, the only surface knowing the model. `TilePlan`'s own
     // gate roster then owns the fixed-bucket law, so no predicate here restates it and no later compare exists to
-    // catch two spellings drifting. The wire's `padMode` field lands as the `Pad` column: a same-named `PadMode`
+    // catch two spellings drifting. The wire's `pad` field lands as the `Pad` column: a same-named `PadMode`
     // property SHADOWS the `PadMode` type inside this record (simple-name lookup binds the string member and
-    // `string.TryGet` is CS1061; the static gate below hits CS0120), so the interior spelling shortens and the
-    // wire projection restores `padMode` — the same interior-versus-wire split every other flat tile column takes.
+    // `string.TryGet` is CS1061; the static gate below hits CS0120), so the interior spelling shortens.
     public Fin<TilePlan> Plan(int sourceChannels, Seq<TileProduct> products, TileAdmission admission, TileBlend blend, TileLayout layout) =>
         from scale in Scale.ToFin(StageRefusal.Scale.Fault())
         from pad in (PadMode.TryGet(Pad, out PadMode? row) ? Some(row!) : None)
@@ -169,7 +215,7 @@ public sealed record StageRequest(
             request.SelectedPrecision.IsSome ? request : StageRefusal.Precision.Fault();
     }
 
-    // Frozen wire records PIN `padMode` at `reflect`; the `PadMode` family stays the general tiling vocabulary,
+    // The corpus PadMode roster carries one value; the `PadMode` family here stays the general tiling vocabulary,
     // and this boundary — the one carrying the wire — is where the pin enforces.
     sealed class PadPinned : IConstraint<StageRequest> {
         public Validation<Error, StageRequest> Check(StageRequest request) =>
@@ -178,10 +224,11 @@ public sealed record StageRequest(
                 : StageRefusal.PadPinned.Fault();
     }
 
+    // Typed pair against typed pair: the record comparison replaces a `$"{w}x{h}"` rendering compared as text,
+    // where a leading zero or a stray space read as a bucket disagreement the message could not explain.
     sealed class BucketAgrees : IConstraint<StageRequest> {
         public Validation<Error, StageRequest> Check(StageRequest request) =>
-            request.Scale.IsSome
-            && StringComparer.Ordinal.Equals(request.Bucket, $"{request.TileWidth}x{request.TileHeight}")
+            request.Scale.IsSome && request.Bucket == new TileBucket(request.TileWidth, request.TileHeight)
                 ? request
                 : StageRefusal.Shape.Fault();
     }
@@ -195,10 +242,7 @@ public sealed record StageRequest(
 // carries the measured overlap-add weight floor: the mosaic gates on it once and a reassembly at 0.001 publishes
 // as healthy without it. `Artefact` is the third: the digest of the weight bytes the leased session actually
 // LOADED, measured at this end because only the lease observes which bytes reached the runtime, so the specifying
-// end's card gate proves an observation rather than trusting a request round-tripped. Its slot ordinal sits past
-// `Op` on the wire while the column reads beside `ModelCardId` here — the crossing folds slot ordinals and wire
-// names alone, so declaration order is not contract identity. The specifying package owns this wire record; this
-// fence transcribes the owner's shape and adds no column of its own.
+// end's card gate proves an observation rather than trusting a request round-tripped.
 public sealed record StageResult(
     string Stage, string ModelCardId, string Artefact, Seq<StageOutput> Outputs, Seq<StageScore> Scores,
     string ProviderUsed, int PartitionCount, double ElapsedMs, double GoldenDelta, bool ParityFresh, float Coverage,
@@ -335,6 +379,10 @@ public static class StageRefusal {
     public static readonly ContractRefusal PadPinned = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal Scale = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal Shape = new(ComputeArea.Model, ComputeContract.Compatible);
+    // The two crossing refusals: an extent past `int` range on the way in, and a role, provider, or plane spelling
+    // the corpus roster cannot name on the way out.
+    public static readonly ContractRefusal Extent = new(ComputeArea.Model, ComputeContract.Compatible);
+    public static readonly ContractRefusal Vocabulary = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal NoInput = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal Unresolved = new(ComputeArea.Model, ComputeContract.Complete);
     public static readonly ContractRefusal ExtentChain = new(ComputeArea.Model, ComputeContract.Compatible);
@@ -350,6 +398,168 @@ public static class StageRefusal {
     public static readonly ContractRefusal GoldenShape = new(ComputeArea.Model, ComputeContract.Compatible);
     public static readonly ContractRefusal GoldenNonFinite = new(ComputeArea.Model, ComputeContract.Valid);
 
+}
+
+// --- [BOUNDARIES] --------------------------------------------------------------------------
+// The ONE crossing between the corpus family and this end's interior shapes. `RequiredMappingStrategy.Both` is the
+// whole compatibility discipline: a field landing on `stage.proto` breaks this build until a column answers it and
+// a column with no field breaks the same way, so the descriptor is the agreement and no slot roster, digest, or
+// boot probe stands between the two ends. `ContentHash` and `WireKeys` are composed, never re-spelled.
+// ExplicitCast is CLEARED: with it enabled the generator would silently narrow `uint32` to `int` on any column
+// this fence forgot to pin, bypassing the checked fold that is the whole extent guard — every cross-type hop here
+// is an explicit user mapping and a source/target mismatch must break the build rather than compile to a wrap.
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both,
+        EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
+public static partial class StageWireMap {
+    // --- [REQUEST_INGRESS]
+    // Bytes in, admitted record out — the door takes the PAYLOAD the relaying root holds rather than a parsed
+    // message, so nothing can hand this end a value that skipped the size gate or the recursion ceiling.
+    // `ParseGuard.Read` runs the size gate, the bounded parse, and then the corpus CEL and field rules — every
+    // `defined_only` enum, the sixteen-byte key widths, the required bucket, the bucket-versus-tile and
+    // isotropic-scale message rules — so the lowering below reads a message the corpus already proved and the
+    // constraint fold re-proves only what it derives.
+    public static Fin<StageRequest> Admit(ReadOnlySequence<byte> payload) =>
+        ParseGuard.Read(StageRequestWire.Parser, payload, WireLimits.Inbound).Bind(Lowered).Bind(StageRequest.Admit);
+
+    // The lowering's ONE reachable throw is the checked extent narrowing, and it lands on the rail here rather
+    // than escaping: `uint32` widens losslessly for every extent a grid can address, and a value past
+    // `int.MaxValue` would otherwise wrap into a negative extent every downstream span index reads as legal.
+    static Fin<StageRequest> Lowered(StageRequestWire wire) =>
+        Op.Of().Catch(() => Fin.Succ(ToDomain(wire)))
+            .MapFail(static _ => (Error)StageRefusal.Extent.Fault());
+
+    [MapProperty(nameof(StageRequestWire.Stage), nameof(StageRequest.Stage), Use = nameof(StageKey))]
+    [MapProperty(nameof(StageRequestWire.License), nameof(StageRequest.License), Use = nameof(LicenceKey))]
+    [MapProperty(nameof(StageRequestWire.Provider), nameof(StageRequest.Provider), Use = nameof(ProviderKey))]
+    [MapProperty(nameof(StageRequestWire.Precision), nameof(StageRequest.Precision), Use = nameof(PrecisionKey))]
+    [MapProperty(nameof(StageRequestWire.Pad), nameof(StageRequest.Pad), Use = nameof(PadKey))]
+    [MapProperty(nameof(StageRequestWire.Inputs), nameof(StageRequest.Inputs), Use = nameof(Rows))]
+    [MapProperty(nameof(StageRequestWire.InputWidth), nameof(StageRequest.InputWidth), Use = nameof(Whole))]
+    [MapProperty(nameof(StageRequestWire.InputHeight), nameof(StageRequest.InputHeight), Use = nameof(Whole))]
+    [MapProperty(nameof(StageRequestWire.OutputWidth), nameof(StageRequest.OutputWidth), Use = nameof(Whole))]
+    [MapProperty(nameof(StageRequestWire.OutputHeight), nameof(StageRequest.OutputHeight), Use = nameof(Whole))]
+    [MapProperty(nameof(StageRequestWire.TileWidth), nameof(StageRequest.TileWidth), Use = nameof(Whole))]
+    [MapProperty(nameof(StageRequestWire.TileHeight), nameof(StageRequest.TileHeight), Use = nameof(Whole))]
+    [MapProperty(nameof(StageRequestWire.Overlap), nameof(StageRequest.Overlap), Use = nameof(Whole))]
+    [MapProperty(nameof(StageRequestWire.Bucket), nameof(StageRequest.Bucket), Use = nameof(Bucket))]
+    [MapProperty(nameof(StageRequestWire.Artefact), nameof(StageRequest.Artefact), Use = nameof(Hex))]
+    public static partial StageRequest ToDomain(StageRequestWire wire);
+
+    // --- [RESULT_EGRESS]
+    // The inverse this end MINTS. The throw arm is the string-to-enum resolution: `Stage` echoes a key the
+    // admitted request already proved rostered and `ProviderUsed` is one of the frozen census's own wire keys, so
+    // the only spelling that can miss is a `StagePorts.Describe` answer outside the corpus plane roster — which is
+    // exactly the contract breach a typed refusal must name rather than a partial message publish.
+    public static Fin<StageResultWire> Result(StageResult result) =>
+        Op.Of().Catch(() => Fin.Succ(ToWire(result)))
+            .MapFail(static _ => (Error)StageRefusal.Vocabulary.Fault());
+
+    [MapProperty(nameof(StageResult.Stage), nameof(StageResultWire.Stage), Use = nameof(StageRow))]
+    [MapProperty(nameof(StageResult.ProviderUsed), nameof(StageResultWire.ProviderUsed), Use = nameof(ProviderRow))]
+    [MapProperty(nameof(StageResult.Artefact), nameof(StageResultWire.Artefact), Use = nameof(Bytes))]
+    [MapProperty(nameof(StageResult.ElapsedMs), nameof(StageResultWire.Elapsed), Use = nameof(Elapsed))]
+    [MapProperty(nameof(StageResult.PartitionCount), nameof(StageResultWire.PartitionCount), Use = nameof(Unsigned))]
+    [MapProperty(nameof(StageResult.TilesEmitted), nameof(StageResultWire.TilesEmitted), Use = nameof(Unsigned))]
+    public static partial StageResultWire ToWire(StageResult result);
+
+    // --- [VOCABULARY]
+    // ONE derivation from a generated enum member to this end's key string — `Runtime/wire#PROTO_VOCABULARY`
+    // `WireKeys.Camel` — so five columns read one rule and no `(enum, key)` table exists to drift. The generic
+    // fold itself can never be a `[UserMapping]` (RMG001 refuses a type parameter), which is why each concrete
+    // column takes its own one-line seat.
+    [UserMapping] static string StageKey(PbrStageWire wire) => WireKeys.Camel(wire);
+    [UserMapping] static string LicenceKey(LicenseClassWire wire) => WireKeys.Camel(wire);
+    [UserMapping] static string ProviderKey(InferenceProviderWire wire) => WireKeys.Camel(wire);
+    [UserMapping] static string PrecisionKey(TensorPrecisionWire wire) => WireKeys.Camel(wire);
+    [UserMapping] static string PadKey(PadModeWire wire) => WireKeys.Camel(wire);
+
+    // The inverse resolves BY NAME under `IgnoreCase`, which is exact because every key this end publishes differs
+    // from its generated member in casing alone (`coreMl`/`CoreMl`, `rgba16f`/`Rgba16F`). `ByName` is the
+    // attribute's required positional argument; `IgnoreCase` is the knob that carries the rule.
+    [MapEnum(EnumMappingStrategy.ByName, IgnoreCase = true)]
+    private static partial PbrStageWire StageRow(string key);
+
+    [MapEnum(EnumMappingStrategy.ByName, IgnoreCase = true)]
+    private static partial InferenceProviderWire ProviderRow(string key);
+
+    [MapEnum(EnumMappingStrategy.ByName, IgnoreCase = true)]
+    private static partial PlaneTransferWire TransferRow(string key);
+
+    [MapEnum(EnumMappingStrategy.ByName, IgnoreCase = true)]
+    private static partial PlaneFormatWire FormatRow(string key);
+
+    // --- [SCALARS]
+    // The narrowing that can refuse and the widening that cannot, each stated once. A negative count reaching the
+    // wire is a producer defect the checked cast surfaces rather than wraps.
+    [UserMapping] static int Whole(uint value) => checked((int)value);
+    [UserMapping] static uint Unsigned(int value) => checked((uint)value);
+
+    // Sixteen bytes in, lowercase hex out, and the same alphabet back — `ContentHash.Admit` refuses uppercase, so
+    // a key this end rendered and a key it admits are the same thirty-two characters or the port forked the
+    // spelling. An UNSET optional artefact reads empty: the `bytes.len = 16` rule refuses a present-but-empty
+    // column, so emptiness is absence and never a fabricated digest.
+    [UserMapping] static string Hex(ByteString bytes) => bytes.IsEmpty ? string.Empty : ContentHash.Hex(Digest(bytes));
+    [UserMapping] static ByteString Bytes(string hex) => ContentHash.Wire(ContentHash.Admit(hex, Op.Of()).ThrowIfFail());
+    static UInt128 Digest(ByteString bytes) => ContentHash.Admit(bytes.Span, Op.Of()).ThrowIfFail();
+
+    // The request's fixed bucket types HERE, so the agreement gate downstream is a record comparison rather than a
+    // second rendering of one grammar.
+    [UserMapping] static TileBucket Bucket(BucketWire wire) => new(Whole(wire.Width), Whole(wire.Height));
+
+    // The elapsed span crosses as the well-known message off the NodaTime projection, so one temporal rule serves
+    // every seam on this branch and no seam spells a tick arithmetic of its own.
+    [UserMapping] static WireDuration Elapsed(double milliseconds) => Duration.FromMilliseconds(milliseconds).ToProtobufDuration();
+
+    // --- [PRODUCTS]
+    // The oneof both directions cross. `KindOneofCase.None` and `RoleOneofCase.None` are refused by the corpus
+    // `oneof.required` rule inside `ParseGuard.Read`, so the unset arm is unreachable AFTER admission and states
+    // that rather than inventing a domain value; the `Op.Catch` at `Lowered` is what keeps it off the caller.
+    [UserMapping] static Seq<StageInput> Rows(RepeatedField<StageInputWire> rows) => toSeq(rows).Map(Row).Strict();
+
+    static StageInput Row(StageInputWire wire) =>
+        wire.KindCase switch {
+            StageInputWire.KindOneofCase.Source => new StageInput(string.Empty, string.Empty, ContentHash.Hex(Digest(wire.Source.Key))),
+            StageInputWire.KindOneofCase.Produced => new StageInput(WireKeys.Camel(wire.Produced.Stage), Product(wire.Produced.Product), string.Empty),
+            var unset => throw new UnreachableException($"<stage-input-kind:{unset}>"),
+        };
+
+    static string Product(StageProductWire role) =>
+        role.RoleCase switch {
+            StageProductWire.RoleOneofCase.Channel => role.Channel,
+            StageProductWire.RoleOneofCase.Prior => WireKeys.Camel(role.Prior),
+            StageProductWire.RoleOneofCase.Measure => WireKeys.Camel(role.Measure),
+            var unset => throw new UnreachableException($"<stage-product-role:{unset}>"),
+        };
+
+    // The inverse re-derives the arm FROM THE KEY, closed rosters first: this end holds no channel vocabulary, so
+    // `channel` is the fallback arm and the two corpus rosters are what it can actually decide. `Named` demands a
+    // leading LETTER before parsing, because `Enum.TryParse` otherwise admits a decimal string as an ordinal and
+    // would tag a numeric key as a prior; the appearance channel pattern requires that same leading letter, and
+    // the two rosters stay disjoint so one key reads the same from either direction.
+    [UserMapping] static StageProductWire Role(string key) =>
+        Named(key, out PriorFieldWire prior)
+            ? new StageProductWire { Prior = prior }
+            : Named(key, out ScoreFieldWire measure)
+                ? new StageProductWire { Measure = measure }
+                : new StageProductWire { Channel = key };
+
+    static bool Named<TEnum>(string key, out TEnum row) where TEnum : struct, Enum {
+        row = default;
+        return key.Length > 0 && char.IsAsciiLetter(key[0])
+            && Enum.TryParse(key, ignoreCase: true, out row)
+            && !EqualityComparer<TEnum>.Default.Equals(row, default);
+    }
+
+    [MapProperty(nameof(StageOutput.Role), nameof(StageOutputWire.Role), Use = nameof(Role))]
+    [MapProperty(nameof(StageOutput.BlobKey), nameof(StageOutputWire.Blob), Use = nameof(Bytes))]
+    [MapProperty(nameof(StageOutput.Width), nameof(StageOutputWire.Width), Use = nameof(Unsigned))]
+    [MapProperty(nameof(StageOutput.Height), nameof(StageOutputWire.Height), Use = nameof(Unsigned))]
+    [MapProperty(nameof(StageOutput.Transfer), nameof(StageOutputWire.Transfer), Use = nameof(TransferRow))]
+    [MapProperty(nameof(StageOutput.Format), nameof(StageOutputWire.Format), Use = nameof(FormatRow))]
+    private static partial StageOutputWire Plane(StageOutput output);
+
+    [MapProperty(nameof(StageScore.Role), nameof(StageScoreWire.Role), Use = nameof(Role))]
+    private static partial StageScoreWire Grade(StageScore score);
 }
 
 // --- [SERVICES] ----------------------------------------------------------------------------
@@ -369,11 +579,13 @@ public sealed record StageSession(
 // Every plane crosses as a content address the host resolves; Compute holds no store, no codec, and no
 // vocabulary. `Read` resolves a key to its declared extent and an index-keyed `PlaneFill` — the filler fills a
 // caller-owned span, so plane bytes land where they are consumed and the app root binds an archive-resident plane
-// to a hyperslab fill without rehydrating whole; the port itself still names no PureHDF member. `Lease` takes the
-// resolved precision because a posture admitted at the wire and dropped before the session is a column the receipt
-// then reports without anything having executed it. `Describe` takes the ROSTER ROW rather than a role string: the
-// specifying end declares transfer and format per `(tensor, lane)` binding, so a packed export's two products
-// describe apart and a role alone could not tell the port which binding it was answering for.
+// to a hyperslab fill without rehydrating whole; the port itself still names no PureHDF member. Every key these
+// legs carry is the kernel `ContentHash.Hex` lowercase spelling, since the outbound half re-admits it. `Lease`
+// takes the resolved precision because a posture admitted at the wire and dropped before the session is a column
+// the receipt then reports without anything having executed it. `Describe` takes the ROSTER ROW rather than a role
+// string: the specifying end declares transfer and format per `(tensor, lane)` binding, so a packed export's two
+// products describe apart and a role alone could not tell the port which binding it was answering for; its answer
+// is a corpus plane-roster spelling, and one outside that roster refuses at the result mint.
 public sealed record StagePorts(
     Func<string, Fin<PlaneSource>> Read,
     Func<ReadOnlyMemory<float>, int, int, int, Fin<string>> Write,
@@ -387,7 +599,7 @@ public sealed record StagePorts(
 - Owner: `StageRun` folds a dependency-ordered request sequence into results; `StageAttempt` is the lifted candidate its accumulating admission reads.
 - Entry: `public static Fin<Seq<StageResult>> Fold(Seq<StageRequest> plan, StagePorts ports, RunOptions options, CancelScope scope, IClock clock, MonotonicTimeline timeline)` — one entry for the whole plan, because per-request entry pushes producer-output resolution onto the caller and re-opens the chained-stage defect where every stage reads the source photograph.
 - Law: ONE clock capability per question, and the ELAPSED question is the timeline's. Verdict age is a wall `Instant` off `IClock`; the run's own span is a monotone pair off the kernel `MonotonicTimeline`, whose stamps carry their own timeline identity — a raw `long` mark threaded across a whole query belongs to no timeline and cannot prove the pair it is subtracted against came from the same source.
-- Law: EVERY input row binds or the request refuses. Frozen-wire records carry one `StageInput` row per consumed product in the card's own binding order, and the executor resolves them ALL — a chained row against its producer's held output, an empty-stage row against its blob key — then STACKS the planes along the channel axis in that order into the one bound tensor, the session's own `InputMetadata` channel width proving the sum. Head-taking that silently drops `inputs[1..]` runs the card without the photograph its estimator consumes, and nothing rails.
+- Law: EVERY input row binds or the request refuses. The admitted request carries one `StageInput` row per consumed product in the card's own binding order, and the executor resolves them ALL — a chained row against its producer's held output, an empty-stage row against its blob key — then STACKS the planes along the channel axis in that order into the one bound tensor, the session's own `InputMetadata` channel width proving the sum. Head-taking that silently drops `inputs[1..]` runs the card without the photograph its estimator consumes, and nothing rails.
 - Law: a chained input RE-ENTERS through the port and never bypasses it. Producer planes leave through `StagePorts.Write` at the transfer and format `Describe` chose, and the host alone knows whether that crossing is lossless. Device-resident handoff is unreachable here for a second and independent reason: the mosaic overlap-adds every field into pooled HOST planes and `TileMosaic` owns those rentals, so no producer `OrtValue` survives a grid for a consumer to bind, and this fold reaches no `SessionPlacement` readback to compare residency with. Device-to-device copies belong where a bound output stays resident — one `Tensor/residency#ORT_BRIDGE` relay over a `BoundFlow` pair — never on this fold.
 - Law: every input row of one stage shares ONE extent. The request declares `InputWidth`/`InputHeight` and every consumed plane matches it — a chained row proves against its producer's published extent at RESOLUTION, before the blob read and before the lease, and a source row proves against its own bytes at read-back — because the channel stack lays every plane into one bound tensor over one texel count, so a second extent has nowhere to go. Both refusals name both extents, where a bound session's shape fault three ports later names neither stage that disagreed.
 - Law: the ARTEFACT pins at the lease, not at the far end. `StageRequest.Artefact` carries the weight digest the model card declared and `StageSession.Artefact` the digest the lease loaded, so the ONE seam every lease crosses proves them equal before a grid runs — comparing only where the result lands pays a whole mosaic, and worse, grades a parity residual against weights nobody asked for and seats that verdict in the memo. `StageResult.Artefact` then reports the MEASURED value rather than echoing the request. The LAYOUT is the lease's alone: `StageSession.Layout` is the dimension order the leased model card declares, the plan and the channel stack read it off the session, and no request column restates it — a column the wire carried and the lease overrode was a claim rather than a contract.
@@ -398,7 +610,7 @@ public sealed record StagePorts(
 - Receipt: each executed stage emits one `ComputeReceipt.ModelRun` with the tiled mode key and the mosaic's tile count as `BatchSize` — one grid ran, so one receipt mints whatever the roster's width; the stage-level evidence rides `StageResult` across the wire, never a second receipt case, because the specifying end owns the admission that reads it.
 - Packages: Microsoft.ML.OnnxRuntime, System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm (project, `Parametric.MonotonicTimeline`)
 - Growth: a further attempt invariant is one `IConstraint<StageAttempt>` conformance; a stage emitting more products is more `TileProduct` rows the lease reports, a stage PACKING two products into one tensor is one more row at that tensor's next lane, a stage GRADING its input is one `TileProduct.Measure` row landing on `StageResult.Scores`, and a stage CONSUMING more products is one more wire input row widening the channel stack — no surface move on any of them.
-- Boundary: the `GridProduct`→`StageResult` projection is NOT a Mapperly correspondence and no `[Mapper]` is owed here: both shapes are this package's own, the crossing folds three independently measured columns (the timeline span, the graded delta, the freshness discriminant) that no generated transcription can produce, and the pure columns it does carry are one owner's carrier feeding its own result rather than an owner↔DTO rename. The `[Mapper]`-earning correspondence on this wire lives at the specifying end, which authors the rich records this one transcribes.
+- Boundary: the `GridProduct`→`StageResult` projection is NOT a Mapperly correspondence and no mapping method is owed for it: both shapes are this package's own, the crossing folds three independently measured columns (the timeline span, the graded delta, the freshness discriminant) that no generated transcription can produce, and the pure columns it does carry are one owner's carrier feeding its own result rather than an owner↔DTO rename. The `[Mapper]`-earning correspondence is `[02]-[STAGE_WIRE]` `StageWireMap`, which crosses these records against the corpus family and nothing else.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
@@ -466,7 +678,7 @@ public static partial class StageRun {
 
     // Chained stages NEVER carry the source plane: a binding naming a producer resolves against results already
     // held, so a pipeline whose links never touch is unrepresentable rather than merely discouraged. EVERY row
-    // resolves — the frozen wire carries one row per consumed product in the card's binding order, and that order
+    // resolves — the request carries one row per consumed product in the card's binding order, and that order
     // is the channel-stack order the bound tensor takes. Each producer's PUBLISHED extent proves against this
     // request's declared input extent HERE — before the blob read and before the lease — because a plan defect
     // caught by a bound session's shape mismatch names a port rather than the two stages that disagree.

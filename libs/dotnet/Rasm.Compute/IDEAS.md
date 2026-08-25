@@ -19,13 +19,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[POLICY_KEY_CARRIER]-[QUEUED]: every policy's key vector declares the one carrier the content-key entry admits, so a new policy cannot mint a feed that never compiles.
-- Capability: policy key vectors share one carrier shape the identity entry takes, so a policy gaining a key vector binds against the entry it feeds rather than against a signature a fence comment asserted.
-- Shape: `.planning/Runtime/payload.md` `[02]-[RESIDENCY]` — the residency policy's key-vector member and the comment above the assembling operation naming a three-parameter all-span entry; `.planning/Runtime/tiles.md` `[02]-[TWO_HOP_TESSELLATION]` carries the conforming precedent.
-- Unlocks: the residency assemble binds against a landed entry, and the next policy gaining a key vector copies a carrier that entry already admits instead of re-deriving one.
-- Anchors: `Runtime/codecs#CONTENT_ADDRESSING` — every landed key entry takes a memory-shaped policy because no closure captures a span, the exemption that page already states; `Runtime/tiles#TWO_HOP_TESSELLATION` tile-policy vector; `docs/laws/scars.md` `[ASSERTED_VALUE]`.
-- Tension: the settled rule is carrier-by-capture and never carrier-by-preference, so a span member stays right wherever no closure captures it and the ruling states that test rather than banning the span.
-
 [COMPUTE_SERVICE_GROWTH]-[BLOCKED]: the compute services carry every verb a peer fence dials, and no verb without both fences.
 - Capability: a service rpc exists exactly where a server fence and a peer client fence both name it, so progress, document events, and capture streaming arrive as rpc rows with their message owners rather than as declared gaps; the capability-inventory verb already landed as `capability` `CapabilityDiscoveryService.Discover` with AppHost serving and the python runtime dialing, outside this branch's ingress roster.
 - Shape: `libs/contracts/proto/rasm/contracts/compute/{compute,control}.proto` service blocks; `.planning/Runtime/wire.md` `[02]-[PROTO_VOCABULARY]` roster and law lines; the owning request/reply message rows.
@@ -42,19 +35,14 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Arms: the corpus mints the family and the TS compile leg names its consumer fence.
 - Ripple: corpus `[BOARD_PACK_FAMILY]` (coordinator); `typescript:iac` `[BOARD_APPLY]`.
 
-[COMPUTE_RECEIPT_FAMILY]-[QUEUED]: a Compute receipt rides the generated host envelope as a packed generated message.
-- Capability: Compute mints a corpus receipt family so one composed message pairs `Receipt.ReceiptHeaderWire` with a oneof over that family, one arm per case.
-- Shape: new `libs/contracts/proto/rasm/contracts/compute/receipt.proto` over the `ComputeReceipt` case roster; `.planning/Runtime/receipts.md` `[02]-[RECEIPT_UNION]` gains one `[Mapper]` seam per case and `[05]-[TS_PROJECTION]` binds the generated envelope.
-- Unlocks: `ReceiptFolds.Journal` rehydrates a host envelope through `Any.Unpack` rather than the STJ `ComputeWireContext`; `Runtime/receipts` declares the union one-ended, so no peer decode fence is owed.
-- Anchors: `Runtime/receipts#RECEIPT_UNION` `ReceiptSurface`; `Rasm.AppHost/Runtime/ports#WIRE_LAW` `WireJson`; `Receipt.ReceiptHeaderWire`.
-- Ripple: corpus `[COMPUTE_RECEIPT_FAMILY]` (coordinator); `Rasm.AppHost` envelope producer (Writer D).
-
 ## [02]-[CLOSED]
 
 <!-- source-only: closed idea card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[POLICY_KEY_CARRIER]-[COMPLETE]: realized at `.planning/Runtime/payload.md` `[02]-[RESIDENCY]` — `ResidencyPolicy.Vector` carries `ReadOnlyMemory<double>`, the carrier `Runtime/codecs#CONTENT_ADDRESSING` `InterchangeIdentity.Key(string, ReadOnlyMemory<byte>, ReadOnlyMemory<double>)` admits, the `Assemble` comment cites that landed declaration, and the capture-not-preference test is the `RULINGS.md` `[02]` policy-key-vector row; `Runtime/tiles#TILE_PARTITION` `TilePolicy.Vector` was the conforming precedent.
+[COMPUTE_RECEIPT_FAMILY]-[DROPPED]: refuted at its premise — no peer runtime decodes a Compute receipt (the TS dashboard reads `EvidenceTimelineWire` and metrics, the residence stores the STJ payload C# alone rehydrates), a generated twin beside the STJ union is a second authority over one fact stream, and the corpus forecloses `Any`; the ruling seats at `RULINGS.md` `[02]`, `Runtime/receipts#TS_PROJECTION` states the one-ended union beside the host header projection (`Rasm.AppHost/Runtime/ports#WIRE_LAW` `EnvelopeMap.ToWire`), and the family re-enters only with a named peer decode fence.
 [STATS_MODEL_SELECTION]-[COMPLETE]: realized in `.planning/Stats/estimator.md` — `EstimatorFold.Select` folds aic/bic `InformationCriterion` rows over fitted likelihoods (EFloat-exact accumulation) with `Validate` scores across candidate `EstimatorPolicy` rows into one ranked `SelectionReport` carrying per-candidate evidence.
 [SOLVER_FARM_SHARDS]-[COMPLETE]: realized across `.planning/Runtime/scheduling#JOB_GRAPH` (shard-partition fold onto remote-grpc hops under `NodeSelection` placement and the deadline-sealed merge node) and `.planning/Runtime/receipts` (`Solve`/`Factorization` `Shards`/`ShardNode`/`Merged` columns + the `rasm.compute.solve.shards` row), with `Tensor/factor` filling per-shard receipts at `Materialize` and the merge fold.
 [SOLVER_ELEMENT_QUANTIFIED_RULES]-[COMPLETE]: realized in `.planning/Solver/satisfy.md` — `RuleSatisfaction.Ground` derives `RuleGrounding` populations from the concrete `ElementGraph` through `NodeClassSelector`, `Coverage` lands the `CoverageFact` exhaustiveness proof, and the `Element -> Solver` `ElementGraph` seam row landed at both ARCHITECTURE ends.

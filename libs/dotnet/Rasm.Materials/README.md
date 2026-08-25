@@ -100,7 +100,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `Thinktecture.Runtime.Extensions.Json`
-- `Thinktecture.Runtime.Extensions.MessagePack`
 - `JetBrains.Annotations`
 - `NodaTime` — `Duration` fact columns, `Instant`/`Interval` receipt stamps, and the `LocalDate` evidence expiry.
 - `QuikGraph` — Appearance-DAG topological sort and the Edmonds-Karp max-flow cut behind the tileability synthesizer.
@@ -122,8 +121,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
 
 [WIRE_CODEGEN]:
-- `Rasm.Contracts` — Generated appearance and declaration messages consumed by raster-set and assessment boundaries, referenced by project.
+- `Rasm.Contracts` — Generated appearance, declaration, and stage-crossing messages the wire boundaries consume, referenced by project.
 - `Google.Protobuf` — Bounded protobuf-binary appearance and declaration decoding over generated messages.
 - `NodaTime.Serialization.Protobuf` — Generated `google.type.Date` projection onto the assessment domain's `LocalDate` values.
-- `MessagePack` — Branch-interior inference-stage crossing with source-generated resolver and untrusted-data hardening.
-- `MessagePackAnalyzer` — Build-only proof of `[Key]` coverage on every wire record.

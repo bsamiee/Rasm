@@ -414,6 +414,7 @@ Seat law:
 - `control-inbound` completes `ControlRuntime` with the drain arrow over the degradation, support, source, and wire values in `ControlSeed`.
 - `design-regime` is the seat-law row this doctrine binds on any PRODUCT root that composes `Rasm.Bim` — it lives on that root's own ledger, never here, because this package references the kernel alone and a Bim type cannot appear in this fence, exactly as the `BrickBinding` class election rides the composing root. The root elects the project's national design regime ONCE: `StageLabels.Nation` (the typed `Option<ICountry>` off the compiled `IGovernance.Country` pin, `Rasm.Bim/Planning/schedule#SCHEDULE`) feeds `AnnexRegime.Of(ICountry)` (`Rasm.Bim/Model/eurocode#EUROCODE_ALGEBRA` — the ISO-keyed nation→annex bridge whose row KEY is the SAF `ExcelNationalCode`) into the `EurocodePolicy` the root constructs, and the SAME `Option<AnnexRegime>` threads to `SafEmit.Export` (`Rasm.Bim/Exchange/export#SAF_EMIT`). Both parameters are REQUIRED and undefaulted at their Bim owners, so an unelected root breaks loudly at compile rather than silently designing under `Recommended` or writing no design code cell; a second election beside the export call, or a free country string standing in for the typed nation, forks the national annex the eurocode tables and the SAF workbook must share.
 - `bim-compute-tessellation` is likewise a PRODUCT-root module row, never an AppHost project reference: the root that references both packages binds Bim's `ITessellationCompanion` directly to one `BimComputeCompanion`. The outer app call supplies its existing `CorrelationId` to `TessellationRequest.Resolve`; the adapter passes it to the Compute-owned singleton `CallSpineFactory`, which mints one spine for source Put, Tessellate, and output Fetch. The adapter frames and puts the IFC source, projects that admitted `ArtifactRef` through `TessellationWire.Project`, drives `CompanionEdge`, proves the peer's reported content key and projects its count, semantic, and generated spill fields through `TessellationWire.Admit`, and returns one `TessellationCross` on the asynchronous port. The module seats `CallSpineFactory` itself; `ClockPolicy`, `WireServices`, `StreamPool`, and `ReceiptSurface` are one-per-composition singleton dependencies already seated by that root's Compute module. `ValidateOnBuild` and `ValidateScopes` prove the complete singleton constructor graph and refuse any missing or shorter-lived dependency. No `IServiceProvider` crosses the adapter, no blocking wait collapses `IO`, no correlation is derived from `Op` or captured at composition, no `AdmittedIntent` is fabricated for a call outside the compute-dispatch algebra, and no second request, frame, semantic, spill, or fault shape exists.
+- `AgentSeed.Leases` is the ONE bearer holder both the `membership` probe and the `wire-seat` HTTP lane dereference, each at its own moment — per probe and per send — so a lease that `agent-boot` armed and its own occurrence later renewed reaches every hop with no re-registration at either seat and no held copy anywhere to go stale; `WireSeed.Credentials` is what tells them WHICH registration answers for a dialed authority, and an authority carrying no row is anonymous by declaration.
 - Every `<module>-seat` row registers what its owners declare while the collection is editable; every `<module>-boot` row runs the gates whose facts exist only after the build. A gate whose refusal must stop the process rails there, so a refused trust anchor, an unhosted solver, an unrebuilt member set, or a peer surface the registry never took names itself at boot rather than at first call.
 
 ```csharp signature
@@ -505,6 +506,11 @@ public sealed record ObservabilitySeed(
 
 public sealed record WireSeed(
     Seq<(OutboundHop Hop, Seq<WeightedUriEndpoint> Routes)> Lanes,
+    // Which authority each lease authenticates hops to — a deploy fact no service produces, because only the
+    // deployment knows that this object store answers to that registration. An authority absent from the map
+    // dials ANONYMOUS: the empty map is the honest spelling of an unauthenticated estate, where a per-lane
+    // credential flag would need a second column stating whether the flag was ever set.
+    HashMap<Uri, string> Credentials,
     Seq<(Topic Topic, Seq<(string Name, Func<DomainEvent, IO<Unit>> Consume)> Subscribers)> Subscriptions,
     KeyedLane.Composition Keyed,
     OutboxRelay.Runtime Outbox,
@@ -527,7 +533,10 @@ public sealed record AgentSeed(
     FederationRuntime Federation,
     Seq<(FederatedServer Server, string Uri, BindingSpec Spec)> Subscriptions,
     IdentityRuntime Identity,
-    Seq<TokenLease> Leases);
+    // The BOOT-DECLARED credential cells, not lease values: `agent-boot` arms their occurrences and every
+    // later reader — the membership probe, the HTTP lane's per-send link — dereferences this one roster, so a
+    // refreshed lease is visible at every consumer with no second registration and no held copy to go stale.
+    LeaseRoster Leases);
 
 public sealed record SandboxSeed(
     FileInfo TrustRoot,
@@ -654,9 +663,19 @@ public static class CompositionRoot {
                         Group: inputs.Group,
                         Health: provider.GetRequiredService<HealthCheckService>(),
                         Local: provider.GetRequiredService<WireHealthRow>(),
+                        // The probe reads its bearer PER PROBE off the lease cell, so a peer whose credential
+                        // renewed between two rounds is probed with the live one and never re-registered.
+                        // `AddCustomHeader` is an `IUriOptions` member, so the header seats inside the
+                        // per-URI override callback rather than on the group options; an authority the
+                        // deployment declared no credential for adds no header and probes anonymously.
                         Remote: async (authority, token) =>
                             (await new UriHealthCheck(
-                                    new UriHealthCheckOptions().UseGet().AddUri(authority),
+                                    new UriHealthCheckOptions().UseGet().AddUri(authority, uri =>
+                                        inputs.Wire.Credentials.Find(authority)
+                                            .Bind(id => inputs.Agent.Leases.Bearer(id, inputs.Clocks.Now))
+                                            .Match(
+                                                Some: drawn => uri.AddCustomHeader("Authorization", $"Bearer {drawn}"),
+                                                None: () => uri)),
                                     () => provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(Membership)))
                                 .CheckHealthAsync(new HealthCheckContext(), token)).Status,
                         Attached: pid => provider.GetRequiredService<PeerRoster>().Attached.Exists(entry => entry.Pid == pid),
@@ -826,11 +845,16 @@ public static class CompositionRoot {
         // route span — a route span is genuine deployment data and stays a parameter. `KeyedLane.Register`
         // folds `HopRows.Items` itself, so no row span crosses here, and the one `HopEvidence` the composition
         // minted rides on both the keyed composition and the outbound runtime rather than on process statics
-        // that could not reset between compositions.
+        // that could not reset between compositions. The bearer crosses as an ARROW closing over the roster,
+        // so the lane's link resolves the live cell at send time; a bearer resolved here would freeze the
+        // credential every registered client carries at the instant the collection was still editable.
         new RootBinding.Seated("wire-seat", static (services, inputs) =>
             inputs.Wire.Lanes
                 .Fold(Fin.Succ(services), (held, lane) => held.Bind(current =>
-                    HttpLane.Wire(current, inputs.Configuration, lane.Hop, static row => row.Bound, [.. lane.Routes])))
+                    HttpLane.Wire(current, inputs.Configuration, lane.Hop, static row => row.Bound,
+                        bearer: authority => inputs.Wire.Credentials.Find(authority)
+                            .Bind(id => inputs.Agent.Leases.Bearer(id, inputs.Clocks.Now)),
+                        [.. lane.Routes])))
                 .Map(current => KeyedLane.Register(current, inputs.Wire.Keyed)
                     .Add(ServiceDescriptor.Describe(typeof(LiveWireRuntime), _ => inputs.Wire.LiveWire, ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(typeof(OutboxRelay.Runtime), _ => inputs.Wire.Outbox, ServiceLifetime.Singleton))
@@ -1176,7 +1200,7 @@ public static class CompositionRoot {
 
         // The registry census is the one descriptor claim the contributor-port fold cannot carry, so it mounts
         // against the instrument set after the build; the resource subscriptions bind with the spec their own
-        // live-wire channel already holds, and the BOOT-DECLARED token leases register their refresh cadence
+        // live-wire channel already holds, and the BOOT-DECLARED token CELLS register their refresh cadence
         // here — constructed at input assembly ahead of the provider, they cannot self-register — while every
         // runtime acquisition registers inside `Acquisition.Acquire`; the keyed arrow makes the two seats one
         // idempotent registration, so a boot row later re-acquired replaces rather than double-arms.
@@ -1188,7 +1212,7 @@ public static class CompositionRoot {
                         inputs.Agent.Federation, row.Server, row.Uri, row.Spec,
                         provider.GetRequiredService<ChannelWriter<ExternalValue>>()))
                     .As().Run().Map(static _ => unit))
-                .Bind(_ => Scheduled(provider, [.. inputs.Agent.Leases.Map(static lease => lease.Refresh)]))),
+                .Bind(_ => Scheduled(provider, [.. inputs.Agent.Leases.Refreshes]))),
 
         // Every declared solver hosts under one ACCUMULATING traversal, so a boot naming two bad plugins names
         // both; the epoch ticker opens ONCE and its lease closes on the compute band, because `SetEpochDeadline`

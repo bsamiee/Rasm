@@ -41,7 +41,10 @@
 - `Artifact` reads `StreamPoolPolicy.ArtifactCeiling` (1 GiB), never the channel cap — deriving both rows from `MaxSendBytes` voided the frame law.
 - Leaf replay keys compose (content key, `ImportedGeometry.At`, pre-order leaf ordinal) — both halves content-derived; wall-clock keys defeat replay.
 - `StatusRail` is the CLIENT fold `StatusCode → WireFault`, the inverse of AppHost's producer `FaultWire.Status` — it packs no detail.
-- Stage crossing is branch-interior MessagePack no peer runtime decodes — `StageCrossing.Checksum` is the law both ends compute, never a boot probe.
+- Stage crossings admit generated `rasm.contracts.stage` through `ParseGuard`; the descriptor remains the sole roster and digest authority.
+- `ProgressStream` serves `ProgressService.Watch`; `typescript:core` alone dials it, and the app root binds the service base.
+- `ComputeReceipt` remains the STJ in-process union; only its header projection crosses runtimes, so the corpus mints no receipt family.
+- Policy keys carry `ReadOnlyMemory<double>`; the identity fold stores vectors in static closure state without capturing spans.
 - Closed C# vocabularies cross `compute.proto` as KEY text or a `[SmartEnum<int>]` value — a proto enum owes an `_UNSPECIFIED` arm none holds.
 - `Analysis/daylight` `SurveyRay` is the ONE survey-frame narrowing into the clash float coordinate — a per-ray `(float)` cast forks the floor.
 - Integration's floor is the kernel's and Compute holds only the layer above — the adaptive driver, the scaled error norm, the receipt projection.
@@ -70,7 +73,7 @@
 
 - Kernel spellings freeze and the Compute end moves — the line-search axis is `LineSearch` because the kernel owns `StepControl` as step-size policy.
 - Upstream services this estate never mints stay unimported — `grpc.health.v1` and `google.rpc.Status` ship pre-generated; a copy forks them.
-- `libs/contracts/proto/rasm/contracts/<family>/` seats ONE descriptor source per package directory — two packages in one break every path-keyed tool.
+- Each `libs/contracts/proto/rasm/contracts/<family>/` directory owns one package descriptor source, preserving path-keyed tool identity.
 - Service names carry the `Service` suffix — the corpus `buf` gate holds `SERVICE_SUFFIX` unwaived, so no sibling reads by a different rule.
 - Compute's payload messages carry NO `Wire` suffix — nothing co-resident collides, so a suffix binds a name `compute.proto` never mints.
 - Wire messages spell `<Verb>Request`/`<Verb>Receipt` and the domain shape keeps its name — a rename moves a wire name and forks the roster.

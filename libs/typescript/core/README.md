@@ -27,12 +27,12 @@
 - [16]-[CODEC](.planning/interchange/codec.md): Closed wire-family roster and one bounded walk over every recursive tree it lands.
 - [17]-[FRAME](.planning/interchange/frame.md): Interleaved band assembly, residency admission, and IFC container admission.
 - [18]-[CARRIER](.planning/interchange/carrier.md): Strict event envelopes, one address mint, generic `dataref`, and generated conversion.
-- [19]-[INVOKE](.planning/interchange/invoke.md): Connect client mint, capability-pin admission, and command dispatch serving framed sockets.
+- [19]-[INVOKE](.planning/interchange/invoke.md): Connect client mint, pin admission, framed command dispatch, and the compute progress stream.
 
 [OBSERVE]:
 - [20]-[CONVENTION](.planning/observe/convention.md): Signal-name conformance as rows carrying UCUM codes and store translation.
 - [21]-[SLO](.planning/observe/slo.md): Objective grading from data — `Sli` cases schema-gated, burn windows priced, alert rows compiled.
-- [22]-[BOARD](.planning/observe/board.md): Observability read surface from data alone — one expression tree rendered per backend target.
+- [22]-[BOARD](.planning/observe/board.md): Delivers observability reads through one target-aware expression tree and producer-pack decode.
 - [23]-[TAP](.planning/observe/tap.md): Hook-point admission — app-scoped registries, modality-split handlers, per-subscriber breach isolation.
 
 ## [02]-[DOMAIN_PACKAGES]

@@ -481,7 +481,7 @@ public abstract partial class RasmPlugIn : PlugIn {
 public static class PluginFaults {
     // The capacity is a POLICY ROW, not a literal inside a ledger body: 256 refusals of retained history, the same
     // bound the command and events journals declare, and a reader tunes it here or nowhere.
-    internal static readonly Dimension Retention = Dimension.Create(value: 256);
+    internal static readonly Rasm.Numerics.Dimension Retention = Rasm.Numerics.Dimension.Create(value: 256);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------

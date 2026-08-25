@@ -130,10 +130,10 @@ public sealed partial class CollisionRule {
         land: Append);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<DocumentPath> Settle(DocumentPath path, Dimension bound, Op key);
+    internal partial Fin<DocumentPath> Settle(DocumentPath path, Rasm.Numerics.Dimension bound, Op key);
 
     [UseDelegateFromConstructor]
-    internal partial Fin<DocumentPath> Land(string temporary, DocumentPath path, Dimension bound, Op key);
+    internal partial Fin<DocumentPath> Land(string temporary, DocumentPath path, Rasm.Numerics.Dimension bound, Op key);
 
     private static Fin<DocumentPath> Move(string temporary, DocumentPath path, bool overwrite, Op op) => op.Catch(() => {
         System.IO.File.Move(sourceFileName: temporary, destFileName: path.Value, overwrite: overwrite);
@@ -143,7 +143,7 @@ public sealed partial class CollisionRule {
     // Bounded retry over the ordinal roster: a refused move whose candidate now exists lost the seat to a concurrent
     // creator and the walk continues, while any other refusal settles as the reported fault instead of being masked
     // by an exhaustion message the roster never reached.
-    private static Fin<DocumentPath> Append(string temporary, DocumentPath path, Dimension bound, Op op) =>
+    private static Fin<DocumentPath> Append(string temporary, DocumentPath path, Rasm.Numerics.Dimension bound, Op op) =>
         OutputPolicy.Candidates(path, bound).Fold(
             (Settled: false, Outcome: Fin.Fail<DocumentPath>(error: Spent(path: path, bound: bound, op: op))),
             (state, candidate) => state.Settled
@@ -155,7 +155,7 @@ public sealed partial class CollisionRule {
                         : (Settled: true, Outcome: Fin.Fail<DocumentPath>(error: failure))))
             .Outcome;
 
-    private static Error Spent(DocumentPath path, Dimension bound, Op op) =>
+    private static Error Spent(DocumentPath path, Rasm.Numerics.Dimension bound, Op op) =>
         new ExchangeFault.Exhausted(Key: op, Label: path.Value, Bound: bound.Value);
 }
 
@@ -178,23 +178,23 @@ public sealed partial class DirectoryRule {
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ExchangeBudget : IDisallowDefaultValue {
-    public Dimension IoDegree { get; }
+    public Rasm.Numerics.Dimension IoDegree { get; }
     public System.Threading.Tasks.TaskScheduler Scheduler { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
-        ref Dimension ioDegree,
+        ref Rasm.Numerics.Dimension ioDegree,
         ref System.Threading.Tasks.TaskScheduler scheduler) {
         Op op = Op.Of();
-        (Dimension degree, System.Threading.Tasks.TaskScheduler? lane) = (ioDegree, scheduler);
+        (Rasm.Numerics.Dimension degree, System.Threading.Tasks.TaskScheduler? lane) = (ioDegree, scheduler);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (degree.Value <= 0, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(IoDegree), degree.Value, "a positive I/O degree" }))),
                 (lane is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Scheduler) })))));
     }
 
     public static Fin<ExchangeBudget> Of(
-        Dimension ioDegree,
+        Rasm.Numerics.Dimension ioDegree,
         System.Threading.Tasks.TaskScheduler scheduler,
         Op? key = null) {
         Op op = key.OrDefault();
@@ -224,11 +224,11 @@ public sealed record Landed<TStage>(DocumentPath Target, UInt128 ContentKey, TSt
 public sealed partial record OutputPolicy {
     public CollisionRule Collision { get; }
     public DirectoryRule Directory { get; }
-    public Dimension OrdinalBound { get; }
+    public Rasm.Numerics.Dimension OrdinalBound { get; }
 
     // One ordinal roster per settled destination: `<stem>-1` through `<stem>-64` stay legible as variants of the
     // requested name, and past that a caller wants a distinct destination rather than a deeper rename walk.
-    public static Dimension OrdinalCeiling { get; } = Dimension.Create(value: 64);
+    public static Rasm.Numerics.Dimension OrdinalCeiling { get; } = Rasm.Numerics.Dimension.Create(value: 64);
 
     public static OutputPolicy Strict { get; } = Create(
         collision: CollisionRule.Fail,
@@ -245,9 +245,9 @@ public sealed partial record OutputPolicy {
         ref ValidationError? validationError,
         ref CollisionRule collision,
         ref DirectoryRule directory,
-        ref Dimension ordinalBound) {
+        ref Rasm.Numerics.Dimension ordinalBound) {
         Op op = Op.Of();
-        (CollisionRule? rule, DirectoryRule? folder, Dimension bound) = (collision, directory, ordinalBound);
+        (CollisionRule? rule, DirectoryRule? folder, Rasm.Numerics.Dimension bound) = (collision, directory, ordinalBound);
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (rule is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Collision) }))),
                 (folder is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Directory) }))),
@@ -257,7 +257,7 @@ public sealed partial record OutputPolicy {
     public static Fin<OutputPolicy> Of(
         CollisionRule collision,
         DirectoryRule directory,
-        Dimension ordinalBound,
+        Rasm.Numerics.Dimension ordinalBound,
         Op? key = null) {
         Op op = key.OrDefault();
         return op.AcceptValidated<OutputPolicy>(
@@ -305,7 +305,7 @@ public sealed partial record OutputPolicy {
                select landed;
     }
 
-    internal static Seq<DocumentPath> Candidates(DocumentPath path, Dimension bound) {
+    internal static Seq<DocumentPath> Candidates(DocumentPath path, Rasm.Numerics.Dimension bound) {
         string stem = System.IO.Path.Join(
             System.IO.Path.GetDirectoryName(path.Value) ?? string.Empty,
             System.IO.Path.GetFileNameWithoutExtension(path.Value));
@@ -834,10 +834,10 @@ public sealed partial class BatchPosture {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DocumentWritePolicy {
     private DocumentWritePolicy() { }
-    public sealed record SaveAsCase(Option<Dimension> Version, CapabilitySet<WriteContent> Content) : DocumentWritePolicy;
+    public sealed record SaveAsCase(Option<Rasm.Numerics.Dimension> Version, CapabilitySet<WriteContent> Content) : DocumentWritePolicy;
     public sealed record DocumentCase(CapabilitySet<WriteContent> Content) : DocumentWritePolicy;
     public sealed record ArchiveCase(CapabilitySet<WriteContent> Content) : DocumentWritePolicy;
-    public sealed record TemplateCase(Option<Dimension> Version = default) : DocumentWritePolicy;
+    public sealed record TemplateCase(Option<Rasm.Numerics.Dimension> Version = default) : DocumentWritePolicy;
 
     private CapabilitySet<WriteContent> Content => Switch(
         saveAsCase: static policy => policy.Content,

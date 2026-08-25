@@ -1558,6 +1558,12 @@ public readonly record struct DraftingMetrics(TextHeight Height, LetteringForm F
     // --- [ANNOTATION]
     public Length FrameHeight => Height.Height * 2.0;                        // ISO 1101 §7: feature-control frame = 2h
     public Length FramePad => Height.Height * 0.5;                           // estate convention: h/2 clear inside the 2h frame
+    // ISO 6433 §4.2 a) fixes the part-reference circle's UNIFORMITY and its line — every circle on one drawing
+    // carries the same diameter drawn in the ISO 128 type 01.1 continuous narrow line — and §4.1 caps a
+    // reference at three characters, but the clause publishes no figure. The estate sets it at the same 2h ISO
+    // 1101 gives an annotation box, which clears the two-character reference the same lettering height renders;
+    // a diameter fitted per item number spells the one thing the clause forbids.
+    public Length ItemReferenceDiameter => Height.Height * 2.0;              // estate convention under ISO 6433 §4.2 a)
     public Length ExtensionGap => LineWidth * 3.0;                           // ISO 129-1: projection-line gap from the outline
     public Length ExtensionOvershoot => LineWidth * 8.0;                     // ISO 129-1: projection line beyond the dimension line
     public Length CentreMarkGap => LineWidth * 3.0;                          // ISO 128-22: gap either side of the mark

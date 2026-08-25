@@ -176,6 +176,8 @@
 |  [17]   | `IOptional`                                        | interface | non-generic presence read        |
 |  [18]   | `IOptional.IsSome` / `IsNone`                      | property  | presence off a BOXED `Option<A>` |
 |  [19]   | `Option.Exists(Func<A,bool>)`                      | instance  | predicate over the present arm   |
+|  [20]   | `Option.Map<B>(Func<A,B>) -> Option<B>`            | instance  | functor over the present arm     |
+|  [21]   | `Option.Iter(Action<A>) -> Unit`                   | instance  | side effect on the present arm   |
 
 [ENTRYPOINT_SCOPE]: `Validation<F, A>` accumulation and the `Error` vocabulary
 

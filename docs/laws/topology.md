@@ -61,6 +61,7 @@ Consumers resolve every row live at this table, so a rule, agent, or gate names 
 |  [51]   | estate `gen/<lang>` public-root set          | each branch consumer census + buf filters  | selective output follows real consumption    |
 |  [52]   | estate `buf.gen.yaml` `types:` or actor root | each `libs/contracts/.api/` roster block   | the block derives; a hand edit is lost       |
 |  [53]   | `manifest.json` generated-actor anchor       | its cluster body spelling every token      | a fence naming none decodes nothing          |
+|  [54]   | `rasm.contracts.board` enum member mint      | the kernel row's `Switch` arm + TS `Match` | one vocabulary, three spellings, no drift    |
 
 ## [02]-[CONDITIONED]
 

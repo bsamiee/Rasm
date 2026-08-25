@@ -344,8 +344,8 @@ public sealed partial class VerdictPolicy {
 public sealed partial class RangeInquiry {
     public double Minimum { get; }
     public double Maximum { get; }
-    public Dimension Decimals { get; }
-    public Dimension Increment { get; }
+    public Rasm.Numerics.Dimension Decimals { get; }
+    public Rasm.Numerics.Dimension Increment { get; }
     public RangeEdge MinimumEdge { get; }
     public RangeEdge MaximumEdge { get; }
 
@@ -354,8 +354,8 @@ public sealed partial class RangeInquiry {
         ref ValidationError? validationError,
         ref double minimum,
         ref double maximum,
-        ref Dimension decimals,
-        ref Dimension increment,
+        ref Rasm.Numerics.Dimension decimals,
+        ref Rasm.Numerics.Dimension increment,
         ref RangeEdge minimumEdge,
         ref RangeEdge maximumEdge) {
         Seq<string> violated = Seq(
@@ -375,7 +375,7 @@ public sealed partial class RangeInquiry {
 public static class Inquiries {
     // The preview raises once per pointer move inside one dialog, so the ledger is BOUNDED and its shed count is a
     // number a caller can read rather than a frame-local sequence that grows with the operator's hand.
-    private static readonly Dimension PreviewCap = Dimension.Create(value: 64);
+    private static readonly Rasm.Numerics.Dimension PreviewCap = Rasm.Numerics.Dimension.Create(value: 64);
 
     public static Fin<InquiryAnswer> Ask(DocumentSession session, Inquiry request, Op? key = null) {
         Op op = key.OrDefault();
@@ -685,14 +685,14 @@ public abstract partial record PreviewInk {
 
     // The pairing is the ONE clause this family carries and it needs the roster it pairs against, so it is admitted
     // at the request rather than restated inside the production that already holds an admitted ink.
-    internal Fin<Unit> Admit(Dimension meshes, Op op) => Switch(
+    internal Fin<Unit> Admit(Rasm.Numerics.Dimension meshes, Op op) => Switch(
         (Meshes: meshes, Op: op),
         document: static (_, _) => Fin.Succ(value: unit),
         uniform: static (_, _) => Fin.Succ(value: unit),
         perMesh: static (held, row) => guard(
             flag: row.Values.Count == held.Meshes.Value, False: held.Op.InvalidInput()).ToFin());
 
-    internal Seq<PerceptualColor> Spread(PerceptualColor fallback, Dimension meshes) => Switch(
+    internal Seq<PerceptualColor> Spread(PerceptualColor fallback, Rasm.Numerics.Dimension meshes) => Switch(
         (Fallback: fallback, Meshes: meshes),
         document: static (held, _) => Seq.generate(held.Meshes.Value, _ => held.Fallback).Strict(),
         uniform: static (held, row) => Seq.generate(held.Meshes.Value, _ => row.Value).Strict(),
@@ -732,7 +732,7 @@ public abstract partial record HostAsset {
         vector: static (op, ask) => op.Accept<object>(ask.Origin, ask.Extent, ask.Polarity).Map(static _ => unit),
         meshPreview: static (op, ask) =>
             from _ in op.Accept<object>(ask.Session, ask.Ink, ask.Extent)
-            from meshes in op.AcceptValidated<Dimension>(ask.Meshes.Count)
+            from meshes in op.AcceptValidated<Rasm.Numerics.Dimension>(ask.Meshes.Count)
             from __ in guard(flag: meshes.Value > 0, False: op.InvalidInput()).ToFin()
             from ___ in ask.Ink.Admit(meshes: meshes, op: op)
             select unit,
@@ -781,7 +781,7 @@ public static class HostAssets {
                 from model in held.Model.ToFin(Fail: held.Op.MissingContext())
                 from fallback in held.Op.Catch(() => Fin.Succ(value: model.CreateDefaultAttributes().DrawColor(model)))
                 from neutral in PerceptualColor.OfHost(host: fallback, key: held.Op)
-                let meshes = Dimension.Create(value: ask.Meshes.Count)
+                let meshes = Rasm.Numerics.Dimension.Create(value: ask.Meshes.Count)
                 from hosted in ask.Ink.Spread(fallback: neutral, meshes: meshes)
                     .TraverseM(ink => ink.ToDrawing(key: held.Op))
                     .As()

@@ -1,6 +1,6 @@
 # [RASM_API_BCL_CRYPTOGRAPHY]
 
-`System.Security.Cryptography` owns RFC-7468 armor, X.509 admission and export, AEAD sealing, ECDSA attestation, and buffer zeroization for every credential wire, sealed object, and signed receipt the branch mints. Each allocating form carries a caller-buffer span twin sized by the surface's own probe, so credential material rides one rented destination from armor through overwrite. Confidentiality and authenticity are the claims this surface binds.
+`System.Security.Cryptography` owns RFC-7468 armor, X.509 and bare SubjectPublicKeyInfo admission and export, AEAD sealing, ECDSA attestation, and buffer zeroization for every credential wire, sealed object, and signed receipt the branch mints. Each allocating form carries a caller-buffer span twin sized by the surface's own probe, so credential material rides one rented destination from armor through overwrite. Confidentiality and authenticity are the claims this surface binds.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -14,25 +14,26 @@
 
 [PUBLIC_TYPE_SCOPE]: armor, certificate, seal, signature, and integrity owners
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]  | [CAPABILITY]                                    |
-| :-----: | :----------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `PemEncoding`                        | static class   | RFC-7468 armor write and locate                 |
-|  [02]   | `PemFields`                          | struct         | armor element ranges over the source            |
-|  [03]   | `X509CertificateLoader`              | static class   | DER and PKCS#12 certificate admission           |
-|  [04]   | `Pkcs12LoaderLimits`                 | class          | parse bounds a PKCS#12 load binds               |
-|  [05]   | `X509Certificate2`                   | class          | certificate identity and PEM round-trip         |
-|  [06]   | `ECDsaCertificateExtensions`         | static class   | certificate-to-`ECDsa` key binding              |
-|  [07]   | `AesGcm`                             | sealed class   | authenticated encryption under a caller key     |
-|  [08]   | `AuthenticationTagMismatchException` | exception      | forged-tag signal an open raises                |
-|  [09]   | `ECDsa`                              | abstract class | elliptic-curve sign and verify                  |
-|  [10]   | `DSASignatureFormat`                 | enum           | signature wire framing selector                 |
-|  [11]   | `CryptographicOperations`            | static class   | zeroization and constant-time integrity         |
-|  [12]   | `RandomNumberGenerator`              | abstract class | cryptographic entropy fill and draw             |
-|  [13]   | `HashAlgorithmName`                  | struct         | digest algorithm selector on every call         |
-|  [14]   | `X509ChainPolicy`                    | sealed class   | chain-build inputs: anchors, stores, revocation |
-|  [15]   | `X509ChainTrustMode`                 | enum           | `System` platform roots / `CustomRootTrust`     |
-|  [16]   | `X509Certificate2Collection`         | class          | certificate set a store or chain input holds    |
-|  [17]   | `IncrementalHash`                    | sealed class   | segmented digest and HMAC accumulation          |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]  | [CAPABILITY]                                     |
+| :-----: | :----------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `PemEncoding`                        | static class   | RFC-7468 armor write and locate                  |
+|  [02]   | `PemFields`                          | struct         | armor element ranges over the source             |
+|  [03]   | `X509CertificateLoader`              | static class   | DER and PKCS#12 certificate admission            |
+|  [04]   | `Pkcs12LoaderLimits`                 | class          | parse bounds a PKCS#12 load binds                |
+|  [05]   | `X509Certificate2`                   | class          | certificate identity and PEM round-trip          |
+|  [06]   | `ECDsaCertificateExtensions`         | static class   | certificate-to-`ECDsa` key binding               |
+|  [07]   | `AesGcm`                             | sealed class   | authenticated encryption under a caller key      |
+|  [08]   | `AuthenticationTagMismatchException` | exception      | forged-tag signal an open raises                 |
+|  [09]   | `ECDsa`                              | abstract class | elliptic-curve sign and verify                   |
+|  [10]   | `DSASignatureFormat`                 | enum           | signature wire framing selector                  |
+|  [11]   | `CryptographicOperations`            | static class   | zeroization and constant-time integrity          |
+|  [12]   | `RandomNumberGenerator`              | abstract class | cryptographic entropy fill and draw              |
+|  [13]   | `HashAlgorithmName`                  | struct         | digest algorithm selector on every call          |
+|  [14]   | `X509ChainPolicy`                    | sealed class   | chain-build inputs: anchors, stores, revocation  |
+|  [15]   | `X509ChainTrustMode`                 | enum           | `System` platform roots / `CustomRootTrust`      |
+|  [16]   | `X509Certificate2Collection`         | class          | certificate set a store or chain input holds     |
+|  [17]   | `IncrementalHash`                    | sealed class   | segmented digest and HMAC accumulation           |
+|  [18]   | `PublicKey`                          | sealed class   | SubjectPublicKeyInfo admission, export, key bind |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -79,6 +80,23 @@
 |  [09]   | `RawDataMemory -> ReadOnlyMemory<byte>`                                              | property  | certificate DER without a copy    |
 |  [10]   | `GetECDsaPrivateKey() -> ECDsa?`                                                     | extension | signing key; `null` when absent   |
 |  [11]   | `GetECDsaPublicKey() -> ECDsa?`                                                      | extension | verifying key; `null` when absent |
+|  [12]   | `PublicKey -> PublicKey`                                                             | property  | the certificate's SPKI, key-bound |
+
+[ENTRYPOINT_SCOPE]: bare-key admission and export (`PublicKey`, namespace `X509Certificates`)
+
+| [INDEX] | [SURFACE]                                                                  | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `CreateFromSubjectPublicKeyInfo(ReadOnlySpan<byte>, out int) -> PublicKey` | static   | admit one DER SPKI, reporting consumed |
+|  [02]   | `ExportSubjectPublicKeyInfo() -> byte[]`                                   | instance | project the SPKI DER                   |
+|  [03]   | `TryExportSubjectPublicKeyInfo(Span<byte>, out int) -> bool`               | instance | project into a rented span             |
+|  [04]   | `Oid -> Oid`                                                               | property | algorithm identifier of the key        |
+|  [05]   | `GetECDsaPublicKey() -> ECDsa?`                                            | instance | EC key; `null` under another OID       |
+|  [06]   | `GetRSAPublicKey() -> RSA?`                                                | instance | RSA key; `null` under another OID      |
+|  [07]   | `GetMLDsaPublicKey() -> MLDsa?`                                            | instance | ML-DSA key; `null` under another OID   |
+
+- `PublicKey.CreateFromSubjectPublicKeyInfo`: parses ONE SPKI element and reports the octets it consumed — a trailing tail is tolerated by the factory (`bytesRead` short of the length), so an exact-body admission compares `bytesRead` to the source length itself; a PKCS#8 body or non-SPKI octets raise `CryptographicException` (`ASN1 corrupted data`), which is the whole private-key refusal.
+- `PublicKey.ExportSubjectPublicKeyInfo`: round-trips the admitted DER byte-identical, so `Der` storage holds the admitted octets and never re-exports.
+- `X509Certificate2.PublicKey`: answers this same `PublicKey` type, so a chain leaf and a bare key bind their `ECDsa`/`RSA` through one member set.
 
 [ENTRYPOINT_SCOPE]: chain-build policy (`X509ChainPolicy`)
 
@@ -168,13 +186,13 @@
 - `api-redaction`(`.api/api-redaction.md`): a secret-bearing block carries `DataClassification.Secret`, so the bound `Redactor` erases its bytes at every egress while the label and digest cross.
 - `api-languageext`(`.api/api-languageext.md`): each `Try*` verdict keeps its documented meaning — `TryFind` false is `Option.None`/bundle exhaustion, while a short destination becomes a typed refusal only where the owner required the write after sizing it. No blanket bool-to-fault adapter exists.
 - `api-highperformance`(`.api/api-highperformance.md`): `MemoryOwner<T>.Allocate` rents the destination `GetEncodedSize` sizes, and `ZeroMemory` overwrites it before `Dispose` returns the rental to the pool.
-- `Rasm.AppHost` credential lifecycle: `PemEncoding` and `X509Certificate2` own the at-rest and on-wire armor while the lease owner holds the live rented copy and drives its `ZeroMemory` terminal, so material never carries two encodings.
+- `Rasm.AppHost` credential lifecycle: public material crosses as raw DER — `X509CertificateLoader.LoadCertificate` proves each chain element and `PublicKey.CreateFromSubjectPublicKeyInfo` each bare key, both copying out inside the proving scope — while the secret lease holds the live rented copy and drives its `ZeroMemory` terminal, so material never carries two encodings and no armor rides the wire.
 - `Rasm.Persistence` object store: the client-side seal binds one `AesGcm` per KMS-unwrapped DEK and derives its nonce from the content address, so a resumed multipart replays byte-identical ciphertext and the DEK zeroizes at the same terminal.
 - `Rasm.Fabrication` attestation: `GetECDsaPrivateKey` signs the receipt preimage under `Rfc3279DerSequence`, and verification runs `CreateFromPem` with `GetECDsaPublicKey` over the exported certificate.
 - `Rasm.Persistence` derived identity: `CreateHash` folds the namespace bytes then the name bytes and `GetHashAndReset` closes into a `stackalloc` span, so the RFC 4122 name-based mint spends no concatenation buffer between the two segments.
 
 [LOCAL_ADMISSION]:
-- Certificates enter through `X509CertificateLoader` or `CreateFromPem` and leave through `ExportCertificatePem` or `RawDataMemory`.
+- Certificates enter through `X509CertificateLoader` or `CreateFromPem` and leave through `ExportCertificatePem` or `RawDataMemory`; bare public keys enter through `PublicKey.CreateFromSubjectPublicKeyInfo` with the consumed length compared to the source, and leave as the admitted DER.
 - `CryptographicOperations` MAC and digest members serve authenticity claims; identity and cache keys ride the `api-hashing` non-cryptographic digest.
 - `HashAlgorithmName.SHA1` admits at `IncrementalHash` for the RFC 4122 name-based UUID construction alone — the specification fixes that digest, so the row carries no security claim and no other caller admits it.
 - Secret buffers rent, fill once, and overwrite through `ZeroMemory` at their owning lifecycle's terminal.
