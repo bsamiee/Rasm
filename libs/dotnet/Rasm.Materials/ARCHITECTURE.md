@@ -2,12 +2,10 @@
 
 `Rasm.Materials` is the host-neutral AEC-domain projector onto the `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` collapse to one owner per axis; the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its `Project` fold splits the `Substance` and Type-minting `Type` arms, mints the deterministic-rooted Type `Object` from canonical content, and authors the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract.
 
-`Rasm.Materials` also references `Rasm.AppHost` by name under the cycle-safe branch ruling. `Projection/benchmarks#GATE_COMPOSITION` reads the benchmark gate; appearance and declaration boundaries compose its neutral `WireAdmission` after bounded protobuf-binary parsing. It references `Rasm.Contracts` for both generated families and carries no validator or generated-message mirror of its own.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text
-Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element, Rasm.AppHost, Rasm.Contracts}; no host geometry
 ├── Component/             # One polymorphic Component over the closed component-family axis, class-discriminated
 │   ├── Component.cs       # Component record, closed SectionProfile algebra, MaterialGrade rows, and the ComponentSeed traverse and gates
 │   ├── Masonry.cs         # ComponentFamily.Masonry policy row and the bond algebra; a unit is a Component row, never a Brick type
@@ -62,7 +60,6 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector.
 
-C# is the sole producer of the generated appearance family: `Appearance/interchange.md` mints `Material` and each completed `Set`, with the Set crossing the shared `WireAdmission` descriptor gate once. TypeScript and Python consume generated bindings rather than mirrors. Python-minted `Set` values land at `Raster/set.md` `SetIngest.Peer` as classification input through the same gate; the generated declaration family independently lands at `Properties/assessment.md` `DeclarationWire.Decode` and reaches `AssessmentSet.Of` unchanged.
 
 ## [02]-[STRATA]
 
@@ -275,7 +272,6 @@ flowchart LR
 |  [14]   | new plane transform or curve        | `Raster/filter.md`          | one `PlaneOp`, `RemapCurve`, or `HeightDerivative` case           |
 |  [15]   | new tiling method                   | `Raster/tile.md`            | one `TileStrategy` row carrying its `Solve` delegate              |
 |  [16]   | new GPU compute kernel              | `Raster/gpu.md`             | one `WgslKernel` row carrying source, layout, reduce, and golden  |
-|  [17]   | new appearance wire document        | `Appearance/interchange.md` | one proto message, generated bindings, and one egress fold        |
 |  [18]   | new seamless procedural lattice     | `Appearance/texture.md`     | one `NoiseBasis` row answering `Wrappable` plus its golden row    |
 |  [19]   | new plane depth, arity, or storage  | `Raster/plane.md`           | one `IComponent` witness, texel struct, or `PlaneFormat` row      |
 |  [20]   | new bake subject or execution lane  | `Raster/press.md`           | one `PressSubject` case or one `PressBackend` row                 |

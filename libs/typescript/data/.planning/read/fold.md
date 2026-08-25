@@ -674,11 +674,10 @@ export { Lane }
 - Entry: `Organization.decode(bytes)` runs generated Protovalidate through `Format.proto.frame(OrganizationSchema)`, then one bounded frontier proves only schema-inexpressible laws: globally unique entity keys, at most 65,536 entities, depth at most 64, and exact current-path resolution.
 - Law: nesting is structural and every member/view row is emitted with its owning entity. `position` derives from repeated-list position at this landing; no ordinal crosses or survives beside it.
 - Boundary: duplicate entity keys refuse before any `Map` insert; current is the resolved entity address or absence, never an unchecked key. Generated rules already own member/view uniqueness and field bounds, so this fold does not revalidate them.
-- Packages: `@rasm/contracts` (generated `organization.OrganizationSchema`); `@rasm/core` (`Format.proto.frame`, `Digest.Key.content`); `effect` (`Effect`, `Schema`).
 
 ```typescript
 import { fromBinary, type MessageShape } from "@bufbuild/protobuf"
-import { OrganizationSchema } from "@rasm/contracts/rasm/contracts/organization/organization_pb"
+// Contracts are retired from this logic.
 
 type OrganizationEntityRow = {
   readonly address: string

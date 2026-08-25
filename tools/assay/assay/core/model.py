@@ -56,7 +56,6 @@ class Claim(StrEnum):
     API = "api"
     DOCS = "docs"
     PROVISION = "provision"
-    CONTRACTS = "contracts"
     INIT = "init"
 
 
@@ -94,7 +93,6 @@ class Language(StrEnum):
     BASH = "bash", "glob", frozenset((".sh", ".bash")), frozenset[str]()
     SQL = "sql", "glob", frozenset((".sql",)), frozenset(("pyproject.toml",))
     DOCS = "docs", "glob", frozenset((".md", ".mmd")), frozenset[str]()
-    PROTO = "proto", "glob", frozenset((".proto",)), frozenset(("libs/contracts/buf.yaml", "libs/contracts/buf.gen.yaml", "libs/contracts/buf.lock"))
 
     def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str], governors: frozenset[str]) -> Self:
         """Attach enum payload fields not represented by the StrEnum value."""
@@ -143,7 +141,6 @@ class Parser(StrEnum):
 
     NONE = "none"
     BIOME = "biome"
-    BUF = "buf"
     CS_CONSOLE = "cs-console"
     MYPY = "mypy"
     RUFF = "ruff"
@@ -326,7 +323,7 @@ type InprocThunk = Callable[[Check], Completed]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 RESULT_CAP: int = 1000
-HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS, Claim.INIT))
+HOST_BOUND_CLAIMS: frozenset[Claim] = frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.INIT))
 _HOLE: re.Pattern[str] = re.compile(r"\{([a-z_]+)(\*)?\}")
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -790,30 +787,6 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
     captures: tuple[tuple[str, str], ...] = ()
 
 
-class ContractsRun(Detail, frozen=True, tag="contracts"):
-    """Contracts gate evidence: registry coordinates, lane verdicts, descriptor census, freshness, plugin resolution, and fault tails.
-
-    ``faults`` carries the captured stderr tail per FAULTED lane, since a ``Parser.BUF`` lane finds nothing on
-    stdout for a non-defect exit; ``stale`` rows spell ``(kind, path)`` with kind in changed/missing/orphan.
-    """
-
-    lanes: tuple[tuple[str, str], ...] = ()
-    module: str = ""
-    baseline: str = ""
-    published: str = ""
-    counts: tuple[tuple[str, int], ...] = ()
-    packages: tuple[str, ...] = ()
-    stale: tuple[tuple[str, str], ...] = ()
-    unformatted: tuple[str, ...] = ()
-    violations: tuple[tuple[str, str, int], ...] = ()
-    plugins: tuple[tuple[str, str], ...] = ()
-    seams: tuple[str, ...] = ()
-    anchors: tuple[tuple[str, str], ...] = ()
-    template: str = ""
-    scratch: str = ""
-    faults: tuple[tuple[str, str], ...] = ()
-
-
 class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
     """Bridge lifecycle host and capability projection.
 
@@ -829,7 +802,7 @@ class BridgeLifecycle(Detail, frozen=True, tag="bridge"):
     first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
 
 
-type AnyDetail = ApiSource | ApiSurface | VerifySummary | BridgeLifecycle | TestRun | StaticRun | PackageRun | ProvisionRun | ContractsRun | ApiResolution | Diagnostic | RunDelta
+type AnyDetail = ApiSource | ApiSurface | VerifySummary | BridgeLifecycle | TestRun | StaticRun | PackageRun | ProvisionRun | ApiResolution | Diagnostic | RunDelta
 
 
 class Report(Base, frozen=True):
@@ -1008,7 +981,6 @@ __all__ = [
     "Check",
     "Claim",
     "Completed",
-    "ContractsRun",
     "Counts",
     "Detail",
     "Diagnostic",

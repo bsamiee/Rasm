@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, UTC
 import enum
 import fnmatch
 import functools
-from importlib.util import find_spec, module_from_spec, spec_from_file_location
+from importlib.util import module_from_spec, spec_from_file_location
 import os
 from pathlib import Path
 import shutil
@@ -185,9 +185,7 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     sits beneath a ``plugins[].out`` row owes no suite. A registration carries the name its modules
     import by — the package under ``src`` for a src layout, the repo-relative dotted path otherwise
     — so the census reads the live modules instead of shadow-importing the tree a second time. The
-    live lane proves that derivation on the repo: every registration names an importable package
-    whose suite sits under ``tests/python/libs``, and the emitted contracts estate never registers —
-    an out root earns no suite, and no branch folder authors it.
+    generated folders remain outside the registered source set.
     """
     source = tmp_path / "src"
     (source / "alpha").mkdir(parents=True)
@@ -211,14 +209,6 @@ def test_register_tree_registers_only_authored_source_folders(tmp_path: Path, mo
     assert register_tree(tmp_path / "absent", suites) == (), "a missing source root must register nothing"
     monkeypatch.setattr(laws_mod, "_TEMPLATE", tmp_path / "absent.yaml")
     assert register_tree(source, suites) == ("alpha", "emitted", "ns.pkg"), "an absent template must derive zero generated roots"
-
-    monkeypatch.setattr(laws_mod, "_TEMPLATE", REPO_ROOT / "libs" / "contracts" / "buf.gen.yaml")
-    monkeypatch.setattr(laws_mod, "_OUT_BASE", REPO_ROOT)
-    live = register_tree(REPO_ROOT / "libs" / "python", REPO_ROOT / "tests" / "python" / "libs")
-    assert all(find_spec(name) is not None for name in live), f"a registration named no importable package: {live}"
-    emitted = generated_roots(REPO_ROOT / "libs" / "contracts")
-    assert emitted and all(root.is_relative_to(REPO_ROOT / "libs" / "contracts" / "gen") for root in emitted), "template lost its Python out root"
-    assert "rasm.contracts" not in live, f"the emitted estate must never register as a SUT: {live}"
 
 
 def test_registered_suts_carry_their_suite_roots() -> None:

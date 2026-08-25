@@ -26,7 +26,6 @@ Interpreter-floor resolvability is a machine fact the Forge build lane and pytho
 - Folder fault unions carry domain refusals alone — a provider raise and worker death convert to the runtime `BoundaryFault`, never a local twin.
 - Floor gates refuse through one `find_spec` map onto a rostered `import_` row raised by its door — every surface naming a gated coordinate binds it.
 - Folder `<Folder>Leg` rosters seat at the one module importing no sibling — a roster reached through a back-edge inverts the strata.
-- Descriptor-backed wires cross as their generated `rasm.contracts` class in every folder — a msgspec struct restating one is the deleted mirror.
 
 ## [03]-[COLLAPSE]
 

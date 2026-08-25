@@ -32,7 +32,7 @@ _DEFECT_TAIL: int = 4096
 _MATCH_TEXT_CAP: int = field_cap(Match, "text", default=400)
 _SARIF_SEVERITY: dict[str, str] = {"error": "error", "warning": "warning", "note": "info", "none": "info"}
 _DIAGNOSTIC_SEVERITY_RANK: dict[str, int] = {"error": 0, "warning": 1, "info": 2, "failed": 3}
-_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION, Claim.CONTRACTS)
+_PROCESS_BACKED_OK_CLAIMS: tuple[Claim, ...] = (Claim.STATIC, Claim.TEST, Claim.PACKAGE, Claim.BRIDGE, Claim.PROVISION)
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 _HEADER_DIAGNOSTIC = re.compile(r"^(?P<severity>error|warning|warn|info|note)(?:\[(?P<rule>[^\]]+)])?:\s*(?P<message>.+)$", re.IGNORECASE)
 _RULE_HEADER = re.compile(r"^(?P<rule>[a-z][a-z0-9]*(?:-[a-z0-9]+)*):\s*(?P<message>.+)$")
@@ -55,7 +55,7 @@ _CS_DIAGNOSTIC = re.compile(
     r"(?P<severity>error|warning|info)\s+(?P<rule>[A-Z][A-Z0-9]*\d+):\s*(?P<message>.*?)(?:\s+\[(?P<project>[^\]]+)\])?$",
     re.IGNORECASE,
 )
-_GENERATED_MARKERS: Final[tuple[str, ...]] = ("/obj/", "/.artifacts/assay/", "/.artifacts/dotnet/", "libs/contracts/gen/")
+_GENERATED_MARKERS: Final[tuple[str, ...]] = ("/obj/", "/.artifacts/assay/", "/.artifacts/dotnet/")
 _GENERATED_SUFFIX: Final[str] = ".g.cs"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -129,18 +129,6 @@ class _BiomeDiagnostic(msgspec.Struct, frozen=True, gc=False):
 
 class _BiomeReport(msgspec.Struct, frozen=True, gc=False):
     diagnostics: tuple[_BiomeDiagnostic, ...] = ()
-
-
-class _BufAnnotation(msgspec.Struct, frozen=True, gc=False):
-    """One ``buf --error-format json`` NDJSON row; the wire ``type`` is the lint rule id."""
-
-    path: str = ""
-    start_line: int = 0
-    start_column: int = 0
-    end_line: int = 0
-    end_column: int = 0
-    kind: str = msgspec.field(default="", name="type")
-    message: str = ""
 
 
 # --- [SEARCH_WIRE]
@@ -457,18 +445,6 @@ def _json_rows[T](payload: str, *, decoder: msgspec.json.Decoder[T], project: st
     return projected if projected or not embedded else _text_rows(tool=project, payload=payload)
 
 
-def _buf_row(line: str) -> Match | None:
-    try:
-        found = _BUF_ANNOTATION.decode(line.encode())
-    except msgspec.MsgspecError:
-        return None
-    return _diagnostic_match("buf", found.kind or "buf", "error", found.path, str(found.start_line), str(found.start_column), found.message)
-
-
-def _buf_rows(payload: str) -> tuple[Match, ...]:
-    return tuple(row for raw in payload.splitlines() if (line := raw.strip()).startswith("{") and (row := _buf_row(line)) is not None)
-
-
 def _severity(raw: str) -> str:
     return {"warn": "warning", "warning": "warning", "note": "info", "info": "info", "error": "error"}.get(raw.lower(), "error")
 
@@ -577,7 +553,6 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
 
 _SARIF_LOG: msgspec.json.Decoder[_SarifLog] = msgspec.json.Decoder(_SarifLog)
 _BIOME_LOG: msgspec.json.Decoder[_BiomeReport] = msgspec.json.Decoder(_BiomeReport)
-_BUF_ANNOTATION: msgspec.json.Decoder[_BufAnnotation] = msgspec.json.Decoder(_BufAnnotation)
 AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])
 CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])
 CAPTURE_ENCODER = msgspec.json.Encoder()
@@ -596,7 +571,6 @@ _CONVERTERS: dict[Parser, Callable[[str], tuple[Match, ...]]] = {
     Parser.TY: lambda payload: _text_rows("ty", payload),
     Parser.MYPY: lambda payload: _text_rows("mypy", payload),
     Parser.TSC: lambda payload: _text_rows("tsc", payload),
-    Parser.BUF: _buf_rows,
     Parser.BIOME: lambda payload: _json_rows(
         payload, decoder=_BIOME_LOG, project="biome", embedded=True, rows=lambda report: tuple(_diagnostic_match("biome", row.category or "biome", row.severity, row.location.path, str(row.location.start.line), str(row.location.start.column), row.message) for row in report.diagnostics)
     ),

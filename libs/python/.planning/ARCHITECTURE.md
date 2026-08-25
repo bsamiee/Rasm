@@ -1,6 +1,5 @@
 # [PYTHON_BRANCH_ARCHITECTURE]
 
-`libs/python` orders the branch packages in acyclic upward-only import strata: the `runtime` floor, `data` above it, the `compute` and `geometry` peers over both, and `artifacts` beneath the app root. `rasm.contracts` enters from the `libs/contracts/gen/python` import root every package reads, and `cad` rides plane-distinct over runtime's transport floor alone.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -19,7 +18,6 @@ libs/python/
 Cross-package coupling is a published boundary import or a content-keyed wire; no package imports another's interior.
 
 - S0 `runtime` — imports no sibling and mints every shared rail exactly once; a sibling extends a runtime owner by one row, never a parallel mint.
-- `rasm.contracts` — admitted import root at `libs/contracts/gen/python`, never a stratum: generation authors every module, and siblings import it.
 - S1 `cad` — plane-distinct exact-modeling provider over the import root and runtime's `transport/artifact` alone; no sibling imports its owners.
 - S1 `data` — composes runtime alone; upper strata import its `FrameAdmission`/`FrameInterop` tabular contract and `arrow_bytes` columnar projection.
 - S2 `compute` + `geometry` — peers over runtime and data; each retains canonical results and composes runtime observation.
@@ -75,8 +73,6 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Python meets peer branches through corpus contracts, serialized artifacts, and native publisher containers. Each edge freezes one `{KIND, name, direction}` representative at the endpoint spelling and folds its peer legs to prose: runtime↔Rasm.AppHost also carries `TraceContext` and `HlcStampWire`, runtime↔Rasm.Compute an `XxHash128` leg, and runtime↔Rasm.Persistence a bidirectional `[CONTRACT]: BackendContract` leg beside its drawn wire.
-
 `ContentAddress` spells from the Element owner over the runtime `ContentKey` mint, and the graduation descriptor payload is `EvidenceBundle`, C#-spelled `GraduationEvidence`; its serving-population reference crosses separately as `GraduationEnvelope`.
 
 ```mermaid
@@ -126,7 +122,6 @@ flowchart LR
     Compute e21@-->|"[CONTAINER]: GraduationEnvelope"| RasmCompute
 ```
 
-Every crossing decodes exactly once, at the owning package endpoint its edge names; a sibling composes the decoded vocabulary through that endpoint. Generated `rasm.contracts` classes carry the branch proto vocabulary every folder imports, runtime's transport plane holds the generated-bindings edge — the served Connect applications, the one descriptor registry, and the two-way boot census over closure and generated services — and contract compatibility is the corpus emission's, never a runtime descriptor diff.
 
 ## [04]-[INTERNAL]
 
@@ -191,7 +186,6 @@ flowchart LR
 |  [02]   | a graduating evidence axis          | `compute/graduation/handoff.py`     | one `HandoffAxis` case                                |
 |  [03]   | a branch metric or signal           | `runtime/observability/metrics.py`  | one `INSTRUMENTS` row                                 |
 |  [04]   | a hook point                        | `runtime/observability/hooks.py`    | one `HookPoint` row under a package-qualified id      |
-|  [05]   | an external proto wire family       | `libs/contracts/proto/…/<f>.proto`  | one message on its family source; consumers import it |
 |  [06]   | a package dependency                | root `pyproject.toml`               | one admission row in the owning group                 |
 |  [07]   | a durable evidence fact             | `runtime/observability/journal.py`  | one `Fact` case beside its `Retain` class             |
 |  [08]   | a metered resource                  | `runtime/observability/journal.py`  | one `Resource` row in both branch spellings           |

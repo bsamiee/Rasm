@@ -9,16 +9,6 @@ resolution-markers = [
 ]
 
 [manifest]
-members = [
-    "assay",
-    "rasm-artifacts",
-    "rasm-cad",
-    "rasm-compute",
-    "rasm-contracts",
-    "rasm-data",
-    "rasm-geometry",
-    "rasm-runtime",
-]
 
 [manifest.dependency-groups]
 dev = [
@@ -76,7 +66,6 @@ estate = [
     { name = "arro3-core" },
     { name = "arro3-io" },
     { name = "arviz", specifier = "<1" },
-    { name = "assay", editable = "tools/assay" },
     { name = "asyncssh" },
     { name = "av" },
     { name = "awkward" },
@@ -309,13 +298,6 @@ estate = [
     { name = "pywavelets" },
     { name = "quadax", marker = "python_full_version < '3.15'" },
     { name = "queenbee" },
-    { name = "rasm-artifacts", editable = "libs/python/artifacts" },
-    { name = "rasm-cad", editable = "libs/python/cad" },
-    { name = "rasm-compute", editable = "libs/python/compute" },
-    { name = "rasm-contracts", editable = "libs/contracts" },
-    { name = "rasm-data", editable = "libs/python/data" },
-    { name = "rasm-geometry", editable = "libs/python/geometry" },
-    { name = "rasm-runtime", editable = "libs/python/runtime" },
     { name = "rasterio" },
     { name = "reportlab" },
     { name = "resvg-py" },
@@ -796,64 +778,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/de/cf/d547feed25b5244fcb9392e288ff9fdc3280b10260362fc45d37a798a6ee/asn1crypto-1.5.1.tar.gz", hash = "sha256:13ae38502be632115abf8a24cbe5f4da52e3b5231990aff31123c805306ccb9c", size = 121080, upload-time = "2022-03-15T14:46:52.889Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c9/7f/09065fd9e27da0eda08b4d6897f1c13535066174cc023af248fc2a8d5e5a/asn1crypto-1.5.1-py2.py3-none-any.whl", hash = "sha256:db4e40728b728508912cbb3d44f19ce188f218e9eba635821bb4b68564f8fd67", size = 105045, upload-time = "2022-03-15T14:46:51.055Z" },
-]
-
-[[package]]
-name = "assay"
-version = "0.1.0"
-source = { editable = "tools/assay" }
-dependencies = [
-    { name = "anyio" },
-    { name = "beartype" },
-    { name = "cyclopts" },
-    { name = "expression" },
-    { name = "fsspec", version = "2026.4.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'ARM64' or sys_platform != 'win32'" },
-    { name = "fsspec", version = "2026.7.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'ARM64' and sys_platform == 'win32'" },
-    { name = "msgspec" },
-    { name = "mutmut" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-sdk" },
-    { name = "psutil" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "stamina" },
-    { name = "structlog" },
-    { name = "tomlkit" },
-    { name = "tree-sitter" },
-    { name = "tree-sitter-python" },
-    { name = "tree-sitter-typescript" },
-    { name = "universal-pathlib" },
-    { name = "watchfiles" },
-    { name = "xxhash" },
-    { name = "zstandard" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anyio" },
-    { name = "beartype", git = "https://github.com/beartype/beartype.git?rev=f927b66f79dfb7f595457a85c82398601c17b2f1" },
-    { name = "cyclopts" },
-    { name = "expression" },
-    { name = "fsspec" },
-    { name = "msgspec" },
-    { name = "mutmut" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-sdk" },
-    { name = "psutil" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "stamina" },
-    { name = "structlog" },
-    { name = "tomlkit" },
-    { name = "tree-sitter" },
-    { name = "tree-sitter-python" },
-    { name = "tree-sitter-typescript" },
-    { name = "universal-pathlib" },
-    { name = "watchfiles" },
-    { name = "xxhash" },
-    { name = "zstandard" },
 ]
 
 [[package]]
@@ -7478,51 +7402,6 @@ name = "rapidfuzz"
 version = "3.14.5"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/2c/21/ef6157213316e85790041254259907eb722e00b03480256c0545d98acd33/rapidfuzz-3.14.5.tar.gz", hash = "sha256:ba10ac57884ce82112f7ed910b67e7fb6072d8ef2c06e30dc63c0f604a112e0e", size = 57901753, upload-time = "2026-04-07T11:16:31.931Z" }
-
-[[package]]
-name = "rasm-artifacts"
-version = "0.1.0"
-source = { editable = "libs/python/artifacts" }
-
-[[package]]
-name = "rasm-cad"
-version = "0.1.0"
-source = { editable = "libs/python/cad" }
-
-[[package]]
-name = "rasm-compute"
-version = "0.1.0"
-source = { editable = "libs/python/compute" }
-
-[[package]]
-name = "rasm-contracts"
-version = "0.1.0"
-source = { editable = "libs/contracts" }
-dependencies = [
-    { name = "connectrpc" },
-    { name = "protobuf-py" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "connectrpc", url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" },
-    { name = "protobuf-py" },
-]
-
-[[package]]
-name = "rasm-data"
-version = "0.1.0"
-source = { editable = "libs/python/data" }
-
-[[package]]
-name = "rasm-geometry"
-version = "0.1.0"
-source = { editable = "libs/python/geometry" }
-
-[[package]]
-name = "rasm-runtime"
-version = "0.1.0"
-source = { editable = "libs/python/runtime" }
 
 [[package]]
 name = "rasterio"

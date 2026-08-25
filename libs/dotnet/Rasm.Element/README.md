@@ -75,7 +75,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Celly.Protovalidate` — Validates generated `NodeWire` support messages from corpus-authored rules before domain projection.
 - `Google.Protobuf` — Generated node-edit support messages and the descriptor-driven `FieldMask` seam.
 - `NodaTime.Serialization.Protobuf` — Temporal values reachable through the generated node payload closure.
-- `Rasm.Contracts` — Generated `NodeWire` support closure for Persistence `EntityEditWire`; referenced by project.
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — `CloudEvent` the durable-fact envelope `ElementTap.Events` publishes through the kernel mint.

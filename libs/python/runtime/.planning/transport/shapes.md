@@ -1,6 +1,5 @@
 # [PY_RUNTIME_SHAPES]
 
-Python's wire vocabulary is the generated `rasm.contracts` import root — every descriptor-backed message crosses as its `<family>_pb` class, typed end to end, fresh by the corpus gate, and handed to handlers by Connect directly — so this page mints only what no generator emits: the `SPLAT_FORMS` release matrix, the `FaultRecovery` correspondence both directions of the runtime verdict seat on, the ONE module-level `Registry` over every generated descriptor, and ONE boot census over closed-family closure and the generated Connect applications each served or dialed service row names, proved in BOTH directions against the corpus descriptor. `dotnet:Rasm.Compute/Runtime/wire#PROTO_VOCABULARY` is the peer mint of the same corpus, and one corpus emission owns contract compatibility — never a runtime descriptor diff.
 
 Canonical-bytes custody is recorded here and re-minted nowhere in this folder: the length- and count-framed content-key byte stream the `evidence/identity#IDENTITY` key runs over is the payload-agnostic `content-identity` contract layout, each branch writing it from its own canonical writer with parity proving at the corpus; the positional op-log MessagePack envelope is self-delimiting and its CRDT raw slot now carries generated protobuf, the amendment governing content keys rather than either framing. The census lives one tier below `transport/wire#CRDT_CODEC` because a wire-side registry forces a `shapes -> wire` back-edge from the gate.
 
@@ -11,12 +10,10 @@ Canonical-bytes custody is recorded here and re-minted nowhere in this folder: t
 
 ## [02]-[VOCABULARY]
 
-- Owner: generated classes ARE the proto vocabulary — a msgspec `Struct` restating a corpus message is the deleted mirror, so every descriptor-backed family (`compute`, `control`, `fault`, `appearance`, `scene`, `organization`, `fabrication`, `declaration`, `event`, `parity`, the vendored `health` and `cloudevents`) imports from `rasm.contracts.rasm.contracts.<family>.v1.<family>_pb` (vendored: `rasm.contracts.grpc.health.v1`, `rasm.contracts.io.cloudevents.v1`) and this page declares no field of theirs. The appearance family that once crossed as the producer's positional MessagePack record is `rasm.contracts.appearance` — `Material`, `OpenPbr`, `Emission`, `Set`, `Plane`, `Ibl` — so the decode-only mirror structs, their key rosters, and the zip codec that served them are gone whole; the one MessagePack wire this branch still reads is the generic op-log envelope, whose `crdt` raw slot is discriminated at `transport/wire#CRDT_CODEC`.
 - Cases: presence on a generated class is the generator's — a message-typed slot reads `None` when unset, an `optional` scalar constructs on `T | None`, reads its proto zero when unset under the native store, and answers presence through `has_field`; `Oneof(field, value)` on the oneof attribute, `None` for an unset oneof. A scalar whose producer MEASURES nothing on one arm — the chart residual an uncalibrated capture never solves — reads absent off `has_field` and no shape here re-spells it. `TessellateRequest` declares no `optional` column — its budget rides `TessellationPolicy.triangle_budget` under the required `policy` message — so every presence it answers is a message-typed slot's.
 - Auto: `WireI63` survives for the MessagePack op-log envelope alone — `OperationId` and `OpLogEntry` spell their non-negative signed-64 counters and HLC halves through it, matching the producer's `long.MaxValue` admission, while generated protobuf owns CRDT arm counters. `TessellateRequest`/`TessellateResponse`/`ArtifactFrame`/`GaussianSplatScan` are generated classes geometry `mesh/serve` and `scan/ingestion` import by symbol, minting no wire shape; `GaussianSplatScan.format` grounding is the `SPLAT_FORMS` matrix keyed on the generated `SplatFormat` enum and never a comment: one DECLARED cell per rostered release carries the band ceiling and the alpha activation it grounds, the corpus's `enum.defined_only` rule refusing every unrostered release at decode, and `splat_form` is the ONE read over it, seated here because the boot census walks declarations and a key is a VALUE.
 - Output: `FaultDetail` is the typed refusal detail the suite converges on through Connect error details; `transport/serve#SERVE` owns egress while `wire_detail`/`remote_fault` here own the one ingress correspondence every generated client can import without depending on the serve composition sink. `domain` and `case` identify the producing fault row, never a transport code. The producer states recovery on the `FaultRecovery` oneof, and `RecoveryCell` owns both directions between that generated cell and the interior `Recovery` vocabulary. `FaultRecovery`'s throttled arm IS the standard `google.rpc.RetryInfo`, so `RecoveryCell.advice` hands the serve edge THAT instance for its generic detail seat and no leg reconstructs a second window a later edit can drive apart.
 - Entry: `admitted`, `custody`, and the `dialed` leaf are the definition-time weaves that correspondence exists to serve, so a client edge declares its rows and never re-spells the capture. `dialed` covers the two arms EVERY generated-client call carries — `AdmissionError`, the client-side body admission refusing before a socket, and `ConnectError`, the peer's own typed detail lifted whole through `remote_fault` — while `custody` covers the one arm only a seam holding artifact custody carries, `ArtifactError`'s failed aggregate proof. They are separate because their arm sets are separate: a pure dial can never raise `ArtifactError`, so folding it in binds a row nothing mints, and a custody bracket wrapping a dial stacks `custody` outside `admitted` so the inner refusal is already railed before the bracket unwinds. `admitted` and `custody` are both rail-PRESERVING and stack in either depth; `dialed` is the minting leaf a bare generated-client call weaves, derived as `admitted` over the one lift so the capture keeps a single body. Each factory REQUIRES the slot its own token fills — `("phase",)` for the admission phase, `("proof",)` for the artifact proof — so publishing an admission token under a coordinate named `proof` is unspellable rather than merely wrong.
-- Packages: `protobuf-py`, `connectrpc`, `rasm.contracts`, `msgspec`, `expression`, and the faults rail per the fence imports.
 - Growth: a new descriptor-backed message is one proto edit with `assay contracts generate` — zero rows here; a new splat release is one `SplatFormat` member at the corpus and one `SPLAT_FORMS` cell carrying its grounding; a new recovery arm is one oneof arm at the corpus and one arm in each `RecoveryCell` direction; a new contracts-SDK refusal class is one weave beside these two, never an `except` arm re-spelled at a consumer.
 - Boundary: the matrix and generated-detail correspondences a declaration census can never hold — no codec, span, or transcode body (`transport/wire#WIRE_RAIL`) and no causal lift (`evidence/clock#CLOCK`). `transport/serve#SERVE` alone packs a refusal; this page only unpacks the live generated detail at a client edge and preserves it whole. Neither fold reads policy or a clock.
 
@@ -34,9 +31,7 @@ from expression.collections import Block, Map
 from msgspec import Meta, Struct
 from protobuf import Oneof
 from protobuf.wkt import Duration, Empty
-from rasm.contracts.google.rpc.error_details_pb import RetryInfo
-from rasm.contracts.rasm.contracts.scan.gaussian_pb import SplatFormat
-from rasm.contracts.rasm.contracts.fault.fault_pb import FaultDetail, FaultRecovery
+# Contracts are retired from this logic.
 
 from rasm.runtime.faults import BoundaryFault, SERVE_REMOTE, SHAPES_FORMAT, SHAPES_WINDOW, FaultRow, Leg, Recovery, RuntimeRail
 from rasm.runtime.transport.artifact import ArtifactError
@@ -198,7 +193,6 @@ def splat_form(key: SplatFormat) -> RuntimeRail[SplatGrounding]:
 - Owner: `REGISTRY` is the ONE `Registry` over every generated descriptor this branch binds — the estate and vendored `_pb` files plus the `buf.validate`, `google.rpc`, and `google.type` dependencies they import — so `Any` packing, ProtoJSON `@type` resolution, and `ErrorDetail.value(REGISTRY)` all resolve off one seat and no page mints a second registry for one type name. `SERVICE_VOCABULARY` binds each dialed or served service to its rpc roster and the generated application class that proves it — the compute and artifact services the geometry servicer implements and the vendored `grpc.health.v1` service `transport/serve#SERVE` hosts — and `aligned` proves every row beside every `Closure` row a caller registers in one pass. The descriptor-backed message families need no row here: their structure is the corpus gate's, and a `PROTO_VOCABULARY` row beside the generated class would be a second authority for one fact. `transport/serve#SERVE` mounts its generated applications under the `WireService` members; the daemon composition root runs `aligned` once before serve binds and is the one seat that hands it the `Closure` roster.
 - Auto: a service row carries the full name and rpc roster because Connect resolves both as one path. Generated discovery proves through `CapabilityDiscoveryServiceASGIApplication`; only per-capability invoke remains brokered, with descriptor ids admitted from that generated catalog.
 - Law: every selected served rpc EXISTS on its generated service — the selector may deliberately retain an upstream method as support closure without assigning it a runtime actor, as `grpc.health.v1.Health.Watch` does. Every selected method has a `WireMethod` row and an `@override`, and a row absent from the generated service refuses at boot rather than at a peer's first dial. The generated protocol's snake_case member naming is the generator's own derivation and is never re-derived here; a stale override name breaks at type-check under `@override`.
-- Packages: `protobuf-py`, `rasm.contracts`, and `expression` per the fence imports.
 - Growth: a new generated family is one `desc()` seat on `REGISTRY`; a new served or dialed method is one `WireMethod` member on its service's roster and a new service one `WireService` member with its `SERVICE_VOCABULARY` row naming the generated application; a new closed family the tables key on is one `Closure` row at the composition root; a new structural assertion is one arm in `_service` or `_closed`, never a second gate; a new sibling consumer binds existing rows by symbol.
 - Boundary: the census proves structure, not values — byte-level round-trip parity is the `evidence/reproduction#SEED_REPRODUCTION` corpus's, and contract compatibility is the corpus gate's, never a runtime descriptor walk. Oneof exclusivity holds on the generated classes by construction and `RecoveryCell.stated` owes only the window refusal. Deliberately partial tables register no `Closure` row and state that partiality at their own owner: `reliability/resilience#RESILIENCE`'s `CIRCUIT` and `RATES` declare absence AS the policy.
 
@@ -211,27 +205,7 @@ from expression import Error, Ok
 from expression.collections import Block, Map
 from msgspec import Struct
 from protobuf import Registry
-from rasm.contracts.buf.validate import validate_pb
-from rasm.contracts.google.rpc import error_details_pb
-from rasm.contracts.google.type import date_pb
-from rasm.contracts.grpc.health.v1 import health_pb
-from rasm.contracts.grpc.health.v1.health_connect import HealthASGIApplication
-from rasm.contracts.io.cloudevents.v1 import cloudevents_pb
-from rasm.contracts.rasm.contracts.appearance import appearance_pb
-from rasm.contracts.rasm.contracts.artifact import artifact_pb
-from rasm.contracts.rasm.contracts.capability import descriptor_pb
-from rasm.contracts.rasm.contracts.capability import discovery_pb
-from rasm.contracts.rasm.contracts.capability.discovery_connect import CapabilityDiscoveryServiceASGIApplication
-from rasm.contracts.rasm.contracts.compute import compute_pb
-from rasm.contracts.rasm.contracts.artifact.artifact_connect import ArtifactServiceASGIApplication
-from rasm.contracts.rasm.contracts.compute.compute_connect import ComputeServiceASGIApplication
-from rasm.contracts.rasm.contracts.declaration import declaration_pb
-from rasm.contracts.rasm.contracts.event import event_pb
-from rasm.contracts.rasm.contracts.fabrication import fabrication_pb
-from rasm.contracts.rasm.contracts.fault import fault_pb
-from rasm.contracts.rasm.contracts.organization import organization_pb
-from rasm.contracts.rasm.contracts.parity import parity_pb
-from rasm.contracts.rasm.contracts.scene import scene_pb
+# Contracts are retired from this logic.
 
 from rasm.runtime.faults import SHAPES_DOUBLED, SHAPES_DRIFT, SHAPES_SERVICES, RuntimeRail, boundary
 

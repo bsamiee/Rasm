@@ -22,8 +22,7 @@ using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
-using Rasm.Contracts.Artifact;
-using Rasm.Contracts.Element;
+// Contracts are retired from this logic.
 using Rasm.Domain;
 using Rasm.Element.Assessment;
 using Rasm.Element.Projection;

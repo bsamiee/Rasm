@@ -190,7 +190,6 @@ flowchart TB
 - S2 `graphic` + `drawing` + `visualization` + `export` — one visual stratum, module-acyclic.
 - S2 `drawing/regime` composes `graphic/color/derive` and `vector/pattern`; `graphic/layer` and `style` compose the regime back.
 - S2 `drawing/schedule` lowers into `visualization/table`; `visualization/chart/export` composes `export/layered`, the DXF owner hopping back.
-- S2 `graphic/texture` imports the floor, generated `rasm.contracts` set classes, and its siblings alone; `graphic/raster` imports none of it back.
 - S2→S1 `graphic/texture/set -> scene/spec` crosses as DATA — `lowered` fills `TextureSlot`-keyed `TextureMap` bindings, never an import.
 - S3 `document`, `media`, `composition`, `specification` — composer planes over the visual stratum.
 - S3 `specification/section` composes the document `BlockKind` tree in-stratum; `media` rides the scene `framed` parse floor and raster save hop.
@@ -258,7 +257,6 @@ Each producer records `BYTE_VOLUME` from its settled domain value. Document prod
 
 Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, and `fabrication.FeatureControl` from Rasm.Fabrication admitted into `GdtFrame` at dimensioning.
 
-Python mints the plane set as its appearance document: generated `rasm.contracts.appearance.Set` carries the shape, and `graphic/texture/set` validates the completed document from its descriptor before it leaves the producer. Merkle set keys order the document while each stored file stays addressed by its own `PlaneRef.digest`, and two peers read the admitted set: Rasm.Materials as classification input, TypeScript core as a census-and-landing pair.
 
 C#-pressed `baked` rides the same `Set` message under its own producer with the `appearance_key`, `provenance`, and `press` columns python leaves absent, and python reads none of it.
 

@@ -185,10 +185,8 @@ def test_target_files_partitions_unsupported_inputs(assay_root: AssayHarness) ->
         (Language.BASH, ("deploy.sh", "notes.md"), (), Scope.CHANGED, 1, ()),
         (Language.SQL, ("schema.sql", "schema.py"), (), Scope.CHANGED, 1, ()),
         (Language.DOCS, ("CHANGELOG.md", "schema.py"), (), Scope.CHANGED, 1, ()),
-        (Language.PROTO, ("libs/contracts/proto/a/v1/a.proto", "schema.py"), (), Scope.CHANGED, 1, ()),
-        (Language.PROTO, ("libs/contracts/buf.gen.yaml", "libs/contracts/proto/a/v1/a.proto"), (), Scope.FULL, 1, ("libs/contracts/buf.gen.yaml",)),
     ],
-    ids=["py-glob", "ts-glob", "dotnet-full-trigger", "dotnet-changed", "bash-glob", "sql-glob", "docs-glob", "proto-glob", "proto-governor"],
+    ids=["py-glob", "ts-glob", "dotnet-full-trigger", "dotnet-changed", "bash-glob", "sql-glob", "docs-glob"],
 )
 def test_route_language_table(
     language: Language,

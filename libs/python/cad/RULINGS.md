@@ -11,7 +11,6 @@
 
 ## [02]-[SHAPE]
 
-- Generated oneofs carry each proven operation — a verb string, float tuple, `Any`, or local request twin re-mints vocabulary `rasm.contracts` owns.
 - `SealedBody` carries a format arm and `ArtifactRef` alone — STEP bytes, IGES bytes, and live `TopoDS_Shape` handles never cross the process pipe.
 - `Selection` ordinals are durable per artifact digest — the reseal readback proves the decode order and every correspondence image rekeys onto it.
 - `Selection` is one grain-free message and the operation is its grain — an edge feature reads edges, a face feature reads `Indices` of faces.
@@ -53,7 +52,6 @@
 - Shape validity probes once per leg by design — `metrology` sits below `brep` and reads its own, so each grades under its own row.
 - GLB is the one discrete carrier — a native triangulation wire beside it mints a second tessellation producer the estate forbids.
 - Folder `.api/` carries only what no higher tier owns — `anyio`, `expression`, `msgspec`, `connectrpc`, and `protobuf-py` register instead.
-- `rasm.contracts` catalogues at its own package tier — a folder-tier file duplicates the generator grammar its owner maintains.
 
 ## [05]-[PROCESS]
 

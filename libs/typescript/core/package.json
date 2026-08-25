@@ -15,8 +15,7 @@
         "./package.json": "./package.json"
     },
     "dependencies": {
-        "@bufbuild/protobuf": "catalog:",
-        "@rasm/contracts": "workspace:*"
+        "@bufbuild/protobuf": "catalog:"
     },
     "nx": {
         "tags": [

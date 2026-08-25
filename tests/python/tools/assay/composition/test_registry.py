@@ -92,7 +92,6 @@ def test_registry_structural_invariants() -> None:
     pairs = [(b.claim, b.verb) for b in REGISTRY]
     support_matrix(("unique (claim, verb) leaves", lambda: len(pairs) == len(set(pairs)), True), ("all handlers callable", lambda: all(callable(b.handler) for b in REGISTRY), True))
     support_matrix(*((c.value, lambda c=c: any(b.claim is c for b in REGISTRY), True) for c in _EXPECTED_CLAIMS))
-    assert {b.verb for b in REGISTRY if b.claim is Claim.CONTRACTS} == {"check", "generate", "publish"}, "contracts binds its three verbs"
     validity_matrix((ValidityCase(label=f"{b.claim.value}/{b.verb}", value=b, expected=True) for b in REGISTRY), valid=lambda b: callable(rail(b)) and getattr(rail(b), "__name__", None) == b.verb)
 
 

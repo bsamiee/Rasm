@@ -52,7 +52,7 @@ _TRANSFER_BUDGET_S: float = 120.0
 
 _PUSH_MANIFEST_ARGV: tuple[str, ...] = ("git", "ls-files", "-z")
 
-_PYTHON_MANIFEST_PREFIXES: tuple[str, ...] = ("tools/", "tests/python/", "libs/python/", "libs/contracts/", "src/")
+_PYTHON_MANIFEST_PREFIXES: tuple[str, ...] = ("tools/", "tests/python/", "libs/python/", "src/")
 
 _PYTHON_CONFIG_FILES: frozenset[str] = frozenset((".python-version", "pyproject.toml", "uv.lock"))
 

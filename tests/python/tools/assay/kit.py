@@ -28,7 +28,6 @@ from assay.core.model import (
     Check,
     Claim,
     Completed,
-    ContractsRun,
     Counts,
     Diagnostic,
     Envelope,
@@ -109,7 +108,6 @@ verify_summary_st: st.SearchStrategy[VerifySummary] = resolve(VerifySummary)
 test_run_st: st.SearchStrategy[TestRun] = resolve(TestRun)
 package_run_st: st.SearchStrategy[PackageRun] = resolve(PackageRun)
 provision_run_st: st.SearchStrategy[ProvisionRun] = resolve(ProvisionRun)
-contracts_run_st: st.SearchStrategy[ContractsRun] = resolve(ContractsRun)
 diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
 run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
 static_run_st: st.SearchStrategy[StaticRun] = resolve(StaticRun)

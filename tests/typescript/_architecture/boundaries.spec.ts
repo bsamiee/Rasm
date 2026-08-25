@@ -106,7 +106,7 @@ const _RUNTIME_MAY = {
 
 const _DEPTH_PROJECTS = [{ owner: 'ui', folder: 'ui/viewer', runtime: 'browser' }] as const;
 
-const _SUBSTRATE = ['@rasm/contracts', '@rasm/ts-testkit'] as const;
+const _SUBSTRATE = ['@rasm/ts-testkit'] as const;
 
 const _PLANES = ['runtime', 'deploy', 'dev'] as const;
 
@@ -560,25 +560,23 @@ layer(NodeContext.layer)('edge ledger', (it) => {
                         (dep) => dep.startsWith('@rasm/') && dep !== '@rasm/ts-testkit',
                     );
                     const expected = Array.map(workspace, (dep) =>
-                        dep === '@rasm/contracts'
-                            ? path.join(_ROOT, 'libs/contracts')
-                            : path.join(
-                                  _ROOT,
-                                  _BRANCH,
-                                  Option.getOrElse(
-                                      Option.map(
-                                          Array.findFirst(
-                                              Array.appendAll(
-                                                  Array.map(rows, (row) => [_pkgName(row.folder), row.folder] as const),
-                                                  Array.map(_DEPTH_PROJECTS, (row) => [_pkgName(row.folder), row.folder] as const),
-                                              ),
-                                              ([name]) => name === dep,
-                                          ),
-                                          ([, target]) => target,
-                                      ),
-                                      () => dep,
-                                  ),
-                              ),
+                        path.join(
+                            _ROOT,
+                            _BRANCH,
+                            Option.getOrElse(
+                                Option.map(
+                                    Array.findFirst(
+                                        Array.appendAll(
+                                            Array.map(rows, (row) => [_pkgName(row.folder), row.folder] as const),
+                                            Array.map(_DEPTH_PROJECTS, (row) => [_pkgName(row.folder), row.folder] as const),
+                                        ),
+                                        ([name]) => name === dep,
+                                    ),
+                                    ([, target]) => target,
+                                ),
+                                () => dep,
+                            ),
+                        ),
                     );
                     const missing = Array.filter(expected, (want) => !Array.some(refs, (have) => have === want || have === `${want}/tsconfig.json`));
                     const excess = Array.filter(refs, (have) => !Array.some(expected, (want) => have === want || have === `${want}/tsconfig.json`));

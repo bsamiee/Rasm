@@ -55,7 +55,7 @@ from rasm.runtime.faults import (
     traversed,
 )
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.contracts.rasm.contracts.organization.organization_pb import Entity, Organization
+# Contracts are retired from this logic.
 
 if TYPE_CHECKING:
     from collections.abc import Callable

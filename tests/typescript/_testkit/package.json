@@ -5,7 +5,6 @@
     "exports": {
         "./arbitraries": "./arbitraries.ts",
         "./bench": "./bench.ts",
-        "./corpus": "./corpus.ts",
         "./e2e": "./e2e.ts",
         "./gauges": "./gauges.ts",
         "./harness": "./harness.ts",
@@ -23,7 +22,6 @@
         "@effect/sql-pg": "catalog:",
         "@effect/vitest": "catalog:",
         "@electric-sql/pglite": "catalog:",
-        "@rasm/contracts": "workspace:*",
         "@swc/core": "catalog:",
         "effect": "catalog:",
         "hash-wasm": "catalog:",

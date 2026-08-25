@@ -3185,7 +3185,6 @@
           "Pyroscope.OpenTelemetry": "[0.5.1, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.4.0, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
@@ -3254,7 +3253,6 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Rasm.Persistence": "[1.0.0, )",
           "SharpGLTF.Core": "[1.0.6, )",
@@ -3271,15 +3269,6 @@
           "libtorch-cpu": "[2.10.0, )"
         }
       },
-      "rasm.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "Celly.Protovalidate": "[1.2.0, )",
-          "Google.Api.CommonProtos": "[2.17.0, )",
-          "Google.Protobuf": "[3.36.0, )",
-          "Grpc.Core.Api": "[2.83.0, )"
-        }
-      },
       "rasm.element": {
         "type": "Project",
         "dependencies": {
@@ -3294,7 +3283,6 @@
           "NodaTime.Serialization.Protobuf": "[2.0.2, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
           "System.IO.Hashing": "[10.0.11, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
@@ -3325,7 +3313,6 @@
           "PicoGK": "[2.2.0, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "RectangleBinPack.CSharp": "[1.0.4, )",
           "Rhino3dm": "[8.32.0, )",
@@ -3357,7 +3344,6 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "Silk.NET.WebGPU": "[2.23.0, )",
           "Silk.NET.WebGPU.Extensions.WGPU": "[2.23.0, )",
@@ -3470,7 +3456,6 @@
           "QuikGraph": "[2.5.0, )",
           "RabbitMQ.Client": "[7.2.2, )",
           "Rasm": "[1.0.0, )",
-          "Rasm.Contracts": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
           "SQLitePCLRaw.bundle_e_sqlite3mc": "[2.1.11, )",

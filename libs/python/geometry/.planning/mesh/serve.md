@@ -31,16 +31,7 @@ from connectrpc.request import RequestContext
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 from rasm.runtime.transport.artifact import ArtifactError, ArtifactRefusal, fetch_responses, put_frames, receive, rendered
-from rasm.contracts.rasm.contracts.artifact.artifact_connect import ArtifactService, ArtifactServiceASGIApplication
-from rasm.contracts.rasm.contracts.artifact.artifact_pb import (
-    ArtifactRef,
-    FetchRequest,
-    FetchResponse,
-    PutRequest,
-    PutResponse,
-)
-from rasm.contracts.rasm.contracts.compute.compute_connect import ComputeService, ComputeServiceASGIApplication
-from rasm.contracts.rasm.contracts.compute.compute_pb import TessellateRequest, TessellateResponse
+# Contracts are retired from this logic.
 
 from rasm.data.tabular.columnar import DatasetRef
 from rasm.data.tabular.journal import FactJournal

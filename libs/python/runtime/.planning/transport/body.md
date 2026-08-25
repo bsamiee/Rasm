@@ -1,6 +1,5 @@
 # [PY_RUNTIME_BODY]
 
-`BodyAdmission` owns descriptor-driven constraint admission of every asynchronous Connect body element — one unary request and response, every streamed element of a client, server, or bidi stream — on whichever trust boundary constructs it: the server projects a refusal onto the `ConnectError` status the peer reads, and the client raises `AdmissionError` retaining the typed `protovalidate` evidence before a socket opens. This page reads generated descriptors alone: it imports no runtime sibling and names no `rasm.contracts` family, so a new message family widens it with zero edits.
 
 `AsyncClosable` is the one shape this page mints outward — `transport/artifact` imports it as `from rasm.runtime.transport.body import AsyncClosable` to release a caller-owned async source at every refusal. `transport/serve#SERVE` seats `BodyAdmission(AdmissionSide.SERVER)` on every generated application, and `transport/shapes#VOCABULARY` lifts `AdmissionError` through its `dialed` weave at every generated-client edge. Connect's interceptor primitives run on asyncio, so every host and proof runs under the asyncio backend alone.
 

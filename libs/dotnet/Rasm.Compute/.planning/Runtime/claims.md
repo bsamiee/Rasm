@@ -10,7 +10,6 @@ Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cach
 - [03]-[PROFILE_EVIDENCE]: `ProfileArtifact` — the one content-addressed profile-evidence vocabulary.
 - [04]-[CLAIM_ROW]: `BenchmarkClaim` — measured evidence bound to family, case token, and host fingerprint, with its durable mint and staleness read.
 - [05]-[HOST_FORECAST]: `HostClaims` — the two host-fingerprint extensions only this domain can decide, and the ONE duration-forecast query the substrate axis binds.
-- [06]-[BENCHMARK_WIRE]: `ClaimWireMap` — the one generated seam onto the corpus `rasm.contracts.benchmark` claim family Compute mints.
 
 ## [02]-[CLAIM_INPUT]
 
@@ -238,7 +237,6 @@ public sealed partial class BenchmarkClaim {
 - Auto: narrowing lands here because substrate and payload band live on the CLAIM — the durable row key carries family, case, and route alone — while fingerprint match and recency stay closed inside `ModelResultIndex.Claim`, so neither gate is re-implemented on the selection side. Claims whose mint refuses drop out rather than forecasting off a row persistence would never hold.
 - Packages: LanguageExt.Core, NodaTime, Rasm.AppHost (project — `HostFingerprint`, `CpuBudget`), Rasm.Persistence (project — `ModelResultIndex`, `BenchmarkRow`), BCL inbox
 - Growth: a further host-derived read that only this domain can decide is one extension member here; a further host DIMENSION lands on the AppHost declaration.
-- Boundary: `HostFingerprint` is DECLARED at `Rasm.AppHost` `Runtime/determinism#DETERMINISM_KERNEL` (the `libs/contracts/manifest.json` `HOST_FINGERPRINT` minter) and composed here through this package's legal reference. A Compute-side declaration would close the S1-to-S3 cycle the branch acyclicity law forbids, so the two members only this domain can decide land as extensions: the container-limited processor count and the Persistence index admission. Neither spelling can live at the spine — `CpuBudget` and `ModelResultIndex` never cross downward.
 
 ```csharp
 public static class HostClaims {
@@ -262,16 +260,14 @@ public static class HostClaims {
 
 ## [06]-[BENCHMARK_WIRE]
 
-- Owner: `ClaimWireMap` — the ONE generated `[Mapper]` seam from the claim domain onto the corpus `rasm.contracts.benchmark` claim family: `BenchmarkClaimWire` the document (`suite`, `host`, `minted`, `metrics`), `BenchMetric` one measured row (`label`, `unit`, `modality`, `polarity`, the `subject` oneof `probe | kernel`, `band`, optional `warmups`/`allocated_bytes`/`operations`), `BenchKernelWire` the kernel subject (`input`, `substrate`, `family`, `case`, `route`, `provider`, optional `corpus`/`artifact_key`, `equivalence_max_deviation`, `tolerance_class`, `artifacts`), `BenchInputWire` the admitted input class, `BenchBandWire` the measured band (`sample_count`, `RungCell` rows under `BenchRung`, optional `ticks`, `samples`, `gc`/`heap` `BenchAggregate`, the open `counters` map), `ProfileArtifactWire` the profile-evidence oneof, and `HostFingerprintWire` the AppHost-minted host column.
 - Law: Compute is the MINTER of the benchmark claim document, so the generated messages are its wire vocabulary and no STJ record, TS interface, or MessagePack twin carries the claim's name — `Rasm.Persistence` and the Rhino host decode the same generated family and import no Compute type. The document's `host` column binds AppHost `Runtime/determinism#DETERMINISM_KERNEL` `HostFingerprintMap.Wire(EnvFingerprint)` by IMPORT — a second host projection beside the claim forks the frozen column set the moment either side gains a column. Producers format the document through AppHost `WireJson.Formatter` and parse through `WireJson.Parser`; Compute formats nothing itself.
 - Law: the correspondence is GENERATED where it is reader-free and hand-written exactly where protobuf forbids generation — proto3 `optional` scalars (`corpus`, `artifact_key`, `warmups`, `allocated_bytes`, `operations`, `ticks`) sit behind null-rejecting setters, so they land as one `IfSome` tail after the generated body, and the `subject`/`kind` oneofs assign ONE arm through the domain union's generated total `Switch`. `counters` stays the generated `MapField<string,double>` the executing harness fills at the AppHost bench edge; the claim carries no counter column. NAMED LOSS: the seven hand TS interfaces and the `BenchmarkRungWire` literal roster are retired. Witness: `BenchRung` is the generated enum, and the rung cells the band carries are `RungCell` rows — `Avg = Mean`, `P50 = Median`, `P95`, `StdDev` — in NANOSECONDS off `Duration.TotalNanoseconds`, the one unit every consumer performs arithmetic on.
-- Packages: Rasm.Contracts (project — `Benchmark.{BenchmarkClaimWire, BenchMetric, BenchKernelWire, BenchInputWire, BenchBandWire, BenchAggregate, RungCell, BenchRung, BenchModality, BenchPolarity, PayloadBand, ProfileArtifactWire, ChromeTraceWire, BenchmarkExportWire, EpContextWire, HostFingerprintWire}`), Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapEnumValue]`, `[UserMapping]`, `EnumMappingStrategy.ByName`), Google.Protobuf (`RepeatedField<T>.AddRange`, `MapField<K,V>`), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp`), Rasm (project — `ContentHash.Wire`), Rasm.AppHost (project — `HostFingerprintMap.Wire`, `EnvFingerprint`), LanguageExt.Core, Thinktecture.Runtime.Extensions
 - Growth: a new claim dimension lands as one generated field and one `[MapProperty]` row, the build breaking until both agree; a new payload band, polarity, or rung lands as one enum value at the corpus and one `[MapEnumValue]` row only where the domain spelling diverges; a new profile source is one `ProfileArtifact` case and one oneof arm, the total `Switch` breaking until the arm lands.
 - Boundary: `BenchmarkPolarity` and `PayloadBand` are `[SmartEnum<string>]` rows whose keys spell the generated enum names under `ByName` mapping, so `minimize`/`maximize` and `micro`/`small`/`medium`/`large` cross with no table and an unrostered key has no arm to land on; `corpus` crosses as the kernel's sixteen big-endian bytes through `ContentHash.Wire`; `minted` crosses as the NodaTime `Instant` through `ToTimestamp`; the band's `samples` column is the measured sample vector the AppHost bench edge supplies and stays empty where a claim carries only its distribution.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using WireBand = Rasm.Contracts.Benchmark.PayloadBand;
+// Contracts are retired from this logic.
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target, EnumMappingStrategy = EnumMappingStrategy.ByName)]
 [UseStaticMapper(typeof(NodaExtensions))]

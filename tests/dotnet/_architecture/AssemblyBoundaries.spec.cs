@@ -26,23 +26,22 @@ internal static class HostFreeModel {
 public sealed class AssemblyBoundaryLaws {
     private static readonly (string Project, string[] References)[] Strata = [
         ("libs/dotnet/Rasm/Rasm.csproj", []),
-        ("libs/contracts/Rasm.Contracts.csproj", []),
-        ("libs/dotnet/Rasm.Element/Rasm.Element.csproj", ["../Rasm/Rasm.csproj", "../../contracts/Rasm.Contracts.csproj"]),
-        ("libs/dotnet/Rasm.Materials/Rasm.Materials.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../../contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/dotnet/Rasm.Bim/Rasm.Bim.csproj", ["../Rasm/Rasm.csproj", "../../contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/dotnet/Rasm.Fabrication/Rasm.Fabrication.csproj", ["../Rasm/Rasm.csproj", "../../contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/dotnet/Rasm.AppHost/Rasm.AppHost.csproj", ["../Rasm/Rasm.csproj", "../../contracts/Rasm.Contracts.csproj"]),
-        ("libs/dotnet/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../../contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/dotnet/Rasm.Compute/Rasm.Compute.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../../contracts/Rasm.Contracts.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
-        ("libs/dotnet/Rasm.AppUi/Rasm.AppUi.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../../contracts/Rasm.Contracts.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.Fabrication/Rasm.Fabrication.csproj", "../Rasm.Materials/Rasm.Materials.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
-        ("libs/dotnet/Rasm.Rhino/Rasm.Rhino.csproj", ["../Rasm/Rasm.csproj", "../../contracts/Rasm.Contracts.csproj"]),
+        ("libs/dotnet/Rasm.Element/Rasm.Element.csproj", ["../Rasm/Rasm.csproj"]),
+        ("libs/dotnet/Rasm.Materials/Rasm.Materials.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/dotnet/Rasm.Bim/Rasm.Bim.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/dotnet/Rasm.Fabrication/Rasm.Fabrication.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/dotnet/Rasm.AppHost/Rasm.AppHost.csproj", ["../Rasm/Rasm.csproj"]),
+        ("libs/dotnet/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
+        ("libs/dotnet/Rasm.Compute/Rasm.Compute.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
+        ("libs/dotnet/Rasm.AppUi/Rasm.AppUi.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.Fabrication/Rasm.Fabrication.csproj", "../Rasm.Materials/Rasm.Materials.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
+        ("libs/dotnet/Rasm.Rhino/Rasm.Rhino.csproj", ["../Rasm/Rasm.csproj"]),
         ("libs/dotnet/Rasm.Grasshopper/Rasm.Grasshopper.csproj", ["../Rasm/Rasm.csproj"]),
     ];
 
     [Fact]
     public void DotnetProjectGraphMatchesTheStrataTable() {
         Assert.Equal(
-            expected: Sorted(rows: Manifests.DiskProjects("libs/dotnet", "libs/contracts")),
+            expected: Sorted(rows: Manifests.DiskProjects("libs/dotnet")),
             actual: Sorted(rows: Strata.Select(selector: static row => row.Project)));
         Manifests.ProjectGraph(rows: Strata);
     }

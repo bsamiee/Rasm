@@ -1,6 +1,5 @@
 # [PY_RUNTIME_ARCHITECTURE]
 
-`runtime` maps the host-free execution foundation every `libs/python` sibling composes: one polymorphic owner per sub-domain closes its concern, each folder mapping to one module namespace. Python owns its content-key implementation, contract bindings, wire codecs, backend admission, and execution lifecycle; shared semantics prove against the neutral contract corpus. Runtime references no sibling.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -91,7 +90,6 @@ flowchart TB
         Artifact[artifact]
     end
     subgraph ROOTS["IMPORT ROOT"]
-        Contracts[rasm.contracts]
     end
     Serve e1@-->|"[IMPORT]: RecipeSpec"| Recipe
     Serve e3@-->|"[IMPORT]: RecoveryCell"| Shapes
@@ -134,14 +132,12 @@ flowchart TB
     Clock e41@-->|"[IMPORT]: BoundaryFault"| Faults
     Shapes e42@-->|"[IMPORT]: ArtifactError"| Artifact
     Artifact e43@-->|"[IMPORT]: AsyncClosable"| Body
-    Contracts e44@-.->|"[COUNTER]: FieldRules"| Artifact
     Faults f1@-->|"forbidden: upward import"| S7
 ```
 
 - S0 `faults` — mints `BoundaryFault` and the `RuntimeRail` exactly once, importing no sibling; every module above returns through it.
 - S0 `body` — descriptor-generic validation importing no runtime sibling and no generated family, so it names no family and widens with none.
 - S0 `artifact` — one edge above `body`, reading `buf.validate` bounds and `artifact_pb` envelopes as VALUES; the root feeds payload alone.
-- `rasm.contracts` at `libs/contracts/gen/python` is an admitted import root, never a rank — descriptor-relative imports resolve inside it alone.
 - S1-S3 `clock`, `identity`, `shapes` sit on the floor — `shapes` reads `artifact`'s refusal carrier — so every stamp, key, and wire row loads first.
 - S1-S3 band stays module-acyclic — every observing member returns through `observe` toward `identity`, and no identity member reads a fold back.
 - S4-S6 banded rank is path-dependent — `profiles -> telemetry -> admission` and `event -> admission` order inside the band, no pair looping.
@@ -211,7 +207,6 @@ flowchart LR
     Artifacts{{python:artifacts}}
     Compute{{python:compute}}
     Cad{{python:cad}}
-    Contracts([libs/contracts])
     Transport e1@<-->|"[WIRE]: TessellateRequest"| Geometry
     Geometry e2@-->|"[CONTENT_KEY]: ContentIdentity"| Evidence
     Geometry e3@-->|"[PORT]: RecipeInterface"| Execution
@@ -247,16 +242,13 @@ flowchart LR
     Observability e28@-->|"[PORT]: Hooks"| Geometry
     Transport e29@-->|"[BOUNDARY]: ArtifactSink"| Geometry
     Transport e30@-->|"[BOUNDARY]: ArtifactTransfer"| Cad
-    Contracts e31@-->|"[CONTRACT]: artifact.ArtifactRef"| Transport
 ```
 
 Each fence's home roster holds only the sub-domains carrying a seam with that peer set: `reliability` crosses no boundary, `execution` reaches the C# fence through the backend contract alone, and evidence's clock owner carries the one causal seam with the .NET peers.
 
-Frozen registry names spell from the counterpart's endpoint page, so `ServerHost`, the generated `rasm.contracts` classes, `FaultDetail`, generated `CrdtOpWire`, and `ContentKey` are this package's interior spellings behind their counterpart wires.
 
 Transport↔AppHost's `[WIRE]` edge also carries the `grpc.health.v1` serving-status leg over the companion UDS, and upstream `health.proto` is the frozen publisher source both ends generate from.
 
-`libs/contracts/gen/python` is the `rasm.contracts` import root, and its `[CONTRACT]` edge collapses every generated family the transport plane reads — artifact, fault, clock, event, capability, health — while `body` names none of them. `transport/artifact`'s two `[BOUNDARY]` edges carry its custody owners outward: geometry seals native output and receives framed bodies, cad stages sources and publishes through the verified transfer, and neither re-proves an octet.
 
 ## [04]-[INTERNAL]
 

@@ -56,7 +56,6 @@ Rasm.Compute/              # APP-PLATFORM measured execution over {Rasm, Rasm.El
 │   ├── Progress.cs        # Monotonic ProgressPhase family; ProgressCell commits under rank guards; ProgressStream serves Watch
 │   ├── Claims.cs          # BenchmarkInput admits, BenchDistribution measures, ProfileArtifact addresses, BenchmarkClaim binds, HostClaims forecasts
 │   ├── Ledger.cs          # CostVector the per-axis monoid, CostPolicy the admitted rate table proving substrate coverage, ChargebackDataset
-│   ├── Wire.cs            # Proto vocabulary, ParseGuard admission, the WireKeys lowering, and the client fault rail over Rasm.Contracts
 │   ├── Channels.cs        # RemoteTransport dial axis warmed by its row's WarmProbe; one GrpcChannelPolicy; WireLimits and the artifact-frame law
 │   ├── Ingest.cs          # BrokerBinding carries MQTT 5.0 and NATS whole; CaptureAdmission fans each delivery two ways; BsddTransport the REST leg
 │   ├── Observation.cs     # ObservationLane accumulates and flushes per binding; SensorBinding custody, SensorQuality flags, ObservationSink ports
@@ -139,7 +138,6 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-`libs/contracts` owns generated `StageResultWire`: `Model/stage#STAGE_WIRE` mints it from Compute measurements, and `Rasm.Materials` admits it through its registry gate. Materials owns the `ParityFresh`, `Coverage`, and `InferGolden` columns; Compute adds none.
 
 ```mermaid
 ---

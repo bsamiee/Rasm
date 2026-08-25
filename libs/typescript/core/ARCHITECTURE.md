@@ -152,7 +152,6 @@ flowchart LR
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Digest
     Compute e2@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail + BoardPackWire"| Wire
     Compute e21@-->|"[WIRE]: ProgressService.Watch"| Invoke
-    Element e3@<-->|"[WIRE]: rasm.contracts.element"| Wire
     Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.CrdtOpWire)"| Wire
     Bim e6@-->|"[WIRE]: IfcWire"| Frame
     Bim e7@-->|"[WIRE]: BcfTopicWire"| Wire

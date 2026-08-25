@@ -47,7 +47,7 @@ lazy from queenbee.recipe.recipe import RecipeInterface
 
 from rasm.data.tabular.columnar import arrow_columns
 from rasm.data.tabular.interop import arrow_bytes
-from rasm.contracts import AdmissionError
+# Contracts are retired from this logic.
 from rasm.runtime.transport.artifact import ArtifactError, ArtifactTransfer
 from rasm.geometry.energy.climate import EnergyFault, LateBound
 from rasm.geometry.energy.model import BuildingModel
@@ -64,8 +64,7 @@ from rasm.runtime.observe import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.recipe import RECIPES, RecipeExecution, RecipeName, RecipeProduct, RecipeSpec
 from rasm.runtime.shapes import remote_fault
 from protobuf import Oneof
-from rasm.contracts.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
-from rasm.contracts.rasm.contracts.scene.scene_pb import Photometry, SceneDescriptor, SceneSun, SolarAngles
+# Contracts are retired from this logic.
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:

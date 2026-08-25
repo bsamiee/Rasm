@@ -6,7 +6,6 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
-        <ProjectReference Include="../../contracts/Rasm.Contracts.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Core Substrate">

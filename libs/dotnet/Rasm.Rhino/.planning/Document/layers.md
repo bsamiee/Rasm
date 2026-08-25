@@ -10,7 +10,6 @@
 - [03]-[TREE_SNAPSHOT]: `LayerTrait`, `PrintPen`, `LayerFace`, `DetailTrait`, `DetailFace`, `LayerNode`, and the `LayerTree` detached topology.
 - [04]-[EDITS_AND_OVERRIDES]: `LayerEdit` staged-property program on its slot rosters beside the `LayerOverride` per-detail family.
 - [05]-[COMMIT_RAIL]: `LayerOp`, `LayerDelta`, and the `Layers` entry pair.
-- [06]-[ORGANIZATION_PROJECTION]: `OrganizationFact` host-free egress, its `IOrganizationAuthority` port, and the `rasm.contracts.organization` `[Mapper]` codec.
 - [07]-[SURFACE_LEDGER]: page owner map.
 
 ## [02]-[IDENTITY_AND_ADDRESS]
@@ -1130,7 +1129,6 @@ public static partial class Layers {
 
 ## [06]-[ORGANIZATION_PROJECTION]
 
-- Owner: recursive `OrganizationEntity` carries one content-keyed entity, its ordered child forest, authority-issued members, and probed view overrides; `EntityPath` carries a typed current selection through sibling indexes; `OrganizationFact` is the whole detached forest. `IOrganizationAuthority` is the federation port a composition root binds, and `OrganizationCodec` is the ONE `[Mapper]` lowering the admitted fact onto `rasm.contracts.organization` bytes.
 - Entry: `Layers.Ask(session, authority, views)` projects one admitted host-free forest inside the read window; `OrganizationCodec.Encode` is its sole proto-binary producer boundary.
 - Law: every name on this egress states the HOST-FREE organizational concept and the Rhino layer vocabulary translates HERE. Publishing `LayerStamp` field-for-field binds every peer decode to one host's layer model, which `libs/.planning/ARCHITECTURE.md` `[03]-[UNIVERSAL_VS_CAPTURE]` forecloses, so the host `Guid`, the `-1`-sentinel table index, and the `::`-joined path each stop at this boundary.
 - Law: organizational identity is the content key over the count-framed ancestor label chain, minted through the kernel `CanonicalWriter` — `Rows` count-frames the chain and `String` length-frames each label — so one organizational address keys identically across source documents and a worksession merge unions them. Folding the source key into that preimage is the rejected form, since it re-scopes a federation address down to one file. NAMED LOSS: the prior hand framer wrote its int32 frames big-endian; the kernel writer frames little-endian, so the organizational address RE-KEYS ONCE at this landing — stated here, never re-derived per consumer, and the wire's own field roster, numbers, and 16-byte big-endian key emission are untouched.
@@ -1142,7 +1140,6 @@ public static partial class Layers {
 - Law: the producer admits the generated rules and the schema-inexpressible forest laws once before bytes leave: at most 65,536 total entities, depth at most 64, globally unique entity keys, unique member and view keys per entity, and an optional current path that resolves exactly. The recursive message makes containment single-parent and acyclic by structure.
 - Boundary: render and print product stays host-side evidence — `LayerFace` colours, the `PrintPen` rung, linetype, render material, and section style reach no wire field, and `PerceptualColor` riding a detached payload is the crossing the kernel colour rail already forecloses. The plot product leaves through `LayerFace.PlotOf` onto the CAD egress instead.
 - Boundary: Mapperly transcribes the recursive owner; generated Protovalidate proves field/repeated constraints and `OrganizationAdmit` proves only cross-node uniqueness, total/depth, and current resolution. No compatibility arm or second graph admission survives.
-- Packages: Google.Protobuf (`libs/dotnet/.api/api-protobuf.md` — recursive generated messages and `MessageExtensions.ToByteArray`); Celly.Protovalidate (`libs/dotnet/.api/api-celly-protovalidate.md` — descriptor rules at emit); Rasm.Contracts (`libs/contracts/.api/dotnet.md` — generated organization family); Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — recursive target-complete mapping); kernel `Rasm.Domain` identity; `Document/tables.md`; `Document/session.md`; BCL inbox.
 - Growth: one appended entity field beside one domain column carries a new axis; every containment, member, and view relation stays nested under its owner.
 
 ```csharp
@@ -1150,7 +1147,7 @@ public static partial class Layers {
 using System.Buffers.Binary;
 using Celly.Protovalidate;
 using Google.Protobuf;
-using Rasm.Contracts.Organization;
+// Contracts are retired from this logic.
 using Riok.Mapperly.Abstractions;
 
 // --- [MODELS] --------------------------------------------------------------------------

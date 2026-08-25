@@ -236,7 +236,6 @@
 - `effect`(`libs/typescript/.api/effect.md`): `fromBinary`/`fromJson` yield the WIRE shape and an owned `Schema` whose ENCODED side is that `MessageShape` lifts it into branded vocabulary — proto is transport, `Schema` is domain, a proto message never a domain model; a synchronous codec call that throws on malformed bytes wraps in `Either.try` inside one `Schema.transformOrFail`, and the size-delimited frame rides a `Channel` fold over `sizeDelimitedPeek`/`sizeDelimitedEncode` (`interchange/format` `framed`) that `runtime:net/channel`'s proto row composes under `ChannelSchema.duplexUnknown`.
 - `interchange/codec`: each wire-family row selects one codec and names its framing (`binary` | `json`); semantic contract families ride ProtoJSON through `fromJson`/`toJson` over their generated descriptors.
 - `@bufbuild/protovalidate`(`.api/bufbuild-protovalidate.md`): `createValidator({ registry })` takes this runtime's `Registry` and `validate(schema, message)` its descriptors; `interchange/format` runs it behind the `$typeName` guard on every admission and egress.
-- `@bufbuild/protoc-gen-es`(same `catalog`): emits committed `_pb.ts` modules under `libs/contracts/gen/typescript`; `Format.event.protobuf` binds the vendored CloudEvents single and batch schemas directly while excluding both from `Proto.registry`.
 - `value/identity` (within-lib edge): producer octets are the byte-identity input; semantic identity uses its owned canonical projection.
 
 [LOCAL_ADMISSION]:

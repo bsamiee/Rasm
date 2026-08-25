@@ -1,6 +1,5 @@
 # [PY_RUNTIME_WIRE]
 
-One wire owner serves the positional MessagePack op-log envelope and the six converging state owners its CRDT prefix materializes into. The envelope admits its payload slot as `bytes`: msgspec removes the MessagePack bin token while leaving the lane payload itself opaque, so scalar, geometry, presence, commit, branch, and attest bytes cross untouched; only a `crdt` row admits those bytes as the generated `rasm.contracts.crdt.CrdtOpWire` proto message. Every peer-decoded CRDT payload shape is therefore generated — protobuf-py owns binary encoding and decoding, protovalidate owns its constraints, and no msgspec op hierarchy or tag roster stands beside the descriptor. Vocabulary and binding table are `transport/shapes#BOOT_CENSUS`'s; this page imports the rows and owns only codec machinery, so a registry re-mint here is the deleted `shapes -> wire` back-edge.
 
 Every decode rides the one `Decode` aspect — a direction-parameterized OTel span with the `reliability/faults#FAULT` `boundary` fence — and a network fetch stays its transport owner's retry concern, handing this aspect only the acquired bytes. Every lift on this page names the provider classes it reaches and takes its subject from a `RuntimeLeg.WIRE` roster row, so no codec raise crosses as a bare-`Exception` funnel and no refusal spells a coordinate the roster never declared. Op-log entries cross as ordinary explicit MessagePack arrays, distinct from the generated CRDT payload and the Connect wire; compression belongs to the carrying transport, so no peer must imitate MessagePack-CSharp's private `Lz4BlockArray` wrapper.
 
@@ -101,7 +100,7 @@ from msgspec import Struct
 from protobuf import Oneof
 from protovalidate import CompilationError, EvaluationError, ValidationError, validate
 
-from rasm.contracts.rasm.contracts.crdt import crdt_pb
+# Contracts are retired from this logic.
 from rasm.runtime.clock import ElementId, Hlc
 from rasm.runtime.faults import Catch, RuntimeRail
 from rasm.runtime.identity import ContentIdentity
@@ -299,8 +298,7 @@ from msgspec import Struct
 from msgspec.structs import replace
 from protobuf import Oneof
 
-from rasm.contracts.rasm.contracts.clock import hlc_pb
-from rasm.contracts.rasm.contracts.crdt import crdt_pb
+# Contracts are retired from this logic.
 from rasm.runtime.clock import ElementId, Hlc
 from rasm.runtime.faults import WIRE_INSERT, WIRE_MAINTAIN, WIRE_ORDERED, Depth, RuntimeRail
 from rasm.runtime.identity import ContentIdentity

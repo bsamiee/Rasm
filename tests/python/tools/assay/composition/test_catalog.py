@@ -4,13 +4,7 @@
 
 import pytest
 
-from assay.composition.catalog import (
-    BUF_DEFECT_EXIT,
-    launch,
-    PROBE_TIMEOUT_S,
-    select,
-    TOOLS,
-)
+from assay.composition.catalog import launch, PROBE_TIMEOUT_S, select, TOOLS
 from assay.core.model import Claim, Input, Language, Mode, Parser, Runner, Tool
 from assay.diagnostics import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT
 from tests.python._testkit.laws import spec
@@ -168,27 +162,6 @@ def test_parser_rows_key_static_diagnostic_tools() -> None:
     assert by_name["dotnet-build", Language.DOTNET] is Parser.CS_CONSOLE
     assert by_name["dotnet-format", Language.DOTNET] is Parser.CS_CONSOLE
     assert by_name["lint-imports", Language.PYTHON] is Parser.NONE
-    contracts = {(t.name, t.mode): t for t in select(Claim.CONTRACTS, Language.PROTO)}
-    assert contracts["buf-lint", Mode.CHECK].parser is Parser.BUF
-    assert contracts["buf-format", Mode.CHECK].parser is Parser.NONE
-
-
-# --- [CONTRACTS_ROWS]
-
-
-def test_contracts_rows_type_the_defect_exit_and_own_their_input() -> None:
-    """The executable buf defect lanes declare exit 100, every contracts row owns its input, and no other row declares one."""
-    rows = select(Claim.CONTRACTS)
-    assert {t.name for t in rows if t.defect_exit is not None} == {"buf-lint", "buf-format"}
-    assert all(t.defect_exit == BUF_DEFECT_EXIT for t in rows if t.defect_exit is not None)
-    assert all(t.input is Input.OWNED and t.language is Language.PROTO for t in rows)
-    assert all(t.defect_exit is None for t in TOOLS if t.claim is not Claim.CONTRACTS)
-
-
-def test_contracts_descriptor_image_includes_reachable_imports() -> None:
-    build = next(tool for tool in TOOLS if tool.name == "buf-build" and tool.mode is Mode.QUERY)
-
-    assert build.command == ("buf", "build", "libs/contracts", "-o", "{output}", "--as-file-descriptor-set")
 
 
 # --- [MUTATION_INPUT_OWNERSHIP]

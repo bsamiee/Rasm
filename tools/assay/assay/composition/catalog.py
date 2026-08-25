@@ -24,16 +24,6 @@ from assay.core.model import (
 
 BENCHMARK_STORAGE_URI = f"file://{PY_ARTIFACT_ROOTS['benchmarks']}"
 PROBE_TIMEOUT_S: float = 8.0
-BUF_DEFECT_EXIT: int = 100
-JSONSCHEMA_PLUGIN: str = "protoc-gen-jsonschema"
-JSONSCHEMA_TEMPLATE: str = (
-    '{"version":"v2","plugins":[{"local":"'
-    + JSONSCHEMA_PLUGIN
-    + '","out":".","opt":["target=json-strict-bundle"],"strategy":"all","include_imports":false}]}'
-)
-_CONTRACTS_TIMEOUT_S: float = 120.0
-_CONTRACTS_GENERATE_TIMEOUT_S: float = 300.0
-_BUF_ENV: tuple[tuple[str, str], ...] = (("BUF_CACHE_DIR", ".cache/buf"),)
 _PROVISION_TIMEOUT_S: float = 120.0
 _PROVISION_WRITE_TIMEOUT_S: float = 300.0
 _SCENARIO_TIMEOUT_S: float = 600.0
@@ -45,14 +35,13 @@ _ONNXRUNTIME_LIB_PROBE: str = 'test -n "${ONNXRUNTIME_LIB:-}" && test -e "$ONNXR
 
 DIRECT, UV, DOTNET, PNPM, INPROC = Runner.DIRECT, Runner.UV, Runner.DOTNET, Runner.PNPM, Runner.INPROC
 FILES, INCLUDE, PROJECT, SOLUTION, NONE, OWNED = (Input.FILES, Input.INCLUDE, Input.PROJECT, Input.SOLUTION, Input.NONE, Input.OWNED)
-PY, TS, CS, BASH, SQL, DOCS, PROTO = (
+PY, TS, CS, BASH, SQL, DOCS = (
     Language.PYTHON,
     Language.TYPESCRIPT,
     Language.DOTNET,
     Language.BASH,
     Language.SQL,
     Language.DOCS,
-    Language.PROTO,
 )
 
 TOOLS: tuple[Tool, ...] = (
@@ -392,100 +381,6 @@ TOOLS: tuple[Tool, ...] = (
         Claim.CODE,
         mode=Mode.CONTENT,
     ),
-    # --- [CONTRACTS]
-    Tool(
-        "buf-lint",
-        PNPM,
-        ("buf", "lint", "libs/contracts", "--error-format", "json"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        timeout=_CONTRACTS_TIMEOUT_S,
-        parser=Parser.BUF,
-        defect_exit=BUF_DEFECT_EXIT,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-format",
-        PNPM,
-        ("buf", "format", "--diff", "--exit-code", "libs/contracts/proto"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        timeout=_CONTRACTS_TIMEOUT_S,
-        defect_exit=BUF_DEFECT_EXIT,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-module",
-        PNPM,
-        ("buf", "registry", "module", "info", "{input}", "--format", "json"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        mode=Mode.QUERY,
-        timeout=_CONTRACTS_TIMEOUT_S,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-baseline",
-        PNPM,
-        ("buf", "registry", "module", "commit", "resolve", "{input}", "--format", "json"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        mode=Mode.QUERY,
-        timeout=_CONTRACTS_TIMEOUT_S,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-build",
-        PNPM,
-        ("buf", "build", "libs/contracts", "-o", "{output}", "--as-file-descriptor-set"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        mode=Mode.QUERY,
-        timeout=_CONTRACTS_TIMEOUT_S,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-generate",
-        PNPM,
-        ("buf", "generate", "libs/contracts", "--template", "libs/contracts/buf.gen.yaml", "-o", "{output}"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        mode=Mode.STAGE,
-        timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-push",
-        PNPM,
-        ("buf", "push", "libs/contracts", "--exclude-unnamed", "{flags*}", "--label", "{target}"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        mode=Mode.PUBLISH,
-        timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
-        env=_BUF_ENV,
-    ),
-    Tool(
-        "buf-jsonschema",
-        PNPM,
-        ("buf", "generate", "{input}", "--template", JSONSCHEMA_TEMPLATE, "-o", "{output}", "--type", "{fqn}"),
-        OWNED,
-        PROTO,
-        Claim.CONTRACTS,
-        mode=Mode.STAGE,
-        timeout=_CONTRACTS_GENERATE_TIMEOUT_S,
-        env=_BUF_ENV,
-    ),
-    Tool("plugin-probe", INPROC, ("plugin-probe", "resolve"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.VERIFY),
-    Tool("corpus-gate", INPROC, ("corpus-gate", "check"), OWNED, PROTO, Claim.CONTRACTS),
-    Tool("freshness-gate", INPROC, ("freshness-gate", "diff"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.QUERY),
-    Tool("corpus-emit", INPROC, ("corpus-emit", "write"), OWNED, PROTO, Claim.CONTRACTS, mode=Mode.WRITE),
     # --- [PROVISION]
     Tool(
         "forge-provision", DIRECT, ("forge-provision", "{flags*}", "{verb}"), NONE, PY, Claim.PROVISION, mode=Mode.RUN, timeout=_PROVISION_TIMEOUT_S
@@ -568,4 +463,4 @@ def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BUF_DEFECT_EXIT", "JSONSCHEMA_PLUGIN", "JSONSCHEMA_TEMPLATE", "PROBE_TIMEOUT_S", "TOOLS", "launch", "select"]
+__all__ = ["PROBE_TIMEOUT_S", "TOOLS", "launch", "select"]

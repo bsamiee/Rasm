@@ -23,7 +23,7 @@ using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
-using Rasm.Contracts.Element;
+// Contracts are retired from this logic.
 using Rasm.Domain;
 using Rasm.Element.Composition;
 using Rasm.Element.Properties;

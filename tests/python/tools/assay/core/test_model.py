@@ -29,7 +29,6 @@ from assay.core.model import (
     Check,
     Claim,
     Completed,
-    ContractsRun,
     Counts,
     Detail,
     Diagnostic,
@@ -74,7 +73,6 @@ from tests.python.tools.assay.kit import (
     assert_counts_consistent,
     binds_st,
     completed_st,
-    contracts_run_st,
     counts_st,
     detail_st,
     diagnostic_st,
@@ -116,7 +114,6 @@ _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (StaticRun, static_run_st),
     (PackageRun, package_run_st),
     (ProvisionRun, provision_run_st),
-    (ContractsRun, contracts_run_st),
     (ApiResolution, api_resolution_st),
     (Diagnostic, diagnostic_st),
     (RunSnapshot, run_snapshot_st),
@@ -397,16 +394,6 @@ def test_fold_ignores_argv_text_without_parser_stamp() -> None:
     assert [m.severity for m in report.results] == ["failed"], "unstamped output must fold to the defect tail only"
 
 
-def test_fold_non_static_claims_keep_converted_rows_and_stay_inert_for_none() -> None:
-    """A non-static claim keeps converted rows ahead of the defect tail; a Parser.NONE outcome converts to nothing."""
-    annotation = b'{"path":"p.proto","start_line":4,"start_column":1,"end_line":4,"end_column":9,"type":"PACKAGE_DIRECTORY_MATCH","message":"m"}\n'
-    stamped = _stamped(Completed(argv=("buf", "lint"), returncode=100, stdout=annotation, status=RailStatus.FAILED), Parser.BUF)
-    report = fold(Claim.CONTRACTS, "check", (stamped,))
-    assert [(m.id, m.severity) for m in report.results] == [("buf:package_directory_match", "error"), ("buf lint", "failed")]
-    plain = fold(Claim.CONTRACTS, "check", (Completed(argv=("buf", "lint"), returncode=100, stdout=annotation, status=RailStatus.FAILED),))
-    assert [m.severity for m in plain.results] == ["failed"], "an unstamped outcome must fold to the defect tail alone"
-
-
 # --- [SARIF_FOLD]
 
 
@@ -511,7 +498,7 @@ def test_fold_static_green_executed_rows_are_ok() -> None:
 
 def test_fold_promote_empty_is_opt_in_per_claim() -> None:
     """``promote_empty`` gates the promotion: an eligible claim stays empty by default and folds to ok only on opt-in."""
-    for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS, Claim.TEST):
+    for claim in (Claim.STATIC, Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.TEST):
         outcomes = (Completed(argv=(claim.value,), returncode=0, status=RailStatus.EMPTY),)
         assert fold(claim, "check", outcomes).status is RailStatus.EMPTY
         promoted = fold(claim, "check", outcomes, promote_empty=True)
@@ -622,20 +609,6 @@ def test_fold_static_generated_errors_are_evidence_not_failure() -> None:
     report = fold(Claim.STATIC, "build", (stamped,), promote_empty=True)
     assert [(m.id, m.kind, m.severity, m.count) for m in report.results] == [("cs0436", ArtifactKind.PROCESS, "error", 1)]
     assert report.status is RailStatus.OK
-    assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
-
-
-@pytest.mark.parametrize("path", ["libs/contracts/gen/python/rasm/contracts/rasm/contracts/compute/compute_connect.py", "libs/contracts/gen/typescript/rasm/contracts/compute/compute_pb.ts", "libs/contracts/gen/dotnet/Compute/ComputeGrpc.cs"], ids=["python", "typescript", "dotnet"])
-def test_fold_static_contracts_out_roots_census_as_generated(path: str) -> None:
-    """Rows under a committed generated out root census as generated evidence, and the tool's own exit still fails the lane.
-
-    A relative path is the shape every text parser emits, so the roster matches without a leading slash; an unlisted
-    root would census as source and flood the display cap on every generator bump.
-    """
-    payload = f"error[missing-override-decorator]: overrides without @override\n --> {path}:7:9\n".encode()
-    report = fold(Claim.STATIC, "check", (_stamped(Completed(argv=("ty",), returncode=1, stdout=payload, status=RailStatus.from_returncode(1)), Parser.TY),))
-    assert [(m.id, m.kind, m.count) for m in report.results[:1]] == [("ty:missing-override-decorator", ArtifactKind.PROCESS, 1)]
-    assert report.status is RailStatus.FAILED
     assert "diagnostics: total=1 source=0 generated=1 error=1 warning=0 info=0" in report.notes
 
 
@@ -777,7 +750,7 @@ def test_tool_args_fill_identity_on_hole_free_commands(tokens: list[str]) -> Non
 
 def test_host_bound_claims_partition() -> None:
     """HOST_BOUND_CLAIMS pins exactly the claims that cannot run off-host; all are real Claim members."""
-    assert frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.CONTRACTS, Claim.INIT)) == HOST_BOUND_CLAIMS
+    assert frozenset((Claim.BRIDGE, Claim.PACKAGE, Claim.PROVISION, Claim.INIT)) == HOST_BOUND_CLAIMS
     assert frozenset(Claim) > HOST_BOUND_CLAIMS
 
 

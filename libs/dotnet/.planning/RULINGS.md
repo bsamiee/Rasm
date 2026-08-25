@@ -9,8 +9,6 @@
 - Duplicate full type names alias the package the product does NOT name via `PackageReference` — aliasing the pinned one rebinds every mention.
 - `Grpc.Tools` refused — a per-csproj `<Protobuf>` item re-emits one contract per consumer at its own `GrpcServices` mode; bindings generate once.
 - `Grpc.AspNetCore.Server` is the server-rail admission — the `Grpc.AspNetCore` metapackage ships no assembly and drags in `Grpc.Tools`.
-- `libs/contracts/gen/dotnet` emits the sole `Rasm.Contracts` assembly; every workspace consumer reaches it by `ProjectReference`.
-- `Rasm.Contracts` consumers keep a direct `Google.Protobuf` row only where their pages name that API — transitive reach is never a manifest row.
 - `libs/dotnet` projects design as if PUBLISHED tomorrow — pack metadata rides the root estate behind `IsPackable=false`, one flip from a package.
 
 ## [02]-[SHAPE]
@@ -140,7 +138,6 @@
 - `WireFault` stays plural by transport — `FaultBand.LiveWire` and `FaultBand.Wire` mint local failures; remote faults remain opaque evidence.
 - ONE producer leg crosses a fault — `Rasm.AppHost` `FaultWire.Raise` over `Grpc.StatusProto`; a folder-local `Error → StatusCode` switch forks it.
 - ONE ProtoJSON edge serves the branch — `Rasm.AppHost` `WireJson` with the registry over every `<File>Reflection`; `.Default` is the deleted form.
-- Every cross-language C# wire is a generated `Rasm.Contracts` message or a publisher type — a record mirroring one under any codec is the twin.
 - MessagePack frames the op-log envelope; its `crdt` slot carries generated `CrdtOpWire` across the registered process seam.
 - Fault families carry no category mirror — the union case IS the identity, and a parallel roster publishes a second discriminant per family.
 - Family-local `Semigroup`/`Aggregate`/`Combine` folds collapse to `Error.Many` — two accumulation paradigms disagree on flattening and on posture.

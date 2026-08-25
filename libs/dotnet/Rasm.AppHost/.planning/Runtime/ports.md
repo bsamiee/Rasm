@@ -71,7 +71,6 @@ public sealed record HealthContributorPort(
 
 - Owner: `WireAdmission` owns generated-message discovery and validation; `WireJson` owns ProtoJSON; `FaultWire` owns fault projection; `HostWire` owns correlation and HLC correspondences; `ProtoJsonConverterFactory` owns generated messages embedded in local domain facts; `SuiteContracts` owns the strict app-root serializer merge.
 - Entry: `WireAdmission.Warm()` compiles every reachable generated-message rule before readiness; `WireJson` carries every protobuf JSON door; `FaultWire.Raise` and `Decode` own the transport fault edge; `SuiteContracts.Wire(contexts)` creates one strict merge per app root.
-- Packages: Rasm.Contracts (project — every emitted file reflection root and generated fault, host, compute, element, evidence, parity, and RPC message), Celly.Protovalidate (`Validator`, `ValidationCompileException`, `ValidationException`, generated `Buf.Validate.Violation`/`FieldPath`), Google.Protobuf (`TypeRegistry.FromFiles`, message descriptors and parsers, `JsonFormatter`, `JsonParser`, `Any.Pack`/`Is`/`Unpack<T>`, `ByteString`), Grpc.StatusProto (`Google.Rpc.Status.ToRpcException`, `RpcException.GetRpcStatus`, `Exception.ToRpcDebugInfo`), Google.Api.CommonProtos (`Google.Rpc.Status`, `RetryInfo`, `BadRequest.Types.FieldViolation`, `DebugInfo`), Grpc.Core.Api (`RpcException`, `StatusCode`), NodaTime.Serialization.Protobuf (`ToProtobufDuration`/`ToNodaDuration`), Rasm (kernel `FaultObservation`, `FaultBand`, `KernelFault`, `Retriability`, `ContentHash`), NodaTime.Serialization.SystemTextJson, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, BCL inbox
 - Law: `WireAdmission.Files` is the ONE generated file-root roster. `TypeRegistry.FromFiles` folds its dependencies transitively for `Any`; `Validator` compiles and evaluates constraints from the same roots, so codec reachability and rule reachability cannot drift. `Warm` validates one parsed default for every admitted non-map descriptor while the host is still mutable, forcing Celly's lazy CEL compilation before readiness. ProtoJSON intake tolerates unknown fields (`WithIgnoreUnknownFields(true)`), since proto3 files a retired field to the unknown set, and bounds recursion at the parser's configured depth; a local validator, `JsonFormatter.Default`, and `JsonParser.Default` are deleted forms.
 - Law: generated-message admission is two-railed without dual policy. Parse, unrostered-type, compile, and evaluator failures ride the outer `Fin`; authored rule refusals accumulate inside `Validation<Seq<BadRequest.FieldViolation>,T>`. `Read<T>` collapses that verdict only after parse, while the gRPC interceptor reads the same verdict directly for request `InvalidArgument` and response `Internal` projection. One field-path projector preserves scalar fields, repeated indices, and bool, signed, unsigned, or JSON-quoted string map keys; no mapper restates a rule or calls validation itself.
 - Law: `FaultWire.Status` is the ONE producer `Error` → `StatusCode` table, a closed ladder: every `KernelFault` case through its generated total `Switch`, every other `Fault` by the posture its `Retriability` already carries (`Throttled` → `ResourceExhausted`, `Transient` → `Unavailable`, `Terminal` → `FailedPrecondition`), the rail's two reserved termination codes (`Errors.Cancelled`, `Errors.TimedOut`) onto their gRPC twins, and every foreign `Error` onto `Internal`. No handler spells a status; a `new RpcException(new Status(...))` anywhere on this branch is the deleted form. The client inverse (`StatusCode` → local transport fault) stays the dialing branch's own fold — `dotnet:Rasm.Compute/Runtime/wire#FAULT_PROJECTION` `StatusRail` — so the producer fold and the client fold never merge into one dictionary read both ways.
@@ -106,21 +105,12 @@ using LanguageExt;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using NodaTime.Serialization.SystemTextJson;
-using Rasm.Contracts.Appearance;
-using Rasm.Contracts.Compute;
-using Rasm.Contracts.Declaration;
-using Rasm.Contracts.Element;
-using Rasm.Contracts.Event;
-using Rasm.Contracts.Fabrication;
-using Rasm.Contracts.Organization;
-using Rasm.Contracts.Parity;
-using Rasm.Contracts.Scene;
+// Contracts are retired from this logic.
 using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using Thinktecture.Text.Json.Serialization;
-using Clock = Rasm.Contracts.Clock;
-using Fault = Rasm.Contracts.Fault;
+// Contracts are retired from this logic.
 using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Runtime;

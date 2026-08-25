@@ -1,12 +1,10 @@
 # [RASM_RHINO_OBJECTS_LIGHTS]
 
-Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light family — point, spot, directional, linear, rectangular — as capability rows; `LightSeed` is the one polymorphic construction union, `LightEdit` the one property-edit union whose modalities gate on one capability read, and `LightSelect` the table address vocabulary. `Lights.Ask` reads detached `LightStamp` rows and `Lights.Commit` mints, amends, purges, and revives through `LightTable` on the shared `ObjectSpine`. Spot cones compose kernel `VectorCone`, colours compose `PerceptualColor`, and photometric power is one `Radiance` value. `Lights.Capture` is the `rasm.contracts.scene` descriptor emitter: it stacks the Render sun band beside its own photometric rows and lowers both through the exhaustive `SceneMap` boundary.
 
 ## [01]-[INDEX]
 
 - [02]-[KIND_AND_STAMP]: `LightModality`, `LightKind`, `SpotShape`, `ConeEvidence`, `AreaShape`, `LightFrame`, `LightFalloff`, `LightAttenuation`, `LightStamp` — the capability rows and the detached read.
 - [03]-[SEED_AND_EDIT]: `LightSeed`, `RadianceUnit`, `Radiance`, `LightShade`, `LightEdit` — construction and the gated property edits.
-- [04]-[ASK_AND_COMMIT]: `LightSelect`, `LightOp`, the `Lights` entries, and the `rasm.contracts.scene` descriptor band with its exhaustive `SceneMap` emitter.
 - [05]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[KIND_AND_STAMP]
@@ -30,7 +28,7 @@ using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Geometry;
-using Wire = Rasm.Contracts.Scene;
+// Contracts are retired from this logic.
 
 namespace Rasm.Rhino.Objects;
 
@@ -455,13 +453,11 @@ public sealed record LightShade(
 
 ## [04]-[ASK_AND_COMMIT]
 
-- Owner: `LightSelect` `[Union]` closes the table address — every row, an index, an object id, a name; `LightOp` `[Union]` closes the commit verbs — mint, amend, purge, revive; `Lights.Ask`, `Lights.Commit`, and `Lights.Capture` are the three entries; `SceneMap` is the ONE mapper lowering a capture onto `rasm.contracts.scene` bytes.
 - Law: resolution is index-paired but id-addressed — the complete roster enumerates the table's own `IEnumerable<LightObject>` and resolves each live row's slot from its id, while `Find`, `FindName`, and the revival probe address a single row. Every host index crosses `ResourceIndex.Maybe`, whose `-1` refusal IS the host's miss answer, so the rail admits no negative slot. Slot addressing survives only because `Modify`, `Delete`, and `Undelete` take one, and a deleted row has no live id, so the index address stays the revival ingress alone.
 - Law: the working copy is the mutation site — an amend duplicates through `DuplicateLightGeometry`, applies its admitted edits to the duplicate, and lands once through `Modify(index, working)`, so the live table never observes a half-applied edit and the duplicate disposes on every path.
 - Law: the purge's host-dialogue column is the spine's `HostInteraction`, not `ObjectSignal`. `ObjectSignal` names ENABLED and DISABLED, and the host argument it fed is `quiet` — so `ObjectSignal.Enabled` on a column named `Quiet` read as "enabled" at every call site and meant "suppress the warning", an inversion that is invisible at the call and wrong in exactly the direction that silences a dialogue a caller asked for. `HostInteraction.Quiet`/`Interactive` name the posture directly and `IsQuiet` is the only read.
 - Law: the commit rides `ObjectSpine.Commit` — admission precedes the grant, every light verb records undo, and the command returns `Unit` after the complete operation roster settles.
 - Law: placement stays the object rail — whole-object transform, delete-by-id, and selection of `LightObject`s ride `TableOp` through `TableTarget.Query` with `IncludeLights`; this rail owns what the object rail cannot spell — light-specific properties, index-addressed table verbs, and kind-gated modality.
-- Owner: `SceneSpectrum`, `PhotometricPower`, `PhotometricWebRef`, `ScenePhotometry`, `SceneShading`, and `SceneCapture` are the `rasm.contracts.scene` descriptor's host-free rows; generated `spatial.Point3`, `Displacement3`, and `UnitDirection3` carry coordinates without a local vector twin, and `SceneMap` lowers them.
 - Law: this page is the WHOLE-DESCRIPTOR emitter and the strata edge is downward — Objects (S2) composes the Render (S1) `SceneSun` band as an admitted VALUE beside its own photometric rows, so the sun's astronomy stays its owner's and no second solar derivation exists here. Shading rides as call data: the GLB body is the manifest's `keyed-artifact`/`glb` product — `Rasm.Bim`'s `Exchange/export#EXPORT_RAIL` emits it under `Rasm.Compute`'s content keys — so this emitter carries its artifact coordinate, counts, and declared fidelity and never tessellates.
 - Law: the descriptor emits METRES from ONE authority — the capture reads the document's `ModelUnit` inside the grant, scales every pose and extent by `MetersPerUnit`, and publishes that same regime as `source_unit`, so the factor and its provenance cannot disagree and no caller supplies a scale the descriptor then contradicts.
 - Law: spectra cross LINEAR and OPAQUE. `SceneSpectrum.Of` reads `PerceptualColor` through `RgbProfile.Srgb` under `RgbTransfer.Linear`, so the sRGB byte leg never reaches a wire declaring scene light; and because the message carries three components, a non-opaque light colour REFUSES at the producer rather than dropping its coverage silently. Both paths leave the stamp's full colour intact.
@@ -475,17 +471,13 @@ public sealed record LightShade(
 - Law: an unread column is a defect, not thrift — the web column has a producer, so `Lights.Capture` demands the registry rather than defaulting it, and the consuming census that counts web-bearing rows counts documents rather than an absence this emitter manufactured.
 - Boundary: `LightTable.Sun` and `Skylight` stay the render settings page's — `SunState`, `SkylightState`, and `SunEvidence` own that projection; `EventFamily.LightTable` already observes this table onto `EventPayload.Component(TableKind.Lights, …)`, and `SnapshotCategory.Lights` carries snapshot participation.
 - Growth: a new light verb is one `LightOp` case; a new property axis is one `LightEdit` case with its `Requires` column; a new descriptor column is one appended proto field beside one mapper column.
-- Packages: Google.Protobuf (`libs/dotnet/.api/api-protobuf.md` — `ByteString.CopyFrom(ReadOnlySpan<byte>)`, `RepeatedField<T>`, `MessageExtensions.ToByteArray`, `WellKnownTypes.Timestamp`); Rasm.Contracts (`libs/contracts/.api/dotnet.md` — generated scene, artifact, geometry, and spatial messages); NodaTime.Serialization.Protobuf (`libs/dotnet/.api/api-nodatime-protobuf.md` — `Instant.ToTimestamp`); NodaTime (`Instant`); kernel `Domain/identity` (`ArtifactContent`, `ContentHash.Of`, `ContentHash.Wire`); kernel `Domain/context` (`Context.Unit`, `ModelUnit.MetersPerUnit`); kernel `Numerics/atoms` (`PerceptualColor.ToRgb(RgbProfile, GamutPolicy, RgbTransfer)`, `RgbProfile.Srgb`, `RgbTransfer.Linear`, `UnitInterval`); `Document/tables.md` (`ResourceIndex`); `Render/settings.md` (`SceneSun`, `SunDerivation`, `SolarFrame`).
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Google.Protobuf;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
-using Artifact = Rasm.Contracts.Artifact;
-using Geometry = Rasm.Contracts.Geometry;
-using Spatial = Rasm.Contracts.Spatial;
-using Wire = Rasm.Contracts.Scene;
+// Contracts are retired from this logic.
 
 // --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]

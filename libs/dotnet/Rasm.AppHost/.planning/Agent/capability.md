@@ -721,7 +721,6 @@ public sealed record GrantBroker(
 
 ## [06]-[SDK_CODEGEN]
 
-- Owner: `SdkTarget` `[SmartEnum<string>]` the three language emission targets; `DescriptorPin` the canonical descriptor-set document and its content address — the frozen preimage the `capability-descriptor` seam registers at `libs/contracts/manifest.json` `CAPABILITY_DESCRIPTOR`, this section being that seam's named producer; `SdkArtifact` the emitted-source projection; `SdkCodegen` the static emission fold over the registry.
 - Cases: 3 targets — csharp, typescript, python — each carrying its command-shape renderer and idiomatic call form.
 - Entry: `DescriptorPin.Of(registry)` mints the fixed-field catalog document and its content address.
 - Entry: `SdkCodegen.Emit(registry, pin, target)` renders one target from the same ordinal catalog and stamped pin digest.
@@ -804,7 +803,6 @@ public static class SdkCodegen {
 
 - Owner: the host-free generated `capability.DiscoverResponse` is the only live peer-discovery shape; `CapabilityDiscovery.Project` is its C# projection.
 - Entry: `Project(CapabilityRegistry registry, DegradationLevel level, DescriptorPin pin)` returns the level-permitted catalog bound to the full SDK pin.
-- Packages: Rasm.Contracts, Google.Protobuf, LanguageExt.Core, BCL inbox
 - Growth: one proto field or enum row regenerates every real consumer; a new consumer earns one codegen target, never a mirror.
 - Boundary: the catalog reaches Python alone at `python:runtime/transport/serve#CAPABILITY_INVOKE`; TypeScript consumes only `capability.DescriptorPinWire`.
 - Boundary: `DescriptorPinWire.document` is the sole static authority for surface, effect, idempotency, scope, and cost-unit semantics. An `AvailableCapability` carries only the descriptor whose presence states current availability and the fixed empty-argument estimates that exist now; a static unit with no amount emits no row.
@@ -812,7 +810,7 @@ public static class SdkCodegen {
 - Auto: permitted descriptors and their present estimate rows emit ordinally, so live discovery is stable across registration order without becoming a second content identity.
 
 ```csharp
-using CapabilityContract = Rasm.Contracts.Capability;
+// Contracts are retired from this logic.
 
 public static class CapabilityDiscovery {
     public static CapabilityContract.DiscoverResponse Project(

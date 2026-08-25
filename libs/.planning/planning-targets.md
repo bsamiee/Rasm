@@ -26,17 +26,10 @@
 - Language-wide docs: `ARCHITECTURE.md`, `RULINGS.md` under the core dir
 - Planning Folders: every `libs/python/` package folder per the branch `[02]-[STRATA]` roster, the plane-distinct `cad` seat included
 
-[CONTRACTS]:
-- Directory: `libs/contracts`
-- Folder docs: `README.md`, `ARCHITECTURE.md`, `RULINGS.md` at the estate root
-- API catalogues: `libs/contracts/.api`, one per emission target beside the driver tool's
-- Sub-trees: `proto/` definitions, `vendor/` publisher bytes, `conformance/<seam>/` vectors, `gen/<lang>/` emissions — one folder, no package roster
-
 [CROSS_CUTTING_SURFACES]:
 - Central manifests: root `Directory.*` build files, `global.json`, `NuGet.config`, `pyproject.toml` + `uv.lock`, `pnpm-workspace.yaml`, `.config/`
 - Member manifests: each `libs/python/*` and `tools/assay` `pyproject.toml` on the workspace roster — distribution identity and bare-name edges
-- Cross-language contracts: `libs/contracts/` defines and proves each atomic case; every executor and consumer binds its `manifest.json` case.
-- Event fabric: `libs/.planning/ARCHITECTURE.md` `[14]-[EVENT_FABRIC]` legislates the message envelope and seats its branch owners.
+- Event fabric: `libs/.planning/ARCHITECTURE.md` `[11]-[EVENT_FABRIC]` legislates the message envelope and seats its branch owners.
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set
 - Toolchain evidence: assay provision reports and `.api` catalogues verify Forge server services, native capabilities, and extension availability.
 - Code doctrine: `docs/stacks/<lang>/`

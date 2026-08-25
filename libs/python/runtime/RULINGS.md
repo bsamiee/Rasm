@@ -11,7 +11,6 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `cloudevents.core` is the admitted family and `cloudevents.v1` refuses — `v1.http.CloudEvent` checks a required-NAME subset and mutates past it.
 - `pika` KEEP against its transitive `asyncio` — the eager adapter roster DEFINES a class and creates no loop, the ban governing module scope here.
 - `confluent_kafka.aio` refuses — dialing `get_running_loop` and answering `asyncio.Future` pins composition the sync client leaves free.
-- `protobuf-py` generated messages and codecs own proto binary and ProtoJSON — a msgspec twin or local JSON codec forks the peer vocabulary.
 - Capability discovery admits static semantics only from the pin document; generated live rows add availability and estimates before invocation.
 - `transport/body` `BodyAdmission` evaluates descriptor constraints at the Connect body boundary; bare `protovalidate` serves non-Connect seams.
 - `connect-python` and `protoc-gen-connect-python` refuse — `connectrpc`'s renamed predecessors ship no ASGI application; one dist owns the seam.
@@ -19,7 +18,6 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - `grpcio` is a transitive alone — the OTLP gRPC exporter and GCP secret client dial it; a direct row re-opens the retired `grpc.aio` serve rail.
 - `pyqwest` is `connectrpc`'s transitive and the one dial transport — `HTTPTransport.aclose` releases the sockets, so the composition owns it.
 - Client telemetry rides the `connectrpc` `MetadataInterceptor` — clients dial through `pyqwest`, so the httpx instrumentor reaches no Connect leg.
-- `grpc.health.v1` serves from the vendored `rasm.contracts.grpc.health.v1` emission — `connectrpc` ships no health surface.
 - MessagePack carries the uncompressed positional op-log envelope, `crdt` alone decoding generated `CrdtOpWire`; compression changes no contract.
 
 ## [02]-[SHAPE]
@@ -75,7 +73,6 @@ Sub-modules admit or refuse on their module-scope side effects, never the distri
 - Outbound requests pre-encode under `SERVE_ENCODE` ahead of any retried call — the client maps an encode raise to UNAVAILABLE and re-drives it.
 - `MessageEnvelope.extensions` is the generated `event.Extensions`; `EXTENSION_ROWS` derives per `local_name` — a hand roster is the mirror.
 - `MessageEnvelope.payload` is the Rasm `Raw | protobuf.Message | None` seam over the generic SDK envelope — `None` is reference-only `dataref`.
-- Generated extensions re-enter CloudEvents codecs before mint — `ce_integer` is signed 32-bit even when its corpus scalar is wider.
 - Modality-polymorphic entrypoints whose return shape varies with input carry one `@overload` per shape — an unoverloaded arm type-checks nowhere.
 - `HostRow` extends the descriptor with `lanes`/`recovery`/`scratch`/`document` and refuses `tenancy` — a host separates no tenant, the profile does.
 - `ProviderRow` extends with `supplies`, refusing `tenancy` and `isolation` — `ConsumptionProfile.admit` carries that crossing as axis evidence.

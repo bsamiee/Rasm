@@ -94,7 +94,6 @@
 - `Grpc.StatusProto`(`.api/api-grpc-statusproto.md`): carries `Status` onto the trailer and back.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Date.ToLocalDate`, `TimeOfDay.ToLocalTime`, `DayOfWeek.ToIsoDayOfWeek` and their inverses.
 - `Celly.Protovalidate`(`.api/api-celly-protovalidate.md`): each `Violation` projects onto `BadRequest.Types.FieldViolation` at admission.
-- `Rasm.Contracts`(`libs/contracts/.api/dotnet.md`): `fault.FaultDetail.violations` is `repeated google.rpc.BadRequest.FieldViolation`; `element`, `ui`, and `declaration` declare `google.type.Date`, `DateTime`, or `TimeOfDay` where owned.
 - `Rasm.AppHost` (`Runtime/ports#WIRE_LAW`): `FaultWire.Raise` mints `Status{Code, Message, Details}` and packs the detail's own `Recovery.RetryAfter` as the standard advice seat; `FaultWire.Decode` filters `Details` on `Any.Is(FaultDetail.Descriptor)`; `FaultWire.Pack` fills `FaultDetail.violations` from the admission's `FieldViolation` rows.
 
 [LOCAL_ADMISSION]:

@@ -37,19 +37,9 @@ from connectrpc.request import RequestContext
 from expression import Error, Result
 from msgspec import Struct
 from protobuf import Message
-from rasm.contracts import AdmissionSide, BodyAdmission
+# Contracts are retired from this logic.
 from rasm.runtime.transport.artifact import ArtifactSink, ArtifactTransfer, output
-from rasm.contracts.rasm.contracts.artifact.artifact_pb import ArtifactRef
-from rasm.contracts.rasm.contracts.cad.operations_pb import ExecuteRequest, ExecuteResponse
-from rasm.contracts.rasm.contracts.cad.service_connect import CadService, CadServiceASGIApplication
-from rasm.contracts.rasm.contracts.cad.service_pb import TessellateRequest
-from rasm.contracts.rasm.contracts.cad.types_pb import (
-    BrepMeasure,
-    Correspondence,
-    SealedStep,
-    StepProtocol,
-    TessellateResponse,
-)
+# Contracts are retired from this logic.
 
 from rasm.cad.faults import CALL_DEADLINE, CadFault, CadRail, FaultStamp, refused
 from rasm.cad.service.lane import (

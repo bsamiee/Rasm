@@ -37,10 +37,9 @@ using Rasm.AppUi.Diagnostics;
 using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
-using Arm = Rasm.Contracts.Ui.CommandPayloadWire.KindOneofCase;
+// Contracts are retired from this logic.
 using Duration = NodaTime.Duration;
-using FaultV1 = Rasm.Contracts.Fault;
-using Wire = Rasm.Contracts.Ui;
+// Contracts are retired from this logic.
 using WkDuration = Google.Protobuf.WellKnownTypes.Duration;
 using static LanguageExt.Prelude;
 
@@ -799,8 +798,6 @@ The ControlService operational verbs surface as ordinary table rows on companion
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: the generated `rasm.contracts.ui` command families — `CommandGateWire`, `CommandPayloadWire` (the `none`/`single`/`many`/`text`/`fields` oneof), `CommandInvocation`, `CommandOutcomeWire`, `DeckOutcomeWire` — produced by `CommandWire.Lower`, `CommandGate.Wire`, and `DeckWire.Lower` and admitted by their owning readers; `libs/contracts/manifest.json` seats each live actor on its exact message.
-- Packages: Rasm.Contracts (project), Rasm.AppHost (project — `WireJson`)
 - Growth: one payload or outcome arm is one `kind` arm at the corpus, one domain case here, and one arm on each of `CommandWire`'s two total `Switch` lowerings and two exhaustive admissions; zero new surface.
 - Boundary: TypeScript peers bind `@rasm\/contracts/rasm/contracts/ui/commands_pb` and re-author nothing, so no hand interface mirrors a family on either side. `many.ids` is the arm's repeated field and `fields` its `Struct`, owned by the addressed form schema. The `rejected` outcome arm carries generated `Fault.FaultObservation`; `rolled_back` and `compensated` carry their transaction's own reason, so no arm fabricates a code. Palette frames and binding-editor rows stay host-local; remote callers cross through `CommandInvocation`. `CommandGateWire` carries the row gate while the AppHost availability snapshot stays in its own `availability` family. Every family's JSON leaves through AppHost `WireJson.Formatter` and enters through `WireJson.Parser`.
 

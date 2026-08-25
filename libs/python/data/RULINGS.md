@@ -11,9 +11,7 @@
 
 - `graph/graph#TOPOLOGY` indexes the two organization key spaces apart — one merged map lets a foreign key shadow a 32-hex entity address.
 - Organization graph admission rejects duplicate entity keys, excess depth or nodes, and an unresolved current path before index allocation.
-- Descriptor-backed wires import their generated `rasm.contracts` class — a decode-side struct here is the mirror the vocabulary law forecloses.
 - `DeclarationRecord` crosses as proto binary, keyed on its ProtoJSON projection — provider spellings derive from member NAME, one divergence.
-- Corpus raw containers own a READ-ONLY leg on `gridded/field`, never a `FieldEngine` row — the C# producer emits and CF folding forces `phony_dims`.
 - `arrow_bytes` at `tabular/interop` is the one whole-table serialization every keyer imports — a second spelling forks one frame into two keys.
 - `DataLeg` and `DataHook` seat at `tabular/interop` — a roster reaches every raiser and every point owner only from the module importing no sibling.
 - Floor-unreachable manifest rows stay ADMITTED, recording intent — a roster, seam, or constant naming the gated coordinate dies on the import.

@@ -89,7 +89,6 @@
 
 [STACK: `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`)] — d2mini omits time; d2ts adds `Version`/`Antichain`. Both root graphs are in-memory, and output sinks own any public `Index` mirror.
 
-[STACK: REPLAY_LAW + `state/causal` frontiers] — `Version.meet` is the stability-frontier GLB `state/causal` computes, `Antichain` the honest-uncertainty frontier over `value/clock` windows, `iterate` the happened-before transitive fold, and `Index.compact(frontier)` the retention handoff to `journal/retain`. Folds rebuilt from any event prefix replay through the same graph to the live version — the convergence `state/merge` asserts, checked as `@effect/vitest`(`tests/typescript/.api/effect-vitest.md`) `it.prop` laws over the `libs/contracts/conformance/` vectors.
 
 ## [05]-[RAIL_LAW]
 

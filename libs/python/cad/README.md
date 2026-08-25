@@ -64,4 +64,3 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [WIRE_CODEGEN]:
 - `protobuf-py` — Generated message, oneof, descriptor, and binary surfaces every owner reads through the contract vocabulary.
 - `connectrpc` — Generated asynchronous service protocol, ASGI application, status codes, detail decode, and compression codecs.
-- `rasm.contracts` — Generated CAD, fault, and artifact vocabulary; runtime `transport/artifact` owns its custody.

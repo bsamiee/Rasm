@@ -26,7 +26,6 @@ Planning-scoped packages carry a `.planning/` scaffold of index docs and design 
 Rank is reference depth, never domain family: two packages share a rank only when neither reaches the other, so `[01]-[DOMAIN_MAP]` names the family a package serves while the rows below name what it may reference, which is why the app platform spreads across four ranks rather than wearing one label.
 
 - S0 kernel — `Rasm` references no sibling and carries every rank above it.
-- `Rasm.Contracts` is the admitted import root at `libs/contracts/gen/dotnet`, never a rank — generation its sole author, admitted beside the kernel.
 - S1 seam — `Rasm.Element` references only `Rasm` and mints the one `ElementGraph` seam.
 - S1 spine — `Rasm.AppHost` references only `Rasm` and PORT-decodes store shapes without a downward reference.
 - S1 law — the seam and the spine never reference each other, so a package composes either alone.
@@ -36,11 +35,9 @@ Rank is reference depth, never domain family: two packages share a rank only whe
 - S2 spine — `Rasm.Materials` adds `Rasm.AppHost` for its measured benchmark result and neutral generated-message admission.
 - S2 stores — `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph` as system of record.
 - S2 recovery — `Rasm.Persistence` adds `Rasm.AppHost` for the settled `RecoveryObjective` alone.
-- S2 wire — `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`, and `Rasm.Persistence` add `Rasm.Contracts` for the families their pages bind.
 - S2 wire law — binary and ProtoJSON codecs compose the spine's neutral `WireAdmission`; S2 members hold generated messages, never a validator.
 - S2 law — S2 members never reference each other; alignment travels seam contracts and the content-keyed wire.
 - S3 reads — `Rasm.Compute` references `{Rasm, Rasm.Element, Rasm.AppHost, Rasm.Persistence}` and reads the system of record one-way.
-- S4 leaf — `Rasm.AppUi` references every host-neutral package below it, `Rasm.Contracts` included, and nothing references it.
 - S5 app shell — `apps/<plugin>/` shells, each its own app, seat outside `libs/dotnet` and compose the app platform with the host boundary.
 - S5 shell law — composition-root surfaces home at the app shell; a package blocked on the shell waits rather than pulling composition down.
 
@@ -79,7 +76,6 @@ flowchart TB
         Rasm[Rasm]
     end
     subgraph ROOTS["IMPORT ROOT"]
-        Contracts[Rasm.Contracts]
     end
     Rhino e1@-->|"[IMPORT]: PerceptualColor"| Rasm
     Grasshopper e2@-->|"[IMPORT]: MonotonicTimeline"| Rasm
@@ -107,16 +103,7 @@ flowchart TB
     AppUi e24@-->|"[IMPORT]: EnvironmentLight"| Materials
     AppUi e25@-->|"[IMPORT]: TextureSet"| Materials
     AppUi e26@-->|"[IMPORT]: HiddenLineResult"| Fabrication
-    Element e28@-->|"[IMPORT]: NodeWire support closure"| Contracts
-    AppHost e29@-->|"[IMPORT]: ControlService + FaultDetail"| Contracts
-    Compute e30@-->|"[IMPORT]: ComputeService"| Contracts
-    Rhino e31@-->|"[IMPORT]: SceneDescriptor"| Contracts
-    Materials e32@-->|"[IMPORT]: Set + Material"| Contracts
     AppUi e33@-->|"[IMPORT]: Predicate"| Element
-    Bim e34@-->|"[IMPORT]: BcfTopicWire"| Contracts
-    Fabrication e35@-->|"[IMPORT]: FeatureControl"| Contracts
-    Persistence e36@-->|"[IMPORT]: EntityEditWire"| Contracts
-    AppUi e37@-->|"[IMPORT]: Ui.EvidenceWire"| Contracts
     Rasm f1@-->|"forbidden: upward import"| S4
 ```
 

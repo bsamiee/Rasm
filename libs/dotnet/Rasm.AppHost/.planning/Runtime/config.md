@@ -5,7 +5,6 @@ Configuration admission for the runtime spine: eight ranked `ConfigSource` rows 
 ## [01]-[INDEX]
 
 - [02]-[SOURCE_AXIS]: Eight ranked source rows with reload class, re-read capability, and mount delegate.
-- [03]-[TYPED_BINDING]: Fail-closed source-generated binding into validated policy records.
 - [04]-[POLICY_VALUES]: Validate-once frozen publish with reload-class-gated outcomes.
 - [05]-[KILL_SWITCH]: Operator override row forcing the degradation fold.
 

@@ -31,7 +31,7 @@ from expression import Nothing, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.contracts.rasm.contracts.artifact.artifact_pb import ArtifactRef
+# Contracts are retired from this logic.
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import Admit, LanePolicy, Work

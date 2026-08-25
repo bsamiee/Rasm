@@ -27,7 +27,7 @@ _LAW_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
 
 _ABSENT: object = object()
 
-_TEMPLATE: Path = REPO_ROOT / "libs" / "contracts" / "buf.gen.yaml"
+_TEMPLATE: Path | None = None
 _OUT_BASE: Path = REPO_ROOT
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ def generated_roots(source_root: Path) -> frozenset[Path]:
     Returns:
         Out roots resolved against the out base (template ``out`` rows are repo-relative); empty when no template or no root lies beneath it.
     """
-    match YAML(typ="safe").load(_TEMPLATE) if _TEMPLATE.is_file() else None:
+    match YAML(typ="safe").load(_TEMPLATE) if _TEMPLATE is not None and _TEMPLATE.is_file() else None:
         case {"plugins": [*rows]}:
             outs = ((_OUT_BASE / out).resolve() for row in rows if isinstance(row, dict) and isinstance(out := row.get("out"), str))
             return frozenset(root for root in outs if root.is_relative_to(source_root))

@@ -166,7 +166,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Celly.Protovalidate` — Evaluates the generated event extension rules at BIM announcement mint and admission.
 - `CloudNative.CloudEvents` — Message-envelope type the announcement projection mints through `Rasm/Domain/event`; bindings stay app-tier.
 - `Google.Protobuf` — Generated descriptor, repeated-field, optional-field, timestamp, and wire runtime used by those projections.
-- `Rasm.Contracts` — Generated event, host BCF, and compute tessellation messages projected at the owning exchange and review seams.
 
 [RUNTIME_INBOX]:
 - `System.Text.Json` — Generated wire contexts behind the exchange message envelopes, review records, and the GeoJSON seam.

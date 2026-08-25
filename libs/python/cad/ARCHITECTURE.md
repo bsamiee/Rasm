@@ -46,7 +46,6 @@ config:
 ---
 flowchart TB
     accTitle: cad provider import strata
-    accDescr: Import strata from the served call down to the fault spine, with the rasm.contracts import root seated beside every rank.
     subgraph S5["S5 SERVICE"]
         Service[service]
     end
@@ -71,7 +70,6 @@ flowchart TB
         Faults[faults]
     end
     subgraph ROOTS["IMPORT ROOT"]
-        Contracts[rasm.contracts]
     end
     Service e1@-->|"[IMPORT]: TessellationEvidence"| Tessellation
     Service e2@-->|"[IMPORT]: BrepEvidence"| Brep
@@ -91,7 +89,6 @@ flowchart TB
     Iges e16@-->|"[IMPORT]: global"| Identity
     Iges e17@-->|"[IMPORT]: topology"| Metrology
     Placement e18@-->|"[IMPORT]: CadRail"| Faults
-    Contracts e19@-.->|"[COUNTER]: ExecuteRequest"| S3
     Faults f1@-->|"forbidden: upward import"| S5
 ```
 
@@ -104,7 +101,6 @@ flowchart TB
 - S5 `service` — served boundary, one-slot native lane, and call-spool custody; the only stratum that may spell a raise.
 - S3→S1 `brep/operation` reads `metrology/properties` for measurement and `metrology/census` for extent; measurement imports no constructor.
 - `brep/operation` alone imports downward for placement, source resolution, and codec sealing; every arm remains below the apex.
-- `rasm.contracts` at `libs/contracts/gen/python` is the admitted import root every stratum reads, never a rank, carrying the same upward law.
 - S5 `service` alone composes runtime `transport/artifact` for spool custody and verified transfer; lower ranks remain branch-independent.
 
 ## [03]-[SEAMS]
@@ -126,13 +122,9 @@ flowchart LR
         Brep[brep]
     end
     Geometry{{python:geometry}}
-    Contracts([libs/contracts])
     Runtime{{python:runtime}}
     Root([application root])
     Service e1@<-->|"[WIRE]: CadService"| Geometry
-    Contracts e2@-->|"[CONTRACT]: ExecuteRequest"| Service
-    Contracts e3@-->|"[CONTRACT]: SealedBody"| Exchange
-    Contracts e4@-->|"[CONTRACT]: TessellationPolicy"| Brep
     Root e5@-->|"[PORT]: ArtifactServiceClient"| Service
     Runtime e6@-->|"[BOUNDARY]: ArtifactTransfer"| Service
 ```
@@ -176,7 +168,6 @@ flowchart LR
 
 - `cad` owns exact solid modeling and neutral CAD exchange behind one generated service, every body crossing by reference.
 - App root binds the provider address, the artifact client, credentials, process memory limits, and the call-spool filesystem quota.
-- `rasm.contracts` owns the generated message and service vocabulary this package reads; no owner here re-spells a descriptor rule.
 - `runtime` `transport/body` and `transport/artifact` own body admission and the verified artifact lifecycle this package composes.
 - `geometry` owns mesh semantics, the per-placement body decode, IFC projection, and every consumer-side quality verdict reached across the wire.
 - GLB is the estate's one discrete carrier; this package emits no second triangle wire beside it.

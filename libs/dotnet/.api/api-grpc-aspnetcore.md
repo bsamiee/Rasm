@@ -203,7 +203,6 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 - `ServingStatus` proto values `Unknown=0` `Serving=1` `NotServing=2` `ServiceUnknown=3` are the wire contract; the canonical projection maps healthy and degraded to `Serving`, unhealthy to `NotServing`.
 
 [STACKING]:
-- `Rasm.Contracts`(`libs/contracts/.api/dotnet.md`): the pinned `buf.build/grpc/csharp` remote plugin emits the `<Svc>.<Svc>Base` class `MapGrpcService<TService>` binds into that committed assembly, so an app root derives the base by project reference and no project drives a codegen pass of its own.
 - `Google.Protobuf`(`.api/api-protobuf.md`): generated `IMessage<T>` requests and responses are the payloads `GrpcServiceOptions.MaxReceiveMessageSize` bounds.
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Instant` and `Duration` cross the server edge as `Timestamp` and `Duration` through its conversion extensions.
 - `Grpc.Net.Client`(`.api/api-grpc-client.md`): `GrpcServiceOptions.CompressionProviders` and the message-size pair mirror `GrpcChannelOptions`, so one policy row set configures both ends.

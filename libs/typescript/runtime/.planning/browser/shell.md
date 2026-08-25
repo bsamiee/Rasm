@@ -14,7 +14,6 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 
 [MANIFEST_VALUE]:
 - Owner: `Manifest`, one `Schema.Class` spanning identity/localization, launch/display, install presentation, common actions, inbound sharing, protocol/file handling, and related-app integration. Required identity and installability stay direct fields; optional dialect members are `Option`-carried; repeated cases are arrays of embedded schemas; every wire spelling divergence uses field-level `Schema.fromKey`, so no parallel JSON interface exists.
-- Law: the manifest is app DATA constructed at build — the app builds a `Manifest` value from its own identity and `Manifest.json` (the fused `Schema.parseJson` twin riding the owner as a static) encodes it to the `.webmanifest` string the build emits beside the precache; hydration and serving are the app build's, the shape law is this owner's.
 - Law: non-emptiness is a type fact — an installable manifest without icons is unconstructible, so the PWA install criteria fail at compile time, never at an audit.
 - Growth: a new manifest member is one field or embedded-schema field on `Manifest`; a new display or orientation posture is one literal on its existing axis.
 - Boundary: cache identity and precache emission are `[3]`'s build rows; this owner carries only the manifest contract.

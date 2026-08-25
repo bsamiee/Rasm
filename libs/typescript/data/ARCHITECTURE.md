@@ -167,7 +167,6 @@ flowchart LR
     Append e25@-->|"[SHAPE]: Tap.Registry"| Runtime
     Capability e26@-->|"[PROJECTION]: Backend.Projection"| Iac
     Capability e27@-->|"[SHAPE]: Backend.Generation"| Runtime
-    Persistence e28@<-->|"[CONTRACT]: rasm.contracts.parity.Backend"| Capability
     Fact e29@-->|"[PORT]: AuditJournal"| Security
     Core e30@-->|"[SHAPE]: Board.Query.Residence"| Olap
     Core e31@-->|"[SHAPE]: Hops"| Olap

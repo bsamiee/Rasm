@@ -135,7 +135,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Telemetry.Abstractions`
 
 [WIRE_CODEGEN]:
-- `Rasm.Contracts` — Generated `rasm.contracts.organization` and `rasm.contracts.scene` messages, referenced by project.
 - `Celly.Protovalidate` — Evaluates organization descriptor rules before recursive forest bytes leave the host boundary.
 - `Google.Protobuf` — Runtime message surface behind the organization and scene egress.
 - `NodaTime.Serialization.Protobuf` — `Instant` to `Timestamp` projection on the scene descriptor capture moment.

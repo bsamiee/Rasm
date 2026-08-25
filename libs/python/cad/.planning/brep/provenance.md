@@ -34,7 +34,7 @@ from OCP.TopoDS import TopoDS_Shape
 from builtins import frozendict
 from expression import Nothing, Option, Some
 from expression.collections import Block
-from rasm.contracts.rasm.contracts.cad.types_pb import Correspondence, Grain, Image, Relation, Trace
+# Contracts are retired from this logic.
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

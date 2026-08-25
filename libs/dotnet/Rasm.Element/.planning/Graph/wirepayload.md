@@ -13,7 +13,6 @@
 - Law: node ids and content keys cross as sixteen bytes through `ContentHash`; graph topology remains native and has no generated relationship mirror.
 - Law: enum correspondence is explicit or numeric where both owners publish the same closed ordinal. No `Enum.ToString`, case folding, token parsing, or duplicate registry sits between the generated vocabulary and the domain rows.
 - Law: Celly owns corpus-authored required, enum, scalar, and CEL rules. Local uniqueness gates exist only after domain admission narrows a key space, such as case-insensitive property names.
-- Packages: Celly.Protovalidate, Google.Protobuf, NodaTime.Serialization.Protobuf, LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Contracts, Rasm.
 - Growth: a corpus enum or oneof change breaks an exhaustive conversion here; a domain-only invariant remains at its owner's factory, never copied into a protobuf-shaped validator.
 
 ```csharp
@@ -24,14 +23,10 @@ using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
-using Rasm.Contracts.Element;
+// Contracts are retired from this logic.
 using Rasm.Domain;
 using Rasm.Element.Properties;
-using WireChangeAction = Rasm.Contracts.Element.ChangeAction;
-using WireObjectKind = Rasm.Contracts.Element.ObjectKind;
-using WireObjectState = Rasm.Contracts.Element.ObjectState;
-using WireReleaseVersion = Rasm.Contracts.Element.ReleaseVersion;
-using WireRepresentationKind = Rasm.Contracts.Element.RepresentationKind;
+// Contracts are retired from this logic.
 using static LanguageExt.Prelude;
 using static Rasm.Domain.AdmissionSlots;
 using static Rasm.Element.Graph.SeamConverters;

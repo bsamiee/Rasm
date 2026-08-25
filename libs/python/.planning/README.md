@@ -73,7 +73,6 @@ Every folder composes this cross-domain foundation. Each runtime-composable pack
 [WIRE_CODEGEN]:
 - `protobuf-py` — Message runtime beneath the generated `_pb.py` bindings; binary and JSON codecs, descriptors, and the `wkt` carriers.
 - `connectrpc` — Connect, gRPC, and gRPC-Web service protocols, ASGI applications, interceptors, and typed clients over the generated stubs.
-- `rasm.contracts` — Generated classes, Connect applications, and publisher modules off the `libs/contracts/gen/python` import root.
 - `protobuf` — Google message runtime beneath the Substrait plan IR and the ONNX model IR.
 
 [TEST_SUBSTRATE]:

@@ -184,7 +184,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Compliance.Redaction`
 
 [WIRE_CODEGEN]:
-- `Rasm.Contracts` — Generated control and capability-discovery RPCs, parity documents, and event extensions; referenced by project.
 - `Celly.Protovalidate` — Compiles generated constraints at bootstrap and admits every parsed or gRPC message once.
 - `Google.Protobuf` — Runtime under the generated contract and event-extension messages.
 - `Grpc.AspNetCore.Server`

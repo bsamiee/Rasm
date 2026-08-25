@@ -15,9 +15,7 @@
 ## [02]-[SHAPE]
 
 - Infrastructure planes take shape from the category algebra, never the first consumer — the occasioning domain enters as a ROW like every later one.
-- Process crossings seat their generated family in `manifest.json`, same-language included; one process keeps its seam on mirrored `[WIRE]` edges.
 - Branch prose states its own domain and never a peer's ceiling — a graduation rail names what crosses and leaves policy to whoever reads it.
-- PostgreSQL extension rosters stay branch-owned deployment state — no corpus entry defines the set, so a parity demand manufactures meaning.
 - Backend artifact dependency validation homes at each branch's projection funnel, never its sort — artifact key order is the whole wire order.
 - Library tiers stay app-neutral — instrumentation binds the API surface alone, and no exporter, broker, or sink enters below the composition root.
 - Columnar-lake query ends ride ONE Flight plane per runtime, Flight SQL layered as a dialect — a sidecar transport re-derives admission and typing.
@@ -31,7 +29,6 @@
 - Transports state a missing coordinate on `degrade` — replay, backpressure, and settlement each go absent on engines the estate already ships.
 - Operation identity derives apart from payload identity — equal payloads stay distinct operations, so causal logs key and dedup on it.
 - Wires pinning divergent contract packages or generations refuse at the CONSUMER; CloudEvents `dataschema` remains an optional schema URI.
-- Host-boundary producers name their family for the host-free concept — a host-spelled family binds every peer's generated bindings to that host.
 - Every branch shipping a diagnostic archive carries a BACKEND-FREE read plane — an archive is pulled exactly when the egress is what failed.
 - Unmeasured instruments read UNMEASURED, never zero — a fabricated zero and a dead producer are the two states an operator needs separated.
 - Unbounded append retry admits only behind content-keyed idempotence AND a rail whose faults are transient by TYPE — both are preconditions.
@@ -85,7 +82,6 @@
 - `ContentAddress` is a bare digest and `ContentKey` a kind-discriminated composite — neither renames onto the other, and a citation scope-qualifies.
 - Branches mount a decoder only for families they decode themselves — a family whose one consumer is a peer branch reads bytes it never receives.
 - Hook points are the in-process best-effort tap and message envelopes the durable cross-process fact — re-firing one as a hook merges two custodies.
-- Untyped crossings ride `[PROJECTION]` spelled from the producing projector — `[WIRE]` asserts a registered family a manifest ABSENCE row denies.
 - Fault details cross one numeric `case` under the producing `domain`, with context and typed recovery; Status keeps transport code and presentation.
 - Spec-stage fault-envelope deletions compact every producer and consumer — no reserve, alias, legacy field, or dual decoder preserves dead shape.
 - Recognized-but-malformed details refuse TYPED at admission — an unknown detail type and an unknown code stay opaque evidence nobody guesses at.
@@ -108,9 +104,6 @@
 - Per-folder `[OWNER_REGISTRY]` and `[DEPENDENCY_DIRECTION]` ledgers do NOT re-enter — the branch `ARCHITECTURE.md` states dependency direction once.
 - Standalone seam ledgers do NOT re-enter — the folder `ARCHITECTURE.md` `[03]-[SEAMS]` is the one seam record, mirrored at both endpoints.
 - SPIKE owner-state tracking does NOT re-enter — a SPIKE marker rides its design page beside the deterministic floor, never a state registry.
-- Folder `ARCHITECTURE.md` seats `[02]-[STRATA]` between `[01]-[DOMAIN_MAP]` and `[03]-[SEAMS]` — corpus-canonical, never folder-specific.
-- `libs/contracts/` is the ONE cross-language estate — definitions, conformance corpus, and every generated binding; a branch folder mints none.
-- Generated-binding trees enter each branch through `libs/contracts/gen/<lang>` as import roots outside the strata ranks.
 - Python and TypeScript packages carry FLAT layouts — the importable directory at project root and entries at package root, a `src/` level refusing.
 - Import-shadow risk repairs at the `sys.path` entry, never by nesting — a `src/` level buys isolation that entry already decides.
 - Broker deployments do NOT enter `iac` — addresses are operator-supplied, and a decode against an absent estate fails rather than provisioning one.

@@ -45,7 +45,7 @@ using Rasm.Fabrication.Process;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
-using Contract = Rasm.Contracts.Fabrication;
+// Contracts are retired from this logic.
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Spec;
@@ -1288,10 +1288,8 @@ public sealed record ChainEvidence(ContentKey Key, StackMethod Method, double Wo
 - Law: `FeatureControl.Admit` is the single ISO 1101 domain-admission authority; its ephemeral `ValidationError` crosses once through `Admission.Admitted`, while the generated protobuf descriptor owns only transport-shape validation at egress.
 - Law: the axis names a QUANTITY FAMILY and `QuantityInfo` is what UnitsNet gives that family as identity — a `Type` compares by CLR reflection while the parse, the unit roster, and the base dimensions all resolve off the info row, so two axes over one family stay distinct by axis while sharing one identity.
 - Law: `SpecAxis.CanonicalUnit` is the CANONICAL unit an admitted quantity is stored in, which is not the unit a sheet declares it is drawn in. The kernel `DrawingUnits` row answers the second question, carries a length unit alone, and cannot express the angle, temperature, and force axes this roster admits — so a specification quantity resolves here and a plotted dimension resolves at the sheet, and the two authorities are the same three-way split the drawing owner already states.
-- Packages: `Thinktecture.Runtime.Extensions` owns admission and dispatch; `LanguageExt.Core` owns accumulating admission, closed-fault sequencing, and immutable folds; `Rasm.Domain` owns `Op`, `KernelFault.InvalidValue`, and `KernelFault.OutOfRange`; `UnitsNet` owns runtime-selected quantity parsing and `IQuantity.As` unit projection; `MathNet.Numerics` owns the stack distribution families; `CutterForm` carries MTConnect-derived ISO-13399 geometry and its `CutterFamily` decides whether a cusp exists at all; `Rasm.Contracts` and `Google.Protobuf` own the generated `FeatureControl` message and binary codec; Celly.Protovalidate owns one package-wide descriptor validator.
 - Boundary: `IToleranceEncoder` is the open egress strategy; format and culture state close inside its implementation, so `ToleranceRequest.Project` carries one policy value instead of delegate and provider knobs.
 - Boundary: `ISpecDemand` is a SEAT, not a contract — it declares no member, because a member would move the arm bodies onto the ten cases and dissolve the one fold into ten of them. It is invariant for the same reason it is empty: covariance admits a widened answer, and the widened answer is what the seat refuses.
-- Wire: `FeatureControlWire` is the ONE landed encoder and `libs/contracts/conformance/tolerance-frame` pins the generated protobuf bytes; geometric frames alone cross it, `fit`, `texture`, `general`, and `chain` refusing by name because ISO 129-1 dimensional tolerance reaches a drawing through the consumer's own presentation vocabulary.
 - Wire: the generated `FeatureControl` message is the framing authority. `FeatureControlWire` projects each admitted domain value once, evaluates the embedded `buf.validate` rules through the shared Celly validator, and serializes with `Google.Protobuf`; no field numbers, presence grammar, or byte layout are restated here.
 - Wire: each closed domain vocabulary derives onto its generated enum by normalized member name and proves a bijection before the encoder becomes available; `ContentKey` crosses whole with its egress kind and 16-byte digest, so equal payload digests in different families remain distinct.
 - Wire: `CorpusFrame` freezes the byte-deriving input, so the pinned vector regenerates from this page rather than from a captured buffer.

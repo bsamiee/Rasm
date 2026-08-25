@@ -36,7 +36,6 @@
             "!**/scratch",
             "!**/.scratch",
             "!**/.tmp",
-            "!libs/contracts/gen",
             "!**/*.html"
         ]
     },
@@ -137,12 +136,6 @@
         }
     },
     "overrides": [
-        {
-            "includes": ["libs/contracts/conformance/**", "libs/contracts/vendor/**", "libs/contracts/manifest.schema.json"],
-            "formatter": {
-                "enabled": false
-            }
-        },
         {
             "includes": ["tests/typescript/e2e/platform/blocked.pw.ts"],
             "linter": {

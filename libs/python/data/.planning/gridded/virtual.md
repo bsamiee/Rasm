@@ -17,7 +17,6 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 - Law: manifest keying folds every `ManifestArray`-backed variable; the `hasattr(var.data, "manifest")` guard skips eagerly materialized variables without undercounting the remaining cube.
 - Packages: `virtualizarr` and `h5py` import module-top (both ungated); `check_enum_dtype` returns only the values map, so the `inspect` inverse re-supplies the `"u1"` base.
 - Growth: a new source format is one `VirtualParser` case carrying that parser's constructor payload; a new export target one `ManifestWrite` case; a new CF special type one `CFDtype` case; a new fenced leg or refusal law is one `FaultRow` row under `DataLeg.VIRTUAL` in this module's one `RAISES` table, which both sections anchor on; zero new surface.
-- Boundary: this page is the one virtualizarr home and returns its own manifest key; a data-copying ingest where virtual reference applies is the rejected form. The `libs/contracts/manifest.json` `hdf5-exchange/field` raw-container case virtualizes through the existing `hdf` parser arm.
 
 ```python
 from typing import TYPE_CHECKING, Final, Literal, assert_never

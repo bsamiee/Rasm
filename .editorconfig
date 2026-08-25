@@ -401,13 +401,6 @@ dotnet_diagnostic.StreamJsonRpc0008.severity = none                           # 
 dotnet_diagnostic.CA1008.severity = none                                      # Closed vocabularies (CspScope, rule kinds) have no valid None row.
 dotnet_diagnostic.CA1812.severity = none                                      # Inactive rule-catalog shapes instantiate through the rule table, not direct construction.
 
-[libs/contracts/gen/dotnet/**.cs]
-generated_code = true                                                         # protoc and grpc_csharp_plugin emission; style and analyzer lanes skip it, the compiler still reads it.
-
-[libs/contracts/vendor/**]
-trim_trailing_whitespace = false                                              # Publisher bytes: the CESQL TCK carries a trailing space the digest pins, so no editor lane may trim it.
-insert_final_newline = unset
-
 [tests/**/*.cs]
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.
 dotnet_diagnostic.MA0191.severity = none                                      # Adversarial null-payload laws intentionally use null-forgiving to enter non-nullable production boundaries.

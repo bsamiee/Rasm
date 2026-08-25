@@ -14,7 +14,6 @@
 
 - Owner: `Invoke.Transport` maps each Connect failure into exactly one `Wire.InvokeFault` outcome.
 - Law: one valid recognized detail becomes `Remote`; zero recognized details become `Transport`; malformed or multiple recognized details become terminal `MalformedDetail`.
-- Law: the detail is the generated `rasm.contracts.fault.FaultDetail` read off `ConnectError.findDetails` against the one descriptor registry and decoded through `Wire.Remote.FromWire`; a `Transport` carries the class `Wire.Hops` rows for its code, the one table every hop grades through.
 - Boundary: only `Transport(connectivity | deadline | ceiling)` may drive topology; remote recovery may retry only on the current lane.
 
 ```typescript
@@ -784,7 +783,6 @@ const Gateway: {
 - Law: the census, span, and fault evidence are that member's `_observedStream` aspect over `invoke/ProgressService/watch`; this owner mounts no instrument beside it.
 - Boundary: marks arrive already decoded off the Connect codec, so no `Wire` census row, arm, or parity obligation is owed and none is minted.
 - Boundary: derivation refusals — divergent contract identity, an unbindable method kind, a request the corpus rule refuses — ride the stream's own channel beside `Wire.InvokeFault` under their own tags, so a caller opens the watch in one act and never pre-derives an sdk.
-- Packages: `@rasm/contracts` (`progress_pb`), `@connectrpc/connect` (`createClient` through `Dial.sdk`), `@bufbuild/protobuf` (`create` through `Format.proto.create`), `effect` (`Stream`, `Schema`, `Option`, `DateTime`).
 - Growth: a new mark axis is one field on `Progress.Mark` plus one column read; a second Compute stream is one derived member off the same admitted pin.
 
 ```typescript

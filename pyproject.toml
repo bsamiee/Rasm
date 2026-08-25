@@ -1,15 +1,5 @@
-# Virtual workspace root: no [project], so this manifest can never build or publish. Distributions live in the member manifests; this file owns the workspace roster, the estate dependency substrate, and every gate table.
 [dependency-groups]
-# Workspace members ride the estate group so one `uv sync` seats the gate CLI and every rasm namespace package.
 estate = [
-    "assay",
-    "rasm-artifacts",
-    "rasm-cad",
-    "rasm-compute",
-    "rasm-contracts",
-    "rasm-data",
-    "rasm-geometry",
-    "rasm-runtime",
     # --- [GENERAL]
     "anyio",
     "apscheduler",                                        # [RUNTIME]: cron, interval, and date triggers
@@ -204,21 +194,21 @@ estate = [
     "xarray-spatial; python_version<'3.15'",              # [DATA]: raster terrain analytics; numba-gated
     "xvec",                                               # [DATA]: shapely-geometry-indexed xarray dimensions — vector data cubes backing the zone-cube owner
     # --- [GEOMETRY_CAD]
-    "cadquery-ocp; python_version<'3.15'",                # [GEOMETRY]: OCCT B-rep kernel, STEP/IGES exchange, XCAF assembly, and mesh triangulation; wheels cap at cp314 with no sdist, so `OCP` imports live from the Forge python-overlay `.pth`
-    "compas",                                             # [GEOMETRY]: algebra toolkit
-    "compas_dr",                                          # [GEOMETRY]: COMPAS dynamic relaxation
-    "compas_tna",                                         # [GEOMETRY]: COMPAS thrust-network analysis
-    "manifold3d",                                         # [GEOMETRY]: robust mesh booleans
-    "meshio",                                             # [DATA_COMPUTE]: mesh format codec IO; scikit-fem physical-group round-trip
-    "open3d; python_version<'3.15'",                      # [GEOMETRY]: point-cloud and mesh processing; wheels cap at cp312 (no cp315 wheel)
-    "probreg; python_version<'3.15'",                     # [GEOMETRY]: probabilistic CPD/FilterReg/SVR/GMMTree/BCPD non-rigid registration; sdist-only native (Eigen/OpenMP/pybind11) build with a hard open3d dep (no cp315 wheel)
-    "python-fcl; python_version<'3.15'",                  # [GEOMETRY]: FCL collision and distance queries for the CORE-clearance arm; wheels cap at cp314 and the project ships no sdist
-    "rhino3dm",                                           # [DATA]: Rhino mesh and 3DM IO
-    "rtree",                                              # [GEOMETRY]: R-tree spatial index for the Bounds worker lane
-    "small-gicp",                                         # [GEOMETRY]: local GICP fine registration beside the kiss-matcher global arm
-    "topologicpy; python_version<'3.15'",                 # [GEOMETRY]: non-manifold topology graph modeling; topologic_core's cp315 wheel predates the rc ABI and segfaults on import, and no sdist ships
+    "cadquery-ocp; python_version<'3.15'",
+    "compas",
+    "compas_dr",
+    "compas_tna",
+    "manifold3d",
+    "meshio",
+    "open3d; python_version<'3.15'",
+    "probreg; python_version<'3.15'",
+    "python-fcl; python_version<'3.15'",
+    "rhino3dm",
+    "rtree",
+    "small-gicp",
+    "topologicpy; python_version<'3.15'",
     "trimesh",
-    "usd-core; python_version<'3.15'",                    # [ARTIFACTS]: USD/USDZ scene packaging; the release declares Requires-Python <3.15 and ships no sdist, so `pxr` imports live from the Forge python-overlay `.pth`
+    "usd-core; python_version<'3.15'",
     # --- [BIM_ENERGY]
     "bcf-client; python_version<'3.15'",                  # [GEOMETRY]: BCF 3.0 coordination XML; hard ifcopenshell dep
     "dragonfly-core",                                     # [GEOMETRY]: Dragonfly district and urban model object graph
@@ -386,18 +376,7 @@ mutation = ["mutmut"]
 
 # --- [UV] -------------------------------------------------------------------------------
 
-[tool.uv.workspace]
-members = ["libs/contracts", "libs/python/*", "tools/assay"]  # libs/python/* is a ruled tree, so a glob admits it whole; app python projects are explicit rows the `assay init` rail appends, because a glob over polyglot apps/ trees hard-fails on non-Python directories.
-
 [tool.uv.sources]
-assay = { workspace = true }
-rasm-artifacts = { workspace = true }
-rasm-cad = { workspace = true }
-rasm-compute = { workspace = true }
-rasm-contracts = { workspace = true }
-rasm-data = { workspace = true }
-rasm-geometry = { workspace = true }
-rasm-runtime = { workspace = true }
 beartype = { git = "https://github.com/beartype/beartype.git", rev = "f927b66f79dfb7f595457a85c82398601c17b2f1" }          # 0.22.9 imports typing.no_type_check_decorator (removed in 3.15); the pinned rev is current main past the fix, unreleased as of 0.22.9.
 connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }  # Published Connect pins protobuf-py 0.1.1; this immutable upstream source carries the runtime and generator pair on protobuf-py 0.3.
 protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
@@ -521,14 +500,6 @@ exclude = [
 [tool.ty.rules]
 all = "error"
 
-# The generated tree stays typechecked; the two ignores are `protoc-gen-connectrpc` emission shapes (`path` overridden without `@override`, `codecs: Iterable[Codec]` unparameterized), carved path-scoped, never a tree exclude.
-[[tool.ty.overrides]]
-include = ["libs/contracts/gen/python/**"]
-
-[tool.ty.overrides.rules]
-missing-override-decorator = "ignore"
-missing-type-argument = "ignore"
-
 [tool.ty.terminal]
 error-on-warning = true
 
@@ -591,11 +562,6 @@ disable_error_code = ["func-returns-value", "attr-defined", "type-arg", "overrid
 [[tool.mypy.overrides]]
 module = ["boto3", "boto3.*", "fsspec", "fsspec.*", "jsonschema", "jsonschema.*", "s3fs"] # backend and validator imports lack py.typed coverage
 ignore_missing_imports = true
-
-# The mypy twin of the ty override: the same two `protoc-gen-connectrpc` emission shapes, carved module-scoped on the generated tree alone.
-[[tool.mypy.overrides]]
-module = ["rasm.contracts.*"]
-disable_error_code = ["explicit-override", "type-arg"]
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
@@ -689,34 +655,10 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 # Canonical invocation: `lint-imports --cache-dir .cache/grimp` — import-linter has no config-file cache option and silently swallows unknown keys, so the flag is the only route; .claude/hooks/litter-guard.py refuses the bare form.
 [tool.importlinter]
-# Every workspace member registers here; the islands contract below is the package-boundary gate over the shared venv.
 root_packages = [
     "assay",
-    "rasm.artifacts",
-    "rasm.cad",
-    "rasm.compute",
-    "rasm.contracts",
-    "rasm.data",
-    "rasm.geometry",
-    "rasm.runtime",
 ]
 exclude_type_checking_imports = true  # TYPE_CHECKING-only edges (e.g. store's AssaySettings annotation) are not runtime layer violations.
-
-# Standalone-package law: members reach each other only through declared manifest edges; the shared workspace venv
-# would otherwise let any member import any other member's dependencies silently. A declared edge earns an
-# ignore_imports carve here in the same change that lands the manifest row.
-[[tool.importlinter.contracts]]
-name = "workspace members are standalone islands"
-type = "independence"
-modules = [  # rasm.contracts is the admitted import root every member reaches, never an island peer
-    "assay",
-    "rasm.artifacts",
-    "rasm.cad",
-    "rasm.compute",
-    "rasm.data",
-    "rasm.geometry",
-    "rasm.runtime",
-]
 
 [[tool.importlinter.contracts]]
 name = "assay strata: model -> diagnostics -> store -> settings/aspect -> _logging -> catalog -> routing -> govern -> remote -> exec -> oracle -> rails -> registry -> automation -> __main__"
@@ -747,7 +689,6 @@ modules = [
     "assay.rails.api",
     "assay.rails.bridge",
     "assay.rails.code",
-    "assay.rails.contracts",
     "assay.rails.docs",
     "assay.rails.health",
     "assay.rails.init",
@@ -781,7 +722,6 @@ extend-exclude = [
     "**/coverage/**",
     "**/scratch/**",
     "**/test-results/**",
-    "libs/contracts/gen/**",
 ]
 
 [tool.ruff.format]

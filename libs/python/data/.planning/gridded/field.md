@@ -9,7 +9,6 @@ Import gating is tri-state: `xarray` and the `flox` lowering that rides it defer
 - [02]-[FIELD]: the `FieldDataset` owner over the `FieldEngine` axis — one CF open/read/write entrypoint.
 - [03]-[SELECT]: the `FieldSelection` selection/reduction/scan axis threaded by one `ReductionPolicy` through one lowering per kernel.
 - [04]-[EGRESS]: content-keyed `pyarrow` and Zarr egress folded into `FieldDataset`.
-- [05]-[CONTAINER]: the `FieldContainer` read leg over the `libs/contracts/manifest.json` `hdf5-exchange/field` raw-container case.
 - [06]-[ENSEMBLE]: the `EnsembleCorpus` replicate-chunked design-beside-responses container with regenerating-state attributes.
 
 ## [02]-[FIELD]
@@ -465,12 +464,10 @@ def _arrow_keyed(table: "pa.Table", payload: bytes) -> "RuntimeRail[tuple[pa.Tab
 
 ## [05]-[CONTAINER]
 
-- Owner: `FieldContainer` — the native read leg for the C#-emitted raw field container under the `libs/contracts/manifest.json` `hdf5-exchange/field` case: one dataset at the `/field` path, field extent leading with the trailing COMPONENT axis, station-outermost chunks from the one `ChunkGrid.Derive` derivation, Shuffle (id 2) then Deflate (id 1), little-endian float32 elements, create-only. Its producer actor is `dotnet:Rasm.Compute/Runtime/field#FIELD_RESULT_CODEC`; `Hdf5Encode` mints the bytes. This owner decodes the container and re-derives no layout, so a layout question resolves at the case's law definition, never here.
 - Cases: `ContainerMeta` is the typed projection of the producer's ROOT attribute roster — `format-key`/`residence`/`bits`/`bound`/`max-residual` wire spellings mapped once at the edge onto canonical snake fields; `residence` is the closed `exact`/`quantized` pair because the producer's `predicted` case refuses HDF5 egress at its own fence.
 - Entry: `FieldContainer.open` probes the `/field` dataset before any resolve and refuses typed on an absent roster, requires a little-endian float32 element, a chunked station-leading grid, and the Shuffle→Deflate-compatible h5py filter view, and refuses a ROOT attribute the roster names but the container omits; `window` reads one station slab, `read` the whole cube, `labelled` the phony-dims lift.
 - Auto: station slabs are chunk-aligned by construction — the `Grid` derivation chunks the station axis at 1, so ANY station range lands on chunk boundaries and the h5py slice IS the producer's `HyperslabSelection` window; readers accept any deflate level a foreign producer wrote while the C# writer holds its own four-value grade set.
 - Boundary: reads mint no duplicate whole-file content key; the manifest proof owns the frozen specimen digest, so opening a screening-scale field never stages the entire HDF5 file merely to name bytes no consumer reads.
-- Growth: a new producer attribute is one `ContainerMeta` field with its wire spelling in `_META`; a second dataset path is `libs/contracts/manifest.json` `hdf5-exchange/field` case growth, never a reader knob; zero new surface.
 - Boundary: no write leg — field-container emission is the producer's domain capability by the corpus entry, so a python-authored container is the rejected form; no dimension scales are read or expected (netCDF semantics resolve above the rail on both branches), so the CF `FieldEngine` axis never routes here and `labelled` lifts through `phony_dims` alone; the byte-range virtual consumption of the same container rides `gridded/virtual#MANIFEST`'s hdf parser arm unchanged.
 
 ```python

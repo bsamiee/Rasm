@@ -101,7 +101,6 @@ Installed `Microsoft.macOS.dll` bindings own the native subsystem beneath an Eto
 |  [08]   | `NSPressGestureRecognizer(Action)`                                   | ctor     | movement and duration              |
 |  [09]   | `NSPressureConfiguration() / (NSPressureBehavior)`                   | ctor     | `PressureBehavior` get and `Set()` |
 
-- `NSGestureRecognizer.State` is public get and set, but the generated binding sets it only from recognizer subclasses; `View` is non-null yet runtime-null before attachment.
 - `NSGestureRecognizer.PressureConfiguration` is non-null and settable, while `NSView.PressureConfiguration` is nullable and accepts null to remove a view configuration.
 
 [ENTRYPOINT_SCOPE]: layer, animation, and filter state

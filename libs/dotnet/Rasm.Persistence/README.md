@@ -2,7 +2,6 @@
 
 `Rasm.Persistence` is the content-addressed durable system of record for the `ElementGraph`: the version-control engine over it, the consistency-split read lanes, the content-keyed artifact object plane, and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
-It persists the graph over a Marten append substrate and depends up on the `Rasm.Element` seam for the `ElementGraph`, the `Rasm` kernel for content identity, causal framing, and instrumentation, the `Rasm.AppHost` spine for `RecoveryObjective` and `FaultWire`, and `Rasm.Contracts` for generated parity, host, fault, CRDT, and event messages. Its instrument roster contributes through `TelemetryContributorPort` at the app-platform root.
 
 ## [01]-[ROUTER]
 
@@ -195,7 +194,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Grpc.Core.Api` — `SyncService.SyncServiceBase`, `SyncServiceClient`, `CallInvoker`, `IServerStreamWriter<T>`, `ServerCallContext`; both ends.
 - `MessagePack` — Snapshot codec and the uncompressed thirteen-slot op-log envelope; generated protobuf fills `[Key(6)] Payload` alone.
 - `MessagePackAnalyzer` — Build-only generator and `MsgPack###` gate behind the AOT resolver chain.
-- `Rasm.Contracts` — Host edits, outbox, fault observations/HLC, CRDT ops, event extensions, and the `SyncService` request/response/cursor family.
 
 [HOST_SERVICES]:
 - `Microsoft.Extensions.Caching.Hybrid` — L2-store and serializer half of the AppHost-owned two-tier cache.

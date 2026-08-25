@@ -47,7 +47,6 @@
 - `Format.proto._suite` admits a family only where a `.proto` declares it AND this branch decodes it — a miss mounts a reader on unsent bytes.
 - `_suite` keys transcribe the declared message name verbatim — a re-spelling binds `<Name>Schema` to a symbol protoc-gen-es never emits.
 - `_suite` values qualify by DECLARING SOURCE, since the plugin Renders one module per `.proto` and a barrel over them forwards a roster that drifts.
-- Generated modules import by module path from `@rasm/contracts/<proto path>_pb` — a barrel forwards a roster that drifts off emission.
 - Capability refusals answer with the ROWS a demand lacks — a bare absence names nothing and reads alike for two unrelated misses.
 - Capability rows span every plane one gate reads, so an arm's missing descriptor and a format's missing content mode close over ONE vocabulary.
 - Families owning no descriptor source ride their LANDED carriage arm — a descriptor minted to satisfy the registry forks the producer's own encoder.

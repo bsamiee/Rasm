@@ -11,7 +11,6 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 
 ## [02]-[NODE_CODEC]
 
-- Owner: `libs/contracts/proto/rasm/contracts/element/{graph,value,substance,evidence}.proto` owns the generated `NodeWire` dependency closure; `Rasm.Contracts` carries generated C# messages; this folder owns native projection.
 - Cases: `NodeWire.payload` mirrors the eight `Node` cases. Nested generated oneofs mirror `PropertyValue`, `TemporalValue`, `MaterialComposition`, and `MaterialPropertySet` only because a node payload can reach them. `CoverageSample` stays branch-interior because no node seats it.
 - Law: `NodeWire` exists to make `Persistence/Version/merge#STRUCTURAL_DIFF` field-mask edits schema-aware. It does not make the enclosing graph, delta algebra, relationship algebra, headers, redaction policy, or event framing a cross-language contract.
 - Law: `WireCodec` is one `[Mapper]` partial family split by generated message family. `SeamConverters` is the public identity and semantic-value converter set composed by sibling packages; no protobuf-shaped DTO or alias is added.
@@ -40,7 +39,7 @@ using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime.Serialization.Protobuf;
-using Rasm.Contracts.Element;
+// Contracts are retired from this logic.
 using Rasm.Domain;
 using Rasm.Element.Classification;
 using Rasm.Element.Properties;

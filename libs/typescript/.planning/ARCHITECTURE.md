@@ -24,7 +24,6 @@ libs/typescript/
 - S4 `ui` — imports core alone (`Feed.Document`); reaches runtime only through the ports it declares and the atom-bridge bindings.
 - S4 `iac` — composes core, data, and runtime as reads and decodes `security`'s `LeaseSpec` as data, plane-distinct outside the runtime graph.
 
-`@rasm/contracts` is the admitted import root at `libs/contracts/gen/typescript`, never a stratum — it imports `@bufbuild/protobuf` alone, no folder, and carries no authored law.
 
 Port satisfaction happens at app composition, never as an import: every port Tag a folder declares binds to another folder's Layer at the composition root, with `security` ports filling from `data` and `ui`'s `GlbViewport` filling from runtime's browser depot arrivals. Values cross back where an import may not, each a datum the lower stratum consumes: `iac` hands `runtime` typed `StackOutputs.sharding` and publishes the analytics-residence door `data` binds, and `data` hands the core board renderer a `Board.Query.Target` minted off the core-owned type.
 
@@ -105,9 +104,7 @@ flowchart LR
     Artifacts([python:artifacts])
     Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Core
     Compute e19@-->|"[WIRE]: BenchmarkClaimWire + FaultDetail"| Core
-    Element e2@<-->|"[WIRE]: rasm.contracts.element"| Core
     Persistence e4@-->|"[WIRE]: OpLogEntry (MessagePack; crdt payload = crdt.CrdtOpWire)"| Core
-    Persistence e14@<-->|"[CONTRACT]: rasm.contracts.parity.Backend"| Data
     Bim e6@-->|"[WIRE]: IfcWire"| Core
     Materials e7@-->|"[WIRE]: Material"| Core
     AppUi e8@-->|"[WIRE]: CommandInvocation"| Core
@@ -123,7 +120,6 @@ flowchart LR
 
 Every contract family decodes once at the core interchange codec registry: `core` edges freeze the wire spelling from the owning endpoint file, and `ui` and `data` edges name decoded shapes landed there. Backend is the composition exception: every persistence branch mints one generated contribution, then the data composition owner decodes foreign peers and merges the deployment generation.
 
-One corpus emission owns compatibility — a wire reshapes in place and every binding regenerates from it — so a consumer tolerates unknown fields while refusing a peer whose advertised protobuf package identity differs from its generated service descriptor. TypeScript consumes the GLB tessellation rail there, and Python `artifacts` sends generated `rasm.contracts.appearance.Set` into core through the neutral corpus, never an import.
 
 Contract families beyond the diagrammed set fold to the folder `[03]-[SEAMS]` registries, mirrored verbatim under their folder-registered kinds; a new family lands as one folder seam row, never a branch edge.
 

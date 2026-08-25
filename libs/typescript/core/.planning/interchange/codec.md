@@ -78,22 +78,7 @@ import {
   DurationSchema, durationFromMs, durationMs, EmptySchema, timestampFromMs, timestampMs, TimestampSchema, ValueSchema,
 } from "@bufbuild/protobuf/wkt"
 import { Code } from "@connectrpc/connect"
-import { BadRequest_FieldViolationSchema, RetryInfoSchema } from "@rasm/contracts/google/rpc/error_details_pb"
-import { DateSchema } from "@rasm/contracts/google/type/date_pb"
-import { DateTimeSchema } from "@rasm/contracts/google/type/datetime_pb"
-import { TimeOfDaySchema } from "@rasm/contracts/google/type/timeofday_pb"
-import * as appearance from "@rasm/contracts/rasm/contracts/appearance/appearance_pb"
-import * as appearanceEnvironment from "@rasm/contracts/rasm/contracts/appearance/environment_pb"
-import * as appearanceSet from "@rasm/contracts/rasm/contracts/appearance/set_pb"
-import * as artifact from "@rasm/contracts/rasm/contracts/artifact/artifact_pb"
-import * as control from "@rasm/contracts/rasm/contracts/compute/control_pb"
-import { CrdtOpWireSchema } from "@rasm/contracts/rasm/contracts/crdt/crdt_pb"
-import * as graph from "@rasm/contracts/rasm/contracts/element/graph_pb"
-import * as property from "@rasm/contracts/rasm/contracts/element/value_pb"
-import { HlcSchema } from "@rasm/contracts/rasm/contracts/clock/hlc_pb"
-import { FaultDetailSchema, FaultRecoverySchema } from "@rasm/contracts/rasm/contracts/fault/fault_pb"
-import type { ControlIntentWireValid, MenuRowWireValid } from "@rasm/contracts/rasm/contracts/ui/controls_pb"
-import * as evidence from "@rasm/contracts/rasm/contracts/element/edit_pb"
+// Contracts are retired from this logic.
 import {
   Brand, Cause, Chunk, DateTime, Duration, Effect, Either, Encoding, Exit, Function, HashMap, Match, Option, Order, pipe, Predicate,
   Record,

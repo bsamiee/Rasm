@@ -35,7 +35,7 @@ from connectrpc.errors import ConnectError
 from expression import Error, Ok, Result
 from msgspec import Meta, Struct, ValidationError, convert
 from protobuf import Message
-from rasm.contracts import AdmissionError
+# Contracts are retired from this logic.
 from rasm.runtime.transport.artifact import (
     ArtifactCycle,
     ArtifactEmpty,
@@ -53,13 +53,7 @@ from rasm.runtime.transport.artifact import (
     references,
     rendered,
 )
-from rasm.contracts.rasm.contracts.artifact.artifact_pb import (
-    ArtifactRef,
-    FetchRequest,
-    FetchResponse,
-    PutRequest,
-    PutResponse,
-)
+# Contracts are retired from this logic.
 
 from rasm.cad.faults import ARTIFACT_ADMISSION, ARTIFACT_PROOF, POLICY_SHAPE, SOURCE_BUDGET, SOURCE_SHAPE, CadFault, CadRail
 from rasm.cad.service.lane import SourceRow

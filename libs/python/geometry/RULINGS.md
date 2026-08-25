@@ -5,10 +5,8 @@
 ## [01]-[PACKAGES]
 
 - AGPL Ladybug Tools bands admit under lexical license isolation — function-local boundary imports only, since a static audit reads imports.
-- `connectrpc` and `protobuf-py` reach geometry through generated `rasm.contracts` protocols alone; `GeometryServe` mounts INTO runtime `ServerHost`.
 - `TessellateRequest` enters the daemon whole; generated coordinates own its canonical key and provider projections never become request twins.
 - STEP protocol admission belongs to the isolated `cad` provider; geometry consumes generated `SealedStep` and never reads exchange headers.
-- `Spill` and `SplatFormat` cross as corpus enums.
 - Generated `Semantic` mints from the kernel's schema/project evidence; the source index stores its protobuf bytes whole.
 - `ArtifactFrame` carries one `ArtifactRef` with its payload; Connect orders frames while runtime `transport/artifact` proves extent and identity.
 - `ArtifactService.Fetch` and `Put` share the daemon's one repository; generated request and response shapes never double as commands.

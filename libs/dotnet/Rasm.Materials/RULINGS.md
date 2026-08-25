@@ -55,7 +55,6 @@
 - `gpu#PRESS_DEVICE` is the SOLE `Silk.NET.WebGPU` composer here — `press#TEXTURE_PRESS` names a `PressBackend` row, so a binding swap is one page.
 - Admit each completed corpus message ONCE through descriptor rules; project Protobuf enums directly or through one proved domain bridge.
 - Appearance Set keys identify the document alone; each stored level projects its own blob address into `PlaneRef.digest`.
-- Generated `rasm.contracts.stage` owns the stage crossing; `StageWire.Request` mints and `StageWire.Admit` admits through the registry gate.
 
 ## [03]-[COLLAPSE]
 

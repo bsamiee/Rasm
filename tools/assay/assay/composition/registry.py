@@ -62,11 +62,10 @@ from assay.core.model import (
     wire_safe,
 )
 from assay.diagnostics import cap_note, fold
-from assay.rails import api as api_rail, bridge as bridge_rail, code as code_rail, contracts as contracts_rail, docs as docs_rail, health as health_rail, init as init_rail, package as package_rail, provision as provision_rail, static as static_rail, test as test_rail
+from assay.rails import api as api_rail, bridge as bridge_rail, code as code_rail, docs as docs_rail, health as health_rail, init as init_rail, package as package_rail, provision as provision_rail, static as static_rail, test as test_rail
 from assay.rails.api import ApiParams
 from assay.rails.bridge import BridgeParams
 from assay.rails.code import CodeParams
-from assay.rails.contracts import ContractsParams
 from assay.rails.docs import DocsParams, FaultedPromotion
 from assay.rails.init import InitParams
 from assay.rails.package import PackageParams
@@ -469,9 +468,6 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown prose gate + Mermaid + planning-marker validation."),
-    Bind(Claim.CONTRACTS, "check", contracts_rail.check, ContractsParams, "buf build + lint + format + scratch generation, then the plugin probe, corpus audit, and freshness diff."),
-    Bind(Claim.CONTRACTS, "generate", contracts_rail.generate, ContractsParams, "buf generate --clean over every committed out root under lease."),
-    Bind(Claim.CONTRACTS, "publish", contracts_rail.publish, ContractsParams, "Gate the full contract estate, then publish its named module to BSR."),
     Bind(Claim.PROVISION, "up", provision_rail.up, ProvisionParams, "Start enabled Forge-owned provisioning services."),
     Bind(Claim.PROVISION, "down", provision_rail.down, ProvisionParams, "Stop labelled provisioning services while preserving owned volumes."),
     Bind(Claim.PROVISION, "status", provision_rail.status, ProvisionParams, "Show local provisioning service status."),

@@ -120,5 +120,3 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [WIRE_CODEGEN]:
 - `protobuf-py` — generated message, enum, and oneof carriers for tessellation admission, results, and artifact frames.
 - `connectrpc` — `RequestContext` the generated servicer signatures take; the host and dial stay runtime's.
-- `rasm.contracts` — generated compute/artifact protocols; `scene_pb` is the energy-simulation decode surface.
-- `rasm.contracts.cad` — generated CAD requests, unary replies, artifact references, and `CadServiceClient` for the isolated provider boundary.

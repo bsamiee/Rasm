@@ -52,7 +52,6 @@
 - Policy records bind once at bootstrap and validate before runtime start.
 - `ErrorOnUnknownConfiguration` fails a closed policy surface on any unmapped key.
 - Non-public property binding admits only where a package-owned policy type sets `BindNonPublicProperties`.
-- Source-generated binding is the admitted path for trim- and AOT-sensitive policy records.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Configuration.Binder`

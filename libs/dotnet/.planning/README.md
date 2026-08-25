@@ -96,7 +96,6 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 
 [WIRE_CODEGEN]:
 - `Google.Api.CommonProtos` — `google.rpc.Status` and its error details, `google.type` calendar scalars the fault, element, and host families import.
-- `Google.Protobuf` — Runtime under the `Rasm.Contracts` emission: message codec, descriptors, well-known types, and the ProtoJSON pair.
 - `Grpc.AspNetCore.Server` — gRPC server hosting for measured-execution endpoints.
 - `Grpc.Core.Api` — Method descriptors, marshallers, and the per-call server context every hosted service binds.
 - `Grpc.Net.Client` — Outbound gRPC channels with retry and hedging.
@@ -105,7 +104,6 @@ Host SDK assemblies are not packages and catalogue branch-tier only where more t
 - `MessagePackAnalyzer` — Build-only source generator and `MsgPack###` contract gate under `PrivateAssets=all`.
 - `NodaTime.Serialization.Protobuf` — NodaTime instant and duration mapping onto the protobuf well-known types.
 - `Celly.Protovalidate` — Runtime evaluator of the `buf.validate` rules the emission embeds; one concurrent `Validator` at each branch admission.
-- `Rasm.Contracts` — Generated bindings over `Google.Protobuf` and `Grpc.Core.Api`, project-referenced from `libs/contracts/Rasm.Contracts.csproj`.
 
 [EVENT_TRANSPORT]:
 - `CloudNative.CloudEvents` — CloudEvents 1.0 message envelope and typed attribute algebra.

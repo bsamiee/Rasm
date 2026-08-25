@@ -265,5 +265,4 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 - `lz4` — `lz4.frame` codec row behind the compression producer and delta patch store.
 
 [WIRE_CODEGEN]:
-- `rasm.contracts` — `appearance_pb` plane-set classes `graphic/texture/set` emits; `fabrication_pb.FeatureControl` `drawing/dimension` decodes.
 - `protovalidate` — Descriptor-owned standard and CEL admission over completed generated appearance documents, retaining structured violations whole.

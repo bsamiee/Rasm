@@ -185,7 +185,7 @@ using Rasm.Materials.Appearance.Interchange;
 using Rasm.Materials.Component;
 using Rasm.Materials.Raster;
 using Thinktecture;
-using Wire = Rasm.Contracts.Appearance;
+// Contracts are retired from this logic.
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Projection;

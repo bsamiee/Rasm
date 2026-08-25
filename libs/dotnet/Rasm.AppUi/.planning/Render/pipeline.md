@@ -831,16 +831,13 @@ public abstract partial record SimVisual(string Key) {
 
 ## [04]-[TS_PROJECTION]
 
-- Owner: generated `Rasm.Contracts.Render` `Spatial.Point3`/`UnitDirection3`, `SphereWire`, `ViewCameraWire`, `SectionBoxWire`, `VisibilityOverrideWire`, `ViewMeasurementPointWire`, `ViewMeasurementWire`, `ViewpointWire`, `MeshoptStream`, `Meshlet`, `ResidencyTileWire`, and `GeometryResidency` are the sole viewpoint and content-keyed residency wire family; `ResidencyMap` projects the interior viewpoint, residency decision, and Compute payload directly into those messages. GPU pass internals and the suite content key never gain an AppUi wire twin.
 - Entry: `ResidencyMap.Mint(viewpoint, plan, payloads, vramBudget)` returns `Fin<GeometryResidency>` after admitting the AppUi resident set against Compute's payload census; `ResidencyMap.Json` renders that same admitted projection through the shared AppHost `WireJson.Formatter`.
-- Packages: Rasm.Contracts (project — generated `Render` residency family), Google.Protobuf (`ByteString`, generated repeated fields), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp`), Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project — `ArtifactContent`), Rasm.AppHost (project — `WireJson`), Rasm.Compute (project)
-- Growth: a wire member or enum case lands once in `libs/contracts/proto/rasm/contracts/render/residency.proto`, generation breaks the projection at its actual read, and every TypeScript consumer imports `@rasm\/contracts/rasm/contracts/render/residency_pb`; zero hand C# records, TS interfaces, enum strings, or serializer contexts grow beside it.
 - Boundary: protobuf presence is the only absence spelling: optional scalar setters run only on `Some`, optional messages stay unset on `None`, and repeated fields fill on the generated collection surface. The payload's semantic XXH3 key selects it in the residency census while its independent `ArtifactContent` SHA-256 identity and encoded extent cross together as `ArtifactRef`; storage paths remain behind the app resolver and never leak into the semantic contract. Instants cross as protobuf `Timestamp`, and every closed Compute row maps totally onto its generated enum. The schema carries the producer descriptor whole — `Parent`, `ParentError`, `Curvature`, and `Cut` remain producer facts — while `GeometryResidency` replaces as one message per emission. Every resident key must resolve in the payload census; missing keys accumulate as `ViewportFault.ContextUnavailable`, so no successful contract can omit part of its admitted resident set. ProtoJSON leaves only through `WireJson.Formatter`; no package-local formatter, STJ context, or manifest wrapper participates. Render evidence remains the generated `EvidenceTimelineWire` render arm rather than a standalone frame family.
 
 ```csharp
 using NodaTime.Serialization.Protobuf;
 using Rasm.AppHost.Runtime;
-using Host = Rasm.Contracts.Render;
+// Contracts are retired from this logic.
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class ResidencyMap {

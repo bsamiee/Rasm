@@ -1,6 +1,5 @@
 # [FABRICATION_ARCHITECTURE]
 
-`Rasm.Fabrication` maps host-neutral production fabrication over `{Rasm, Rasm.Element}`. `Process/owner` declares one `FabricationPolicy`/`FabricationResult` pair each production sub-domain seats a case arm in, a support sub-domain seating none. Every flagship terminates in a content-keyed machine artifact, `EgressKind` collapsing egress onto entry vocabulary and seeding `ContentHash.Of`. `FabricationProjector.Of` returns the sole `IElementProjection` dependency, AEC alignment crosses seam contracts and the wire, and `Spec/tolerance#FEATURE_CONTROL_WIRE` alone reaches `Rasm.Contracts`.
 
 ## [01]-[DOMAIN_MAP]
 

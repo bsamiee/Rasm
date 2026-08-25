@@ -151,7 +151,6 @@ Shared substrate consumed from the TypeScript registry, whose charters own the f
 
 [CONTRACT_BINDINGS]:
 - `@bufbuild/protobuf` — Generated backend-contract message typing and official ProtoJSON values.
-- `@rasm/contracts` — Generated backend-contract descriptors and the CloudEvents Avro publisher asset.
 
 [BRANCH_PEERS]:
 - `@rasm/core` — Fault, budget, carrier, event, invocation, evidence, and content-identity rails consumed across runtime capabilities.

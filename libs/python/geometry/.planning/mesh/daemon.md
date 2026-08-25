@@ -42,15 +42,7 @@ from msgspec import json as msgjson
 from msgspec.structs import replace
 from protobuf import Message, Oneof
 from rasm.runtime.transport.artifact import ArtifactError, ArtifactSink, OwnedArtifact, output, rendered, stage
-from rasm.contracts.rasm.contracts.artifact.artifact_pb import ArtifactRef
-from rasm.contracts.rasm.contracts.compute.compute_pb import (
-    GeomSetting,
-    Semantic,
-    Spill,
-    TessellateRequest,
-    TessellationScope,
-)
-from rasm.contracts.rasm.contracts.geometry.tessellation_pb import TessellationPolicy
+# Contracts are retired from this logic.
 
 from rasm.geometry.graduation import GeometryLeg, GeometryPulse
 from rasm.runtime.faults import TERMINAL, BoundaryFault, Catch, FaultRow, RuntimeRail, boundary, rostered

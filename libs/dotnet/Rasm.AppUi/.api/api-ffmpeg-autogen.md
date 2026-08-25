@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `FFmpeg.AutoGen`
 - package: `FFmpeg.AutoGen` (MIT)
 - assembly: `FFmpeg.AutoGen`
-- namespace: `FFmpeg.AutoGen` — every generated binding, struct, enum, and the `ffmpeg`/`DynamicallyLoadedBindings`/`FunctionResolverFactory` hub
 - target: `lib/netstandard2.1` (bound by the `net10.0` consumer) + `lib/netstandard2.0`; `AllowUnsafeBlocks`
 - native: P/Invoke over external FFmpeg shared libraries; `ffmpeg.LibraryVersionMap` pins the SONAME majors avcodec 62 / avformat 62 / avutil 60 / swscale 9 / swresample 6 / avfilter 11 / avdevice 62
 - rail: encode

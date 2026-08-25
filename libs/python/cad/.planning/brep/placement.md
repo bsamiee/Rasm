@@ -1,6 +1,5 @@
 # [PY_CAD_PLACEMENT]
 
-`placement` lowers the `rasm.contracts.spatial` geometry vocabulary onto OCCT `gp` values and mints every edge, wire, and rigid transform the B-rep owners above it place work into. This owner sits at the floor of `brep/`: every sibling reaches it for a seat, a basis, or a span, and one `cad` message crosses in, `TransformOp`, because a rigid placement carries no profile and no solid content.
 
 `Frame3` arrives orthogonality-proved and `UnitDirection3` magnitude-proved by protovalidate, so lowering is total and re-validation never runs; refusal opens at the kernel builders alone, on `BREP_INPUT` and `BREP_KERNEL` from `faults#ROWS`, and this page owns the builder-admission rail the whole B-rep leg composes. One `Lowering` correspondence declares each spatial owner as an ordered component read spread onto its `gp` constructor, and one span algebra serves the 3-D `CurveSegment3` family here and the 2-D `ProfileKnot` family at `profile#LOOPS`, parameterized by the point lift alone.
 
@@ -82,8 +81,7 @@ from expression import Error, Ok
 from expression.collections import Block
 from expression.extra.result import sequence, traverse
 from protobuf import Message, Oneof
-from rasm.contracts.rasm.contracts.cad.operations_pb import TransformOp
-from rasm.contracts.rasm.contracts.spatial.vector_pb import Axis3, Curve3, Frame3, Point3, UnitDirection3
+# Contracts are retired from this logic.
 
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, BREP_OUTPUT, CadRail
 

@@ -49,8 +49,6 @@
 - libavfilter drains catch the `av.error` LEAVES — each subclasses `FFmpegError`, so an outer capture reads a leaked drain sentinel as a codec fault.
 - Container colour declarations read through the admitted metadata surface that parses them — the declared row tag is the floor on readback silence.
 - Deep-store KTX2 ships UNCOMPRESSED at its `_KTX_VK` row under Zstd supercompression — block encode takes an 8-bit store on BOTH toolchain legs.
-- `GdtFrame.decode` folds `FeatureControl.from_binary` once — corpus enums land by member name, `Material` through `_MATERIAL`; no hand reader.
-- Texture planes cross as `appearance.Set` rows by member name — a container or lane count the corpus lacks refuses at assembly by its own token.
 - Plane residence keys on `PlaneRef.digest` — the set key orders the document and never aliases blobs already written under their own content keys.
 - Completed appearance documents validate from their generated descriptor, and refusals retain the generated violations message alone.
 - `Ibl.luminance_cdf` follows generated presence — unguided environments omit the guide from assembly, address walks, and byte census.

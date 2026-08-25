@@ -1,6 +1,5 @@
 # [TS_CORE_API_EFFECT_TYPECLASS]
 
-`@effect/typeclass` owns the standalone higher-kinded typeclass hierarchy `effect` core underexposes: the `Semigroup`/`Monoid`/`Bounded` merge algebra and the `Covariant`→`Applicative`→`Monad`→`Foldable`→`Traversable` lattice over `TypeLambda`. `state/merge` declares every CRDT/journal merge as one of these instances and asserts its laws over the `libs/contracts/conformance/` vectors, so a new merge is a row on the algebra, never a hand-written combine.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -76,7 +75,6 @@ Merge algebra is one parameterized pattern of static factories on the `Semigroup
 [STACKING]:
 - `effect`(`.api/effect.md`): `Semigroup.min`/`max` take an `effect/Order<A>` (Order is core `effect`, never a `data/Order`); `Bounded` wraps `Order` + `minBound`/`maxBound` so `Monoid.min`/`max` derive `empty` — the lattice-CRDT bottom/top. A CRDT op is an `effect/Data.TaggedEnum` and `Equal.equals` is the idempotence witness `state/merge` checks (`combine(a, a) ≡ a`); the contract wire op family and app journal families are `Schema.TaggedClass` unions decoded by `wire`/`store`, and `state/merge` binds one `Semigroup` per op `_tag` via `Semigroup.struct` or a `Match` dispatch — a new op is a new `struct` row with its `converge` law.
 - `@electric-sql/d2ts`(`.api/electric-sql-d2ts.md`), `@electric-sql/d2mini`(`.api/electric-sql-d2mini.md`): `state/fold` applies the merge as the `reduce` reducer — `reduce((vals: [Op, number][]) => …)` is `Semigroup.combineMany` projected onto signed multiplicities, and `groupByOperators.{sum,min,max}` are `Number.Monoid{Sum,Min,Max}` specialized to the dataflow. One instance declared in `state/merge`, applied at both fold altitudes; the reducer law is the merge law.
-- `@rasm/ts-testkit`(`tests/typescript/_testkit`): `state/merge` states the semilattice laws as property tests — `@effect/vitest` `it.prop` (`.api/effect-vitest.md`) over `Schema`-derived `fast-check` arbitraries (`tests/typescript/.api/`) checks `combine` associativity/commutativity/idempotence and `empty` identity per instance, vectors pinned in `libs/contracts/conformance/`; `Foldable.combineMap` folds a generated op-sequence to the expected merged state inside the law body.
 - within-lib: `state/merge` composes per-op `Semigroup.struct`/`tuple` into a record/tuple CRDT and folds the state vector through `Monoid.combineAll`; `state/fold` threads the same instance through the incremental `reduce`.
 
 [RAIL_LAW]:

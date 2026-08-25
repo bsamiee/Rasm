@@ -250,7 +250,6 @@ Each sink cursor carries one optional deferred head, and the first terminal row 
 
 ## [05]-[BOUNDARIES]
 
-- Persistence depends upward on `Rasm.Element`, the `Rasm` kernel, the `Rasm.AppHost` spine (`RecoveryObjective`, `FaultWire`), and `Rasm.Contracts`.
 - Seam and content-keyed wire carry every sibling-domain and host alignment; no AEC peer or host-SDK type is referenced.
 - Public capability extends its sub-domain owner region as a row, case, or policy value; a public type outside an owner region draws on no budget.
 - `Store/Schema` owns contract composition, generated artifacts, generation identity, and admission verdicts.

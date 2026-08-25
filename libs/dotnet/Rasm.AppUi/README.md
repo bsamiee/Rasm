@@ -220,7 +220,6 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 [WIRE_CODEGEN]:
 - `Google.Api.CommonProtos` — Generated `google.type.Date` calendar fields projected by the control contract boundary.
 - `Rasm.AppHost` — Shared descriptor-backed `WireJson` validation and canonical ProtoJSON; referenced by project.
-- `Rasm.Contracts` — Generated `Ui` and `Render` messages and enums consumed by AppUi contract projections; referenced by project.
 - `Google.Protobuf` — Generated semantic-package messages and the descriptor-backed ProtoJSON surface consumed through `WireJson`.
 - `NodaTime.Serialization.Protobuf` — Exact Noda Time conversion at generated timestamp and calendar boundaries.
 

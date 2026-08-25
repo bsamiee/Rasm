@@ -1,6 +1,5 @@
 # [PERSISTENCE_STORE_SCHEMA]
 
-Rasm.Persistence composes framework-owned schema artifacts and the provisioning vocabulary into the generated `Rasm.Contracts.Parity.Backend` contract. One strict semantic projection admits generated rows, the kernel `CanonicalWriter` mints generation identity from known fields, and ProtoJSON carries the admitted message without lending its bytes to identity. One verdict grades a deployment on contract realization and recovery recency.
 
 ## [01]-[INDEX]
 
@@ -16,7 +15,6 @@ Rasm.Persistence composes framework-owned schema artifacts and the provisioning 
 - Law: generated `ArtifactRole`, `Provider`, `FailureRank`, and `RestartClass` enums carry every cross-runtime discriminant. `SchemaArtifact` carries local framework bytes and generated enum values without minting a wire twin.
 - Law: `CapabilityProjection.Message` lowers each provisioning `ServerExtension` into one generated `Capability`; provisioning retains absence behavior and disruption rank, while the generated enum values alone cross the contract.
 - Boundary: operator settings, capacity, coordinates, secrets, schedules, observations, and recovery objectives stay outside `Backend`. Recovery evidence enters the admission verdict after generation identity is settled.
-- Packages: Rasm.Contracts (generated parity messages and enums), Rasm.AppHost (`WireJson` ProtoJSON and Celly-backed generated-message admission), Google.Protobuf (`ByteString` and `RepeatedField<T>`), LanguageExt.Core, QuikGraph, Thinktecture.Runtime.Extensions, and kernel `ContentHash`/`CanonicalWriter` beside the generated fault floor.
 - Growth: a framework adds one `SchemaArtifact`; a server capability remains one `ServerExtension` row; a contract-shape change lands in the corpus proto and regenerates this boundary.
 
 ```csharp
@@ -28,7 +26,7 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.AppHost.Runtime;
 using Rasm.Domain;
-using Parity = Rasm.Contracts.Parity;
+// Contracts are retired from this logic.
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Store;

@@ -1,6 +1,5 @@
 # [RASM_EVENT]
 
-`Rasm.Domain` (`Domain/Event.cs`) owns the .NET branch's CloudEvents 1.0 envelope mechanics — core grammar, mint boundary, carrier access, and format contract. Generated `rasm.contracts.event.Extensions` owns the estate extension vocabulary above this foundation. Envelopes announce a fact and gain no authority over it: the producing result stays the truth and a consumer routes on attributes without opening the payload.
 
 Bindings, filters, subscriptions, and `dataref` residence policy seat at their consuming owners; nothing transport-shaped enters. Settled vocabulary arrives from siblings: `Op` and the `Fault` band from `rails.md`, the `UInt128` content key AND its one hex projection (`ContentHash.Hex`/`ContentHash.Admit`) from `identity.md`, `TraceCarrier` and `SpanEdge` from `telemetry.md` `[02]-[CAPSULE]`, `Hlc` and `CausalStamp` from `frame.md` `[04]-[STAMP]`. Grammar segment `<domain>` is the capability subject every `rasm.*` metric name carries, so the branch conformance minter resolves it and this page publishes the segment that gate reads.
 
@@ -23,7 +22,7 @@ Bindings, filters, subscriptions, and `dataref` residence policy seat at their c
 - Law: admission proves the ROUND TRIP, never the parse — a bare `UInt128.TryParse` admits upper-case and short forms this fabric never emits, so `"A"` and a full-width key ending `0a` collapse onto one dedup key while both read correct in isolation. That proof has ONE owner at `identity.md`: `ContentHash.Hex` renders and `ContentHash.Admit` refuses the spellings the outbound half cannot produce, and this page re-declares neither the `x32` literal nor the case rule.
 - Packages: Thinktecture.Runtime.Extensions, CloudNative.CloudEvents, LanguageExt.Core (`Fin`, `MapFail`), BCL inbox (`System.Buffers`, `System.Globalization`).
 - Growth: a new attribute vocabulary is one value object on this cluster; a new capability subject is one row on the branch conformance roster and none here, because this grammar validates the segment's SHAPE and the minter resolves its MEMBERSHIP.
-- Boundary: `EventType.Domain` is the segment `[08]-[OBSERVABILITY_CONFORMANCE]`'s naming gate resolves against the branch roster at the conformance minter, so an unrostered subject refuses at that declaration owner rather than reaching a broker; this page never names that roster, because a kernel page holding an app-platform vocabulary inverts the strata. `subject` is the wire projection of `identity.md`'s `UInt128` currency, so `ContentHash` stays the only digest owner and renderer. `dataref` remains an independent URI-reference on the generated extension message.
+- Boundary: `EventType.Domain` is the segment `[06]-[OBSERVABILITY_CONFORMANCE]`'s naming gate resolves against the branch roster at the conformance minter, so an unrostered subject refuses at that declaration owner rather than reaching a broker; this page never names that roster, because a kernel page holding an app-platform vocabulary inverts the strata. `subject` is the wire projection of `identity.md`'s `UInt128` currency, so `ContentHash` stays the only digest owner and renderer. `dataref` remains an independent URI-reference on the generated extension message.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
@@ -116,7 +115,6 @@ public readonly record struct EventId {
 - Law: `Redact` and `Broker` are independent policy columns read by different gates. The local rows survive because they carry behavior the wire string cannot; they never declare an extension name or field number.
 - Packages: Thinktecture.Runtime.Extensions.
 - Growth: a handling case is one interior row and every binding must state its posture before a publisher may emit that row's key. The event schema remains the standard non-empty string attribute rather than mirroring this policy table as an enum.
-- Boundary: binding trust and `dataref` residence remain at their consuming owners. This foundation never references `Rasm.Contracts` and never maintains a peer-wire roster.
 
 | [INDEX] | [GRADE]      | [REDACT]             | [BROKER]  | [REACH]                              |
 | :-----: | :----------- | :------------------- | :-------- | :----------------------------------- |
@@ -170,7 +168,6 @@ public sealed partial class DataGrade {
 - Law: the message envelope PROJECTS the producing operation's own result as `data` and adds address, trace, tenant, stamp, and handling facts alone; a parallel event ledger, header wire, or fact stream beside the results is the deleted form.
 - Packages: CloudNative.CloudEvents, Celly.Protovalidate, Google.Protobuf, Generator.Equals, LanguageExt.Core, NodaTime, BCL inbox (`System.Net.Mime`).
 - Growth: a new estate extension changes only the generated descriptor; the projection walk, declaration set, construction, and decode consume it automatically. A new unsupported protobuf field kind fails visibly until one CloudEvents abstract-type correspondence is added.
-- Boundary: `Rasm` still references no sibling. A higher package references `Rasm.Contracts`, constructs `EventExtensionContract<Extensions>` from the generated `Parser`/`Descriptor` plus its process validator, and hands the composition's one `Hlc` to `Publish`; the whole message crosses this kernel API. The generic `CloudEventMint` remains available to future apps whose extension vocabulary is not the Rasm profile.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------

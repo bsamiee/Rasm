@@ -37,7 +37,7 @@ from expression.collections import Block
 from expression.extra.result import traverse
 from protobuf import Oneof
 from protobuf.wkt import Empty
-from rasm.contracts.rasm.contracts.cad.operations_pb import EdgeIndices, EdgeSelection
+# Contracts are retired from this logic.
 
 from rasm.cad.brep.placement import ShapeBuilder, built
 from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, CadFault, CadRail

@@ -39,7 +39,6 @@
 
 # The one generated tree — every emission target under it, proved fresh by the contracts gate; a hand edit is a freshness failure.
 # The tree holds generated files and gate-projected markers alone, so every manifest above it stays outside the sweep.
-libs/contracts/gen/** linguist-generated=true -diff
 *.bin binary
 
 # Icons

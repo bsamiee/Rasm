@@ -121,6 +121,5 @@ Shared substrate consumed from the C# registry, whose charters own the full cont
 - `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
 
 [WIRE_CODEGEN]:
-- `Rasm.Contracts` — Generated appearance, declaration, and stage-crossing messages the wire boundaries consume, referenced by project.
 - `Google.Protobuf` — Bounded protobuf-binary appearance and declaration decoding over generated messages.
 - `NodaTime.Serialization.Protobuf` — Generated `google.type.Date` projection onto the assessment domain's `LocalDate` values.

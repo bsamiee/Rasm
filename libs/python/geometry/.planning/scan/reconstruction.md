@@ -35,7 +35,7 @@ from expression.collections import Block, Map
 from msgspec import Struct
 
 from rasm.runtime.transport.artifact import ArtifactTransfer, output
-from rasm.contracts.rasm.contracts.artifact.artifact_pb import ArtifactRef
+# Contracts are retired from this logic.
 from rasm.geometry.graduation import (
     EvidenceScope,
     GeometryLeg,

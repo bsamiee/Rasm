@@ -177,4 +177,3 @@ Shared substrate consumed from the Python registry, whose charters own the full 
 [WIRE_CODEGEN]:
 - `protobuf` — Google message runtime beneath the Substrait plan IR; `tabular/query#QUERY` reads its decode fault as the inbound-plan refusal.
 - `protovalidate` — Evaluates generated organization rules after the bounded recursive census and before graph allocation.
-- `rasm.contracts` — `organization_pb` wire `graph/graph` folds into the graph plane; `declaration_pb.DeclarationRecord` `impact/declaration` mints.
