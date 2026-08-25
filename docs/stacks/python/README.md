@@ -18,7 +18,6 @@ Routing is a lookup by reader decision.
 - [08]-[ALGORITHMS](algorithms.md): numeric approach
 - [09]-[SYSTEM_APIS](system-apis.md): system API replacement
 - [10]-[RUNTIME](runtime.md): interpreter execution and isolation
-- [11]-[TRANSPORT](transport.md): wire transport and fault detail
 
 ## [02]-[DOCTRINE]
 
